@@ -1,0 +1,1103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>SettingsDialog</class>
+ <widget class="QDialog" name="SettingsDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>700</width>
+    <height>600</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>应用程序设置</string>
+  </property>
+  <property name="windowIcon">
+   <iconset resource="../../resources/resources.qrc">
+    <normaloff>:/icons/settings.png</normaloff>:/icons/settings.png</iconset>
+  </property>
+  <property name="modal">
+   <bool>true</bool>
+  </property>
+  <property name="styleSheet">
+   <string>QDialog {
+    background-color: #ffffff;
+    color: #212529;
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    font-size: 13px;
+}
+
+QLabel {
+    color: #495057;
+    font-weight: 500;
+}
+
+QGroupBox {
+    font-weight: bold;
+    color: #343a40;
+    border: 2px solid #dee2e6;
+    border-radius: 6px;
+    margin-top: 10px;
+    padding-top: 10px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 10px;
+    padding: 0 8px 0 8px;
+    color: #007bff;
+}
+
+QCheckBox {
+    color: #495057;
+    spacing: 8px;
+}
+
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #ced4da;
+    border-radius: 3px;
+    background-color: #ffffff;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #007bff;
+    border-color: #007bff;
+    image: url(:/icons/check.png);
+}
+
+QComboBox {
+    border: 2px solid #ced4da;
+    border-radius: 4px;
+    padding: 6px 12px;
+    background-color: #ffffff;
+    color: #495057;
+    min-height: 20px;
+}
+
+QLineEdit:focus {
+     border-color: #80bdff;
+     outline: 0;
+ }
+
+QSpinBox {
+    border: 2px solid #ced4da;
+    border-radius: 4px;
+    padding: 6px 12px;
+    background-color: #ffffff;
+    color: #495057;
+    min-height: 20px;
+}
+
+QSpinBox:focus {
+    border-color: #80bdff;
+    outline: 0;
+}
+
+QLineEdit {
+    border: 2px solid #ced4da;
+    border-radius: 4px;
+    padding: 8px 12px;
+    background-color: #ffffff;
+    color: #495057;
+    font-size: 13px;
+}
+
+QLineEdit:focus {
+    border-color: #80bdff;
+    outline: 0;
+}</string>
+  </property>
+  <layout class="QVBoxLayout" name="mainLayout">
+   <property name="spacing">
+    <number>0</number>
+   </property>
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
+    <number>0</number>
+   </property>
+   <item>
+    <widget class="QWidget" name="titleWidget">
+     <property name="styleSheet">
+      <string>QWidget#titleWidget {
+    background-color: #007bff;
+    color: white;
+    border-bottom: 1px solid #0056b3;
+}</string>
+     </property>
+     <layout class="QHBoxLayout" name="titleLayout">
+      <property name="leftMargin">
+       <number>20</number>
+      </property>
+      <property name="topMargin">
+       <number>15</number>
+      </property>
+      <property name="rightMargin">
+       <number>20</number>
+      </property>
+      <property name="bottomMargin">
+       <number>15</number>
+      </property>
+      <item>
+       <widget class="QLabel" name="titleLabel">
+        <property name="text">
+         <string>应用程序设置</string>
+        </property>
+        <property name="styleSheet">
+         <string>QLabel {
+    color: white;
+    font-size: 18px;
+    font-weight: bold;
+}</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="titleSpacer">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QWidget" name="contentWidget">
+     <property name="styleSheet">
+      <string>QWidget#contentWidget {
+    background-color: #f8f9fa;
+    border: none;
+}</string>
+     </property>
+     <layout class="QHBoxLayout" name="contentLayout">
+      <property name="spacing">
+       <number>0</number>
+      </property>
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QWidget" name="sidebarWidget">
+        <property name="maximumSize">
+         <size>
+          <width>200</width>
+          <height>16777215</height>
+         </size>
+        </property>
+        <property name="styleSheet">
+         <string>QWidget#sidebarWidget {
+    background-color: #e9ecef;
+    border-right: 1px solid #dee2e6;
+}</string>
+        </property>
+        <layout class="QVBoxLayout" name="sidebarLayout">
+         <property name="spacing">
+          <number>0</number>
+         </property>
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QListWidget" name="categoryListWidget">
+           <property name="maximumSize">
+            <size>
+             <width>200</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="iconSize">
+            <size>
+             <width>24</width>
+             <height>24</height>
+            </size>
+           </property>
+           <property name="styleSheet">
+            <string>QListWidget {
+    background-color: #f5f5f5;
+    border: none;
+    outline: none;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+QListWidget::item {
+    padding: 12px 16px;
+    border-bottom: 1px solid #e0e0e0;
+    color: #333;
+}
+
+QListWidget::item:selected {
+    background-color: #007acc;
+    color: white;
+    border-left: 3px solid #005a9e;
+}
+
+QListWidget::item:hover {
+    background-color: #e8f4fd;
+    color: #007acc;
+}</string>
+           </property>
+           <item>
+            <property name="text">
+             <string>常规</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>连接</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>显示</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>音频</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>安全</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>高级</string>
+            </property>
+           </item>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="mainContentWidget">
+        <property name="styleSheet">
+         <string>QWidget#mainContentWidget {
+    background-color: #ffffff;
+    border: none;
+}</string>
+        </property>
+        <layout class="QVBoxLayout" name="mainContentLayout">
+         <property name="spacing">
+          <number>10</number>
+         </property>
+         <property name="leftMargin">
+          <number>20</number>
+         </property>
+         <property name="topMargin">
+          <number>20</number>
+         </property>
+         <property name="rightMargin">
+          <number>20</number>
+         </property>
+         <property name="bottomMargin">
+          <number>20</number>
+         </property>
+         <item>
+          <widget class="QStackedWidget" name="settingsStackedWidget">
+           <property name="currentIndex">
+            <number>0</number>
+           </property>
+           <widget class="QWidget" name="generalPage">
+             <layout class="QVBoxLayout" name="generalLayout">
+              <property name="spacing">
+               <number>15</number>
+              </property>
+              <property name="leftMargin">
+               <number>10</number>
+              </property>
+              <property name="topMargin">
+               <number>10</number>
+              </property>
+              <property name="rightMargin">
+               <number>10</number>
+              </property>
+              <property name="bottomMargin">
+               <number>10</number>
+              </property>
+              <item>
+               <widget class="QGroupBox" name="startupGroup">
+                <property name="title">
+                 <string>启动设置</string>
+                </property>
+                <layout class="QVBoxLayout" name="startupLayout">
+                 <property name="spacing">
+                  <number>8</number>
+                 </property>
+                 <property name="leftMargin">
+                  <number>10</number>
+                 </property>
+                 <property name="topMargin">
+                  <number>10</number>
+                 </property>
+                 <property name="rightMargin">
+                  <number>10</number>
+                 </property>
+                 <property name="bottomMargin">
+                  <number>10</number>
+                 </property>
+                 <item>
+                  <widget class="QCheckBox" name="autoStartCheckBox">
+                   <property name="text">
+                    <string>开机自动启动</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QCheckBox" name="minimizeToTrayCheckBox">
+                   <property name="text">
+                    <string>启动时最小化到系统托盘</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QCheckBox" name="rememberWindowStateCheckBox">
+                   <property name="text">
+                    <string>记住窗口状态和位置</string>
+                   </property>
+                   <property name="checked">
+                    <bool>true</bool>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item>
+               <widget class="QGroupBox" name="languageGroup">
+                <property name="title">
+                 <string>语言和区域</string>
+                </property>
+                <layout class="QFormLayout" name="languageFormLayout">
+                 <property name="horizontalSpacing">
+                  <number>10</number>
+                 </property>
+                 <property name="verticalSpacing">
+                  <number>8</number>
+                 </property>
+                 <property name="leftMargin">
+                  <number>10</number>
+                 </property>
+                 <property name="topMargin">
+                  <number>10</number>
+                 </property>
+                 <property name="rightMargin">
+                  <number>10</number>
+                 </property>
+                 <property name="bottomMargin">
+                  <number>10</number>
+                 </property>
+                 <item row="0" column="0">
+                  <widget class="QLabel" name="languageLabel">
+                   <property name="text">
+                    <string>界面语言:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="0" column="1">
+                  <widget class="QComboBox" name="languageComboBox">
+                   <item>
+                    <property name="text">
+                     <string>简体中文</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>英语</string>
+                    </property>
+                   </item>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item>
+               <widget class="QGroupBox" name="updateGroup">
+                <property name="title">
+                 <string>更新设置</string>
+                </property>
+                <layout class="QVBoxLayout" name="updateLayout">
+                 <item>
+                  <widget class="QCheckBox" name="autoUpdateCheckBox">
+                   <property name="text">
+                    <string>自动检查更新</string>
+                   </property>
+                   <property name="checked">
+                    <bool>true</bool>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QCheckBox" name="betaUpdatesCheckBox">
+                   <property name="text">
+                    <string>接收测试版更新</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item>
+               <spacer name="generalSpacer">
+                <property name="orientation">
+                 <enum>Qt::Vertical</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>20</width>
+                  <height>40</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </widget>
+            <widget class="QWidget" name="connectionPage">
+             <layout class="QVBoxLayout" name="connectionLayout">
+              <item>
+               <widget class="QGroupBox" name="defaultConnectionGroup">
+                <property name="title">
+                 <string>默认连接设置</string>
+                </property>
+                <layout class="QFormLayout" name="defaultConnectionFormLayout">
+                 <item row="0" column="0">
+                  <widget class="QLabel" name="defaultPortLabel">
+                   <property name="text">
+                    <string>默认端口:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="0" column="1">
+                  <widget class="QSpinBox" name="defaultPortSpinBox">
+                   <property name="minimum">
+                    <number>1</number>
+                   </property>
+                   <property name="maximum">
+                    <number>65535</number>
+                   </property>
+                   <property name="value">
+                    <number>5900</number>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="1" column="0">
+                  <widget class="QLabel" name="defaultTimeoutLabel">
+                   <property name="text">
+                    <string>连接超时:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="1" column="1">
+                  <widget class="QSpinBox" name="defaultTimeoutSpinBox">
+                   <property name="suffix">
+                    <string> 秒</string>
+                   </property>
+                   <property name="minimum">
+                    <number>5</number>
+                   </property>
+                   <property name="maximum">
+                    <number>300</number>
+                   </property>
+                   <property name="value">
+                    <number>30</number>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item>
+                <widget class="QGroupBox" name="historyGroup">
+                 <property name="title">
+                  <string>连接历史</string>
+                 </property>
+                 <layout class="QVBoxLayout" name="historyLayout">
+                  <item>
+                   <widget class="QCheckBox" name="savePasswordsCheckBox">
+                    <property name="text">
+                     <string>保存密码到历史记录</string>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+               <item>
+                <widget class="QGroupBox" name="reconnectionGroup">
+                 <property name="title">
+                  <string>重连设置</string>
+                 </property>
+                 <layout class="QVBoxLayout" name="reconnectionLayout">
+                  <item>
+                   <widget class="QCheckBox" name="enableAutoReconnectCheckBox">
+                    <property name="text">
+                     <string>启用自动重连</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <layout class="QFormLayout" name="reconnectionFormLayout">
+                    <item row="0" column="0">
+                     <widget class="QLabel" name="retryIntervalLabel">
+                      <property name="text">
+                       <string>重连间隔:</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="0" column="1">
+                     <widget class="QSpinBox" name="retryIntervalSpinBox">
+                      <property name="suffix">
+                       <string> 秒</string>
+                      </property>
+                      <property name="minimum">
+                       <number>1</number>
+                      </property>
+                      <property name="maximum">
+                       <number>300</number>
+                      </property>
+                      <property name="value">
+                       <number>5</number>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="1" column="0">
+                     <widget class="QLabel" name="maxRetriesLabel">
+                      <property name="text">
+                       <string>最大重试次数:</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="1" column="1">
+                     <widget class="QSpinBox" name="maxRetriesSpinBox">
+                      <property name="minimum">
+                       <number>1</number>
+                      </property>
+                      <property name="maximum">
+                       <number>100</number>
+                      </property>
+                      <property name="value">
+                       <number>3</number>
+                      </property>
+                     </widget>
+                    </item>
+                   </layout>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+              <item>
+               <spacer name="connectionSpacer">
+                <property name="orientation">
+                 <enum>Qt::Vertical</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>20</width>
+                  <height>40</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </widget>
+            <widget class="QWidget" name="displayPage">
+             <layout class="QVBoxLayout" name="displayLayout">
+              <item>
+               <widget class="QGroupBox" name="defaultDisplayGroup">
+                <property name="title">
+                 <string>默认显示设置</string>
+                </property>
+                <layout class="QFormLayout" name="defaultDisplayFormLayout">
+                 <item row="0" column="0">
+                  <widget class="QLabel" name="defaultColorDepthLabel">
+                   <property name="text">
+                    <string>默认颜色深度:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="0" column="1">
+                  <widget class="QComboBox" name="defaultColorDepthComboBox">
+                   <item>
+                    <property name="text">
+                     <string>16位 (65K 颜色)</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>24位 (16M 颜色)</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>32位 (真彩色)</string>
+                    </property>
+                   </item>
+                  </widget>
+                 </item>
+                 <item row="1" column="1">
+                  <widget class="QCheckBox" name="showCursorCheckBox">
+                   <property name="text">
+                    <string>显示远程光标</string>
+                   </property>
+                   <property name="checked">
+                    <bool>true</bool>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item>
+               <widget class="QGroupBox" name="performanceGroup">
+                <property name="title">
+                 <string>性能设置</string>
+                </property>
+                <layout class="QFormLayout" name="performanceFormLayout">
+                 <item row="0" column="0">
+                  <widget class="QLabel" name="defaultCompressionLabel">
+                   <property name="text">
+                    <string>默认压缩级别:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="0" column="1">
+                  <widget class="QSlider" name="defaultCompressionSlider">
+                   <property name="minimum">
+                    <number>0</number>
+                   </property>
+                   <property name="maximum">
+                    <number>9</number>
+                   </property>
+                   <property name="value">
+                    <number>6</number>
+                   </property>
+                   <property name="orientation">
+                    <enum>Qt::Horizontal</enum>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="1" column="0">
+                  <widget class="QLabel" name="frameRateLabel">
+                   <property name="text">
+                    <string>帧率 (FPS):</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="1" column="1">
+                  <widget class="QSpinBox" name="frameRateSpinBox">
+                   <property name="minimum">
+                    <number>1</number>
+                   </property>
+                   <property name="maximum">
+                    <number>120</number>
+                   </property>
+                   <property name="value">
+                    <number>60</number>
+                   </property>
+                   <property name="suffix">
+                    <string> FPS</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="2" column="0">
+                  <widget class="QLabel" name="captureQualityLabel">
+                   <property name="text">
+                    <string>捕获质量:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="2" column="1">
+                  <widget class="QComboBox" name="captureQualityComboBox">
+                   <item>
+                    <property name="text">
+                     <string>标准质量 (1.0x)</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>高质量 (1.5x)</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>超高质量 (2.0x)</string>
+                    </property>
+                   </item>
+                  </widget>
+                 </item>
+                 <item row="3" column="0">
+                  <widget class="QLabel" name="scalingModeLabel">
+                   <property name="text">
+                    <string>缩放模式:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="3" column="1">
+                  <widget class="QComboBox" name="scalingModeComboBox">
+                   <item>
+                    <property name="text">
+                     <string>自适应窗口</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>保持原始尺寸</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>填充窗口</string>
+                    </property>
+                   </item>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item>
+               <spacer name="displaySpacer">
+                <property name="orientation">
+                 <enum>Qt::Vertical</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>20</width>
+                  <height>40</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </widget>
+            <widget class="QWidget" name="audioPage">
+             <layout class="QVBoxLayout" name="audioLayout">
+              <item>
+               <widget class="QGroupBox" name="audioGeneralGroup">
+                <property name="title">
+                 <string>音频设置</string>
+                </property>
+                <layout class="QVBoxLayout" name="audioGeneralLayout">
+                 <item>
+                  <widget class="QCheckBox" name="enableAudioCheckBox">
+                   <property name="text">
+                    <string>启用音频传输</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <layout class="QFormLayout" name="audioFormLayout">
+                   <item row="0" column="0">
+                    <widget class="QLabel" name="audioQualityLabel">
+                     <property name="text">
+                      <string>音频质量:</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item row="0" column="1">
+                    <widget class="QComboBox" name="audioQualityComboBox">
+                     <item>
+                      <property name="text">
+                       <string>低质量 (8kHz)</string>
+                      </property>
+                     </item>
+                     <item>
+                      <property name="text">
+                       <string>中等质量 (22kHz)</string>
+                      </property>
+                     </item>
+                     <item>
+                      <property name="text">
+                       <string>高质量 (44kHz)</string>
+                      </property>
+                     </item>
+                    </widget>
+                   </item>
+                  </layout>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item>
+               <spacer name="audioSpacer">
+                <property name="orientation">
+                 <enum>Qt::Vertical</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>20</width>
+                  <height>40</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </widget>
+            <widget class="QWidget" name="securityPage">
+             <layout class="QVBoxLayout" name="securityLayout">
+              <item>
+               <widget class="QGroupBox" name="encryptionGroup">
+                <property name="title">
+                 <string>加密设置</string>
+                </property>
+                <layout class="QVBoxLayout" name="encryptionLayout">
+                 <item>
+                  <widget class="QCheckBox" name="defaultEncryptionCheckBox">
+                   <property name="text">
+                    <string>默认启用加密</string>
+                   </property>
+                   <property name="checked">
+                    <bool>true</bool>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item>
+               <spacer name="securitySpacer">
+                <property name="orientation">
+                 <enum>Qt::Vertical</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>20</width>
+                  <height>40</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </widget>
+            <widget class="QWidget" name="advancedPage">
+             <layout class="QVBoxLayout" name="advancedLayout">
+              <item>
+               <widget class="QGroupBox" name="loggingGroup">
+                <property name="title">
+                 <string>日志设置</string>
+                </property>
+                <layout class="QFormLayout" name="loggingFormLayout">
+                 <item row="0" column="0">
+                  <widget class="QLabel" name="logLevelLabel">
+                   <property name="text">
+                    <string>日志级别:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="0" column="1">
+                  <widget class="QComboBox" name="logLevelComboBox">
+                   <item>
+                    <property name="text">
+                     <string>错误</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>警告</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>信息</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>调试</string>
+                    </property>
+                   </item>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item>
+               <spacer name="advancedSpacer">
+                <property name="orientation">
+                 <enum>Qt::Vertical</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>20</width>
+                  <height>40</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </widget>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QWidget" name="buttonWidget">
+     <property name="styleSheet">
+      <string>QWidget#buttonWidget {
+    background-color: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+}</string>
+     </property>
+     <layout class="QHBoxLayout" name="buttonLayout">
+      <property name="leftMargin">
+       <number>20</number>
+      </property>
+      <property name="topMargin">
+       <number>15</number>
+      </property>
+      <property name="rightMargin">
+       <number>20</number>
+      </property>
+      <property name="bottomMargin">
+       <number>15</number>
+      </property>
+      <item>
+       <spacer name="buttonSpacer">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QDialogButtonBox" name="buttonBox">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="standardButtons">
+         <set>QDialogButtonBox::Apply|QDialogButtonBox::Cancel|QDialogButtonBox::Ok|QDialogButtonBox::RestoreDefaults</set>
+        </property>
+        <property name="styleSheet">
+         <string>QDialogButtonBox {
+    margin-top: 10px;
+    padding: 10px;
+}
+
+QDialogButtonBox QPushButton {
+    min-width: 80px;
+    min-height: 32px;
+    padding: 6px 16px;
+    background-color: #6c757d;
+    border: 1px solid #6c757d;
+    border-radius: 4px;
+    color: white;
+    font-weight: 500;
+    font-size: 13px;
+}
+
+QDialogButtonBox QPushButton:hover {
+    background-color: #5a6268;
+    border-color: #545b62;
+}
+
+QDialogButtonBox QPushButton:pressed {
+    background-color: #545b62;
+    border-color: #4e555b;
+}
+
+QDialogButtonBox QPushButton:default {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+QDialogButtonBox QPushButton:default:hover {
+    background-color: #0069d9;
+    border-color: #0062cc;
+}
+
+QDialogButtonBox QPushButton:default:pressed {
+    background-color: #0062cc;
+    border-color: #005cbf;
+}</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources>
+  <include location="../../resources/resources.qrc"/>
+ </resources>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>SettingsDialog</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>248</x>
+     <y>254</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>SettingsDialog</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>316</x>
+     <y>260</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>

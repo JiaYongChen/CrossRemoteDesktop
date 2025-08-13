@@ -1,0 +1,951 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1200</width>
+    <height>800</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Qt远程桌面</string>
+  </property>
+  <property name="windowIcon">
+   <iconset resource="../../../resources/resources.qrc">
+    <normaloff>:/icons/app.png</normaloff>:/icons/app.png</iconset>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <property name="spacing">
+     <number>0</number>
+    </property>
+    <property name="leftMargin">
+     <number>0</number>
+    </property>
+    <property name="topMargin">
+     <number>0</number>
+    </property>
+    <property name="rightMargin">
+     <number>0</number>
+    </property>
+    <property name="bottomMargin">
+     <number>0</number>
+    </property>
+    <item>
+     <widget class="QStackedWidget" name="stackedWidget">
+      <property name="currentIndex">
+       <number>0</number>
+      </property>
+      <widget class="QWidget" name="welcomePage">
+       <layout class="QVBoxLayout" name="welcomeLayout">
+        <property name="spacing">
+         <number>20</number>
+        </property>
+        <property name="leftMargin">
+         <number>50</number>
+        </property>
+        <property name="topMargin">
+         <number>50</number>
+        </property>
+        <property name="rightMargin">
+         <number>50</number>
+        </property>
+        <property name="bottomMargin">
+         <number>50</number>
+        </property>
+        <item>
+         <spacer name="topSpacer">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>40</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <widget class="QLabel" name="logoLabel">
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+          <property name="pixmap">
+           <pixmap resource="../../resources/resources.qrc">:/icons/logo.png</pixmap>
+          </property>
+          <property name="scaledContents">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="titleLabel">
+          <property name="font">
+           <font>
+            <pointsize>24</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="text">
+           <string>Qt远程桌面</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="subtitleLabel">
+          <property name="font">
+           <font>
+            <pointsize>12</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>跨平台远程桌面解决方案</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+          <property name="styleSheet">
+           <string>color: #666;</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="middleSpacer">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>30</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="buttonLayout">
+          <property name="spacing">
+           <number>20</number>
+          </property>
+          <item>
+           <spacer name="leftButtonSpacer">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item>
+           <widget class="QPushButton" name="connectButton">
+            <property name="minimumSize">
+             <size>
+              <width>150</width>
+              <height>50</height>
+             </size>
+            </property>
+            <property name="font">
+             <font>
+              <pointsize>14</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="text">
+             <string>连接远程桌面</string>
+            </property>
+            <property name="icon">
+             <iconset resource="../../resources/resources.qrc">
+              <normaloff>:/icons/connect.png</normaloff>:/icons/connect.png</iconset>
+            </property>
+            <property name="iconSize">
+             <size>
+              <width>24</width>
+              <height>24</height>
+             </size>
+            </property>
+            <property name="styleSheet">
+             <string>QPushButton {
+    background-color: #007ACC;
+    color: #f0f0f0;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+}
+QPushButton:hover {
+    background-color: #005A9E;
+}
+QPushButton:pressed {
+    background-color: #004578;
+}</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="serverButton">
+            <property name="minimumSize">
+             <size>
+              <width>150</width>
+              <height>50</height>
+             </size>
+            </property>
+            <property name="font">
+             <font>
+              <pointsize>14</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="text">
+             <string>启动服务器</string>
+            </property>
+            <property name="icon">
+             <iconset resource="../../resources/resources.qrc">
+              <normaloff>:/icons/server.png</normaloff>:/icons/server.png</iconset>
+            </property>
+            <property name="iconSize">
+             <size>
+              <width>24</width>
+              <height>24</height>
+             </size>
+            </property>
+            <property name="styleSheet">
+             <string>QPushButton {
+    background-color: #28A745;
+    color: #f0f0f0;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+}
+QPushButton:hover {
+    background-color: #218838;
+}
+QPushButton:pressed {
+    background-color: #1E7E34;
+}</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="rightButtonSpacer">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <spacer name="bottomSpacer">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>40</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="recentConnectionsGroup">
+          <property name="title">
+           <string>最近连接</string>
+          </property>
+          <property name="styleSheet">
+           <string>QGroupBox {
+    font-weight: bold;
+    border: 2px solid #CCCCCC;
+    border-radius: 5px;
+    margin-top: 10px;
+    padding-top: 10px;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 10px;
+    padding: 0 5px 0 5px;
+}</string>
+          </property>
+          <layout class="QVBoxLayout" name="recentLayout">
+           <property name="spacing">
+            <number>10</number>
+           </property>
+           <property name="leftMargin">
+            <number>10</number>
+           </property>
+           <property name="topMargin">
+            <number>10</number>
+           </property>
+           <property name="rightMargin">
+            <number>10</number>
+           </property>
+           <property name="bottomMargin">
+            <number>10</number>
+           </property>
+           <item>
+            <widget class="QListWidget" name="recentListWidget">
+             <property name="maximumSize">
+              <size>
+               <width>16777215</width>
+               <height>150</height>
+              </size>
+             </property>
+             <property name="alternatingRowColors">
+              <bool>true</bool>
+             </property>
+             <property name="selectionMode">
+              <enum>QAbstractItemView::SingleSelection</enum>
+             </property>
+             <property name="styleSheet">
+              <string>QListWidget {
+    border: 1px solid #CCCCCC;
+    border-radius: 3px;
+    background-color: white;
+}
+QListWidget::item {
+    padding: 8px;
+    border-bottom: 1px solid #EEEEEE;
+}
+QListWidget::item:selected {
+    background-color: #E3F2FD;
+    color: #1976D2;
+}
+QListWidget::item:hover {
+    background-color: #F5F5F5;
+}</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="remoteDesktopPage">
+       <layout class="QVBoxLayout" name="remoteLayout">
+        <property name="spacing">
+         <number>5</number>
+        </property>
+        <property name="leftMargin">
+         <number>0</number>
+        </property>
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <property name="rightMargin">
+         <number>0</number>
+        </property>
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
+        <!-- 远程桌面组件将在运行时添加到这里 -->
+       </layout>
+      </widget>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1200</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuFile">
+    <property name="title">
+     <string>文件(&amp;F)</string>
+    </property>
+    <addaction name="actionNewConnection"/>
+    <addaction name="separator"/>
+    <addaction name="actionImportConnections"/>
+    <addaction name="actionExportConnections"/>
+    <addaction name="separator"/>
+    <addaction name="actionExit"/>
+   </widget>
+   <widget class="QMenu" name="menuConnection">
+    <property name="title">
+     <string>连接(&amp;C)</string>
+    </property>
+    <addaction name="actionConnect"/>
+    <addaction name="actionDisconnect"/>
+    <addaction name="separator"/>
+    <addaction name="actionReconnect"/>
+    <addaction name="separator"/>
+    <addaction name="actionFullScreen"/>
+   </widget>
+   <widget class="QMenu" name="menuServer">
+    <property name="title">
+     <string>服务器(&amp;S)</string>
+    </property>
+    <addaction name="actionStartServer"/>
+    <addaction name="actionStopServer"/>
+    <addaction name="separator"/>
+    <addaction name="actionServerSettings"/>
+   </widget>
+   <widget class="QMenu" name="menuTools">
+    <property name="title">
+     <string>工具(&amp;T)</string>
+    </property>
+    <addaction name="actionFileTransfer"/>
+    <addaction name="actionClipboardSync"/>
+    <addaction name="separator"/>
+    <addaction name="actionScreenshot"/>
+    <addaction name="actionRecording"/>
+    <addaction name="separator"/>
+    <addaction name="actionSettings"/>
+   </widget>
+   <widget class="QMenu" name="menuView">
+    <property name="title">
+     <string>视图(&amp;V)</string>
+    </property>
+    <addaction name="actionZoomIn"/>
+    <addaction name="actionZoomOut"/>
+    <addaction name="actionZoomFit"/>
+    <addaction name="actionZoomActual"/>
+    <addaction name="separator"/>
+    <addaction name="actionShowToolbar"/>
+    <addaction name="actionShowStatusbar"/>
+   </widget>
+   <widget class="QMenu" name="menuHelp">
+    <property name="title">
+     <string>帮助(&amp;H)</string>
+    </property>
+    <addaction name="actionUserGuide"/>
+    <addaction name="actionKeyboardShortcuts"/>
+    <addaction name="separator"/>
+    <addaction name="actionCheckUpdates"/>
+    <addaction name="actionAbout"/>
+   </widget>
+   <addaction name="menuFile"/>
+   <addaction name="menuConnection"/>
+   <addaction name="menuServer"/>
+   <addaction name="menuTools"/>
+   <addaction name="menuView"/>
+   <addaction name="menuHelp"/>
+  </widget>
+  <widget class="QStatusBar" name="statusbar">
+   <property name="sizeGripEnabled">
+    <bool>true</bool>
+   </property>
+  </widget>
+  <widget class="QToolBar" name="toolBar">
+   <property name="windowTitle">
+    <string>工具栏</string>
+   </property>
+   <property name="iconSize">
+    <size>
+     <width>24</width>
+     <height>24</height>
+    </size>
+   </property>
+   <property name="toolButtonStyle">
+    <enum>Qt::ToolButtonTextUnderIcon</enum>
+   </property>
+   <attribute name="toolBarArea">
+    <enum>TopToolBarArea</enum>
+   </attribute>
+   <attribute name="toolBarBreak">
+    <bool>false</bool>
+   </attribute>
+   <addaction name="actionNewConnection"/>
+   <addaction name="actionConnect"/>
+   <addaction name="actionDisconnect"/>
+   <addaction name="separator"/>
+   <addaction name="actionStartServer"/>
+   <addaction name="actionStopServer"/>
+   <addaction name="separator"/>
+   <addaction name="actionFullScreen"/>
+   <addaction name="actionSettings"/>
+  </widget>
+  <action name="actionNewConnection">
+   <property name="icon">
+    <iconset resource="../../resources/resources.qrc">
+     <normaloff>:/icons/new_connection.png</normaloff>:/icons/new_connection.png</iconset>
+   </property>
+   <property name="text">
+    <string>新建连接(&amp;N)</string>
+   </property>
+   <property name="toolTip">
+    <string>创建新的远程桌面连接</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+N</string>
+   </property>
+  </action>
+  <action name="actionConnect">
+   <property name="icon">
+    <iconset resource="../../resources/resources.qrc">
+     <normaloff>:/icons/connect.png</normaloff>:/icons/connect.png</iconset>
+   </property>
+   <property name="text">
+    <string>连接(&amp;C)</string>
+   </property>
+   <property name="toolTip">
+    <string>连接到远程桌面</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+C</string>
+   </property>
+  </action>
+  <action name="actionDisconnect">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../../resources/resources.qrc">
+     <normaloff>:/icons/disconnect.png</normaloff>:/icons/disconnect.png</iconset>
+   </property>
+   <property name="text">
+    <string>断开连接(&amp;D)</string>
+   </property>
+   <property name="toolTip">
+    <string>断开远程桌面连接</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+D</string>
+   </property>
+  </action>
+  <action name="actionStartServer">
+   <property name="icon">
+    <iconset resource="../../resources/resources.qrc">
+     <normaloff>:/icons/server_start.png</normaloff>:/icons/server_start.png</iconset>
+   </property>
+   <property name="text">
+    <string>启动服务器(&amp;S)</string>
+   </property>
+   <property name="toolTip">
+    <string>启动远程桌面服务器</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+S</string>
+   </property>
+  </action>
+  <action name="actionStopServer">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../../resources/resources.qrc">
+     <normaloff>:/icons/server_stop.png</normaloff>:/icons/server_stop.png</iconset>
+   </property>
+   <property name="text">
+    <string>停止服务器(&amp;T)</string>
+   </property>
+   <property name="toolTip">
+    <string>停止远程桌面服务器</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+T</string>
+   </property>
+  </action>
+  <action name="actionSettings">
+   <property name="icon">
+    <iconset resource="../../resources/resources.qrc">
+     <normaloff>:/icons/settings.png</normaloff>:/icons/settings.png</iconset>
+   </property>
+   <property name="text">
+    <string>设置(&amp;P)</string>
+   </property>
+   <property name="toolTip">
+    <string>打开应用程序设置</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+P</string>
+   </property>
+  </action>
+  <action name="actionFullScreen">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../../resources/resources.qrc">
+     <normaloff>:/icons/fullscreen.png</normaloff>:/icons/fullscreen.png</iconset>
+   </property>
+   <property name="text">
+    <string>全屏(&amp;F)</string>
+   </property>
+   <property name="toolTip">
+    <string>切换全屏模式</string>
+   </property>
+   <property name="shortcut">
+    <string>F11</string>
+   </property>
+  </action>
+  <action name="actionAbout">
+   <property name="icon">
+    <iconset resource="../../resources/resources.qrc">
+     <normaloff>:/icons/about.png</normaloff>:/icons/about.png</iconset>
+   </property>
+   <property name="text">
+    <string>关于(&amp;A)</string>
+   </property>
+   <property name="toolTip">
+    <string>关于Qt Remote Desktop</string>
+   </property>
+  </action>
+  <action name="actionExit">
+   <property name="icon">
+    <iconset resource="../../resources/resources.qrc">
+     <normaloff>:/icons/exit.png</normaloff>:/icons/exit.png</iconset>
+   </property>
+   <property name="text">
+    <string>退出(&amp;X)</string>
+   </property>
+   <property name="toolTip">
+    <string>退出应用程序</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Q</string>
+   </property>
+  </action>
+  <action name="actionReconnect">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../../resources/resources.qrc">
+     <normaloff>:/icons/reconnect.png</normaloff>:/icons/reconnect.png</iconset>
+   </property>
+   <property name="text">
+    <string>重新连接(&amp;R)</string>
+   </property>
+   <property name="toolTip">
+    <string>重新连接到远程桌面</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+R</string>
+   </property>
+  </action>
+  <action name="actionImportConnections">
+   <property name="icon">
+    <iconset resource="../../resources/resources.qrc">
+     <normaloff>:/icons/import.png</normaloff>:/icons/import.png</iconset>
+   </property>
+   <property name="text">
+    <string>导入连接(&amp;I)</string>
+   </property>
+   <property name="toolTip">
+    <string>从文件导入连接配置</string>
+   </property>
+  </action>
+  <action name="actionExportConnections">
+   <property name="icon">
+    <iconset resource="../../resources/resources.qrc">
+     <normaloff>:/icons/export.png</normaloff>:/icons/export.png</iconset>
+   </property>
+   <property name="text">
+    <string>导出连接(&amp;E)</string>
+   </property>
+   <property name="toolTip">
+    <string>导出连接配置到文件</string>
+   </property>
+  </action>
+  <action name="actionServerSettings">
+   <property name="icon">
+    <iconset resource="../../resources/resources.qrc">
+     <normaloff>:/icons/server_settings.png</normaloff>:/icons/server_settings.png</iconset>
+   </property>
+   <property name="text">
+    <string>服务器设置(&amp;S)</string>
+   </property>
+   <property name="toolTip">
+    <string>配置服务器设置</string>
+   </property>
+  </action>
+  <action name="actionFileTransfer">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../../resources/resources.qrc">
+     <normaloff>:/icons/file_transfer.png</normaloff>:/icons/file_transfer.png</iconset>
+   </property>
+   <property name="text">
+    <string>文件传输(&amp;F)</string>
+   </property>
+   <property name="toolTip">
+    <string>打开文件传输窗口</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+T</string>
+   </property>
+  </action>
+  <action name="actionClipboardSync">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../../resources/resources.qrc">
+     <normaloff>:/icons/clipboard.png</normaloff>:/icons/clipboard.png</iconset>
+   </property>
+   <property name="text">
+    <string>剪贴板同步(&amp;C)</string>
+   </property>
+   <property name="toolTip">
+    <string>启用/禁用剪贴板同步</string>
+   </property>
+  </action>
+  <action name="actionScreenshot">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../../resources/resources.qrc">
+     <normaloff>:/icons/screenshot.png</normaloff>:/icons/screenshot.png</iconset>
+   </property>
+   <property name="text">
+    <string>截图(&amp;S)</string>
+   </property>
+   <property name="toolTip">
+    <string>截取远程桌面屏幕</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+S</string>
+   </property>
+  </action>
+  <action name="actionRecording">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../../resources/resources.qrc">
+     <normaloff>:/icons/record.png</normaloff>:/icons/record.png</iconset>
+   </property>
+   <property name="text">
+    <string>录制(&amp;R)</string>
+   </property>
+   <property name="toolTip">
+    <string>开始/停止录制远程桌面</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+R</string>
+   </property>
+  </action>
+  <action name="actionZoomIn">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../../resources/resources.qrc">
+     <normaloff>:/icons/zoom_in.png</normaloff>:/icons/zoom_in.png</iconset>
+   </property>
+   <property name="text">
+    <string>放大(&amp;I)</string>
+   </property>
+   <property name="toolTip">
+    <string>放大远程桌面视图</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+=</string>
+   </property>
+  </action>
+  <action name="actionZoomOut">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../../resources/resources.qrc">
+     <normaloff>:/icons/zoom_out.png</normaloff>:/icons/zoom_out.png</iconset>
+   </property>
+   <property name="text">
+    <string>缩小(&amp;O)</string>
+   </property>
+   <property name="toolTip">
+    <string>缩小远程桌面视图</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+-</string>
+   </property>
+  </action>
+  <action name="actionZoomFit">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../../resources/resources.qrc">
+     <normaloff>:/icons/zoom_fit.png</normaloff>:/icons/zoom_fit.png</iconset>
+   </property>
+   <property name="text">
+    <string>适应窗口(&amp;F)</string>
+   </property>
+   <property name="toolTip">
+    <string>缩放以适应窗口大小</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+0</string>
+   </property>
+  </action>
+  <action name="actionZoomActual">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../../resources/resources.qrc">
+     <normaloff>:/icons/zoom_actual.png</normaloff>:/icons/zoom_actual.png</iconset>
+   </property>
+   <property name="text">
+    <string>实际大小(&amp;A)</string>
+   </property>
+   <property name="toolTip">
+    <string>显示实际大小</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+1</string>
+   </property>
+  </action>
+  <action name="actionShowToolbar">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>显示工具栏(&amp;T)</string>
+   </property>
+   <property name="toolTip">
+    <string>显示/隐藏工具栏</string>
+   </property>
+  </action>
+  <action name="actionShowStatusbar">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>显示状态栏(&amp;S)</string>
+   </property>
+   <property name="toolTip">
+    <string>显示/隐藏状态栏</string>
+   </property>
+  </action>
+  <action name="actionUserGuide">
+   <property name="icon">
+    <iconset resource="../../resources/resources.qrc">
+     <normaloff>:/icons/help.png</normaloff>:/icons/help.png</iconset>
+   </property>
+   <property name="text">
+    <string>用户指南(&amp;U)</string>
+   </property>
+   <property name="toolTip">
+    <string>打开用户指南</string>
+   </property>
+   <property name="shortcut">
+    <string>F1</string>
+   </property>
+  </action>
+  <action name="actionKeyboardShortcuts">
+   <property name="icon">
+    <iconset resource="../../resources/resources.qrc">
+     <normaloff>:/icons/keyboard.png</normaloff>:/icons/keyboard.png</iconset>
+   </property>
+   <property name="text">
+    <string>键盘快捷键(&amp;K)</string>
+   </property>
+   <property name="toolTip">
+    <string>显示键盘快捷键列表</string>
+   </property>
+  </action>
+  <action name="actionCheckUpdates">
+   <property name="icon">
+    <iconset resource="../../resources/resources.qrc">
+     <normaloff>:/icons/update.png</normaloff>:/icons/update.png</iconset>
+   </property>
+   <property name="text">
+    <string>检查更新(&amp;U)</string>
+   </property>
+   <property name="toolTip">
+    <string>检查应用程序更新</string>
+   </property>
+  </action>
+ </widget>
+ <resources>
+  <include location="../../resources/resources.qrc"/>
+ </resources>
+ <connections>
+  <connection>
+   <sender>actionExit</sender>
+   <signal>triggered()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>close()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>599</x>
+     <y>399</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>actionShowToolbar</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>toolBar</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>599</x>
+     <y>44</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>actionShowStatusbar</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>statusbar</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>599</x>
+     <y>789</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>

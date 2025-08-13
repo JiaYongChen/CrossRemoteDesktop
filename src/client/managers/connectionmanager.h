@@ -1,0 +1,101 @@
+#ifndef CONNECTIONMANAGER_H
+#define CONNECTIONMANAGER_H
+
+#include <QtCore/QObject>
+#include <QtCore/QString>
+#include <QtCore/QTimer>
+#include "../../client/tcpclient.h"
+#include "../core/networkconstants.h"
+
+class ConnectionManager : public QObject
+{
+    Q_OBJECT
+    
+public:
+    enum ConnectionState {
+        Disconnected,
+        Connecting,
+        Connected,
+        Authenticating,
+        Authenticated,
+        Disconnecting,
+        Error
+    };
+    Q_ENUM(ConnectionState)
+    
+    explicit ConnectionManager(QObject *parent = nullptr);
+    ~ConnectionManager();
+    
+    // 连接控制
+    void connectToHost(const QString &host, int port);
+    void disconnectFromHost();
+    void abort();
+    
+    // 状态查询
+    ConnectionState connectionState() const;
+    bool isConnected() const;
+    bool isAuthenticated() const;
+    
+    // 连接信息
+    QString currentHost() const;
+    int currentPort() const;
+    QString sessionId() const;
+    
+    // 网络客户端访问
+    TcpClient* tcpClient() const;
+    
+    // 自动重连管理
+    void setAutoReconnect(bool enable);
+    bool autoReconnect() const;
+    void setReconnectInterval(int msecs);
+    int reconnectInterval() const;
+    void setMaxReconnectAttempts(int attempts);
+    int maxReconnectAttempts() const;
+    int currentReconnectAttempts() const;
+    
+
+    
+signals:
+    void connectionStateChanged(ConnectionState state);
+    void connected();
+    void disconnected();
+    void authenticated();
+    void authenticationFailed(const QString &reason);
+    void errorOccurred(const QString &error);
+    void statusMessage(const QString &message);
+    
+private slots:
+    void onTcpConnected();
+    void onTcpDisconnected();
+    void onTcpAuthenticated();
+    void onTcpAuthenticationFailed(const QString &reason);
+    void onTcpError(const QString &error);
+    void onConnectionTimeout();
+    void onReconnectTimer();
+    
+private:
+    void setConnectionState(ConnectionState state);
+    void setupTcpClient();
+    void cleanupConnection();
+    void startAutoReconnect();
+    void stopAutoReconnect();
+    
+    TcpClient *m_tcpClient;
+    ConnectionState m_connectionState;
+    QString m_currentHost;
+    int m_currentPort;
+    QTimer *m_connectionTimer;
+    
+    // 自动重连相关
+    QTimer *m_reconnectTimer;
+    bool m_autoReconnect;
+    int m_reconnectInterval;
+    int m_maxReconnectAttempts;
+    int m_currentReconnectAttempts;
+    
+    static const int CONNECTION_TIMEOUT = NetworkConstants::DEFAULT_CONNECTION_TIMEOUT;
+    static const int DEFAULT_RECONNECT_INTERVAL = NetworkConstants::DEFAULT_RECONNECT_INTERVAL;
+    static const int DEFAULT_MAX_RECONNECT_ATTEMPTS = 5;
+};
+
+#endif // CONNECTIONMANAGER_H

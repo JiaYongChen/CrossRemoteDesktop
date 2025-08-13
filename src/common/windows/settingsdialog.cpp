@@ -1,0 +1,599 @@
+#include "settingsdialog.h"
+#include "ui_settingsdialog.h"
+#include <QMessageBox>
+#include <QFileDialog>
+#include <QStandardPaths>
+#include <QColorDialog>
+#include <QFontDialog>
+#include <QStyleFactory>
+#include <QDir>
+#include <QProcess>
+#include <QDesktopServices>
+#include <QUrl>
+#include <QSettings>
+#include <QApplication>
+#include <QScreen>
+#include <QTimer>
+#include <QProgressDialog>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QCryptographicHash>
+
+SettingsDialog::SettingsDialog(QWidget *parent)
+    : QDialog(parent)
+    , m_settings(new QSettings())
+    , ui(new Ui::SettingsDialog)
+    , m_settingsChanged(false)
+{
+    ui->setupUi(this);
+    setupUI();
+    setupConnections();
+    loadSettings();
+}
+
+SettingsDialog::~SettingsDialog()
+{
+    delete ui;
+}
+
+void SettingsDialog::setupUI()
+{
+    // 获取UI文件中的组件引用
+    m_categoryListWidget = ui->categoryListWidget;
+    m_settingsStackedWidget = ui->settingsStackedWidget;
+    
+    // 获取按钮盒引用
+    m_buttonBox = ui->buttonBox;
+    
+    // 获取标准按钮
+    m_okButton = m_buttonBox->button(QDialogButtonBox::Ok);
+    m_cancelButton = m_buttonBox->button(QDialogButtonBox::Cancel);
+    m_applyButton = m_buttonBox->button(QDialogButtonBox::Apply);
+    m_defaultsButton = m_buttonBox->button(QDialogButtonBox::RestoreDefaults);
+    
+    // 创建额外的按钮
+    m_resetButton = new QPushButton(tr("重置"), nullptr);
+    m_importButton = new QPushButton(tr("导入"), nullptr);
+    m_exportButton = new QPushButton(tr("导出"), nullptr);
+    
+    // 将额外按钮添加到按钮盒
+    m_buttonBox->addButton(m_resetButton, QDialogButtonBox::ActionRole);
+    m_buttonBox->addButton(m_importButton, QDialogButtonBox::ActionRole);
+    m_buttonBox->addButton(m_exportButton, QDialogButtonBox::ActionRole);
+    
+    // 获取各个页面的组件引用
+    setupGeneralPageComponents();
+    setupConnectionPageComponents();
+    setupDisplayPageComponents();
+    setupAudioPageComponents();
+    setupSecurityPageComponents();
+    setupAdvancedPageComponents();
+    
+    // 连接分类列表的选择信号
+    connect(m_categoryListWidget, &QListWidget::currentRowChanged,
+            m_settingsStackedWidget, &QStackedWidget::setCurrentIndex);
+    
+    // 设置默认选中第一项
+    m_categoryListWidget->setCurrentRow(0);
+    
+    // 更新列表
+    updateLanguageList();
+    updateThemeList();
+    updateAudioDeviceList();
+}
+
+void SettingsDialog::setupConnections()
+{
+    // 连接按钮盒的信号
+    connect(m_buttonBox, &QDialogButtonBox::accepted, this, &SettingsDialog::accept);
+    connect(m_buttonBox, &QDialogButtonBox::rejected, this, &SettingsDialog::reject);
+    
+    // 连接Apply按钮（如果存在）
+    if (QPushButton* applyButton = m_buttonBox->button(QDialogButtonBox::Apply)) {
+        connect(applyButton, &QPushButton::clicked, this, &SettingsDialog::onApplyClicked);
+    }
+    
+    // 连接端口设置信号
+    if (ui->defaultPortSpinBox) {
+        connect(ui->defaultPortSpinBox, QOverload<int>::of(&QSpinBox::valueChanged),
+                this, &SettingsDialog::onDefaultPortChanged);
+    }
+    
+    // 连接帧率设置信号
+    if (ui->frameRateSpinBox) {
+        connect(ui->frameRateSpinBox, QOverload<int>::of(&QSpinBox::valueChanged),
+                this, &SettingsDialog::onFrameRateChanged);
+    }
+    
+    // 连接捕获质量设置信号
+    if (ui->captureQualityComboBox) {
+        connect(ui->captureQualityComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
+                this, &SettingsDialog::onCaptureQualityChanged);
+    }
+    
+    // 连接缩放模式设置信号
+    if (ui->scalingModeComboBox) {
+        connect(ui->scalingModeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
+                this, &SettingsDialog::onScalingModeChanged);
+    }
+}
+
+void SettingsDialog::setupGeneralPageComponents()
+{
+    // 获取UI文件中的组件引用
+    m_languageCombo = ui->languageComboBox;
+    m_startWithSystemCheck = ui->autoStartCheckBox;
+    m_minimizeToTrayCheck = ui->minimizeToTrayCheckBox;
+    m_checkUpdatesCheck = ui->autoUpdateCheckBox;
+    
+    // 注意：UI文件中可能没有主题选择和通知设置，需要检查
+    // 如果UI文件中没有这些组件，我们可以创建它们或者注释掉相关代码
+    m_showNotificationsCheck = nullptr; // UI文件中暂时没有此组件
+    m_themeCombo = nullptr; // UI文件中暂时没有此组件
+}
+
+void SettingsDialog::createGeneralTab()
+{
+    // 这个函数现在不需要了，因为UI是通过.ui文件定义的
+    // 保留空实现以避免编译错误
+}
+
+void SettingsDialog::setupConnectionPageComponents()
+{
+    // 获取UI文件中的组件引用
+    m_defaultPortSpinBox = ui->defaultPortSpinBox;
+    m_connectionTimeoutSpinBox = ui->defaultTimeoutSpinBox;
+    m_autoReconnectCheck = ui->enableAutoReconnectCheckBox;
+    m_reconnectIntervalSpinBox = ui->retryIntervalSpinBox;
+    m_maxReconnectAttemptsSpinBox = ui->maxRetriesSpinBox;
+    
+    // 这些组件在UI文件中可能没有定义，设置为nullptr
+    m_enableUPnPCheck = nullptr;
+    m_proxyHostEdit = nullptr;
+    m_proxyPortSpinBox = nullptr;
+    m_proxyUsernameEdit = nullptr;
+    m_proxyPasswordEdit = nullptr;
+}
+
+void SettingsDialog::createConnectionTab()
+{
+    // 这个函数现在不需要了，因为UI是通过.ui文件定义的
+    // 保留空实现以避免编译错误
+}
+
+void SettingsDialog::setupDisplayPageComponents()
+{
+    // 获取UI文件中的组件引用
+    m_colorDepthCombo = ui->defaultColorDepthComboBox;
+    m_enableCursorCheck = ui->showCursorCheckBox;
+    m_compressionLevelSlider = ui->defaultCompressionSlider;
+    m_frameRateSpinBox = ui->frameRateSpinBox;
+    m_captureQualityCombo = ui->captureQualityComboBox;
+    m_scalingModeCombo = ui->scalingModeComboBox;
+    // m_qualitySlider = ui->defaultQualitySlider;  // Component not found
+    // m_adaptiveQualityCheck = ui->enableAdaptiveQualityCheckBox;  // Component not found
+    // m_fullScreenCheck = ui->defaultFullScreenCheckBox;  // Component not found
+    
+    // 这些组件在UI文件中没有定义，设置为nullptr
+    m_defaultViewModeCombo = nullptr;
+    m_enableWallpaperCheck = nullptr;
+    m_enableAnimationsCheck = nullptr;
+    m_enableFontSmoothingCheck = nullptr;
+    m_compressionLevelLabel = nullptr;
+}
+
+void SettingsDialog::createDisplayTab()
+{
+    // 这个函数现在不需要了，因为UI是通过.ui文件定义的
+    // 保留空实现以避免编译错误
+}
+
+void SettingsDialog::setupAudioPageComponents()
+{
+    // 获取UI文件中的组件引用
+    m_enableAudioCheck = ui->enableAudioCheckBox;
+    m_audioQualityCombo = ui->audioQualityComboBox;
+    // m_audioBufferSpin = ui->audioBufferSpinBox;  // Component not found
+    
+    // 这些组件在UI文件中没有定义，设置为nullptr
+    m_audioDeviceCombo = nullptr;
+    m_audioVolumeSlider = nullptr;
+    m_audioVolumeLabel = nullptr;
+    m_enableMicrophoneCheck = nullptr;
+    m_microphoneDeviceCombo = nullptr;
+    m_microphoneVolumeSlider = nullptr;
+    m_microphoneVolumeLabel = nullptr;
+}
+
+void SettingsDialog::createAudioTab()
+{
+    // 这个函数现在不需要了，因为UI是通过.ui文件定义的
+    // 保留空实现以避免编译错误
+}
+
+void SettingsDialog::setupSecurityPageComponents()
+{
+    // 获取UI文件中的组件引用
+    m_enableEncryptionCheck = ui->defaultEncryptionCheckBox;
+    m_requirePasswordCheck = ui->savePasswordsCheckBox;
+    m_sessionTimeoutSpinBox = ui->defaultTimeoutSpinBox;
+    
+    // 这些组件在UI文件中可能没有定义，设置为nullptr
+    m_encryptionMethodCombo = nullptr;
+    m_passwordLengthSpinBox = nullptr;
+    m_passwordComplexityCheck = nullptr;
+    m_logSecurityEventsCheck = nullptr;
+    m_trustedHostsEdit = nullptr;
+}
+
+void SettingsDialog::createSecurityTab()
+{
+    // 这个函数现在不需要了，因为UI是通过.ui文件定义的
+    // 保留空实现以避免编译错误
+}
+
+void SettingsDialog::setupAdvancedPageComponents()
+{
+    // 获取UI文件中的组件引用
+    m_loggingLevelCombo = ui->logLevelComboBox;
+    // m_browseLogPathButton = ui->browseLogPathButton;  // Component not found in UI
+    // m_enablePerformanceMonitoringCheck = ui->enablePerformanceMonitoringCheckBox;  // Component not found in UI
+    
+    // 这些组件在UI文件中可能没有定义，设置为nullptr
+    m_logFilePathEdit = nullptr;
+    m_maxLogFileSizeSpinBox = nullptr;
+    m_maxLogFilesSpinBox = nullptr;
+    m_performanceUpdateIntervalSpinBox = nullptr;
+    m_enableDebugModeCheck = nullptr;
+    m_customSettingsEdit = nullptr;
+}
+
+void SettingsDialog::createAdvancedTab()
+{
+    // 这个函数现在不需要了，因为UI是通过.ui文件定义的
+    // 保留空实现以避免编译错误
+}
+
+void SettingsDialog::updateLanguageList()
+{
+    if (m_languageCombo) {
+        m_languageCombo->clear();
+        m_languageCombo->addItems({tr("英语"), tr("中文"), tr("日语"), tr("韩语")});
+    }
+}
+
+void SettingsDialog::updateThemeList()
+{
+    if (m_themeCombo) {
+        m_themeCombo->clear();
+        m_themeCombo->addItems({tr("浅色"), tr("深色"), tr("自动")});
+    }
+}
+
+void SettingsDialog::updateAudioDeviceList()
+{
+    if (m_audioDeviceCombo) {
+        m_audioDeviceCombo->clear();
+        m_audioDeviceCombo->addItems({tr("默认"), tr("系统音频")});
+    }
+    
+    if (m_microphoneDeviceCombo) {
+        m_microphoneDeviceCombo->clear();
+        m_microphoneDeviceCombo->addItems({tr("默认"), tr("系统麦克风")});
+    }
+}
+
+void SettingsDialog::loadSettings()
+{
+    m_settings->beginGroup("General");
+    m_generalSettings.language = m_settings->value("language", "English").toString();
+    m_generalSettings.theme = m_settings->value("theme", "Light").toString();
+    m_generalSettings.startWithSystem = m_settings->value("startWithSystem", false).toBool();
+    m_generalSettings.minimizeToTray = m_settings->value("minimizeToTray", false).toBool();
+    m_generalSettings.showNotifications = m_settings->value("showNotifications", true).toBool();
+    m_generalSettings.checkUpdates = m_settings->value("checkUpdates", true).toBool();
+    m_settings->endGroup();
+    
+    m_settings->beginGroup("Connection");
+    m_connectionSettings.defaultPort = m_settings->value("defaultPort", 3389).toInt();
+    m_connectionSettings.connectionTimeout = m_settings->value("connectionTimeout", 30).toInt();
+    m_connectionSettings.autoReconnect = m_settings->value("autoReconnect", false).toBool();
+    m_connectionSettings.reconnectInterval = m_settings->value("reconnectInterval", 5).toInt();
+    m_connectionSettings.maxReconnectAttempts = m_settings->value("maxReconnectAttempts", 3).toInt();
+    m_connectionSettings.enableUPnP = m_settings->value("enableUPnP", false).toBool();
+    m_connectionSettings.proxyHost = m_settings->value("proxyHost", "").toString();
+    m_connectionSettings.proxyPort = m_settings->value("proxyPort", 8080).toInt();
+    m_connectionSettings.proxyUsername = m_settings->value("proxyUsername", "").toString();
+    m_connectionSettings.proxyPassword = m_settings->value("proxyPassword", "").toString();
+    m_settings->endGroup();
+    
+    m_settings->beginGroup("Display");
+    m_displaySettings.defaultViewMode = m_settings->value("defaultViewMode", "Fit to Window").toString();
+    m_displaySettings.compressionLevel = m_settings->value("compressionLevel", 3).toInt();
+    m_displaySettings.frameRate = m_settings->value("frameRate", 60).toInt();
+    m_displaySettings.colorDepth = m_settings->value("colorDepth", "32-bit").toString();
+    m_displaySettings.enableCursor = m_settings->value("enableCursor", true).toBool();
+    m_displaySettings.enableWallpaper = m_settings->value("enableWallpaper", false).toBool();
+    m_displaySettings.enableAnimations = m_settings->value("enableAnimations", false).toBool();
+    m_displaySettings.enableFontSmoothing = m_settings->value("enableFontSmoothing", true).toBool();
+    m_displaySettings.captureQuality = m_settings->value("captureQuality", 0.8).toDouble();
+    m_displaySettings.scalingMode = m_settings->value("scalingMode", "FitToWindow").toString();
+    m_settings->endGroup();
+    
+    // 应用设置到UI
+    applySettingsToUI();
+}
+
+void SettingsDialog::saveSettings()
+{
+    if (!m_settingsChanged) {
+        return;
+    }
+    
+    // 从UI获取设置
+    getSettingsFromUI();
+    
+    m_settings->beginGroup("General");
+    m_settings->setValue("language", m_generalSettings.language);
+    m_settings->setValue("theme", m_generalSettings.theme);
+    m_settings->setValue("startWithSystem", m_generalSettings.startWithSystem);
+    m_settings->setValue("minimizeToTray", m_generalSettings.minimizeToTray);
+    m_settings->setValue("showNotifications", m_generalSettings.showNotifications);
+    m_settings->setValue("checkUpdates", m_generalSettings.checkUpdates);
+    m_settings->endGroup();
+    
+    m_settings->beginGroup("Connection");
+    m_settings->setValue("defaultPort", m_connectionSettings.defaultPort);
+    m_settings->setValue("connectionTimeout", m_connectionSettings.connectionTimeout);
+    m_settings->setValue("autoReconnect", m_connectionSettings.autoReconnect);
+    m_settings->setValue("reconnectInterval", m_connectionSettings.reconnectInterval);
+    m_settings->setValue("maxReconnectAttempts", m_connectionSettings.maxReconnectAttempts);
+    m_settings->setValue("enableUPnP", m_connectionSettings.enableUPnP);
+    m_settings->setValue("proxyHost", m_connectionSettings.proxyHost);
+    m_settings->setValue("proxyPort", m_connectionSettings.proxyPort);
+    m_settings->setValue("proxyUsername", m_connectionSettings.proxyUsername);
+    m_settings->setValue("proxyPassword", m_connectionSettings.proxyPassword);
+    m_settings->endGroup();
+    
+    m_settings->beginGroup("Display");
+    m_settings->setValue("defaultViewMode", m_displaySettings.defaultViewMode);
+    m_settings->setValue("compressionLevel", m_displaySettings.compressionLevel);
+    m_settings->setValue("frameRate", m_displaySettings.frameRate);
+    m_settings->setValue("colorDepth", m_displaySettings.colorDepth);
+    m_settings->setValue("enableCursor", m_displaySettings.enableCursor);
+    m_settings->setValue("enableWallpaper", m_displaySettings.enableWallpaper);
+    m_settings->setValue("enableAnimations", m_displaySettings.enableAnimations);
+    m_settings->setValue("enableFontSmoothing", m_displaySettings.enableFontSmoothing);
+    m_settings->setValue("captureQuality", m_displaySettings.captureQuality);
+    m_settings->setValue("scalingMode", m_displaySettings.scalingMode);
+    m_settings->endGroup();
+    
+    m_settings->sync();
+    m_settingsChanged = false;
+}
+
+void SettingsDialog::applySettingsToUI()
+{
+    // 通用设置
+    if (m_languageCombo) {
+        int langIndex = m_languageCombo->findText(m_generalSettings.language);
+        if (langIndex >= 0) m_languageCombo->setCurrentIndex(langIndex);
+    }
+    
+    if (m_themeCombo) {
+        int themeIndex = m_themeCombo->findText(m_generalSettings.theme);
+        if (themeIndex >= 0) m_themeCombo->setCurrentIndex(themeIndex);
+    }
+    
+    if (m_startWithSystemCheck) m_startWithSystemCheck->setChecked(m_generalSettings.startWithSystem);
+    if (m_minimizeToTrayCheck) m_minimizeToTrayCheck->setChecked(m_generalSettings.minimizeToTray);
+    if (m_showNotificationsCheck) m_showNotificationsCheck->setChecked(m_generalSettings.showNotifications);
+    if (m_checkUpdatesCheck) m_checkUpdatesCheck->setChecked(m_generalSettings.checkUpdates);
+    
+    // 连接设置
+    if (m_defaultPortSpinBox) m_defaultPortSpinBox->setValue(m_connectionSettings.defaultPort);
+    if (m_connectionTimeoutSpinBox) m_connectionTimeoutSpinBox->setValue(m_connectionSettings.connectionTimeout);
+    if (m_autoReconnectCheck) m_autoReconnectCheck->setChecked(m_connectionSettings.autoReconnect);
+    if (m_reconnectIntervalSpinBox) m_reconnectIntervalSpinBox->setValue(m_connectionSettings.reconnectInterval);
+    if (m_maxReconnectAttemptsSpinBox) m_maxReconnectAttemptsSpinBox->setValue(m_connectionSettings.maxReconnectAttempts);
+    if (m_enableUPnPCheck) m_enableUPnPCheck->setChecked(m_connectionSettings.enableUPnP);
+    if (m_proxyHostEdit) m_proxyHostEdit->setText(m_connectionSettings.proxyHost);
+    if (m_proxyPortSpinBox) m_proxyPortSpinBox->setValue(m_connectionSettings.proxyPort);
+    if (m_proxyUsernameEdit) m_proxyUsernameEdit->setText(m_connectionSettings.proxyUsername);
+    if (m_proxyPasswordEdit) m_proxyPasswordEdit->setText(m_connectionSettings.proxyPassword);
+    
+    // 显示设置
+    if (m_frameRateSpinBox) m_frameRateSpinBox->setValue(m_displaySettings.frameRate);
+    if (m_compressionLevelSlider) m_compressionLevelSlider->setValue(m_displaySettings.compressionLevel);
+    if (m_enableCursorCheck) m_enableCursorCheck->setChecked(m_displaySettings.enableCursor);
+    
+    // 设置捕获质量
+    if (m_captureQualityCombo) {
+        int qualityIndex = 0;
+        if (m_displaySettings.captureQuality >= 0.9) qualityIndex = 2; // 超高
+        else if (m_displaySettings.captureQuality >= 0.7) qualityIndex = 1; // 高
+        else qualityIndex = 0; // 标准
+        m_captureQualityCombo->setCurrentIndex(qualityIndex);
+    }
+    
+    // 设置缩放模式
+    if (m_scalingModeCombo) {
+        int scalingIndex = 0;
+        if (m_displaySettings.scalingMode == "FitToWindow") scalingIndex = 0;
+        else if (m_displaySettings.scalingMode == "ActualSize") scalingIndex = 1;
+        else if (m_displaySettings.scalingMode == "FillWindow") scalingIndex = 2;
+        m_scalingModeCombo->setCurrentIndex(scalingIndex);
+    }
+}
+
+void SettingsDialog::getSettingsFromUI()
+{
+    // 通用设置 - 添加空指针检查
+    if (m_languageCombo) m_generalSettings.language = m_languageCombo->currentText();
+    if (m_themeCombo) m_generalSettings.theme = m_themeCombo->currentText();
+    if (m_startWithSystemCheck) m_generalSettings.startWithSystem = m_startWithSystemCheck->isChecked();
+    if (m_minimizeToTrayCheck) m_generalSettings.minimizeToTray = m_minimizeToTrayCheck->isChecked();
+    if (m_showNotificationsCheck) m_generalSettings.showNotifications = m_showNotificationsCheck->isChecked();
+    if (m_checkUpdatesCheck) m_generalSettings.checkUpdates = m_checkUpdatesCheck->isChecked();
+    
+    // 连接设置 - 添加空指针检查
+    if (m_defaultPortSpinBox) m_connectionSettings.defaultPort = m_defaultPortSpinBox->value();
+    if (m_connectionTimeoutSpinBox) m_connectionSettings.connectionTimeout = m_connectionTimeoutSpinBox->value();
+    if (m_autoReconnectCheck) m_connectionSettings.autoReconnect = m_autoReconnectCheck->isChecked();
+    if (m_reconnectIntervalSpinBox) m_connectionSettings.reconnectInterval = m_reconnectIntervalSpinBox->value();
+    if (m_maxReconnectAttemptsSpinBox) m_connectionSettings.maxReconnectAttempts = m_maxReconnectAttemptsSpinBox->value();
+    if (m_enableUPnPCheck) m_connectionSettings.enableUPnP = m_enableUPnPCheck->isChecked();
+    if (m_proxyHostEdit) m_connectionSettings.proxyHost = m_proxyHostEdit->text();
+    if (m_proxyPortSpinBox) m_connectionSettings.proxyPort = m_proxyPortSpinBox->value();
+    if (m_proxyUsernameEdit) m_connectionSettings.proxyUsername = m_proxyUsernameEdit->text();
+    if (m_proxyPasswordEdit) m_connectionSettings.proxyPassword = m_proxyPasswordEdit->text();
+    
+    // 显示设置 - 添加空指针检查
+    if (m_frameRateSpinBox) m_displaySettings.frameRate = m_frameRateSpinBox->value();
+    if (m_compressionLevelSlider) m_displaySettings.compressionLevel = m_compressionLevelSlider->value();
+    if (m_enableCursorCheck) m_displaySettings.enableCursor = m_enableCursorCheck->isChecked();
+    
+    // 捕获质量设置
+    if (m_captureQualityCombo) {
+        int qualityIndex = m_captureQualityCombo->currentIndex();
+        switch (qualityIndex) {
+            case 0: m_displaySettings.captureQuality = 0.5; break; // 标准
+            case 1: m_displaySettings.captureQuality = 0.8; break; // 高
+            case 2: m_displaySettings.captureQuality = 1.0; break; // 超高
+            default: m_displaySettings.captureQuality = 0.8; break;
+        }
+    }
+    
+    // 缩放模式设置
+    if (m_scalingModeCombo) {
+        int scalingIndex = m_scalingModeCombo->currentIndex();
+        switch (scalingIndex) {
+            case 0: m_displaySettings.scalingMode = "FitToWindow"; break;
+            case 1: m_displaySettings.scalingMode = "ActualSize"; break;
+            case 2: m_displaySettings.scalingMode = "FillWindow"; break;
+            default: m_displaySettings.scalingMode = "FitToWindow"; break;
+        }
+    }
+}
+
+bool SettingsDialog::validateSettings()
+{
+    // 验证端口范围 - 添加空指针检查
+    if (m_defaultPortSpinBox && (m_defaultPortSpinBox->value() < 1 || m_defaultPortSpinBox->value() > 65535)) {
+        showValidationError(tr("无效的端口号"));
+        return false;
+    }
+    
+    return true;
+}
+
+void SettingsDialog::showValidationError(const QString &message)
+{
+    QMessageBox::warning(nullptr, tr("验证错误"), message);
+}
+
+void SettingsDialog::accept()
+{
+    if (validateSettings()) {
+        applySettings();
+        QDialog::accept(); // 调用基类方法关闭对话框
+    }
+}
+
+void SettingsDialog::reject()
+{
+    // 如果有未保存的更改，可以在这里提示用户
+    QDialog::reject(); // 调用基类方法关闭对话框
+}
+
+void SettingsDialog::onApplyClicked()
+{
+    if (validateSettings()) {
+        applySettings();
+    }
+}
+
+void SettingsDialog::onResetClicked()
+{
+    loadSettings();
+    m_settingsChanged = false;
+}
+
+void SettingsDialog::onDefaultsClicked()
+{
+    resetToDefaults();
+}
+
+void SettingsDialog::onImportClicked()
+{
+    QString fileName = QFileDialog::getOpenFileName(nullptr, tr("导入设置"), "", tr("设置文件 (*.ini)"));
+    if (!fileName.isEmpty()) {
+        // 导入设置逻辑
+    }
+}
+
+void SettingsDialog::onExportClicked()
+{
+    QString fileName = QFileDialog::getSaveFileName(nullptr, tr("导出设置"), "", tr("设置文件 (*.ini)"));
+    if (!fileName.isEmpty()) {
+        // 导出设置逻辑
+    }
+}
+
+void SettingsDialog::applySettings()
+{
+    getSettingsFromUI();
+    saveSettings();
+}
+
+void SettingsDialog::resetToDefaults()
+{
+    // 重置为默认值
+    m_languageCombo->setCurrentIndex(0);
+    m_themeCombo->setCurrentIndex(0);
+    m_startWithSystemCheck->setChecked(false);
+    m_minimizeToTrayCheck->setChecked(false);
+    m_showNotificationsCheck->setChecked(true);
+    m_checkUpdatesCheck->setChecked(true);
+    
+    m_defaultPortSpinBox->setValue(3389);
+    m_connectionTimeoutSpinBox->setValue(30);
+    m_autoReconnectCheck->setChecked(false);
+    m_reconnectIntervalSpinBox->setValue(5);
+    m_maxReconnectAttemptsSpinBox->setValue(3);
+    m_enableUPnPCheck->setChecked(false);
+    m_proxyHostEdit->clear();
+    m_proxyPortSpinBox->setValue(8080);
+    m_proxyUsernameEdit->clear();
+    m_proxyPasswordEdit->clear();
+    
+    m_settingsChanged = true;
+}
+
+// 通用设置变更处理函数
+void SettingsDialog::onSettingChanged()
+{
+    m_settingsChanged = true;
+}
+
+// 槽函数实现 - 使用通用处理函数
+void SettingsDialog::onLanguageChanged(int index) { Q_UNUSED(index); onSettingChanged(); }
+void SettingsDialog::onThemeChanged(int index) { Q_UNUSED(index); onSettingChanged(); }
+void SettingsDialog::onStartupBehaviorChanged(bool checked) { Q_UNUSED(checked); onSettingChanged(); }
+void SettingsDialog::onDefaultPortChanged(int value) { Q_UNUSED(value); onSettingChanged(); }
+void SettingsDialog::onConnectionTimeoutChanged(int value) { Q_UNUSED(value); onSettingChanged(); }
+void SettingsDialog::onAutoReconnectChanged(bool checked) { Q_UNUSED(checked); onSettingChanged(); }
+void SettingsDialog::onDefaultViewModeChanged(int index) { Q_UNUSED(index); onSettingChanged(); }
+void SettingsDialog::onCompressionLevelChanged(int value) { Q_UNUSED(value); onSettingChanged(); }
+void SettingsDialog::onFrameRateChanged(int value) { Q_UNUSED(value); onSettingChanged(); }
+void SettingsDialog::onCaptureQualityChanged(int index) { Q_UNUSED(index); onSettingChanged(); }
+void SettingsDialog::onScalingModeChanged(int index) { Q_UNUSED(index); onSettingChanged(); }
+void SettingsDialog::onAudioEnabledChanged(bool checked) { Q_UNUSED(checked); onSettingChanged(); }
+void SettingsDialog::onAudioQualityChanged(int index) { Q_UNUSED(index); onSettingChanged(); }
+void SettingsDialog::onAudioDeviceChanged(int index) { Q_UNUSED(index); onSettingChanged(); }
+void SettingsDialog::onEncryptionChanged(bool checked) { Q_UNUSED(checked); onSettingChanged(); }
+void SettingsDialog::onPasswordPolicyChanged(int index) { Q_UNUSED(index); onSettingChanged(); }
+void SettingsDialog::onSessionTimeoutChanged(int value) { Q_UNUSED(value); onSettingChanged(); }
+void SettingsDialog::onLoggingLevelChanged(int index) { Q_UNUSED(index); onSettingChanged(); }
+void SettingsDialog::onLogFilePathChanged(const QString &text) { Q_UNUSED(text); onSettingChanged(); }
+void SettingsDialog::onPerformanceMonitoringChanged(bool checked) { Q_UNUSED(checked); onSettingChanged(); }
