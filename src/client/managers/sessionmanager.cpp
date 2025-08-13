@@ -173,9 +173,6 @@ SessionManager::PerformanceStats SessionManager::performanceStats() const
 void SessionManager::resetStats()
 {
     m_stats.currentFPS = 0.0;
-    m_stats.ping = 0;
-    m_stats.bytesReceived = 0;
-    m_stats.bytesSent = 0;
     m_stats.sessionStartTime = QDateTime();
     m_stats.frameCount = 0;
     m_frameTimes.clear();
