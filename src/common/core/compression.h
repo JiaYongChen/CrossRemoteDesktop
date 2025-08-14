@@ -9,7 +9,7 @@
 #include <QtGui/QImageWriter>
 #include <QtGui/QImageReader>
 #include <QtCore/QObject>
-#include "uiconstants.h"
+#include "constants.h"
 
 class Compression
 {

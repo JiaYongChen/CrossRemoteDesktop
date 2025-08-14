@@ -3,7 +3,6 @@
 #include "../common/core/protocol.h"
 #include "../common/core/logger.h"
 #include "../common/core/compression.h"
-#include "../common/core/uiconstants.h"
 #include "../common/core/networkconstants.h"
 #include "inputsimulator.h"
 #include <QTcpSocket>

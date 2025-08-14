@@ -1,5 +1,5 @@
 #include "compression.h"
-#include "uiconstants.h"
+#include "constants.h"
 #include "messageconstants.h"
 #include <QDebug>
 #include <zlib.h>
@@ -126,9 +126,9 @@ QImage Compression::decompressImageToImage(const QByteArray &compressedData)
 // ZlibCompression 实现
 ZlibCompression::ZlibCompression(QObject *parent)
     : QObject(parent)
-    , m_level(UIConstants::DEFAULT_ZLIB_LEVEL)
-    , m_windowBits(UIConstants::DEFAULT_ZLIB_WINDOW_BITS)
-    , m_memLevel(UIConstants::DEFAULT_ZLIB_MEM_LEVEL)
+    , m_level(CoreConstants::DEFAULT_ZLIB_LEVEL)
+    , m_windowBits(CoreConstants::DEFAULT_ZLIB_WINDOW_BITS)
+    , m_memLevel(CoreConstants::DEFAULT_ZLIB_MEM_LEVEL)
     , m_strategy(Z_DEFAULT_STRATEGY)
 {
 }
@@ -153,7 +153,7 @@ int ZlibCompression::level() const
 
 void ZlibCompression::setWindowBits(int windowBits)
 {
-    if (windowBits >= UIConstants::MIN_WINDOW_BITS && windowBits <= UIConstants::MAX_WINDOW_BITS) {
+    if (windowBits >= CoreConstants::MIN_WINDOW_BITS && windowBits <= CoreConstants::MAX_WINDOW_BITS) {
         m_windowBits = windowBits;
     } else {
         qWarning() << MessageConstants::Compression::INVALID_WINDOW_BITS;
@@ -241,7 +241,7 @@ QByteArray ZlibCompression::decompress(const QByteArray &compressedData)
     }
     
     // 初始解压缓冲区大小
-    const int bufferSize = UIConstants::DECOMPRESSION_BUFFER_SIZE * 8; // 64KB
+    const int bufferSize = CoreConstants::DECOMPRESSION_BUFFER_SIZE * 8; // 64KB
     QByteArray decompressed;
     QByteArray buffer(bufferSize, 0);
     
@@ -288,7 +288,7 @@ double ZlibCompression::compressionRatio(const QByteArray &original, const QByte
 // LZ4Compression 实现
 LZ4Compression::LZ4Compression(QObject *parent)
     : QObject(parent)
-    , m_level(UIConstants::DEFAULT_LZ4_LEVEL)
+    , m_level(CoreConstants::DEFAULT_LZ4_LEVEL)
     , m_useHighCompression(false)
 {
 }
@@ -1023,7 +1023,7 @@ QByteArray LZ4Compression::decompressWithHeader(const QByteArray &compressedData
 // ZstdCompression 实现
 ZstdCompression::ZstdCompression(QObject *parent)
     : QObject(parent)
-    , m_level(UIConstants::DEFAULT_ZSTD_LEVEL)
+    , m_level(CoreConstants::DEFAULT_ZSTD_LEVEL)
 {
 }
 
@@ -1153,7 +1153,7 @@ QByteArray ZstdCompression::decompressStream(const QByteArray &compressedData)
     }
     
     // 初始缓冲区大小
-    const size_t bufferSize = UIConstants::DECOMPRESSION_BUFFER_SIZE * 8; // 64KB
+    const size_t bufferSize = CoreConstants::DECOMPRESSION_BUFFER_SIZE * 8; // 64KB
     QByteArray decompressed;
     QByteArray buffer(bufferSize, 0);
     
@@ -1263,12 +1263,12 @@ QByteArray CompressionUtils::autoCompress(const QByteArray &data, int level)
     }
     
     // 对于小数据，使用LZ4（速度快）
-    if (data.size() < UIConstants::SMALL_DATA_THRESHOLD) {
+    if (data.size() < CoreConstants::SMALL_DATA_THRESHOLD) {
         return compress(data, Algorithm::LZ4, level);
     }
     
     // 对于中等大小数据，使用Zstd（平衡压缩率和速度）
-    if (data.size() < UIConstants::COMPRESSION_THRESHOLD) {
+    if (data.size() < CoreConstants::COMPRESSION_THRESHOLD) {
         return compress(data, Algorithm::Zstd, level);
     }
     

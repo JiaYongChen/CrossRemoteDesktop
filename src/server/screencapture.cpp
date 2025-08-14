@@ -1,5 +1,5 @@
 #include "screencapture.h"
-#include "../common/core/uiconstants.h"
+#include "../common/core/constants.h"
 
 #include <QApplication>
 #include <QScreen>
@@ -12,8 +12,8 @@ ScreenCapture::ScreenCapture(QObject *parent)
     : QObject(parent)
     , m_isCapturing(false)
     , m_captureTimer(new QTimer(this))
-    , m_frameRate(UIConstants::MAX_FRAME_RATE)
-    , m_captureQuality(UIConstants::DEFAULT_CAPTURE_QUALITY)
+    , m_frameRate(CoreConstants::MAX_FRAME_RATE)
+    , m_captureQuality(CoreConstants::DEFAULT_CAPTURE_QUALITY)
     , m_highDefinitionMode(true)
     , m_antiAliasing(true)
     , m_highScaleQuality(true)
@@ -181,10 +181,10 @@ void ScreenCapture::captureFrame()
 void ScreenCapture::setFrameRate(int fps)
 {
     // 限制FPS范围在1-120之间
-    m_frameRate = qBound(UIConstants::MIN_FRAME_RATE, fps, UIConstants::MAX_FRAME_RATE);
+    m_frameRate = qBound(CoreConstants::MIN_FRAME_RATE, fps, CoreConstants::MAX_FRAME_RATE);
     
     // 计算定时器间隔（毫秒）
-    int interval = UIConstants::MILLISECONDS_PER_SECOND / m_frameRate;
+    int interval = CoreConstants::MILLISECONDS_PER_SECOND / m_frameRate;
     m_captureTimer->setInterval(interval);
     
     qDebug() << "ScreenCapture: Frame rate set to" << m_frameRate << "FPS, interval:" << interval << "ms";

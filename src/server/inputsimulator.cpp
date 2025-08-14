@@ -1,5 +1,5 @@
 #include "inputsimulator.h"
-#include "../common/core/uiconstants.h"
+#include "../common/core/constants.h"
 #include <QApplication>
 #include <QTimer>
 #include <QThread>
@@ -27,9 +27,9 @@ InputSimulator::InputSimulator(QObject *parent)
     , m_initialized(false)
     , m_enabled(true)
     , m_batchMode(false)
-    , m_mouseSpeed(UIConstants::DEFAULT_MOUSE_SPEED)
-    , m_keyboardDelay(UIConstants::DEFAULT_KEYBOARD_DELAY)
-    , m_mouseDelay(UIConstants::DEFAULT_MOUSE_DELAY)
+    , m_mouseSpeed(CoreConstants::DEFAULT_MOUSE_SPEED)
+    , m_keyboardDelay(CoreConstants::DEFAULT_KEYBOARD_DELAY)
+    , m_mouseDelay(CoreConstants::DEFAULT_MOUSE_DELAY)
 #ifdef Q_OS_LINUX
     , m_display(nullptr)
 #endif
@@ -522,7 +522,7 @@ bool InputSimulator::isValidCoordinate(int x, int y) const
 
 bool InputSimulator::isValidKey(int key) const
 {
-    return key > 0 && key <= UIConstants::MAX_KEY_VALUE;
+    return key > 0 && key <= CoreConstants::MAX_KEY_VALUE;
 }
 
 QPoint InputSimulator::transformCoordinates(const QPoint &point) const

@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(QtRemoteDesktop VERSION 1.0.0 LANGUAGES CXX)
+# Feature options
+option(ENABLE_LZ4 "Enable optional LZ4 compression" ON)
+option(ENABLE_ZSTD "Enable optional Zstandard compression" ON)
+
 
 # 设置C++标准
 set(CMAKE_CXX_STANDARD 17)
@@ -60,6 +64,7 @@ set(SOURCES
     src/common/core/compression.cpp
     src/common/core/logger.cpp
     src/common/core/config.cpp
+    src/common/core/constants.cpp
     src/server/servermanager.cpp
     src/client/clientmanager.cpp
 
@@ -171,30 +176,36 @@ target_link_libraries(QtRemoteDesktop OpenSSL::SSL OpenSSL::Crypto)
 find_package(ZLIB REQUIRED)
 target_link_libraries(QtRemoteDesktop ZLIB::ZLIB)
 
-# Find and link ZSTD library
-find_library(ZSTD_LIBRARY NAMES zstd libzstd PATHS /usr/local/lib /opt/homebrew/lib)
-find_path(ZSTD_INCLUDE_DIR NAMES zstd.h PATHS /usr/local/include /opt/homebrew/include)
-
-if(ZSTD_LIBRARY AND ZSTD_INCLUDE_DIR)
-    target_link_libraries(QtRemoteDesktop ${ZSTD_LIBRARY})
-    target_include_directories(QtRemoteDesktop PRIVATE ${ZSTD_INCLUDE_DIR})
-    target_compile_definitions(QtRemoteDesktop PRIVATE HAVE_ZSTD)
-    message(STATUS "Found ZSTD: ${ZSTD_LIBRARY}")
+if(ENABLE_ZSTD)
+    # Find and link ZSTD library
+    find_library(ZSTD_LIBRARY NAMES zstd libzstd PATHS /usr/local/lib /opt/homebrew/lib)
+    find_path(ZSTD_INCLUDE_DIR NAMES zstd.h PATHS /usr/local/include /opt/homebrew/include)
+    if(ZSTD_LIBRARY AND ZSTD_INCLUDE_DIR)
+        target_link_libraries(QtRemoteDesktop ${ZSTD_LIBRARY})
+        target_include_directories(QtRemoteDesktop PRIVATE ${ZSTD_INCLUDE_DIR})
+        target_compile_definitions(QtRemoteDesktop PRIVATE HAVE_ZSTD)
+        message(STATUS "Found ZSTD: ${ZSTD_LIBRARY}")
+    else()
+        message(WARNING "ZSTD library not found; ZSTD disabled")
+    endif()
 else()
-    message(WARNING "ZSTD library not found")
+    message(STATUS "ZSTD disabled by option")
 endif()
 
-# Find and link LZ4 library
-find_library(LZ4_LIBRARY NAMES lz4 liblz4 PATHS /usr/local/lib /opt/homebrew/lib)
-find_path(LZ4_INCLUDE_DIR NAMES lz4.h PATHS /usr/local/include /opt/homebrew/include)
-
-if(LZ4_LIBRARY AND LZ4_INCLUDE_DIR)
-    target_link_libraries(QtRemoteDesktop ${LZ4_LIBRARY})
-    target_include_directories(QtRemoteDesktop PRIVATE ${LZ4_INCLUDE_DIR})
-    target_compile_definitions(QtRemoteDesktop PRIVATE HAVE_LZ4)
-    message(STATUS "Found LZ4: ${LZ4_LIBRARY}")
+if(ENABLE_LZ4)
+    # Find and link LZ4 library
+    find_library(LZ4_LIBRARY NAMES lz4 liblz4 PATHS /usr/local/lib /opt/homebrew/lib)
+    find_path(LZ4_INCLUDE_DIR NAMES lz4.h PATHS /usr/local/include /opt/homebrew/include)
+    if(LZ4_LIBRARY AND LZ4_INCLUDE_DIR)
+        target_link_libraries(QtRemoteDesktop ${LZ4_LIBRARY})
+        target_include_directories(QtRemoteDesktop PRIVATE ${LZ4_INCLUDE_DIR})
+        target_compile_definitions(QtRemoteDesktop PRIVATE HAVE_LZ4)
+        message(STATUS "Found LZ4: ${LZ4_LIBRARY}")
+    else()
+        message(WARNING "LZ4 library not found; LZ4 disabled")
+    endif()
 else()
-    message(WARNING "LZ4 library not found")
+    message(STATUS "LZ4 disabled by option")
 endif()
 
 

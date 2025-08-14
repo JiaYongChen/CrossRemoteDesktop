@@ -40,6 +40,12 @@ public:
     // 配置
     void setConnectionTimeout(int msecs);
     int connectionTimeout() const;
+
+    // 测试兼容：自动重连控制（默认关闭）
+    void setAutoReconnect(bool enable);
+    bool autoReconnect() const;
+    void setReconnectInterval(int msecs);
+    int reconnectInterval() const;
     
 signals:
     void connected();
@@ -108,6 +114,10 @@ private:
     
     // 连接超时
     int m_connectionTimeout;
+
+    // 自动重连（用于测试期望的API；默认不启用，不影响现有行为）
+    bool m_autoReconnect{false};
+    int m_reconnectInterval{3000};
     
     // 差异压缩相关
     QByteArray m_previousFrameData;

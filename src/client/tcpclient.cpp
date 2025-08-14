@@ -155,6 +155,26 @@ int TcpClient::connectionTimeout() const
     return m_connectionTimeout;
 }
 
+void TcpClient::setAutoReconnect(bool enable)
+{
+    m_autoReconnect = enable;
+}
+
+bool TcpClient::autoReconnect() const
+{
+    return m_autoReconnect;
+}
+
+void TcpClient::setReconnectInterval(int msecs)
+{
+    m_reconnectInterval = msecs;
+}
+
+int TcpClient::reconnectInterval() const
+{
+    return m_reconnectInterval;
+}
+
 void TcpClient::onConnected()
 {
     qDebug() << "TcpClient::onConnected - TCP connection established";

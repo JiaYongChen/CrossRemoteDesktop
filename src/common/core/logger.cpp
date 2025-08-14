@@ -1,5 +1,5 @@
 #include "logger.h"
-#include "uiconstants.h"
+#include "constants.h"
 #include <QDir>
 #include <QStandardPaths>
 #include <QDateTime>
@@ -31,13 +31,13 @@ Logger::Logger(QObject *parent)
     , m_logFormat(LogFormat::Detailed)
     , m_logFile(nullptr)
     , m_logStream(nullptr)
-    , m_maxFileSize(UIConstants::DEFAULT_MAX_FILE_SIZE)
-    , m_maxFileCount(UIConstants::DEFAULT_MAX_FILE_COUNT)
+    , m_maxFileSize(CoreConstants::DEFAULT_MAX_FILE_SIZE)
+    , m_maxFileCount(5)
     , m_rotationPolicy(NoRotation)
-    , m_rotationInterval(UIConstants::DEFAULT_ROTATION_INTERVAL)
-    , m_bufferSize(UIConstants::DEFAULT_LOG_BUFFER_SIZE)
+    , m_rotationInterval(24)
+    , m_bufferSize(1000)
     , m_flushTimer(new QTimer(this))
-    , m_flushInterval(UIConstants::DEFAULT_LOG_FLUSH_INTERVAL) // 5秒
+    , m_flushInterval(5000) // 5秒
     , m_autoFlush(false)
     , m_networkPort(0)
     , m_networkSocket(nullptr)

@@ -1,7 +1,7 @@
 #include "servermanager.h"
 #include "tcpserver.h"
 #include "screencapture.h"
-#include "../common/core/uiconstants.h"
+#include "../common/core/constants.h"
 #include "../common/core/protocol.h"
 
 #include <QSettings>
@@ -31,7 +31,7 @@ ServerManager::ServerManager(QObject *parent)
     , m_isServerRunning(false)
     , m_currentPort(0)
     , m_clientsMutex()
-    , m_maxClients(UIConstants::DEFAULT_MAX_CLIENTS)
+    , m_maxClients(CoreConstants::DEFAULT_MAX_CLIENTS)
     , m_password("")
     , m_allowMultipleClients(false)
     , m_totalBytesReceived(0)
@@ -52,7 +52,7 @@ ServerManager::ServerManager(QObject *parent)
     // 创建客户端清理定时器
     m_cleanupTimer = new QTimer(this);
     m_cleanupTimer->setSingleShot(false);
-    m_cleanupTimer->setInterval(UIConstants::CLEANUP_TIMER_INTERVAL); // 每分钟清理一次
+    m_cleanupTimer->setInterval(CoreConstants::CLEANUP_TIMER_INTERVAL); // 每分钟清理一次
     connect(m_cleanupTimer, &QTimer::timeout, this, &ServerManager::cleanupDisconnectedClients);
 
     // 设置服务器连接
@@ -238,8 +238,8 @@ void ServerManager::applyScreenCaptureSettings()
     
     // 从设置中读取帧率和捕获质量
     m_settings->beginGroup("Display");
-    int frameRate = m_settings->value("frameRate", 60).toInt();
-    double captureQuality = m_settings->value("captureQuality", 0.8).toDouble();
+    int frameRate = m_settings->value("frameRate", CoreConstants::DEFAULT_FRAME_RATE).toInt();
+    double captureQuality = m_settings->value("captureQuality", CoreConstants::DEFAULT_CAPTURE_QUALITY).toDouble();
     m_settings->endGroup();
     
     // 应用帧率和捕获质量设置到ScreenCapture
@@ -294,13 +294,12 @@ void ServerManager::sendScreenData(const QPixmap &frame)
     QElapsedTimer timer;
     timer.start();
     
-    // 压缩图像数据
+    // 压缩图像数据（统一使用QImage以便后续管线迁移；保持JPEG质量75%）
     QByteArray imageData;
     QBuffer buffer(&imageData);
     buffer.open(QIODevice::WriteOnly);
-    
-    // 使用JPEG格式压缩，质量设置为75%
-    bool success = frame.save(&buffer, "JPEG", 75);
+    QImage image = frame.toImage();
+    bool success = image.save(&buffer, "JPEG", 75);
     if (!success) {
         qWarning() << "Failed to compress screen data";
         return;
