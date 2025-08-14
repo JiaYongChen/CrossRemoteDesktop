@@ -68,7 +68,6 @@ void TcpClient::disconnectFromHost()
     
     m_connectionTimer->stop();
     m_heartbeatTimer->stop();
-    m_heartbeatTimer->stop();
     m_heartbeatCheckTimer->stop();
     
     // 清理接收缓冲区
@@ -83,7 +82,6 @@ void TcpClient::disconnectFromHost()
 void TcpClient::abort()
 {
     m_connectionTimer->stop();
-    m_heartbeatTimer->stop();
     m_heartbeatTimer->stop();
     m_heartbeatCheckTimer->stop();
     
@@ -556,7 +554,7 @@ void TcpClient::sendAuthenticationRequest(const QString &username, const QString
 
 void TcpClient::sendDisconnectRequest()
 {
-    sendMessage(static_cast<MessageType>(4), QByteArray("disconnect"));
+    sendMessage(MessageType::DISCONNECT_REQUEST, QByteArray("disconnect"));
 }
 
 void TcpClient::resetConnection()
