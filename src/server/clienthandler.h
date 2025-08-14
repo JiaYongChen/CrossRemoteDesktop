@@ -29,6 +29,10 @@ public:
     // 消息发送
     void sendMessage(MessageType type, const QByteArray &data = QByteArray());
     
+    // 认证配置
+    void setExpectedPassword(const QString &password);
+    QString expectedPassword() const;
+
     // 连接控制
     void disconnectClient();
     void forceDisconnect();
@@ -70,6 +74,8 @@ private:
     quint16 m_clientPort;
     QString m_clientId;
     bool m_isAuthenticated;
+    QString m_expectedPassword; // 明文密码，由ServerManager注入
+    int m_failedAuthCount;
     QDateTime m_connectionTime;
     QDateTime m_lastHeartbeat;
     QTimer *m_heartbeatTimer;

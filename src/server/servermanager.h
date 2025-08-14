@@ -73,11 +73,11 @@ public:
     void sendScreenData(const QPixmap &frame);
     
     // 客户端管理
-    void sendMessageToClient(const QString &clientAddress, MessageType type, const QByteArray &data = QByteArray());
+    void sendMessageToClient(const QString &clientId, MessageType type, const QByteArray &data = QByteArray());
     void sendMessageToAllClients(MessageType type, const QByteArray &data = QByteArray());
     
     // 断开连接
-    void disconnectClient(const QString &clientAddress);
+    void disconnectClient(const QString &clientId);
     void disconnectAllClients();
     
     // 连接拒绝处理
@@ -127,10 +127,10 @@ private:
     void stopScreenCapture();
     
     // 客户端管理辅助方法
-    ClientHandler* findClientHandler(const QString &address);
+    ClientHandler* findClientHandler(const QString &clientId);
     QString generateClientId(const QString &address, quint16 port);
     void registerClientHandler(ClientHandler *handler);
-    void unregisterClientHandler(const QString &clientAddress);
+    void unregisterClientHandler(const QString &clientId);
     
     // 网络组件
     TcpServer *m_tcpServer;

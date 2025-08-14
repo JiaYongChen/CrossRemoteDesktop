@@ -8,6 +8,7 @@
 #include <QDebug>
 #include <QDataStream>
 #include <QBuffer>
+#include <QCryptographicHash>
 #include <cstring>
 
 // ClientHandler implementation
@@ -16,6 +17,8 @@ ClientHandler::ClientHandler(qintptr socketDescriptor, QObject *parent)
     , m_socket(new QTcpSocket(this))
     , m_clientPort(0)
     , m_isAuthenticated(false)
+    , m_expectedPassword("")
+    , m_failedAuthCount(0)
     , m_connectionTime(QDateTime::currentDateTime())
     , m_lastHeartbeat(QDateTime::currentDateTime())
     , m_heartbeatTimer(new QTimer(this))
@@ -320,15 +323,42 @@ void ClientHandler::handleHandshakeRequest(const QByteArray &data)
 
 void ClientHandler::handleAuthenticationRequest(const QByteArray &data)
 {
-    Q_UNUSED(data)
     qDebug() << "Received authentication request from client:" << m_clientId;
-    
-    // 简单认证，总是成功
-    m_isAuthenticated = true;
-    
-    // 发送认证响应
-    sendAuthenticationResponse(AuthResult::SUCCESS, generateSessionId());
-    emit authenticated();
+
+    AuthenticationRequest req;
+    if (!Protocol::deserialize(data, req)) {
+        qWarning() << "Invalid authentication request payload from" << m_clientId;
+        sendAuthenticationResponse(AuthResult::UNKNOWN_ERROR);
+        return;
+    }
+
+    QString username = QString::fromUtf8(req.username);
+    QString providedHash = QString::fromUtf8(req.passwordHash);
+    Q_UNUSED(username);
+
+    // 校验密码：如果服务端未配置密码，则允许空密码通过；否则对比哈希
+    bool ok = false;
+    if (m_expectedPassword.isEmpty()) {
+        ok = (providedHash.isEmpty());
+    } else {
+        // 计算预期密码的 SHA-256 十六进制，与客户端一致
+        QByteArray hash = QCryptographicHash::hash(m_expectedPassword.toUtf8(), QCryptographicHash::Sha256).toHex();
+        ok = (QString::fromUtf8(hash) == providedHash);
+    }
+
+    if (ok) {
+        m_isAuthenticated = true;
+        m_failedAuthCount = 0;
+        sendAuthenticationResponse(AuthResult::SUCCESS, generateSessionId());
+        emit authenticated();
+    } else {
+        m_failedAuthCount++;
+        sendAuthenticationResponse(AuthResult::INVALID_PASSWORD);
+        if (m_failedAuthCount >= NetworkConstants::MAX_RETRY_COUNT) {
+            qWarning() << "Too many failed auth attempts from" << m_clientId << ", disconnecting";
+            disconnectClient();
+        }
+    }
 }
 
 void ClientHandler::handleHeartbeat()
@@ -468,4 +498,14 @@ void ClientHandler::sendAuthenticationResponse(AuthResult result, const QString 
 QString ClientHandler::generateSessionId() const
 {
     return QString("session_%1").arg(QDateTime::currentMSecsSinceEpoch());
+}
+
+void ClientHandler::setExpectedPassword(const QString &password)
+{
+    m_expectedPassword = password;
+}
+
+QString ClientHandler::expectedPassword() const
+{
+    return m_expectedPassword;
 }

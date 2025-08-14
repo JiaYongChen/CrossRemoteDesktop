@@ -66,6 +66,7 @@ private slots:
     void onError(QAbstractSocket::SocketError error);
     void onConnectionTimeout();
     void sendHeartbeat();
+    void checkHeartbeat();
     
 private:
     void processMessage(const MessageHeader &header, const QByteArray &payload);
@@ -103,6 +104,7 @@ private:
     // 定时器
     QTimer *m_connectionTimer;
     QTimer *m_heartbeatTimer;
+    QTimer *m_heartbeatCheckTimer;
     
     // 连接超时
     int m_connectionTimeout;
@@ -118,6 +120,9 @@ private:
     static const int DEFAULT_RECONNECT_INTERVAL = NetworkConstants::DEFAULT_RECONNECT_INTERVAL;
     static const int DEFAULT_CONNECTION_TIMEOUT = NetworkConstants::DEFAULT_CONNECTION_TIMEOUT;
     static const int HEARTBEAT_INTERVAL = NetworkConstants::HEARTBEAT_INTERVAL;
+    static const int HEARTBEAT_TIMEOUT = NetworkConstants::HEARTBEAT_TIMEOUT;
+    static const int MAX_RETRY_COUNT = NetworkConstants::MAX_RETRY_COUNT;
+    QDateTime m_lastHeartbeat;
 };
 
 #endif // TCPCLIENT_H

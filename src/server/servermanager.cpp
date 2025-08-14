@@ -12,6 +12,9 @@
 #include <QMutexLocker>
 #include <QDateTime>
 #include <QElapsedTimer>
+#include <QLoggingCategory>
+
+Q_LOGGING_CATEGORY(lcServer, "server")
 #include <QBuffer>
 #include <QTcpSocket>
 #include <QThread>
@@ -168,13 +171,40 @@ void ServerManager::stopServer(bool synchronous)
     
     // 停止清理定时器
     m_cleanupTimer->stop();
-    
+    // 优雅停服：先通知客户端断开，再等待，最后强制清理
+    {
+        QMutexLocker locker(&m_clientsMutex);
+        for (auto it = m_clients.begin(); it != m_clients.end(); ++it) {
+            if (it.value()) {
+                it.value()->sendMessage(MessageType::DISCONNECT_REQUEST, QByteArray());
+            }
+        }
+    }
+    // 等待 500ms 让对端处理
+    QElapsedTimer _t; _t.start();
+    const int gracefulWaitMs = 500;
     if (synchronous) {
-        // 同步停止
+        while (_t.elapsed() < gracefulWaitMs) {
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
+        }
+    } else {
+        QTimer::singleShot(gracefulWaitMs, this, []{});
+    }
+
+    // 强制断开仍然存活的客户端
+    {
+        QMutexLocker locker(&m_clientsMutex);
+        for (auto it = m_clients.begin(); it != m_clients.end(); ++it) {
+            if (it.value()) {
+                it.value()->forceDisconnect();
+            }
+        }
+    }
+
+    if (synchronous) {
         m_tcpServer->stopServer(true);
         m_isServerRunning = false;
     } else {
-        // 异步停止
         m_stopTimeoutTimer->start();
         m_tcpServer->stopServer(false);
     }
@@ -408,6 +438,8 @@ void ServerManager::onNewConnection(qintptr socketDescriptor)
     
     // 创建客户端处理器
     ClientHandler *handler = new ClientHandler(socketDescriptor, this);
+    // 注入认证所需的服务器端密码（可为空）
+    handler->setExpectedPassword(m_password);
     qDebug() << "[DEBUG] Created ClientHandler for client:" << handler->clientId();
     
     // 连接信号到 ServerManager
@@ -416,7 +448,7 @@ void ServerManager::onNewConnection(qintptr socketDescriptor)
     });
     connect(handler, &ClientHandler::disconnected, this, [this, handler]() {
         onClientDisconnected(handler->clientAddress());
-        unregisterClientHandler(handler->clientAddress());
+        unregisterClientHandler(handler->clientId());
     });
     connect(handler, &ClientHandler::authenticated, this, [this, handler]() {
         onClientAuthenticated(handler->clientAddress());
@@ -535,11 +567,11 @@ quint64 ServerManager::totalBytesSent() const
     return m_totalBytesSent;
 }
 
-void ServerManager::sendMessageToClient(const QString &clientAddress, MessageType type, const QByteArray &data)
+void ServerManager::sendMessageToClient(const QString &clientId, MessageType type, const QByteArray &data)
 {
     QMutexLocker locker(&m_clientsMutex);
-    if (m_clients.contains(clientAddress)) {
-        ClientHandler *handler = m_clients[clientAddress];
+    if (m_clients.contains(clientId)) {
+        ClientHandler *handler = m_clients[clientId];
         if (handler) {
             handler->sendMessage(type, data);
         }
@@ -580,11 +612,11 @@ void ServerManager::sendMessageToAllClients(MessageType type, const QByteArray &
     }
 }
 
-void ServerManager::disconnectClient(const QString &clientAddress)
+void ServerManager::disconnectClient(const QString &clientId)
 {
     QMutexLocker locker(&m_clientsMutex);
-    if (m_clients.contains(clientAddress)) {
-        ClientHandler *handler = m_clients[clientAddress];
+    if (m_clients.contains(clientId)) {
+        ClientHandler *handler = m_clients[clientId];
         if (handler) {
             handler->disconnectClient();
         }
@@ -627,10 +659,10 @@ void ServerManager::cleanupDisconnectedClients()
     }
 }
 
-ClientHandler* ServerManager::findClientHandler(const QString &address)
+ClientHandler* ServerManager::findClientHandler(const QString &clientId)
 {
     QMutexLocker locker(&m_clientsMutex);
-    return m_clients.value(address, nullptr);
+    return m_clients.value(clientId, nullptr);
 }
 
 QString ServerManager::generateClientId(const QString &address, quint16 port)
@@ -647,10 +679,10 @@ void ServerManager::registerClientHandler(ClientHandler *handler)
     m_clients[clientId] = handler;
 }
 
-void ServerManager::unregisterClientHandler(const QString &clientAddress)
+void ServerManager::unregisterClientHandler(const QString &clientId)
 {
     QMutexLocker locker(&m_clientsMutex);
-    auto it = m_clients.find(clientAddress);
+    auto it = m_clients.find(clientId);
     if (it != m_clients.end()) {
         if (it.value()) {
             it.value()->deleteLater();

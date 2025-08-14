@@ -1,5 +1,5 @@
 #include "inputsimulator.h"
-#include "../core/uiconstants.h"
+#include "../common/core/uiconstants.h"
 #include <QApplication>
 #include <QTimer>
 #include <QThread>
@@ -11,7 +11,7 @@
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <winuser.h>
-#elif defined(Q_OS_MAC)
+#elif defined(Q_OS_MACOS)
 #include <ApplicationServices/ApplicationServices.h>
 #include <Carbon/Carbon.h>
 #elif defined(Q_OS_LINUX)

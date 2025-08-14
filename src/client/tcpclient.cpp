@@ -18,6 +18,7 @@ TcpClient::TcpClient(QObject *parent)
     , m_password()
     , m_connectionTimer(new QTimer(this))
     , m_heartbeatTimer(new QTimer(this))
+    , m_heartbeatCheckTimer(new QTimer(this))
     , m_connectionTimeout(DEFAULT_CONNECTION_TIMEOUT)
     , m_frameDataMutex()
 {
@@ -28,6 +29,9 @@ TcpClient::TcpClient(QObject *parent)
     // 设置心跳定时器
     m_heartbeatTimer->setInterval(HEARTBEAT_INTERVAL);
     connect(m_heartbeatTimer, &QTimer::timeout, this, &TcpClient::sendHeartbeat);
+    // 设置心跳检查定时器
+    m_heartbeatCheckTimer->setInterval(HEARTBEAT_TIMEOUT);
+    connect(m_heartbeatCheckTimer, &QTimer::timeout, this, &TcpClient::checkHeartbeat);
     
     // 连接socket信号
     connect(m_socket, &QTcpSocket::connected, this, &TcpClient::onConnected);
@@ -63,8 +67,9 @@ void TcpClient::disconnectFromHost()
     }
     
     m_connectionTimer->stop();
-
     m_heartbeatTimer->stop();
+    m_heartbeatTimer->stop();
+    m_heartbeatCheckTimer->stop();
     
     // 清理接收缓冲区
     m_receiveBuffer.clear();
@@ -78,8 +83,9 @@ void TcpClient::disconnectFromHost()
 void TcpClient::abort()
 {
     m_connectionTimer->stop();
-
     m_heartbeatTimer->stop();
+    m_heartbeatTimer->stop();
+    m_heartbeatCheckTimer->stop();
     
     // 清理接收缓冲区
     m_receiveBuffer.clear();
@@ -166,6 +172,8 @@ void TcpClient::onConnected()
     
     // 启动心跳定时器
     m_heartbeatTimer->start();
+    m_lastHeartbeat = QDateTime::currentDateTime();
+    m_heartbeatCheckTimer->start();
     
     qDebug() << "TcpClient::onConnected - Emitting connected signal";
     emit connected();
@@ -175,6 +183,7 @@ void TcpClient::onDisconnected()
 {
     m_connectionTimer->stop();
     m_heartbeatTimer->stop();
+    m_heartbeatCheckTimer->stop();
     
     // 清理接收缓冲区，避免下次连接时处理残留数据
     m_receiveBuffer.clear();
@@ -186,6 +195,7 @@ void TcpClient::onReadyRead()
 {
     QByteArray data = m_socket->readAll();
     m_receiveBuffer.append(data);
+    m_lastHeartbeat = QDateTime::currentDateTime();
     
     // 按照协议处理消息
     while (m_receiveBuffer.size() >= static_cast<qsizetype>(SERIALIZED_HEADER_SIZE)) {
@@ -367,6 +377,7 @@ void TcpClient::handleHeartbeat()
 {
     // 简单实现，暂时不处理
     qDebug() << MessageConstants::Network::HEARTBEAT_RECEIVED;
+    m_lastHeartbeat = QDateTime::currentDateTime();
 }
 
 void TcpClient::handleErrorMessage(const QByteArray &data)
@@ -446,6 +457,14 @@ void TcpClient::handleScreenData(const QByteArray &data)
     if (loaded) {
         // 发出信号，传递屏幕数据给UI
         emit screenDataReceived(frame);
+    }
+}
+
+void TcpClient::checkHeartbeat()
+{
+    if (m_lastHeartbeat.secsTo(QDateTime::currentDateTime()) > HEARTBEAT_TIMEOUT / 1000) {
+        emit errorOccurred("心跳超时");
+        disconnectFromHost();
     }
 }
 
