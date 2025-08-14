@@ -108,29 +108,29 @@ void MainWindow::createActions()
     m_newConnectionAction = new QAction(tr("新建连接(&N)..."), this);
     m_newConnectionAction->setShortcuts(QKeySequence::New);
     m_newConnectionAction->setStatusTip(tr("创建新的远程连接"));
-    m_newConnectionAction->setIcon(QIcon(":/icons/new_connection.png"));
+    m_newConnectionAction->setIcon(QIcon(":/icons/new_connection.svg"));
     
     m_exitAction = new QAction(tr("退出(&X)"), this);
     m_exitAction->setShortcuts(QKeySequence::Quit);
     m_exitAction->setStatusTip(tr("退出应用程序"));
-    m_exitAction->setIcon(QIcon(":/icons/exit.png"));
+    m_exitAction->setIcon(QIcon(":/icons/exit.svg"));
     
     // 连接菜单动作
     m_connectAction = new QAction(tr("连接(&C)"), this);
     m_connectAction->setShortcut(QKeySequence(tr("Ctrl+O")));
     m_connectAction->setStatusTip(tr("连接到远程主机"));
-    m_connectAction->setIcon(QIcon(":/icons/connect.png"));
+    m_connectAction->setIcon(QIcon(":/icons/connect.svg"));
     
     // 工具菜单动作
     m_settingsAction = new QAction(tr("设置(&S)..."), this);
     m_settingsAction->setShortcut(QKeySequence::Preferences);
     m_settingsAction->setStatusTip(tr("配置应用程序设置"));
-    m_settingsAction->setIcon(QIcon(":/icons/settings.png"));
+    m_settingsAction->setIcon(QIcon(":/icons/settings.svg"));
     
     // 帮助菜单动作
     m_aboutAction = new QAction(tr("关于(&A)"), this);
     m_aboutAction->setStatusTip(tr("显示应用程序的关于对话框"));
-    m_aboutAction->setIcon(QIcon(":/icons/about.png"));
+    m_aboutAction->setIcon(QIcon(":/icons/about.svg"));
     
     m_aboutQtAction = new QAction(tr("关于Qt(&Q)"), this);
     m_aboutQtAction->setStatusTip(tr("显示Qt库的关于对话框"));
@@ -756,7 +756,7 @@ void MainWindow::showConnectionContextMenu(const QPoint &pos)
     QMenu contextMenu(this);
     
     // 添加连接动作
-    QAction *connectAction = contextMenu.addAction(QIcon(":/icons/connect.png"), tr("连接"));
+    QAction *connectAction = contextMenu.addAction(QIcon(":/icons/connect.svg"), tr("连接"));
     connect(connectAction, &QAction::triggered, [this, item]() {
         m_connectionList->setCurrentItem(item);
         onConnectionItemDoubleClicked();
@@ -765,7 +765,7 @@ void MainWindow::showConnectionContextMenu(const QPoint &pos)
     contextMenu.addSeparator();
     
     // 添加删除动作
-    QAction *deleteAction = contextMenu.addAction(QIcon(":/icons/delete.png"), tr("删除"));
+    QAction *deleteAction = contextMenu.addAction(QIcon(":/icons/delete.svg"), tr("删除"));
     connect(deleteAction, &QAction::triggered, [this, item]() {
         m_connectionList->setCurrentItem(item);
         

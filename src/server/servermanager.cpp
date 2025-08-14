@@ -448,7 +448,7 @@ void ServerManager::setupServerConnections()
     
     connect(m_tcpServer, &TcpServer::serverStarted, this, &ServerManager::onServerStarted);
     connect(m_tcpServer, &TcpServer::serverStopped, this, &ServerManager::onServerStopped);
-    connect(m_tcpServer, &TcpServer::newConnection, this, &ServerManager::onNewConnection);
+    connect(m_tcpServer, &TcpServer::newClientConnection, this, &ServerManager::onNewConnection);
     connect(m_tcpServer, &TcpServer::errorOccurred, this, &ServerManager::onServerError);
 }
 
@@ -727,8 +727,6 @@ void ServerManager::enableAdvancedEncoding(bool enabled)
         qDebug() << "Advanced encoding" << (enabled ? "enabled" : "disabled");
     }
 }
-
-
 
 void ServerManager::sendConnectionRejectionMessage(qintptr socketDescriptor, const QString &errorMessage)
 {

@@ -172,7 +172,7 @@ QComboBox::drop-down {
 }
 
 QComboBox::down-arrow {
-    image: url(:/icons/arrow_down.png);
+    /* use platform default arrow; removed missing resource :/icons/arrow_down.png */
     width: 12px;
     height: 12px;
 }
@@ -206,7 +206,7 @@ QCheckBox::indicator:checked {
     border: 1px solid #3498db;
     background-color: #3498db;
     border-radius: 2px;
-    image: url(:/icons/check.png);
+    /* removed missing resource :/icons/check.png */
 }
 
 QCheckBox::indicator:hover {
@@ -344,13 +344,13 @@ QTreeView::item:hover {
 QTreeView::branch:has-children:!has-siblings:closed,
 QTreeView::branch:closed:has-children:has-siblings {
     border-image: none;
-    image: url(:/icons/branch_closed.png);
+    /* removed missing resource :/icons/branch_closed.png */
 }
 
 QTreeView::branch:open:has-children:!has-siblings,
 QTreeView::branch:open:has-children:has-siblings {
     border-image: none;
-    image: url(:/icons/branch_open.png);
+    /* removed missing resource :/icons/branch_open.png */
 }
 
 /* 表格视图样式 */

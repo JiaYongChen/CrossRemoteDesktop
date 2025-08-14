@@ -14,8 +14,8 @@
    <string>远程桌面连接</string>
   </property>
   <property name="windowIcon">
-   <iconset resource="../../resources/resources.qrc">
-    <normaloff>:/icons/connect.png</normaloff>:/icons/connect.png</iconset>
+  <iconset resource="../../resources/resources.qrc">
+   <normaloff>:/icons/connect.svg</normaloff>:/icons/connect.svg</iconset>
   </property>
   <property name="modal">
    <bool>true</bool>
@@ -608,8 +608,8 @@
         <string>测试连接</string>
        </property>
        <property name="icon">
-        <iconset resource="../../resources/resources.qrc">
-         <normaloff>:/icons/test.png</normaloff>:/icons/test.png</iconset>
+      <iconset resource="../../resources/resources.qrc">
+         <normaloff>:/icons/test.svg</normaloff>:/icons/test.svg</iconset>
        </property>
       </widget>
      </item>
@@ -632,8 +632,8 @@
         <string>保存</string>
        </property>
        <property name="icon">
-        <iconset resource="../../resources/resources.qrc">
-         <normaloff>:/icons/save.png</normaloff>:/icons/save.png</iconset>
+      <iconset resource="../../resources/resources.qrc">
+         <normaloff>:/icons/save.svg</normaloff>:/icons/save.svg</iconset>
        </property>
       </widget>
      </item>

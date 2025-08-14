@@ -117,5 +117,5 @@ void TcpServer::incomingConnection(qintptr socketDescriptor)
     qDebug() << "[DEBUG] TcpServer::incomingConnection called with descriptor:" << socketDescriptor;
     
     // 发出新连接信号，让 ServerManager 处理客户端管理
-    emit newConnection(socketDescriptor);
+    emit newClientConnection(socketDescriptor);
 }

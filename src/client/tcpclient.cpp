@@ -14,7 +14,6 @@ TcpClient::TcpClient(QObject *parent)
     , m_hostName()
     , m_port(0)
     , m_sessionId()
-
     , m_username()
     , m_password()
     , m_connectionTimer(new QTimer(this))
@@ -25,8 +24,6 @@ TcpClient::TcpClient(QObject *parent)
     // 设置连接超时定时器
     m_connectionTimer->setSingleShot(true);
     connect(m_connectionTimer, &QTimer::timeout, this, &TcpClient::onConnectionTimeout);
-    
-
     
     // 设置心跳定时器
     m_heartbeatTimer->setInterval(HEARTBEAT_INTERVAL);
@@ -76,8 +73,6 @@ void TcpClient::disconnectFromHost()
         // 使用abort()强制断开连接，避免阻塞等待
         m_socket->abort();
     }
-    
-
 }
 
 void TcpClient::abort()
@@ -92,8 +87,6 @@ void TcpClient::abort()
     m_socket->abort();
 
 }
-
-
 
 bool TcpClient::isConnected() const
 {
@@ -157,10 +150,6 @@ int TcpClient::connectionTimeout() const
 {
     return m_connectionTimeout;
 }
-
-
-
-
 
 void TcpClient::onConnected()
 {
@@ -283,16 +272,12 @@ void TcpClient::onConnectionTimeout()
     emit errorOccurred("连接超时");
 }
 
-
-
 void TcpClient::sendHeartbeat()
 {
     if (isConnected()) {
         sendMessage(MessageType::HEARTBEAT, QByteArray());
     }
 }
-
-
 
 void TcpClient::processMessage(const MessageHeader &header, const QByteArray &payload)
 {
@@ -554,10 +539,6 @@ void TcpClient::sendDisconnectRequest()
 {
     sendMessage(static_cast<MessageType>(4), QByteArray("disconnect"));
 }
-
-
-
-
 
 void TcpClient::resetConnection()
 {

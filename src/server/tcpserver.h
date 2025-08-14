@@ -37,7 +37,7 @@ public:
 signals:
     void serverStarted();
     void serverStopped();
-    void newConnection(qintptr socketDescriptor);
+    void newClientConnection(qintptr socketDescriptor);
     void errorOccurred(const QString &error);
     
 protected:

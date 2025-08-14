@@ -14,8 +14,8 @@
    <string>应用程序设置</string>
   </property>
   <property name="windowIcon">
-   <iconset resource="../../resources/resources.qrc">
-    <normaloff>:/icons/settings.png</normaloff>:/icons/settings.png</iconset>
+    <iconset resource="../../resources/resources.qrc">
+     <normaloff>:/icons/settings.svg</normaloff>:/icons/settings.svg</iconset>
   </property>
   <property name="modal">
    <bool>true</bool>
@@ -65,7 +65,7 @@ QCheckBox::indicator {
 QCheckBox::indicator:checked {
     background-color: #007bff;
     border-color: #007bff;
-    image: url(:/icons/check.png);
+    /* removed missing resource :/icons/check.png */
 }
 
 QComboBox {

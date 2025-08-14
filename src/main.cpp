@@ -32,7 +32,7 @@ void initializeApplication(QApplication &app)
     app.setOrganizationDomain(APP_DOMAIN);
     
     // 设置应用程序图标
-    app.setWindowIcon(QIcon(":/icons/app.png"));
+    app.setWindowIcon(QIcon(":/icons/app.svg"));
     
     // 设置高DPI支持
     // High-DPI scaling is enabled by default in Qt 6

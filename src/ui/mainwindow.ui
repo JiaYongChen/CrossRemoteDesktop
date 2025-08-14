@@ -15,7 +15,7 @@
   </property>
   <property name="windowIcon">
    <iconset resource="../../../resources/resources.qrc">
-    <normaloff>:/icons/app.png</normaloff>:/icons/app.png</iconset>
+  <normaloff>:/icons/app.svg</normaloff>:/icons/app.svg</iconset>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout">
@@ -75,7 +75,7 @@
            <set>Qt::AlignCenter</set>
           </property>
           <property name="pixmap">
-           <pixmap resource="../../resources/resources.qrc">:/icons/logo.png</pixmap>
+           <pixmap resource="../../resources/resources.qrc">:/icons/app.svg</pixmap>
           </property>
           <property name="scaledContents">
            <bool>false</bool>
@@ -168,7 +168,7 @@
             </property>
             <property name="icon">
              <iconset resource="../../resources/resources.qrc">
-              <normaloff>:/icons/connect.png</normaloff>:/icons/connect.png</iconset>
+              <normaloff>:/icons/reconnect.svg</normaloff>:/icons/reconnect.svg</iconset>
             </property>
             <property name="iconSize">
              <size>
@@ -213,7 +213,7 @@ QPushButton:pressed {
             </property>
             <property name="icon">
              <iconset resource="../../resources/resources.qrc">
-              <normaloff>:/icons/server.png</normaloff>:/icons/server.png</iconset>
+            <normaloff>:/icons/server.svg</normaloff>:/icons/server.svg</iconset>
             </property>
             <property name="iconSize">
              <size>
@@ -482,7 +482,7 @@ QListWidget::item:hover {
   <action name="actionNewConnection">
    <property name="icon">
     <iconset resource="../../resources/resources.qrc">
-     <normaloff>:/icons/new_connection.png</normaloff>:/icons/new_connection.png</iconset>
+    <normaloff>:/icons/new_connection.svg</normaloff>:/icons/new_connection.svg</iconset>
    </property>
    <property name="text">
     <string>新建连接(&amp;N)</string>
@@ -497,7 +497,7 @@ QListWidget::item:hover {
   <action name="actionConnect">
    <property name="icon">
     <iconset resource="../../resources/resources.qrc">
-     <normaloff>:/icons/connect.png</normaloff>:/icons/connect.png</iconset>
+    <normaloff>:/icons/connect.svg</normaloff>:/icons/connect.svg</iconset>
    </property>
    <property name="text">
     <string>连接(&amp;C)</string>
@@ -515,7 +515,7 @@ QListWidget::item:hover {
    </property>
    <property name="icon">
     <iconset resource="../../resources/resources.qrc">
-     <normaloff>:/icons/disconnect.png</normaloff>:/icons/disconnect.png</iconset>
+    <normaloff>:/icons/disconnect.svg</normaloff>:/icons/disconnect.svg</iconset>
    </property>
    <property name="text">
     <string>断开连接(&amp;D)</string>
@@ -530,7 +530,7 @@ QListWidget::item:hover {
   <action name="actionStartServer">
    <property name="icon">
     <iconset resource="../../resources/resources.qrc">
-     <normaloff>:/icons/server_start.png</normaloff>:/icons/server_start.png</iconset>
+              <normaloff>:/icons/server.svg</normaloff>:/icons/server.svg</iconset>
    </property>
    <property name="text">
     <string>启动服务器(&amp;S)</string>
@@ -548,7 +548,7 @@ QListWidget::item:hover {
    </property>
    <property name="icon">
     <iconset resource="../../resources/resources.qrc">
-     <normaloff>:/icons/server_stop.png</normaloff>:/icons/server_stop.png</iconset>
+              <normaloff>:/icons/server.svg</normaloff>:/icons/server.svg</iconset>
    </property>
    <property name="text">
     <string>停止服务器(&amp;T)</string>
@@ -563,7 +563,7 @@ QListWidget::item:hover {
   <action name="actionSettings">
    <property name="icon">
     <iconset resource="../../resources/resources.qrc">
-     <normaloff>:/icons/settings.png</normaloff>:/icons/settings.png</iconset>
+    <normaloff>:/icons/settings.svg</normaloff>:/icons/settings.svg</iconset>
    </property>
    <property name="text">
     <string>设置(&amp;P)</string>
@@ -584,7 +584,7 @@ QListWidget::item:hover {
    </property>
    <property name="icon">
     <iconset resource="../../resources/resources.qrc">
-     <normaloff>:/icons/fullscreen.png</normaloff>:/icons/fullscreen.png</iconset>
+    <normaloff>:/icons/fullscreen.svg</normaloff>:/icons/fullscreen.svg</iconset>
    </property>
    <property name="text">
     <string>全屏(&amp;F)</string>
@@ -599,7 +599,7 @@ QListWidget::item:hover {
   <action name="actionAbout">
    <property name="icon">
     <iconset resource="../../resources/resources.qrc">
-     <normaloff>:/icons/about.png</normaloff>:/icons/about.png</iconset>
+    <normaloff>:/icons/about.svg</normaloff>:/icons/about.svg</iconset>
    </property>
    <property name="text">
     <string>关于(&amp;A)</string>
@@ -611,7 +611,7 @@ QListWidget::item:hover {
   <action name="actionExit">
    <property name="icon">
     <iconset resource="../../resources/resources.qrc">
-     <normaloff>:/icons/exit.png</normaloff>:/icons/exit.png</iconset>
+    <normaloff>:/icons/exit.svg</normaloff>:/icons/exit.svg</iconset>
    </property>
    <property name="text">
     <string>退出(&amp;X)</string>
@@ -629,7 +629,7 @@ QListWidget::item:hover {
    </property>
    <property name="icon">
     <iconset resource="../../resources/resources.qrc">
-     <normaloff>:/icons/reconnect.png</normaloff>:/icons/reconnect.png</iconset>
+              <normaloff>:/icons/connect.svg</normaloff>:/icons/connect.svg</iconset>
    </property>
    <property name="text">
     <string>重新连接(&amp;R)</string>
@@ -644,7 +644,7 @@ QListWidget::item:hover {
   <action name="actionImportConnections">
    <property name="icon">
     <iconset resource="../../resources/resources.qrc">
-     <normaloff>:/icons/import.png</normaloff>:/icons/import.png</iconset>
+    <normaloff>:/icons/import.svg</normaloff>:/icons/import.svg</iconset>
    </property>
    <property name="text">
     <string>导入连接(&amp;I)</string>
@@ -656,7 +656,7 @@ QListWidget::item:hover {
   <action name="actionExportConnections">
    <property name="icon">
     <iconset resource="../../resources/resources.qrc">
-     <normaloff>:/icons/export.png</normaloff>:/icons/export.png</iconset>
+    <normaloff>:/icons/export.svg</normaloff>:/icons/export.svg</iconset>
    </property>
    <property name="text">
     <string>导出连接(&amp;E)</string>
@@ -668,7 +668,7 @@ QListWidget::item:hover {
   <action name="actionServerSettings">
    <property name="icon">
     <iconset resource="../../resources/resources.qrc">
-     <normaloff>:/icons/server_settings.png</normaloff>:/icons/server_settings.png</iconset>
+              <normaloff>:/icons/settings.svg</normaloff>:/icons/settings.svg</iconset>
    </property>
    <property name="text">
     <string>服务器设置(&amp;S)</string>
@@ -683,7 +683,7 @@ QListWidget::item:hover {
    </property>
    <property name="icon">
     <iconset resource="../../resources/resources.qrc">
-     <normaloff>:/icons/file_transfer.png</normaloff>:/icons/file_transfer.png</iconset>
+    <normaloff>:/icons/file_transfer.svg</normaloff>:/icons/file_transfer.svg</iconset>
    </property>
    <property name="text">
     <string>文件传输(&amp;F)</string>
@@ -707,7 +707,7 @@ QListWidget::item:hover {
    </property>
    <property name="icon">
     <iconset resource="../../resources/resources.qrc">
-     <normaloff>:/icons/clipboard.png</normaloff>:/icons/clipboard.png</iconset>
+    <normaloff>:/icons/clipboard.svg</normaloff>:/icons/clipboard.svg</iconset>
    </property>
    <property name="text">
     <string>剪贴板同步(&amp;C)</string>
@@ -722,7 +722,7 @@ QListWidget::item:hover {
    </property>
    <property name="icon">
     <iconset resource="../../resources/resources.qrc">
-     <normaloff>:/icons/screenshot.png</normaloff>:/icons/screenshot.png</iconset>
+  <normaloff>:/icons/screenshot.svg</normaloff>:/icons/screenshot.svg</iconset>
    </property>
    <property name="text">
     <string>截图(&amp;S)</string>
@@ -743,7 +743,7 @@ QListWidget::item:hover {
    </property>
    <property name="icon">
     <iconset resource="../../resources/resources.qrc">
-     <normaloff>:/icons/record.png</normaloff>:/icons/record.png</iconset>
+  <normaloff>:/icons/record.svg</normaloff>:/icons/record.svg</iconset>
    </property>
    <property name="text">
     <string>录制(&amp;R)</string>
@@ -761,7 +761,7 @@ QListWidget::item:hover {
    </property>
    <property name="icon">
     <iconset resource="../../resources/resources.qrc">
-     <normaloff>:/icons/zoom_in.png</normaloff>:/icons/zoom_in.png</iconset>
+  <normaloff>:/icons/zoom_in.svg</normaloff>:/icons/zoom_in.svg</iconset>
    </property>
    <property name="text">
     <string>放大(&amp;I)</string>
@@ -779,7 +779,7 @@ QListWidget::item:hover {
    </property>
    <property name="icon">
     <iconset resource="../../resources/resources.qrc">
-     <normaloff>:/icons/zoom_out.png</normaloff>:/icons/zoom_out.png</iconset>
+  <normaloff>:/icons/zoom_out.svg</normaloff>:/icons/zoom_out.svg</iconset>
    </property>
    <property name="text">
     <string>缩小(&amp;O)</string>
@@ -797,7 +797,7 @@ QListWidget::item:hover {
    </property>
    <property name="icon">
     <iconset resource="../../resources/resources.qrc">
-     <normaloff>:/icons/zoom_fit.png</normaloff>:/icons/zoom_fit.png</iconset>
+  <normaloff>:/icons/zoom_fit.svg</normaloff>:/icons/zoom_fit.svg</iconset>
    </property>
    <property name="text">
     <string>适应窗口(&amp;F)</string>
@@ -815,7 +815,7 @@ QListWidget::item:hover {
    </property>
    <property name="icon">
     <iconset resource="../../resources/resources.qrc">
-     <normaloff>:/icons/zoom_actual.png</normaloff>:/icons/zoom_actual.png</iconset>
+              <normaloff>:/icons/zoom_actual.svg</normaloff>:/icons/zoom_actual.svg</iconset>
    </property>
    <property name="text">
     <string>实际大小(&amp;A)</string>
@@ -858,7 +858,7 @@ QListWidget::item:hover {
   <action name="actionUserGuide">
    <property name="icon">
     <iconset resource="../../resources/resources.qrc">
-     <normaloff>:/icons/help.png</normaloff>:/icons/help.png</iconset>
+  <normaloff>:/icons/help.svg</normaloff>:/icons/help.svg</iconset>
    </property>
    <property name="text">
     <string>用户指南(&amp;U)</string>
@@ -873,7 +873,7 @@ QListWidget::item:hover {
   <action name="actionKeyboardShortcuts">
    <property name="icon">
     <iconset resource="../../resources/resources.qrc">
-     <normaloff>:/icons/keyboard.png</normaloff>:/icons/keyboard.png</iconset>
+              <normaloff>:/icons/keyboard.svg</normaloff>:/icons/keyboard.svg</iconset>
    </property>
    <property name="text">
     <string>键盘快捷键(&amp;K)</string>
@@ -885,7 +885,7 @@ QListWidget::item:hover {
   <action name="actionCheckUpdates">
    <property name="icon">
     <iconset resource="../../resources/resources.qrc">
-     <normaloff>:/icons/update.png</normaloff>:/icons/update.png</iconset>
+              <normaloff>:/icons/update.svg</normaloff>:/icons/update.svg</iconset>
    </property>
    <property name="text">
     <string>检查更新(&amp;U)</string>
