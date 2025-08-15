@@ -1,5 +1,7 @@
 #include "connectionmanager.h"
 #include <QDebug>
+#include "../../common/core/logging_categories.h"
+#include <QMessageLogger>
 
 ConnectionManager::ConnectionManager(QObject *parent)
     : QObject(parent)
@@ -33,7 +35,7 @@ ConnectionManager::~ConnectionManager()
 void ConnectionManager::connectToHost(const QString &host, int port)
 {
     if (m_connectionState != Disconnected) {
-        qDebug() << "ConnectionManager: Already connecting or connected, disconnecting first";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "ConnectionManager: Already connecting or connected, disconnecting first";
         disconnectFromHost();
     }
     
@@ -252,7 +254,7 @@ void ConnectionManager::onTcpError(const QString &error)
 
 void ConnectionManager::onConnectionTimeout()
 {
-    qDebug() << "ConnectionManager: Connection timeout";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "ConnectionManager: Connection timeout";
     setConnectionState(Error);
     emit statusMessage(tr("连接超时"));
     
@@ -273,10 +275,10 @@ void ConnectionManager::onConnectionTimeout()
 void ConnectionManager::setConnectionState(ConnectionState state)
 {
     if (m_connectionState != state) {
-        qDebug() << "ConnectionManager: State changed from" << m_connectionState << "to" << state;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "ConnectionManager: State changed from" << m_connectionState << "to" << state;
         m_connectionState = state;
         emit connectionStateChanged(state);
-        qDebug() << "ConnectionManager: Emitted connectionStateChanged signal with state:" << state;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "ConnectionManager: Emitted connectionStateChanged signal with state:" << state;
     }
 }
 

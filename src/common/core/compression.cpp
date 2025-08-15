@@ -2,11 +2,13 @@
 #include "constants.h"
 #include "messageconstants.h"
 #include <QDebug>
+#include "logging_categories.h"
 #include <zlib.h>
 #include <lz4.h>
 #include <lz4hc.h>
 #include <zstd.h>
 #include <QElapsedTimer>
+#include <QMessageLogger>
 #include <QCryptographicHash>
 #include <QMutex>
 #include <QMutexLocker>
@@ -35,7 +37,7 @@ QByteArray Compression::compress(const QByteArray &data, Algorithm algorithm, Le
         return zstd.compress(data);
     }
     default:
-        qWarning() << MessageConstants::Compression::UNSUPPORTED_ALGORITHM;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << MessageConstants::Compression::UNSUPPORTED_ALGORITHM;
         return QByteArray();
     }
 }
@@ -56,7 +58,7 @@ QByteArray Compression::decompress(const QByteArray &compressedData, Algorithm a
         return zstd.decompress(compressedData);
     }
     default:
-        qWarning() << MessageConstants::Compression::UNSUPPORTED_ALGORITHM;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << MessageConstants::Compression::UNSUPPORTED_ALGORITHM;
         return QByteArray();
     }
 }
@@ -142,7 +144,7 @@ void ZlibCompression::setLevel(int level)
     if (level >= Z_NO_COMPRESSION && level <= Z_BEST_COMPRESSION) {
         m_level = level;
     } else {
-        qWarning() << MessageConstants::Compression::INVALID_COMPRESSION_LEVEL;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << MessageConstants::Compression::INVALID_COMPRESSION_LEVEL;
     }
 }
 
@@ -156,7 +158,7 @@ void ZlibCompression::setWindowBits(int windowBits)
     if (windowBits >= CoreConstants::MIN_WINDOW_BITS && windowBits <= CoreConstants::MAX_WINDOW_BITS) {
         m_windowBits = windowBits;
     } else {
-        qWarning() << MessageConstants::Compression::INVALID_WINDOW_BITS;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << MessageConstants::Compression::INVALID_WINDOW_BITS;
     }
 }
 
@@ -170,7 +172,7 @@ void ZlibCompression::setMemLevel(int memLevel)
     if (memLevel >= 1 && memLevel <= 9) {
         m_memLevel = memLevel;
     } else {
-        qWarning() << MessageConstants::Compression::INVALID_MEMORY_LEVEL;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << MessageConstants::Compression::INVALID_MEMORY_LEVEL;
     }
 }
 
@@ -199,7 +201,7 @@ QByteArray ZlibCompression::compress(const QByteArray &data)
     memset(&stream, 0, sizeof(stream));
     
     if (deflateInit2(&stream, m_level, Z_DEFLATED, m_windowBits, m_memLevel, m_strategy) != Z_OK) {
-        qWarning() << MessageConstants::Compression::ZLIB_INIT_FAILED;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << MessageConstants::Compression::ZLIB_INIT_FAILED;
         return QByteArray();
     }
     
@@ -215,7 +217,7 @@ QByteArray ZlibCompression::compress(const QByteArray &data)
     int result = deflate(&stream, Z_FINISH);
     
     if (result != Z_STREAM_END) {
-        qWarning() << MessageConstants::Compression::ZLIB_COMPRESSION_FAILED << result;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << MessageConstants::Compression::ZLIB_COMPRESSION_FAILED << result;
         deflateEnd(&stream);
         return QByteArray();
     }
@@ -236,7 +238,7 @@ QByteArray ZlibCompression::decompress(const QByteArray &compressedData)
     memset(&stream, 0, sizeof(stream));
     
     if (inflateInit2(&stream, m_windowBits) != Z_OK) {
-        qWarning() << MessageConstants::Compression::ZLIB_INIT_FAILED;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << MessageConstants::Compression::ZLIB_INIT_FAILED;
         return QByteArray();
     }
     
@@ -256,7 +258,7 @@ QByteArray ZlibCompression::decompress(const QByteArray &compressedData)
         result = inflate(&stream, Z_NO_FLUSH);
         
         if (result == Z_STREAM_ERROR || result == Z_DATA_ERROR || result == Z_MEM_ERROR) {
-            qWarning() << MessageConstants::Compression::ZLIB_DECOMPRESSION_FAILED << result;
+            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << MessageConstants::Compression::ZLIB_DECOMPRESSION_FAILED << result;
             inflateEnd(&stream);
             return QByteArray();
         }
@@ -269,7 +271,7 @@ QByteArray ZlibCompression::decompress(const QByteArray &compressedData)
     inflateEnd(&stream);
     
     if (result != Z_STREAM_END) {
-        qWarning() << MessageConstants::Compression::ZLIB_DECOMPRESSION_INCOMPLETE;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << MessageConstants::Compression::ZLIB_DECOMPRESSION_INCOMPLETE;
         return QByteArray();
     }
     
@@ -302,7 +304,7 @@ void LZ4Compression::setLevel(int level)
     if (level >= 1 && level <= LZ4HC_CLEVEL_MAX) {
         m_level = level;
     } else {
-        qWarning() << MessageConstants::Compression::INVALID_LZ4_LEVEL << LZ4HC_CLEVEL_MAX;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << MessageConstants::Compression::INVALID_LZ4_LEVEL << LZ4HC_CLEVEL_MAX;
     }
 }
 
@@ -339,7 +341,7 @@ QByteArray LZ4Compression::compress(const QByteArray &data)
     }
     
     if (compressedSize <= 0) {
-        qWarning() << MessageConstants::Compression::LZ4_COMPRESSION_FAILED;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << MessageConstants::Compression::LZ4_COMPRESSION_FAILED;
         return QByteArray();
     }
     
@@ -350,7 +352,7 @@ QByteArray LZ4Compression::compress(const QByteArray &data)
 QByteArray LZ4Compression::decompress(const QByteArray &compressedData, int originalSize)
 {
     if (compressedData.isEmpty() || originalSize <= 0) {
-        qWarning() << MessageConstants::Compression::INVALID_INPUT;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << MessageConstants::Compression::INVALID_INPUT;
         return QByteArray();
     }
     
@@ -360,12 +362,12 @@ QByteArray LZ4Compression::decompress(const QByteArray &compressedData, int orig
                                               compressedData.size(), originalSize);
     
     if (decompressedSize < 0) {
-        qWarning() << MessageConstants::Compression::LZ4_DECOMPRESSION_FAILED;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << MessageConstants::Compression::LZ4_DECOMPRESSION_FAILED;
         return QByteArray();
     }
     
     if (decompressedSize != originalSize) {
-        qWarning() << MessageConstants::Compression::SIZE_MISMATCH << originalSize << "Got:" << decompressedSize;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << MessageConstants::Compression::SIZE_MISMATCH << originalSize << "Got:" << decompressedSize;
         return QByteArray();
     }
     
@@ -1006,7 +1008,7 @@ void Compression::StreamDecompressor::reset()
 QByteArray LZ4Compression::decompressWithHeader(const QByteArray &compressedData)
 {
     if (compressedData.size() < static_cast<int>(sizeof(quint32))) {
-        qWarning() << MessageConstants::Compression::INVALID_HEADER;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << MessageConstants::Compression::INVALID_HEADER;
         return QByteArray();
     }
     
@@ -1039,7 +1041,7 @@ void ZstdCompression::setLevel(int level)
     if (level >= minLevel && level <= maxLevel) {
         m_level = level;
     } else {
-        qWarning() << MessageConstants::Compression::INVALID_ZSTD_LEVEL << minLevel << "-" << maxLevel;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << MessageConstants::Compression::INVALID_ZSTD_LEVEL << minLevel << "-" << maxLevel;
     }
 }
 
@@ -1061,7 +1063,7 @@ QByteArray ZstdCompression::compress(const QByteArray &data)
                                          data.data(), data.size(), m_level);
     
     if (ZSTD_isError(compressedSize)) {
-        qWarning() << MessageConstants::Compression::ZSTD_COMPRESSION_FAILED << ZSTD_getErrorName(compressedSize);
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << MessageConstants::Compression::ZSTD_COMPRESSION_FAILED << ZSTD_getErrorName(compressedSize);
         return QByteArray();
     }
     
@@ -1079,12 +1081,12 @@ QByteArray ZstdCompression::decompress(const QByteArray &compressedData)
     unsigned long long decompressedSize = ZSTD_getFrameContentSize(compressedData.data(), compressedData.size());
     
     if (decompressedSize == ZSTD_CONTENTSIZE_ERROR) {
-        qWarning() << MessageConstants::Compression::INVALID_COMPRESSED_DATA;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << MessageConstants::Compression::INVALID_COMPRESSED_DATA;
         return QByteArray();
     }
     
     if (decompressedSize == ZSTD_CONTENTSIZE_UNKNOWN) {
-        qWarning() << MessageConstants::Compression::UNKNOWN_SIZE;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << MessageConstants::Compression::UNKNOWN_SIZE;
         return QByteArray();
     }
     
@@ -1094,12 +1096,12 @@ QByteArray ZstdCompression::decompress(const QByteArray &compressedData)
                                        compressedData.data(), compressedData.size());
     
     if (ZSTD_isError(actualSize)) {
-        qWarning() << MessageConstants::Compression::ZSTD_DECOMPRESSION_FAILED << ZSTD_getErrorName(actualSize);
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << MessageConstants::Compression::ZSTD_DECOMPRESSION_FAILED << ZSTD_getErrorName(actualSize);
         return QByteArray();
     }
     
     if (actualSize != decompressedSize) {
-        qWarning() << MessageConstants::Compression::SIZE_MISMATCH;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << MessageConstants::Compression::SIZE_MISMATCH;
         return QByteArray();
     }
     
@@ -1114,7 +1116,7 @@ QByteArray ZstdCompression::compressStream(const QByteArray &data)
     
     ZSTD_CCtx* cctx = ZSTD_createCCtx();
     if (!cctx) {
-        qWarning() << MessageConstants::Compression::CONTEXT_CREATION_FAILED;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << MessageConstants::Compression::CONTEXT_CREATION_FAILED;
         return QByteArray();
     }
     
@@ -1132,7 +1134,7 @@ QByteArray ZstdCompression::compressStream(const QByteArray &data)
     ZSTD_freeCCtx(cctx);
     
     if (ZSTD_isError(result)) {
-        qWarning() << MessageConstants::Compression::ZSTD_COMPRESSION_FAILED << ZSTD_getErrorName(result);
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << MessageConstants::Compression::ZSTD_COMPRESSION_FAILED << ZSTD_getErrorName(result);
         return QByteArray();
     }
     
@@ -1148,7 +1150,7 @@ QByteArray ZstdCompression::decompressStream(const QByteArray &compressedData)
     
     ZSTD_DCtx* dctx = ZSTD_createDCtx();
     if (!dctx) {
-        qWarning() << MessageConstants::Compression::CONTEXT_CREATION_FAILED;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << MessageConstants::Compression::CONTEXT_CREATION_FAILED;
         return QByteArray();
     }
     
@@ -1165,7 +1167,7 @@ QByteArray ZstdCompression::decompressStream(const QByteArray &compressedData)
         size_t result = ZSTD_decompressStream(dctx, &output, &input);
         
         if (ZSTD_isError(result)) {
-            qWarning() << MessageConstants::Compression::ZSTD_DECOMPRESSION_FAILED << ZSTD_getErrorName(result);
+            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << MessageConstants::Compression::ZSTD_DECOMPRESSION_FAILED << ZSTD_getErrorName(result);
             ZSTD_freeDCtx(dctx);
             return QByteArray();
         }
@@ -1230,7 +1232,7 @@ QByteArray CompressionUtils::compress(const QByteArray &data, Algorithm algorith
         return zstd.compress(data);
     }
     default:
-        qWarning() << MessageConstants::Compression::UNSUPPORTED_ALGORITHM;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << MessageConstants::Compression::UNSUPPORTED_ALGORITHM;
         return QByteArray();
     }
 }
@@ -1251,7 +1253,7 @@ QByteArray CompressionUtils::decompress(const QByteArray &compressedData, Algori
         return zstd.decompress(compressedData);
     }
     default:
-        qWarning() << "Unsupported compression algorithm";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << "Unsupported compression algorithm";
         return QByteArray();
     }
 }
@@ -1280,7 +1282,7 @@ QByteArray CompressionUtils::autoDecompress(const QByteArray &compressedData)
 {
     Algorithm algorithm = detectAlgorithm(compressedData);
     if (algorithm == Algorithm::Unknown) {
-        qWarning() << MessageConstants::Compression::ALGORITHM_DETECTION_FAILED;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCompression) << MessageConstants::Compression::ALGORITHM_DETECTION_FAILED;
         return QByteArray();
     }
     

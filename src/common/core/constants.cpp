@@ -46,3 +46,9 @@ const int CoreConstants::SMALL_DATA_THRESHOLD     = 1024; // 1KB
 // Server
 const int CoreConstants::DEFAULT_MAX_CLIENTS    = 1;
 const int CoreConstants::CLEANUP_TIMER_INTERVAL = 1000; // ms
+
+// Logging defaults
+const int CoreConstants::DEFAULT_MAX_FILE_COUNT     = 5;     // files
+const int CoreConstants::DEFAULT_LOG_BUFFER_SIZE    = 1000;  // entries
+const int CoreConstants::DEFAULT_LOG_FLUSH_INTERVAL = 5000;  // ms
+const int CoreConstants::DEFAULT_ROTATION_INTERVAL  = 24;    // hours

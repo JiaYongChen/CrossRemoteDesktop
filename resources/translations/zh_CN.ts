@@ -103,4 +103,35 @@
         <translation>退出</translation>
     </message>
 </context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Enable Core Debug</source>
+        <translation>启用核心调试</translation>
+    </message>
+    <message>
+        <source>Reset Rules</source>
+        <translation>恢复默认规则</translation>
+    </message>
+    <message>
+        <source>Import Settings</source>
+        <translation>导入设置</translation>
+    </message>
+    <message>
+        <source>Settings Files (*.ini)</source>
+        <translation>设置文件 (*.ini)</translation>
+    </message>
+    <message>
+        <source>Export Settings</source>
+        <translation>导出设置</translation>
+    </message>
+    <message>
+        <source>Validation Error</source>
+        <translation>验证错误</translation>
+    </message>
+    <message>
+        <source>Invalid port number</source>
+        <translation>无效的端口号</translation>
+    </message>
+</context>
 </TS>

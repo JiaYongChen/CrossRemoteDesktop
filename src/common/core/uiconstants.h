@@ -74,11 +74,7 @@ public:
     static const int DEFAULT_MAX_CLIENTS = 1;
     static const int CLEANUP_TIMER_INTERVAL = 1000; // 1秒，清理断开连接的客户端
     
-    // 日志系统常量
-    static const int DEFAULT_MAX_FILE_COUNT = 5; // 最大日志文件数量
-    static const int DEFAULT_LOG_BUFFER_SIZE = 1000; // 日志缓冲区大小
-    static const int DEFAULT_LOG_FLUSH_INTERVAL = 5000; // 5秒，日志刷新间隔
-    static const int DEFAULT_ROTATION_INTERVAL = 24; // 24小时，日志轮转间隔
+    // 日志系统常量（UI仅控制显示，不定义非UI默认值；默认值已迁至 CoreConstants）
     
     // 颜色常量
     static const QColor LIGHT_GRAY_COLOR;
@@ -129,10 +125,6 @@ inline const int UIConstants::DEFAULT_MOUSE_DELAY;
 inline const int UIConstants::MAX_KEY_VALUE;
 inline const int UIConstants::DEFAULT_MAX_CLIENTS;
 inline const int UIConstants::CLEANUP_TIMER_INTERVAL;
-inline const int UIConstants::DEFAULT_MAX_FILE_COUNT;
-inline const int UIConstants::DEFAULT_LOG_BUFFER_SIZE;
-inline const int UIConstants::DEFAULT_LOG_FLUSH_INTERVAL;
-inline const int UIConstants::DEFAULT_ROTATION_INTERVAL;
 
 // 内联定义浮点常量
 inline constexpr double UIConstants::DEFAULT_CAPTURE_QUALITY;

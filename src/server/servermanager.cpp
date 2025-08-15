@@ -13,12 +13,12 @@
 #include <QDateTime>
 #include <QElapsedTimer>
 #include <QLoggingCategory>
-
-Q_LOGGING_CATEGORY(lcServer, "server")
+#include "../common/core/logging_categories.h"
 #include <QBuffer>
 #include <QTcpSocket>
 #include <QThread>
 #include <QCoreApplication>
+#include <QMessageLogger>
 #include <cstring>
 
 ServerManager::ServerManager(QObject *parent)
@@ -301,7 +301,7 @@ void ServerManager::sendScreenData(const QPixmap &frame)
     QImage image = frame.toImage();
     bool success = image.save(&buffer, "JPEG", 75);
     if (!success) {
-        qWarning() << "Failed to compress screen data";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Failed to compress screen data";
         return;
     }
     
@@ -311,7 +311,7 @@ void ServerManager::sendScreenData(const QPixmap &frame)
     sendMessageToAllClients(MessageType::SCREEN_DATA, imageData);
     
     if (sendCount % 30 == 0) {
-        qDebug() << "ServerManager::sendScreenData completed (count:" << sendCount << "), data size:" << imageData.size();
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "sendScreenData completed (count:" << sendCount << "), data size:" << imageData.size();
     }
 }
 
@@ -321,12 +321,12 @@ void ServerManager::onFrameReady(const QPixmap &frame)
     static int frameCount = 0;
     frameCount++;
     
-    qDebug() << "ServerManager::onFrameReady called! Frame count:" << frameCount;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "onFrameReady called, frame count:" << frameCount;
     
     // 每10帧输出一次调试信息以便更好地观察问题
     if (frameCount % 10 == 0) {
-        qDebug() << "ServerManager::onFrameReady - Frame captured (count:" << frameCount << "), size:" << frame.size() << "isNull:" << frame.isNull();
-        qDebug() << "ServerManager::onFrameReady - Server running:" << m_isServerRunning 
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "Frame captured (count:" << frameCount << "), size:" << frame.size() << "isNull:" << frame.isNull();
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "Server running:" << m_isServerRunning 
                  << "Has connected clients:" << hasConnectedClients()
                  << "Has authenticated clients:" << hasAuthenticatedClients();
     }
@@ -334,13 +334,13 @@ void ServerManager::onFrameReady(const QPixmap &frame)
     // 当有已认证的客户端连接且服务器运行时，发送屏幕数据
     if (m_isServerRunning && hasAuthenticatedClients()) {
         if (frameCount % 10 == 0) {
-            qDebug() << "ServerManager::onFrameReady - Sending screen data to authenticated clients";
+            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "Sending screen data to authenticated clients";
         }
         sendScreenData(frame);
     } else {
         // 每次都输出日志以便调试
         if (frameCount % 10 == 0) {
-            qDebug() << "ServerManager::onFrameReady - NOT sending screen data:" 
+            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "NOT sending screen data:" 
                      << "Server running:" << m_isServerRunning 
                      << "Has connected clients:" << hasConnectedClients()
                      << "Has authenticated clients:" << hasAuthenticatedClients();
@@ -384,7 +384,7 @@ void ServerManager::onClientDisconnected(const QString &clientAddress)
     
     // 如果服务器仍在运行但没有其他认证客户端，停止屏幕截取功能
     if (isServerRunning() && m_screenCapture && m_screenCapture->isCapturing() && !hasAuthenticatedClients()) {
-        qDebug() << "Stopping screen capture after last client disconnection";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Stopping screen capture after last client disconnection";
         m_screenCapture->stopCapture();
     }
     
@@ -395,11 +395,11 @@ void ServerManager::onClientAuthenticated(const QString &clientAddress)
 {
     emit clientStatusMessage(tr("客户端认证成功: %1").arg(clientAddress));
     
-    qDebug() << "ServerManager::onClientAuthenticated() called for client:" << clientAddress;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Client authenticated:" << clientAddress;
     
     // 客户端认证成功后启动屏幕捕获
     if (m_screenCapture && !m_screenCapture->isCapturing()) {
-        qDebug() << "Starting screen capture after client authentication...";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Starting screen capture after client authentication...";
         startScreenCapture();
     }
     
@@ -413,24 +413,24 @@ void ServerManager::onServerError(const QString &error)
 
 void ServerManager::onNewConnection(qintptr socketDescriptor)
 {
-    qDebug() << "[DEBUG] ServerManager::onNewConnection called with descriptor:" << socketDescriptor;
-    qDebug() << "[DEBUG] Current thread ID:" << QThread::currentThreadId();
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "onNewConnection descriptor:" << socketDescriptor
+                             << "thread:" << QThread::currentThreadId();
     
     // 获取当前客户端数量
     int currentClientCount = clientCount();
-    qDebug() << "[DEBUG] Current client count:" << currentClientCount;
-    qDebug() << "[DEBUG] Allow multiple clients:" << m_allowMultipleClients;
-    qDebug() << "[DEBUG] Max clients:" << m_maxClients;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "clients:" << currentClientCount
+                             << "allowMulti:" << m_allowMultipleClients
+                             << "max:" << m_maxClients;
     
     // 检查客户端数量限制
     if (!m_allowMultipleClients && currentClientCount >= 1) {
-        qDebug() << "[DEBUG] Rejecting connection - multiple clients not allowed";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Rejecting connection - multiple clients not allowed";
         sendConnectionRejectionMessage(socketDescriptor, tr("服务器不允许多个客户端同时连接"));
         return;
     }
     
     if (currentClientCount >= m_maxClients) {
-        qDebug() << "[DEBUG] Rejecting connection - max clients reached:" << m_maxClients;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Rejecting connection - max clients reached:" << m_maxClients;
         sendConnectionRejectionMessage(socketDescriptor, tr("服务器已达到最大连接数限制 (%1)").arg(m_maxClients));
         return;
     }
@@ -439,7 +439,7 @@ void ServerManager::onNewConnection(qintptr socketDescriptor)
     ClientHandler *handler = new ClientHandler(socketDescriptor, this);
     // 注入认证所需的服务器端密码（可为空）
     handler->setExpectedPassword(m_password);
-    qDebug() << "[DEBUG] Created ClientHandler for client:" << handler->clientId();
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "Created ClientHandler for client:" << handler->clientId();
     
     // 连接信号到 ServerManager
     connect(handler, &ClientHandler::connected, this, [this, handler]() {
@@ -461,12 +461,12 @@ void ServerManager::onNewConnection(qintptr socketDescriptor)
     
     // 注册客户端处理器
     registerClientHandler(handler);
-    qDebug() << "[DEBUG] Client added to list. Total clients:" << clientCount();
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "Client added. Total clients:" << clientCount();
 }
 
 void ServerManager::onStopTimeout()
 {
-    qDebug() << "Server stop timeout, forcing stop";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Server stop timeout, forcing stop";
     m_isServerRunning = false;
     emit serverStatusMessage(tr("服务器停止超时，已强制停止"));
 }
@@ -591,7 +591,7 @@ void ServerManager::sendMessageToAllClients(MessageType type, const QByteArray &
                 if (it.value()->isAuthenticated()) {
                     authenticatedClients++;
                     it.value()->sendMessage(type, data);
-                    qDebug() << "Sending screen data to authenticated client:" << it.value()->clientAddress() 
+                    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "Sending screen data to authenticated client:" << it.value()->clientAddress() 
                              << "Data size:" << data.size() << "bytes";
                 }
             } else {
@@ -605,7 +605,7 @@ void ServerManager::sendMessageToAllClients(MessageType type, const QByteArray &
         static int frameCount = 0;
         frameCount++;
         if (frameCount % 30 == 0) { // 每30帧输出一次统计信息
-            qDebug() << "Screen data frame" << frameCount << "sent to" << authenticatedClients 
+            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Screen data frame" << frameCount << "sent to" << authenticatedClients 
                      << "authenticated clients out of" << totalClients << "total clients";
         }
     }
@@ -735,7 +735,7 @@ void ServerManager::enablePerformanceOptimization(bool enabled)
     // 如果TCP服务器存在，将设置传递给它
     if (m_tcpServer) {
         // 注意：这里需要在TcpServer中实现相应的方法，或者通过其他方式传递设置
-        qDebug() << "Performance optimization" << (enabled ? "enabled" : "disabled");
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Performance optimization" << (enabled ? "enabled" : "disabled");
     }
 }
 
@@ -745,7 +745,7 @@ void ServerManager::enableRegionDetection(bool enabled)
     
     // 如果TCP服务器存在，将设置传递给它
     if (m_tcpServer) {
-        qDebug() << "Region detection" << (enabled ? "enabled" : "disabled");
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Region detection" << (enabled ? "enabled" : "disabled");
     }
 }
 
@@ -755,7 +755,7 @@ void ServerManager::enableAdvancedEncoding(bool enabled)
     
     // 如果TCP服务器存在，将设置传递给它
     if (m_tcpServer) {
-        qDebug() << "Advanced encoding" << (enabled ? "enabled" : "disabled");
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Advanced encoding" << (enabled ? "enabled" : "disabled");
     }
 }
 
@@ -766,7 +766,7 @@ void ServerManager::sendConnectionRejectionMessage(qintptr socketDescriptor, con
     
     // 设置socket描述符
     if (!socket->setSocketDescriptor(socketDescriptor)) {
-        qWarning() << "Failed to set socket descriptor for rejection message";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Failed to set socket descriptor for rejection message";
         socket->deleteLater();
         return;
     }
@@ -793,7 +793,7 @@ void ServerManager::sendConnectionRejectionMessage(qintptr socketDescriptor, con
     qint64 bytesWritten = socket->write(message);
     socket->flush();
     
-    qDebug() << "Sent connection rejection message:" << errorMessage << "bytes written:" << bytesWritten;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Sent connection rejection message:" << errorMessage << "bytes written:" << bytesWritten;
     
     // 等待更长时间确保数据发送完成后断开连接
     QTimer::singleShot(500, [socket]() {

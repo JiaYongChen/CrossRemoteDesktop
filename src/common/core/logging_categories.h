@@ -1,0 +1,23 @@
+
+#ifndef LOGGING_CATEGORIES_H
+#define LOGGING_CATEGORIES_H
+
+#include <QtCore/QLoggingCategory>
+
+// Core/common categories
+Q_DECLARE_LOGGING_CATEGORY(lcApp)
+Q_DECLARE_LOGGING_CATEGORY(lcProtocol)
+Q_DECLARE_LOGGING_CATEGORY(lcCompression)
+Q_DECLARE_LOGGING_CATEGORY(lcEncryption)
+
+// Server-side categories
+Q_DECLARE_LOGGING_CATEGORY(lcServer)
+Q_DECLARE_LOGGING_CATEGORY(lcServerManager)
+Q_DECLARE_LOGGING_CATEGORY(lcCapture)
+Q_DECLARE_LOGGING_CATEGORY(lcNetServer)
+
+// Client-side categories
+Q_DECLARE_LOGGING_CATEGORY(lcClient)
+Q_DECLARE_LOGGING_CATEGORY(lcNetClient)
+
+#endif // LOGGING_CATEGORIES_H

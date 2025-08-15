@@ -10,12 +10,14 @@
 #include <QTimer>
 #include <QMutexLocker>
 #include <QDebug>
+#include "../common/core/logging_categories.h"
 #include <QDateTime>
 #include <QBuffer>
 #include <QPixmap>
 #include <QThread>
 #include <QCoreApplication>
 #include <QElapsedTimer>
+#include <QMessageLogger>
 
 TcpServer::TcpServer(QObject *parent)
     : QTcpServer(parent)
@@ -33,17 +35,17 @@ TcpServer::~TcpServer()
 
 bool TcpServer::startServer(quint16 port, const QHostAddress &address)
 {
-    qDebug() << "TcpServer::startServer() called with port:" << port << "address:" << address.toString();
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServer) << "TcpServer::startServer() called with port:" << port << "address:" << address.toString();
     
     if (m_isRunning) {
-        qDebug() << "Server already running, returning false";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServer) << "Server already running, returning false";
         return false;
     }
     
     m_serverAddress = address;
     
     if (!listen(address, port)) {
-        qDebug() << "Failed to start server:" << errorString();
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServer) << "Failed to start server:" << errorString();
         emit errorOccurred(errorString());
         return false;
     }
@@ -51,10 +53,10 @@ bool TcpServer::startServer(quint16 port, const QHostAddress &address)
     // 获取实际监听的端口（当传入端口为0时，系统会自动分配）
     m_serverPort = QTcpServer::serverPort();
     
-    qDebug() << "Server successfully started on port:" << m_serverPort;
-    qDebug() << "[DEBUG] Server listening on address:" << serverAddress().toString() << "port:" << m_serverPort;
-    qDebug() << "[DEBUG] QTcpServer::isListening():" << isListening();
-    qDebug() << "[DEBUG] QTcpServer::maxPendingConnections():" << maxPendingConnections();
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServer) << "Server successfully started on port:" << m_serverPort
+                     << "address:" << serverAddress().toString()
+                     << "listening:" << isListening()
+                     << "maxPending:" << maxPendingConnections();
     m_isRunning = true;
     
     emit serverStarted();
@@ -72,16 +74,16 @@ void TcpServer::stopServer(bool synchronous)
         return;
     }
     
-    qDebug() << "Stopping server, synchronous:" << synchronous;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServer) << "Stopping server, synchronous:" << synchronous;
     
     auto cleanup = [this]() {
-        qDebug() << "Starting server cleanup...";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServer) << "Starting server cleanup...";
         
         // 关闭服务器监听
         close();
         
         m_isRunning = false;
-        qDebug() << "Server stopped successfully";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServer) << "Server stopped successfully";
         emit serverStopped();
     };
     
@@ -113,7 +115,7 @@ QHostAddress TcpServer::serverAddress() const
 
 void TcpServer::incomingConnection(qintptr socketDescriptor)
 {
-    qDebug() << "[DEBUG] TcpServer::incomingConnection called with descriptor:" << socketDescriptor;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcNetServer) << "incomingConnection descriptor:" << socketDescriptor;
     
     // 发出新连接信号，让 ServerManager 处理客户端管理
     emit newClientConnection(socketDescriptor);

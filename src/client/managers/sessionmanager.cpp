@@ -3,6 +3,8 @@
 #include "../../client/tcpclient.h"
 #include "../core/compression.h"
 #include <QDebug>
+#include "../../common/core/logging_categories.h"
+#include <QMessageLogger>
 #include <QBuffer>
 #include <QDataStream>
 
@@ -36,12 +38,12 @@ SessionManager::~SessionManager()
 void SessionManager::startSession()
 {
     if (m_sessionState != Inactive) {
-        qDebug() << "SessionManager: Session already active or starting";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "SessionManager: Session already active or starting";
         return;
     }
     
     if (!m_connectionManager || !m_connectionManager->isAuthenticated()) {
-        qDebug() << "SessionManager: Cannot start session - not authenticated";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "SessionManager: Cannot start session - not authenticated";
         emit sessionError(tr("无法启动会话 - 未认证"));
         return;
     }
@@ -233,11 +235,11 @@ void SessionManager::onConnectionStateChanged()
 void SessionManager::onScreenDataReceived(const QPixmap &pixmap)
 {
     if (!isActive()) {
-        qDebug() << "SessionManager::onScreenDataReceived - Session not active, ignoring";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "SessionManager::onScreenDataReceived - Session not active, ignoring";
         return;
     }
     
-    qDebug() << "SessionManager::onScreenDataReceived - Pixmap size:" << pixmap.size() 
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "SessionManager::onScreenDataReceived - Pixmap size:" << pixmap.size() 
              << "isNull:" << pixmap.isNull();
     
     m_currentScreen = pixmap;
@@ -255,7 +257,7 @@ void SessionManager::onScreenDataReceived(const QPixmap &pixmap)
     m_stats.frameCount++;
     calculateFPS();
     
-    qDebug() << "SessionManager::onScreenDataReceived - Emitting screenUpdated signal";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "SessionManager::onScreenDataReceived - Emitting screenUpdated signal";
     emit screenUpdated(pixmap);
 }
 
@@ -311,22 +313,22 @@ void SessionManager::setupConnections()
 void SessionManager::processScreenData(const QByteArray &data)
 {
     if (data.isEmpty()) {
-        qWarning() << "SessionManager: Received empty screen data";
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "SessionManager: Received empty screen data";
         return;
     }
     
-    qDebug() << "SessionManager: Processing screen data, size:" << data.size();
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "SessionManager: Processing screen data, size:" << data.size();
     
     // 尝试自动检测压缩算法并解压缩
     QByteArray decompressed = CompressionUtils::autoDecompress(data);
     
     if (decompressed.isEmpty()) {
-        qWarning() << "SessionManager: Failed to decompress screen data, trying fallback methods";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "SessionManager: Failed to decompress screen data, trying fallback methods";
         
         // 尝试直接使用数据（可能未压缩）
         QPixmap pixmap;
         if (pixmap.loadFromData(data)) {
-            qDebug() << "SessionManager: Successfully loaded uncompressed screen data";
+            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "SessionManager: Successfully loaded uncompressed screen data";
             onScreenDataReceived(pixmap);
             return;
         }
@@ -343,24 +345,24 @@ void SessionManager::processScreenData(const QByteArray &data)
             if (!testDecompressed.isEmpty()) {
                 QPixmap pixmap;
                 if (pixmap.loadFromData(testDecompressed)) {
-                    qDebug() << "SessionManager: Successfully decompressed with algorithm:" << (int)algorithm;
+                    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "SessionManager: Successfully decompressed with algorithm:" << (int)algorithm;
                     onScreenDataReceived(pixmap);
                     return;
                 }
             }
         }
         
-        qWarning() << "SessionManager: All decompression attempts failed";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "SessionManager: All decompression attempts failed";
         return;
     }
     
     // 将解压缩的数据转换为QPixmap
     QPixmap pixmap;
     if (pixmap.loadFromData(decompressed)) {
-        qDebug() << "SessionManager: Successfully loaded screen data, decompressed size:" << decompressed.size();
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "SessionManager: Successfully loaded screen data, decompressed size:" << decompressed.size();
         onScreenDataReceived(pixmap);
     } else {
-        qWarning() << "SessionManager: Failed to load screen data from decompressed bytes, size:" << decompressed.size();
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "SessionManager: Failed to load screen data from decompressed bytes, size:" << decompressed.size();
     }
 }
 

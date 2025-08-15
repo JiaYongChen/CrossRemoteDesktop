@@ -5,8 +5,10 @@
 #include <QCryptographicHash>
 #include <QRandomGenerator>
 #include <QDebug>
+#include "../common/core/logging_categories.h"
 #include <QDataStream>
 #include <QPixmap>
+#include <QMessageLogger>
 
 TcpClient::TcpClient(QObject *parent)
     : QObject(parent)
@@ -49,7 +51,7 @@ TcpClient::~TcpClient()
 void TcpClient::connectToHost(const QString &hostName, quint16 port)
 {
     if (m_socket->state() != QAbstractSocket::UnconnectedState) {
-        qDebug() << MessageConstants::Network::ALREADY_CONNECTED;
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << MessageConstants::Network::ALREADY_CONNECTED;
         return;
     }
     
@@ -120,7 +122,7 @@ QString TcpClient::sessionId() const
 void TcpClient::authenticate(const QString &username, const QString &password)
 {
     if (!isConnected()) {
-        qDebug() << MessageConstants::Network::NOT_CONNECTED;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << MessageConstants::Network::NOT_CONNECTED;
         return;
     }
     
@@ -133,7 +135,7 @@ void TcpClient::authenticate(const QString &username, const QString &password)
 void TcpClient::sendMessage(MessageType type, const QByteArray &data)
 {
     if (!isConnected()) {
-        qDebug() << MessageConstants::Network::NOT_CONNECTED;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << MessageConstants::Network::NOT_CONNECTED;
         return;
     }
     
@@ -177,7 +179,7 @@ int TcpClient::reconnectInterval() const
 
 void TcpClient::onConnected()
 {
-    qDebug() << "TcpClient::onConnected - TCP connection established";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << "TcpClient::onConnected - TCP connection established";
     m_connectionTimer->stop();
     
     // 设置TCP优化选项
@@ -193,7 +195,7 @@ void TcpClient::onConnected()
     m_lastHeartbeat = QDateTime::currentDateTime();
     m_heartbeatCheckTimer->start();
     
-    qDebug() << "TcpClient::onConnected - Emitting connected signal";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "TcpClient::onConnected - Emitting connected signal";
     emit connected();
 }
 
@@ -332,7 +334,7 @@ void TcpClient::processMessage(const MessageHeader &header, const QByteArray &pa
             handleScreenData(payload);
             break;
         default:
-            qDebug() << "Unhandled message type:" << static_cast<quint32>(header.type);
+            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "Unhandled message type:" << static_cast<quint32>(header.type);
             break;
     }
 }
@@ -341,15 +343,15 @@ void TcpClient::handleHandshakeResponse(const QByteArray &data)
 {
     HandshakeResponse response;
     if (Protocol::deserialize(data, response)) {
-        qDebug() << MessageConstants::Network::HANDSHAKE_RESPONSE_RECEIVED;
-        qDebug() << "Server version:" << response.serverVersion;
-        qDebug() << "Screen resolution:" << response.screenWidth << "x" << response.screenHeight;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << MessageConstants::Network::HANDSHAKE_RESPONSE_RECEIVED;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Server version:" << response.serverVersion;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Screen resolution:" << response.screenWidth << "x" << response.screenHeight;
         
         // 发送认证请求
         sendAuthenticationRequest(m_username.isEmpty() ? "guest" : m_username, 
                                 m_password.isEmpty() ? "" : m_password);
     } else {
-        qDebug() << "Failed to parse handshake response";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "Failed to parse handshake response";
         emit errorOccurred("服务器握手响应无效");
     }
 }
@@ -358,14 +360,14 @@ void TcpClient::handleAuthenticationResponse(const QByteArray &data)
 {
     AuthenticationResponse response;
     if (Protocol::deserialize(data, response)) {
-        qDebug() << MessageConstants::Network::AUTH_RESPONSE_RECEIVED;
-        qDebug() << "Auth result:" << static_cast<int>(response.result);
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << MessageConstants::Network::AUTH_RESPONSE_RECEIVED;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Auth result:" << static_cast<int>(response.result);
         
         if (response.result == AuthResult::SUCCESS) {
             m_sessionId = QString::fromUtf8(response.sessionId);
-            qDebug() << MessageConstants::Network::AUTH_SUCCESSFUL.arg(m_sessionId);
+            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << MessageConstants::Network::AUTH_SUCCESSFUL.arg(m_sessionId);
 
-            qDebug() << "TcpClient::handleAuthenticationResponse - Emitting authenticated signal";
+            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "TcpClient::handleAuthenticationResponse - Emitting authenticated signal";
             emit authenticated();
         } else {
             QString errorMsg;
@@ -386,7 +388,7 @@ void TcpClient::handleAuthenticationResponse(const QByteArray &data)
             emit errorOccurred(errorMsg);
         }
     } else {
-        qDebug() << "Failed to parse authentication response";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "Failed to parse authentication response";
         emit errorOccurred("服务器认证响应无效");
     }
 }
@@ -394,7 +396,7 @@ void TcpClient::handleAuthenticationResponse(const QByteArray &data)
 void TcpClient::handleHeartbeat()
 {
     // 简单实现，暂时不处理
-    qDebug() << MessageConstants::Network::HEARTBEAT_RECEIVED;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << MessageConstants::Network::HEARTBEAT_RECEIVED;
     m_lastHeartbeat = QDateTime::currentDateTime();
 }
 
@@ -404,10 +406,10 @@ void TcpClient::handleErrorMessage(const QByteArray &data)
     ErrorMessage errorMsg;
     if (Protocol::deserialize(data, errorMsg)) {
         QString errorText = QString::fromUtf8(errorMsg.errorText);
-        qDebug() << "Received error message from server:" << errorText;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "Received error message from server:" << errorText;
         emit errorOccurred(errorText);
     } else {
-        qDebug() << "Failed to deserialize error message";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "Failed to deserialize error message";
         emit errorOccurred("Unknown error occurred");
     }
 }
@@ -415,7 +417,7 @@ void TcpClient::handleErrorMessage(const QByteArray &data)
 void TcpClient::handleStatusUpdate(const QByteArray &data)
 {
     QString statusMsg = QString::fromUtf8(data);
-    qDebug() << "Received status update from server:" << statusMsg;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Received status update from server:" << statusMsg;
     
     // 发出状态更新信号给UI
     emit statusUpdated(statusMsg);
@@ -423,7 +425,7 @@ void TcpClient::handleStatusUpdate(const QByteArray &data)
 
 void TcpClient::handleDisconnectRequest()
 {
-    qDebug() << MessageConstants::Network::DISCONNECT_REQUEST_RECEIVED;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << MessageConstants::Network::DISCONNECT_REQUEST_RECEIVED;
     
     // 服务器请求断开连接，客户端应该优雅地断开
     disconnectFromHost();
@@ -499,64 +501,64 @@ void TcpClient::sendHandshakeRequest()
     strcpy(request.clientName, "QtRemoteDesktop Client");
     strcpy(request.clientOS, getClientOS().toUtf8().constData());
     
-    qDebug() << "HandshakeRequest struct size:" << sizeof(HandshakeRequest);
-    qDebug() << "Expected size:" << (4+2+2+1+1+64+32);
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "HandshakeRequest struct size:" << sizeof(HandshakeRequest);
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Expected size:" << (4+2+2+1+1+64+32);
     
     // 使用专门的HandshakeRequest序列化函数
     QByteArray requestData = Protocol::serialize(request);
-    qDebug() << "Serialized data size:" << requestData.size();
-    qDebug() << "Serialized data hex:" << requestData.toHex();
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Serialized data size:" << requestData.size();
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Serialized data hex:" << requestData.toHex();
     
     // 计算校验和并打印
     quint32 checksum = Protocol::calculateChecksum(requestData);
-    qDebug() << "Calculated checksum for serialized data:" << Qt::hex << checksum;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Calculated checksum for serialized data:" << Qt::hex << checksum;
     
     // 验证序列化数据的前几个字节
     if (requestData.size() >= 4) {
         quint32 clientVersionFromData = *reinterpret_cast<const quint32*>(requestData.constData());
-        qDebug() << "ClientVersion from serialized data:" << clientVersionFromData;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "ClientVersion from serialized data:" << clientVersionFromData;
     }
     
     // 详细分析序列化数据
-    qDebug() << "=== 详细分析序列化数据 ===";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "=== 详细分析序列化数据 ===";
     const char* data = requestData.constData();
     
     // clientVersion (4字节)
     quint32 cv = *reinterpret_cast<const quint32*>(data);
-    qDebug() << "字节0-3 (clientVersion):" << QString::number(cv, 16) << "=" << cv;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "字节0-3 (clientVersion):" << QString::number(cv, 16) << "=" << cv;
     
     // screenWidth (2字节)
     quint16 sw = *reinterpret_cast<const quint16*>(data + 4);
-    qDebug() << "字节4-5 (screenWidth):" << QString::number(sw, 16) << "=" << sw;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "字节4-5 (screenWidth):" << QString::number(sw, 16) << "=" << sw;
     
     // screenHeight (2字节)
     quint16 sh = *reinterpret_cast<const quint16*>(data + 6);
-    qDebug() << "字节6-7 (screenHeight):" << QString::number(sh, 16) << "=" << sh;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "字节6-7 (screenHeight):" << QString::number(sh, 16) << "=" << sh;
     
     // colorDepth (1字节)
     quint8 cd = *reinterpret_cast<const quint8*>(data + 8);
-    qDebug() << "字节8 (colorDepth):" << QString::number(cd, 16) << "=" << cd;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "字节8 (colorDepth):" << QString::number(cd, 16) << "=" << cd;
     
     // compressionLevel (1字节)
     quint8 cl = *reinterpret_cast<const quint8*>(data + 9);
-    qDebug() << "字节9 (compressionLevel):" << QString::number(cl, 16) << "=" << cl;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "字节9 (compressionLevel):" << QString::number(cl, 16) << "=" << cl;
     
     // clientName (64字节)
     QString clientName = QString::fromUtf8(data + 10, 64).trimmed();
-    qDebug() << "字节10-73 (clientName):" << clientName;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "字节10-73 (clientName):" << clientName;
     
     // clientOS (32字节)
     QString clientOS = QString::fromUtf8(data + 74, 32).trimmed();
-    qDebug() << "字节74-105 (clientOS):" << clientOS;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "字节74-105 (clientOS):" << clientOS;
     
     // 检查是否有额外字节
     if (requestData.size() > 106) {
-        qDebug() << "额外字节:" << requestData.mid(106).toHex();
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "额外字节:" << requestData.mid(106).toHex();
     }
     
     sendMessage(MessageType::HANDSHAKE_REQUEST, requestData);
     
-    qDebug() << MessageConstants::Network::HANDSHAKE_REQUEST_SENT;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << MessageConstants::Network::HANDSHAKE_REQUEST_SENT;
 }
 
 void TcpClient::sendAuthenticationRequest(const QString &username, const QString &password)
@@ -569,7 +571,7 @@ void TcpClient::sendAuthenticationRequest(const QString &username, const QString
     QByteArray requestData = Protocol::serialize(request);
     sendMessage(MessageType::AUTHENTICATION_REQUEST, requestData);
     
-    qDebug() << MessageConstants::Network::AUTH_REQUEST_SENT.arg(username);
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << MessageConstants::Network::AUTH_REQUEST_SENT.arg(username);
 }
 
 void TcpClient::sendDisconnectRequest()

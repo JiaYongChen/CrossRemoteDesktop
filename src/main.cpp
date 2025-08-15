@@ -2,6 +2,7 @@
 #include <QtWidgets/QStyleFactory>
 #include <QtCore/QDir>
 #include <QtCore/QStandardPaths>
+#include "common/core/logging_categories.h"
 #include <QtCore/QTranslator>
 #include <QtCore/QLocale>
 #include <QtWidgets/QMessageBox>
@@ -10,11 +11,13 @@
 #include <QtCore/QTimer>
 #include <QtCore/QCommandLineParser>
 #include <QtCore/QCommandLineOption>
+#include <QtCore/QMessageLogger>
 
 #include "common/windows/mainwindow.h"
 #include "common/core/logger.h"
 #include "common/core/config.h"
 #include "common/core/uiconstants.h"
+#include "common/core/constants.h"
 
 // 应用程序信息
 const QString APP_NAME = "Qt Remote Desktop";
@@ -47,24 +50,40 @@ void initializeLogging()
     QString logDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/logs";
     QDir().mkpath(logDir);
     
-    // 配置日志系统
+    // 配置日志系统（支持配置覆盖）
     Logger* logger = Logger::instance();
-    logger->setLogLevel(Logger::Debug);  // 设置为Debug级别以显示qDebug()消息
+    QString configuredLevel = Config::instance()->value("Logging/level", "info").toString();
+    logger->setLogLevel(Logger::stringToLevel(configuredLevel));
     logger->setLogTargets(Logger::Console | Logger::File);
     logger->setLogFile(logDir + "/qtremotedesktop.log");
-    logger->setMaxFileSize(UIConstants::DEFAULT_MAX_FILE_SIZE);
-    logger->setMaxFileCount(5);
-    logger->setRotationPolicy(Logger::SizeBasedRotation);
+    logger->setMaxFileSize(CoreConstants::DEFAULT_MAX_FILE_SIZE);
+    logger->setMaxFileCount(CoreConstants::DEFAULT_MAX_FILE_COUNT);
+    // 固定按大小轮转，无需设置轮转策略
+    
+    // 应用 Qt 分类日志规则（优先环境变量 QT_LOGGING_RULES，其次配置项 Logging/rules）
+    const QByteArray envRules = qgetenv("QT_LOGGING_RULES");
+    QString rules = envRules.isEmpty() ? Config::instance()->value("Logging/rules", QString()).toString()
+                                       : QString::fromUtf8(envRules);
+    if (!rules.isEmpty()) {
+        Logger::applyQtLoggingRules(rules);
+    }
     
     // 安装Qt消息处理器以捕获qDebug()等消息
     Logger::installMessageHandler();
     
     LOG_INFO("Application started");
-    LOG_INFOF("Version: %s", APP_VERSION.toStdString().c_str());
-    LOG_INFOF("Qt Version: %s", qVersion());
+    Logger::instance()->infof("Version: %s", APP_VERSION.toStdString().c_str());
+    Logger::instance()->infof("Qt Version: %s", qVersion());
     
-    // 测试qDebug输出
-    qDebug() << "qDebug() output is now working!";
+    // 测试日志输出
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcApp) << "Logger initialized and message routing verified";
+    // 打印有效日志级别与规则，便于诊断
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcApp) << "Effective log level:" << Logger::levelToString(logger->logLevel());
+    if (!rules.isEmpty()) {
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcApp) << "Effective QT_LOGGING_RULES:" << rules;
+    } else {
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcApp) << "Effective QT_LOGGING_RULES: (none)";
+    }
 }
 
 // 初始化配置系统
@@ -78,7 +97,7 @@ void initializeConfig()
     Config::instance()->setConfigFile(configDir + "/settings.ini");
     Config::instance()->load();
     
-    LOG_INFOF("Configuration loaded from: %s", Config::instance()->configFile().toStdString().c_str());
+    Logger::instance()->infof("Configuration loaded from: %s", Config::instance()->configFile().toStdString().c_str());
 }
 
 // 加载翻译文件
@@ -96,9 +115,9 @@ void loadTranslations(QApplication &app)
     QString translationFile = QString(":/translations/%1.qm").arg(configLocale);
     if (translator->load(translationFile)) {
         app.installTranslator(translator);
-        LOG_INFOF("Translation loaded: %s", configLocale.toStdString().c_str());
+    Logger::instance()->infof("Translation loaded: %s", configLocale.toStdString().c_str());
     } else {
-        LOG_WARNINGF("Failed to load translation: %s", configLocale.toStdString().c_str());
+    Logger::instance()->warningf("Failed to load translation: %s", configLocale.toStdString().c_str());
     }
 }
 
@@ -184,7 +203,7 @@ int main(int argc, char *argv[])
                 bool ok;
                 int port = parts[1].toInt(&ok);
                 if (ok && port > 0 && port <= 65535) {
-                    LOG_INFOF("Auto-connecting to %s:%d", host.toStdString().c_str(), port);
+                    Logger::instance()->infof("Auto-connecting to %s:%d", host.toStdString().c_str(), port);
                     QTimer::singleShot(1000, [&window, host, port]() {
                         window.connectToHostDirectly(host, port);
                     });
@@ -204,7 +223,7 @@ int main(int argc, char *argv[])
         // 保存配置
         Config::instance()->save();
         
-        LOG_INFOF("Application exiting with code: %d", result);
+    Logger::instance()->infof("Application exiting with code: %d", result);
         
         return result;
         

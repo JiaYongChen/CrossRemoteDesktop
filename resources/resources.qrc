@@ -2,7 +2,6 @@
     <qresource prefix="/">
         <!-- 应用程序图标 -->
     <file>icons/app.svg</file>
-    <file>icons/app.ico</file>
         
     <!-- 工具栏/常用图标（按代码引用保留） -->
     <file>icons/connect.svg</file>

@@ -6,6 +6,7 @@
 #include "../core/logger.h"
 #include "../core/uiconstants.h"
 #include "../core/messageconstants.h"
+#include "../core/logging_categories.h"
 
 #include <QApplication>
 #include <QMessageBox>
@@ -39,6 +40,7 @@
 #include <QEvent>
 #include <QContextMenuEvent>
 #include <QListWidgetItem>
+#include <QMessageLogger>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -630,7 +632,7 @@ void MainWindow::connectToHostDirectly(const QString &host, int port)
 
 void MainWindow::onConnectionEstablished(const QString &connectionId)
 {
-    qDebug() << "MainWindow::onConnectionEstablished - Connection established for:" << connectionId;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcApp) << "MainWindow::onConnectionEstablished - Connection established for:" << connectionId;
     
     // 获取连接信息并添加到历史
     if (m_clientManager) {
@@ -644,7 +646,7 @@ void MainWindow::onConnectionEstablished(const QString &connectionId)
 
 void MainWindow::onServerError(const QString &error)
 {
-    qDebug() << "MainWindow::onServerError() called with error:" << error;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcApp) << "MainWindow::onServerError() called with error:" << error;
     QMessageBox msgBox(this);
     msgBox.setIcon(QMessageBox::Warning);
     msgBox.setWindowTitle(tr("服务器错误"));
@@ -673,7 +675,7 @@ void MainWindow::iconActivated(QSystemTrayIcon::ActivationReason reason)
 
 void MainWindow::cleanupConnection(const QString &connectionId)
 {
-    qDebug() << "MainWindow::cleanupConnection for:" << connectionId;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcApp) << "MainWindow::cleanupConnection for:" << connectionId;
 }
 
 void MainWindow::onConnectionItemDoubleClicked()

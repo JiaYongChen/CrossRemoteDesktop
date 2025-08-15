@@ -18,6 +18,8 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QCryptographicHash>
+#include "common/core/config.h"
+#include "common/core/logger.h"
 
 SettingsDialog::SettingsDialog(QWidget *parent)
     : QDialog(parent)
@@ -115,6 +117,16 @@ void SettingsDialog::setupConnections()
     if (ui->scalingModeComboBox) {
         connect(ui->scalingModeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
                 this, &SettingsDialog::onScalingModeChanged);
+    }
+
+    // 高级-日志：规则编辑变更
+    if (QTextEdit* rules = findChild<QTextEdit*>("logRulesTextEdit")) {
+        connect(rules, &QTextEdit::textChanged, this, &SettingsDialog::onSettingChanged);
+    }
+    // 高级-日志：级别变更
+    if (ui->logLevelComboBox) {
+        connect(ui->logLevelComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
+                this, &SettingsDialog::onLoggingLevelChanged);
     }
 }
 
@@ -236,6 +248,8 @@ void SettingsDialog::setupAdvancedPageComponents()
 {
     // 获取UI文件中的组件引用
     m_loggingLevelCombo = ui->logLevelComboBox;
+    // 新增：日志规则编辑器（可能不存在，空指针容错）
+    m_loggingRulesEdit = findChild<QTextEdit*>("logRulesTextEdit");
     // m_browseLogPathButton = ui->browseLogPathButton;  // Component not found in UI
     // m_enablePerformanceMonitoringCheck = ui->enablePerformanceMonitoringCheckBox;  // Component not found in UI
     
@@ -246,6 +260,48 @@ void SettingsDialog::setupAdvancedPageComponents()
     m_performanceUpdateIntervalSpinBox = nullptr;
     m_enableDebugModeCheck = nullptr;
     m_customSettingsEdit = nullptr;
+
+    // 动态添加“规则预设”与“恢复默认规则”按钮到日志表单布局底部
+    if (ui->loggingFormLayout) {
+        QWidget *buttonBar = new QWidget(ui->advancedPage);
+        auto *h = new QHBoxLayout(buttonBar);
+        h->setContentsMargins(0, 0, 0, 0);
+        QPushButton *presetBtn = new QPushButton(tr("Enable Core Debug"), buttonBar);
+        QPushButton *resetBtn = new QPushButton(tr("Reset Rules"), buttonBar);
+        h->addWidget(presetBtn);
+        h->addWidget(resetBtn);
+        h->addStretch();
+        // 放在新的一行，横跨两列
+        ui->loggingFormLayout->setWidget(2, QFormLayout::SpanningRole, buttonBar);
+
+        // 预设核心调试规则（不直接应用，仅填入文本并标记更改）
+        connect(presetBtn, &QPushButton::clicked, this, [this]() {
+            if (!m_loggingRulesEdit) {
+                m_loggingRulesEdit = findChild<QTextEdit*>("logRulesTextEdit");
+            }
+            if (m_loggingRulesEdit) {
+                const QString coreRules =
+                    "app.debug=true\n"
+                    "server*.debug=true\n"
+                    "client*.debug=true\n"
+                    "core.*.debug=true\n"
+                    "qt.network.ssl.warning=false";
+                m_loggingRulesEdit->setPlainText(coreRules);
+                onSettingChanged();
+            }
+        });
+
+        // 恢复默认（清空规则，由 Qt 默认规则或环境变量生效）
+        connect(resetBtn, &QPushButton::clicked, this, [this]() {
+            if (!m_loggingRulesEdit) {
+                m_loggingRulesEdit = findChild<QTextEdit*>("logRulesTextEdit");
+            }
+            if (m_loggingRulesEdit) {
+                m_loggingRulesEdit->clear();
+                onSettingChanged();
+            }
+        });
+    }
 }
 
 void SettingsDialog::createAdvancedTab()
@@ -292,6 +348,12 @@ void SettingsDialog::loadSettings()
     m_generalSettings.minimizeToTray = m_settings->value("minimizeToTray", false).toBool();
     m_generalSettings.showNotifications = m_settings->value("showNotifications", true).toBool();
     m_generalSettings.checkUpdates = m_settings->value("checkUpdates", true).toBool();
+    m_settings->endGroup();
+
+    // Logging 设置
+    m_settings->beginGroup("Logging");
+    m_advancedSettings.loggingLevel = m_settings->value("level", "info").toString();
+    m_advancedSettings.loggingRules = m_settings->value("rules", "").toString();
     m_settings->endGroup();
     
     m_settings->beginGroup("Connection");
@@ -340,6 +402,12 @@ void SettingsDialog::saveSettings()
     m_settings->setValue("minimizeToTray", m_generalSettings.minimizeToTray);
     m_settings->setValue("showNotifications", m_generalSettings.showNotifications);
     m_settings->setValue("checkUpdates", m_generalSettings.checkUpdates);
+    m_settings->endGroup();
+
+    // 保存 Logging 设置
+    m_settings->beginGroup("Logging");
+    m_settings->setValue("level", m_advancedSettings.loggingLevel);
+    m_settings->setValue("rules", m_advancedSettings.loggingRules);
     m_settings->endGroup();
     
     m_settings->beginGroup("Connection");
@@ -424,6 +492,21 @@ void SettingsDialog::applySettingsToUI()
         else if (m_displaySettings.scalingMode == "FillWindow") scalingIndex = 2;
         m_scalingModeCombo->setCurrentIndex(scalingIndex);
     }
+
+    // 高级-日志：级别
+    if (m_loggingLevelCombo) {
+        // 将常见级别映射中文→英文值
+        const QString lvl = m_advancedSettings.loggingLevel.toLower();
+        int idx = 0; // 默认错误/警告/信息/调试 中，匹配到最近
+        if (lvl == "error" || lvl == "错误") idx = 0;
+        else if (lvl == "warning" || lvl == "警告") idx = 1;
+        else if (lvl == "info" || lvl == "信息") idx = 2;
+        else if (lvl == "debug" || lvl == "调试") idx = 3;
+        m_loggingLevelCombo->setCurrentIndex(idx);
+    }
+    if (m_loggingRulesEdit) {
+        m_loggingRulesEdit->setPlainText(m_advancedSettings.loggingRules);
+    }
 }
 
 void SettingsDialog::getSettingsFromUI()
@@ -473,6 +556,20 @@ void SettingsDialog::getSettingsFromUI()
             case 2: m_displaySettings.scalingMode = "FillWindow"; break;
             default: m_displaySettings.scalingMode = "FitToWindow"; break;
         }
+    }
+
+    // 高级-日志
+    if (m_loggingLevelCombo) {
+        switch (m_loggingLevelCombo->currentIndex()) {
+            case 0: m_advancedSettings.loggingLevel = "error"; break;
+            case 1: m_advancedSettings.loggingLevel = "warning"; break;
+            case 2: m_advancedSettings.loggingLevel = "info"; break;
+            case 3: m_advancedSettings.loggingLevel = "debug"; break;
+            default: m_advancedSettings.loggingLevel = "info"; break;
+        }
+    }
+    if (m_loggingRulesEdit) {
+        m_advancedSettings.loggingRules = m_loggingRulesEdit->toPlainText();
     }
 }
 
@@ -544,6 +641,18 @@ void SettingsDialog::applySettings()
 {
     getSettingsFromUI();
     saveSettings();
+
+    // 应用到全局 Logger / Config
+    Config::instance()->setValue("level", m_advancedSettings.loggingLevel, Config::Logging);
+    Config::instance()->setValue("rules", m_advancedSettings.loggingRules, Config::Logging);
+    // 优先环境变量，不覆盖环境变量，只应用配置规则（若未设置环境变量）
+    const QByteArray envRules = qgetenv("QT_LOGGING_RULES");
+    if (envRules.isEmpty()) {
+        if (!m_advancedSettings.loggingRules.trimmed().isEmpty()) {
+            Logger::applyQtLoggingRules(m_advancedSettings.loggingRules);
+        }
+    }
+    Logger::instance()->setLogLevel(Logger::stringToLevel(m_advancedSettings.loggingLevel));
 }
 
 void SettingsDialog::resetToDefaults()

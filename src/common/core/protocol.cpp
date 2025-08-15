@@ -2,8 +2,10 @@
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QDebug>
+#include "logging_categories.h"
 #include <QtEndian>
 #include <zlib.h>
+#include <QMessageLogger>
 
 quint32 Protocol::s_sequenceNumber = 0;
 
@@ -60,13 +62,13 @@ bool Protocol::deserializeHeader(const QByteArray &data, MessageHeader &header)
     
     // 验证魔数
     if (header.magic != PROTOCOL_MAGIC) {
-        qWarning() << "无效的魔数:" << Qt::hex << header.magic;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcProtocol) << "无效的魔数:" << Qt::hex << header.magic;
         return false;
     }
     
     // 验证版本
     if (header.version != PROTOCOL_VERSION) {
-        qWarning() << "不支持的协议版本:" << header.version;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcProtocol) << "不支持的协议版本:" << header.version;
         return false;
     }
     
@@ -112,7 +114,7 @@ bool Protocol::parseMessage(const QByteArray &data, MessageHeader &header, QByte
     // 验证校验和
     quint32 calculatedChecksum = calculateChecksum(payload);
     if (calculatedChecksum != header.checksum) {
-        qWarning() << "Checksum mismatch. Expected:" << Qt::hex << header.checksum
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcProtocol) << "Checksum mismatch. Expected:" << Qt::hex << header.checksum
                    << "Calculated:" << Qt::hex << calculatedChecksum
                    << "Payload size:" << payload.size()
                    << "Payload hex:" << payload.toHex();
@@ -165,7 +167,7 @@ QByteArray Protocol::compressData(const QByteArray &data, int level)
                           level);
     
     if (result != Z_OK) {
-        qWarning() << "Compression failed with error:" << result;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcProtocol) << "Compression failed with error:" << result;
         return QByteArray();
     }
     
@@ -193,7 +195,7 @@ QByteArray Protocol::decompressData(const QByteArray &data)
             uncompressed.resize(uncompressedSize);
             return uncompressed;
         } else if (result != Z_BUF_ERROR) {
-            qWarning() << "Decompression failed with error:" << result;
+            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcProtocol) << "Decompression failed with error:" << result;
             break;
         }
     }

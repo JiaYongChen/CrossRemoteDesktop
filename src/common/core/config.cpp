@@ -10,8 +10,10 @@
 #include <QCryptographicHash>
 #include <QFileSystemWatcher>
 #include <QDebug>
+#include "logging_categories.h"
 #include <QMetaProperty>
 #include <QMetaObject>
+#include <QMessageLogger>
 
 // 静态成员初始化
 Config* Config::s_instance = nullptr;
@@ -78,7 +80,23 @@ void Config::setConfigFile(const QString &filePath, ConfigFormat format)
     m_configFilePath = filePath;
     m_configFormat = format;
     
-    // File watcher setup removed
+    // 重建 QSettings 实例（目前实现仅支持 INI）
+    if (m_settings) {
+        delete m_settings;
+        m_settings = nullptr;
+    }
+    QSettings::Format settingsFormat = QSettings::IniFormat;
+    if (m_configFormat != IniFormat) {
+        // 其它格式暂未实现，仍然回落到 INI，避免崩溃
+        settingsFormat = QSettings::IniFormat;
+    }
+    m_settings = new QSettings(m_configFilePath, settingsFormat);
+    
+    // 文件监控
+    if (m_fileWatcher) {
+        m_fileWatcher->removePaths(m_fileWatcher->files());
+        m_fileWatcher->addPath(m_configFilePath);
+    }
 }
 
 QString Config::configFile() const
@@ -96,12 +114,12 @@ bool Config::load()
     
     QFile file(m_configFilePath);
     if (!file.exists()) {
-        qDebug() << "Config file does not exist:" << m_configFilePath;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcApp) << "Config file does not exist:" << m_configFilePath;
         return false;
     }
     
     if (!file.open(QIODevice::ReadOnly)) {
-        qWarning() << "Failed to open config file for reading:" << m_configFilePath;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcApp) << "Failed to open config file for reading:" << m_configFilePath;
         return false;
     }
     
@@ -112,7 +130,7 @@ bool Config::load()
     if (m_encrypted) {
         data = decrypt(data);
         if (data.isEmpty()) {
-            qWarning() << "Failed to decrypt config file";
+            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcApp) << "Failed to decrypt config file";
             return false;
         }
     }
@@ -133,7 +151,7 @@ bool Config::load()
         break;
     case ConfigFormat::BinaryFormat:
         // Binary format not implemented
-        qWarning() << "Binary format not supported";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcApp) << "Binary format not supported";
         return false;
     }
     
@@ -164,7 +182,7 @@ bool Config::save()
         break;
     case ConfigFormat::BinaryFormat:
         // Binary format not implemented
-        qWarning() << "Binary format not supported";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcApp) << "Binary format not supported";
         return false;
     }
     
@@ -452,14 +470,14 @@ bool Config::saveIni() const
 bool Config::saveJson() const
 {
     // JSON format not fully implemented
-    qWarning() << "JSON format save not implemented";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcApp) << "JSON format save not implemented";
     return false;
 }
 
 bool Config::saveXml() const
 {
     // XML format not implemented
-    qWarning() << "XML format save not implemented";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcApp) << "XML format save not implemented";
     return false;
 }
 
@@ -476,14 +494,14 @@ bool Config::loadIni()
 bool Config::loadJson()
 {
     // JSON format not fully implemented
-    qWarning() << "JSON format load not implemented";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcApp) << "JSON format load not implemented";
     return false;
 }
 
 bool Config::loadXml()
 {
     // XML format not implemented
-    qWarning() << "XML format load not implemented";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcApp) << "XML format load not implemented";
     return false;
 }
 

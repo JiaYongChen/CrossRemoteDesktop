@@ -63,6 +63,7 @@ set(SOURCES
     src/common/core/encryption.cpp
     src/common/core/compression.cpp
     src/common/core/logger.cpp
+    src/common/core/logging_categories.cpp
     src/common/core/config.cpp
     src/common/core/constants.cpp
     src/server/servermanager.cpp
@@ -89,6 +90,7 @@ set(HEADERS
     src/common/core/encryption.h
     src/common/core/compression.h
     src/common/core/logger.h
+    src/common/core/logging_categories.h
     src/common/core/config.h
     src/server/servermanager.h
     src/client/clientmanager.h

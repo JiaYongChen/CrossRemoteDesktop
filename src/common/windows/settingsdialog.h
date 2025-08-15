@@ -185,6 +185,7 @@ private:
     // 高级设置选项卡
     QWidget *m_advancedTab;
     QComboBox *m_loggingLevelCombo;
+    QTextEdit *m_loggingRulesEdit;
     QLineEdit *m_logFilePathEdit;
     QPushButton *m_browseLogPathButton;
     QSpinBox *m_maxLogFileSizeSpinBox;
@@ -268,7 +269,8 @@ private:
     } m_securitySettings;
     
     struct AdvancedSettings {
-        QString loggingLevel;
+    QString loggingLevel;
+    QString loggingRules;
         QString logFilePath;
         int maxLogFileSize;
         int maxLogFiles;

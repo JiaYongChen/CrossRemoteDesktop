@@ -2,6 +2,7 @@
 #include "constants.h"
 #include <QDir>
 #include <QStandardPaths>
+#include <QMessageLogger>
 #include <QDateTime>
 #include <QTextStream>
 #include <QMutexLocker>
@@ -9,16 +10,10 @@
 #include <QCoreApplication>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QTimer>
-#include <QFileSystemWatcher>
-#include <QNetworkAccessManager>
-#include <QNetworkRequest>
-#include <QNetworkReply>
-#include <QHttpMultiPart>
-#include <QHttpPart>
-#include <QRegularExpression>
 #include <QElapsedTimer>
 #include <iostream>
+#include "logging_categories.h"
+#include <QLoggingCategory>
 
 // 静态成员变量定义
 Logger* Logger::s_instance = nullptr;
@@ -33,14 +28,7 @@ Logger::Logger(QObject *parent)
     , m_logStream(nullptr)
     , m_maxFileSize(CoreConstants::DEFAULT_MAX_FILE_SIZE)
     , m_maxFileCount(5)
-    , m_rotationPolicy(NoRotation)
-    , m_rotationInterval(24)
-    , m_bufferSize(1000)
-    , m_flushTimer(new QTimer(this))
-    , m_flushInterval(5000) // 5秒
-    , m_autoFlush(false)
-    , m_networkPort(0)
-    , m_networkSocket(nullptr)
+    
     , m_enabled(true)
     , m_totalLogCount(0)
     , m_totalLogSize(0)
@@ -54,11 +42,6 @@ Logger::Logger(QObject *parent)
     
     // 设置默认日志文件路径
     m_logFilePath = logDir + "/application.log";
-    
-    // 初始化自动刷新定时器
-    m_flushTimer->setSingleShot(false);
-    connect(m_flushTimer, &QTimer::timeout, this, &Logger::flush);
-    m_flushTimer->start(m_flushInterval);
     
     // 安装Qt消息处理器
     qInstallMessageHandler(Logger::qtMessageHandler);
@@ -82,6 +65,13 @@ Logger* Logger::instance()
         }
     }
     return s_instance;
+}
+
+void Logger::applyQtLoggingRules(const QString &rules)
+{
+    // 直接交由 Qt 处理分类日志规则，例如：
+    // "lcApp.debug=true\n*.info=true\nqt.network.ssl.warning=false"
+    QLoggingCategory::setFilterRules(rules);
 }
 
 void Logger::setLogLevel(LogLevel level)
@@ -171,18 +161,7 @@ void Logger::log(LogLevel level, const QString &message, const QString &category
     }
     
     // 应用过滤器
-    if (!m_filters.isEmpty()) {
-        bool passed = false;
-        for (const auto &filter : m_filters) {
-            if (message.contains(filter) || category.contains(filter)) {
-                passed = true;
-                break;
-            }
-        }
-        if (!passed) {
-            return; // 过滤器不匹配，排除此日志
-        }
-    }
+    // 过滤功能已移除，如需按分类/级别控制请使用 QLoggingCategory 规则
     
     LogEntry entry;
     entry.timestamp = QDateTime::currentDateTime();
@@ -191,6 +170,7 @@ void Logger::log(LogLevel level, const QString &message, const QString &category
     entry.category = category;
     entry.fileName = QString();
     entry.lineNumber = 0;
+    entry.functionName = QString();
     entry.threadId = reinterpret_cast<quintptr>(QThread::currentThreadId());
     
     QMutexLocker locker(&m_mutex);
@@ -211,14 +191,7 @@ void Logger::log(LogLevel level, const QString &message, const QString &category
     }
     
     // 输出到网络
-    if (m_logTargets & LogTarget::Network) {
-        writeToNetwork(formattedMessage);
-    }
-    
-    // 输出到系统日志
-    if (m_logTargets & LogTarget::SystemLog) {
-        writeToSystemLog(formattedMessage, entry.level);
-    }
+    // 网络/系统日志输出已移除
 }
 
 void Logger::flush()
@@ -256,29 +229,7 @@ void Logger::clear()
     m_totalLogCount = 0;
 }
 
-void Logger::addFilter(const QString &pattern)
-{
-    QMutexLocker locker(&m_mutex);
-    m_filters.append(pattern);
-}
-
-void Logger::removeFilter(const QString &pattern)
-{
-    QMutexLocker locker(&m_mutex);
-    m_filters.removeAll(pattern);
-}
-
-void Logger::clearFilters()
-{
-    QMutexLocker locker(&m_mutex);
-    m_filters.clear();
-}
-
-QStringList Logger::filters() const
-{
-    QMutexLocker locker(&m_mutex);
-    return m_filters;
-}
+// 过滤接口已移除
 
 bool Logger::isEnabled() const
 {
@@ -323,7 +274,7 @@ void Logger::openLogFile()
     m_logFile = new QFile(m_logFilePath);
     
     if (!m_logFile->open(QIODevice::WriteOnly | QIODevice::Append)) {
-        qWarning() << "Failed to open log file:" << m_logFilePath;
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcApp) << "Failed to open log file:" << m_logFilePath;
         return;
     }
     
@@ -376,7 +327,7 @@ QString Logger::formatSimple(const LogEntry &entry) const
 
 QString Logger::formatStandard(const LogEntry &entry) const
 {
-    return QString("[%1] [%2] [%3] %4")
+    return QString("[%1] [%2] [TID:%3] %4")
            .arg(entry.timestamp.toString("yyyy-MM-dd hh:mm:ss"))
            .arg(levelToString(entry.level))
            .arg(QString::number(entry.threadId))
@@ -385,13 +336,13 @@ QString Logger::formatStandard(const LogEntry &entry) const
 
 QString Logger::formatDetailed(const LogEntry &entry) const
 {
-    return QString("[%1] [%2] [%3:%4] [%5:%6] %7")
+    return QString("[%1] [%2] [TID:%3] [%4:%5] [%6] %7")
            .arg(entry.timestamp.toString("yyyy-MM-dd hh:mm:ss.zzz"))
            .arg(levelToString(entry.level))
            .arg(QString::number(entry.threadId))
-           .arg(entry.threadId)
            .arg(entry.fileName)
            .arg(entry.lineNumber)
+           .arg(entry.functionName)
            .arg(entry.message);
 }
 
@@ -443,18 +394,20 @@ QString Logger::levelToString(LogLevel level)
     return "UNKNOWN";
 }
 
-void Logger::writeToNetwork(const QString &formattedMessage)
+Logger::LogLevel Logger::stringToLevel(const QString &levelStr)
 {
-    // 网络日志功能暂未实现
-    Q_UNUSED(formattedMessage)
+    const QString s = levelStr.trimmed().toLower();
+    if (s == "trace") return Trace;
+    if (s == "debug") return Debug;
+    if (s == "info") return Info;
+    if (s == "warn" || s == "warning") return Warning;
+    if (s == "error") return Error;
+    if (s == "critical") return Critical;
+    if (s == "fatal") return Fatal;
+    return Info;
 }
 
-void Logger::writeToSystemLog(const QString &formattedMessage, LogLevel level)
-{
-    // 系统日志功能暂未实现
-    Q_UNUSED(formattedMessage)
-    Q_UNUSED(level)
-}
+// 网络与系统日志输出已移除
 
 void Logger::rotateLogFile()
 {
@@ -511,108 +464,51 @@ void Logger::qtMessageHandler(QtMsgType type, const QMessageLogContext &context,
     case QtFatalMsg: level = LogLevel::Fatal; break;
     default: level = LogLevel::Info; break;
     }
-    
-    Logger::instance()->log(level, msg, context.category);
+
+    Logger::instance()->logWithContext(level,
+                                       msg,
+                                       context.category ? QString::fromUtf8(context.category) : QString(),
+                                       context.file ? context.file : "",
+                                       context.line,
+                                       context.function ? context.function : "");
 }
 
-// ScopeLogger 实现
-ScopeLogger::ScopeLogger(const QString &functionName, Logger::LogLevel level)
-    : m_functionName(functionName), m_level(level), m_startTime(QDateTime::currentDateTime())
+void Logger::logWithContext(LogLevel level,
+                            const QString &message,
+                            const QString &category,
+                            const char *file,
+                            int line,
+                            const char *function)
 {
-    Logger::instance()->log(m_level, QString("Entering %1").arg(m_functionName), QString());
+    if (!m_enabled || level < m_logLevel) {
+        return;
+    }
+    // 过滤功能已移除
+
+    LogEntry entry;
+    entry.timestamp = QDateTime::currentDateTime();
+    entry.level = level;
+    entry.message = message;
+    entry.category = category;
+    entry.fileName = QString::fromUtf8(file);
+    entry.lineNumber = line;
+    entry.functionName = QString::fromUtf8(function);
+    entry.threadId = reinterpret_cast<quintptr>(QThread::currentThreadId());
+
+    QMutexLocker locker(&m_mutex);
+    m_totalLogCount++;
+    const QString formattedMessage = formatMessage(entry);
+
+    if (m_logTargets & LogTarget::Console) writeToConsole(formattedMessage, entry.level);
+    if (m_logTargets & LogTarget::File) writeToFile(formattedMessage);
 }
 
-ScopeLogger::~ScopeLogger()
-{
-    Logger::instance()->log(m_level, QString("Exiting %1").arg(m_functionName), QString());
-}
-
-void ScopeLogger::setExitMessage(const QString &message)
-{
-    m_exitMessage = message;
-}
-
-// PerformanceLogger 实现
-PerformanceLogger::PerformanceLogger(const QString &operationName, Logger::LogLevel level)
-    : m_operationName(operationName), m_level(level), m_startTime(QDateTime::currentDateTime()), m_threshold(0)
-{
-    Logger::instance()->log(m_level, QString("Starting %1").arg(m_operationName), QString());
-}
-
-PerformanceLogger::~PerformanceLogger()
-{
-    qint64 elapsed = m_startTime.msecsTo(QDateTime::currentDateTime());
-    Logger::instance()->log(m_level, QString("Completed %1 in %2ms").arg(m_operationName).arg(elapsed), QString());
-}
-
-void PerformanceLogger::checkpoint(const QString &checkpointName)
-{
-    m_checkpoints.append(qMakePair(checkpointName, QDateTime::currentDateTime()));
-}
-
-void PerformanceLogger::setThreshold(qint64 thresholdMs)
-{
-    m_threshold = thresholdMs;
-}
+// ScopeLogger/PerformanceLogger 已移除
 
 // Logger missing function implementations
-void Logger::onFlushTimer()
-{
-    flush();
-}
+// 刷新/轮转队列与定时相关接口已移除
 
-void Logger::onRotationTimer()
-{
-    if (shouldRotate()) {
-        rotate();
-    }
-}
-
-void Logger::processLogQueue()
-{
-    QMutexLocker locker(&m_queueMutex);
-    while (!m_logQueue.isEmpty()) {
-        LogEntry entry = m_logQueue.dequeue();
-        QString formattedMessage = formatMessage(entry);
-        
-        if (m_logTargets & LogTarget::Console) {
-            writeToConsole(formattedMessage, entry.level);
-        }
-        if (m_logTargets & LogTarget::File) {
-            writeToFile(formattedMessage);
-        }
-        if (m_logTargets & LogTarget::Network) {
-            writeToNetwork(formattedMessage);
-        }
-        if (m_logTargets & LogTarget::SystemLog) {
-            writeToSystemLog(formattedMessage, entry.level);
-        }
-    }
-}
-
-void Logger::setRotationPolicy(RotationPolicy policy)
-{
-    QMutexLocker locker(&m_mutex);
-    m_rotationPolicy = policy;
-}
-
-Logger::RotationPolicy Logger::rotationPolicy() const
-{
-    QMutexLocker locker(&m_mutex);
-    return m_rotationPolicy;
-}
-
-void Logger::setRotationInterval(int hours)
-{
-    QMutexLocker locker(&m_mutex);
-    m_rotationInterval = hours;
-}
-
-int Logger::rotationInterval() const
-{
-    QMutexLocker locker(&m_mutex);
-    return m_rotationInterval;
-}
+// 轮转策略接口保留于头文件，具体策略实现已简化，仅按大小轮转
 
 void Logger::trace(const QString &message, const QString &category)
 {
@@ -651,24 +547,10 @@ void Logger::fatal(const QString &message, const QString &category)
 
 bool Logger::shouldRotate() const
 {
-    if (m_rotationPolicy == NoRotation) {
-        return false;
+    // 简化：仅基于大小轮转
+    if (m_logFile && m_logFile->isOpen()) {
+        return m_logFile->size() >= m_maxFileSize;
     }
-    
-    if (m_rotationPolicy == SizeBasedRotation) {
-        if (m_logFile && m_logFile->size() >= m_maxFileSize) {
-            return true;
-        }
-    }
-    
-    if (m_rotationPolicy == TimeBasedRotation) {
-        QDateTime now = QDateTime::currentDateTime();
-        if (m_lastRotation.isValid() && 
-            m_lastRotation.secsTo(now) >= m_rotationInterval * 3600) {
-            return true;
-        }
-    }
-    
     return false;
 }
 
@@ -681,3 +563,5 @@ void Logger::uninstallMessageHandler()
 {
     qInstallMessageHandler(nullptr);
 }
+
+// 轮转策略 API 已移除（固定按大小轮转）

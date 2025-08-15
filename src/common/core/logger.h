@@ -1,15 +1,13 @@
 #ifndef LOGGER_H
 #define LOGGER_H
 
-#include <QObject>
+#include <QtCore/QObject>
 #include <QString>
 #include <QDateTime>
 #include <QFile>
 #include <QTextStream>
 #include <QMutex>
 #include <QThread>
-#include <QQueue>
-#include <QTimer>
 #include <QDir>
 #include <QStandardPaths>
 
@@ -34,9 +32,7 @@ public:
     enum LogTarget {
         Console = 0x01,
         File = 0x02,
-        Network = 0x04,
-        SystemLog = 0x08,
-        All = Console | File | Network | SystemLog
+        All = Console | File
     };
     Q_DECLARE_FLAGS(LogTargets, LogTarget)
     
@@ -49,17 +45,10 @@ public:
         Custom      // 自定义格式
     };
     
-    // 日志轮转策略
-    enum RotationPolicy {
-        NoRotation,
-        SizeBasedRotation,
-        TimeBasedRotation,
-        CountBasedRotation
-    };
+    // 日志轮转策略（已移除，固定按大小轮转）
     
     // 单例模式
     static Logger* instance();
-    static void destroyInstance();
     
     // 配置
     void setLogLevel(LogLevel level);
@@ -84,32 +73,9 @@ public:
     void setMaxFileCount(int maxCount);
     int maxFileCount() const;
     
-    void setRotationPolicy(RotationPolicy policy);
-    RotationPolicy rotationPolicy() const;
+    // 轮转策略 API 已移除，固定按大小轮转
     
-    void setRotationInterval(int hours); // 小时
-    int rotationInterval() const;
-    
-    // 缓冲配置
-    void setBufferSize(int size);
-    int bufferSize() const;
-    
-    void setFlushInterval(int milliseconds);
-    int flushInterval() const;
-    
-    void setAutoFlush(bool enabled);
-    bool autoFlush() const;
-    
-    // 网络日志配置
-    void setNetworkEndpoint(const QString &host, quint16 port);
-    QString networkHost() const;
-    quint16 networkPort() const;
-    
-    // 过滤器
-    void addFilter(const QString &pattern);
-    void removeFilter(const QString &pattern);
-    void clearFilters();
-    QStringList filters() const;
+    // 过滤、网络与系统日志相关接口已移除，统一使用 Qt 的 QLoggingCategory 规则。
     
     // 日志记录
     void log(LogLevel level, const QString &message, const QString &category = QString());
@@ -120,6 +86,14 @@ public:
     void error(const QString &message, const QString &category = QString());
     void critical(const QString &message, const QString &category = QString());
     void fatal(const QString &message, const QString &category = QString());
+
+    // 带源文件上下文的日志（内部使用，供 Qt 消息处理器调用）
+    void logWithContext(LogLevel level,
+                        const QString &message,
+                        const QString &category,
+                        const char *file,
+                        int line,
+                        const char *function);
     
     // 格式化日志记录
     template<typename... Args>
@@ -177,12 +151,14 @@ public:
     // 工具函数
     static QString levelToString(LogLevel level);
     static LogLevel stringToLevel(const QString &levelStr);
-    static QString formatToString(LogFormat format);
-    static LogFormat stringToFormat(const QString &formatStr);
     
     // Qt消息处理器集成
     static void installMessageHandler();
     static void uninstallMessageHandler();
+    
+    // Qt logging rules（QLoggingCategory::setFilterRules）
+    // 允许从配置或环境变量动态设置分类日志开关
+    static void applyQtLoggingRules(const QString &rules);
     
 signals:
     void logMessage(LogLevel level, const QString &message, const QString &category, const QDateTime &timestamp);
@@ -190,15 +166,12 @@ signals:
     void errorOccurred(const QString &error);
     
 public slots:
-    void onFlushTimer();
-    void onRotationTimer();
     
 protected:
     explicit Logger(QObject *parent = nullptr);
     ~Logger() override;
     
 private slots:
-    void processLogQueue();
     
 private:
     struct LogEntry {
@@ -206,10 +179,10 @@ private:
         QString message;
         QString category;
         QDateTime timestamp;
-        QString threadName;
         quintptr threadId;
         QString fileName;
         int lineNumber;
+    QString functionName;
     };
     
     // 格式化
@@ -223,8 +196,6 @@ private:
     // 输出
     void writeToConsole(const QString &formattedMessage, LogLevel level);
     void writeToFile(const QString &formattedMessage);
-    void writeToNetwork(const QString &formattedMessage);
-    void writeToSystemLog(const QString &formattedMessage, LogLevel level);
     
     // 文件管理
     void openLogFile();
@@ -234,12 +205,7 @@ private:
     QString generateRotatedFileName() const;
     void cleanupOldLogFiles();
     
-    // 过滤
-    bool shouldLog(LogLevel level, const QString &message, const QString &category) const;
-    
-    // 网络
-    void connectToNetworkEndpoint();
-    void disconnectFromNetworkEndpoint();
+    // 过滤/网络相关功能已移除
     
     // Qt消息处理器
     static void qtMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg);
@@ -259,25 +225,9 @@ private:
     QTextStream *m_logStream;
     qint64 m_maxFileSize;
     int m_maxFileCount;
-    RotationPolicy m_rotationPolicy;
-    int m_rotationInterval;
-    QDateTime m_lastRotation;
+    // 轮转策略相关成员移除
     
-    // 缓冲相关
-    QQueue<LogEntry> m_logQueue;
-    QMutex m_queueMutex;
-    int m_bufferSize;
-    QTimer *m_flushTimer;
-    int m_flushInterval;
-    bool m_autoFlush;
-    
-    // 网络相关
-    QString m_networkHost;
-    quint16 m_networkPort;
-    QObject *m_networkSocket; // QTcpSocket或QUdpSocket
-    
-    // 过滤器
-    QStringList m_filters;
+    // 过滤/网络/缓冲相关成员已移除，避免复杂度
     
     // 状态
     bool m_enabled;
@@ -288,7 +238,6 @@ private:
     mutable QMutex m_mutex;
     
     // Qt消息处理器
-    static QtMessageHandler s_previousHandler;
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(Logger::LogTargets)
@@ -302,52 +251,8 @@ Q_DECLARE_OPERATORS_FOR_FLAGS(Logger::LogTargets)
 #define LOG_CRITICAL(msg) Logger::instance()->critical(msg)
 #define LOG_FATAL(msg) Logger::instance()->fatal(msg)
 
-#define LOG_TRACEF(fmt, ...) Logger::instance()->tracef(fmt, __VA_ARGS__)
-#define LOG_DEBUGF(fmt, ...) Logger::instance()->debugf(fmt, __VA_ARGS__)
-#define LOG_INFOF(fmt, ...) Logger::instance()->infof(fmt, __VA_ARGS__)
-#define LOG_WARNINGF(fmt, ...) Logger::instance()->warningf(fmt, __VA_ARGS__)
-#define LOG_ERRORF(fmt, ...) Logger::instance()->errorf(fmt, __VA_ARGS__)
-#define LOG_CRITICALF(fmt, ...) Logger::instance()->criticalf(fmt, __VA_ARGS__)
-#define LOG_FATALF(fmt, ...) Logger::instance()->fatalf(fmt, __VA_ARGS__)
+// 提示：格式化日志请直接使用 Logger::instance()->infof/debugf 等 C++17 模板函数，避免可变参数宏带来的告警。
 
-// 作用域日志类（用于函数进入/退出日志）
-class ScopeLogger
-{
-public:
-    explicit ScopeLogger(const QString &functionName, Logger::LogLevel level = Logger::Debug);
-    ~ScopeLogger();
-    
-    void setExitMessage(const QString &message);
-    
-private:
-    QString m_functionName;
-    Logger::LogLevel m_level;
-    QString m_exitMessage;
-    QDateTime m_startTime;
-};
-
-#define LOG_SCOPE() ScopeLogger _scopeLogger(Q_FUNC_INFO)
-#define LOG_SCOPE_LEVEL(level) ScopeLogger _scopeLogger(Q_FUNC_INFO, level)
-
-// 性能日志类
-class PerformanceLogger
-{
-public:
-    explicit PerformanceLogger(const QString &operationName, Logger::LogLevel level = Logger::Info);
-    ~PerformanceLogger();
-    
-    void checkpoint(const QString &checkpointName);
-    void setThreshold(qint64 thresholdMs);
-    
-private:
-    QString m_operationName;
-    Logger::LogLevel m_level;
-    QDateTime m_startTime;
-    qint64 m_threshold;
-    QList<QPair<QString, QDateTime>> m_checkpoints;
-};
-
-#define LOG_PERFORMANCE(name) PerformanceLogger _perfLogger(name)
-#define LOG_PERFORMANCE_LEVEL(name, level) PerformanceLogger _perfLogger(name, level)
+// ScopeLogger/PerformanceLogger 等调试类已移除
 
 #endif // LOGGER_H

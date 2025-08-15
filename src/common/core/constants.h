@@ -53,6 +53,12 @@ public:
     static const int DEFAULT_MAX_CLIENTS;
     static const int CLEANUP_TIMER_INTERVAL; // ms
 
+    // Logging defaults (non-UI)
+    static const int DEFAULT_MAX_FILE_COUNT;      // max rotated files
+    static const int DEFAULT_LOG_BUFFER_SIZE;     // entries
+    static const int DEFAULT_LOG_FLUSH_INTERVAL;  // ms
+    static const int DEFAULT_ROTATION_INTERVAL;   // hours
+
 private:
     CoreConstants() = delete;
 };

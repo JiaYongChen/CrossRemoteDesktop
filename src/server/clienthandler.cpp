@@ -6,9 +6,11 @@
 #include <QTimer>
 #include <QDateTime>
 #include <QDebug>
+#include "../common/core/logging_categories.h"
 #include <QDataStream>
 #include <QBuffer>
 #include <QCryptographicHash>
+#include <QMessageLogger>
 #include <cstring>
 
 // ClientHandler implementation
@@ -27,12 +29,12 @@ ClientHandler::ClientHandler(qintptr socketDescriptor, QObject *parent)
     , m_bytesSent(0)
     , m_inputSimulator(new InputSimulator(this))
 {
-    qDebug() << "[DEBUG] ClientHandler constructor called with socketDescriptor:" << socketDescriptor;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "ClientHandler constructor socketDescriptor:" << socketDescriptor;
     if (!m_socket->setSocketDescriptor(socketDescriptor)) {
-        qDebug() << "[DEBUG] Failed to set socket descriptor, error:" << m_socket->errorString();
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Failed to set socket descriptor, error:" << m_socket->errorString();
         return;
     }
-    qDebug() << "[DEBUG] Socket descriptor set successfully";
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "Socket descriptor set successfully";
     
     // 设置TCP优化选项
     m_socket->setSocketOption(QAbstractSocket::LowDelayOption, 1);  // TCP_NODELAY
@@ -55,7 +57,7 @@ ClientHandler::ClientHandler(qintptr socketDescriptor, QObject *parent)
     
     // 初始化输入模拟器
     if (!m_inputSimulator->initialize()) {
-        qWarning() << "Failed to initialize input simulator for client:" << m_clientId;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Failed to initialize input simulator for client:" << m_clientId;
     }
     
     // 启动心跳检查定时器
@@ -135,7 +137,7 @@ void ClientHandler::disconnectClient()
 
 void ClientHandler::forceDisconnect()
 {
-    qDebug() << "Force disconnecting client:" << clientAddress();
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Force disconnecting client:" << clientAddress();
     
     if (m_socket) {
         // 停止心跳定时器
@@ -157,7 +159,7 @@ void ClientHandler::forceDisconnect()
             m_socket->abort();
         }
         
-        qDebug() << "Client forcefully disconnected:" << clientAddress();
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Client forcefully disconnected:" << clientAddress();
     }
 }
 
@@ -307,7 +309,7 @@ void ClientHandler::processMessage(const MessageHeader &header, const QByteArray
             handleDisconnectRequest();
             break;
         default:
-            qDebug() << "Unhandled message type:" << static_cast<quint32>(header.type);
+            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Unhandled message type:" << static_cast<quint32>(header.type);
             break;
     }
 }
@@ -315,7 +317,7 @@ void ClientHandler::processMessage(const MessageHeader &header, const QByteArray
 void ClientHandler::handleHandshakeRequest(const QByteArray &data)
 {
     Q_UNUSED(data)
-    qDebug() << "Received handshake request from client:" << m_clientId;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Received handshake request from client:" << m_clientId;
     
     // 发送握手响应
     sendHandshakeResponse();
@@ -323,11 +325,11 @@ void ClientHandler::handleHandshakeRequest(const QByteArray &data)
 
 void ClientHandler::handleAuthenticationRequest(const QByteArray &data)
 {
-    qDebug() << "Received authentication request from client:" << m_clientId;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Received authentication request from client:" << m_clientId;
 
     AuthenticationRequest req;
     if (!Protocol::deserialize(data, req)) {
-        qWarning() << "Invalid authentication request payload from" << m_clientId;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Invalid authentication request payload from" << m_clientId;
         sendAuthenticationResponse(AuthResult::UNKNOWN_ERROR);
         return;
     }
@@ -355,7 +357,7 @@ void ClientHandler::handleAuthenticationRequest(const QByteArray &data)
         m_failedAuthCount++;
         sendAuthenticationResponse(AuthResult::INVALID_PASSWORD);
         if (m_failedAuthCount >= NetworkConstants::MAX_RETRY_COUNT) {
-            qWarning() << "Too many failed auth attempts from" << m_clientId << ", disconnecting";
+            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Too many failed auth attempts from" << m_clientId << ", disconnecting";
             disconnectClient();
         }
     }
@@ -376,17 +378,17 @@ void ClientHandler::handleDisconnectRequest()
 void ClientHandler::handleMouseEvent(const QByteArray &data)
 {
     if (!m_isAuthenticated) {
-        qWarning() << "Received mouse event from unauthenticated client:" << m_clientId;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Received mouse event from unauthenticated client:" << m_clientId;
         return;
     }
     
     MouseEvent mouseEvent;
     if (!Protocol::deserialize(data, mouseEvent)) {
-        qWarning() << "Failed to deserialize mouse event from client:" << m_clientId;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Failed to deserialize mouse event from client:" << m_clientId;
         return;
     }
     
-    qDebug() << "Received mouse event from client:" << m_clientId 
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "Received mouse event from client:" << m_clientId 
              << "Position:" << mouseEvent.x << "," << mouseEvent.y
              << "Buttons:" << mouseEvent.buttons
              << "Type:" << static_cast<int>(mouseEvent.eventType);
@@ -422,7 +424,7 @@ void ClientHandler::handleMouseEvent(const QByteArray &data)
                   m_inputSimulator->simulateMouseWheel(mouseEvent.x, mouseEvent.y, -120);
                   break;
               default:
-                  qWarning() << "Unknown mouse event type:" << static_cast<int>(mouseEvent.eventType);
+                  QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Unknown mouse event type:" << static_cast<int>(mouseEvent.eventType);
                   break;
           }
       }
@@ -431,17 +433,17 @@ void ClientHandler::handleMouseEvent(const QByteArray &data)
 void ClientHandler::handleKeyboardEvent(const QByteArray &data)
 {
     if (!m_isAuthenticated) {
-        qWarning() << "Received keyboard event from unauthenticated client:" << m_clientId;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Received keyboard event from unauthenticated client:" << m_clientId;
         return;
     }
     
     KeyboardEvent keyEvent;
     if (!Protocol::deserialize(data, keyEvent)) {
-        qWarning() << "Failed to deserialize keyboard event from client:" << m_clientId;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Failed to deserialize keyboard event from client:" << m_clientId;
         return;
     }
     
-    qDebug() << "Received keyboard event from client:" << m_clientId
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "Received keyboard event from client:" << m_clientId
              << "KeyCode:" << keyEvent.keyCode
              << "Modifiers:" << keyEvent.modifiers
              << "Type:" << static_cast<int>(keyEvent.eventType)
@@ -459,7 +461,7 @@ void ClientHandler::handleKeyboardEvent(const QByteArray &data)
                  m_inputSimulator->simulateKeyRelease(keyEvent.keyCode, modifiers);
                  break;
              default:
-                 qWarning() << "Unknown keyboard event type:" << static_cast<int>(keyEvent.eventType);
+                 QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Unknown keyboard event type:" << static_cast<int>(keyEvent.eventType);
                  break;
          }
      }
@@ -479,7 +481,7 @@ void ClientHandler::sendHandshakeResponse()
     QByteArray responseData = Protocol::serialize(response);
     sendMessage(MessageType::HANDSHAKE_RESPONSE, responseData);
     
-    qDebug() << "Sent handshake response to client:" << m_clientId;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Sent handshake response to client:" << m_clientId;
 }
 
 void ClientHandler::sendAuthenticationResponse(AuthResult result, const QString &sessionId)
@@ -492,7 +494,7 @@ void ClientHandler::sendAuthenticationResponse(AuthResult result, const QString 
     QByteArray responseData = Protocol::serialize(response);
     sendMessage(MessageType::AUTHENTICATION_RESPONSE, responseData);
     
-    qDebug() << "Sent authentication response to client:" << m_clientId << "Result:" << static_cast<int>(result);
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Sent authentication response to client:" << m_clientId << "Result:" << static_cast<int>(result);
 }
 
 QString ClientHandler::generateSessionId() const
