@@ -2,12 +2,16 @@
 #define TCPCLIENT_H
 
 #include <QtCore/QObject>
-#include <QtNetwork/QTcpSocket>
-#include <QtCore/QTimer>
 #include <QtCore/QDateTime>
 #include <QtCore/QMutex>
+#include <QtGui/QImage>
+#include <QtNetwork/QAbstractSocket>
 #include "../common/core/protocol.h"
+#include "../common/core/icodec.h"
 #include "../core/networkconstants.h"
+
+class QTcpSocket;
+class QTimer;
 
 class TcpClient : public QObject
 {
@@ -16,6 +20,11 @@ class TcpClient : public QObject
 public:
     explicit TcpClient(QObject *parent = nullptr);
     ~TcpClient();
+
+    // 编解码器注入（可选）。未设置时使用默认ProtocolCodec
+    void setCodec(IMessageCodec *codec);
+    void setCodec(IMessageCodec *codec, bool takeOwnership);
+    const IMessageCodec* codec() const { return m_codec; }
     
     // 连接控制
     void connectToHost(const QString &hostName, quint16 port);
@@ -40,12 +49,6 @@ public:
     // 配置
     void setConnectionTimeout(int msecs);
     int connectionTimeout() const;
-
-    // 测试兼容：自动重连控制（默认关闭）
-    void setAutoReconnect(bool enable);
-    bool autoReconnect() const;
-    void setReconnectInterval(int msecs);
-    int reconnectInterval() const;
     
 signals:
     void connected();
@@ -56,7 +59,7 @@ signals:
 
     void errorOccurred(const QString &error);
     void statusUpdated(const QString &status);
-    void screenDataReceived(const QPixmap &frame);
+    void screenDataReceived(const QImage &frame);
     
 public slots:
     
@@ -115,9 +118,7 @@ private:
     // 连接超时
     int m_connectionTimeout;
 
-    // 自动重连（用于测试期望的API；默认不启用，不影响现有行为）
-    bool m_autoReconnect{false};
-    int m_reconnectInterval{3000};
+    // 自动重连逻辑已下沉至 ConnectionManager
     
     // 差异压缩相关
     QByteArray m_previousFrameData;
@@ -127,12 +128,15 @@ private:
     QMutex m_mutex;
     
     // 常量
-    static const int DEFAULT_RECONNECT_INTERVAL = NetworkConstants::DEFAULT_RECONNECT_INTERVAL;
     static const int DEFAULT_CONNECTION_TIMEOUT = NetworkConstants::DEFAULT_CONNECTION_TIMEOUT;
     static const int HEARTBEAT_INTERVAL = NetworkConstants::HEARTBEAT_INTERVAL;
     static const int HEARTBEAT_TIMEOUT = NetworkConstants::HEARTBEAT_TIMEOUT;
     static const int MAX_RETRY_COUNT = NetworkConstants::MAX_RETRY_COUNT;
     QDateTime m_lastHeartbeat;
+
+    // 编解码
+    IMessageCodec *m_codec{nullptr};
+    bool m_codecOwned{false};
 };
 
 #endif // TCPCLIENT_H

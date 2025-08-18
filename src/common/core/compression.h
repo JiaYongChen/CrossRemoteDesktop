@@ -3,12 +3,12 @@
 
 #include <QtCore/QByteArray>
 #include <QtCore/QString>
+#include <QtCore/QList>
+#include <QtCore/QObject>
+#include <QtCore/QRect>
+#include <functional>
 #include <QtGui/QPixmap>
 #include <QtGui/QImage>
-#include <QtCore/QBuffer>
-#include <QtGui/QImageWriter>
-#include <QtGui/QImageReader>
-#include <QtCore/QObject>
 #include "constants.h"
 
 class Compression
@@ -152,18 +152,6 @@ private:
     static QByteArray compressGzip(const QByteArray &data, Level level);
     static QByteArray decompressGzip(const QByteArray &compressedData);
     
-    // LZ4压缩实现（如果可用）
-#ifdef LZ4_AVAILABLE
-    static QByteArray compressLZ4(const QByteArray &data, Level level);
-    static QByteArray decompressLZ4(const QByteArray &compressedData);
-#endif
-    
-    // ZSTD压缩实现（如果可用）
-#ifdef ZSTD_AVAILABLE
-    static QByteArray compressZstd(const QByteArray &data, Level level);
-    static QByteArray decompressZstd(const QByteArray &compressedData);
-#endif
-    
     // BZIP2压缩实现（如果可用）
 #ifdef BZIP2_AVAILABLE
     static QByteArray compressBzip2(const QByteArray &data, Level level);
@@ -225,54 +213,6 @@ private:
     int m_strategy;
 };
 
-// LZ4压缩类
-class LZ4Compression : public QObject
-{
-    Q_OBJECT
-    
-public:
-    explicit LZ4Compression(QObject *parent = nullptr);
-    ~LZ4Compression();
-    
-    void setLevel(int level);
-    int level() const;
-    
-    void setHighCompression(bool enabled);
-    bool isHighCompression() const;
-    
-    QByteArray compress(const QByteArray &data);
-    QByteArray decompress(const QByteArray &compressedData, int originalSize);
-    
-    QByteArray compressWithHeader(const QByteArray &data);
-    QByteArray decompressWithHeader(const QByteArray &compressedData);
-    
-private:
-    int m_level;
-    bool m_useHighCompression;
-};
-
-// Zstd压缩类
-class ZstdCompression : public QObject
-{
-    Q_OBJECT
-    
-public:
-    explicit ZstdCompression(QObject *parent = nullptr);
-    ~ZstdCompression();
-    
-    void setLevel(int level);
-    int level() const;
-    
-    QByteArray compress(const QByteArray &data);
-    QByteArray decompress(const QByteArray &compressedData);
-    
-    QByteArray compressStream(const QByteArray &data);
-    QByteArray decompressStream(const QByteArray &compressedData);
-    
-private:
-    int m_level;
-};
-
 // 压缩工具类
 class CompressionUtils
 {
@@ -322,53 +262,6 @@ public:
     
 private:
     CompressionUtils() = delete;
-};
-
-// 压缩缓存类（用于避免重复压缩相同数据）
-class CompressionCache
-{
-public:
-    explicit CompressionCache(int maxSize = 100);
-    ~CompressionCache();
-    
-    void setMaxSize(int maxSize);
-    int maxSize() const;
-    
-    void clear();
-    int size() const;
-    
-    // 缓存操作
-    bool contains(const QByteArray &data, Compression::Algorithm algorithm, Compression::Level level) const;
-    QByteArray get(const QByteArray &data, Compression::Algorithm algorithm, Compression::Level level) const;
-    void put(const QByteArray &data, Compression::Algorithm algorithm, Compression::Level level, const QByteArray &compressed);
-    
-    // 统计信息
-    int hitCount() const;
-    int missCount() const;
-    double hitRatio() const;
-    
-private:
-    struct CacheKey {
-        QByteArray dataHash;
-        Compression::Algorithm algorithm;
-        Compression::Level level;
-        
-        bool operator==(const CacheKey &other) const;
-    };
-    
-    struct CacheEntry {
-        QByteArray compressed;
-        qint64 timestamp;
-        int accessCount;
-    };
-    
-    QString keyToString(const CacheKey &key) const;
-    void evictLeastRecentlyUsed();
-    
-    QHash<QString, CacheEntry> m_cache;
-    int m_maxSize;
-    int m_hitCount;
-    int m_missCount;
 };
 
 #endif // COMPRESSION_H

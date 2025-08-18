@@ -4,11 +4,11 @@
 #include "clientremotewindow.h"
 #include "../core/uiconstants.h"
 
-#include <QSettings>
-#include <QDateTime>
-#include <QDebug>
-#include <QUuid>
-#include <QMessageBox>
+#include <QtCore/QSettings>
+#include <QtCore/QDateTime>
+#include <QtCore/QDebug>
+#include <QtCore/QUuid>
+#include <QtWidgets/QMessageBox>
 
 ClientManager::ClientManager(QObject *parent)
     : QObject(parent)

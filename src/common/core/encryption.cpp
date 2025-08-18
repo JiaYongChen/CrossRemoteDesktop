@@ -1,8 +1,8 @@
 #include "encryption.h"
 #include "messageconstants.h"
-#include <QCryptographicHash>
-#include <QRandomGenerator>
-#include <QDebug>
+#include <QtCore/QCryptographicHash>
+#include <QtCore/QRandomGenerator>
+#include <QtCore/QDebug>
 #include "logging_categories.h"
 #include <openssl/evp.h>
 #include <openssl/aes.h>
@@ -12,7 +12,7 @@
 #include <openssl/err.h>
 #include <openssl/sha.h>
 #include <openssl/hmac.h>
-#include <QMessageLogger>
+#include <QtCore/QMessageLogger>
 
 // AESEncryption 实现
 AESEncryption::AESEncryption(QObject *parent)

@@ -1,19 +1,14 @@
 #ifndef TCPSERVER_H
 #define TCPSERVER_H
 
-#include <QtCore/QObject>
 #include <QtNetwork/QTcpServer>
-#include <QtNetwork/QTcpSocket>
-#include <QtCore/QTimer>
-#include <QtCore/QHash>
-#include <QtCore/QMutex>
-#include <QtCore/QThread>
-#include <QtCore/QDateTime>
-#include <QtGui/QPixmap>
+#include <QtNetwork/QHostAddress>
 #include "../common/core/protocol.h"
-#include "inputsimulator.h"
 #include "../common/core/networkconstants.h"
-#include "clienthandler.h"
+
+class QHostAddress;
+class ClientHandler;
+class InputSimulator;
 
 
 class TcpServer : public QTcpServer

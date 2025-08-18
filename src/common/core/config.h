@@ -1,21 +1,21 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#include <QObject>
-#include <QSettings>
-#include <QVariant>
-#include <QString>
-#include <QStringList>
-#include <QSize>
-#include <QPoint>
-#include <QRect>
-#include <QColor>
-#include <QFont>
-#include <QByteArray>
-#include <QJsonObject>
-#include <QJsonDocument>
-#include <QMutex>
-#include <QFileSystemWatcher>
+#include <QtCore/QObject>
+#include <QtCore/QSettings>
+#include <QtCore/QVariant>
+#include <QtCore/QString>
+#include <QtCore/QStringList>
+#include <QtCore/QSize>
+#include <QtCore/QPoint>
+#include <QtCore/QRect>
+#include <QtGui/QColor>
+#include <QtGui/QFont>
+#include <QtCore/QByteArray>
+#include <QtCore/QJsonObject>
+#include <QtCore/QJsonDocument>
+#include <QtCore/QMutex>
+#include <QtCore/QFileSystemWatcher>
 
 class Config : public QObject
 {

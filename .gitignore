@@ -34,8 +34,9 @@
 #path
 .vscode
 build
+build-tests
+build-noopt
 docs
-test
 
 #files
 需求文档.md

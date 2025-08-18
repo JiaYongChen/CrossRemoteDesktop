@@ -1,12 +1,13 @@
 #include "sessionmanager.h"
 #include "connectionmanager.h"
 #include "../../client/tcpclient.h"
-#include "../core/compression.h"
-#include <QDebug>
+#include "../core/compression.h" // legacy path not used for screen data anymore
+#include <QtCore/QDebug>
 #include "../../common/core/logging_categories.h"
-#include <QMessageLogger>
-#include <QBuffer>
-#include <QDataStream>
+#include <QtCore/QMessageLogger>
+#include <QtCore/QBuffer>
+#include <QtCore/QDataStream>
+#include <QtCore/QTimer>
 
 SessionManager::SessionManager(ConnectionManager *connectionManager, QObject *parent)
     : QObject(parent)
@@ -232,16 +233,16 @@ void SessionManager::onConnectionStateChanged()
     }
 }
 
-void SessionManager::onScreenDataReceived(const QPixmap &pixmap)
+void SessionManager::onScreenDataReceived(const QImage &image)
 {
     if (!isActive()) {
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "SessionManager::onScreenDataReceived - Session not active, ignoring";
         return;
     }
-    
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "SessionManager::onScreenDataReceived - Pixmap size:" << pixmap.size() 
-             << "isNull:" << pixmap.isNull();
-    
+    QPixmap pixmap = QPixmap::fromImage(image);
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "SessionManager::onScreenDataReceived - Image size:" << image.size() 
+             << "isNull:" << image.isNull();
+
     m_currentScreen = pixmap;
     m_remoteScreenSize = pixmap.size();
     
@@ -265,7 +266,7 @@ void SessionManager::onMessageReceived(MessageType type, const QByteArray &data)
 {
     switch (type) {
     case MessageType::SCREEN_DATA:
-        processScreenData(data);
+    // 图像解码已在 TcpClient::handleScreenData 完成，这里无需重复处理
         break;
     case MessageType::HANDSHAKE_RESPONSE:
         // InputResponse not available, using HANDSHAKE_RESPONSE
@@ -310,61 +311,6 @@ void SessionManager::setupConnections()
     }
 }
 
-void SessionManager::processScreenData(const QByteArray &data)
-{
-    if (data.isEmpty()) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "SessionManager: Received empty screen data";
-        return;
-    }
-    
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "SessionManager: Processing screen data, size:" << data.size();
-    
-    // 尝试自动检测压缩算法并解压缩
-    QByteArray decompressed = CompressionUtils::autoDecompress(data);
-    
-    if (decompressed.isEmpty()) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "SessionManager: Failed to decompress screen data, trying fallback methods";
-        
-        // 尝试直接使用数据（可能未压缩）
-        QPixmap pixmap;
-        if (pixmap.loadFromData(data)) {
-            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "SessionManager: Successfully loaded uncompressed screen data";
-            onScreenDataReceived(pixmap);
-            return;
-        }
-        
-        // 尝试不同的压缩算法
-        QList<CompressionUtils::Algorithm> algorithms = {
-            CompressionUtils::Zlib,
-            CompressionUtils::LZ4,
-            CompressionUtils::Zstd
-        };
-        
-        for (auto algorithm : algorithms) {
-            QByteArray testDecompressed = CompressionUtils::decompress(data, algorithm);
-            if (!testDecompressed.isEmpty()) {
-                QPixmap pixmap;
-                if (pixmap.loadFromData(testDecompressed)) {
-                    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "SessionManager: Successfully decompressed with algorithm:" << (int)algorithm;
-                    onScreenDataReceived(pixmap);
-                    return;
-                }
-            }
-        }
-        
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "SessionManager: All decompression attempts failed";
-        return;
-    }
-    
-    // 将解压缩的数据转换为QPixmap
-    QPixmap pixmap;
-    if (pixmap.loadFromData(decompressed)) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "SessionManager: Successfully loaded screen data, decompressed size:" << decompressed.size();
-        onScreenDataReceived(pixmap);
-    } else {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "SessionManager: Failed to load screen data from decompressed bytes, size:" << decompressed.size();
-    }
-}
 
 void SessionManager::processInputResponse(const QByteArray &data)
 {

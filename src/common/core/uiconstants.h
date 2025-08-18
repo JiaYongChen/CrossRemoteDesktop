@@ -60,8 +60,6 @@ public:
     static const int DEFAULT_ZLIB_MEM_LEVEL = 8;
     static const int MIN_WINDOW_BITS = 8;
     static const int MAX_WINDOW_BITS = 15;
-    static const int DEFAULT_LZ4_LEVEL = 1;
-    static const int DEFAULT_ZSTD_LEVEL = 3;
     static const int SMALL_DATA_THRESHOLD = 1024; // 1KB
     
     // 输入模拟器常量
@@ -116,8 +114,6 @@ inline const int UIConstants::DEFAULT_ZLIB_WINDOW_BITS;
 inline const int UIConstants::DEFAULT_ZLIB_MEM_LEVEL;
 inline const int UIConstants::MIN_WINDOW_BITS;
 inline const int UIConstants::MAX_WINDOW_BITS;
-inline const int UIConstants::DEFAULT_LZ4_LEVEL;
-inline const int UIConstants::DEFAULT_ZSTD_LEVEL;
 inline const int UIConstants::SMALL_DATA_THRESHOLD;
 inline const int UIConstants::DEFAULT_MOUSE_SPEED;
 inline const int UIConstants::DEFAULT_KEYBOARD_DELAY;

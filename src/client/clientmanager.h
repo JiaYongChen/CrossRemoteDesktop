@@ -3,9 +3,8 @@
 
 #include <QtCore/QObject>
 #include <QtCore/QString>
-#include <QtCore/QTimer>
-#include <QtCore/QList>
 #include <QtCore/QHash>
+#include <QtCore/QStringList>
 #include "./managers/connectionmanager.h"
 #include "clientremotewindow.h"
 

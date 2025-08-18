@@ -3,13 +3,13 @@
 
 #include <QtCore/QObject>
 #include <QtCore/QPoint>
-#include <QtGui/QKeyEvent>
-#include <QtGui/QMouseEvent>
-#include <QtGui/QWheelEvent>
-#include <QtCore/QTimer>
+#include <QtCore/QString>
+#include <QtCore/QSize>
+#include <QtCore/QList>
 #include <QtCore/QMutex>
 #include <QtCore/QQueue>
-#include <QtCore/QThread>
+
+class QTimer;
 
 // 输入事件类型
 enum class InputEventType {

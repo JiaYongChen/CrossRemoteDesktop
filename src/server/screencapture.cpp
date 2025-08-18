@@ -1,14 +1,15 @@
 #include "screencapture.h"
 #include "../common/core/constants.h"
 
-#include <QApplication>
-#include <QScreen>
-#include <QDebug>
-#include <QMessageLogger>
+#include <QtWidgets/QApplication>
+#include <QtGui/QScreen>
+#include <QtCore/QDebug>
+#include <QtCore/QMessageLogger>
 #include "../common/core/logging_categories.h"
-#include <QPixmap>
-#include <QPainter>
-#include <QDebug>
+#include <QtGui/QPixmap>
+#include <QtGui/QPainter>
+#include <QtCore/QDebug>
+#include <QtCore/QTimer>
 
 ScreenCapture::ScreenCapture(QObject *parent)
     : QObject(parent)
@@ -83,10 +84,10 @@ void ScreenCapture::captureFrame()
         // 添加调试信息确认函数被调用
         static int callCount = 0;
         callCount++;
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "ScreenCapture::captureFrame() called, count:" << callCount << "isCapturing:" << m_isCapturing;
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "ScreenCapture::captureFrame() called, count:" << callCount << "isCapturing:" << m_isCapturing;
         
         // 检查定时器状态
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Timer active:" << m_captureTimer->isActive() << "interval:" << m_captureTimer->interval() << "singleShot:" << m_captureTimer->isSingleShot();
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Timer active:" << m_captureTimer->isActive() << "interval:" << m_captureTimer->interval() << "singleShot:" << m_captureTimer->isSingleShot();
         
         if (!m_isCapturing) {
             QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "ScreenCapture::captureFrame() - Not capturing, returning";
@@ -104,11 +105,11 @@ void ScreenCapture::captureFrame()
             return;
         }
         
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Screen found:" << screen->name() << "geometry:" << screen->geometry();
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Screen found:" << screen->name() << "geometry:" << screen->geometry();
         
         // 高质量捕获屏幕
         QPixmap screenshot;
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Starting screen capture with quality:" << m_captureQuality << "HD mode:" << m_highDefinitionMode;
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Starting screen capture with quality:" << m_captureQuality << "HD mode:" << m_highDefinitionMode;
         
         // 获取屏幕的设备像素比例
         qreal devicePixelRatio = screen->devicePixelRatio();
@@ -130,7 +131,8 @@ void ScreenCapture::captureFrame()
             
             // 如果启用了抗锯齿，进行后处理
             if (m_antiAliasing && !screenshot.isNull()) {
-                screenshot = applyAntiAliasing(screenshot);
+                QImage tmp = applyAntiAliasing(screenshot.toImage());
+                screenshot = QPixmap::fromImage(tmp);
             }
         } else {
             // 标准模式：简单捕获
@@ -142,12 +144,13 @@ void ScreenCapture::captureFrame()
             }
         }
         
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Screenshot captured, isNull:" << screenshot.isNull() << "size:" << screenshot.size();
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Screenshot captured, isNull:" << screenshot.isNull() << "size:" << screenshot.size();
         
         if (!screenshot.isNull()) {
             // 应用图像质量增强
             if (m_highScaleQuality) {
-                screenshot = enhanceImageQuality(screenshot);
+                QImage tmp = enhanceImageQuality(screenshot.toImage());
+                screenshot = QPixmap::fromImage(tmp);
             }
             
             // 输出每次捕获的调试信息
@@ -156,7 +159,7 @@ void ScreenCapture::captureFrame()
             QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "ScreenCapture: Frame captured (count:" << captureCount << "), size:" << screenshot.size() 
                      << ", quality:" << m_captureQuality << ", HD:" << m_highDefinitionMode 
                      << ", AA:" << m_antiAliasing << ", HQ:" << m_highScaleQuality;
-            emit frameReady(screenshot);
+            emit frameReady(screenshot.toImage());
         } else {
             static int failureCount = 0;
             failureCount++;
@@ -169,11 +172,11 @@ void ScreenCapture::captureFrame()
             }
         }
     } catch (const std::exception& e) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCapture) << "ScreenCapture::captureFrame() - Exception caught:" << e.what();
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Timer status after exception - active:" << m_captureTimer->isActive() << "interval:" << m_captureTimer->interval();
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCapture) << "ScreenCapture::captureFrame() - Exception caught:" << e.what();
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Timer status after exception - active:" << m_captureTimer->isActive() << "interval:" << m_captureTimer->interval();
     } catch (...) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCapture) << "ScreenCapture::captureFrame() - Unknown exception caught";
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Timer status after unknown exception - active:" << m_captureTimer->isActive() << "interval:" << m_captureTimer->interval();
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCapture) << "ScreenCapture::captureFrame() - Unknown exception caught";
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Timer status after unknown exception - active:" << m_captureTimer->isActive() << "interval:" << m_captureTimer->interval();
     }
     
     // 添加函数结束时的调试信息
@@ -244,68 +247,42 @@ bool ScreenCapture::isHighScaleQuality() const
 }
 
 // 私有辅助方法实现
-QPixmap ScreenCapture::applyAntiAliasing(const QPixmap &pixmap)
+QImage ScreenCapture::applyAntiAliasing(const QImage &image)
 {
-    if (pixmap.isNull()) {
-        return pixmap;
+    if (image.isNull()) {
+        return image;
     }
-    
-    // 创建一个新的QPixmap用于抗锯齿处理
-    QPixmap smoothPixmap(pixmap.size());
-    smoothPixmap.fill(Qt::transparent);
-    
-    QPainter painter(&smoothPixmap);
-    
-    // 启用高质量渲染
+    QImage smoothImage(image.size(), QImage::Format_ARGB32_Premultiplied);
+    smoothImage.fill(Qt::transparent);
+    QPainter painter(&smoothImage);
     painter.setRenderHint(QPainter::Antialiasing, true);
     painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
     painter.setRenderHint(QPainter::TextAntialiasing, true);
-    
-    // 绘制原始图像
-    painter.drawPixmap(0, 0, pixmap);
+    painter.drawImage(QPoint(0, 0), image);
     painter.end();
-    
-    // 保持设备像素比例
-    smoothPixmap.setDevicePixelRatio(pixmap.devicePixelRatio());
-    
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Applied anti-aliasing to pixmap, size:" << smoothPixmap.size();
-    return smoothPixmap;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Applied anti-aliasing to image, size:" << smoothImage.size();
+    return smoothImage;
 }
 
-QPixmap ScreenCapture::enhanceImageQuality(const QPixmap &pixmap)
+QImage ScreenCapture::enhanceImageQuality(const QImage &image)
 {
-    if (pixmap.isNull()) {
-        return pixmap;
+    if (image.isNull()) {
+        return image;
     }
-    
-    // 如果不需要高质量缩放，直接返回
     if (!m_highScaleQuality) {
-        return pixmap;
+        return image;
     }
-    
-    // 创建增强质量的图像
-    QPixmap enhancedPixmap(pixmap.size());
-    enhancedPixmap.fill(Qt::transparent);
-    
-    QPainter painter(&enhancedPixmap);
-    
-    // 设置最高质量的渲染选项
+    QImage enhanced(image.size(), QImage::Format_ARGB32_Premultiplied);
+    enhanced.fill(Qt::transparent);
+    QPainter painter(&enhanced);
     painter.setRenderHint(QPainter::Antialiasing, true);
     painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
     painter.setRenderHint(QPainter::TextAntialiasing, true);
-    
-    // 使用高质量的合成模式
     painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
-    
-    // 绘制图像
-    painter.drawPixmap(0, 0, pixmap);
+    painter.drawImage(QPoint(0, 0), image);
     painter.end();
-    
-    // 保持设备像素比例
-    enhancedPixmap.setDevicePixelRatio(pixmap.devicePixelRatio());
-    
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Enhanced image quality for pixmap, size:" << enhancedPixmap.size();
-    return enhancedPixmap;
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Enhanced image quality for image, size:" << enhanced.size();
+    return enhanced;
 }
 
 // 性能优化方法实现

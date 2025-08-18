@@ -1,11 +1,11 @@
 #ifndef ENCRYPTION_H
 #define ENCRYPTION_H
 
-#include <QByteArray>
-#include <QString>
-#include <QCryptographicHash>
-#include <QRandomGenerator>
-#include <QObject>
+#include <QtCore/QByteArray>
+#include <QtCore/QString>
+#include <QtCore/QCryptographicHash>
+#include <QtCore/QRandomGenerator>
+#include <QtCore/QObject>
 
 // Forward declarations for OpenSSL types
 typedef struct evp_cipher_st EVP_CIPHER;

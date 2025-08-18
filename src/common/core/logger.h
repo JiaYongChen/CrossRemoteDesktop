@@ -2,14 +2,11 @@
 #define LOGGER_H
 
 #include <QtCore/QObject>
-#include <QString>
-#include <QDateTime>
-#include <QFile>
-#include <QTextStream>
-#include <QMutex>
-#include <QThread>
-#include <QDir>
-#include <QStandardPaths>
+#include <QtCore/QString>
+#include <QtCore/QDateTime>
+#include <QtCore/QFile>
+#include <QtCore/QTextStream>
+#include <QtCore/QMutex>
 
 class Logger : public QObject
 {

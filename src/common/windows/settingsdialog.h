@@ -2,34 +2,7 @@
 #define SETTINGSDIALOG_H
 
 #include <QtWidgets/QDialog>
-#include <QtWidgets/QTabWidget>
-#include <QtWidgets/QStackedWidget>
-#include <QtWidgets/QWidget>
-#include <QtWidgets/QVBoxLayout>
-#include <QtWidgets/QHBoxLayout>
-#include <QtWidgets/QGridLayout>
-#include <QtWidgets/QFormLayout>
-#include <QtWidgets/QGroupBox>
-#include <QtWidgets/QLabel>
-#include <QtWidgets/QLineEdit>
-#include <QtWidgets/QSpinBox>
-#include <QtWidgets/QDoubleSpinBox>
-#include <QtWidgets/QComboBox>
-#include <QtWidgets/QCheckBox>
-#include <QtWidgets/QRadioButton>
-#include <QtWidgets/QButtonGroup>
-#include <QtWidgets/QPushButton>
-#include <QtWidgets/QSlider>
-#include <QtWidgets/QProgressBar>
-#include <QtWidgets/QListWidget>
-#include <QtWidgets/QTreeWidget>
-#include <QtWidgets/QTextEdit>
-#include <QtWidgets/QFileDialog>
-#include <QtWidgets/QColorDialog>
-#include <QtWidgets/QFontDialog>
-#include <QtCore/QSettings>
-#include <QtCore/QStandardPaths>
-#include <QtWidgets/QDialogButtonBox>
+#include <QtCore/QString>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class SettingsDialog; }
@@ -120,93 +93,93 @@ private:
     void updateAudioDeviceList();
     
     // UI组件
-    QListWidget *m_categoryListWidget;
-    QStackedWidget *m_settingsStackedWidget;
+    class QListWidget *m_categoryListWidget;
+    class QStackedWidget *m_settingsStackedWidget;
     
     // 常规设置选项卡
-    QWidget *m_generalTab;
-    QComboBox *m_languageCombo;
-    QComboBox *m_themeCombo;
-    QCheckBox *m_startWithSystemCheck;
-    QCheckBox *m_minimizeToTrayCheck;
-    QCheckBox *m_showNotificationsCheck;
-    QCheckBox *m_checkUpdatesCheck;
+    class QWidget *m_generalTab;
+    class QComboBox *m_languageCombo;
+    class QComboBox *m_themeCombo;
+    class QCheckBox *m_startWithSystemCheck;
+    class QCheckBox *m_minimizeToTrayCheck;
+    class QCheckBox *m_showNotificationsCheck;
+    class QCheckBox *m_checkUpdatesCheck;
     
     // 连接设置选项卡
-    QWidget *m_connectionTab;
-    QSpinBox *m_defaultPortSpinBox;
-    QSpinBox *m_connectionTimeoutSpinBox;
-    QCheckBox *m_autoReconnectCheck;
-    QSpinBox *m_reconnectIntervalSpinBox;
-    QSpinBox *m_maxReconnectAttemptsSpinBox;
-    QCheckBox *m_enableUPnPCheck;
-    QLineEdit *m_proxyHostEdit;
-    QSpinBox *m_proxyPortSpinBox;
-    QLineEdit *m_proxyUsernameEdit;
-    QLineEdit *m_proxyPasswordEdit;
+    class QWidget *m_connectionTab;
+    class QSpinBox *m_defaultPortSpinBox;
+    class QSpinBox *m_connectionTimeoutSpinBox;
+    class QCheckBox *m_autoReconnectCheck;
+    class QSpinBox *m_reconnectIntervalSpinBox;
+    class QSpinBox *m_maxReconnectAttemptsSpinBox;
+    class QCheckBox *m_enableUPnPCheck;
+    class QLineEdit *m_proxyHostEdit;
+    class QSpinBox *m_proxyPortSpinBox;
+    class QLineEdit *m_proxyUsernameEdit;
+    class QLineEdit *m_proxyPasswordEdit;
     
     // 显示设置选项卡
-    QWidget *m_displayTab;
-    QComboBox *m_defaultViewModeCombo;
-    QSlider *m_compressionLevelSlider;
-    QLabel *m_compressionLevelLabel;
-    QSpinBox *m_frameRateSpinBox;
-    QComboBox *m_colorDepthCombo;
-    QCheckBox *m_enableCursorCheck;
-    QCheckBox *m_enableWallpaperCheck;
-    QCheckBox *m_enableAnimationsCheck;
-    QCheckBox *m_enableFontSmoothingCheck;
-    QComboBox *m_captureQualityCombo;
-    QComboBox *m_scalingModeCombo;
+    class QWidget *m_displayTab;
+    class QComboBox *m_defaultViewModeCombo;
+    class QSlider *m_compressionLevelSlider;
+    class QLabel *m_compressionLevelLabel;
+    class QSpinBox *m_frameRateSpinBox;
+    class QComboBox *m_colorDepthCombo;
+    class QCheckBox *m_enableCursorCheck;
+    class QCheckBox *m_enableWallpaperCheck;
+    class QCheckBox *m_enableAnimationsCheck;
+    class QCheckBox *m_enableFontSmoothingCheck;
+    class QComboBox *m_captureQualityCombo;
+    class QComboBox *m_scalingModeCombo;
     
     // 音频设置选项卡
-    QWidget *m_audioTab;
-    QCheckBox *m_enableAudioCheck;
-    QComboBox *m_audioQualityCombo;
-    QComboBox *m_audioDeviceCombo;
-    QSlider *m_audioVolumeSlider;
-    QLabel *m_audioVolumeLabel;
-    QCheckBox *m_enableMicrophoneCheck;
-    QComboBox *m_microphoneDeviceCombo;
-    QSlider *m_microphoneVolumeSlider;
-    QLabel *m_microphoneVolumeLabel;
+    class QWidget *m_audioTab;
+    class QCheckBox *m_enableAudioCheck;
+    class QComboBox *m_audioQualityCombo;
+    class QComboBox *m_audioDeviceCombo;
+    class QSlider *m_audioVolumeSlider;
+    class QLabel *m_audioVolumeLabel;
+    class QCheckBox *m_enableMicrophoneCheck;
+    class QComboBox *m_microphoneDeviceCombo;
+    class QSlider *m_microphoneVolumeSlider;
+    class QLabel *m_microphoneVolumeLabel;
     
     // 安全设置选项卡
-    QWidget *m_securityTab;
-    QCheckBox *m_enableEncryptionCheck;
-    QComboBox *m_encryptionMethodCombo;
-    QCheckBox *m_requirePasswordCheck;
-    QSpinBox *m_passwordLengthSpinBox;
-    QCheckBox *m_passwordComplexityCheck;
-    QSpinBox *m_sessionTimeoutSpinBox;
-    QCheckBox *m_logSecurityEventsCheck;
-    QLineEdit *m_trustedHostsEdit;
+    class QWidget *m_securityTab;
+    class QCheckBox *m_enableEncryptionCheck;
+    class QComboBox *m_encryptionMethodCombo;
+    class QCheckBox *m_requirePasswordCheck;
+    class QSpinBox *m_passwordLengthSpinBox;
+    class QCheckBox *m_passwordComplexityCheck;
+    class QSpinBox *m_sessionTimeoutSpinBox;
+    class QCheckBox *m_logSecurityEventsCheck;
+    class QLineEdit *m_trustedHostsEdit;
     
     // 高级设置选项卡
-    QWidget *m_advancedTab;
-    QComboBox *m_loggingLevelCombo;
-    QTextEdit *m_loggingRulesEdit;
-    QLineEdit *m_logFilePathEdit;
-    QPushButton *m_browseLogPathButton;
-    QSpinBox *m_maxLogFileSizeSpinBox;
-    QSpinBox *m_maxLogFilesSpinBox;
-    QCheckBox *m_enablePerformanceMonitoringCheck;
-    QSpinBox *m_performanceUpdateIntervalSpinBox;
-    QCheckBox *m_enableDebugModeCheck;
-    QTextEdit *m_customSettingsEdit;
+    class QWidget *m_advancedTab;
+    class QComboBox *m_loggingLevelCombo;
+    class QTextEdit *m_loggingRulesEdit;
+    class QLineEdit *m_logFilePathEdit;
+    class QPushButton *m_browseLogPathButton;
+    class QSpinBox *m_maxLogFileSizeSpinBox;
+    class QSpinBox *m_maxLogFilesSpinBox;
+    class QCheckBox *m_enablePerformanceMonitoringCheck;
+    class QSpinBox *m_performanceUpdateIntervalSpinBox;
+    class QCheckBox *m_enableDebugModeCheck;
+    class QTextEdit *m_customSettingsEdit;
     
     // 按钮
-    QDialogButtonBox *m_buttonBox;
-    QPushButton *m_okButton;
-    QPushButton *m_cancelButton;
-    QPushButton *m_applyButton;
-    QPushButton *m_resetButton;
-    QPushButton *m_defaultsButton;
-    QPushButton *m_importButton;
-    QPushButton *m_exportButton;
+    class QDialogButtonBox *m_buttonBox;
+    class QPushButton *m_okButton;
+    class QPushButton *m_cancelButton;
+    class QPushButton *m_applyButton;
+    class QPushButton *m_resetButton;
+    class QPushButton *m_defaultsButton;
+    class QPushButton *m_importButton;
+    class QPushButton *m_exportButton;
     
     // 设置存储
-    QSettings *m_settings;
+    class QSettings *m_settings;
     
     // UI对象
     Ui::SettingsDialog *ui;

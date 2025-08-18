@@ -1,19 +1,19 @@
 #include "logger.h"
 #include "constants.h"
-#include <QDir>
-#include <QStandardPaths>
-#include <QMessageLogger>
-#include <QDateTime>
-#include <QTextStream>
-#include <QMutexLocker>
-#include <QThread>
-#include <QCoreApplication>
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <QElapsedTimer>
+#include <QtCore/QDir>
+#include <QtCore/QStandardPaths>
+#include <QtCore/QMessageLogger>
+#include <QtCore/QDateTime>
+#include <QtCore/QTextStream>
+#include <QtCore/QMutexLocker>
+#include <QtCore/QThread>
+#include <QtCore/QCoreApplication>
+#include <QtCore/QJsonDocument>
+#include <QtCore/QJsonObject>
+#include <QtCore/QElapsedTimer>
 #include <iostream>
 #include "logging_categories.h"
-#include <QLoggingCategory>
+#include <QtCore/QLoggingCategory>
 
 // 静态成员变量定义
 Logger* Logger::s_instance = nullptr;
@@ -189,9 +189,9 @@ void Logger::log(LogLevel level, const QString &message, const QString &category
     if (m_logTargets & LogTarget::File) {
         writeToFile(formattedMessage);
     }
-    
-    // 输出到网络
-    // 网络/系统日志输出已移除
+
+    // 观测性：发射原始日志事件（非格式化），便于测试/采集
+    emit logMessage(level, message, category, entry.timestamp);
 }
 
 void Logger::flush()
@@ -274,7 +274,9 @@ void Logger::openLogFile()
     m_logFile = new QFile(m_logFilePath);
     
     if (!m_logFile->open(QIODevice::WriteOnly | QIODevice::Append)) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcApp) << "Failed to open log file:" << m_logFilePath;
+        const QString err = QStringLiteral("Failed to open log file: %1").arg(m_logFilePath);
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcApp) << err;
+        emit errorOccurred(err);
         return;
     }
     
@@ -445,7 +447,10 @@ void Logger::rotateLogFile()
     QString backupFile = QString("%1.1.%2")
                         .arg(basePath)
                         .arg(extension);
-    QFile::rename(m_logFilePath, backupFile);
+    bool renamed = QFile::rename(m_logFilePath, backupFile);
+    if (renamed) {
+        emit fileRotated(m_logFilePath, backupFile);
+    }
     
     // 重新打开日志文件
     openLogFile();

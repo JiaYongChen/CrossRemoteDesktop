@@ -1,14 +1,18 @@
 #include "tcpclient.h"
+#include <QtNetwork/QTcpSocket>
+#include <QtCore/QTimer>
 #include "../core/messageconstants.h"
 #include "../core/compression.h"
-#include <QHostAddress>
-#include <QCryptographicHash>
-#include <QRandomGenerator>
-#include <QDebug>
+#include "../common/core/protocolcodec.h"
+#include <QtNetwork/QHostAddress>
+#include <QtCore/QCryptographicHash>
+#include <QtCore/QRandomGenerator>
+#include <QtCore/QDebug>
 #include "../common/core/logging_categories.h"
-#include <QDataStream>
-#include <QPixmap>
-#include <QMessageLogger>
+#include <QtCore/QDataStream>
+#include <QtGui/QPixmap>
+#include <QtCore/QMessageLogger>
+#include "../common/core/encryption.h"
 
 TcpClient::TcpClient(QObject *parent)
     : QObject(parent)
@@ -41,11 +45,40 @@ TcpClient::TcpClient(QObject *parent)
     connect(m_socket, &QTcpSocket::readyRead, this, &TcpClient::onReadyRead);
     connect(m_socket, QOverload<QAbstractSocket::SocketError>::of(&QAbstractSocket::errorOccurred),
             this, &TcpClient::onError);
+
+    // 默认codec
+    m_codec = new ProtocolCodec();
+    m_codecOwned = true;
 }
 
 TcpClient::~TcpClient()
 {
     disconnectFromHost();
+    if (m_codecOwned) {
+        delete m_codec;
+        m_codec = nullptr;
+        m_codecOwned = false;
+    }
+}
+
+void TcpClient::setCodec(IMessageCodec *codec)
+{
+    setCodec(codec, false);
+}
+
+void TcpClient::setCodec(IMessageCodec *codec, bool takeOwnership)
+{
+    if (codec == m_codec) return;
+    if (m_codecOwned && m_codec) {
+        delete m_codec;
+    }
+    if (codec) {
+        m_codec = codec;
+        m_codecOwned = takeOwnership;
+    } else {
+        m_codec = new ProtocolCodec();
+        m_codecOwned = true;
+    }
 }
 
 void TcpClient::connectToHost(const QString &hostName, quint16 port)
@@ -139,13 +172,11 @@ void TcpClient::sendMessage(MessageType type, const QByteArray &data)
         return;
     }
     
-    // 使用协议格式创建消息
-    QByteArray message = Protocol::createMessage(type, data);
+    // 使用编解码器创建帧
+    QByteArray message = m_codec ? m_codec->encode(type, data) : Protocol::createMessage(type, data);
     
     m_socket->write(message);
 }
-
-
 
 void TcpClient::setConnectionTimeout(int msecs)
 {
@@ -155,26 +186,6 @@ void TcpClient::setConnectionTimeout(int msecs)
 int TcpClient::connectionTimeout() const
 {
     return m_connectionTimeout;
-}
-
-void TcpClient::setAutoReconnect(bool enable)
-{
-    m_autoReconnect = enable;
-}
-
-bool TcpClient::autoReconnect() const
-{
-    return m_autoReconnect;
-}
-
-void TcpClient::setReconnectInterval(int msecs)
-{
-    m_reconnectInterval = msecs;
-}
-
-int TcpClient::reconnectInterval() const
-{
-    return m_reconnectInterval;
 }
 
 void TcpClient::onConnected()
@@ -217,48 +228,19 @@ void TcpClient::onReadyRead()
     m_receiveBuffer.append(data);
     m_lastHeartbeat = QDateTime::currentDateTime();
     
-    // 按照协议处理消息
+    // 使用编解码器解析消息
     while (m_receiveBuffer.size() >= static_cast<qsizetype>(SERIALIZED_HEADER_SIZE)) {
+        const qsizetype before = m_receiveBuffer.size();
         MessageHeader header;
         QByteArray payload;
-        
-        if (Protocol::parseMessage(m_receiveBuffer, header, payload)) {
-            // 移除已处理的数据
-            qsizetype totalSize = static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) + header.length;
-            m_receiveBuffer.remove(0, totalSize);
-            
-            // 处理消息
-            processMessage(header, payload);
-            emit messageReceived(header.type, payload);
-        } else {
-            // 检查是否是无效的协议数据
-            if (m_receiveBuffer.size() >= static_cast<qsizetype>(SERIALIZED_HEADER_SIZE)) {
-                MessageHeader tempHeader;
-                QByteArray headerData = m_receiveBuffer.left(static_cast<qsizetype>(SERIALIZED_HEADER_SIZE));
-                QDataStream stream(headerData);
-                stream.setByteOrder(QDataStream::LittleEndian);
-                stream >> tempHeader.magic;
-                
-                // 如果魔数无效，寻找下一个可能的协议起始位置
-                if (tempHeader.magic != PROTOCOL_MAGIC) {
-                    // 寻找PROTOCOL_MAGIC的字节序列
-                    QByteArray magicBytes;
-                    QDataStream magicStream(&magicBytes, QIODevice::WriteOnly);
-                    magicStream.setByteOrder(QDataStream::LittleEndian);
-                    magicStream << PROTOCOL_MAGIC;
-                    
-                    int nextMagicPos = m_receiveBuffer.indexOf(magicBytes, 1);
-                    if (nextMagicPos > 0) {
-                        // 找到下一个可能的协议起始位置，移除之前的无效数据
-                        m_receiveBuffer.remove(0, nextMagicPos);
-                    } else {
-                        // 没找到有效的协议起始位置，移除第一个字节
-                        m_receiveBuffer.remove(0, 1);
-                    }
-                    continue;
-                }
-            }
-            // 数据不完整，等待更多数据
+        bool ok = m_codec ? m_codec->tryDecode(m_receiveBuffer, header, payload)
+                          : Protocol::parseMessage(m_receiveBuffer, header, payload);
+        if (!ok) {
+            break; // 等待更多数据或交由后续改进处理同步
+        }
+        processMessage(header, payload);
+        emit messageReceived(header.type, payload);
+        if (m_receiveBuffer.size() == before) {
             break;
         }
     }
@@ -318,6 +300,26 @@ void TcpClient::processMessage(const MessageHeader &header, const QByteArray &pa
         case MessageType::AUTHENTICATION_RESPONSE:
             handleAuthenticationResponse(payload);
             break;
+        case MessageType::AUTH_CHALLENGE:
+        {
+            AuthChallenge ch{};
+            if (Protocol::decodeAuthChallenge(payload, ch)) {
+                QByteArray salt = QByteArray::fromHex(QByteArray(ch.saltHex));
+                if (!salt.isEmpty()) {
+                    // 本地派生 PBKDF2-SHA256
+                    QByteArray derived = HashGenerator::pbkdf2(m_password.toUtf8(), salt, int(ch.iterations), int(ch.keyLength));
+                    QString hex = derived.toHex();
+                    // 回发认证请求：username + 派生值hex
+                    QByteArray req = Protocol::encodeAuthenticationRequest(
+                        m_username.isEmpty() ? "guest" : m_username,
+                        hex,
+                        1u
+                    );
+                    sendMessage(MessageType::AUTHENTICATION_REQUEST, req);
+                }
+            }
+            break;
+        }
         case MessageType::HEARTBEAT:
             handleHeartbeat();
             break;
@@ -342,7 +344,7 @@ void TcpClient::processMessage(const MessageHeader &header, const QByteArray &pa
 void TcpClient::handleHandshakeResponse(const QByteArray &data)
 {
     HandshakeResponse response;
-    if (Protocol::deserialize(data, response)) {
+    if (Protocol::decodeHandshakeResponse(data, response)) {
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << MessageConstants::Network::HANDSHAKE_RESPONSE_RECEIVED;
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Server version:" << response.serverVersion;
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Screen resolution:" << response.screenWidth << "x" << response.screenHeight;
@@ -359,7 +361,7 @@ void TcpClient::handleHandshakeResponse(const QByteArray &data)
 void TcpClient::handleAuthenticationResponse(const QByteArray &data)
 {
     AuthenticationResponse response;
-    if (Protocol::deserialize(data, response)) {
+    if (Protocol::decodeAuthenticationResponse(data, response)) {
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << MessageConstants::Network::AUTH_RESPONSE_RECEIVED;
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Auth result:" << static_cast<int>(response.result);
         
@@ -402,9 +404,9 @@ void TcpClient::handleHeartbeat()
 
 void TcpClient::handleErrorMessage(const QByteArray &data)
 {
-    // 反序列化ErrorMessage结构体
-    ErrorMessage errorMsg;
-    if (Protocol::deserialize(data, errorMsg)) {
+    // 字段级解码 ErrorMessage
+    ErrorMessage errorMsg{};
+    if (Protocol::decodeErrorMessage(data, errorMsg)) {
         QString errorText = QString::fromUtf8(errorMsg.errorText);
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "Received error message from server:" << errorText;
         emit errorOccurred(errorText);
@@ -416,11 +418,24 @@ void TcpClient::handleErrorMessage(const QByteArray &data)
 
 void TcpClient::handleStatusUpdate(const QByteArray &data)
 {
-    QString statusMsg = QString::fromUtf8(data);
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Received status update from server:" << statusMsg;
-    
-    // 发出状态更新信号给UI
-    emit statusUpdated(statusMsg);
+    // 优先尝试结构化解码，失败则兼容旧版字符串
+    StatusUpdate st{};
+    if (Protocol::decodeStatusUpdate(data, st)) {
+        QString statusMsg = QString("状态:%1  收:%2  发:%3  FPS:%4  CPU:%5%%  MEM:%6")
+                                .arg(st.connectionStatus)
+                                .arg(st.bytesReceived)
+                                .arg(st.bytesSent)
+                                .arg(st.fps)
+                                .arg(st.cpuUsage)
+                                .arg(st.memoryUsage);
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Received status update (structured):" << statusMsg;
+        emit statusUpdated(statusMsg);
+        return;
+    }
+
+    QString fallback = QString::fromUtf8(data);
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Received status update (fallback string):" << fallback;
+    emit statusUpdated(fallback);
 }
 
 void TcpClient::handleDisconnectRequest()
@@ -457,10 +472,10 @@ void TcpClient::handleScreenData(const QByteArray &data)
         }
     }
     
-    // 将处理后的字节数组转换为QPixmap
-    QPixmap frame;
+    // 将处理后的字节数组转换为QImage
+    QImage frame;
     bool loaded = false;
-    
+
     // 优化图像加载：首先尝试最常见的JPEG格式
     if (frame.loadFromData(frameData, "JPEG")) {
         loaded = true;
@@ -473,9 +488,9 @@ void TcpClient::handleScreenData(const QByteArray &data)
     else if (frame.loadFromData(frameData)) {
         loaded = true;
     }
-    
+
     if (loaded) {
-        // 发出信号，传递屏幕数据给UI
+        // 发出信号，传递屏幕数据给UI（QImage，线程安全）
         emit screenDataReceived(frame);
     }
 }
@@ -504,58 +519,7 @@ void TcpClient::sendHandshakeRequest()
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "HandshakeRequest struct size:" << sizeof(HandshakeRequest);
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Expected size:" << (4+2+2+1+1+64+32);
     
-    // 使用专门的HandshakeRequest序列化函数
-    QByteArray requestData = Protocol::serialize(request);
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Serialized data size:" << requestData.size();
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Serialized data hex:" << requestData.toHex();
-    
-    // 计算校验和并打印
-    quint32 checksum = Protocol::calculateChecksum(requestData);
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Calculated checksum for serialized data:" << Qt::hex << checksum;
-    
-    // 验证序列化数据的前几个字节
-    if (requestData.size() >= 4) {
-        quint32 clientVersionFromData = *reinterpret_cast<const quint32*>(requestData.constData());
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "ClientVersion from serialized data:" << clientVersionFromData;
-    }
-    
-    // 详细分析序列化数据
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "=== 详细分析序列化数据 ===";
-    const char* data = requestData.constData();
-    
-    // clientVersion (4字节)
-    quint32 cv = *reinterpret_cast<const quint32*>(data);
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "字节0-3 (clientVersion):" << QString::number(cv, 16) << "=" << cv;
-    
-    // screenWidth (2字节)
-    quint16 sw = *reinterpret_cast<const quint16*>(data + 4);
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "字节4-5 (screenWidth):" << QString::number(sw, 16) << "=" << sw;
-    
-    // screenHeight (2字节)
-    quint16 sh = *reinterpret_cast<const quint16*>(data + 6);
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "字节6-7 (screenHeight):" << QString::number(sh, 16) << "=" << sh;
-    
-    // colorDepth (1字节)
-    quint8 cd = *reinterpret_cast<const quint8*>(data + 8);
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "字节8 (colorDepth):" << QString::number(cd, 16) << "=" << cd;
-    
-    // compressionLevel (1字节)
-    quint8 cl = *reinterpret_cast<const quint8*>(data + 9);
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "字节9 (compressionLevel):" << QString::number(cl, 16) << "=" << cl;
-    
-    // clientName (64字节)
-    QString clientName = QString::fromUtf8(data + 10, 64).trimmed();
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "字节10-73 (clientName):" << clientName;
-    
-    // clientOS (32字节)
-    QString clientOS = QString::fromUtf8(data + 74, 32).trimmed();
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "字节74-105 (clientOS):" << clientOS;
-    
-    // 检查是否有额外字节
-    if (requestData.size() > 106) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "额外字节:" << requestData.mid(106).toHex();
-    }
-    
+    QByteArray requestData = Protocol::encodeHandshakeRequest(request);
     sendMessage(MessageType::HANDSHAKE_REQUEST, requestData);
     
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << MessageConstants::Network::HANDSHAKE_REQUEST_SENT;
@@ -563,12 +527,13 @@ void TcpClient::sendHandshakeRequest()
 
 void TcpClient::sendAuthenticationRequest(const QString &username, const QString &password)
 {
-    AuthenticationRequest request;
-    strcpy(request.username, username.toUtf8().constData());
-    strcpy(request.passwordHash, hashPassword(password).toUtf8().constData());
-    request.authMethod = 0; // 简单密码认证
-    
-    QByteArray requestData = Protocol::serialize(request);
+    Q_UNUSED(password);
+    // 第一次发送不带hash，触发服务端下发挑战
+    QByteArray requestData = Protocol::encodeAuthenticationRequest(
+        username,
+        QString(),
+        1u // 请求PBKDF2
+    );
     sendMessage(MessageType::AUTHENTICATION_REQUEST, requestData);
     
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << MessageConstants::Network::AUTH_REQUEST_SENT.arg(username);
@@ -587,9 +552,9 @@ void TcpClient::resetConnection()
 
 QString TcpClient::hashPassword(const QString &password)
 {
-    QCryptographicHash hash(QCryptographicHash::Sha256);
-    hash.addData(password.toUtf8());
-    return hash.result().toHex();
+    // 已废弃（阶段C改为PBKDF2）。保留占位。
+    Q_UNUSED(password);
+    return QString();
 }
 
 QString TcpClient::getClientName()
@@ -623,7 +588,7 @@ void TcpClient::sendMouseEvent(int x, int y, int buttons, int eventType)
     mouseEvent.eventType = static_cast<MouseEventType>(eventType);
     mouseEvent.wheelDelta = 0;
     
-    QByteArray eventData = Protocol::serialize(mouseEvent);
+    QByteArray eventData = Protocol::encodeMouseEvent(mouseEvent);
     sendMessage(MessageType::MOUSE_EVENT, eventData);
 }
 
@@ -644,7 +609,7 @@ void TcpClient::sendKeyboardEvent(int key, int modifiers, bool pressed, const QS
     memcpy(keyEvent.text, textBytes.constData(), copySize);
     keyEvent.text[copySize] = '\0';
     
-    QByteArray eventData = Protocol::serialize(keyEvent);
+    QByteArray eventData = Protocol::encodeKeyboardEvent(keyEvent);
     sendMessage(MessageType::KEYBOARD_EVENT, eventData);
 }
 
@@ -663,6 +628,6 @@ void TcpClient::sendWheelEvent(int x, int y, int delta, int orientation)
     wheelEvent.eventType = delta > 0 ? MouseEventType::WHEEL_UP : MouseEventType::WHEEL_DOWN;
     wheelEvent.wheelDelta = delta;
     
-    QByteArray eventData = Protocol::serialize(wheelEvent);
+    QByteArray eventData = Protocol::encodeMouseEvent(wheelEvent);
     sendMessage(MessageType::MOUSE_EVENT, eventData);
 }

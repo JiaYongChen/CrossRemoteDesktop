@@ -2,19 +2,6 @@
 #define CONNECTIONDIALOG_H
 
 #include <QtWidgets/QDialog>
-#include <QtWidgets/QLineEdit>
-#include <QtWidgets/QSpinBox>
-#include <QtWidgets/QCheckBox>
-#include <QtWidgets/QComboBox>
-#include <QtWidgets/QPushButton>
-#include <QtWidgets/QLabel>
-#include <QtWidgets/QGroupBox>
-#include <QtWidgets/QTabWidget>
-#include <QtWidgets/QListWidget>
-#include <QtWidgets/QVBoxLayout>
-#include <QtWidgets/QHBoxLayout>
-#include <QtWidgets/QGridLayout>
-#include <QtWidgets/QFormLayout>
 #include <QtCore/QSettings>
 #include <QtCore/QDateTime>
 #include <QtCore/QMetaType>
@@ -22,6 +9,14 @@
 class TcpClient;
 class QProgressDialog;
 class QTimer;
+class QTabWidget;
+class QWidget;
+class QLineEdit;
+class QSpinBox;
+class QCheckBox;
+class QComboBox;
+class QPushButton;
+class QLabel;
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class ConnectionDialog; }

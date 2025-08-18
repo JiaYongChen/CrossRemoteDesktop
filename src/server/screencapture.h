@@ -2,8 +2,9 @@
 #define SCREENCAPTURE_H
 
 #include <QtCore/QObject>
-#include <QPixmap>
-#include <QTimer>
+#include <QtGui/QImage>
+
+class QTimer;
 
 
 
@@ -43,7 +44,7 @@ public:
 
     
 signals:
-    void frameReady(const QPixmap &frame);
+    void frameReady(const QImage &frame);
     
 public slots:
     void captureFrame();
@@ -65,8 +66,8 @@ private:
 
     
     // 私有辅助方法
-    QPixmap applyAntiAliasing(const QPixmap &pixmap);
-    QPixmap enhanceImageQuality(const QPixmap &pixmap);
+    QImage applyAntiAliasing(const QImage &image);
+    QImage enhanceImageQuality(const QImage &image);
 };
 
 #endif // SCREENCAPTURE_H

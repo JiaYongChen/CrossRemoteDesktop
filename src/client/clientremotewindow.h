@@ -2,31 +2,36 @@
 #define CLIENTREMOTEWINDOW_H
 
 #include <QtWidgets/QGraphicsView>
-#include <QtWidgets/QGraphicsScene>
-#include <QtWidgets/QGraphicsPixmapItem>
-#include <QtWidgets/QGraphicsRectItem>
-#include <QtWidgets/QVBoxLayout>
-#include <QtWidgets/QLabel>
-#include <QtWidgets/QScrollArea>
-#include <QtWidgets/QToolBar>
-#include <QtGui/QAction>
-#include <QtWidgets/QMenu>
-#include <QtCore/QTimer>
+#include <QtCore/Qt>
 #include <QtGui/QPixmap>
-#include <QtGui/QMouseEvent>
-#include <QtGui/QKeyEvent>
-#include <QtGui/QWheelEvent>
-#include <QtGui/QPaintEvent>
-#include <QtGui/QResizeEvent>
-#include <QtGui/QContextMenuEvent>
-#include <QtGui/QDragEnterEvent>
-#include <QtGui/QDropEvent>
-#include <QtCore/QMimeData>
-#include <QClipboard>
-#include <QtWidgets/QApplication>
-#include <QtGui/QCloseEvent>
-#include <QtWidgets/QWidget>
-#include <QtCore/QObject>
+#include <QtCore/QString>
+#include <QtCore/QStringList>
+#include <QtCore/QList>
+#include <QtCore/QDateTime>
+#include <QtCore/QPoint>
+#include <QtCore/QSize>
+#include <QtCore/QRect>
+
+// 前置声明以减少编译依赖
+class QGraphicsScene;
+class QGraphicsPixmapItem;
+class QGraphicsRectItem;
+class QMenu;
+class QAction;
+class QWidget;
+class QClipboard;
+class QTimer;
+class QPainter;
+class QMouseEvent;
+class QKeyEvent;
+class QWheelEvent;
+class QPaintEvent;
+class QResizeEvent;
+class QContextMenuEvent;
+class QDragEnterEvent;
+class QDropEvent;
+class QFocusEvent;
+class QCloseEvent;
 
 class TcpClient;
 class SessionManager;
@@ -197,7 +202,6 @@ private slots:
     void onClipboardChanged();
     void updatePerformanceStats();
     void onReconnectTimer();
-    void onScreenDataReceived(const QPixmap &pixmap);
     
     // Session management slots
     void onSessionStateChanged();

@@ -3,14 +3,16 @@
 
 #include <QtCore/QObject>
 #include <QtGui/QPixmap>
-#include <QtCore/QTimer>
+#include <QtGui/QImage>
 #include <QtCore/QDateTime>
 #include <QtCore/QQueue>
+#include <QtCore/QSize>
 #include "../core/protocol.h"
 #include "../core/uiconstants.h"
 
 class TcpClient;
 class ConnectionManager;
+class QTimer;
 
 class SessionManager : public QObject
 {
@@ -75,14 +77,13 @@ signals:
     
 private slots:
     void onConnectionStateChanged();
-    void onScreenDataReceived(const QPixmap &pixmap);
+    void onScreenDataReceived(const QImage &image);
     void onMessageReceived(MessageType type, const QByteArray &data);
     void updatePerformanceStats();
     
 private:
     void setSessionState(SessionState state);
     void setupConnections();
-    void processScreenData(const QByteArray &data);
     void processInputResponse(const QByteArray &data);
     void calculateFPS();
     

@@ -21,6 +21,11 @@ find_package(Qt6 6.9 REQUIRED COMPONENTS
     OpenGLWidgets
 )
 
+# 标准Qt项目设置（可用时）
+if(COMMAND qt_standard_project_setup)
+    qt_standard_project_setup()
+endif()
+
 # 启用Qt的MOC、UIC和RCC
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
@@ -34,16 +39,17 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
-# 包含目录
-include_directories(
-    src
-    src/common
-    src/common/core
-    src/common/windows
-    src/client/managers
-    src/server
-    src/server/capture
-    src/client
+# 目标私有包含目录（替代全局 include_directories）
+set(PRIVATE_INCLUDE_DIRS
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/common
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/core
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/codec
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/windows
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/client/managers
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/server
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/server/capture
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/client
 )
 
 # 源文件
@@ -54,6 +60,7 @@ set(SOURCES
     src/server/clienthandler.cpp
     src/client/tcpclient.cpp
     src/common/core/protocol.cpp
+    src/common/core/protocolcodec.cpp
     src/server/screencapture.cpp
     src/client/inputhandler.cpp
     src/server/inputsimulator.cpp
@@ -66,6 +73,10 @@ set(SOURCES
     src/common/core/logging_categories.cpp
     src/common/core/config.cpp
     src/common/core/constants.cpp
+    src/common/codec/zlib_compressor.cpp
+    src/common/codec/lz4_compressor.cpp
+    src/common/codec/zstd_compressor.cpp
+    src/common/codec/compressor_factory.cpp
     src/server/servermanager.cpp
     src/client/clientmanager.cpp
 
@@ -81,6 +92,8 @@ set(HEADERS
     src/server/clienthandler.h
     src/client/tcpclient.h
     src/common/core/protocol.h
+    src/common/core/icodec.h
+    src/common/core/protocolcodec.h
     src/server/screencapture.h
     src/client/inputhandler.h
     src/server/inputsimulator.h
@@ -94,6 +107,11 @@ set(HEADERS
     src/common/core/config.h
     src/server/servermanager.h
     src/client/clientmanager.h
+    src/common/codec/icompressor.h
+    src/common/codec/zlib_compressor.h
+    src/common/codec/lz4_compressor.h
+    src/common/codec/zstd_compressor.h
+    src/common/codec/compressor_factory.h
 
     src/client/managers/connectionmanager.h
     src/client/managers/sessionmanager.h
@@ -112,16 +130,21 @@ set(RESOURCES
     resources/resources.qrc
 )
 
-# 创建可执行文件
-add_executable(QtRemoteDesktop
+# 创建可执行文件（Qt6 风格）
+qt_add_executable(QtRemoteDesktop
+    MACOSX_BUNDLE
+    MANUAL_FINALIZATION
     ${SOURCES}
     ${HEADERS}
     ${UI_FILES}
     ${RESOURCES}
 )
 
+# 目标私有包含
+target_include_directories(QtRemoteDesktop PRIVATE ${PRIVATE_INCLUDE_DIRS})
+
 # 链接Qt库
-target_link_libraries(QtRemoteDesktop
+target_link_libraries(QtRemoteDesktop PRIVATE
     Qt6::Core
     Qt6::Widgets
     Qt6::Network
@@ -134,7 +157,7 @@ target_link_libraries(QtRemoteDesktop
 # 平台特定设置
 if(WIN32)
     # Windows特定设置
-    target_link_libraries(QtRemoteDesktop
+    target_link_libraries(QtRemoteDesktop PRIVATE
         ws2_32
         user32
         gdi32
@@ -156,14 +179,14 @@ elseif(APPLE)
     find_library(IOKIT_LIBRARY IOKit)
     find_library(COCOA_LIBRARY Cocoa)
     
-    target_link_libraries(QtRemoteDesktop
+    target_link_libraries(QtRemoteDesktop PRIVATE
         ${COREFOUNDATION_LIBRARY}
         ${COREGRAPHICS_LIBRARY}
         ${IOKIT_LIBRARY}
         ${COCOA_LIBRARY}
     )
     
-    # 设置macOS应用程序包
+    # 设置macOS应用程序包属性
     set_target_properties(QtRemoteDesktop PROPERTIES
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/resources/Info.plist.in
@@ -172,18 +195,18 @@ endif()
 
 # 查找并链接OpenSSL
 find_package(OpenSSL REQUIRED)
-target_link_libraries(QtRemoteDesktop OpenSSL::SSL OpenSSL::Crypto)
+target_link_libraries(QtRemoteDesktop PRIVATE OpenSSL::SSL OpenSSL::Crypto)
 
 # 查找并链接zlib
 find_package(ZLIB REQUIRED)
-target_link_libraries(QtRemoteDesktop ZLIB::ZLIB)
+target_link_libraries(QtRemoteDesktop PRIVATE ZLIB::ZLIB)
 
 if(ENABLE_ZSTD)
     # Find and link ZSTD library
     find_library(ZSTD_LIBRARY NAMES zstd libzstd PATHS /usr/local/lib /opt/homebrew/lib)
     find_path(ZSTD_INCLUDE_DIR NAMES zstd.h PATHS /usr/local/include /opt/homebrew/include)
     if(ZSTD_LIBRARY AND ZSTD_INCLUDE_DIR)
-        target_link_libraries(QtRemoteDesktop ${ZSTD_LIBRARY})
+    target_link_libraries(QtRemoteDesktop PRIVATE ${ZSTD_LIBRARY})
         target_include_directories(QtRemoteDesktop PRIVATE ${ZSTD_INCLUDE_DIR})
         target_compile_definitions(QtRemoteDesktop PRIVATE HAVE_ZSTD)
         message(STATUS "Found ZSTD: ${ZSTD_LIBRARY}")
@@ -199,7 +222,7 @@ if(ENABLE_LZ4)
     find_library(LZ4_LIBRARY NAMES lz4 liblz4 PATHS /usr/local/lib /opt/homebrew/lib)
     find_path(LZ4_INCLUDE_DIR NAMES lz4.h PATHS /usr/local/include /opt/homebrew/include)
     if(LZ4_LIBRARY AND LZ4_INCLUDE_DIR)
-        target_link_libraries(QtRemoteDesktop ${LZ4_LIBRARY})
+    target_link_libraries(QtRemoteDesktop PRIVATE ${LZ4_LIBRARY})
         target_include_directories(QtRemoteDesktop PRIVATE ${LZ4_INCLUDE_DIR})
         target_compile_definitions(QtRemoteDesktop PRIVATE HAVE_LZ4)
         message(STATUS "Found LZ4: ${LZ4_LIBRARY}")
@@ -217,7 +240,7 @@ if(APPLE)
     # macOS需要ApplicationServices框架
     find_library(APPLICATION_SERVICES_FRAMEWORK ApplicationServices)
     if(APPLICATION_SERVICES_FRAMEWORK)
-        target_link_libraries(QtRemoteDesktop ${APPLICATION_SERVICES_FRAMEWORK})
+    target_link_libraries(QtRemoteDesktop PRIVATE ${APPLICATION_SERVICES_FRAMEWORK})
         message(STATUS "Found ApplicationServices framework")
     else()
         message(WARNING "ApplicationServices framework not found")
@@ -226,13 +249,13 @@ elseif(UNIX AND NOT APPLE)
     # Linux需要X11库
     find_package(X11 REQUIRED)
     if(X11_FOUND)
-        target_link_libraries(QtRemoteDesktop ${X11_LIBRARIES})
+    target_link_libraries(QtRemoteDesktop PRIVATE ${X11_LIBRARIES})
         target_include_directories(QtRemoteDesktop PRIVATE ${X11_INCLUDE_DIR})
         
         # 查找XTest扩展
         find_library(XTEST_LIBRARY Xtst PATHS ${X11_LIB_SEARCH_PATH})
         if(XTEST_LIBRARY)
-            target_link_libraries(QtRemoteDesktop ${XTEST_LIBRARY})
+            target_link_libraries(QtRemoteDesktop PRIVATE ${XTEST_LIBRARY})
             message(STATUS "Found XTest library: ${XTEST_LIBRARY}")
         else()
             message(WARNING "XTest library not found")
@@ -244,7 +267,7 @@ elseif(UNIX AND NOT APPLE)
     endif()
 elseif(WIN32)
     # Windows需要user32库（通常自动链接）
-    target_link_libraries(QtRemoteDesktop user32)
+    target_link_libraries(QtRemoteDesktop PRIVATE user32)
     message(STATUS "Linked Windows user32 library")
 endif()
 
@@ -268,56 +291,44 @@ install(TARGETS QtRemoteDesktop
 
 # Qt部署
 if(WIN32)
+    # 为 Windows 配置部署（使用 windeployqt）
     find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS ${Qt6_DIR}/../../../bin)
     if(WINDEPLOYQT_EXECUTABLE)
         add_custom_command(TARGET QtRemoteDesktop POST_BUILD
             COMMAND ${WINDEPLOYQT_EXECUTABLE} $<TARGET_FILE:QtRemoteDesktop>
-            COMMENT "Deploying Qt libraries")
+            COMMENT "Deploying Qt libraries (Windows)")
     endif()
 elseif(APPLE)
-    # 设置正确的rpath，不使用macdeployqt避免错误信息
-    set_target_properties(QtRemoteDesktop PROPERTIES
-        INSTALL_RPATH "@executable_path/../Frameworks;@loader_path/../Frameworks;/usr/local/opt/qt/lib"
-        BUILD_WITH_INSTALL_RPATH TRUE
-        MACOSX_RPATH TRUE
-        SKIP_BUILD_RPATH FALSE
-        BUILD_RPATH_USE_ORIGIN TRUE
+    # macOS 使用标准 macdeployqt（通过自定义目标）
+    # 不再手工 copy frameworks 或使用 install_name_tool
+    # 在配置阶段查找 macdeployqt
+    find_program(MACDEPLOYQT_EXECUTABLE macdeployqt
+        HINTS
+            ${Qt6_DIR}/../../../bin
+            ${Qt6_DIR}/../../../../bin
+            /usr/local/opt/qt/bin
+            /opt/homebrew/opt/qt/bin
+            /usr/local/bin
+            /opt/homebrew/bin
     )
-    
-    # 手动复制必要的Qt框架到应用程序包
-    add_custom_command(TARGET QtRemoteDesktop POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_BUNDLE_DIR:QtRemoteDesktop>/Contents/Frameworks
-        COMMAND ${CMAKE_COMMAND} -E copy_directory /usr/local/opt/qt/lib/QtCore.framework $<TARGET_BUNDLE_DIR:QtRemoteDesktop>/Contents/Frameworks/QtCore.framework
-        COMMAND ${CMAKE_COMMAND} -E copy_directory /usr/local/opt/qt/lib/QtGui.framework $<TARGET_BUNDLE_DIR:QtRemoteDesktop>/Contents/Frameworks/QtGui.framework
-        COMMAND ${CMAKE_COMMAND} -E copy_directory /usr/local/opt/qt/lib/QtWidgets.framework $<TARGET_BUNDLE_DIR:QtRemoteDesktop>/Contents/Frameworks/QtWidgets.framework
-        COMMAND ${CMAKE_COMMAND} -E copy_directory /usr/local/opt/qt/lib/QtNetwork.framework $<TARGET_BUNDLE_DIR:QtRemoteDesktop>/Contents/Frameworks/QtNetwork.framework
-        COMMAND ${CMAKE_COMMAND} -E copy_directory /usr/local/opt/qt/lib/QtMultimedia.framework $<TARGET_BUNDLE_DIR:QtRemoteDesktop>/Contents/Frameworks/QtMultimedia.framework
-        COMMAND ${CMAKE_COMMAND} -E copy_directory /usr/local/opt/qt/lib/QtOpenGL.framework $<TARGET_BUNDLE_DIR:QtRemoteDesktop>/Contents/Frameworks/QtOpenGL.framework
-        COMMENT "Manually deploying Qt libraries")
-    
-    # 修复框架内的install_name
-    add_custom_command(TARGET QtRemoteDesktop POST_BUILD
-        COMMAND install_name_tool -change @rpath/QtCore.framework/Versions/A/QtCore @executable_path/../Frameworks/QtCore.framework/Versions/A/QtCore $<TARGET_FILE:QtRemoteDesktop>
-        COMMAND install_name_tool -change @rpath/QtGui.framework/Versions/A/QtGui @executable_path/../Frameworks/QtGui.framework/Versions/A/QtGui $<TARGET_FILE:QtRemoteDesktop>
-        COMMAND install_name_tool -change @rpath/QtWidgets.framework/Versions/A/QtWidgets @executable_path/../Frameworks/QtWidgets.framework/Versions/A/QtWidgets $<TARGET_FILE:QtRemoteDesktop>
-        COMMAND install_name_tool -change @rpath/QtNetwork.framework/Versions/A/QtNetwork @executable_path/../Frameworks/QtNetwork.framework/Versions/A/QtNetwork $<TARGET_FILE:QtRemoteDesktop>
-        COMMAND install_name_tool -change @rpath/QtMultimedia.framework/Versions/A/QtMultimedia @executable_path/../Frameworks/QtMultimedia.framework/Versions/A/QtMultimedia $<TARGET_FILE:QtRemoteDesktop>
-        COMMAND install_name_tool -change @rpath/QtOpenGL.framework/Versions/A/QtOpenGL @executable_path/../Frameworks/QtOpenGL.framework/Versions/A/QtOpenGL $<TARGET_FILE:QtRemoteDesktop>
-        COMMENT "Fixing framework install names")
-    
-    # 可选：如果用户想要使用macdeployqt，可以取消注释以下行
-    # find_program(MACDEPLOYQT_EXECUTABLE macdeployqt HINTS /usr/local/opt/qt/bin)
-    # if(MACDEPLOYQT_EXECUTABLE)
-    #     add_custom_command(TARGET QtRemoteDesktop POST_BUILD
-    #         COMMAND ${MACDEPLOYQT_EXECUTABLE} $<TARGET_BUNDLE_DIR:QtRemoteDesktop> -libpath=/usr/local/opt/qt/lib -always-overwrite
-    #         COMMENT "Deploying Qt libraries with macdeployqt")
-    # endif()
+
+    if(MACDEPLOYQT_EXECUTABLE)
+        add_custom_target(deploy_macos
+            COMMAND ${CMAKE_COMMAND} -E remove_directory $<TARGET_BUNDLE_DIR:QtRemoteDesktop>/Contents/Frameworks
+            COMMAND ${MACDEPLOYQT_EXECUTABLE} $<TARGET_BUNDLE_DIR:QtRemoteDesktop> -always-overwrite -verbose=1
+            DEPENDS QtRemoteDesktop
+            COMMENT "Deploying Qt application bundle with macdeployqt")
+    else()
+        add_custom_target(deploy_macos
+            COMMAND ${CMAKE_COMMAND} -E echo "macdeployqt not found. Please ensure Qt6 tools are installed and Qt6_DIR/CMAKE_PREFIX_PATH is set."
+            COMMENT "macdeployqt not found - printing help")
+    endif()
 endif()
 
 # 启用测试
 enable_testing()
 
-# 添加测试子目录
+# 添加测试子目录（当前仅包含稳定用例）
 add_subdirectory(test)
 
 # 打印配置信息
@@ -325,3 +336,8 @@ message(STATUS "Qt version: ${Qt6_VERSION}")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "C++ standard: ${CMAKE_CXX_STANDARD}")
 message(STATUS "Install prefix: ${CMAKE_INSTALL_PREFIX}")
+
+# 最终化 Qt 可执行文件（确保插件与rpath等设置到位）
+if(COMMAND qt_finalize_executable)
+    qt_finalize_executable(QtRemoteDesktop)
+endif()

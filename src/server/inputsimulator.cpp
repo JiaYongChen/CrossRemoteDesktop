@@ -1,12 +1,12 @@
 #include "inputsimulator.h"
 #include "../common/core/constants.h"
-#include <QApplication>
-#include <QTimer>
-#include <QThread>
-#include <QMutex>
-#include <QMutexLocker>
-#include <QDebug>
-#include <QCursor>
+#include <QtWidgets/QApplication>
+#include <QtCore/QTimer>
+#include <QtCore/QThread>
+#include <QtCore/QMutex>
+#include <QtCore/QMutexLocker>
+#include <QtCore/QDebug>
+#include <QtGui/QCursor>
 
 #ifdef Q_OS_WIN
 #include <windows.h>

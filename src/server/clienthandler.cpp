@@ -1,16 +1,20 @@
 #include "clienthandler.h"
+#include <QtNetwork/QTcpSocket>
+#include <QtCore/QTimer>
 #include "inputsimulator.h"
 #include "../common/core/protocol.h"
+#include "../common/core/encryption.h"
+#include "../common/core/protocolcodec.h"
 #include "../common/core/networkconstants.h"
-#include <QTcpSocket>
-#include <QTimer>
-#include <QDateTime>
-#include <QDebug>
+#include <QtNetwork/QTcpSocket>
+#include <QtCore/QTimer>
+#include <QtCore/QDateTime>
+#include <QtCore/QDebug>
 #include "../common/core/logging_categories.h"
-#include <QDataStream>
-#include <QBuffer>
-#include <QCryptographicHash>
-#include <QMessageLogger>
+#include <QtCore/QDataStream>
+#include <QtCore/QBuffer>
+#include <QtCore/QCryptographicHash>
+#include <QtCore/QMessageLogger>
 #include <cstring>
 
 // ClientHandler implementation
@@ -19,7 +23,6 @@ ClientHandler::ClientHandler(qintptr socketDescriptor, QObject *parent)
     , m_socket(new QTcpSocket(this))
     , m_clientPort(0)
     , m_isAuthenticated(false)
-    , m_expectedPassword("")
     , m_failedAuthCount(0)
     , m_connectionTime(QDateTime::currentDateTime())
     , m_lastHeartbeat(QDateTime::currentDateTime())
@@ -67,12 +70,41 @@ ClientHandler::ClientHandler(qintptr socketDescriptor, QObject *parent)
     QTimer::singleShot(0, this, [this]() {
         emit connected();
     });
+
+    // 默认codec
+    m_codec = new ProtocolCodec();
+    m_codecOwned = true;
 }
 
 ClientHandler::~ClientHandler()
 {
     if (m_socket) {
         m_socket->disconnectFromHost();
+    }
+    // 释放默认创建的codec
+    if (m_codecOwned) {
+        delete m_codec;
+    }
+    m_codec = nullptr;
+}
+
+void ClientHandler::setCodec(IMessageCodec *codec)
+{
+    setCodec(codec, false);
+}
+
+void ClientHandler::setCodec(IMessageCodec *codec, bool takeOwnership)
+{
+    if (codec == m_codec) return;
+    if (m_codecOwned && m_codec) {
+        delete m_codec;
+    }
+    if (codec) {
+        m_codec = codec;
+        m_codecOwned = takeOwnership;
+    } else {
+        m_codec = new ProtocolCodec();
+        m_codecOwned = true;
     }
 }
 
@@ -107,8 +139,8 @@ void ClientHandler::sendMessage(MessageType type, const QByteArray &data)
         return;
     }
     
-    // 使用协议格式创建消息
-    QByteArray message = Protocol::createMessage(type, data);
+    // 使用编解码器创建消息
+    QByteArray message = m_codec ? m_codec->encode(type, data) : Protocol::createMessage(type, data);
     
     qint64 bytesWritten = m_socket->write(message);
     if (bytesWritten > 0) {
@@ -188,48 +220,20 @@ void ClientHandler::onReadyRead()
     m_bytesReceived += data.size();
     m_receiveBuffer.append(data);
     
-    // 按照协议处理消息
+    // 按照编解码器处理消息
     while (m_receiveBuffer.size() >= static_cast<qsizetype>(SERIALIZED_HEADER_SIZE)) {
+        const qsizetype before = m_receiveBuffer.size();
         MessageHeader header;
         QByteArray payload;
-        
-        if (Protocol::parseMessage(m_receiveBuffer, header, payload)) {
-            // 移除已处理的数据
-            qsizetype totalSize = static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) + header.length;
-            m_receiveBuffer.remove(0, totalSize);
-            
-            // 处理消息
-            processMessage(header, payload);
-            emit messageReceived(header.type, payload);
-        } else {
-            // 检查是否是无效的协议数据
-            if (m_receiveBuffer.size() >= static_cast<qsizetype>(SERIALIZED_HEADER_SIZE)) {
-                MessageHeader tempHeader;
-                QByteArray headerData = m_receiveBuffer.left(static_cast<qsizetype>(SERIALIZED_HEADER_SIZE));
-                QDataStream stream(headerData);
-                stream.setByteOrder(QDataStream::LittleEndian);
-                stream >> tempHeader.magic;
-                
-                // 如果魔数无效，寻找下一个可能的协议起始位置
-                if (tempHeader.magic != PROTOCOL_MAGIC) {
-                    // 寻找PROTOCOL_MAGIC的字节序列
-                    QByteArray magicBytes;
-                    QDataStream magicStream(&magicBytes, QIODevice::WriteOnly);
-                    magicStream.setByteOrder(QDataStream::LittleEndian);
-                    magicStream << PROTOCOL_MAGIC;
-                    
-                    int nextMagicPos = m_receiveBuffer.indexOf(magicBytes, 1);
-                    if (nextMagicPos > 0) {
-                        // 找到下一个可能的协议起始位置，移除之前的无效数据
-                        m_receiveBuffer.remove(0, nextMagicPos);
-                    } else {
-                        // 没找到有效的协议起始位置，移除第一个字节
-                        m_receiveBuffer.remove(0, 1);
-                    }
-                    continue;
-                }
-            }
-            // 数据不完整，等待更多数据
+        bool ok = m_codec ? m_codec->tryDecode(m_receiveBuffer, header, payload)
+                          : Protocol::parseMessage(m_receiveBuffer, header, payload);
+        if (!ok) {
+            break;
+        }
+        processMessage(header, payload);
+        emit messageReceived(header.type, payload);
+        // 防御：若本轮未消费数据，防止死循环
+        if (m_receiveBuffer.size() == before) {
             break;
         }
     }
@@ -328,39 +332,74 @@ void ClientHandler::handleAuthenticationRequest(const QByteArray &data)
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Received authentication request from client:" << m_clientId;
 
     AuthenticationRequest req;
-    if (!Protocol::deserialize(data, req)) {
+    if (!Protocol::decodeAuthenticationRequest(data, req)) {
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Invalid authentication request payload from" << m_clientId;
         sendAuthenticationResponse(AuthResult::UNKNOWN_ERROR);
         return;
     }
 
     QString username = QString::fromUtf8(req.username);
-    QString providedHash = QString::fromUtf8(req.passwordHash);
     Q_UNUSED(username);
+    const QString clientField = QString::fromUtf8(req.passwordHash);
 
-    // 校验密码：如果服务端未配置密码，则允许空密码通过；否则对比哈希
-    bool ok = false;
-    if (m_expectedPassword.isEmpty()) {
-        ok = (providedHash.isEmpty());
-    } else {
-        // 计算预期密码的 SHA-256 十六进制，与客户端一致
-        QByteArray hash = QCryptographicHash::hash(m_expectedPassword.toUtf8(), QCryptographicHash::Sha256).toHex();
-        ok = (QString::fromUtf8(hash) == providedHash);
+    // 若服务端未配置摘要，允许空口令通过，否则要求挑战流程
+    if (m_expectedSalt.isEmpty() || m_expectedDigest.isEmpty()) {
+        bool ok = clientField.isEmpty();
+        if (ok) {
+            m_isAuthenticated = true;
+            m_failedAuthCount = 0;
+            sendAuthenticationResponse(AuthResult::SUCCESS, generateSessionId());
+            emit authenticated();
+        } else {
+            m_failedAuthCount++;
+            sendAuthenticationResponse(AuthResult::INVALID_PASSWORD);
+        }
+        return;
     }
 
-    if (ok) {
+    // 如果客户端字段为空，则下发挑战参数（PBKDF2）
+    if (clientField.isEmpty()) {
+        QByteArray challenge = Protocol::encodeAuthChallenge(
+            1u, // method PBKDF2_SHA256（约定）
+            m_pbkdf2Iterations,
+            m_pbkdf2KeyLength,
+            m_expectedSalt
+        );
+        sendMessage(MessageType::AUTH_CHALLENGE, challenge);
+        return;
+    }
+
+    // 客户端应回传派生值hex
+    QByteArray providedDeriv = QByteArray::fromHex(clientField.toUtf8());
+    if (providedDeriv.size() != m_expectedDigest.size()) {
+        m_failedAuthCount++;
+        sendAuthenticationResponse(AuthResult::INVALID_PASSWORD);
+        return;
+    }
+
+    // 常量时间比较
+    volatile uchar diff = 0;
+    for (int i = 0; i < providedDeriv.size(); ++i) diff |= uchar(providedDeriv[i] ^ m_expectedDigest[i]);
+    if (diff == 0) {
         m_isAuthenticated = true;
         m_failedAuthCount = 0;
         sendAuthenticationResponse(AuthResult::SUCCESS, generateSessionId());
         emit authenticated();
-    } else {
-        m_failedAuthCount++;
-        sendAuthenticationResponse(AuthResult::INVALID_PASSWORD);
-        if (m_failedAuthCount >= NetworkConstants::MAX_RETRY_COUNT) {
-            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Too many failed auth attempts from" << m_clientId << ", disconnecting";
-            disconnectClient();
-        }
+        return;
     }
+
+    m_failedAuthCount++;
+    sendAuthenticationResponse(AuthResult::INVALID_PASSWORD);
+    if (m_failedAuthCount >= NetworkConstants::MAX_RETRY_COUNT) {
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Too many failed auth attempts from" << m_clientId << ", disconnecting";
+        disconnectClient();
+    }
+}
+
+void ClientHandler::setExpectedPasswordDigest(const QByteArray &salt, const QByteArray &digest)
+{
+    m_expectedSalt = salt;
+    m_expectedDigest = digest;
 }
 
 void ClientHandler::handleHeartbeat()
@@ -383,7 +422,7 @@ void ClientHandler::handleMouseEvent(const QByteArray &data)
     }
     
     MouseEvent mouseEvent;
-    if (!Protocol::deserialize(data, mouseEvent)) {
+    if (!Protocol::decodeMouseEvent(data, mouseEvent)) {
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Failed to deserialize mouse event from client:" << m_clientId;
         return;
     }
@@ -438,7 +477,7 @@ void ClientHandler::handleKeyboardEvent(const QByteArray &data)
     }
     
     KeyboardEvent keyEvent;
-    if (!Protocol::deserialize(data, keyEvent)) {
+    if (!Protocol::decodeKeyboardEvent(data, keyEvent)) {
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Failed to deserialize keyboard event from client:" << m_clientId;
         return;
     }
@@ -478,7 +517,7 @@ void ClientHandler::sendHandshakeResponse()
     strcpy(response.serverName, "QtRemoteDesktop Server");
     strcpy(response.serverOS, "macOS");
     
-    QByteArray responseData = Protocol::serialize(response);
+    QByteArray responseData = Protocol::encodeHandshakeResponse(response);
     sendMessage(MessageType::HANDSHAKE_RESPONSE, responseData);
     
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Sent handshake response to client:" << m_clientId;
@@ -486,12 +525,7 @@ void ClientHandler::sendHandshakeResponse()
 
 void ClientHandler::sendAuthenticationResponse(AuthResult result, const QString &sessionId)
 {
-    AuthenticationResponse response;
-    response.result = result;
-    strcpy(response.sessionId, sessionId.toUtf8().constData());
-    response.permissions = 0xFFFFFFFF; // 所有权限
-    
-    QByteArray responseData = Protocol::serialize(response);
+    QByteArray responseData = Protocol::encodeAuthenticationResponse(result, sessionId, 0u);
     sendMessage(MessageType::AUTHENTICATION_RESPONSE, responseData);
     
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Sent authentication response to client:" << m_clientId << "Result:" << static_cast<int>(result);
@@ -502,12 +536,4 @@ QString ClientHandler::generateSessionId() const
     return QString("session_%1").arg(QDateTime::currentMSecsSinceEpoch());
 }
 
-void ClientHandler::setExpectedPassword(const QString &password)
-{
-    m_expectedPassword = password;
-}
-
-QString ClientHandler::expectedPassword() const
-{
-    return m_expectedPassword;
-}
+// 明文口令相关接口已移除（阶段C）

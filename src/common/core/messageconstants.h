@@ -25,18 +25,7 @@ namespace MessageConstants {
         const QString ZLIB_COMPRESSION_FAILED = "Zlib compression failed with error:";
         const QString ZLIB_DECOMPRESSION_FAILED = "Zlib decompression failed with error:";
         const QString ZLIB_DECOMPRESSION_INCOMPLETE = "Zlib decompression incomplete";
-        const QString INVALID_LZ4_LEVEL = "Invalid LZ4 compression level. Valid range: 1-";
-        const QString LZ4_COMPRESSION_FAILED = "LZ4 compression failed";
-        const QString LZ4_DECOMPRESSION_FAILED = "LZ4 decompression failed";
-        const QString INVALID_INPUT = "Invalid input for LZ4 decompression";
-        const QString SIZE_MISMATCH = "LZ4 decompression size mismatch. Expected:";
-        const QString INVALID_HEADER = "Compressed data too small to contain header";
-        const QString INVALID_ZSTD_LEVEL = "Invalid Zstd compression level. Valid range:";
-        const QString ZSTD_COMPRESSION_FAILED = "Zstd compression failed:";
-        const QString ZSTD_DECOMPRESSION_FAILED = "Zstd decompression failed:";
-        const QString INVALID_COMPRESSED_DATA = "Zstd: Invalid compressed data";
-        const QString UNKNOWN_SIZE = "Zstd: Unknown decompressed size";
-        const QString CONTEXT_CREATION_FAILED = "Failed to create Zstd compression context";
+    // Removed legacy LZ4/ZSTD-specific constants (unused after refactor)
         const QString ALGORITHM_DETECTION_FAILED = "Cannot detect compression algorithm";
     }
 

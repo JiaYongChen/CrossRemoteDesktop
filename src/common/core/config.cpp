@@ -1,28 +1,27 @@
 #include "config.h"
-#include <QDir>
-#include <QStandardPaths>
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <QJsonArray>
-#include <QCoreApplication>
-#include <QMutexLocker>
-#include <QTimer>
-#include <QCryptographicHash>
-#include <QFileSystemWatcher>
-#include <QDebug>
 #include "logging_categories.h"
-#include <QMetaProperty>
-#include <QMetaObject>
-#include <QMessageLogger>
+#include <QtCore/QDir>
+#include <QtCore/QStandardPaths>
+#include <QtCore/QJsonDocument>
+#include <QtCore/QJsonObject>
+#include <QtCore/QJsonArray>
+#include <QtCore/QCoreApplication>
+#include <QtCore/QMutexLocker>
+#include <QtCore/QTimer>
+#include <QtCore/QCryptographicHash>
+#include <QtCore/QFileSystemWatcher>
+#include <QtCore/QFile>
+#include <QtCore/QDebug>
+#include <QtCore/QMetaProperty>
+#include <QtCore/QMetaObject>
+#include <QtCore/QMessageLogger>
 
-// 静态成员初始化
-Config* Config::s_instance = nullptr;
+// Static member definitions
+Config *Config::s_instance = nullptr;
 QMutex Config::s_instanceMutex;
 
 Config::Config(QObject *parent)
     : QObject(parent)
-    , m_configFilePath()
-    , m_configFormat(IniFormat)
     , m_settings(nullptr)
     , m_autoSave(true)
     , m_autoReload(true)

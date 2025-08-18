@@ -5,12 +5,12 @@
 #include "../core/messageconstants.h"
 #include <algorithm>
 #include <QtWidgets/QMessageBox>
-#include <QSettings>
-#include <QRegularExpression>
-#include <QRegularExpressionValidator>
-#include <QIntValidator>
-#include <QTimer>
-#include <QProgressDialog>
+#include <QtCore/QSettings>
+#include <QtCore/QRegularExpression>
+#include <QtGui/QRegularExpressionValidator>
+#include <QtGui/QIntValidator>
+#include <QtCore/QTimer>
+#include <QtWidgets/QProgressDialog>
 #include <algorithm>
 
 ConnectionDialog::ConnectionDialog(QWidget *parent)

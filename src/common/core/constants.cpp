@@ -39,8 +39,6 @@ const int CoreConstants::DEFAULT_ZLIB_WINDOW_BITS = 15;
 const int CoreConstants::DEFAULT_ZLIB_MEM_LEVEL   = 8;
 const int CoreConstants::MIN_WINDOW_BITS          = 8;
 const int CoreConstants::MAX_WINDOW_BITS          = 15;
-const int CoreConstants::DEFAULT_LZ4_LEVEL        = 1;
-const int CoreConstants::DEFAULT_ZSTD_LEVEL       = 3;
 const int CoreConstants::SMALL_DATA_THRESHOLD     = 1024; // 1KB
 
 // Server

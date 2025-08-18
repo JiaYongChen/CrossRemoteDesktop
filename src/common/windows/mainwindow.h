@@ -2,27 +2,17 @@
 #define MAINWINDOW_H
 
 #include <QtWidgets/QMainWindow>
-#include <QtWidgets/QMenuBar>
-#include <QtWidgets/QToolBar>
-#include <QtWidgets/QStatusBar>
-#include <QtGui/QAction>
-#include <QtWidgets/QLabel>
-#include <QtWidgets/QVBoxLayout>
-#include <QtWidgets/QHBoxLayout>
-#include <QtWidgets/QSplitter>
-#include <QtWidgets/QListWidget>
-#include <QtWidgets/QStackedWidget>
-#include <QtCore/QTimer>
 #include <QtWidgets/QSystemTrayIcon>
-#include <QtGui/QCloseEvent>
-#include <QtCore/QSettings>
-#include <QtCore/QList>
+#include <QtWidgets/QListWidget>
 #include <QtCore/QMap>
+#include <QtCore/QList>
+#include <QtCore/QSettings>
 
 QT_BEGIN_NAMESPACE
 class QAction;
 class QMenu;
 class QLabel;
+class QCloseEvent;
 QT_END_NAMESPACE
 
 class ConnectionDialog;
@@ -100,40 +90,40 @@ private:
     void cleanupConnection(const QString &connectionId);
     
     // UI组件
-    QWidget *m_centralWidget;
-    QSplitter *m_mainSplitter;
-    QListWidget *m_connectionList;
-    QWidget *m_welcomeWidget;
+    class QWidget *m_centralWidget;
+    class QSplitter *m_mainSplitter;
+    class QListWidget *m_connectionList;
+    class QWidget *m_welcomeWidget;
     
     // 菜单
-    QMenu *m_fileMenu;
-    QMenu *m_connectionMenu;
-    QMenu *m_toolsMenu;
-    QMenu *m_helpMenu;
-    QMenu *m_trayIconMenu;
+    class QMenu *m_fileMenu;
+    class QMenu *m_connectionMenu;
+    class QMenu *m_toolsMenu;
+    class QMenu *m_helpMenu;
+    class QMenu *m_trayIconMenu;
     
     // 工具栏
-    QToolBar *m_mainToolBar;
-    QToolBar *m_connectionToolBar;
+    class QToolBar *m_mainToolBar;
+    class QToolBar *m_connectionToolBar;
     
     // 动作
-    QAction *m_newConnectionAction;
-    QAction *m_connectAction;
-    QAction *m_settingsAction;
-    QAction *m_exitAction;
-    QAction *m_aboutAction;
-    QAction *m_aboutQtAction;
-    QAction *m_minimizeAction;
-    QAction *m_maximizeAction;
-    QAction *m_restoreAction;
+    class QAction *m_newConnectionAction;
+    class QAction *m_connectAction;
+    class QAction *m_settingsAction;
+    class QAction *m_exitAction;
+    class QAction *m_aboutAction;
+    class QAction *m_aboutQtAction;
+    class QAction *m_minimizeAction;
+    class QAction *m_maximizeAction;
+    class QAction *m_restoreAction;
     
     // 状态栏
-    QLabel *m_connectionStatusLabel;
-    QLabel *m_serverStatusLabel;
-    QLabel *m_performanceLabel;
+    class QLabel *m_connectionStatusLabel;
+    class QLabel *m_serverStatusLabel;
+    class QLabel *m_performanceLabel;
     
     // 系统托盘
-    QSystemTrayIcon *m_trayIcon;
+    class QSystemTrayIcon *m_trayIcon;
     
     // 对话框
     ConnectionDialog *m_connectionDialog;

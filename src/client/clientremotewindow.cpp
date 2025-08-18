@@ -11,39 +11,39 @@
 #include <QtOpenGLWidgets/QOpenGLWidget>
 #include <QtCore/QPropertyAnimation>
 #include <QtCore/QEasingCurve>
-#include <QPainter>
-#include <QMouseEvent>
-#include <QKeyEvent>
-#include <QWheelEvent>
-#include <QResizeEvent>
-#include <QPaintEvent>
-#include <QContextMenuEvent>
-#include <QMenu>
-#include <QAction>
-#include <QClipboard>
-#include <QMimeData>
-#include <QDrag>
-#include <QDropEvent>
-#include <QDragEnterEvent>
-#include <QDragMoveEvent>
-#include <QUrl>
-#include <QFileInfo>
-#include <QMessageBox>
-#include <QApplication>
-#include <QScreen>
-#include <QTimer>
-#include <QScrollBar>
-#include <QScrollArea>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QLabel>
-#include <QPushButton>
-#include <QProgressBar>
-#include <QStatusBar>
-#include <QToolBar>
-#include <QActionGroup>
-#include <QSettings>
-#include <QDebug>
+#include <QtGui/QPainter>
+#include <QtGui/QMouseEvent>
+#include <QtGui/QKeyEvent>
+#include <QtGui/QWheelEvent>
+#include <QtGui/QResizeEvent>
+#include <QtGui/QPaintEvent>
+#include <QtGui/QContextMenuEvent>
+#include <QtWidgets/QMenu>
+#include <QtGui/QAction>
+#include <QtGui/QClipboard>
+#include <QtCore/QMimeData>
+#include <QtGui/QDrag>
+#include <QtGui/QDropEvent>
+#include <QtGui/QDragEnterEvent>
+#include <QtGui/QDragMoveEvent>
+#include <QtCore/QUrl>
+#include <QtCore/QFileInfo>
+#include <QtWidgets/QMessageBox>
+#include <QtWidgets/QApplication>
+#include <QtGui/QScreen>
+#include <QtCore/QTimer>
+#include <QtWidgets/QScrollBar>
+#include <QtWidgets/QScrollArea>
+#include <QtWidgets/QVBoxLayout>
+#include <QtWidgets/QHBoxLayout>
+#include <QtWidgets/QLabel>
+#include <QtWidgets/QPushButton>
+#include <QtWidgets/QProgressBar>
+#include <QtWidgets/QStatusBar>
+#include <QtWidgets/QToolBar>
+#include <QtGui/QActionGroup>
+#include <QtCore/QSettings>
+#include <QtCore/QDebug>
 #include <QtWidgets/QMenuBar>
 #include <QtGui/QKeySequence>
 #include <QtGui/QIcon>
@@ -788,10 +788,7 @@ void ClientRemoteWindow::onReconnectTimer()
     // Handle reconnection attempt
 }
 
-void ClientRemoteWindow::onScreenDataReceived(const QPixmap &pixmap)
-{
-    updateRemoteScreen(pixmap);
-}
+
 
 void ClientRemoteWindow::onSessionStateChanged()
 {

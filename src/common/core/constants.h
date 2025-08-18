@@ -45,8 +45,6 @@ public:
     static const int DEFAULT_ZLIB_MEM_LEVEL;
     static const int MIN_WINDOW_BITS;
     static const int MAX_WINDOW_BITS;
-    static const int DEFAULT_LZ4_LEVEL;
-    static const int DEFAULT_ZSTD_LEVEL;
     static const int SMALL_DATA_THRESHOLD; // 1KB
 
     // Server

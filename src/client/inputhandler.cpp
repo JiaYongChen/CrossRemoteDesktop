@@ -1,11 +1,11 @@
 #include "inputhandler.h"
 #include "../core/uiconstants.h"
-#include <QApplication>
-#include <QTimer>
-#include <QMutex>
-#include <QMutexLocker>
-#include <QDateTime>
-#include <QDebug>
+#include <QtWidgets/QApplication>
+#include <QtCore/QTimer>
+#include <QtCore/QMutex>
+#include <QtCore/QMutexLocker>
+#include <QtCore/QDateTime>
+#include <QtCore/QDebug>
 
 InputHandler::InputHandler(QObject *parent)
     : QObject(parent)
