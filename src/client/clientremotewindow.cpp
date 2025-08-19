@@ -741,9 +741,6 @@ void ClientRemoteWindow::onConnectionError(const QString &error)
     
     // Show error message
     QMessageBox::critical(this, "Connection Error", error);
-    
-    // Attempt to reconnect
-    emit reconnectRequested();
 }
 
 void ClientRemoteWindow::onClipboardChanged()
