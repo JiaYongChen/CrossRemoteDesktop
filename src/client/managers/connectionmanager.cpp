@@ -17,12 +17,13 @@ ConnectionManager::ConnectionManager(QObject *parent)
     , m_reconnectInterval(DEFAULT_RECONNECT_INTERVAL)
     , m_maxReconnectAttempts(DEFAULT_MAX_RECONNECT_ATTEMPTS)
     , m_currentReconnectAttempts(0)
+    , m_connectionTimeout(CONNECTION_TIMEOUT)
 {
     setupTcpClient();
     
     // 设置连接超时定时器
     m_connectionTimer->setSingleShot(true);
-    m_connectionTimer->setInterval(CONNECTION_TIMEOUT);
+    m_connectionTimer->setInterval(m_connectionTimeout);
     connect(m_connectionTimer, &QTimer::timeout, this, &ConnectionManager::onConnectionTimeout);
     
     // 设置重连定时器
@@ -327,4 +328,19 @@ void ConnectionManager::cleanupConnection()
     
     m_currentHost.clear();
     m_currentPort = 0;
+}
+
+// 设置连接超时
+void ConnectionManager::setConnectionTimeout(int msecs)
+{
+    // 最小1秒，避免过小值导致误判
+    m_connectionTimeout = qMax(1000, msecs);
+    if (m_connectionTimer) {
+        m_connectionTimer->setInterval(m_connectionTimeout);
+    }
+}
+
+int ConnectionManager::connectionTimeout() const
+{
+    return m_connectionTimeout;
 }

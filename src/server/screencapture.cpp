@@ -284,5 +284,3 @@ QImage ScreenCapture::enhanceImageQuality(const QImage &image)
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Enhanced image quality for image, size:" << enhanced.size();
     return enhanced;
 }
-
-// 性能优化方法实现

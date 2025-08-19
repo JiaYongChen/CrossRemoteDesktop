@@ -7,7 +7,7 @@ namespace NetworkConstants {
     const int DEFAULT_CONNECTION_TIMEOUT = 10000;  // 10秒
     const int HEARTBEAT_TIMEOUT = 30000;           // 30秒
     const int HEARTBEAT_INTERVAL = 10000;          // 10秒 - 减少心跳间隔提高响应性
-    const int PING_INTERVAL = 5000;                // 5秒
+    // PING_INTERVAL 已移除 - 统计功能不再使用
     const int DEFAULT_RECONNECT_INTERVAL = 5000;   // 5秒
     
     // 缓冲区大小

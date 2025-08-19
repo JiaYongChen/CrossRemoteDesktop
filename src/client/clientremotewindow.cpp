@@ -63,7 +63,6 @@ ClientRemoteWindow::ClientRemoteWindow(const QString &connectionId, QWidget *par
     , m_fullScreenAction(nullptr)
     , m_screenshotAction(nullptr)
     , m_disconnectAction(nullptr)
-    , m_reconnectAction(nullptr)
     , m_settingsAction(nullptr)
     , m_remoteSize(1024, 768)
     , m_scaledSize(1024, 768)
@@ -82,7 +81,6 @@ ClientRemoteWindow::ClientRemoteWindow(const QString &connectionId, QWidget *par
     , m_frameRate(60)
     , m_compressionLevel(6)
     , m_statsTimer(new QTimer(this))
-    , m_reconnectTimer(new QTimer(this))
     , m_currentFPS(0.0)
     , m_cursorVisible(true)
     , m_cursorPosition(0, 0)
@@ -182,7 +180,6 @@ void ClientRemoteWindow::setupActions()
     m_fullScreenAction = new QAction("Full Screen", this);
     m_screenshotAction = new QAction("Take Screenshot", this);
     m_disconnectAction = new QAction("Disconnect", this);
-    m_reconnectAction = new QAction("Reconnect", this);
     m_settingsAction = new QAction("Settings", this);
 }
 
@@ -198,7 +195,6 @@ void ClientRemoteWindow::setupContextMenu()
     m_contextMenu->addAction(m_fullScreenAction);
     m_contextMenu->addAction(m_screenshotAction);
     m_contextMenu->addSeparator();
-    m_contextMenu->addAction(m_reconnectAction);
     m_contextMenu->addAction(m_disconnectAction);
 }
 
@@ -212,11 +208,9 @@ void ClientRemoteWindow::setupConnections()
     connect(m_fullScreenAction, &QAction::triggered, this, &ClientRemoteWindow::toggleFullScreen);
     connect(m_screenshotAction, &QAction::triggered, this, &ClientRemoteWindow::takeScreenshot);
     connect(m_disconnectAction, &QAction::triggered, this, &ClientRemoteWindow::disconnectRequested);
-    connect(m_reconnectAction, &QAction::triggered, this, &ClientRemoteWindow::reconnectRequested);
     
     // Connect timers
     connect(m_statsTimer, &QTimer::timeout, this, &ClientRemoteWindow::updatePerformanceStats);
-    connect(m_reconnectTimer, &QTimer::timeout, this, &ClientRemoteWindow::onReconnectTimer);
     connect(m_updateTimer, &QTimer::timeout, this, &ClientRemoteWindow::updateDisplay);
     
     // Connect clipboard
@@ -715,9 +709,6 @@ void ClientRemoteWindow::closeEvent(QCloseEvent *event)
     if (m_statsTimer) {
         m_statsTimer->stop();
     }
-    if (m_reconnectTimer) {
-        m_reconnectTimer->stop();
-    }
     if (m_updateTimer) {
         m_updateTimer->stop();
     }
@@ -782,13 +773,6 @@ void ClientRemoteWindow::updatePerformanceStats()
     // Emit performance stats updated signal
     emit viewTransformChanged();
 }
-
-void ClientRemoteWindow::onReconnectTimer()
-{
-    // Handle reconnection attempt
-}
-
-
 
 void ClientRemoteWindow::onSessionStateChanged()
 {

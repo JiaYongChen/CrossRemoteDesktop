@@ -8,7 +8,7 @@
 #include <QtNetwork/QAbstractSocket>
 #include "../common/core/protocol.h"
 #include "../common/core/icodec.h"
-#include "../core/networkconstants.h"
+#include "../common/core/networkconstants.h"
 
 class QTcpSocket;
 class QTimer;
@@ -47,8 +47,7 @@ public:
     void sendMessage(MessageType type, const QByteArray &data = QByteArray());
     
     // 配置
-    void setConnectionTimeout(int msecs);
-    int connectionTimeout() const;
+    // 连接超时由 ConnectionManager 管理
     
 signals:
     void connected();
@@ -73,7 +72,7 @@ private slots:
     void onDisconnected();
     void onReadyRead();
     void onError(QAbstractSocket::SocketError error);
-    void onConnectionTimeout();
+    // 连接超时槽由 ConnectionManager 管理
     void sendHeartbeat();
     void checkHeartbeat();
     
@@ -111,14 +110,8 @@ private:
     QString m_password;
     
     // 定时器
-    QTimer *m_connectionTimer;
     QTimer *m_heartbeatTimer;
     QTimer *m_heartbeatCheckTimer;
-    
-    // 连接超时
-    int m_connectionTimeout;
-
-    // 自动重连逻辑已下沉至 ConnectionManager
     
     // 差异压缩相关
     QByteArray m_previousFrameData;
@@ -128,10 +121,8 @@ private:
     QMutex m_mutex;
     
     // 常量
-    static const int DEFAULT_CONNECTION_TIMEOUT = NetworkConstants::DEFAULT_CONNECTION_TIMEOUT;
     static const int HEARTBEAT_INTERVAL = NetworkConstants::HEARTBEAT_INTERVAL;
     static const int HEARTBEAT_TIMEOUT = NetworkConstants::HEARTBEAT_TIMEOUT;
-    static const int MAX_RETRY_COUNT = NetworkConstants::MAX_RETRY_COUNT;
     QDateTime m_lastHeartbeat;
 
     // 编解码

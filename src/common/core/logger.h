@@ -42,8 +42,6 @@ public:
         Custom      // 自定义格式
     };
     
-    // 日志轮转策略（已移除，固定按大小轮转）
-    
     // 单例模式
     static Logger* instance();
     
@@ -69,10 +67,6 @@ public:
     
     void setMaxFileCount(int maxCount);
     int maxFileCount() const;
-    
-    // 轮转策略 API 已移除，固定按大小轮转
-    
-    // 过滤、网络与系统日志相关接口已移除，统一使用 Qt 的 QLoggingCategory 规则。
     
     // 日志记录
     void log(LogLevel level, const QString &message, const QString &category = QString());
@@ -202,8 +196,6 @@ private:
     QString generateRotatedFileName() const;
     void cleanupOldLogFiles();
     
-    // 过滤/网络相关功能已移除
-    
     // Qt消息处理器
     static void qtMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg);
     
@@ -222,9 +214,6 @@ private:
     QTextStream *m_logStream;
     qint64 m_maxFileSize;
     int m_maxFileCount;
-    // 轮转策略相关成员移除
-    
-    // 过滤/网络/缓冲相关成员已移除，避免复杂度
     
     // 状态
     bool m_enabled;
@@ -233,8 +222,6 @@ private:
     
     // 线程安全
     mutable QMutex m_mutex;
-    
-    // Qt消息处理器
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(Logger::LogTargets)
@@ -247,9 +234,5 @@ Q_DECLARE_OPERATORS_FOR_FLAGS(Logger::LogTargets)
 #define LOG_ERROR(msg) Logger::instance()->error(msg)
 #define LOG_CRITICAL(msg) Logger::instance()->critical(msg)
 #define LOG_FATAL(msg) Logger::instance()->fatal(msg)
-
-// 提示：格式化日志请直接使用 Logger::instance()->infof/debugf 等 C++17 模板函数，避免可变参数宏带来的告警。
-
-// ScopeLogger/PerformanceLogger 等调试类已移除
 
 #endif // LOGGER_H

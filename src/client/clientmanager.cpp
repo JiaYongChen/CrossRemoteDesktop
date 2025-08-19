@@ -31,6 +31,23 @@ QString ClientManager::connectToHost(const QString &host, int port)
     // 创建连接管理器
     instance->connectionManager = new ConnectionManager(this);
     
+    // 从设置读取连接参数并应用到 ConnectionManager（秒 -> 毫秒）
+    {
+        QSettings settings;
+        settings.beginGroup("Connection");
+        const int timeoutSec = settings.value("connectionTimeout", 30).toInt();
+        const bool autoReconnect = settings.value("autoReconnect", false).toBool();
+        const int reconnectIntervalSec = settings.value("reconnectInterval", 5).toInt();
+        const int maxReconnectAttempts = settings.value("maxReconnectAttempts", 3).toInt();
+        settings.endGroup();
+    
+        // 应用到连接管理器
+        instance->connectionManager->setConnectionTimeout(timeoutSec * 1000);
+        instance->connectionManager->setAutoReconnect(autoReconnect);
+        instance->connectionManager->setReconnectInterval(reconnectIntervalSec * 1000);
+        instance->connectionManager->setMaxReconnectAttempts(maxReconnectAttempts);
+    }
+    
     // 创建会话管理器
     instance->sessionManager = new SessionManager(instance->connectionManager, this);
 

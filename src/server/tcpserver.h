@@ -39,7 +39,6 @@ protected:
     void incomingConnection(qintptr socketDescriptor) override;
     
 private:
-    void setupServer();
     void cleanup();
     
     // 服务器状态

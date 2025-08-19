@@ -162,7 +162,6 @@ signals:
     
     // Connection events
     void disconnectRequested();
-    void reconnectRequested();
     
     void windowClosed();
     
@@ -201,7 +200,6 @@ private slots:
     void onConnectionStateChanged(int state);
     void onClipboardChanged();
     void updatePerformanceStats();
-    void onReconnectTimer();
     
     // Session management slots
     void onSessionStateChanged();
@@ -271,7 +269,6 @@ private:
     QAction *m_fullScreenAction;
     QAction *m_screenshotAction;
     QAction *m_disconnectAction;
-    QAction *m_reconnectAction;
     QAction *m_settingsAction;
     
     // Screen data
@@ -306,7 +303,6 @@ private:
     
     // Performance monitoring
     QTimer *m_statsTimer;
-    QTimer *m_reconnectTimer;
     double m_currentFPS;
     QList<QDateTime> m_frameTimes;
     

@@ -160,9 +160,6 @@ void Logger::log(LogLevel level, const QString &message, const QString &category
         return;
     }
     
-    // 应用过滤器
-    // 过滤功能已移除，如需按分类/级别控制请使用 QLoggingCategory 规则
-    
     LogEntry entry;
     entry.timestamp = QDateTime::currentDateTime();
     entry.level = level;
@@ -300,8 +297,6 @@ void Logger::writeToFile(const QString &formattedMessage)
         }
     }
 }
-
-
 
 QString Logger::formatMessage(const LogEntry &entry) const
 {
@@ -456,8 +451,6 @@ void Logger::rotateLogFile()
     openLogFile();
 }
 
-
-
 void Logger::qtMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
     LogLevel level;
@@ -507,13 +500,6 @@ void Logger::logWithContext(LogLevel level,
     if (m_logTargets & LogTarget::Console) writeToConsole(formattedMessage, entry.level);
     if (m_logTargets & LogTarget::File) writeToFile(formattedMessage);
 }
-
-// ScopeLogger/PerformanceLogger 已移除
-
-// Logger missing function implementations
-// 刷新/轮转队列与定时相关接口已移除
-
-// 轮转策略接口保留于头文件，具体策略实现已简化，仅按大小轮转
 
 void Logger::trace(const QString &message, const QString &category)
 {
@@ -568,5 +554,3 @@ void Logger::uninstallMessageHandler()
 {
     qInstallMessageHandler(nullptr);
 }
-
-// 轮转策略 API 已移除（固定按大小轮转）

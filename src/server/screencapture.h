@@ -6,8 +6,6 @@
 
 class QTimer;
 
-
-
 class ScreenCapture : public QObject
 {
     Q_OBJECT
@@ -39,10 +37,7 @@ public:
     // 缩放质量控制
     void setScaleQuality(bool highQuality);
     bool isHighScaleQuality() const;
-    
-    // 性能优化集成
 
-    
 signals:
     void frameReady(const QImage &frame);
     
@@ -61,9 +56,6 @@ private:
     bool m_highDefinitionMode;
     bool m_antiAliasing;
     bool m_highScaleQuality;
-    
-    // 性能优化相关
-
     
     // 私有辅助方法
     QImage applyAntiAliasing(const QImage &image);

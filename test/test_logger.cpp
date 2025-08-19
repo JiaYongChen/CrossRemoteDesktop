@@ -29,9 +29,9 @@ private slots:
         Logger::instance()->setMaxFileSize(1); // 极小阈值触发
 
         QSignalSpy rotSpy(Logger::instance(), &Logger::fileRotated);
-    // 连续写多条，触发轮转（极小阈值）
-    for (int i=0; i<20; ++i) Logger::instance()->info(QString("line %1").arg(i));
-    QVERIFY(rotSpy.count() >= 1);
+        // 连续写多条，触发轮转（极小阈值）
+        for (int i=0; i<20; ++i) Logger::instance()->info(QString("line %1").arg(i));
+        QVERIFY(rotSpy.count() >= 1);
     }
 };
 

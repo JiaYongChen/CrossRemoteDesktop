@@ -13,42 +13,35 @@
 #include <QtGui/QPixmap>
 #include <QtCore/QMessageLogger>
 #include "../common/core/encryption.h"
+#include <QtCore/QMutexLocker>
 
 TcpClient::TcpClient(QObject *parent)
     : QObject(parent)
     , m_socket(new QTcpSocket(this))
-    , m_hostName()
-    , m_port(0)
-    , m_sessionId()
-    , m_username()
-    , m_password()
-    , m_connectionTimer(new QTimer(this))
     , m_heartbeatTimer(new QTimer(this))
     , m_heartbeatCheckTimer(new QTimer(this))
-    , m_connectionTimeout(DEFAULT_CONNECTION_TIMEOUT)
-    , m_frameDataMutex()
+    , m_codec(nullptr)
 {
-    // 设置连接超时定时器
-    m_connectionTimer->setSingleShot(true);
-    connect(m_connectionTimer, &QTimer::timeout, this, &TcpClient::onConnectionTimeout);
-    
-    // 设置心跳定时器
-    m_heartbeatTimer->setInterval(HEARTBEAT_INTERVAL);
-    connect(m_heartbeatTimer, &QTimer::timeout, this, &TcpClient::sendHeartbeat);
-    // 设置心跳检查定时器
-    m_heartbeatCheckTimer->setInterval(HEARTBEAT_TIMEOUT);
-    connect(m_heartbeatCheckTimer, &QTimer::timeout, this, &TcpClient::checkHeartbeat);
-    
-    // 连接socket信号
+    // 连接 socket 信号到本类槽函数
     connect(m_socket, &QTcpSocket::connected, this, &TcpClient::onConnected);
     connect(m_socket, &QTcpSocket::disconnected, this, &TcpClient::onDisconnected);
     connect(m_socket, &QTcpSocket::readyRead, this, &TcpClient::onReadyRead);
-    connect(m_socket, QOverload<QAbstractSocket::SocketError>::of(&QAbstractSocket::errorOccurred),
+    connect(m_socket, QOverload<QAbstractSocket::SocketError>::of(&QTcpSocket::errorOccurred),
             this, &TcpClient::onError);
 
-    // 默认codec
-    m_codec = new ProtocolCodec();
-    m_codecOwned = true;
+    // 若未注入外部编解码器，则使用默认 ProtocolCodec
+    if (!m_codec) {
+        m_codec = new ProtocolCodec();
+        m_codecOwned = true;
+    }
+
+    // 心跳定时器设置
+    m_heartbeatTimer->setInterval(HEARTBEAT_INTERVAL);
+    connect(m_heartbeatTimer, &QTimer::timeout, this, &TcpClient::sendHeartbeat);
+
+    // 心跳超时检查定时器设置
+    m_heartbeatCheckTimer->setInterval(HEARTBEAT_TIMEOUT);
+    connect(m_heartbeatCheckTimer, &QTimer::timeout, this, &TcpClient::checkHeartbeat);
 }
 
 TcpClient::~TcpClient()
@@ -92,7 +85,6 @@ void TcpClient::connectToHost(const QString &hostName, quint16 port)
     m_port = port;
     
     m_socket->connectToHost(hostName, port);
-    m_connectionTimer->start(m_connectionTimeout);
 }
 
 void TcpClient::disconnectFromHost()
@@ -101,7 +93,6 @@ void TcpClient::disconnectFromHost()
         return;
     }
     
-    m_connectionTimer->stop();
     m_heartbeatTimer->stop();
     m_heartbeatCheckTimer->stop();
     
@@ -116,7 +107,6 @@ void TcpClient::disconnectFromHost()
 
 void TcpClient::abort()
 {
-    m_connectionTimer->stop();
     m_heartbeatTimer->stop();
     m_heartbeatCheckTimer->stop();
     
@@ -178,49 +168,62 @@ void TcpClient::sendMessage(MessageType type, const QByteArray &data)
     m_socket->write(message);
 }
 
-void TcpClient::setConnectionTimeout(int msecs)
-{
-    m_connectionTimeout = msecs;
-}
-
-int TcpClient::connectionTimeout() const
-{
-    return m_connectionTimeout;
-}
-
 void TcpClient::onConnected()
 {
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << "TcpClient::onConnected - TCP connection established";
-    m_connectionTimer->stop();
     
-    // 设置TCP优化选项
-    m_socket->setSocketOption(QAbstractSocket::LowDelayOption, 1);  // TCP_NODELAY
-    m_socket->setSocketOption(QAbstractSocket::SendBufferSizeSocketOption, 256 * 1024);  // 256KB发送缓冲区
-    m_socket->setSocketOption(QAbstractSocket::ReceiveBufferSizeSocketOption, 256 * 1024);  // 256KB接收缓冲区
-    
-    // 发送握手请求
-    sendHandshakeRequest();
-    
-    // 启动心跳定时器
-    m_heartbeatTimer->start();
-    m_lastHeartbeat = QDateTime::currentDateTime();
-    m_heartbeatCheckTimer->start();
-    
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "TcpClient::onConnected - Emitting connected signal";
-    emit connected();
-}
+     // 设置TCP优化选项
+     m_socket->setSocketOption(QAbstractSocket::LowDelayOption, 1);  // TCP_NODELAY
+     m_socket->setSocketOption(QAbstractSocket::SendBufferSizeSocketOption, 256 * 1024);  // 256KB发送缓冲区
+     m_socket->setSocketOption(QAbstractSocket::ReceiveBufferSizeSocketOption, 256 * 1024);  // 256KB接收缓冲区
+     
+     // 发送握手请求
+     sendHandshakeRequest();
+     
+     // 启动心跳定时器
+     m_heartbeatTimer->start();
+     m_lastHeartbeat = QDateTime::currentDateTime();
+     m_heartbeatCheckTimer->start();
+     
+     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "TcpClient::onConnected - Emitting connected signal";
+     emit connected();
+ }
 
-void TcpClient::onDisconnected()
-{
-    m_connectionTimer->stop();
-    m_heartbeatTimer->stop();
-    m_heartbeatCheckTimer->stop();
-    
-    // 清理接收缓冲区，避免下次连接时处理残留数据
-    m_receiveBuffer.clear();
-    
-    emit disconnected();
-}
+ void TcpClient::onDisconnected()
+ {
+     m_heartbeatTimer->stop();
+     m_heartbeatCheckTimer->stop();
+     
+     resetConnection();
+ }
+
+ void TcpClient::onError(QAbstractSocket::SocketError error)
+ {
+     Q_UNUSED(error)
+     
+     QString errorMsg;
+     if (m_socket) {
+         // 将常见的英文错误信息翻译为中文
+         QString originalError = m_socket->errorString();
+         if (originalError.contains("remote host closed", Qt::CaseInsensitive)) {
+             errorMsg = "远程主机关闭了连接";
+         } else if (originalError.contains("connection refused", Qt::CaseInsensitive)) {
+             errorMsg = "连接被拒绝";
+         } else if (originalError.contains("host not found", Qt::CaseInsensitive)) {
+             errorMsg = "找不到主机";
+         } else if (originalError.contains("network unreachable", Qt::CaseInsensitive)) {
+             errorMsg = "网络不可达";
+         } else if (originalError.contains("timeout", Qt::CaseInsensitive)) {
+             errorMsg = "连接超时";
+         } else {
+             errorMsg = originalError;
+         }
+     } else {
+         errorMsg = "未知错误";
+     }
+     
+     emit errorOccurred(errorMsg);
+ }
 
 void TcpClient::onReadyRead()
 {
@@ -244,44 +247,6 @@ void TcpClient::onReadyRead()
             break;
         }
     }
-}
-
-void TcpClient::onError(QAbstractSocket::SocketError error)
-{
-    Q_UNUSED(error)
-    
-    m_connectionTimer->stop();
-    
-    QString errorMsg;
-    if (m_socket) {
-        // 将常见的英文错误信息翻译为中文
-        QString originalError = m_socket->errorString();
-        if (originalError.contains("remote host closed", Qt::CaseInsensitive)) {
-            errorMsg = "远程主机关闭了连接";
-        } else if (originalError.contains("connection refused", Qt::CaseInsensitive)) {
-            errorMsg = "连接被拒绝";
-        } else if (originalError.contains("host not found", Qt::CaseInsensitive)) {
-            errorMsg = "找不到主机";
-        } else if (originalError.contains("network unreachable", Qt::CaseInsensitive)) {
-            errorMsg = "网络不可达";
-        } else if (originalError.contains("timeout", Qt::CaseInsensitive)) {
-            errorMsg = "连接超时";
-        } else {
-            errorMsg = originalError; // 保留原始错误信息
-        }
-    } else {
-        errorMsg = "未知错误";
-    }
-    
-    emit errorOccurred(errorMsg);
-}
-
-void TcpClient::onConnectionTimeout()
-{
-    // 停止连接定时器并中止连接
-    m_connectionTimer->stop();
-    m_socket->abort();
-    emit errorOccurred("连接超时");
 }
 
 void TcpClient::sendHeartbeat()

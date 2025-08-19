@@ -130,7 +130,11 @@ private:
     void processEvent(const InputEvent &event);
     bool shouldFilterEvent(const InputEvent &event) const;
     
-    void updateStatistics(const InputEvent &event, qint64 processingTime);
+    void processKeyboardInput(const InputEvent &event);
+    void processMouseInput(const InputEvent &event);
+    void processWheelInput(const InputEvent &event);
+    
+    // 统计功能已移除
     
     // 输入状态
     bool m_enabled;
