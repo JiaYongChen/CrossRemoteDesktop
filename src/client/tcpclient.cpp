@@ -3,7 +3,6 @@
 #include <QtCore/QTimer>
 #include "../core/messageconstants.h"
 #include "../core/compression.h"
-#include "../common/core/protocolcodec.h"
 #include <QtNetwork/QHostAddress>
 #include <QtCore/QCryptographicHash>
 #include <QtCore/QRandomGenerator>
@@ -20,7 +19,6 @@ TcpClient::TcpClient(QObject *parent)
     , m_socket(new QTcpSocket(this))
     , m_heartbeatTimer(new QTimer(this))
     , m_heartbeatCheckTimer(new QTimer(this))
-    , m_codec(nullptr)
 {
     // 连接 socket 信号到本类槽函数
     connect(m_socket, &QTcpSocket::connected, this, &TcpClient::onConnected);
@@ -28,12 +26,6 @@ TcpClient::TcpClient(QObject *parent)
     connect(m_socket, &QTcpSocket::readyRead, this, &TcpClient::onReadyRead);
     connect(m_socket, QOverload<QAbstractSocket::SocketError>::of(&QTcpSocket::errorOccurred),
             this, &TcpClient::onError);
-
-    // 若未注入外部编解码器，则使用默认 ProtocolCodec
-    if (!m_codec) {
-        m_codec = new ProtocolCodec();
-        m_codecOwned = true;
-    }
 
     // 心跳定时器设置
     m_heartbeatTimer->setInterval(HEARTBEAT_INTERVAL);
@@ -47,31 +39,6 @@ TcpClient::TcpClient(QObject *parent)
 TcpClient::~TcpClient()
 {
     disconnectFromHost();
-    if (m_codecOwned) {
-        delete m_codec;
-        m_codec = nullptr;
-        m_codecOwned = false;
-    }
-}
-
-void TcpClient::setCodec(IMessageCodec *codec)
-{
-    setCodec(codec, false);
-}
-
-void TcpClient::setCodec(IMessageCodec *codec, bool takeOwnership)
-{
-    if (codec == m_codec) return;
-    if (m_codecOwned && m_codec) {
-        delete m_codec;
-    }
-    if (codec) {
-        m_codec = codec;
-        m_codecOwned = takeOwnership;
-    } else {
-        m_codec = new ProtocolCodec();
-        m_codecOwned = true;
-    }
 }
 
 void TcpClient::connectToHost(const QString &hostName, quint16 port)
@@ -155,17 +122,17 @@ void TcpClient::authenticate(const QString &username, const QString &password)
     sendAuthenticationRequest(username, password);
 }
 
-void TcpClient::sendMessage(MessageType type, const QByteArray &data)
+void TcpClient::sendMessage(MessageType type, const IMessageCodec &message)
 {
     if (!isConnected()) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << MessageConstants::Network::NOT_CONNECTED;
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << MessageConstants::Network::NOT_CONNECTED;
         return;
     }
     
     // 使用编解码器创建帧
-    QByteArray message = m_codec ? m_codec->encode(type, data) : Protocol::createMessage(type, data);
+    QByteArray messageData = Protocol::createMessage(type, message);
     
-    m_socket->write(message);
+    m_socket->write(messageData);
 }
 
 void TcpClient::onConnected()
@@ -236,8 +203,7 @@ void TcpClient::onReadyRead()
         const qsizetype before = m_receiveBuffer.size();
         MessageHeader header;
         QByteArray payload;
-        bool ok = m_codec ? m_codec->tryDecode(m_receiveBuffer, header, payload)
-                          : Protocol::parseMessage(m_receiveBuffer, header, payload);
+        bool ok = Protocol::parseMessage(m_receiveBuffer, header, payload);
         if (!ok) {
             break; // 等待更多数据或交由后续改进处理同步
         }
@@ -252,7 +218,7 @@ void TcpClient::onReadyRead()
 void TcpClient::sendHeartbeat()
 {
     if (isConnected()) {
-        sendMessage(MessageType::HEARTBEAT, QByteArray());
+        sendMessage(MessageType::HEARTBEAT, BaseMessage());
     }
 }
 
@@ -268,19 +234,24 @@ void TcpClient::processMessage(const MessageHeader &header, const QByteArray &pa
         case MessageType::AUTH_CHALLENGE:
         {
             AuthChallenge ch{};
-            if (Protocol::decodeAuthChallenge(payload, ch)) {
+            if (ch.decode(payload)) {
                 QByteArray salt = QByteArray::fromHex(QByteArray(ch.saltHex));
                 if (!salt.isEmpty()) {
                     // 本地派生 PBKDF2-SHA256
                     QByteArray derived = HashGenerator::pbkdf2(m_password.toUtf8(), salt, int(ch.iterations), int(ch.keyLength));
                     QString hex = derived.toHex();
-                    // 回发认证请求：username + 派生值hex
-                    QByteArray req = Protocol::encodeAuthenticationRequest(
-                        m_username.isEmpty() ? "guest" : m_username,
-                        hex,
-                        1u
-                    );
-                    sendMessage(MessageType::AUTHENTICATION_REQUEST, req);
+                    // 构造 AuthenticationRequest 并序列化发送
+                    AuthenticationRequest ar{};
+                    QByteArray uname = (m_username.isEmpty() ? QString("guest") : m_username).toUtf8();
+                    int uc = qMin(uname.size(), static_cast<int>(sizeof(ar.username) - 1));
+                    memcpy(ar.username, uname.constData(), uc);
+                    ar.username[uc] = '\0';
+                    QByteArray hexBytes = hex.toUtf8();
+                    int hc = qMin(hexBytes.size(), static_cast<int>(sizeof(ar.passwordHash) - 1));
+                    memcpy(ar.passwordHash, hexBytes.constData(), hc);
+                    ar.passwordHash[hc] = '\0';
+                    ar.authMethod = 1u;
+                    sendMessage(MessageType::AUTHENTICATION_REQUEST, ar);
                 }
             }
             break;
@@ -309,16 +280,16 @@ void TcpClient::processMessage(const MessageHeader &header, const QByteArray &pa
 void TcpClient::handleHandshakeResponse(const QByteArray &data)
 {
     HandshakeResponse response;
-    if (Protocol::decodeHandshakeResponse(data, response)) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << MessageConstants::Network::HANDSHAKE_RESPONSE_RECEIVED;
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Server version:" << response.serverVersion;
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Screen resolution:" << response.screenWidth << "x" << response.screenHeight;
+    if (response.decode(data)) {
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << MessageConstants::Network::HANDSHAKE_RESPONSE_RECEIVED;
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Server version:" << response.serverVersion;
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Screen resolution:" << response.screenWidth << "x" << response.screenHeight;
         
         // 发送认证请求
         sendAuthenticationRequest(m_username.isEmpty() ? "guest" : m_username, 
                                 m_password.isEmpty() ? "" : m_password);
     } else {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "Failed to parse handshake response";
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "Failed to parse handshake response";
         emit errorOccurred("服务器握手响应无效");
     }
 }
@@ -326,7 +297,7 @@ void TcpClient::handleHandshakeResponse(const QByteArray &data)
 void TcpClient::handleAuthenticationResponse(const QByteArray &data)
 {
     AuthenticationResponse response;
-    if (Protocol::decodeAuthenticationResponse(data, response)) {
+    if (response.decode(data)) {
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << MessageConstants::Network::AUTH_RESPONSE_RECEIVED;
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Auth result:" << static_cast<int>(response.result);
         
@@ -371,7 +342,7 @@ void TcpClient::handleErrorMessage(const QByteArray &data)
 {
     // 字段级解码 ErrorMessage
     ErrorMessage errorMsg{};
-    if (Protocol::decodeErrorMessage(data, errorMsg)) {
+    if (errorMsg.decode(data)) {
         QString errorText = QString::fromUtf8(errorMsg.errorText);
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "Received error message from server:" << errorText;
         emit errorOccurred(errorText);
@@ -385,7 +356,7 @@ void TcpClient::handleStatusUpdate(const QByteArray &data)
 {
     // 优先尝试结构化解码，失败则兼容旧版字符串
     StatusUpdate st{};
-    if (Protocol::decodeStatusUpdate(data, st)) {
+    if (st.decode(data)) {
         QString statusMsg = QString("状态:%1  收:%2  发:%3  FPS:%4  CPU:%5%%  MEM:%6")
                                 .arg(st.connectionStatus)
                                 .arg(st.bytesReceived)
@@ -413,17 +384,21 @@ void TcpClient::handleDisconnectRequest()
 
 void TcpClient::handleScreenData(const QByteArray &data)
 {
+    BaseMessage message{};
+    if (message.decode(data) == false) {
+        return;
+    }
     QByteArray frameData;
     {
         QMutexLocker locker(&m_frameDataMutex);
         
         if (m_previousFrameData.isEmpty()) {
             // 第一帧，直接使用接收到的数据
-            frameData = data;
-            m_previousFrameData = data;
+            frameData = message.data;
+            m_previousFrameData = message.data;
         } else {
             // 尝试作为差异数据处理
-            QByteArray reconstructedData = Compression::applyDifference(m_previousFrameData, data);
+            QByteArray reconstructedData = Compression::applyDifference(m_previousFrameData, message.data);
             
             if (!reconstructedData.isEmpty()) {
                 // 差异数据处理成功
@@ -431,8 +406,8 @@ void TcpClient::handleScreenData(const QByteArray &data)
                 m_previousFrameData = reconstructedData;
             } else {
                 // 差异数据处理失败，可能是完整帧
-                frameData = data;
-                m_previousFrameData = data;
+                frameData = message.data;
+                m_previousFrameData = message.data;
             }
         }
     }
@@ -470,8 +445,7 @@ void TcpClient::checkHeartbeat()
 
 void TcpClient::sendHandshakeRequest()
 {
-    HandshakeRequest request;
-    memset(&request, 0, sizeof(request));  // 清零整个结构体
+    HandshakeRequest request{};
     
     request.clientVersion = PROTOCOL_VERSION;
     request.screenWidth = 1920;
@@ -484,8 +458,7 @@ void TcpClient::sendHandshakeRequest()
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "HandshakeRequest struct size:" << sizeof(HandshakeRequest);
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Expected size:" << (4+2+2+1+1+64+32);
     
-    QByteArray requestData = Protocol::encodeHandshakeRequest(request);
-    sendMessage(MessageType::HANDSHAKE_REQUEST, requestData);
+    sendMessage(MessageType::HANDSHAKE_REQUEST, request);
     
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << MessageConstants::Network::HANDSHAKE_REQUEST_SENT;
 }
@@ -494,19 +467,21 @@ void TcpClient::sendAuthenticationRequest(const QString &username, const QString
 {
     Q_UNUSED(password);
     // 第一次发送不带hash，触发服务端下发挑战
-    QByteArray requestData = Protocol::encodeAuthenticationRequest(
-        username,
-        QString(),
-        1u // 请求PBKDF2
-    );
-    sendMessage(MessageType::AUTHENTICATION_REQUEST, requestData);
+    AuthenticationRequest ar{};
+    QByteArray uname = username.toUtf8();
+    int uc = qMin(uname.size(), static_cast<int>(sizeof(ar.username) - 1));
+    memcpy(ar.username, uname.constData(), uc);
+    ar.username[uc] = '\0';
+    ar.passwordHash[0] = '\0';
+    ar.authMethod = 1u; // 请求PBKDF2
+    sendMessage(MessageType::AUTHENTICATION_REQUEST, ar);
     
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << MessageConstants::Network::AUTH_REQUEST_SENT.arg(username);
 }
 
 void TcpClient::sendDisconnectRequest()
 {
-    sendMessage(MessageType::DISCONNECT_REQUEST, QByteArray("disconnect"));
+    sendMessage(MessageType::DISCONNECT_REQUEST, BaseMessage());
 }
 
 void TcpClient::resetConnection()
@@ -553,8 +528,7 @@ void TcpClient::sendMouseEvent(int x, int y, int buttons, int eventType)
     mouseEvent.eventType = static_cast<MouseEventType>(eventType);
     mouseEvent.wheelDelta = 0;
     
-    QByteArray eventData = Protocol::encodeMouseEvent(mouseEvent);
-    sendMessage(MessageType::MOUSE_EVENT, eventData);
+    sendMessage(MessageType::MOUSE_EVENT, mouseEvent);
 }
 
 void TcpClient::sendKeyboardEvent(int key, int modifiers, bool pressed, const QString &text)
@@ -574,8 +548,7 @@ void TcpClient::sendKeyboardEvent(int key, int modifiers, bool pressed, const QS
     memcpy(keyEvent.text, textBytes.constData(), copySize);
     keyEvent.text[copySize] = '\0';
     
-    QByteArray eventData = Protocol::encodeKeyboardEvent(keyEvent);
-    sendMessage(MessageType::KEYBOARD_EVENT, eventData);
+    sendMessage(MessageType::KEYBOARD_EVENT, keyEvent);
 }
 
 void TcpClient::sendWheelEvent(int x, int y, int delta, int orientation)
@@ -593,6 +566,5 @@ void TcpClient::sendWheelEvent(int x, int y, int delta, int orientation)
     wheelEvent.eventType = delta > 0 ? MouseEventType::WHEEL_UP : MouseEventType::WHEEL_DOWN;
     wheelEvent.wheelDelta = delta;
     
-    QByteArray eventData = Protocol::encodeMouseEvent(wheelEvent);
-    sendMessage(MessageType::MOUSE_EVENT, eventData);
+    sendMessage(MessageType::MOUSE_EVENT, wheelEvent);
 }

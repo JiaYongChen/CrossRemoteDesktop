@@ -6,7 +6,6 @@
 #include <QtCore/QMutex>
 #include <QtNetwork/QAbstractSocket>
 #include "../common/core/protocol.h"
-#include "../common/core/icodec.h"
 
 class QTcpSocket;
 class QTimer;
@@ -21,11 +20,6 @@ class ClientHandler : public QObject
 public:
     explicit ClientHandler(qintptr socketDescriptor, QObject *parent = nullptr);
     ~ClientHandler();
-    // 编解码器注入（可选）。未设置时使用默认ProtocolCodec
-    // 不接管所有权（默认，与既有行为一致）
-    void setCodec(IMessageCodec *codec);
-    // 可选：接管所有权
-    void setCodec(IMessageCodec *codec, bool takeOwnership);
     
     // 连接信息
     QString clientAddress() const;
@@ -35,7 +29,7 @@ public:
     bool isAuthenticated() const;
     
     // 消息发送
-    void sendMessage(MessageType type, const QByteArray &data = QByteArray());
+    void sendMessage(MessageType type, const IMessageCodec &message);
     
     // 认证配置（阶段C：摘要策略 PBKDF2-SHA256）
     void setExpectedPasswordDigest(const QByteArray &salt, const QByteArray &digest);
@@ -95,10 +89,6 @@ private:
     quint64 m_bytesSent;
     InputSimulator *m_inputSimulator;
     QByteArray m_receiveBuffer;
-
-    // 编解码
-    IMessageCodec *m_codec{nullptr};
-    bool m_codecOwned{false};
 };
 
 #endif // CLIENTHANDLER_H

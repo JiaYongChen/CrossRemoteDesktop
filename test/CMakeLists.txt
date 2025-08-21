@@ -14,21 +14,6 @@ set(CMAKE_AUTOMOC ON)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../src)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../src/common/core)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../src/common/codec)
-# ProtocolCodec 单元测试（稳定）
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test_protocol_codec.cpp")
-    add_executable(test_protocol_codec
-        test_protocol_codec.cpp
-        ../src/common/core/protocolcodec.cpp
-        ../src/common/core/protocol.cpp
-        ../src/common/core/logging_categories.cpp
-        ../src/common/core/logger.cpp
-        ../src/common/core/constants.cpp
-    )
-    target_link_libraries(test_protocol_codec Qt6::Core Qt6::Test ZLIB::ZLIB)
-    add_test(NAME test_protocol_codec COMMAND test_protocol_codec)
-else()
-    message(STATUS "Skipping test_protocol_codec: test_protocol_codec.cpp not found in ${CMAKE_CURRENT_SOURCE_DIR}")
-endif()
 
 # Compression diff/apply roundtrip tests
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test_compression_diff.cpp")
@@ -96,8 +81,8 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test_connection_manager.cpp")
         ../src/common/codec/zlib_compressor.cpp
         ../src/common/codec/lz4_compressor.cpp
         ../src/common/codec/zstd_compressor.cpp
-        ../src/common/core/protocolcodec.cpp
         ../src/common/core/protocol.cpp
+        ../src/common/core/protocol_impl.cpp
         ../src/common/core/logging_categories.cpp
         ../src/common/core/logger.cpp
         ../src/common/core/constants.cpp
@@ -138,8 +123,8 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test_session_manager.cpp")
         ../src/common/codec/zlib_compressor.cpp
         ../src/common/codec/lz4_compressor.cpp
         ../src/common/codec/zstd_compressor.cpp
-        ../src/common/core/protocolcodec.cpp
         ../src/common/core/protocol.cpp
+        ../src/common/core/protocol_impl.cpp
         ../src/common/core/logging_categories.cpp
         ../src/common/core/logger.cpp
         ../src/common/core/constants.cpp

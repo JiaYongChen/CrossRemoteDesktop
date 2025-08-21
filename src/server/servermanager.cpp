@@ -5,7 +5,6 @@
 #include "screencapture.h"
 #include "../common/core/constants.h"
 #include "../common/core/protocol.h"
-#include "../common/core/protocolcodec.h"
 
 #include <QtCore/QSettings>
 #include <QtCore/QTimer>
@@ -60,10 +59,6 @@ ServerManager::ServerManager(QObject *parent)
 
     // 设置服务器连接
     setupServerConnections();
-}
-void ServerManager::setCodecFactory(std::function<IMessageCodec*()> factory)
-{
-    m_codecFactory = std::move(factory);
 }
 
 ServerManager::~ServerManager()
@@ -183,7 +178,8 @@ void ServerManager::stopServer(bool synchronous)
         QMutexLocker locker(&m_clientsMutex);
         for (auto it = m_clients.begin(); it != m_clients.end(); ++it) {
             if (it.value()) {
-                it.value()->sendMessage(MessageType::DISCONNECT_REQUEST, QByteArray());
+                // 发送断开请求消息
+                it.value()->sendMessage(MessageType::DISCONNECT_REQUEST, BaseMessage());
             }
         }
     }
@@ -301,21 +297,30 @@ void ServerManager::sendScreenData(const QImage &frame)
     QElapsedTimer timer;
     timer.start();
     
-    // 压缩图像数据（统一使用QImage以便后续管线迁移；保持JPEG质量75%）
+    // 压缩图像数据（统一使用QImage以便后续管线迁移；保持JPEG质量95%）
     QByteArray imageData;
     QBuffer buffer(&imageData);
     buffer.open(QIODevice::WriteOnly);
-    bool success = frame.save(&buffer, "JPEG", 75);
+    bool success = frame.save(&buffer, "JPEG", 95);
     if (!success) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Failed to compress screen data";
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Failed to compress screen data";
         return;
     }
     
     buffer.close();
     
     // 发送给所有已认证的客户端
-    sendMessageToAllClients(MessageType::SCREEN_DATA, imageData);
-    
+    ScreenData message{};
+    message.x = frame.rect().x();
+    message.y = frame.rect().y();
+    message.width = frame.rect().width();
+    message.height = frame.rect().height();
+    message.imageType = 0;
+    message.compressionType = 0;
+    message.dataSize = imageData.size();
+    message.imageData = imageData;
+    sendMessageToAllClients(MessageType::SCREEN_DATA, message);
+
     if (sendCount % 30 == 0) {
         QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "sendScreenData completed (count:" << sendCount << "), data size:" << imageData.size();
     }
@@ -331,8 +336,8 @@ void ServerManager::onFrameReady(const QImage &frame)
     
     // 每10帧输出一次调试信息以便更好地观察问题
     if (frameCount % 10 == 0) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "Frame captured (count:" << frameCount << "), size:" << frame.size() << "isNull:" << frame.isNull();
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "Server running:" << m_isServerRunning 
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "Frame captured (count:" << frameCount << "), size:" << frame.size() << "isNull:" << frame.isNull();
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "Server running:" << m_isServerRunning 
                  << "Has connected clients:" << hasConnectedClients()
                  << "Has authenticated clients:" << hasAuthenticatedClients();
     }
@@ -443,14 +448,6 @@ void ServerManager::onNewConnection(qintptr socketDescriptor)
     
     // 创建客户端处理器
     ClientHandler *handler = new ClientHandler(socketDescriptor, this);
-    // 若存在编解码器工厂，则为该客户端设置自定义编解码器，并交由 handler 接管所有权
-    if (m_codecFactory) {
-        IMessageCodec* c = m_codecFactory();
-        if (!c) {
-            c = new ProtocolCodec();
-        }
-        handler->setCodec(c, true);
-    }
     // 注入认证摘要策略（阶段C）：同时保持旧路径以兼容
     if (!m_passwordDigest.isEmpty() && !m_passwordSalt.isEmpty()) {
         handler->setExpectedPasswordDigest(m_passwordSalt, m_passwordDigest);
@@ -590,18 +587,18 @@ quint64 ServerManager::totalBytesSent() const
     return m_totalBytesSent;
 }
 
-void ServerManager::sendMessageToClient(const QString &clientId, MessageType type, const QByteArray &data)
+void ServerManager::sendMessageToClient(const QString &clientId, MessageType type, const IMessageCodec &message)
 {
     QMutexLocker locker(&m_clientsMutex);
     if (m_clients.contains(clientId)) {
         ClientHandler *handler = m_clients[clientId];
         if (handler) {
-            handler->sendMessage(type, data);
+            handler->sendMessage(type, message);
         }
     }
 }
 
-void ServerManager::sendMessageToAllClients(MessageType type, const QByteArray &data)
+void ServerManager::sendMessageToAllClients(MessageType type, const IMessageCodec &message)
 {
     QMutexLocker locker(&m_clientsMutex);
     int authenticatedClients = 0;
@@ -614,13 +611,13 @@ void ServerManager::sendMessageToAllClients(MessageType type, const QByteArray &
             if (type == MessageType::SCREEN_DATA) {
                 if (it.value()->isAuthenticated()) {
                     authenticatedClients++;
-                    it.value()->sendMessage(type, data);
+                    it.value()->sendMessage(type, message);
                     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "Sending screen data to authenticated client:" << it.value()->clientAddress() 
-                             << "Data size:" << data.size() << "bytes";
+                             << "Data size:" << message.encode().size() << "bytes";
                 }
             } else {
                 // 其他类型的消息发送给所有连接的客户端
-                it.value()->sendMessage(type, data);
+                it.value()->sendMessage(type, message);
             }
         }
     }
@@ -806,10 +803,7 @@ void ServerManager::sendConnectionRejectionMessage(qintptr socketDescriptor, con
     errorMsg.errorText[copySize] = '\0';
     
     // 字段级编码错误消息
-    QByteArray errorData = Protocol::encodeErrorMessage(errorMsg.errorCode, QString::fromUtf8(errorMsg.errorText));
-    
-    // 创建完整的协议消息
-    QByteArray message = Protocol::createMessage(MessageType::ERROR_MESSAGE, errorData);
+   QByteArray message = Protocol::createMessage(MessageType::ERROR_MESSAGE, errorMsg);
     
     // 发送错误消息
     qint64 bytesWritten = socket->write(message);

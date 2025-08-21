@@ -2,7 +2,6 @@
 #include <QtCore/QDebug>
 #include "../../common/core/logging_categories.h"
 #include <QtCore/QMessageLogger>
-#include "../../common/core/protocolcodec.h"
 #include <QtCore/QTimer>
 #include "../tcpclient.h"
 
@@ -124,21 +123,6 @@ TcpClient* ConnectionManager::tcpClient() const
 {
     return m_tcpClient;
 }
-
-void ConnectionManager::setCodecFactory(std::function<IMessageCodec*()> factory)
-{
-    m_codecFactory = std::move(factory);
-    // 若 TcpClient 已存在，立即应用新的编解码器（交由 TcpClient 接管所有权）
-    if (m_tcpClient && m_codecFactory) {
-        IMessageCodec* c = m_codecFactory();
-        if (!c) {
-            c = new ProtocolCodec();
-        }
-        m_tcpClient->setCodec(c, true);
-    }
-}
-
-
 
 // 自动重连管理方法
 void ConnectionManager::setAutoReconnect(bool enable)
@@ -302,15 +286,6 @@ void ConnectionManager::setConnectionState(ConnectionState state)
 void ConnectionManager::setupTcpClient()
 {
     m_tcpClient = new TcpClient(this);
-    // TcpClient的自动重连功能已移除，现在由ConnectionManager管理
-    // 若存在工厂，则注入自定义编解码器
-    if (m_codecFactory) {
-        IMessageCodec* c = m_codecFactory();
-        if (!c) {
-            c = new ProtocolCodec();
-        }
-        m_tcpClient->setCodec(c, true);
-    }
     
     // 连接TCP客户端信号
     connect(m_tcpClient, &TcpClient::connected, this, &ConnectionManager::onTcpConnected);

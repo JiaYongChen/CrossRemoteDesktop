@@ -59,12 +59,22 @@ void SessionManager::startSession()
     m_statsTimer->start();
     
     // 发送会话启动请求
-    if (m_tcpClient) {
-        QByteArray sessionData;
-        QDataStream stream(&sessionData, QIODevice::WriteOnly);
-        stream << m_frameRate << m_compressionLevel;
-        m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST, sessionData);
-    }
+    // if (m_tcpClient) {
+    //     QByteArray sessionData;
+    //     QDataStream stream(&sessionData, QIODevice::WriteOnly);
+    //     stream << m_frameRate << m_compressionLevel;
+    //     HandshakeRequest handshakeRequest{};
+    //     memset(&handshakeRequest, 0, sizeof(handshakeRequest));  // 清零整个结构体
+        
+    //     handshakeRequest.clientVersion = PROTOCOL_VERSION;
+    //     handshakeRequest.screenWidth = 1920;
+    //     handshakeRequest.screenHeight = 1080;
+    //     handshakeRequest.colorDepth = 32;
+    //     handshakeRequest.compressionLevel = 6;
+    //     strcpy(handshakeRequest.clientName, "QtRemoteDesktop Client");
+    //     strcpy(handshakeRequest.clientOS, getClientOS().toUtf8().constData());
+    //     m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST, handshakeRequest);
+    // }
     
     setSessionState(Active);
 }
@@ -80,7 +90,7 @@ void SessionManager::suspendSession()
     
     if (m_tcpClient) {
         // SessionSuspend not available in protocol, using DISCONNECT_REQUEST
-         m_tcpClient->sendMessage(MessageType::DISCONNECT_REQUEST);
+        m_tcpClient->sendMessage(MessageType::DISCONNECT_REQUEST, BaseMessage());
     }
 }
 
@@ -95,7 +105,7 @@ void SessionManager::resumeSession()
     
     if (m_tcpClient) {
         // SessionResume not available in protocol, using HANDSHAKE_REQUEST
-        m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST);
+        m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST, BaseMessage());
     }
 }
 
@@ -110,7 +120,7 @@ void SessionManager::terminateSession()
     
     if (m_tcpClient) {
         // SessionEnd not available in protocol, using DISCONNECT_REQUEST
-         m_tcpClient->sendMessage(MessageType::DISCONNECT_REQUEST);
+        m_tcpClient->sendMessage(MessageType::DISCONNECT_REQUEST, BaseMessage());
     }
     
     // 清理会话数据
@@ -190,7 +200,7 @@ void SessionManager::setFrameRate(int fps)
         QDataStream stream(&data, QIODevice::WriteOnly);
         stream << m_frameRate;
         // ConfigUpdate not available in protocol, using HANDSHAKE_REQUEST
-        m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST, data);
+        // m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST, data);
     }
 }
 
@@ -208,7 +218,7 @@ void SessionManager::setCompressionLevel(int level)
         QDataStream stream(&data, QIODevice::WriteOnly);
         stream << m_compressionLevel;
         // ConfigUpdate not available in protocol, using HANDSHAKE_REQUEST
-        m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST, data);
+        // m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST, data);
     }
 }
 

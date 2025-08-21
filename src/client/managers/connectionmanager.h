@@ -59,10 +59,6 @@ public:
     // 连接超时管理
     void setConnectionTimeout(int msecs);
     int connectionTimeout() const;
-
-    // 编解码器工厂注入（可选），用于为 TcpClient 提供自定义 IMessageCodec
-    // 注意：ConnectionManager 不接管工厂返回对象的生命周期；若需要交由 TcpClient 管理，请在工厂内使用 new 并由 TcpClient 接管
-    void setCodecFactory(std::function<IMessageCodec*()> factory);
     
 signals:
     void connectionStateChanged(ConnectionState state);

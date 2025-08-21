@@ -8,7 +8,6 @@
 #include <QtCore/QElapsedTimer>
 #include <QtGui/QImage>
 #include "../common/core/protocol.h"
-#include <functional>
 
 class TcpServer;
 class ScreenCapture;
@@ -77,8 +76,8 @@ public:
     void sendScreenData(const QImage &frame);
     
     // 客户端管理
-    void sendMessageToClient(const QString &clientId, MessageType type, const QByteArray &data = QByteArray());
-    void sendMessageToAllClients(MessageType type, const QByteArray &data = QByteArray());
+    void sendMessageToClient(const QString &clientId, MessageType type, const IMessageCodec &message);
+    void sendMessageToAllClients(MessageType type, const IMessageCodec &message);
     
     // 断开连接
     void disconnectClient(const QString &clientId);
@@ -86,10 +85,6 @@ public:
     
     // 连接拒绝处理
     void sendConnectionRejectionMessage(qintptr socketDescriptor, const QString &errorMessage);
-
-    // 编解码器工厂注入（可选），用于为新建的 ClientHandler 提供自定义 IMessageCodec
-    // 注意：ServerManager 不接管工厂返回对象的生命周期，交由 ClientHandler 根据 takeOwnership 决定
-    void setCodecFactory(std::function<IMessageCodec*()> factory);
     
 signals:
     // 服务器状态信号
@@ -179,9 +174,6 @@ private:
     // 性能统计
     mutable QElapsedTimer m_frameTimer;
     QImage m_lastFrame; // 统一为 QImage 存储
-
-    // 可选编解码器工厂
-    std::function<IMessageCodec*()> m_codecFactory;
 };
 
 #endif // SERVERMANAGER_H

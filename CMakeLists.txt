@@ -60,7 +60,7 @@ set(SOURCES
     src/server/clienthandler.cpp
     src/client/tcpclient.cpp
     src/common/core/protocol.cpp
-    src/common/core/protocolcodec.cpp
+    src/common/core/protocol_impl.cpp
     src/server/screencapture.cpp
     src/client/inputhandler.cpp
     src/server/inputsimulator.cpp
@@ -92,8 +92,7 @@ set(HEADERS
     src/server/clienthandler.h
     src/client/tcpclient.h
     src/common/core/protocol.h
-    src/common/core/icodec.h
-    src/common/core/protocolcodec.h
+    src/common/codec/icodec.h
     src/server/screencapture.h
     src/client/inputhandler.h
     src/server/inputsimulator.h

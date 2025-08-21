@@ -7,7 +7,6 @@
 #include <QtGui/QImage>
 #include <QtNetwork/QAbstractSocket>
 #include "../common/core/protocol.h"
-#include "../common/core/icodec.h"
 #include "../common/core/networkconstants.h"
 
 class QTcpSocket;
@@ -20,11 +19,6 @@ class TcpClient : public QObject
 public:
     explicit TcpClient(QObject *parent = nullptr);
     ~TcpClient();
-
-    // 编解码器注入（可选）。未设置时使用默认ProtocolCodec
-    void setCodec(IMessageCodec *codec);
-    void setCodec(IMessageCodec *codec, bool takeOwnership);
-    const IMessageCodec* codec() const { return m_codec; }
     
     // 连接控制
     void connectToHost(const QString &hostName, quint16 port);
@@ -44,11 +38,8 @@ public:
     void authenticate(const QString &username, const QString &password);
     
     // 消息发送
-    void sendMessage(MessageType type, const QByteArray &data = QByteArray());
-    
-    // 配置
-    // 连接超时由 ConnectionManager 管理
-    
+    void sendMessage(MessageType type, const IMessageCodec &message);
+
 signals:
     void connected();
     void disconnected();
@@ -124,10 +115,6 @@ private:
     static const int HEARTBEAT_INTERVAL = NetworkConstants::HEARTBEAT_INTERVAL;
     static const int HEARTBEAT_TIMEOUT = NetworkConstants::HEARTBEAT_TIMEOUT;
     QDateTime m_lastHeartbeat;
-
-    // 编解码
-    IMessageCodec *m_codec{nullptr};
-    bool m_codecOwned{false};
 };
 
 #endif // TCPCLIENT_H
