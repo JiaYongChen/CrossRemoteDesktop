@@ -182,31 +182,69 @@ QDateTime ClientHandler::connectionTime() const
 
 void ClientHandler::onReadyRead()
 {
+    // 说明：
+    // - 支持粘包/半包：循环解析，若数据不足一个完整帧则等待更多数据。
+    // - 解析与消费：使用 Protocol::parseMessage 解析当前缓冲区首帧，成功后按帧长从缓冲区移除（SERIALIZED_HEADER_SIZE + header.length）。
+    // - 重同步机制：连续解析失败达阈值时，小步丢弃1字节尝试重同步，避免异常数据卡死；仍保留最大包长防护。
     if (!m_socket) {
         return;
     }
-    
+
     QByteArray data = m_socket->readAll();
     m_bytesReceived += data.size();
     m_receiveBuffer.append(data);
-    
-    // 按照编解码器处理消息
-    while (m_receiveBuffer.size() >= static_cast<qsizetype>(SERIALIZED_HEADER_SIZE)) {
-        const qsizetype before = m_receiveBuffer.size();
-        MessageHeader header;
-        QByteArray payload;
-        bool ok = Protocol::parseMessage(m_receiveBuffer, header, payload);
-        if (!ok) {
+
+    constexpr int kMaxResyncAttempts = 4; // 小阈值，避免过度丢弃
+
+    for (;;) {
+        if (m_receiveBuffer.size() < static_cast<qsizetype>(SERIALIZED_HEADER_SIZE)) {
+            // 头部都不够，等待更多数据
             break;
         }
+
+        MessageHeader header;
+        QByteArray payload;
+        const bool ok = Protocol::parseMessage(m_receiveBuffer, header, payload);
+        if (!ok) {
+            // 可能是半包，也可能是错误；采用重同步策略
+            m_parseFailCount++;
+            if (m_parseFailCount >= kMaxResyncAttempts) {
+                // 小步前进尝试找到边界
+                m_receiveBuffer.remove(0, 1);
+                m_parseFailCount = 0;
+                continue;
+            }
+            // 更可能是半包，等待更多数据
+            break;
+        }
+
+        // 解析成功，重置失败计数
+        m_parseFailCount = 0;
+
+        // 额外防护：限制最大负载长度，避免超大包导致内存问题
+        if (header.length > static_cast<quint32>(NetworkConstants::MAX_PACKET_SIZE)) {
+            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager)
+                << "Payload too large, length:" << header.length
+                << "from client:" << m_clientId;
+            disconnectClient();
+            return;
+        }
+
+        // 分发处理
         processMessage(header, payload);
         emit messageReceived(header.type, payload);
-        // 防御：若本轮未消费数据，防止死循环
-        if (m_receiveBuffer.size() == before) {
+
+        // 移除已处理的密文段（XOR 加解密不改变长度）
+        const qsizetype consumed = static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) + static_cast<qsizetype>(header.length);
+        if (consumed > 0 && consumed <= m_receiveBuffer.size()) {
+            m_receiveBuffer.remove(0, consumed);
+        } else {
+            // 理论不应发生，防御性处理
+            m_receiveBuffer.clear();
             break;
         }
     }
-    
+
     m_lastHeartbeat = QDateTime::currentDateTime();
 }
 
@@ -302,7 +340,7 @@ void ClientHandler::handleAuthenticationRequest(const QByteArray &data)
 
     AuthenticationRequest req;
     if (!req.decode(data)) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Invalid authentication request payload from" << m_clientId;
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Invalid authentication request payload from" << m_clientId;
         sendAuthenticationResponse(AuthResult::UNKNOWN_ERROR);
         return;
     }

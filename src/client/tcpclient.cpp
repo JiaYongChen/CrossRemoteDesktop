@@ -65,6 +65,8 @@ void TcpClient::disconnectFromHost()
     
     // 清理接收缓冲区
     m_receiveBuffer.clear();
+    // 重置解析失败计数器，避免影响下次连接
+    m_parseFailCount = 0;
     
     if (m_socket->state() != QAbstractSocket::UnconnectedState) {
         // 使用abort()强制断开连接，避免阻塞等待
@@ -79,6 +81,8 @@ void TcpClient::abort()
     
     // 清理接收缓冲区
     m_receiveBuffer.clear();
+    // 重置解析失败计数器，避免影响下次连接
+    m_parseFailCount = 0;
     
     m_socket->abort();
 
@@ -194,22 +198,53 @@ void TcpClient::onConnected()
 
 void TcpClient::onReadyRead()
 {
+    // 说明：
+    // - 支持粘包/半包：循环解析，若数据不足一个完整帧则等待更多数据。
+    // - 解析与消费：使用 Protocol::parseMessage 解析当前缓冲区首帧，成功后按帧长从缓冲区移除（SERIALIZED_HEADER_SIZE + header.length）。
+    // - 重同步机制：连续解析失败达阈值时，小步丢弃1字节尝试重同步，避免异常数据卡死；仍保留最大包长防护。
     QByteArray data = m_socket->readAll();
     m_receiveBuffer.append(data);
     m_lastHeartbeat = QDateTime::currentDateTime();
-    
-    // 使用编解码器解析消息
+
+    constexpr int kMaxResyncAttempts = 4; // 与服务端保持一致的保守阈值
+
     while (m_receiveBuffer.size() >= static_cast<qsizetype>(SERIALIZED_HEADER_SIZE)) {
-        const qsizetype before = m_receiveBuffer.size();
         MessageHeader header;
         QByteArray payload;
-        bool ok = Protocol::parseMessage(m_receiveBuffer, header, payload);
+        const bool ok = Protocol::parseMessage(m_receiveBuffer, header, payload);
         if (!ok) {
-            break; // 等待更多数据或交由后续改进处理同步
+            // 半包或错误：先视为数据不足；若连续失败过多，尝试小步丢弃重同步
+            m_parseFailCount++;
+            if (m_parseFailCount >= kMaxResyncAttempts) {
+                m_receiveBuffer.remove(0, 1);
+                m_parseFailCount = 0;
+                continue; // 继续尝试解析
+            }
+            break; // 等待更多数据
         }
+
+        // 解析成功，重置失败计数
+        m_parseFailCount = 0;
+
+        // 最大包长防护（客户端同样防御）
+        if (header.length > static_cast<quint32>(NetworkConstants::MAX_PACKET_SIZE)) {
+            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient)
+                << "Payload too large, length:" << header.length;
+            abort(); // 立即中止连接，防御异常数据
+            return;
+        }
+
+        // 分发处理
         processMessage(header, payload);
         emit messageReceived(header.type, payload);
-        if (m_receiveBuffer.size() == before) {
+
+        // 精确移除已处理的帧
+        const qsizetype consumed = static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) + static_cast<qsizetype>(header.length);
+        if (consumed > 0 && consumed <= m_receiveBuffer.size()) {
+            m_receiveBuffer.remove(0, consumed);
+        } else {
+            // 防御性处理：异常则清空缓冲并退出循环
+            m_receiveBuffer.clear();
             break;
         }
     }
@@ -298,8 +333,8 @@ void TcpClient::handleAuthenticationResponse(const QByteArray &data)
 {
     AuthenticationResponse response;
     if (response.decode(data)) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << MessageConstants::Network::AUTH_RESPONSE_RECEIVED;
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Auth result:" << static_cast<int>(response.result);
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << MessageConstants::Network::AUTH_RESPONSE_RECEIVED;
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Auth result:" << static_cast<int>(response.result);
         
         if (response.result == AuthResult::SUCCESS) {
             m_sessionId = QString::fromUtf8(response.sessionId);
@@ -488,6 +523,8 @@ void TcpClient::resetConnection()
 {
     m_receiveBuffer.clear();
     m_sessionId.clear();
+    // 重置解析失败计数器，确保连接状态复位
+    m_parseFailCount = 0;
 }
 
 QString TcpClient::hashPassword(const QString &password)

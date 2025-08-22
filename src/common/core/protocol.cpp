@@ -38,31 +38,29 @@ bool Protocol::parseMessage(const QByteArray &data, MessageHeader &header, QByte
 
     // 解密数据
     QByteArray encryptedData = decryptData(data, Protocol::XORkey);
-
     if (encryptedData.size() < static_cast<qsizetype>(SERIALIZED_HEADER_SIZE)) {
         return false;
     }
 
     // 反序列化消息头
-    QByteArray headerData = data.left(static_cast<qsizetype>(SERIALIZED_HEADER_SIZE));
+    QByteArray headerData = encryptedData.left(static_cast<qsizetype>(SERIALIZED_HEADER_SIZE));
     if (header.decode(headerData) == false) {
         return false;
     }
     
     // 检查数据长度
     qsizetype expectedSize = static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) + header.length;
-    if (data.size() < expectedSize) {
+    if (encryptedData.size() < expectedSize) {
         return false;
     }
     
     // 提取载荷
-    payload = data.mid(static_cast<qsizetype>(SERIALIZED_HEADER_SIZE), header.length);
+    payload = encryptedData.mid(static_cast<qsizetype>(SERIALIZED_HEADER_SIZE), header.length);
 
     // 验证消息
     if (validateMessage(header, payload) == false) {
         return false;
     }
-    
     return true;
 }
 

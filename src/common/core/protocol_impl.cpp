@@ -41,6 +41,7 @@ QByteArray MessageHeader::encode() const
     QByteArray data;
     QDataStream stream(&data, QIODevice::WriteOnly);
     stream.setByteOrder(QDataStream::LittleEndian);
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << "MessageHeader:" << magic << version << static_cast<quint32>(type) << length << checksum << timestamp;
     
     stream << magic;
     stream << version;
@@ -57,7 +58,7 @@ bool MessageHeader::decode(const QByteArray &data)
     if (data.size() < static_cast<qsizetype>(SERIALIZED_HEADER_SIZE)) {
         return false;
     }
-    
+
     QDataStream stream(data);
     stream.setByteOrder(QDataStream::LittleEndian);
     
@@ -70,6 +71,8 @@ bool MessageHeader::decode(const QByteArray &data)
     stream >> timestamp;
     
     type = static_cast<MessageType>(typeValue);
+
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << "MessageHeader decode:" << magic << version << static_cast<quint32>(type) << length << checksum << timestamp;
     
     // 验证魔数
     if (magic != PROTOCOL_MAGIC) {

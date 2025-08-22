@@ -89,6 +89,7 @@ private:
     quint64 m_bytesSent;
     InputSimulator *m_inputSimulator;
     QByteArray m_receiveBuffer;
+    int m_parseFailCount{0}; // 连续解析失败计数器，用于重同步
 };
 
 #endif // CLIENTHANDLER_H

@@ -72,8 +72,6 @@ public:
     static const int DEFAULT_MAX_CLIENTS = 1;
     static const int CLEANUP_TIMER_INTERVAL = 1000; // 1秒，清理断开连接的客户端
     
-    // 日志系统常量（UI仅控制显示，不定义非UI默认值；默认值已迁至 CoreConstants）
-    
     // 颜色常量
     static const QColor LIGHT_GRAY_COLOR;
     static const QColor WHITE_COLOR;
