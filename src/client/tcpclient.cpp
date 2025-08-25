@@ -507,20 +507,14 @@ void TcpClient::handleScreenData(const QByteArray &data)
     // 优化图像加载：首先尝试最常见的JPEG格式
     if (frame.loadFromData(frameData, "JPEG")) {
         loaded = true;
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) 
-            << "Successfully loaded image as JPEG, size:" << frame.size();
     }
     // 如果JPEG失败，尝试PNG格式
     else if (frame.loadFromData(frameData, "PNG")) {
         loaded = true;
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) 
-            << "Successfully loaded image as PNG, size:" << frame.size();
     }
     // 如果都失败，尝试自动检测格式
     else if (frame.loadFromData(frameData)) {
         loaded = true;
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) 
-            << "Successfully loaded image with auto-detection, size:" << frame.size();
     }
 
     if (loaded && !frame.isNull()) {

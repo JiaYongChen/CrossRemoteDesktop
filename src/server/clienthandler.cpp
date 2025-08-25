@@ -473,7 +473,7 @@ void ClientHandler::handleMouseEvent(const QByteArray &data)
                   m_inputSimulator->simulateMouseWheel(mouseEvent.x, mouseEvent.y, -120);
                   break;
               default:
-                  QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Unknown mouse event type:" << static_cast<int>(mouseEvent.eventType);
+                //   QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Unknown mouse event type:" << static_cast<int>(mouseEvent.eventType);
                   break;
           }
       }

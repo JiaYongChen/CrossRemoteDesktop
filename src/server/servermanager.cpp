@@ -328,32 +328,9 @@ void ServerManager::sendScreenData(const QImage &frame)
 
 void ServerManager::onFrameReady(const QImage &frame)
 {
-    // 减少调试日志输出以提高性能
-    static int frameCount = 0;
-    frameCount++;
-    
-    // 每10帧输出一次调试信息以便更好地观察问题
-    if (frameCount % 10 == 0) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "Frame captured (count:" << frameCount << "), size:" << frame.size() << "isNull:" << frame.isNull();
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "Server running:" << m_isServerRunning 
-                 << "Has connected clients:" << hasConnectedClients()
-                 << "Has authenticated clients:" << hasAuthenticatedClients();
-    }
-    
     // 当有已认证的客户端连接且服务器运行时，发送屏幕数据
     if (m_isServerRunning && hasAuthenticatedClients()) {
-        if (frameCount % 10 == 0) {
-            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "Sending screen data to authenticated clients";
-        }
         sendScreenData(frame);
-    } else {
-        // 每次都输出日志以便调试
-        if (frameCount % 10 == 0) {
-            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "NOT sending screen data:" 
-                     << "Server running:" << m_isServerRunning 
-                     << "Has connected clients:" << hasConnectedClients()
-                     << "Has authenticated clients:" << hasAuthenticatedClients();
-        }
     }
 }
 
