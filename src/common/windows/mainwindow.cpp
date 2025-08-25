@@ -547,7 +547,7 @@ void MainWindow::showSettings()
     if (m_settingsDialog->exec() == QDialog::Accepted) {
         // 应用设置到ScreenCapture
         if (m_serverManager) {
-            m_serverManager->applyScreenCaptureSettings();
+            // m_serverManager->applyScreenCaptureSettings();
         }
     }
 }

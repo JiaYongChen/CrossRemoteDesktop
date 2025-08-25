@@ -291,12 +291,6 @@ void ServerManager::sendScreenData(const QImage &frame)
         return;
     }
     
-    static int sendCount = 0;
-    sendCount++;
-    
-    QElapsedTimer timer;
-    timer.start();
-    
     // 压缩图像数据（统一使用QImage以便后续管线迁移；保持JPEG质量95%）
     QByteArray imageData;
     QBuffer buffer(&imageData);
@@ -304,6 +298,7 @@ void ServerManager::sendScreenData(const QImage &frame)
     bool success = frame.save(&buffer, "JPEG", 95);
     if (!success) {
         QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Failed to compress screen data";
+        buffer.close();
         return;
     }
     
@@ -319,11 +314,8 @@ void ServerManager::sendScreenData(const QImage &frame)
     message.compressionType = 0;
     message.dataSize = imageData.size();
     message.imageData = imageData;
-    sendMessageToAllClients(MessageType::SCREEN_DATA, message);
 
-    if (sendCount % 30 == 0) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "sendScreenData completed (count:" << sendCount << "), data size:" << imageData.size();
-    }
+    sendMessageToAllClients(MessageType::SCREEN_DATA, message);
 }
 
 void ServerManager::onFrameReady(const QImage &frame)
@@ -489,6 +481,7 @@ void ServerManager::startScreenCapture()
         connect(m_screenCapture, &ScreenCapture::frameReady, this, &ServerManager::onFrameReady);
     }
     if (!m_screenCapture->isCapturing()) {
+        m_screenCapture->setFrameRate(120);
         m_screenCapture->startCapture();
     }
 }
@@ -576,33 +569,22 @@ void ServerManager::sendMessageToClient(const QString &clientId, MessageType typ
 void ServerManager::sendMessageToAllClients(MessageType type, const IMessageCodec &message)
 {
     QMutexLocker locker(&m_clientsMutex);
-    int authenticatedClients = 0;
-    int totalClients = 0;
+    // int authenticatedClients = 0;
+    // int totalClients = 0;
     
     for (auto it = m_clients.begin(); it != m_clients.end(); ++it) {
         if (it.value()) {
-            totalClients++;
+            // totalClients++;
             // 对于屏幕数据，只发送给已认证的客户端
             if (type == MessageType::SCREEN_DATA) {
                 if (it.value()->isAuthenticated()) {
-                    authenticatedClients++;
+                    // authenticatedClients++;
                     it.value()->sendMessage(type, message);
-                    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "Sending screen data to authenticated client:" << it.value()->clientAddress() 
-                             << "Data size:" << message.encode().size() << "bytes";
                 }
             } else {
                 // 其他类型的消息发送给所有连接的客户端
                 it.value()->sendMessage(type, message);
             }
-        }
-    }
-    
-    if (type == MessageType::SCREEN_DATA) {
-        static int frameCount = 0;
-        frameCount++;
-        if (frameCount % 30 == 0) { // 每30帧输出一次统计信息
-            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Screen data frame" << frameCount << "sent to" << authenticatedClients 
-                     << "authenticated clients out of" << totalClients << "total clients";
         }
     }
 }

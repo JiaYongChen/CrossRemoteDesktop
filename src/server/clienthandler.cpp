@@ -427,20 +427,15 @@ void ClientHandler::handleDisconnectRequest()
 void ClientHandler::handleMouseEvent(const QByteArray &data)
 {
     if (!m_isAuthenticated) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Received mouse event from unauthenticated client:" << m_clientId;
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Received mouse event from unauthenticated client:" << m_clientId;
         return;
     }
     
     MouseEvent mouseEvent;
     if (!mouseEvent.decode(data)) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Failed to deserialize mouse event from client:" << m_clientId;
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Failed to deserialize mouse event from client:" << m_clientId;
         return;
     }
-    
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "Received mouse event from client:" << m_clientId 
-             << "Position:" << mouseEvent.x << "," << mouseEvent.y
-             << "Buttons:" << mouseEvent.buttons
-             << "Type:" << static_cast<int>(mouseEvent.eventType);
     
     // 使用输入模拟器执行鼠标操作
       if (m_inputSimulator && m_inputSimulator->isInitialized()) {
@@ -482,13 +477,13 @@ void ClientHandler::handleMouseEvent(const QByteArray &data)
 void ClientHandler::handleKeyboardEvent(const QByteArray &data)
 {
     if (!m_isAuthenticated) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Received keyboard event from unauthenticated client:" << m_clientId;
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Received keyboard event from unauthenticated client:" << m_clientId;
         return;
     }
     
     KeyboardEvent keyEvent;
     if (!keyEvent.decode(data)) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Failed to deserialize keyboard event from client:" << m_clientId;
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Failed to deserialize keyboard event from client:" << m_clientId;
         return;
     }
     

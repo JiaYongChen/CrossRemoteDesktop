@@ -379,7 +379,6 @@ void TcpClient::handleAuthenticationResponse(const QByteArray &data)
 void TcpClient::handleHeartbeat()
 {
     // 简单实现，暂时不处理
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << MessageConstants::Network::HEARTBEAT_RECEIVED;
     m_lastHeartbeat = QDateTime::currentDateTime();
 }
 
