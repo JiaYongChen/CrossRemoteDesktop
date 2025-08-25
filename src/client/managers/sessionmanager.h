@@ -60,6 +60,9 @@ public:
     PerformanceStats performanceStats() const;
     void resetStats();
     
+    // 性能信息格式化
+    QString getFormattedPerformanceInfo() const;
+    
     // 配置
     void setFrameRate(int fps);
     int frameRate() const;

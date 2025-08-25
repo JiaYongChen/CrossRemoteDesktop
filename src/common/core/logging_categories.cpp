@@ -11,4 +11,4 @@ Q_LOGGING_CATEGORY(lcCapture, "server.capture")
 Q_LOGGING_CATEGORY(lcNetServer, "server.net")
 
 Q_LOGGING_CATEGORY(lcClient, "client")
-Q_LOGGING_CATEGORY(lcNetClient, "client.net")
+Q_LOGGING_CATEGORY(lcWindowClient, "client.window")

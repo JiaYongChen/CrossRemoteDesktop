@@ -34,6 +34,19 @@ public:
     quint16 serverPort() const;
     QString sessionId() const;
     
+    // 错误统计信息
+    struct ErrorStatistics {
+        quint32 decodeFailures = 0;          // 解码失败次数
+        quint32 imageLoadFailures = 0;       // 图像加载失败次数
+        quint32 networkErrors = 0;           // 网络错误次数
+        quint32 dataCorruptions = 0;         // 数据损坏次数
+        quint32 totalFramesReceived = 0;     // 总接收帧数
+        QDateTime lastErrorTime;             // 最后错误时间
+        QString lastErrorMessage;            // 最后错误信息
+    };
+    
+    ErrorStatistics getErrorStatistics() const;
+    
     // 认证
     void authenticate(const QString &username, const QString &password);
     
@@ -101,16 +114,23 @@ private:
     QString m_username;
     QString m_password;
     
-    // 定时器
+    // 心跳相关
     QTimer *m_heartbeatTimer;
     QTimer *m_heartbeatCheckTimer;
     
-    // 差异压缩相关
+    // 帧数据缓存和线程安全
     QByteArray m_previousFrameData;
-    mutable QMutex m_frameDataMutex;
+    mutable QMutex *m_frameDataMutex;
     
-    // 线程安全
-    QMutex m_mutex;
+    // 错误统计相关成员变量
+    ErrorStatistics m_errorStats;
+    mutable QMutex *m_errorStatsMutex;
+    
+    // 错误统计相关辅助方法
+    void recordDecodeFailure(const QString &details);
+    void recordImageLoadFailure(const QString &details);
+    void recordNetworkError(const QString &details);
+    void recordDataCorruption(const QString &details);
     
     // 常量
     static const int HEARTBEAT_INTERVAL = NetworkConstants::HEARTBEAT_INTERVAL;

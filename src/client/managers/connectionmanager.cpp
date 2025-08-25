@@ -46,7 +46,6 @@ void ConnectionManager::connectToHost(const QString &host, int port)
     m_currentPort = port;
     
     setConnectionState(Connecting);
-    emit statusMessage(tr("正在连接到 %1:%2...").arg(host).arg(port));
     
     // 启动连接超时定时器
     m_connectionTimer->start();
@@ -66,7 +65,6 @@ void ConnectionManager::disconnectFromHost()
     m_currentReconnectAttempts = 0;
     
     setConnectionState(Disconnecting);
-    emit statusMessage(tr("正在断开连接..."));
     
     // 停止超时定时器
     m_connectionTimer->stop();
@@ -173,8 +171,6 @@ void ConnectionManager::startAutoReconnect()
     m_currentReconnectAttempts++;
     m_reconnectTimer->setInterval(m_reconnectInterval);
     m_reconnectTimer->start();
-    
-    emit statusMessage(tr("正在准备重连... (第%1次，共%2次)").arg(m_currentReconnectAttempts).arg(m_maxReconnectAttempts));
 }
 
 void ConnectionManager::stopAutoReconnect()
@@ -189,7 +185,6 @@ void ConnectionManager::onReconnectTimer()
     }
     
     if (!m_currentHost.isEmpty() && m_currentPort > 0) {
-        emit statusMessage(tr("正在重连到 %1:%2...").arg(m_currentHost).arg(m_currentPort));
         connectToHost(m_currentHost, m_currentPort);
     }
 }
@@ -200,7 +195,6 @@ void ConnectionManager::onTcpConnected()
     stopAutoReconnect();
     m_currentReconnectAttempts = 0; // 重置重连计数
     setConnectionState(Connected);
-    emit statusMessage(tr("已连接到 %1:%2").arg(m_currentHost).arg(m_currentPort));
     emit connected();
 }
 
@@ -209,7 +203,6 @@ void ConnectionManager::onTcpDisconnected()
     m_connectionTimer->stop();
     cleanupConnection();
     setConnectionState(Disconnected);
-    emit statusMessage(tr("连接已断开"));
     
     // 如果启用了自动重连且未达到最大重连次数，则启动重连
     if (m_autoReconnect && m_currentReconnectAttempts < m_maxReconnectAttempts) {
@@ -226,14 +219,12 @@ void ConnectionManager::onTcpAuthenticated()
     stopAutoReconnect();
     m_currentReconnectAttempts = 0; // 重置重连计数
     setConnectionState(Authenticated);
-    emit statusMessage(tr("认证成功"));
     emit authenticated();
 }
 
 void ConnectionManager::onTcpAuthenticationFailed(const QString &reason)
 {
     setConnectionState(Error);
-    emit statusMessage(tr("认证失败: %1").arg(reason));
     emit authenticationFailed(reason);
 }
 
@@ -241,7 +232,6 @@ void ConnectionManager::onTcpError(const QString &error)
 {
     m_connectionTimer->stop();
     setConnectionState(Error);
-    emit statusMessage(tr("连接错误: %1").arg(error));
     
     // 如果启用了自动重连且未达到最大重连次数，则启动重连
     if (m_autoReconnect && m_currentReconnectAttempts < m_maxReconnectAttempts) {
@@ -257,7 +247,6 @@ void ConnectionManager::onConnectionTimeout()
 {
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "ConnectionManager: Connection timeout";
     setConnectionState(Error);
-    emit statusMessage(tr("连接超时"));
     
     if (m_tcpClient) {
         m_tcpClient->abort();
@@ -276,10 +265,9 @@ void ConnectionManager::onConnectionTimeout()
 void ConnectionManager::setConnectionState(ConnectionState state)
 {
     if (m_connectionState != state) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "ConnectionManager: State changed from" << m_connectionState << "to" << state;
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << "ConnectionManager: State changed from" << m_connectionState << "to" << state;
         m_connectionState = state;
         emit connectionStateChanged(state);
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "ConnectionManager: Emitted connectionStateChanged signal with state:" << state;
     }
 }
 

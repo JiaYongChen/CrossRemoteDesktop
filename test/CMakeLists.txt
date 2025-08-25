@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Qt 和 Zlib
-find_package(Qt6 REQUIRED COMPONENTS Core Test)
+find_package(Qt6 REQUIRED COMPONENTS Core Test Widgets Gui OpenGLWidgets Network)
 find_package(ZLIB REQUIRED)
 
 set(CMAKE_AUTOMOC ON)
@@ -55,6 +55,57 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test_compression_diff.cpp")
     endif()
 
     add_test(NAME test_compression_diff COMMAND test_compression_diff)
+endif()
+
+# ClientRemoteWindow overlay and state display tests
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/clientremotewindow_test.cpp")
+    add_executable(clientremotewindow_test
+        clientremotewindow_test.cpp
+        ../src/client/clientremotewindow.cpp
+        ../src/client/clientmanager.cpp
+        ../src/client/tcpclient.cpp
+        ../src/client/managers/sessionmanager.cpp
+        ../src/client/managers/connectionmanager.cpp
+        ../src/client/managers/clipboardmanager.cpp
+    ../src/client/managers/filetransfermanager.cpp
+    ../src/client/managers/cursormanager.cpp
+    ../src/client/managers/rendermanager.cpp
+    ../src/client/inputhandler.cpp
+        ../src/common/core/protocol.cpp
+        ../src/common/core/protocol_impl.cpp
+        ../src/common/core/encryption.cpp
+        ../src/common/core/compression.cpp
+        ../src/common/codec/compressor_factory.cpp
+        ../src/common/codec/zlib_compressor.cpp
+        ../src/common/codec/lz4_compressor.cpp
+        ../src/common/codec/zstd_compressor.cpp
+        ../src/common/core/logging_categories.cpp
+        ../src/common/core/logger.cpp
+        ../src/common/core/constants.cpp
+    )
+    target_link_libraries(clientremotewindow_test Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::OpenGLWidgets Qt6::Network ZLIB::ZLIB OpenSSL::Crypto OpenSSL::SSL)
+
+    if(ENABLE_LZ4)
+        find_library(LZ4_LIBRARY NAMES lz4 liblz4 PATHS /usr/local/lib /opt/homebrew/lib)
+        find_path(LZ4_INCLUDE_DIR NAMES lz4.h PATHS /usr/local/include /opt/homebrew/include)
+        if(LZ4_LIBRARY AND LZ4_INCLUDE_DIR)
+            target_link_libraries(clientremotewindow_test ${LZ4_LIBRARY})
+            target_include_directories(clientremotewindow_test PRIVATE ${LZ4_INCLUDE_DIR})
+            target_compile_definitions(clientremotewindow_test PRIVATE HAVE_LZ4)
+        endif()
+    endif()
+
+    if(ENABLE_ZSTD)
+        find_library(ZSTD_LIBRARY NAMES zstd libzstd PATHS /usr/local/lib /opt/homebrew/lib)
+        find_path(ZSTD_INCLUDE_DIR NAMES zstd.h PATHS /usr/local/include /opt/homebrew/include)
+        if(ZSTD_LIBRARY AND ZSTD_INCLUDE_DIR)
+            target_link_libraries(clientremotewindow_test ${ZSTD_LIBRARY})
+            target_include_directories(clientremotewindow_test PRIVATE ${ZSTD_INCLUDE_DIR})
+            target_compile_definitions(clientremotewindow_test PRIVATE HAVE_ZSTD)
+        endif()
+    endif()
+
+    add_test(NAME clientremotewindow_test COMMAND clientremotewindow_test)
 endif()
 
 # Logger observability tests
@@ -230,4 +281,88 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test_compression_features.cpp")
     add_test(NAME test_compression_features COMMAND test_compression_features)
 else()
     message(STATUS "Skipping test_compression_features: not found")
+endif()
+
+# 图片显示功能测试
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test_image_display.cpp")
+    add_executable(test_image_display
+        test_image_display.cpp
+        ../src/client/managers/rendermanager.cpp
+        ../src/common/core/logger.cpp
+        ../src/common/core/logging_categories.cpp
+        ../src/common/core/constants.cpp
+    )
+    target_link_libraries(test_image_display Qt6::Core Qt6::Test Qt6::Widgets Qt6::Gui Qt6::OpenGLWidgets Qt6::Network ZLIB::ZLIB)
+    target_include_directories(test_image_display PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/common/codec
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/common/core
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/client
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/client/managers)
+
+    if(ENABLE_LZ4)
+        find_library(LZ4_LIBRARY NAMES lz4 liblz4 PATHS /usr/local/lib /opt/homebrew/lib)
+        find_path(LZ4_INCLUDE_DIR NAMES lz4.h PATHS /usr/local/include /opt/homebrew/include)
+        if(LZ4_LIBRARY AND LZ4_INCLUDE_DIR)
+            target_link_libraries(test_image_display ${LZ4_LIBRARY})
+            target_include_directories(test_image_display PRIVATE ${LZ4_INCLUDE_DIR})
+            target_compile_definitions(test_image_display PRIVATE HAVE_LZ4)
+        endif()
+    endif()
+
+    if(ENABLE_ZSTD)
+        find_library(ZSTD_LIBRARY NAMES zstd libzstd PATHS /usr/local/lib /opt/homebrew/lib)
+        find_path(ZSTD_INCLUDE_DIR NAMES zstd.h PATHS /usr/local/include /opt/homebrew/include)
+        if(ZSTD_LIBRARY AND ZSTD_INCLUDE_DIR)
+            target_link_libraries(test_image_display ${ZSTD_LIBRARY})
+            target_include_directories(test_image_display PRIVATE ${ZSTD_INCLUDE_DIR})
+            target_compile_definitions(test_image_display PRIVATE HAVE_ZSTD)
+        endif()
+    endif()
+
+    add_test(NAME test_image_display COMMAND test_image_display)
+endif()
+
+# 屏幕数据传输测试
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test_screen_data_transmission.cpp")
+    add_executable(test_screen_data_transmission
+        test_screen_data_transmission.cpp
+        ../src/common/core/protocol_impl.cpp
+        ../src/common/core/logger.cpp
+        ../src/common/core/logging_categories.cpp
+        ../src/common/core/constants.cpp
+    )
+    target_link_libraries(test_screen_data_transmission
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Test
+    )
+    target_include_directories(test_screen_data_transmission PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/common/core
+    )
+    add_test(NAME test_screen_data_transmission COMMAND test_screen_data_transmission)
+endif()
+
+# 图片传输集成测试
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test_image_transmission_integration.cpp")
+    add_executable(test_image_transmission_integration
+        test_image_transmission_integration.cpp
+        ../src/common/core/protocol_impl.cpp
+        ../src/common/core/logger.cpp
+        ../src/common/core/logging_categories.cpp
+        ../src/common/core/constants.cpp
+    )
+    target_link_libraries(test_image_transmission_integration
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Test
+        Qt6::Network
+    )
+    target_include_directories(test_image_transmission_integration PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/common/core
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/client
+    )
+    add_test(NAME test_image_transmission_integration COMMAND test_image_transmission_integration)
 endif()

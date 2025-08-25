@@ -19,6 +19,8 @@ TcpClient::TcpClient(QObject *parent)
     , m_socket(new QTcpSocket(this))
     , m_heartbeatTimer(new QTimer(this))
     , m_heartbeatCheckTimer(new QTimer(this))
+    , m_frameDataMutex(new QMutex())
+    , m_errorStatsMutex(new QMutex())
 {
     // 连接 socket 信号到本类槽函数
     connect(m_socket, &QTcpSocket::connected, this, &TcpClient::onConnected);
@@ -39,6 +41,10 @@ TcpClient::TcpClient(QObject *parent)
 TcpClient::~TcpClient()
 {
     disconnectFromHost();
+    
+    // 清理互斥锁
+    delete m_frameDataMutex;
+    delete m_errorStatsMutex;
 }
 
 void TcpClient::connectToHost(const QString &hostName, quint16 port)
@@ -85,7 +91,6 @@ void TcpClient::abort()
     m_parseFailCount = 0;
     
     m_socket->abort();
-
 }
 
 bool TcpClient::isConnected() const
@@ -142,7 +147,7 @@ void TcpClient::sendMessage(MessageType type, const IMessageCodec &message)
 void TcpClient::onConnected()
 {
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << "TcpClient::onConnected - TCP connection established";
-    
+     
      // 设置TCP优化选项
      m_socket->setSocketOption(QAbstractSocket::LowDelayOption, 1);  // TCP_NODELAY
      m_socket->setSocketOption(QAbstractSocket::SendBufferSizeSocketOption, 256 * 1024);  // 256KB发送缓冲区
@@ -192,6 +197,11 @@ void TcpClient::onConnected()
      } else {
          errorMsg = "未知错误";
      }
+     
+     // 记录网络错误统计
+     QString errorDetails = QString("Socket error code: %1, description: %2")
+                           .arg(static_cast<int>(error)).arg(errorMsg);
+     recordNetworkError(errorDetails);
      
      emit errorOccurred(errorMsg);
  }
@@ -417,32 +427,85 @@ void TcpClient::handleDisconnectRequest()
     disconnectFromHost();
 }
 
+/**
+ * @brief 处理接收到的屏幕数据
+ * @param data 原始屏幕数据字节数组
+ * 
+ * 该方法负责解码服务器发送的ScreenData格式数据，
+ * 提取图像数据并转换为QImage格式供UI显示使用。
+ */
 void TcpClient::handleScreenData(const QByteArray &data)
 {
-    BaseMessage message{};
-    if (message.decode(data) == false) {
+    // 更新总帧数统计
+    {
+        QMutexLocker locker(m_errorStatsMutex);
+        m_errorStats.totalFramesReceived++;
+    }
+    
+    // 使用正确的ScreenData结构体解码数据
+    ScreenData screenData{};
+    if (!screenData.decode(data)) {
+        QString errorDetails = QString("Data size: %1, expected minimum: 14 bytes")
+                              .arg(data.size());
+        recordDecodeFailure(errorDetails);
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) 
+            << "Failed to decode ScreenData from received data, size:" << data.size();
+
         return;
     }
+    
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) 
+        << "ScreenData decoded - x:" << screenData.x << "y:" << screenData.y 
+        << "width:" << screenData.width << "height:" << screenData.height
+        << "imageType:" << screenData.imageType << "compressionType:" << screenData.compressionType
+        << "dataSize:" << screenData.dataSize << "actual data size:" << screenData.imageData.size();
+    
+    // 验证数据完整性
+    if (screenData.imageData.isEmpty() || screenData.dataSize == 0) {
+        QString errorDetails = QString("Empty image data - dataSize: %1, imageData size: %2")
+                              .arg(screenData.dataSize).arg(screenData.imageData.size());
+        recordDataCorruption(errorDetails);
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) 
+            << "ScreenData contains empty image data";
+
+        return;
+    }
+    
+    if (static_cast<quint32>(screenData.imageData.size()) != screenData.dataSize) {
+        QString errorDetails = QString("Size mismatch - expected: %1, actual: %2")
+                              .arg(screenData.dataSize).arg(screenData.imageData.size());
+        recordDataCorruption(errorDetails);
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) 
+            << "ScreenData size mismatch - expected:" << screenData.dataSize 
+            << "actual:" << screenData.imageData.size();
+
+        return;
+    }
+    
     QByteArray frameData;
     {
-        QMutexLocker locker(&m_frameDataMutex);
+        QMutexLocker locker(m_frameDataMutex);
         
         if (m_previousFrameData.isEmpty()) {
             // 第一帧，直接使用接收到的数据
-            frameData = message.data;
-            m_previousFrameData = message.data;
+            frameData = screenData.imageData;
+            m_previousFrameData = screenData.imageData;
         } else {
             // 尝试作为差异数据处理
-            QByteArray reconstructedData = Compression::applyDifference(m_previousFrameData, message.data);
+            QByteArray reconstructedData = Compression::applyDifference(m_previousFrameData, screenData.imageData);
             
             if (!reconstructedData.isEmpty()) {
                 // 差异数据处理成功
                 frameData = reconstructedData;
                 m_previousFrameData = reconstructedData;
+                QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) 
+                    << "Applied differential compression, reconstructed size:" << reconstructedData.size();
             } else {
                 // 差异数据处理失败，可能是完整帧
-                frameData = message.data;
-                m_previousFrameData = message.data;
+                frameData = screenData.imageData;
+                m_previousFrameData = screenData.imageData;
+                QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) 
+                    << "Using full frame data, size:" << screenData.imageData.size();
             }
         }
     }
@@ -454,19 +517,36 @@ void TcpClient::handleScreenData(const QByteArray &data)
     // 优化图像加载：首先尝试最常见的JPEG格式
     if (frame.loadFromData(frameData, "JPEG")) {
         loaded = true;
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) 
+            << "Successfully loaded image as JPEG, size:" << frame.size();
     }
     // 如果JPEG失败，尝试PNG格式
     else if (frame.loadFromData(frameData, "PNG")) {
         loaded = true;
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) 
+            << "Successfully loaded image as PNG, size:" << frame.size();
     }
     // 如果都失败，尝试自动检测格式
     else if (frame.loadFromData(frameData)) {
         loaded = true;
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) 
+            << "Successfully loaded image with auto-detection, size:" << frame.size();
     }
 
-    if (loaded) {
+    if (loaded && !frame.isNull()) {
+        // 成功加载图像
+        
         // 发出信号，传递屏幕数据给UI（QImage，线程安全）
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) 
+            << "Emitting screenDataReceived signal with image size:" << frame.size();
         emit screenDataReceived(frame);
+    } else {
+        QString errorDetails = QString("Frame data size: %1, first 16 bytes: %2, formats tried: JPEG, PNG, auto-detect")
+                              .arg(frameData.size()).arg(frameData.left(16).toHex());
+        recordImageLoadFailure(errorDetails);
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) 
+            << "Failed to load image from frame data, size:" << frameData.size()
+            << "first 16 bytes:" << frameData.left(16).toHex();
     }
 }
 
@@ -552,6 +632,80 @@ QString TcpClient::getClientOS()
 #endif
 }
 
+/**
+ * @brief 获取错误统计信息
+ * @return 错误统计结构体
+ */
+TcpClient::ErrorStatistics TcpClient::getErrorStatistics() const
+{
+    QMutexLocker locker(m_errorStatsMutex);
+    return m_errorStats;
+}
+
+/**
+ * @brief 记录解码失败错误
+ * @param details 错误详情
+ */
+void TcpClient::recordDecodeFailure(const QString &details)
+{
+    QMutexLocker locker(m_errorStatsMutex);
+    m_errorStats.decodeFailures++;
+    m_errorStats.lastErrorTime = QDateTime::currentDateTime();
+    m_errorStats.lastErrorMessage = QString("Decode failure: %1").arg(details);
+    
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient)
+        << "Decode failure recorded:" << details
+        << "Total decode failures:" << m_errorStats.decodeFailures;
+}
+
+/**
+ * @brief 记录图像加载失败错误
+ * @param details 错误详情
+ */
+void TcpClient::recordImageLoadFailure(const QString &details)
+{
+    QMutexLocker locker(m_errorStatsMutex);
+    m_errorStats.imageLoadFailures++;
+    m_errorStats.lastErrorTime = QDateTime::currentDateTime();
+    m_errorStats.lastErrorMessage = QString("Image load failure: %1").arg(details);
+    
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient)
+        << "Image load failure recorded:" << details
+        << "Total image load failures:" << m_errorStats.imageLoadFailures;
+}
+
+/**
+ * @brief 记录网络错误
+ * @param details 错误详情
+ */
+void TcpClient::recordNetworkError(const QString &details)
+{
+    QMutexLocker locker(m_errorStatsMutex);
+    m_errorStats.networkErrors++;
+    m_errorStats.lastErrorTime = QDateTime::currentDateTime();
+    m_errorStats.lastErrorMessage = QString("Network error: %1").arg(details);
+    
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient)
+        << "Network error recorded:" << details
+        << "Total network errors:" << m_errorStats.networkErrors;
+}
+
+/**
+ * @brief 记录数据损坏错误
+ * @param details 错误详情
+ */
+void TcpClient::recordDataCorruption(const QString &details)
+{
+    QMutexLocker locker(m_errorStatsMutex);
+    m_errorStats.dataCorruptions++;
+    m_errorStats.lastErrorTime = QDateTime::currentDateTime();
+    m_errorStats.lastErrorMessage = QString("Data corruption: %1").arg(details);
+    
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient)
+        << "Data corruption recorded:" << details
+        << "Total data corruptions:" << m_errorStats.dataCorruptions;
+}
+
 void TcpClient::sendMouseEvent(int x, int y, int buttons, int eventType)
 {
     if (!isAuthenticated()) {
@@ -605,3 +759,5 @@ void TcpClient::sendWheelEvent(int x, int y, int delta, int orientation)
     
     sendMessage(MessageType::MOUSE_EVENT, wheelEvent);
 }
+
+// 重试机制相关方法实现

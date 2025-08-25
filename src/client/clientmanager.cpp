@@ -3,12 +3,81 @@
 #include "./managers/sessionmanager.h"
 #include "clientremotewindow.h"
 #include "../core/uiconstants.h"
+#include "../../common/core/logging_categories.h"
 
 #include <QtCore/QSettings>
 #include <QtCore/QDateTime>
 #include <QtCore/QDebug>
 #include <QtCore/QUuid>
 #include <QtWidgets/QMessageBox>
+#include <QtWidgets/QApplication>
+
+// ConnectionInstance 方法实现
+
+ConnectionInstance::~ConnectionInstance()
+{
+    // QPointer会自动处理对象的安全访问，但我们仍需要确保正确的清理顺序
+    if (remoteDesktopWindow) {
+        remoteDesktopWindow->close();
+        remoteDesktopWindow->deleteLater();
+    }
+    
+    if (sessionManager) {
+        sessionManager->deleteLater();
+    }
+    
+    if (connectionManager) {
+        connectionManager->deleteLater();
+    }
+}
+
+bool ConnectionInstance::isValid() const
+{
+    return !connectionId.isEmpty() && 
+           !connectionManager.isNull() && 
+           !sessionManager.isNull();
+}
+
+QString ConnectionInstance::getConnectionState() const
+{
+    if (connectionManager.isNull()) {
+        return "Invalid";
+    }
+    
+    switch (connectionManager->connectionState()) {
+        case ConnectionManager::Connecting: return "Connecting";
+        case ConnectionManager::Connected: return "Connected";
+        case ConnectionManager::Authenticating: return "Authenticating";
+        case ConnectionManager::Authenticated: return "Authenticated";
+        case ConnectionManager::Reconnecting: return "Reconnecting";
+        case ConnectionManager::Disconnecting: return "Disconnecting";
+        case ConnectionManager::Disconnected: return "Disconnected";
+        case ConnectionManager::Error: return "Error";
+        default: return "Unknown";
+    }
+}
+
+QString ConnectionInstance::getHost() const
+{
+    return connectionManager.isNull() ? QString() : connectionManager->currentHost();
+}
+
+int ConnectionInstance::getPort() const
+{
+    return connectionManager.isNull() ? 0 : connectionManager->currentPort();
+}
+
+bool ConnectionInstance::isConnected() const
+{
+    return !connectionManager.isNull() && connectionManager->isConnected();
+}
+
+bool ConnectionInstance::isAuthenticated() const
+{
+    return !connectionManager.isNull() && connectionManager->isAuthenticated();
+}
+
+// ClientManager 方法实现
 
 ClientManager::ClientManager(QObject *parent)
     : QObject(parent)
@@ -22,11 +91,13 @@ ClientManager::~ClientManager()
 
 QString ClientManager::connectToHost(const QString &host, int port)
 {
+    qDebug() << "[ClientManager] connectToHost called for" << host << ":" << port;
+    
     // 创建新的连接实例
-    ConnectionInstance* instance = new ConnectionInstance();
-    instance->connectionId = generateConnectionId();
-    instance->host = host;
-    instance->port = port;
+    QString connectionId = generateConnectionId();
+    ConnectionInstance* instance = new ConnectionInstance(connectionId);
+    
+    qDebug() << "[ClientManager] Generated connectionId:" << connectionId;
     
     // 创建连接管理器
     instance->connectionManager = new ConnectionManager(this);
@@ -51,14 +122,14 @@ QString ClientManager::connectToHost(const QString &host, int port)
     // 创建会话管理器
     instance->sessionManager = new SessionManager(instance->connectionManager, this);
 
+    // 存储连接实例（必须在创建窗口之前）
+    m_connections.insert(instance->connectionId, instance);
+    
     // 创建远程桌面窗口
     createRemoteDesktopWindow(instance->connectionId);
     
     // 设置连接
     setupConnections(instance);
-    
-    // 存储连接实例
-    m_connections.insert(instance->connectionId, instance);
     
     // 发起连接
     instance->connectionManager->connectToHost(host, port);
@@ -127,13 +198,13 @@ bool ClientManager::isAuthenticated(const QString &connectionId) const
 QString ClientManager::getCurrentHost(const QString &connectionId) const
 {
     ConnectionInstance* instance = getConnectionInstance(connectionId);
-    return instance ? instance->host : QString();
+    return instance ? instance->getHost() : QString();
 }
 
 int ClientManager::getCurrentPort(const QString &connectionId) const
 {
     ConnectionInstance* instance = getConnectionInstance(connectionId);
-    return instance ? instance->port : 0;
+    return instance ? instance->getPort() : 0;
 }
 
 ConnectionManager* ClientManager::connectionManager(const QString &connectionId) const
@@ -163,37 +234,22 @@ void ClientManager::createRemoteDesktopWindow(const QString &connectionId)
     
     // 创建远程桌面窗口
     instance->remoteDesktopWindow = new ClientRemoteWindow(connectionId, nullptr);
+    
+    // 设置SessionManager
+    if (instance->sessionManager) {
+        instance->remoteDesktopWindow->setSessionManager(instance->sessionManager);
+    }
+    
     instance->remoteDesktopWindow->show();
+    instance->remoteDesktopWindow->raise();
+    instance->remoteDesktopWindow->activateWindow();
+    
+    // 强制处理事件循环，确保窗口立即显示
+    QApplication::processEvents();
     
     // 连接窗口关闭信号
     connect(instance->remoteDesktopWindow, &ClientRemoteWindow::windowClosed,
             this, &ClientManager::onWindowClosed);
-}
-
-void ClientManager::showRemoteDesktopWindow(const QString &connectionId)
-{
-    ConnectionInstance* instance = getConnectionInstance(connectionId);
-    if (!instance) {
-        return;
-    }
-    
-    if (!instance->remoteDesktopWindow) {
-        createRemoteDesktopWindow(connectionId);
-    }
-    
-    if (instance->remoteDesktopWindow) {
-        instance->remoteDesktopWindow->show();
-        instance->remoteDesktopWindow->raise();
-        instance->remoteDesktopWindow->activateWindow();
-    }
-}
-
-void ClientManager::closeRemoteDesktopWindow(const QString &connectionId)
-{
-    ConnectionInstance* instance = getConnectionInstance(connectionId);
-    if (instance && instance->remoteDesktopWindow) {
-        instance->remoteDesktopWindow->close();
-    }
 }
 
 void ClientManager::closeAllRemoteDesktopWindows()
@@ -215,7 +271,6 @@ void ClientManager::onConnectionEstablished()
     ConnectionInstance* instance = findConnectionByManager(manager);
     if (instance) {
         emit connectionEstablished(instance->connectionId);
-        updateConnectionStatus(instance->connectionId);
     }
 }
 
@@ -231,17 +286,11 @@ void ClientManager::onAuthenticated()
         return;
     }
     
-    // 创建并显示远程桌面窗口
-    createRemoteDesktopWindow(instance->connectionId);
-    showRemoteDesktopWindow(instance->connectionId);
-    
     // 连接屏幕更新信号
     if (instance->sessionManager) {
         connect(instance->sessionManager, &SessionManager::screenUpdated,
                 this, &ClientManager::onScreenUpdated);
     }
-    
-    updateConnectionStatus(instance->connectionId);
 }
 
 void ClientManager::onConnectionClosed()
@@ -291,11 +340,6 @@ void ClientManager::onSessionStateChanged()
     if (!sessionManager) {
         return;
     }
-    
-    ConnectionInstance* instance = findConnectionBySessionManager(sessionManager);
-    if (instance) {
-        updateConnectionStatus(instance->connectionId);
-    }
 }
 
 void ClientManager::onConnectionStateChanged(ConnectionManager::ConnectionState state)
@@ -306,13 +350,11 @@ void ClientManager::onConnectionStateChanged(ConnectionManager::ConnectionState 
     }
     
     ConnectionInstance* instance = findConnectionByManager(manager);
-    if (instance) {
-        updateConnectionStatus(instance->connectionId);
-        
+    if (instance) {        
         // 根据连接状态更新UI
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << "ClientManager: Connection state changed for" << instance->connectionId << "to" << state;
         if (instance->remoteDesktopWindow) {
-            ClientRemoteWindow::ConnectionState windowState = convertConnectionState(state);
-            instance->remoteDesktopWindow->setConnectionState(windowState);
+            instance->remoteDesktopWindow->setConnectionState(state);
         }
     }
 }
@@ -385,14 +427,6 @@ void ClientManager::setupConnections(ConnectionInstance* instance)
             this, &ClientManager::onSessionStateChanged);
 }
 
-void ClientManager::updateConnectionStatus(const QString &connectionId)
-{
-    ConnectionInstance* instance = getConnectionInstance(connectionId);
-    if (instance) {
-        emit connectionStatusChanged(connectionId);
-    }
-}
-
 void ClientManager::cleanupResources()
 {
     // 清理所有连接
@@ -408,25 +442,7 @@ void ClientManager::cleanupConnection(ConnectionInstance* instance)
         return;
     }
     
-    // 关闭远程桌面窗口
-    if (instance->remoteDesktopWindow) {
-        instance->remoteDesktopWindow->close();
-        instance->remoteDesktopWindow->deleteLater();
-        instance->remoteDesktopWindow = nullptr;
-    }
-    
-    // 清理会话管理器
-    if (instance->sessionManager) {
-        instance->sessionManager->deleteLater();
-        instance->sessionManager = nullptr;
-    }
-    
-    // 清理连接管理器
-    if (instance->connectionManager) {
-        instance->connectionManager->deleteLater();
-        instance->connectionManager = nullptr;
-    }
-    
+    // ConnectionInstance的析构函数会自动处理资源清理
     delete instance;
 }
 
@@ -468,22 +484,4 @@ ConnectionInstance* ClientManager::findConnectionByWindow(ClientRemoteWindow* wi
         }
     }
     return nullptr;
-}
-
-ClientRemoteWindow::ConnectionState ClientManager::convertConnectionState(ConnectionManager::ConnectionState state) const
-{
-    switch (state) {
-        case ConnectionManager::Disconnected:
-            return ClientRemoteWindow::Disconnected;
-        case ConnectionManager::Connecting:
-            return ClientRemoteWindow::Connecting;
-        case ConnectionManager::Connected:
-        case ConnectionManager::Authenticated:
-            return ClientRemoteWindow::Connected;
-        case ConnectionManager::Authenticating:
-            return ClientRemoteWindow::Connecting;
-        case ConnectionManager::Error:
-        default:
-            return ClientRemoteWindow::Disconnected;
-    }
 }

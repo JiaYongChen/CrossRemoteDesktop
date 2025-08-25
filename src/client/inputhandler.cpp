@@ -1,5 +1,5 @@
 #include "inputhandler.h"
-#include "../core/uiconstants.h"
+#include "../common/core/uiconstants.h"
 #include <QtWidgets/QApplication>
 #include <QtCore/QTimer>
 #include <QtCore/QMutex>

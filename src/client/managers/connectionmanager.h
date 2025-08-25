@@ -16,12 +16,13 @@ class ConnectionManager : public QObject
     
 public:
     enum ConnectionState {
-        Disconnected,
         Connecting,
         Connected,
         Authenticating,
         Authenticated,
+        Reconnecting,
         Disconnecting,
+        Disconnected,
         Error
     };
     Q_ENUM(ConnectionState)
@@ -67,7 +68,6 @@ signals:
     void authenticated();
     void authenticationFailed(const QString &reason);
     void errorOccurred(const QString &error);
-    void statusMessage(const QString &message);
     
 private slots:
     void onTcpConnected();

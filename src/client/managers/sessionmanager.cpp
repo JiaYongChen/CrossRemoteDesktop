@@ -191,6 +191,21 @@ void SessionManager::resetStats()
     m_frameTimes.clear();
 }
 
+QString SessionManager::getFormattedPerformanceInfo() const
+{
+    QStringList info;
+    info << QString("FPS: %1").arg(m_stats.currentFPS, 0, 'f', 1);
+    info << QString("Frame Rate: %1").arg(m_frameRate);
+    info << QString("Compression: %1").arg(m_compressionLevel);
+    
+    if (m_stats.sessionStartTime.isValid()) {
+        qint64 sessionDuration = m_stats.sessionStartTime.secsTo(QDateTime::currentDateTime());
+        info << QString("Duration: %1s").arg(sessionDuration);
+    }
+    
+    return info.join(" | ");
+}
+
 void SessionManager::setFrameRate(int fps)
 {
     m_frameRate = qBound(1, fps, 60);

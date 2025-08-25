@@ -184,10 +184,14 @@ namespace MessageConstants {
         const QString DISCONNECT = "断开连接";
         const QString RECONNECT = "重新连接";
         const QString SETTINGS = "设置";
-        const QString STATUS_DISCONNECTED = "未连接";
         const QString STATUS_CONNECTING = "正在连接...";
         const QString STATUS_CONNECTED = "已连接";
+        const QString STATUS_AUTHENTICATING = "正在认证...";
+        const QString STATUS_AUTHENTICATED = "已认证";
         const QString STATUS_RECONNECTING = "正在重连...";
+        const QString STATUS_DISCONNECTING = "正在断开连接...";
+        const QString STATUS_DISCONNECTED = "未连接";
+        const QString STATUS_ERROR = "连接错误";
         const QString CONNECTION_ID_INFO = "连接ID: %1";
         const QString MAIN_WINDOW_CONSTRUCTED = "MainWindow constructed";
         const QString MAIN_WINDOW_DESTROYED = "MainWindow destroyed";

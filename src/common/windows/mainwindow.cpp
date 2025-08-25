@@ -403,7 +403,7 @@ void MainWindow::loadSettings()
     bool autoStartServer = m_settings->value("Server/autoStart", false).toBool();
     if (autoStartServer) {
         // 延迟启动服务器，确保UI完全初始化
-        QTimer::singleShot(1000, this, &MainWindow::startServer);
+        QTimer::singleShot(100, this, &MainWindow::startServer);
     }
 }
 

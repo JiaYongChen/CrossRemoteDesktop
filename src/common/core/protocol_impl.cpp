@@ -508,16 +508,90 @@ QByteArray ScreenData::encode() const
 
 bool ScreenData::decode(const QByteArray &bytes)
 {
-    if (bytes.size() < (2 + 2 + 2 + 2 + 1 + 1 + 4)) return false;
+    // 检查最小头部大小：x(2) + y(2) + width(2) + height(2) + imageType(1) + compressionType(1) + dataSize(4) = 14字节
+    const qsizetype headerSize = 2 + 2 + 2 + 2 + 1 + 1 + 4;
+    if (bytes.size() < headerSize) {
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcProtocol)
+            << "ScreenData decode failed: insufficient header size"
+            << "- received:" << bytes.size() << "bytes, required:" << headerSize << "bytes";
+        return false;
+    }
+    
     QDataStream ds(bytes);
     ds.setByteOrder(QDataStream::LittleEndian);
-    quint16 x_val=0, y_val=0, w=0, h=0; quint8 imty=0, comp=0; quint32 size=0;
-    ds >> x_val; ds >> y_val; ds >> w; ds >> h; ds >> imty; ds >> comp; ds >> size;
-    if (ds.status() != QDataStream::Ok) return false;
-    qsizetype need = qsizetype(2 + 2 + 2 + 2 + 1 + 4) + qsizetype(size);
-    if (bytes.size() < need) return false;
-    x = x_val; y = y_val; width = w; height = h; imageType = imty; compressionType = comp; dataSize = size;
-    imageData = bytes.mid(qsizetype(2 + 2 + 2 + 2 + 1 + 4), size);
+    
+    quint16 x_val=0, y_val=0, w=0, h=0; 
+    quint8 imty=0, comp=0; 
+    quint32 size=0;
+    
+    ds >> x_val; 
+    ds >> y_val; 
+    ds >> w; 
+    ds >> h; 
+    ds >> imty; 
+    ds >> comp; 
+    ds >> size;
+    
+    if (ds.status() != QDataStream::Ok) {
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcProtocol)
+            << "ScreenData decode failed: QDataStream error during header parsing"
+            << "- stream status:" << ds.status();
+        return false;
+    }
+    
+    // 验证字段合理性
+    if (w == 0 || h == 0) {
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcProtocol)
+            << "ScreenData decode failed: invalid dimensions"
+            << "- width:" << w << "height:" << h;
+        return false;
+    }
+    
+    if (size > 50 * 1024 * 1024) { // 50MB 限制
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcProtocol)
+            << "ScreenData decode failed: image data size too large"
+            << "- size:" << size << "bytes (max: 50MB)";
+        return false;
+    }
+    
+    // 检查总大小是否足够包含头部和图像数据
+    qsizetype totalNeeded = headerSize + qsizetype(size);
+    if (bytes.size() < totalNeeded) {
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcProtocol)
+            << "ScreenData decode failed: insufficient total size"
+            << "- received:" << bytes.size() << "bytes, required:" << totalNeeded << "bytes"
+            << "- header size:" << headerSize << "image data size:" << size;
+        return false;
+    }
+    
+    // 赋值解码后的数据
+    x = x_val; 
+    y = y_val; 
+    width = w; 
+    height = h; 
+    imageType = imty; 
+    compressionType = comp; 
+    dataSize = size;
+    
+    // 提取图像数据
+    if (size > 0) {
+        imageData = bytes.mid(headerSize, size);
+        if (imageData.size() != static_cast<qsizetype>(size)) {
+            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcProtocol)
+                << "ScreenData decode warning: extracted image data size mismatch"
+                << "- expected:" << size << "actual:" << imageData.size();
+        }
+    } else {
+        imageData = QByteArray();
+    }
+    
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcProtocol)
+        << "ScreenData decode successful"
+        << "- position:" << x_val << "," << y_val
+        << "- dimensions:" << w << "x" << h
+        << "- image type:" << imty << "compression:" << comp
+        << "- data size:" << size;
+    
     return true;
 }
 
