@@ -52,21 +52,23 @@ void initializeLogging()
     
     // 配置日志系统（支持配置覆盖）
     Logger* logger = Logger::instance();
-    QString configuredLevel = Config::instance()->value("Logging/level", "info").toString();
+    QString configuredLevel = Config::instance()->value("Logging/level", "debug").toString();
     logger->setLogLevel(Logger::stringToLevel(configuredLevel));
     logger->setLogTargets(Logger::Console | Logger::File);
     logger->setLogFile(logDir + "/qtremotedesktop.log");
     logger->setMaxFileSize(CoreConstants::DEFAULT_MAX_FILE_SIZE);
     logger->setMaxFileCount(CoreConstants::DEFAULT_MAX_FILE_COUNT);
-    // 固定按大小轮转，无需设置轮转策略
     
     // 应用 Qt 分类日志规则（优先环境变量 QT_LOGGING_RULES，其次配置项 Logging/rules）
     const QByteArray envRules = qgetenv("QT_LOGGING_RULES");
-    QString rules = envRules.isEmpty() ? Config::instance()->value("Logging/rules", QString()).toString()
-                                       : QString::fromUtf8(envRules);
-    if (!rules.isEmpty()) {
-        Logger::applyQtLoggingRules(rules);
+    QString rules = envRules.isEmpty() ? Config::instance()->value("Logging/rules", QString()).toString() : QString::fromUtf8(envRules);
+    
+    // 如果没有配置规则，设置默认的debug规则
+    if (rules.isEmpty()) {
+        rules = "*.debug=true\nqt.*.debug=false";
     }
+    
+    Logger::applyQtLoggingRules(rules);
     
     // 安装Qt消息处理器以捕获qDebug()等消息
     Logger::installMessageHandler();

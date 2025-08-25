@@ -286,8 +286,10 @@ void ClientManager::onAuthenticated()
         return;
     }
     
-    // 连接屏幕更新信号
     if (instance->sessionManager) {
+        // 认证成功后启动会话
+        instance->sessionManager->startSession();
+        // 连接屏幕更新信号
         connect(instance->sessionManager, &SessionManager::screenUpdated,
                 this, &ClientManager::onScreenUpdated);
     }

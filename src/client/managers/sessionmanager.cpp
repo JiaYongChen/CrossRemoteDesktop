@@ -261,12 +261,10 @@ void SessionManager::onConnectionStateChanged()
 void SessionManager::onScreenDataReceived(const QImage &image)
 {
     if (!isActive()) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "SessionManager::onScreenDataReceived - Session not active, ignoring";
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "SessionManager::onScreenDataReceived - Session not active, ignoring";
         return;
     }
     QPixmap pixmap = QPixmap::fromImage(image);
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "SessionManager::onScreenDataReceived - Image size:" << image.size() 
-             << "isNull:" << image.isNull();
 
     m_currentScreen = pixmap;
     m_remoteScreenSize = pixmap.size();
@@ -282,8 +280,7 @@ void SessionManager::onScreenDataReceived(const QImage &image)
     
     m_stats.frameCount++;
     calculateFPS();
-    
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "SessionManager::onScreenDataReceived - Emitting screenUpdated signal";
+
     emit screenUpdated(pixmap);
 }
 

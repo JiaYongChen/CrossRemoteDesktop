@@ -858,7 +858,6 @@ void ClientRemoteWindow::setSessionManager(SessionManager *sessionManager)
     if (m_sessionManager) {
         // Connect new session manager signals
         connect(m_sessionManager, &SessionManager::sessionStateChanged, this, &ClientRemoteWindow::onSessionStateChanged);
-        connect(m_sessionManager, &SessionManager::screenUpdated, this, &ClientRemoteWindow::onScreenUpdated);
         connect(m_sessionManager, &SessionManager::performanceStatsUpdated, this, &ClientRemoteWindow::onPerformanceStatsUpdated);
     }
 }

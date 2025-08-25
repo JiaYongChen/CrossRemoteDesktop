@@ -41,7 +41,6 @@ QByteArray MessageHeader::encode() const
     QByteArray data;
     QDataStream stream(&data, QIODevice::WriteOnly);
     stream.setByteOrder(QDataStream::LittleEndian);
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << "MessageHeader:" << magic << version << static_cast<quint32>(type) << length << checksum << timestamp;
     
     stream << magic;
     stream << version;
@@ -71,8 +70,6 @@ bool MessageHeader::decode(const QByteArray &data)
     stream >> timestamp;
     
     type = static_cast<MessageType>(typeValue);
-
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << "MessageHeader decode:" << magic << version << static_cast<quint32>(type) << length << checksum << timestamp;
     
     // 验证魔数
     if (magic != PROTOCOL_MAGIC) {
@@ -580,17 +577,12 @@ bool ScreenData::decode(const QByteArray &bytes)
             QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcProtocol)
                 << "ScreenData decode warning: extracted image data size mismatch"
                 << "- expected:" << size << "actual:" << imageData.size();
+
+            return false;
         }
     } else {
         imageData = QByteArray();
     }
-    
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcProtocol)
-        << "ScreenData decode successful"
-        << "- position:" << x_val << "," << y_val
-        << "- dimensions:" << w << "x" << h
-        << "- image type:" << imty << "compression:" << comp
-        << "- data size:" << size;
     
     return true;
 }

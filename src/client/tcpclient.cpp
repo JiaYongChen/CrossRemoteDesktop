@@ -454,12 +454,6 @@ void TcpClient::handleScreenData(const QByteArray &data)
         return;
     }
     
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) 
-        << "ScreenData decoded - x:" << screenData.x << "y:" << screenData.y 
-        << "width:" << screenData.width << "height:" << screenData.height
-        << "imageType:" << screenData.imageType << "compressionType:" << screenData.compressionType
-        << "dataSize:" << screenData.dataSize << "actual data size:" << screenData.imageData.size();
-    
     // 验证数据完整性
     if (screenData.imageData.isEmpty() || screenData.dataSize == 0) {
         QString errorDetails = QString("Empty image data - dataSize: %1, imageData size: %2")
@@ -498,14 +492,10 @@ void TcpClient::handleScreenData(const QByteArray &data)
                 // 差异数据处理成功
                 frameData = reconstructedData;
                 m_previousFrameData = reconstructedData;
-                QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) 
-                    << "Applied differential compression, reconstructed size:" << reconstructedData.size();
             } else {
                 // 差异数据处理失败，可能是完整帧
                 frameData = screenData.imageData;
                 m_previousFrameData = screenData.imageData;
-                QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) 
-                    << "Using full frame data, size:" << screenData.imageData.size();
             }
         }
     }
@@ -535,14 +525,10 @@ void TcpClient::handleScreenData(const QByteArray &data)
 
     if (loaded && !frame.isNull()) {
         // 成功加载图像
-        
         // 发出信号，传递屏幕数据给UI（QImage，线程安全）
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) 
-            << "Emitting screenDataReceived signal with image size:" << frame.size();
         emit screenDataReceived(frame);
     } else {
-        QString errorDetails = QString("Frame data size: %1, first 16 bytes: %2, formats tried: JPEG, PNG, auto-detect")
-                              .arg(frameData.size()).arg(frameData.left(16).toHex());
+        QString errorDetails = QString("Frame data size: %1, first 16 bytes: %2, formats tried: JPEG, PNG, auto-detect").arg(frameData.size()).arg(frameData.left(16).toHex());
         recordImageLoadFailure(errorDetails);
         QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) 
             << "Failed to load image from frame data, size:" << frameData.size()

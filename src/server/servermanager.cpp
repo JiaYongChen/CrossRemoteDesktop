@@ -90,7 +90,7 @@ ServerManager::~ServerManager()
 
     // 停止屏幕捕获信号槽连接
     if (m_screenCapture && m_screenCapture->isCapturing()) {
-    disconnect(m_screenCapture, &ScreenCapture::frameReady, this, &ServerManager::onFrameReady);
+        disconnect(m_screenCapture, &ScreenCapture::frameReady, this, &ServerManager::onFrameReady);
     }
     
     // 断开服务器信号连接
@@ -332,8 +332,6 @@ void ServerManager::onFrameReady(const QImage &frame)
     static int frameCount = 0;
     frameCount++;
     
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "onFrameReady called, frame count:" << frameCount;
-    
     // 每10帧输出一次调试信息以便更好地观察问题
     if (frameCount % 10 == 0) {
         QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "Frame captured (count:" << frameCount << "), size:" << frame.size() << "isNull:" << frame.isNull();
@@ -347,7 +345,7 @@ void ServerManager::onFrameReady(const QImage &frame)
         if (frameCount % 10 == 0) {
             QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "Sending screen data to authenticated clients";
         }
-    sendScreenData(frame);
+        sendScreenData(frame);
     } else {
         // 每次都输出日志以便调试
         if (frameCount % 10 == 0) {
@@ -395,7 +393,7 @@ void ServerManager::onClientDisconnected(const QString &clientAddress)
     
     // 如果服务器仍在运行但没有其他认证客户端，停止屏幕截取功能
     if (isServerRunning() && m_screenCapture && m_screenCapture->isCapturing() && !hasAuthenticatedClients()) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Stopping screen capture after last client disconnection";
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Stopping screen capture after last client disconnection";
         m_screenCapture->stopCapture();
     }
     
@@ -409,10 +407,8 @@ void ServerManager::onClientAuthenticated(const QString &clientAddress)
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Client authenticated:" << clientAddress;
     
     // 客户端认证成功后启动屏幕捕获
-    if (m_screenCapture && !m_screenCapture->isCapturing()) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Starting screen capture after client authentication...";
-        startScreenCapture();
-    }
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Starting screen capture after client authentication...";
+    startScreenCapture();
     
     emit clientAuthenticated(clientAddress);
 }
@@ -515,7 +511,9 @@ void ServerManager::startScreenCapture()
         // 设置屏幕捕获连接        
         connect(m_screenCapture, &ScreenCapture::frameReady, this, &ServerManager::onFrameReady);
     }
-    m_screenCapture->startCapture();
+    if (!m_screenCapture->isCapturing()) {
+        m_screenCapture->startCapture();
+    }
 }
 
 void ServerManager::stopScreenCapture()

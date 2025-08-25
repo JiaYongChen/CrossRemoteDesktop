@@ -38,7 +38,7 @@ ScreenCapture::~ScreenCapture()
 void ScreenCapture::startCapture()
 {
     if (m_isCapturing) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Already capturing, ignoring start request";
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Already capturing, ignoring start request";
         return;
     }
     
@@ -51,8 +51,6 @@ void ScreenCapture::startCapture()
                        << "interval:" << m_captureTimer->interval()
                        << "singleShot:" << m_captureTimer->isSingleShot();
     
-
-    
     // emit captureStarted();
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcCapture) << "Capture started successfully";
     
@@ -63,7 +61,7 @@ void ScreenCapture::startCapture()
 void ScreenCapture::stopCapture()
 {
     if (!m_isCapturing) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Already stopped, ignoring stop request";
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Already stopped, ignoring stop request";
         return;
     }
     
@@ -80,15 +78,7 @@ bool ScreenCapture::isCapturing() const
 
 void ScreenCapture::captureFrame()
 {
-    try {
-        // 添加调试信息确认函数被调用
-        static int callCount = 0;
-        callCount++;
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "ScreenCapture::captureFrame() called, count:" << callCount << "isCapturing:" << m_isCapturing;
-        
-        // 检查定时器状态
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Timer active:" << m_captureTimer->isActive() << "interval:" << m_captureTimer->interval() << "singleShot:" << m_captureTimer->isSingleShot();
-        
+    try {        
         if (!m_isCapturing) {
             QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "ScreenCapture::captureFrame() - Not capturing, returning";
             return;
@@ -105,24 +95,14 @@ void ScreenCapture::captureFrame()
             return;
         }
         
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Screen found:" << screen->name() << "geometry:" << screen->geometry();
-        
         // 高质量捕获屏幕
         QPixmap screenshot;
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Starting screen capture with quality:" << m_captureQuality << "HD mode:" << m_highDefinitionMode;
         
         // 获取屏幕的设备像素比例
         qreal devicePixelRatio = screen->devicePixelRatio();
         QRect screenGeometry = screen->geometry();
         
         if (m_highDefinitionMode) {
-            // 高清模式：使用原生分辨率捕获
-            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "High definition capture - devicePixelRatio:" << devicePixelRatio;
-            
-            // 计算实际像素尺寸
-            QSize actualSize = screenGeometry.size() * devicePixelRatio;
-            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Actual capture size:" << actualSize << "from geometry:" << screenGeometry.size();
-            
             // 使用grabWindow捕获整个屏幕
             screenshot = screen->grabWindow(0, 0, 0, screenGeometry.width(), screenGeometry.height());
             
@@ -144,8 +124,6 @@ void ScreenCapture::captureFrame()
             }
         }
         
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Screenshot captured, isNull:" << screenshot.isNull() << "size:" << screenshot.size();
-        
         if (!screenshot.isNull()) {
             // 应用图像质量增强
             if (m_highScaleQuality) {
@@ -153,12 +131,6 @@ void ScreenCapture::captureFrame()
                 screenshot = QPixmap::fromImage(tmp);
             }
             
-            // 输出每次捕获的调试信息
-            static int captureCount = 0;
-            captureCount++;
-            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "ScreenCapture: Frame captured (count:" << captureCount << "), size:" << screenshot.size() 
-                     << ", quality:" << m_captureQuality << ", HD:" << m_highDefinitionMode 
-                     << ", AA:" << m_antiAliasing << ", HQ:" << m_highScaleQuality;
             emit frameReady(screenshot.toImage());
         } else {
             static int failureCount = 0;
@@ -178,9 +150,6 @@ void ScreenCapture::captureFrame()
         QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcCapture) << "ScreenCapture::captureFrame() - Unknown exception caught";
         QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Timer status after unknown exception - active:" << m_captureTimer->isActive() << "interval:" << m_captureTimer->interval();
     }
-    
-    // 添加函数结束时的调试信息
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "ScreenCapture::captureFrame() completed - Timer active:" << m_captureTimer->isActive() << "isCapturing:" << m_isCapturing;
 }
 
 void ScreenCapture::setFrameRate(int fps)
@@ -260,7 +229,7 @@ QImage ScreenCapture::applyAntiAliasing(const QImage &image)
     painter.setRenderHint(QPainter::TextAntialiasing, true);
     painter.drawImage(QPoint(0, 0), image);
     painter.end();
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Applied anti-aliasing to image, size:" << smoothImage.size();
+
     return smoothImage;
 }
 
@@ -281,6 +250,6 @@ QImage ScreenCapture::enhanceImageQuality(const QImage &image)
     painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
     painter.drawImage(QPoint(0, 0), image);
     painter.end();
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcCapture) << "Enhanced image quality for image, size:" << enhanced.size();
+    
     return enhanced;
 }
