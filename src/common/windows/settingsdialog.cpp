@@ -262,7 +262,7 @@ void SettingsDialog::setupAdvancedPageComponents()
     // 新增：日志规则编辑器（可能不存在，空指针容错）
     m_loggingRulesEdit = findChild<QTextEdit*>("logRulesTextEdit");
     // m_browseLogPathButton = ui->browseLogPathButton;  // Component not found in UI
-    // m_enablePerformanceMonitoringCheck = ui->enablePerformanceMonitoringCheckBox;  // Component not found in UI
+
     
     // 这些组件在UI文件中可能没有定义，设置为nullptr
     m_logFilePathEdit = nullptr;
@@ -716,4 +716,3 @@ void SettingsDialog::onPasswordPolicyChanged(int index) { Q_UNUSED(index); onSet
 void SettingsDialog::onSessionTimeoutChanged(int value) { Q_UNUSED(value); onSettingChanged(); }
 void SettingsDialog::onLoggingLevelChanged(int index) { Q_UNUSED(index); onSettingChanged(); }
 void SettingsDialog::onLogFilePathChanged(const QString &text) { Q_UNUSED(text); onSettingChanged(); }
-void SettingsDialog::onPerformanceMonitoringChanged(bool checked) { Q_UNUSED(checked); onSettingChanged(); }

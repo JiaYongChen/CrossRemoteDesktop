@@ -140,6 +140,50 @@ public:
     static bool isImageFormatSupported(ImageFormat format);
     static QList<ImageFormat> supportedImageFormats();
     
+    // 图像格式检测和预判
+    static ImageFormat detectImageFormat(const QByteArray &imageData);
+    static bool isJpegData(const QByteArray &data);
+    static bool isPngData(const QByteArray &data);
+    static bool isBmpData(const QByteArray &data);
+    static bool isWebpData(const QByteArray &data);
+    static bool isTiffData(const QByteArray &data);
+    static QString getImageFormatName(const QByteArray &imageData);
+    
+    // 自适应压缩策略
+    struct ImageAnalysis {
+        double complexity;      // 图像复杂度 (0.0-1.0)
+        double colorVariance;   // 颜色方差
+        bool hasTransparency;   // 是否包含透明度
+        int uniqueColors;       // 唯一颜色数量
+        QSize imageSize;        // 图像尺寸
+    };
+    
+    static ImageAnalysis analyzeImage(const QImage &image);
+    static ImageFormat selectOptimalFormat(const QImage &image);
+    static int selectOptimalQuality(const QImage &image, ImageFormat format);
+    static QByteArray adaptiveCompressImage(const QImage &image);
+    
+    // 数据完整性验证
+    static quint32 calculateCRC32(const QByteArray &data);
+    static QByteArray calculateMD5(const QByteArray &data);
+    static bool validateDataIntegrity(const QByteArray &data, quint32 expectedCRC);
+    static bool validateDataIntegrity(const QByteArray &data, const QByteArray &expectedMD5);
+    static QByteArray addDataChecksum(const QByteArray &data);
+    static QPair<QByteArray, bool> extractAndValidateData(const QByteArray &dataWithChecksum);
+    
+    // 增强的回退机制
+    struct FallbackResult {
+        QByteArray data;           // 处理后的数据
+        bool usedFallback;         // 是否使用了回退机制
+        QString errorMessage;      // 错误信息（如果有）
+        int attemptCount;          // 尝试次数
+    };
+    
+    static FallbackResult robustApplyDifference(const QByteArray &previous, const QByteArray &difference);
+    static bool isValidImageData(const QByteArray &data);
+    static QByteArray repairCorruptedData(const QByteArray &data);
+    static FallbackResult processWithFallback(const QByteArray &data, const QByteArray &previousFrame);
+    
     // 错误处理
     static QString lastError();
     

@@ -37,6 +37,7 @@ build
 build-tests
 build-noopt
 docs
+debug
 
 #files
 需求文档.md

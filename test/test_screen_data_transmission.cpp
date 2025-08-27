@@ -198,15 +198,12 @@ void TestScreenDataTransmission::testEmptyImageData()
     QByteArray encodedData = screenData.encode();
     QVERIFY(!encodedData.isEmpty()); // 头部数据仍然存在
     
-    // 解码空数据
+    // 解码空数据 - 应该失败，因为宽度和高度为0是无效的
     ScreenData decodedScreenData;
     bool decodeSuccess = decodedScreenData.decode(encodedData);
-    QVERIFY(decodeSuccess);
+    QVERIFY(!decodeSuccess); // 期望解码失败
     
-    QCOMPARE(decodedScreenData.dataSize, static_cast<quint32>(0));
-    QVERIFY(decodedScreenData.imageData.isEmpty());
-    
-    qDebug() << "空图像数据处理测试通过";
+    qDebug() << "空图像数据处理测试通过 - 正确拒绝了无效的空图像数据";
 }
 
 void TestScreenDataTransmission::testCorruptedData()

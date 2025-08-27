@@ -112,9 +112,6 @@ void RenderManager::setRemoteScreen(const QPixmap &pixmap)
     
     // 更新显示
     forceUpdate();
-    
-    // 发出尺寸改变信号
-    emit remoteSizeChanged(m_remoteSize);
 }
 
 void RenderManager::updateRemoteScreen(const QPixmap &screen)
@@ -301,8 +298,6 @@ QPixmap RenderManager::getRemoteScreen() const
     }
     return QPixmap();
 }
-
-
 
 QRect RenderManager::mapToRemote(const QRect &localRect) const
 {

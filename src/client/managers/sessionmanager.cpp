@@ -328,11 +328,8 @@ void SessionManager::setupConnections()
     if (m_tcpClient) {
         connect(m_tcpClient, &TcpClient::screenDataReceived,
                 this, &SessionManager::onScreenDataReceived);
-        connect(m_tcpClient, &TcpClient::messageReceived,
-                this, &SessionManager::onMessageReceived);
     }
 }
-
 
 void SessionManager::processInputResponse(const QByteArray &data)
 {

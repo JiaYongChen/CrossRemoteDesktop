@@ -317,12 +317,6 @@ signals:
      */
     void scaleFactorChanged(double factor);
     
-    /**
-     * @brief 远程屏幕尺寸改变信号
-     * @param size 新的尺寸
-     */
-    void remoteSizeChanged(const QSize &size);
-    
 public slots:
     /**
      * @brief 处理视图大小改变

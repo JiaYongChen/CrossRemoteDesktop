@@ -60,7 +60,6 @@ private slots:
     // 高级设置
     void onLoggingLevelChanged(int index);
     void onLogFilePathChanged(const QString &text);
-    void onPerformanceMonitoringChanged(bool checked);
     
 private:
     void setupUI();
@@ -163,7 +162,7 @@ private:
     class QPushButton *m_browseLogPathButton;
     class QSpinBox *m_maxLogFileSizeSpinBox;
     class QSpinBox *m_maxLogFilesSpinBox;
-    class QCheckBox *m_enablePerformanceMonitoringCheck;
+
     class QSpinBox *m_performanceUpdateIntervalSpinBox;
     class QCheckBox *m_enableDebugModeCheck;
     class QTextEdit *m_customSettingsEdit;
@@ -247,7 +246,7 @@ private:
         QString logFilePath;
         int maxLogFileSize;
         int maxLogFiles;
-        bool enablePerformanceMonitoring;
+
         int performanceUpdateInterval;
         bool enableDebugMode;
         QString customSettings;
