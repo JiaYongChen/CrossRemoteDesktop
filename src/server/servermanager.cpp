@@ -35,11 +35,6 @@ ServerManager::ServerManager(QObject *parent)
     , m_maxClients(CoreConstants::DEFAULT_MAX_CLIENTS)
     , m_password("")
     , m_allowMultipleClients(false)
-    , m_totalBytesReceived(0)
-    , m_totalBytesSent(0)
-    , m_performanceOptimizationEnabled(false)
-    , m_regionDetectionEnabled(false)
-    , m_advancedEncodingEnabled(false)
 {
     // 创建TCP服务器
     m_tcpServer = new TcpServer(this);
@@ -499,16 +494,6 @@ bool ServerManager::allowMultipleClients() const
     return m_allowMultipleClients;
 }
 
-quint64 ServerManager::totalBytesReceived() const
-{
-    return m_totalBytesReceived;
-}
-
-quint64 ServerManager::totalBytesSent() const
-{
-    return m_totalBytesSent;
-}
-
 void ServerManager::sendMessageToClient(const QString &clientId, MessageType type, const IMessageCodec &message)
 {
     QMutexLocker locker(&m_clientsMutex);
@@ -619,73 +604,6 @@ void ServerManager::unregisterClientHandler(const QString &clientId)
             it.value()->deleteLater();
         }
         m_clients.erase(it);
-    }
-}
-
-// 性能统计方法实现
-double ServerManager::getAverageFrameTime() const
-{
-    // 如果定时器未启动，返回0
-    if (!m_frameTimer.isValid()) {
-        return 0.0;
-    }
-    
-    // 返回平均帧时间（毫秒）
-    return m_frameTimer.elapsed() / 1000.0;
-}
-
-double ServerManager::getAverageCompressionRatio() const
-{
-    // 简单的压缩比计算，实际实现可能需要更复杂的逻辑
-    if (m_lastFrame.isNull()) {
-        return 0.0;
-    }
-    // 估算压缩比：原始大小 vs 压缩后大小
-    const int originalSize = m_lastFrame.width() * m_lastFrame.height() * 4; // RGBA 假定
-    const int compressedSize = qMax(1, originalSize / 10); // 防止除0
-    return static_cast<double>(originalSize) / static_cast<double>(compressedSize);
-}
-
-int ServerManager::getCurrentFrameRate() const
-{
-    // 简单的帧率计算，实际实现可能需要更复杂的逻辑
-    if (!m_frameTimer.isValid()) {
-        return 0;
-    }
-    
-    // 假设每秒30帧
-    return 30;
-}
-
-// 性能优化控制方法实现
-void ServerManager::enablePerformanceOptimization(bool enabled)
-{
-    m_performanceOptimizationEnabled = enabled;
-    
-    // 如果TCP服务器存在，将设置传递给它
-    if (m_tcpServer) {
-        // 注意：这里需要在TcpServer中实现相应的方法，或者通过其他方式传递设置
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Performance optimization" << (enabled ? "enabled" : "disabled");
-    }
-}
-
-void ServerManager::enableRegionDetection(bool enabled)
-{
-    m_regionDetectionEnabled = enabled;
-    
-    // 如果TCP服务器存在，将设置传递给它
-    if (m_tcpServer) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Region detection" << (enabled ? "enabled" : "disabled");
-    }
-}
-
-void ServerManager::enableAdvancedEncoding(bool enabled)
-{
-    m_advancedEncodingEnabled = enabled;
-    
-    // 如果TCP服务器存在，将设置传递给它
-    if (m_tcpServer) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Advanced encoding" << (enabled ? "enabled" : "disabled");
     }
 }
 

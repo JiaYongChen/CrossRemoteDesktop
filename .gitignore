@@ -32,6 +32,8 @@
 *.app
 
 #path
+.codacy
+.trae
 .vscode
 build
 build-tests

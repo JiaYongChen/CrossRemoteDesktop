@@ -12,7 +12,6 @@
 class TcpServer;
 class ScreenCapture;
 class QSystemTrayIcon;
-class QSettings;
 class QTimer;
 class ClientHandler;
 class IMessageCodec;
@@ -51,20 +50,6 @@ public:
     QString password() const; // 为兼容旧UI，暂时保留读取接口（后续移除）；返回空或掩码
     void setAllowMultipleClients(bool allow);
     bool allowMultipleClients() const;
-    
-    // 统计信息
-    quint64 totalBytesReceived() const;
-    quint64 totalBytesSent() const;
-    
-    // 性能统计
-    double getAverageFrameTime() const;
-    double getAverageCompressionRatio() const;
-    int getCurrentFrameRate() const;
-    
-    // 性能优化控制
-    void enablePerformanceOptimization(bool enabled);
-    void enableRegionDetection(bool enabled);
-    void enableAdvancedEncoding(bool enabled);
     
     // 数据发送
     void sendScreenData(const QImage &frame);
@@ -152,19 +137,6 @@ private:
     QByteArray m_passwordSalt;
     QByteArray m_passwordDigest; // PBKDF2 派生的摘要
     bool m_allowMultipleClients;
-    
-    // 统计信息
-    quint64 m_totalBytesReceived;
-    quint64 m_totalBytesSent;
-    
-    // 性能优化相关
-    bool m_performanceOptimizationEnabled;
-    bool m_regionDetectionEnabled;
-    bool m_advancedEncodingEnabled;
-    
-    // 性能统计
-    mutable QElapsedTimer m_frameTimer;
-    QImage m_lastFrame; // 统一为 QImage 存储
 };
 
 #endif // SERVERMANAGER_H
