@@ -51,6 +51,7 @@ private slots:
     void onConnectionEstablished(const QString &connectionId);
     
     // 服务器相关槽函数
+    void onServerStarted(quint16 port);  // 处理服务器启动成功
     void onServerError(const QString &error);
     
     // 系统托盘

@@ -71,9 +71,6 @@ MainWindow::MainWindow(QWidget *parent)
     m_serverManager = new ServerManager(this);
     m_clientManager = new ClientManager(this);
     
-    // 配置服务器管理器
-    m_serverManager->setSettings(m_settings);
-    
     // 设置连接
     setupConnections();
     
@@ -364,6 +361,7 @@ void MainWindow::setupConnections()
     
     // ServerManager信号连接
     if (m_serverManager) {
+        connect(m_serverManager, &ServerManager::serverStarted, this, &MainWindow::onServerStarted);
         connect(m_serverManager, &ServerManager::serverError, this, &MainWindow::onServerError);
         connect(m_serverManager, &ServerManager::serverStatusMessage, this, &MainWindow::updateServerStatus);
         connect(m_serverManager, &ServerManager::clientStatusMessage, this, &MainWindow::updateConnectionStatus);
@@ -641,6 +639,18 @@ void MainWindow::onConnectionEstablished(const QString &connectionId)
         if (!host.isEmpty() && port > 0) {
             addConnectionToHistory(host, port);
         }
+    }
+}
+
+void MainWindow::onServerStarted(quint16 port)
+{
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcApp) << "MainWindow::onServerStarted() called with port:" << port;
+    updateServerStatus(tr("服务器启动成功，端口: %1").arg(port));
+    // 在UI层保存成功启动的端口到设置
+    if (m_settings) {
+        m_settings->setValue("Connection/defaultPort", port);
+        m_settings->setValue("server/port", port);
+        m_settings->sync();  // 立即同步到磁盘
     }
 }
 

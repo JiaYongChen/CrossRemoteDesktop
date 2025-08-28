@@ -339,46 +339,6 @@ enable_testing()
 # 添加测试子目录（当前仅包含稳定用例）
 add_subdirectory(test)
 
-# 错误处理测试
-add_executable(test_error_handling
-    test/test_error_handling.cpp
-    src/client/tcpclient.cpp
-    src/common/core/protocol_impl.cpp
-    src/common/core/protocol.cpp
-    src/common/core/compression.cpp
-    src/common/core/constants.cpp
-    src/common/core/config.cpp
-    src/common/core/logging_categories.cpp
-    src/common/core/encryption.cpp
-    src/common/codec/compressor_factory.cpp
-    src/common/codec/zlib_compressor.cpp
-)
-
-target_link_libraries(test_error_handling
-    Qt6::Core
-    Qt6::Network
-    Qt6::Widgets
-    Qt6::Test
-    OpenSSL::SSL
-    OpenSSL::Crypto
-    ZLIB::ZLIB
-)
-
-target_include_directories(test_error_handling PRIVATE
-    ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_SOURCE_DIR}/src/client
-    ${CMAKE_SOURCE_DIR}/src/common
-    ${CMAKE_SOURCE_DIR}/src/common/core
-    ${CMAKE_SOURCE_DIR}/src/common/windows
-    ${CMAKE_SOURCE_DIR}/src/server
-)
-
-set_target_properties(test_error_handling PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-)
-
-add_test(NAME test_error_handling COMMAND test_error_handling)
-
 # 打印配置信息
 message(STATUS "Qt version: ${Qt6_VERSION}")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")

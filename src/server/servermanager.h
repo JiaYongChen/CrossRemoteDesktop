@@ -31,15 +31,9 @@ public:
     bool isServerRunning() const;
     quint16 getCurrentPort() const;
     
-    // 设置相关
-    void setSettings(QSettings *settings);
-    
     // 屏幕捕获管理
     ScreenCapture* getScreenCapture() const;
     void applyScreenCaptureSettings();
-    
-    // 自动启动
-    void checkAutoStart();
     
     // 客户端状态查询
     bool hasConnectedClients() const;
@@ -88,6 +82,7 @@ public:
     
 signals:
     // 服务器状态信号
+    void serverStarted(quint16 port);  // 服务器启动成功信号，包含端口号
     void serverStopped();
     void serverError(const QString &error);
     
@@ -106,7 +101,6 @@ signals:
     void clientStatusMessage(const QString &message);
     
 private slots:
-    void onServerStarted();
     void onServerStopped();
     void onNewConnection(qintptr socketDescriptor);
     void onClientConnected(const QString &clientAddress);
@@ -138,9 +132,6 @@ private:
     // 网络组件
     TcpServer *m_tcpServer;
     ScreenCapture *m_screenCapture;
-    
-    // 设置
-    QSettings *m_settings;
     
     // 定时器
     QTimer *m_stopTimeoutTimer;

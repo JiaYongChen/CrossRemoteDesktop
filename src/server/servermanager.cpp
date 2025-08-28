@@ -27,7 +27,6 @@ ServerManager::ServerManager(QObject *parent)
     : QObject(parent)
     , m_tcpServer(nullptr)
     , m_screenCapture(nullptr)
-    , m_settings(nullptr)
     , m_stopTimeoutTimer(nullptr)
     , m_cleanupTimer(nullptr)
     , m_isServerRunning(false)
@@ -110,14 +109,10 @@ bool ServerManager::startServer()
     
     // 获取服务器端口设置
     quint16 basePort = 5900; // 默认端口
-    if (m_settings) {
-        basePort = m_settings->value("Connection/defaultPort", 5900).toUInt();
-        basePort = m_settings->value("server/port", basePort).toUInt();
-    }
     
     // 尝试启动服务器
     QStringList triedPorts;
-    bool serverStarted = false;
+    m_isServerRunning = false;
     
     for (int i = 0; i < 10; ++i) {
         quint16 port = basePort + i;
@@ -127,23 +122,20 @@ bool ServerManager::startServer()
         
         if (m_tcpServer->startServer(port)) {
             m_currentPort = m_tcpServer->serverPort();
-            serverStarted = true;
+            m_isServerRunning = true;
             
-            // 保存成功启动的端口
-            if (m_settings) {
-                m_settings->setValue("Connection/defaultPort", port);
-                m_settings->setValue("server/port", port);
-            }
+            // 发出服务器启动成功信号，让UI层处理端口保存
+            emit serverStarted(port);
             break;
         }
     }
     
-    if (serverStarted) {
+    if (m_isServerRunning) {
         // 启动客户端清理定时器
         m_cleanupTimer->start();
     }
     
-    if (!serverStarted) {
+    if (!m_isServerRunning) {
         QString errorMsg = tr("无法启动服务器。\n已尝试端口: %1\n\n可能的原因:\n")
                           .arg(triedPorts.join(", "));
         errorMsg += tr("• 端口被其他程序占用\n");
@@ -160,7 +152,7 @@ bool ServerManager::startServer()
         return false;
     }
 
-    return true;
+    return m_isServerRunning;
 }
 
 void ServerManager::stopServer(bool synchronous)
@@ -223,11 +215,6 @@ quint16 ServerManager::getCurrentPort() const
     return m_currentPort;
 }
 
-void ServerManager::setSettings(QSettings *settings)
-{
-    m_settings = settings;
-}
-
 ScreenCapture* ServerManager::getScreenCapture() const
 {
     return m_screenCapture;
@@ -235,32 +222,13 @@ ScreenCapture* ServerManager::getScreenCapture() const
 
 void ServerManager::applyScreenCaptureSettings()
 {
-    if (!m_screenCapture || !m_settings) {
+    if (!m_screenCapture) {
         return;
     }
-    
-    // 从设置中读取帧率和捕获质量
-    m_settings->beginGroup("Display");
-    int frameRate = m_settings->value("frameRate", CoreConstants::DEFAULT_FRAME_RATE).toInt();
-    double captureQuality = m_settings->value("captureQuality", CoreConstants::DEFAULT_CAPTURE_QUALITY).toDouble();
-    m_settings->endGroup();
     
     // 应用帧率和捕获质量设置到ScreenCapture
-    m_screenCapture->setFrameRate(frameRate);
-    m_screenCapture->setCaptureQuality(captureQuality);
-}
-
-void ServerManager::checkAutoStart()
-{
-    if (!m_settings) {
-        return;
-    }
-    
-    bool autoStartServer = m_settings->value("Server/autoStart", false).toBool();
-    if (autoStartServer) {
-        // 延迟启动服务器，确保UI完全初始化
-        QTimer::singleShot(1000, this, &ServerManager::startServer);
-    }
+    m_screenCapture->setFrameRate(CoreConstants::DEFAULT_FRAME_RATE);
+    m_screenCapture->setCaptureQuality(CoreConstants::DEFAULT_CAPTURE_QUALITY);
 }
 
 bool ServerManager::hasConnectedClients() const
@@ -324,18 +292,6 @@ void ServerManager::onFrameReady(const QImage &frame)
     if (m_isServerRunning && hasAuthenticatedClients()) {
         sendScreenData(frame);
     }
-}
-
-void ServerManager::onServerStarted()
-{
-    m_isServerRunning = true;
-    
-    // 确保从TcpServer获取最新的端口号
-    if (m_tcpServer) {
-        m_currentPort = m_tcpServer->serverPort();
-    }
-    
-    emit serverStatusMessage(tr("服务器启动成功，端口: %1").arg(m_currentPort));
 }
 
 void ServerManager::onServerStopped()
@@ -456,7 +412,6 @@ void ServerManager::setupServerConnections()
         return;
     }
     
-    connect(m_tcpServer, &TcpServer::serverStarted, this, &ServerManager::onServerStarted);
     connect(m_tcpServer, &TcpServer::serverStopped, this, &ServerManager::onServerStopped);
     connect(m_tcpServer, &TcpServer::newClientConnection, this, &ServerManager::onNewConnection);
     connect(m_tcpServer, &TcpServer::errorOccurred, this, &ServerManager::onServerError);
@@ -468,7 +423,6 @@ void ServerManager::disconnectServerSignals()
         return;
     }
     
-    disconnect(m_tcpServer, &TcpServer::serverStarted, this, &ServerManager::onServerStarted);
     disconnect(m_tcpServer, &TcpServer::serverStopped, this, &ServerManager::onServerStopped);
     disconnect(m_tcpServer, &TcpServer::errorOccurred, this, &ServerManager::onServerError);
 }

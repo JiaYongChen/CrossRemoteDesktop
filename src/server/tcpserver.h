@@ -30,7 +30,6 @@ public:
     QHostAddress serverAddress() const;
     
 signals:
-    void serverStarted();
     void serverStopped();
     void newClientConnection(qintptr socketDescriptor);
     void errorOccurred(const QString &error);

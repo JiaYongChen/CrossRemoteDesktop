@@ -38,14 +38,14 @@ bool TcpServer::startServer(quint16 port, const QHostAddress &address)
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServer) << "TcpServer::startServer() called with port:" << port << "address:" << address.toString();
     
     if (m_isRunning) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServer) << "Server already running, returning false";
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServer) << "Server already running, returning false";
         return false;
     }
     
     m_serverAddress = address;
     
     if (!listen(address, port)) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServer) << "Failed to start server:" << errorString();
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServer) << "Failed to start server:" << errorString();
         emit errorOccurred(errorString());
         return false;
     }
@@ -58,8 +58,6 @@ bool TcpServer::startServer(quint16 port, const QHostAddress &address)
                      << "listening:" << isListening()
                      << "maxPending:" << maxPendingConnections();
     m_isRunning = true;
-    
-    emit serverStarted();
     return true;
 }
 
@@ -77,13 +75,13 @@ void TcpServer::stopServer(bool synchronous)
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServer) << "Stopping server, synchronous:" << synchronous;
     
     auto cleanup = [this]() {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServer) << "Starting server cleanup...";
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServer) << "Starting server cleanup...";
         
         // 关闭服务器监听
         close();
         
         m_isRunning = false;
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServer) << "Server stopped successfully";
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServer) << "Server stopped successfully";
         emit serverStopped();
     };
     
