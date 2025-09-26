@@ -1,17 +1,17 @@
-#include "tcpclient.h"
+#include "TcpClient.h"
 #include <QtNetwork/QTcpSocket>
 #include <QtCore/QTimer>
-#include "../core/messageconstants.h"
-#include "../core/compression.h"
+#include "../common/core/config/MessageConstants.h"
+#include "../common/core/compression/Compression.h"
 #include <QtNetwork/QHostAddress>
 #include <QtCore/QCryptographicHash>
 #include <QtCore/QRandomGenerator>
 #include <QtCore/QDebug>
-#include "../common/core/logging_categories.h"
+#include "../common/core/logging/LoggingCategories.h"
 #include <QtCore/QDataStream>
 #include <QtGui/QPixmap>
 #include <QtCore/QMessageLogger>
-#include "../common/core/encryption.h"
+#include "../common/core/crypto/Encryption.h"
 #include <QtCore/QMutexLocker>
 
 TcpClient::TcpClient(QObject *parent)
@@ -398,7 +398,7 @@ void TcpClient::handleErrorMessage(const QByteArray &data)
 
 void TcpClient::handleStatusUpdate(const QByteArray &data)
 {
-    // 优先尝试结构化解码，失败则兼容旧版字符串
+    // 使用结构化解码
     StatusUpdate st{};
     if (st.decode(data)) {
         QString statusMsg = QString("状态:%1  收:%2  发:%3  FPS:%4  CPU:%5%%  MEM:%6")
@@ -408,14 +408,11 @@ void TcpClient::handleStatusUpdate(const QByteArray &data)
                                 .arg(st.fps)
                                 .arg(st.cpuUsage)
                                 .arg(st.memoryUsage);
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Received status update (structured):" << statusMsg;
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Received status update:" << statusMsg;
         emit statusUpdated(statusMsg);
-        return;
+    } else {
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "Failed to decode status update";
     }
-
-    QString fallback = QString::fromUtf8(data);
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Received status update (fallback string):" << fallback;
-    emit statusUpdated(fallback);
 }
 
 void TcpClient::handleDisconnectRequest()

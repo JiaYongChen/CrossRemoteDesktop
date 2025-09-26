@@ -3,13 +3,12 @@
 
 #include <QtNetwork/QTcpServer>
 #include <QtNetwork/QHostAddress>
-#include "../common/core/protocol.h"
-#include "../common/core/networkconstants.h"
+#include "../common/core/network/Protocol.h"
+#include "../common/core/config/NetworkConstants.h"
 
 class QHostAddress;
 class ClientHandler;
 class InputSimulator;
-
 
 class TcpServer : public QTcpServer
 {

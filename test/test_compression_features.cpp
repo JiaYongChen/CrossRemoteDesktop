@@ -3,10 +3,7 @@
 #include <QtCore/QRandomGenerator>
 #include <QtCore/QDebug>
 
-#include "../src/common/codec/icompressor.h"
-#include "../src/common/codec/zlib_compressor.h"
-#include "../src/common/codec/lz4_compressor.h"
-#include "../src/common/codec/zstd_compressor.h"
+#include "../src/common/core/compression/Compression.h"
 
 static QByteArray makeCompressibleData(int size)
 {
@@ -17,7 +14,7 @@ static QByteArray makeCompressibleData(int size)
     return data;
 }
 
-static QByteArray makeRandomData(int size)
+[[maybe_unused]] static QByteArray makeRandomData(int size)
 {
     QByteArray data; data.resize(size);
     auto gen = QRandomGenerator::global();
@@ -35,16 +32,15 @@ private slots:
 
 void TestCompressionFeatures::zlib_roundtrip_and_benchmark()
 {
-    ZlibCompressor zlib;
     const QByteArray input = makeCompressibleData(256 * 1024);
 
     QElapsedTimer t; t.start();
-    const QByteArray compressed = zlib.compress(input, 6);
+    const QByteArray compressed = Compression::compress(input, Compression::ZLIB, Compression::Level(6));
     const qint64 ct = t.elapsed();
     QVERIFY2(!compressed.isEmpty(), "Zlib compress should produce data");
 
     t.restart();
-    const QByteArray decompressed = zlib.decompress(compressed);
+    const QByteArray decompressed = Compression::decompress(compressed, Compression::ZLIB);
     const qint64 dt = t.elapsed();
     QCOMPARE(decompressed, input);
 
@@ -54,12 +50,11 @@ void TestCompressionFeatures::zlib_roundtrip_and_benchmark()
 
 void TestCompressionFeatures::lz4_availability_and_roundtrip()
 {
-    LZ4Compressor lz4;
     const QByteArray input = makeCompressibleData(128 * 1024);
-    const QByteArray compressed = lz4.compress(input, 3);
+    const QByteArray compressed = Compression::compress(input, Compression::LZ4, Compression::Level(3));
 #ifdef HAVE_LZ4
     QVERIFY2(!compressed.isEmpty(), "LZ4 enabled: compress should produce data");
-    const QByteArray decompressed = lz4.decompress(compressed);
+    const QByteArray decompressed = Compression::decompress(compressed, Compression::LZ4);
     QCOMPARE(decompressed, input);
     const double ratio = (double)input.size() / (double)compressed.size();
     qInfo() << "LZ4" << "orig" << input.size() << "cmp" << compressed.size() << "ratio" << ratio;
@@ -70,12 +65,11 @@ void TestCompressionFeatures::lz4_availability_and_roundtrip()
 
 void TestCompressionFeatures::zstd_availability_and_roundtrip()
 {
-    ZstdCompressor zstd;
     const QByteArray input = makeCompressibleData(128 * 1024);
-    const QByteArray compressed = zstd.compress(input, 3);
+    const QByteArray compressed = Compression::compress(input, Compression::ZSTD, Compression::Level(3));
 #ifdef HAVE_ZSTD
     QVERIFY2(!compressed.isEmpty(), "ZSTD enabled: compress should produce data");
-    const QByteArray decompressed = zstd.decompress(compressed);
+    const QByteArray decompressed = Compression::decompress(compressed, Compression::ZSTD);
     QCOMPARE(decompressed, input);
     const double ratio = (double)input.size() / (double)compressed.size();
     qInfo() << "ZSTD" << "orig" << input.size() << "cmp" << compressed.size() << "ratio" << ratio;

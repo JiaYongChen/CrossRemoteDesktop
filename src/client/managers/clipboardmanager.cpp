@@ -1,4 +1,4 @@
-#include "clipboardmanager.h"
+#include "ClipboardManager.h"
 #include <QtGui/QClipboard>
 #include <QtWidgets/QApplication>
 #include <QtCore/QDebug>

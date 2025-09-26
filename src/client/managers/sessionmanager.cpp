@@ -1,9 +1,9 @@
-#include "sessionmanager.h"
-#include "connectionmanager.h"
-#include "../../client/tcpclient.h"
-#include "../core/compression.h" // legacy path not used for screen data anymore
+#include "SessionManager.h"
+#include "ConnectionManager.h"
+#include "../../client/TcpClient.h"
+#include "../core/compression/Compression.h"
 #include <QtCore/QDebug>
-#include "../../common/core/logging_categories.h"
+#include "../../common/core/logging/LoggingCategories.h"
 #include <QtCore/QMessageLogger>
 #include <QtCore/QBuffer>
 #include <QtCore/QDataStream>
@@ -70,9 +70,7 @@ void SessionManager::startSession()
     //     handshakeRequest.screenWidth = 1920;
     //     handshakeRequest.screenHeight = 1080;
     //     handshakeRequest.colorDepth = 32;
-    //     handshakeRequest.compressionLevel = 6;
-    //     strcpy(handshakeRequest.clientName, "QtRemoteDesktop Client");
-    //     strcpy(handshakeRequest.clientOS, getClientOS().toUtf8().constData());
+    //     handshakeRequest.compressionLevel = 6;    //     strcpy(handshakeRequest.clientOS, getClientOS().toUtf8().constData());
     //     m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST, handshakeRequest);
     // }
     

@@ -5,7 +5,7 @@
 #include <QtCore/QDateTime>
 #include <QtCore/QMutex>
 #include <QtNetwork/QAbstractSocket>
-#include "../common/core/protocol.h"
+#include "../common/core/network/Protocol.h"
 
 class QTcpSocket;
 class QTimer;

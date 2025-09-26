@@ -1,658 +1,434 @@
-#include "servermanager.h"
-#include "clienthandler.h"
-#include "../common/core/encryption.h"
-#include "tcpserver.h"
-#include "screencapture.h"
-#include "../common/core/constants.h"
-#include "../common/core/protocol.h"
-
-#include <QtCore/QSettings>
-#include <QtCore/QTimer>
-#include <QtWidgets/QSystemTrayIcon>
-#include <QtWidgets/QMessageBox>
-#include <QtCore/QDebug>
-#include <QtCore/QMutexLocker>
-#include <QtCore/QDateTime>
-#include <QtCore/QElapsedTimer>
-#include <QtCore/QLoggingCategory>
-#include "../common/core/logging_categories.h"
-#include <QtCore/QBuffer>
-#include <QtNetwork/QTcpSocket>
-#include <QtCore/QThread>
-#include <QtCore/QCoreApplication>
-#include <QtCore/QMessageLogger>
-#include <cstring>
+#include "ServerManager.h"
+#include <atomic>
+#include "ServerWorker.h"
+#include "../common/core/threading/ThreadManager.h"
+#include "../common/core/network/Protocol.h"
+#include <QMutexLocker>
+#include <QLoggingCategory>
+#include <QTimer>
+#include <memory>
+// 新增：引入日志分类声明头，使用统一的日志分类（lcServerManager）
+#include "../common/core/logging/LoggingCategories.h"
 
 ServerManager::ServerManager(QObject *parent)
     : QObject(parent)
-    , m_tcpServer(nullptr)
-    , m_screenCapture(nullptr)
-    , m_stopTimeoutTimer(nullptr)
-    , m_cleanupTimer(nullptr)
+    , m_threadManager(ThreadManager::instance())
     , m_isServerRunning(false)
     , m_currentPort(0)
-    , m_clientsMutex()
-    , m_maxClients(CoreConstants::DEFAULT_MAX_CLIENTS)
-    , m_password("")
-    , m_allowMultipleClients(false)
 {
-    // 创建TCP服务器
-    m_tcpServer = new TcpServer(this);
-    
-    // 创建停止超时定时器
-    m_stopTimeoutTimer = new QTimer(this);
-    m_stopTimeoutTimer->setSingleShot(true);
-    m_stopTimeoutTimer->setInterval(5000); // 5秒超时
-    connect(m_stopTimeoutTimer, &QTimer::timeout, this, &ServerManager::onStopTimeout);
-    
-    // 创建客户端清理定时器
-    m_cleanupTimer = new QTimer(this);
-    m_cleanupTimer->setSingleShot(false);
-    m_cleanupTimer->setInterval(CoreConstants::CLEANUP_TIMER_INTERVAL); // 每分钟清理一次
-    connect(m_cleanupTimer, &QTimer::timeout, this, &ServerManager::cleanupDisconnectedClients);
-
-    // 设置服务器连接
-    setupServerConnections();
+    // 设置与ServerWorker的信号连接
+    setupWorkerConnections();
 }
 
-ServerManager::~ServerManager()
-{
-    disconnect(m_stopTimeoutTimer, &QTimer::timeout, this, &ServerManager::onStopTimeout);
-    disconnect(m_cleanupTimer, &QTimer::timeout, this, &ServerManager::cleanupDisconnectedClients);
-    
-    // 停止清理定时器
-    if (m_cleanupTimer) {
-        m_cleanupTimer->stop();
-    }
+ServerManager::~ServerManager() {
+    // 使用分类日志，便于按模块过滤与定位
+    qCDebug(lcServerManager) << "ServerManager析构函数";
+    gracefulShutdown();
+    // 断开与ServerWorker的信号连接
+    disconnectWorkerSignals();
+}
 
-    // 同步停止服务器
-    if (m_isServerRunning && m_tcpServer) {
-        m_tcpServer->stopServer(true);
-    }
-    
-    // 清理所有客户端连接
+bool ServerManager::startServer(quint16 port, const QString &password)
+{
+    // 1. 首先检查状态（避免长时间持有锁）
     {
-        QMutexLocker locker(&m_clientsMutex);
-        for (auto it = m_clients.begin(); it != m_clients.end(); ++it) {
-            if (it.value()) {
-                it.value()->forceDisconnect();
-                it.value()->deleteLater();
-            }
-        }
-        m_clients.clear();
-    }
-
-    // 停止屏幕捕获信号槽连接
-    if (m_screenCapture && m_screenCapture->isCapturing()) {
-        disconnect(m_screenCapture, &ScreenCapture::frameReady, this, &ServerManager::onFrameReady);
-    }
-    
-    // 断开服务器信号连接
-    disconnectServerSignals();
-}
-
-bool ServerManager::startServer()
-{
-    if (m_isServerRunning) {
-        return true;
-    }
-    
-    if (!m_tcpServer) {
-        emit serverError(tr("服务器组件未初始化。"));
-        return false;
-    }
-    
-    // 获取服务器端口设置
-    quint16 basePort = 5900; // 默认端口
-    
-    // 尝试启动服务器
-    QStringList triedPorts;
-    m_isServerRunning = false;
-    
-    for (int i = 0; i < 10; ++i) {
-        quint16 port = basePort + i;
-        triedPorts << QString::number(port);
-        
-        emit serverStatusMessage(tr("正在尝试启动服务器，端口: %1...").arg(port));
-        
-        if (m_tcpServer->startServer(port)) {
-            m_currentPort = m_tcpServer->serverPort();
-            m_isServerRunning = true;
-            
-            // 发出服务器启动成功信号，让UI层处理端口保存
-            emit serverStarted(port);
-            break;
+        QMutexLocker stateLock(&m_stateMutex);
+        if (m_isServerRunning) {
+            qCDebug(lcServerManager) << "Server is already running";
+            return false;
         }
     }
     
-    if (m_isServerRunning) {
-        // 启动客户端清理定时器
-        m_cleanupTimer->start();
+    // 2. 创建和启动线程（独立的锁作用域）
+    bool threadCreated = false;
+    {
+        QMutexLocker workerLock(&m_workerMutex);
+        
+        if (!m_threadManager->createThread("ServerWorker", std::make_unique<ServerWorker>())) {
+            qCDebug(lcServerManager) << "Failed to create ServerWorker thread";
+            return false;
+        }
+        
+        // 启动线程
+        if (!m_threadManager->startThread("ServerWorker")) {
+            qCDebug(lcServerManager) << "Failed to start ServerWorker thread";
+            m_threadManager->destroyThread("ServerWorker");
+            return false;
+        }
+        
+        threadCreated = true;
     }
     
-    if (!m_isServerRunning) {
-        QString errorMsg = tr("无法启动服务器。\n已尝试端口: %1\n\n可能的原因:\n")
-                          .arg(triedPorts.join(", "));
-        errorMsg += tr("• 端口被其他程序占用\n");
-        errorMsg += tr("• 防火墙阻止了连接\n");
-        errorMsg += tr("• 权限不足\n\n");
-        errorMsg += tr("建议:\n");
-        errorMsg += tr("• 检查端口占用情况\n");
-        errorMsg += tr("• 关闭防火墙或添加例外\n");
-        errorMsg += tr("• 以管理员权限运行\n");
-        errorMsg += tr("• 在设置中选择其他端口范围");
-        
-        emit serverError(errorMsg);
-        emit serverStatusMessage(tr("服务器启动失败"));
+    if (!threadCreated) {
         return false;
     }
-
-    return m_isServerRunning;
+    
+    // 3. 获取worker并启动服务器（不持有其他锁，避免死锁）
+    ServerWorker* worker = getServerWorker();
+    if (!worker) {
+        qWarning() << "Failed to get ServerWorker instance";
+        // 清理线程
+        {
+            QMutexLocker workerLock(&m_workerMutex);
+            m_threadManager->stopThread("ServerWorker");
+            m_threadManager->destroyThread("ServerWorker");
+        }
+        return false;
+    }
+    
+    // 4. 设置服务器参数并启动（避免死锁）
+    // 先设置密码和端口，然后在Worker初始化完成后自动启动
+    if (!password.isEmpty()) {
+        QMetaObject::invokeMethod(worker, "setPassword", Qt::DirectConnection,
+                                  Q_ARG(QString, password));
+    }
+    
+    // 使用定时器延迟启动服务器，避免在Worker启动过程中调用
+    QTimer::singleShot(100, [worker, port]() {
+        QMetaObject::invokeMethod(worker, "startServer", Qt::QueuedConnection,
+                                  Q_ARG(quint16, port));
+    });
+    
+    // 5. 更新状态（最后更新，确保服务器启动成功）
+    {
+        QMutexLocker stateLock(&m_stateMutex);
+        m_isServerRunning = true;
+        m_currentPort = port;
+    }
+    qCDebug(lcServerManager) << "Server start initiated on port:" << port;
+    return true;
 }
 
-void ServerManager::stopServer(bool synchronous)
-{
-    if (!m_isServerRunning || !m_tcpServer) {
+void ServerManager::stopServer() {
+    qCDebug(lcServerManager) << "停止服务器...";
+    if (m_shuttingDown.exchange(true)) {
+        qCDebug(lcServerManager) << "服务器已在关闭过程中";
         return;
     }
     
-    emit serverStatusMessage(tr("正在停止服务器..."));
+    // 不持有锁的情况下获取worker指针
+    ServerWorker* worker = nullptr;
+    {
+        QMutexLocker locker(&m_workerMutex);
+        worker = getServerWorker();
+    }
     
-    // 停止清理定时器
-    m_cleanupTimer->stop();
-    // 优雅停服：先通知客户端断开，再等待，最后强制清理
-    {
-        QMutexLocker locker(&m_clientsMutex);
-        for (auto it = m_clients.begin(); it != m_clients.end(); ++it) {
-            if (it.value()) {
-                // 发送断开请求消息
-                it.value()->sendMessage(MessageType::DISCONNECT_REQUEST, BaseMessage());
-            }
-        }
+    if (worker) {
+        // 发送异步停止信号，避免阻塞
+        QMetaObject::invokeMethod(worker, "stopServer", Qt::QueuedConnection, Q_ARG(bool, false));
+        
+        // 不等待，立即继续
     }
-    // 等待 500ms 让对端处理
-    QElapsedTimer _t; _t.start();
-    const int gracefulWaitMs = 500;
-    if (synchronous) {
-        while (_t.elapsed() < gracefulWaitMs) {
-            QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
-        }
-    } else {
-        QTimer::singleShot(gracefulWaitMs, this, []{});
+    
+    // 在没有锁的情况下停止线程（不销毁，让程序退出时自动清理）
+    if (m_threadManager) {
+        qCDebug(lcServerManager) << "开始停止ServerWorker线程...";
+        m_threadManager->stopThread("ServerWorker", false); // 异步停止，不等待完成
+        qCDebug(lcServerManager) << "ServerWorker线程停止请求已发送";
     }
-
-    // 强制断开仍然存活的客户端
-    {
-        QMutexLocker locker(&m_clientsMutex);
-        for (auto it = m_clients.begin(); it != m_clients.end(); ++it) {
-            if (it.value()) {
-                it.value()->forceDisconnect();
-            }
-        }
-    }
-
-    if (synchronous) {
-        m_tcpServer->stopServer(true);
-        m_isServerRunning = false;
-    } else {
-        m_stopTimeoutTimer->start();
-        m_tcpServer->stopServer(false);
-    }
+    qCDebug(lcServerManager) << "服务器已停止";
 }
 
 bool ServerManager::isServerRunning() const
 {
+    QMutexLocker lock(&m_stateMutex);
     return m_isServerRunning;
 }
 
 quint16 ServerManager::getCurrentPort() const
 {
+    QMutexLocker lock(&m_stateMutex);
     return m_currentPort;
 }
 
-ScreenCapture* ServerManager::getScreenCapture() const
+bool ServerManager::isRunning() const
 {
-    return m_screenCapture;
-}
-
-void ServerManager::applyScreenCaptureSettings()
-{
-    if (!m_screenCapture) {
-        return;
+    ServerWorker* worker = getServerWorker();
+    if (!worker) {
+        return false;
     }
     
-    // 应用帧率和捕获质量设置到ScreenCapture
-    m_screenCapture->setFrameRate(CoreConstants::DEFAULT_FRAME_RATE);
-    m_screenCapture->setCaptureQuality(CoreConstants::DEFAULT_CAPTURE_QUALITY);
+    bool running = false;
+    QMetaObject::invokeMethod(worker, "isRunning", Qt::BlockingQueuedConnection,
+                              Q_RETURN_ARG(bool, running));
+    return running;
+}
+
+quint16 ServerManager::getPort() const
+{
+    ServerWorker* worker = getServerWorker();
+    if (!worker) {
+        return 0;
+    }
+    
+    quint16 port = 0;
+    QMetaObject::invokeMethod(worker, "getPort", Qt::BlockingQueuedConnection,
+                              Q_RETURN_ARG(quint16, port));
+    return port;
+}
+
+int ServerManager::getConnectedClientCount() const
+{
+    ServerWorker* worker = getServerWorker();
+    if (!worker) {
+        return 0;
+    }
+    
+    int count = 0;
+    QMetaObject::invokeMethod(worker, "getConnectedClientCount", Qt::BlockingQueuedConnection,
+                              Q_RETURN_ARG(int, count));
+    return count;
+}
+
+QStringList ServerManager::getConnectedClients() const
+{
+    ServerWorker* worker = getServerWorker();
+    if (!worker) {
+        return QStringList();
+    }
+    
+    QStringList clients;
+    QMetaObject::invokeMethod(worker, "getConnectedClients", Qt::BlockingQueuedConnection,
+                              Q_RETURN_ARG(QStringList, clients));
+    return clients;
+}
+
+bool ServerManager::isClientConnected(const QString &clientAddress) const
+{
+    ServerWorker* worker = getServerWorker();
+    if (!worker) {
+        return false;
+    }
+    
+    bool connected = false;
+    QMetaObject::invokeMethod(worker, "isClientConnected", Qt::BlockingQueuedConnection,
+                              Q_RETURN_ARG(bool, connected),
+                              Q_ARG(QString, clientAddress));
+    return connected;
 }
 
 bool ServerManager::hasConnectedClients() const
 {
-    QMutexLocker locker(&m_clientsMutex);
-    for (auto it = m_clients.begin(); it != m_clients.end(); ++it) {
-        if (it.value() && it.value()->isConnected()) {
-            return true;
-        }
-    }
-    return false;
+    return getConnectedClientCount() > 0;
 }
 
 bool ServerManager::hasAuthenticatedClients() const
 {
-    QMutexLocker locker(&m_clientsMutex);
-    for (auto it = m_clients.begin(); it != m_clients.end(); ++it) {
-        if (it.value() && it.value()->isConnected() && it.value()->isAuthenticated()) {
-            return true;
-        }
-    }
-    return false;
-}
-
-void ServerManager::sendScreenData(const QImage &frame)
-{
-    if (!m_isServerRunning || frame.isNull()) {
-        return;
+    ServerWorker* worker = getServerWorker();
+    if (!worker) {
+        return false;
     }
     
-    // 压缩图像数据（统一使用QImage以便后续管线迁移；保持JPEG质量95%）
-    QByteArray imageData;
-    QBuffer buffer(&imageData);
-    buffer.open(QIODevice::WriteOnly);
-    bool success = frame.save(&buffer, "JPEG", 95);
-    if (!success) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Failed to compress screen data";
-        buffer.close();
-        return;
+    bool hasAuthenticated = false;
+    QMetaObject::invokeMethod(worker, "hasAuthenticatedClients", Qt::BlockingQueuedConnection,
+                              Q_RETURN_ARG(bool, hasAuthenticated));
+    return hasAuthenticated;
+}
+
+// 信号槽处理方法 - 转发ServerWorker的信号
+void ServerManager::onWorkerServerStarted(quint16 port)
+{
+    {
+        QMutexLocker lock(&m_stateMutex);
+        m_isServerRunning = true;
+        m_currentPort = port;
     }
-    
-    buffer.close();
-    
-    // 发送给所有已认证的客户端
-    ScreenData message{};
-    message.x = frame.rect().x();
-    message.y = frame.rect().y();
-    message.width = frame.rect().width();
-    message.height = frame.rect().height();
-    message.imageType = 0;
-    message.compressionType = 0;
-    message.dataSize = imageData.size();
-    message.imageData = imageData;
-
-    sendMessageToAllClients(MessageType::SCREEN_DATA, message);
+    qCDebug(lcServerManager) << "onWorkerServerStarted(): server started on port" << port;
+    emit serverStarted(port);
 }
 
-void ServerManager::onFrameReady(const QImage &frame)
+void ServerManager::onWorkerServerStopped()
 {
-    // 当有已认证的客户端连接且服务器运行时，发送屏幕数据
-    if (m_isServerRunning && hasAuthenticatedClients()) {
-        sendScreenData(frame);
+    {
+        QMutexLocker lock(&m_stateMutex);
+        m_isServerRunning = false;
+        m_currentPort = 0;
     }
+    qCDebug(lcServerManager) << "onWorkerServerStopped(): server stopped";
+    emit serverStopped();
 }
 
-void ServerManager::onServerStopped()
+void ServerManager::onWorkerServerError(const QString &error)
 {
-    m_stopTimeoutTimer->stop();
-    m_isServerRunning = false;
-    m_currentPort = 0;
-    
-    // 停止屏幕捕获
-    stopScreenCapture();
-    
-    emit serverStatusMessage(tr("服务器已停止"));
-}
-
-void ServerManager::onClientConnected(const QString &clientAddress)
-{
-    emit clientStatusMessage(tr("客户端已连接: %1 (等待认证)").arg(clientAddress));
-    emit clientConnected(clientAddress);
-}
-
-void ServerManager::onClientDisconnected(const QString &clientAddress)
-{
-    emit clientStatusMessage(tr("客户端已断开: %1").arg(clientAddress));
-    
-    // 如果服务器仍在运行但没有其他认证客户端，停止屏幕截取功能
-    if (isServerRunning() && m_screenCapture && m_screenCapture->isCapturing() && !hasAuthenticatedClients()) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Stopping screen capture after last client disconnection";
-        m_screenCapture->stopCapture();
-    }
-    
-    emit clientDisconnected(clientAddress);
-}
-
-void ServerManager::onClientAuthenticated(const QString &clientAddress)
-{
-    emit clientStatusMessage(tr("客户端认证成功: %1").arg(clientAddress));
-    
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Client authenticated:" << clientAddress;
-    
-    // 客户端认证成功后启动屏幕捕获
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Starting screen capture after client authentication...";
-    startScreenCapture();
-    
-    emit clientAuthenticated(clientAddress);
-}
-
-void ServerManager::onServerError(const QString &error)
-{
+    qCDebug(lcServerManager) << "onWorkerServerError():" << error;
     emit serverError(error);
 }
 
-void ServerManager::onNewConnection(qintptr socketDescriptor)
+void ServerManager::onWorkerClientConnected(const QString &clientAddress)
 {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "onNewConnection descriptor:" << socketDescriptor
-                             << "thread:" << QThread::currentThreadId();
-    
-    // 获取当前客户端数量
-    int currentClientCount = clientCount();
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "clients:" << currentClientCount
-                             << "allowMulti:" << m_allowMultipleClients
-                             << "max:" << m_maxClients;
-    
-    // 检查客户端数量限制
-    if (!m_allowMultipleClients && currentClientCount >= 1) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Rejecting connection - multiple clients not allowed";
-        sendConnectionRejectionMessage(socketDescriptor, tr("服务器不允许多个客户端同时连接"));
+    qCDebug(lcServerManager) << "onWorkerClientConnected():" << clientAddress;
+    emit clientConnected(clientAddress);
+}
+
+void ServerManager::onWorkerClientDisconnected(const QString &clientAddress)
+{
+    qCDebug(lcServerManager) << "onWorkerClientDisconnected():" << clientAddress;
+    emit clientDisconnected(clientAddress);
+}
+
+void ServerManager::onWorkerClientAuthenticated(const QString &clientAddress)
+{
+    qCDebug(lcServerManager) << "onWorkerClientAuthenticated():" << clientAddress;
+    emit clientAuthenticated(clientAddress);
+}
+
+void ServerManager::onWorkerMessageReceived(const QString &clientAddress, MessageType type, const QByteArray &message)
+{
+    // 处理从ServerWorker接收到的消息
+    qCDebug(lcServerManager) << "onWorkerMessageReceived(): from" << clientAddress << "type:" << static_cast<int>(type);
+    Q_UNUSED(message);
+}
+
+void ServerManager::setupWorkerConnections()
+{
+    // 注意：这里不能直接连接，因为ServerWorker还没有创建
+    // 连接将在ServerWorker创建后通过ThreadManager建立
+    // 监听ThreadManager的线程启动信号，当ServerWorker线程启动后建立信号连接
+    connect(m_threadManager, &ThreadManager::threadStarted, this, 
+            [this](const QString& threadName) {
+                if (threadName == "ServerWorker") {
+                    // 延迟一点时间确保Worker完全初始化
+                    QTimer::singleShot(50, this, [this]() {
+                        this->connectToServerWorker();
+                    });
+                }
+            }, Qt::QueuedConnection);
+}
+
+void ServerManager::disconnectWorkerSignals()
+{
+    // 断开与ServerWorker的所有信号连接
+    ServerWorker* worker = getServerWorker();
+    if (worker) {
+        disconnect(worker, nullptr, this, nullptr);
+    }
+}
+
+void ServerManager::connectToServerWorker()
+{
+    ServerWorker* worker = getServerWorker();
+    if (!worker) {
+        qCDebug(lcServerManager) << "ServerManager::connectToServerWorker() - Failed to get ServerWorker instance";
         return;
     }
+    qCDebug(lcServerManager) << "ServerManager::connectToServerWorker() - Connecting signals to ServerWorker";
     
-    if (currentClientCount >= m_maxClients) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Rejecting connection - max clients reached:" << m_maxClients;
-        sendConnectionRejectionMessage(socketDescriptor, tr("服务器已达到最大连接数限制 (%1)").arg(m_maxClients));
-        return;
-    }
+    // 连接服务器状态信号
+    connect(worker, &ServerWorker::serverStarted, this, &ServerManager::onWorkerServerStarted, Qt::QueuedConnection);
+    connect(worker, &ServerWorker::serverStopped, this, &ServerManager::onWorkerServerStopped, Qt::QueuedConnection);
+    connect(worker, &ServerWorker::serverError, this, &ServerManager::onWorkerServerError, Qt::QueuedConnection);
     
-    // 创建客户端处理器
-    ClientHandler *handler = new ClientHandler(socketDescriptor, this);
-    // 注入认证摘要策略（阶段C）：同时保持旧路径以兼容
-    if (!m_passwordDigest.isEmpty() && !m_passwordSalt.isEmpty()) {
-        handler->setExpectedPasswordDigest(m_passwordSalt, m_passwordDigest);
-        handler->setPbkdf2Params(100000, 32);
-    }
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "Created ClientHandler for client:" << handler->clientId();
+    // 连接客户端状态信号
+    connect(worker, &ServerWorker::clientConnected, this, &ServerManager::onWorkerClientConnected, Qt::QueuedConnection);
+    connect(worker, &ServerWorker::clientDisconnected, this, &ServerManager::onWorkerClientDisconnected, Qt::QueuedConnection);
+    connect(worker, &ServerWorker::clientAuthenticated, this, &ServerManager::onWorkerClientAuthenticated, Qt::QueuedConnection);
     
-    // 连接信号到 ServerManager
-    connect(handler, &ClientHandler::connected, this, [this, handler]() {
-        onClientConnected(handler->clientAddress());
-    });
-    connect(handler, &ClientHandler::disconnected, this, [this, handler]() {
-        onClientDisconnected(handler->clientAddress());
-        unregisterClientHandler(handler->clientId());
-    });
-    connect(handler, &ClientHandler::authenticated, this, [this, handler]() {
-        onClientAuthenticated(handler->clientAddress());
-    });
-    connect(handler, &ClientHandler::messageReceived, this, [this, handler](MessageType type, const QByteArray &data) {
-        onMessageReceived(handler->clientAddress(), type, data);
-    });
-    connect(handler, &ClientHandler::errorOccurred, this, [this](const QString &error) {
-        onClientError(error);
-    });
+    // 连接消息接收信号
+    connect(worker, &ServerWorker::messageReceived, this, &ServerManager::onWorkerMessageReceived, Qt::QueuedConnection);
     
-    // 注册客户端处理器
-    registerClientHandler(handler);
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcServerManager) << "Client added. Total clients:" << clientCount();
+    qCDebug(lcServerManager) << "ServerManager::connectToServerWorker() - All signals connected successfully";
 }
 
-void ServerManager::onStopTimeout()
+ServerWorker* ServerManager::getServerWorker() const
 {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Server stop timeout, forcing stop";
-    m_isServerRunning = false;
-    emit serverStatusMessage(tr("服务器停止超时，已强制停止"));
-}
-
-void ServerManager::setupServerConnections()
-{
-    if (!m_tcpServer) {
-        return;
+    QMutexLocker lock(&m_workerMutex);
+    
+    const ThreadManager::ThreadInfo* threadInfo = m_threadManager->getThreadInfo("ServerWorker");
+    if (!threadInfo || !threadInfo->worker) {
+        return nullptr;
     }
     
-    connect(m_tcpServer, &TcpServer::serverStopped, this, &ServerManager::onServerStopped);
-    connect(m_tcpServer, &TcpServer::newClientConnection, this, &ServerManager::onNewConnection);
-    connect(m_tcpServer, &TcpServer::errorOccurred, this, &ServerManager::onServerError);
-}
-
-void ServerManager::disconnectServerSignals()
-{
-    if (!m_tcpServer) {
-        return;
-    }
-    
-    disconnect(m_tcpServer, &TcpServer::serverStopped, this, &ServerManager::onServerStopped);
-    disconnect(m_tcpServer, &TcpServer::errorOccurred, this, &ServerManager::onServerError);
-}
-
-void ServerManager::startScreenCapture()
-{
-    if (!m_screenCapture) {
-        m_screenCapture = new ScreenCapture(this);
-        // 设置屏幕捕获连接        
-        connect(m_screenCapture, &ScreenCapture::frameReady, this, &ServerManager::onFrameReady);
-    }
-    if (!m_screenCapture->isCapturing()) {
-        m_screenCapture->setFrameRate(120);
-        m_screenCapture->startCapture();
-    }
-}
-
-void ServerManager::stopScreenCapture()
-{
-    if (m_screenCapture && m_screenCapture->isCapturing()) {
-        m_screenCapture->stopCapture();
-    }
+    return qobject_cast<ServerWorker*>(threadInfo->worker);
 }
 
 // 客户端管理方法实现
 int ServerManager::clientCount() const
 {
-    QMutexLocker locker(&m_clientsMutex);
-    return m_clients.size();
+    ServerWorker* worker = getServerWorker();
+    if (!worker) {
+        return 0;
+    }
+    
+    int count = 0;
+    QMetaObject::invokeMethod(worker, "clientCount", Qt::BlockingQueuedConnection,
+                              Q_RETURN_ARG(int, count));
+    return count;
 }
 
 QStringList ServerManager::connectedClients() const
 {
-    QMutexLocker locker(&m_clientsMutex);
-    return m_clients.keys();
-}
-
-void ServerManager::setMaxClients(int maxClients)
-{
-    m_maxClients = maxClients;
-    m_tcpServer->setMaxPendingConnections(maxClients);
-}
-
-int ServerManager::maxClients() const
-{
-    return m_maxClients;
+    ServerWorker* worker = getServerWorker();
+    if (!worker) {
+        return QStringList();
+    }
+    
+    QStringList clients;
+    QMetaObject::invokeMethod(worker, "connectedClients", Qt::BlockingQueuedConnection,
+                              Q_RETURN_ARG(QStringList, clients));
+    return clients;
 }
 
 void ServerManager::setPassword(const QString &password)
 {
-    m_password = password; // 兼容旧UI读取（调用结束前清空）
-    // 生成盐并计算PBKDF2摘要（迭代次数固定为100000，摘要长度32字节）
-    m_passwordSalt = RandomGenerator::generateSalt(16);
-    m_passwordDigest = HashGenerator::pbkdf2(password.toUtf8(), m_passwordSalt, 100000, 32);
-    // 避免明文口令在内存中长期驻留
-    m_password.fill('\0');
-    m_password.clear();
+    QMutexLocker lock(&m_stateMutex);
+    m_password = password;
+    
+    ServerWorker* worker = getServerWorker();
+    if (worker) {
+        QMetaObject::invokeMethod(worker, "setPassword", Qt::QueuedConnection,
+                                  Q_ARG(QString, password));
+    }
 }
 
 QString ServerManager::password() const
 {
-    // 为避免明文暴露，返回空字符串（旧UI如需显示请另行处理）
-    return QString();
+    QMutexLocker lock(&m_stateMutex);
+    return m_password;
 }
 
-void ServerManager::setAllowMultipleClients(bool allow)
+bool ServerManager::verifyPassword(const QString &password) const
 {
-    m_allowMultipleClients = allow;
-    // 配置现在由 ServerManager 直接管理，不需要传递给 TcpServer
+    ServerWorker* worker = getServerWorker();
+    if (!worker) {
+        return false;
+    }
+    
+    bool verified = false;
+    QMetaObject::invokeMethod(worker, "verifyPassword", Qt::BlockingQueuedConnection,
+                              Q_RETURN_ARG(bool, verified),
+                              Q_ARG(QString, password));
+    return verified;
 }
 
-bool ServerManager::allowMultipleClients() const
+void ServerManager::sendMessageToClient(const QString &clientAddress, MessageType type, const QByteArray &data)
 {
-    return m_allowMultipleClients;
-}
-
-void ServerManager::sendMessageToClient(const QString &clientId, MessageType type, const IMessageCodec &message)
-{
-    QMutexLocker locker(&m_clientsMutex);
-    if (m_clients.contains(clientId)) {
-        ClientHandler *handler = m_clients[clientId];
-        if (handler) {
-            handler->sendMessage(type, message);
-        }
+    ServerWorker* worker = getServerWorker();
+    if (worker) {
+        QMetaObject::invokeMethod(worker, "sendMessageToClient", Qt::QueuedConnection,
+                                  Q_ARG(QString, clientAddress),
+                                  Q_ARG(MessageType, type),
+                                  Q_ARG(QByteArray, data));
     }
 }
 
-void ServerManager::sendMessageToAllClients(MessageType type, const IMessageCodec &message)
+void ServerManager::disconnectClient(const QString &clientAddress)
 {
-    QMutexLocker locker(&m_clientsMutex);
-    // int authenticatedClients = 0;
-    // int totalClients = 0;
-    
-    for (auto it = m_clients.begin(); it != m_clients.end(); ++it) {
-        if (it.value()) {
-            // totalClients++;
-            // 对于屏幕数据，只发送给已认证的客户端
-            if (type == MessageType::SCREEN_DATA) {
-                if (it.value()->isAuthenticated()) {
-                    // authenticatedClients++;
-                    it.value()->sendMessage(type, message);
-                }
-            } else {
-                // 其他类型的消息发送给所有连接的客户端
-                it.value()->sendMessage(type, message);
-            }
-        }
+    ServerWorker* worker = getServerWorker();
+    if (worker) {
+        QMetaObject::invokeMethod(worker, "disconnectClient", Qt::QueuedConnection,
+                                  Q_ARG(QString, clientAddress));
     }
 }
 
-void ServerManager::disconnectClient(const QString &clientId)
-{
-    QMutexLocker locker(&m_clientsMutex);
-    if (m_clients.contains(clientId)) {
-        ClientHandler *handler = m_clients[clientId];
-        if (handler) {
-            handler->disconnectClient();
-        }
-    }
-}
-
-void ServerManager::disconnectAllClients()
-{
-    QMutexLocker locker(&m_clientsMutex);
-    for (auto it = m_clients.begin(); it != m_clients.end(); ++it) {
-        if (it.value()) {
-            it.value()->disconnectClient();
-        }
-    }
-}
-
-void ServerManager::onMessageReceived(const QString &clientAddress, MessageType type, const QByteArray &data)
-{
-    emit messageReceived(clientAddress, type, data);
-}
-
-void ServerManager::onClientError(const QString &error)
-{
-    emit clientStatusMessage(tr("客户端错误: %1").arg(error));
-}
-
-void ServerManager::cleanupDisconnectedClients()
-{
-    QMutexLocker locker(&m_clientsMutex);
-    auto it = m_clients.begin();
-    while (it != m_clients.end()) {
-        if (!it.value() || !it.value()->isConnected()) {
-            if (it.value()) {
-                it.value()->deleteLater();
-            }
-            it = m_clients.erase(it);
-        } else {
-            ++it;
-        }
-    }
-}
-
-ClientHandler* ServerManager::findClientHandler(const QString &clientId)
-{
-    QMutexLocker locker(&m_clientsMutex);
-    return m_clients.value(clientId, nullptr);
-}
-
-QString ServerManager::generateClientId(const QString &address, quint16 port)
-{
-    return QString("%1:%2").arg(address).arg(port);
-}
-
-void ServerManager::registerClientHandler(ClientHandler *handler)
-{
-    if (!handler) return;
+void ServerManager::gracefulShutdown() {
+    qDebug() << "开始优雅关闭ServerManager...";
     
-    QString clientId = generateClientId(handler->clientAddress(), handler->clientPort());
-    QMutexLocker locker(&m_clientsMutex);
-    m_clients[clientId] = handler;
-}
-
-void ServerManager::unregisterClientHandler(const QString &clientId)
-{
-    QMutexLocker locker(&m_clientsMutex);
-    auto it = m_clients.find(clientId);
-    if (it != m_clients.end()) {
-        if (it.value()) {
-            it.value()->deleteLater();
-        }
-        m_clients.erase(it);
-    }
-}
-
-void ServerManager::sendConnectionRejectionMessage(qintptr socketDescriptor, const QString &errorMessage)
-{
-    // 创建临时socket来发送错误消息
-    QTcpSocket *socket = new QTcpSocket();
+    // 设置关闭标志
+    m_shuttingDown = true;
     
-    // 设置socket描述符
-    if (!socket->setSocketDescriptor(socketDescriptor)) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Failed to set socket descriptor for rejection message";
-        socket->deleteLater();
-        return;
-    }
+    // 停止服务器（异步，不等待）
+    stopServer();
     
-    // 创建错误消息
-    ErrorMessage errorMsg;
-    errorMsg.errorCode = 1001; // 连接被拒绝的错误代码
-    
-    // 初始化整个errorText数组为零，避免垃圾数据
-    memset(errorMsg.errorText, 0, sizeof(errorMsg.errorText));
-    
-    QByteArray errorText = errorMessage.toUtf8();
-    int copySize = qMin(errorText.size(), static_cast<int>(sizeof(errorMsg.errorText) - 1));
-    memcpy(errorMsg.errorText, errorText.constData(), copySize);
-    errorMsg.errorText[copySize] = '\0';
-    
-    // 字段级编码错误消息
-   QByteArray message = Protocol::createMessage(MessageType::ERROR_MESSAGE, errorMsg);
-    
-    // 发送错误消息
-    qint64 bytesWritten = socket->write(message);
-    socket->flush();
-    
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcServerManager) << "Sent connection rejection message:" << errorMessage << "bytes written:" << bytesWritten;
-    
-    // 等待更长时间确保数据发送完成后断开连接
-    QTimer::singleShot(500, [socket]() {
-        if (socket->state() == QAbstractSocket::ConnectedState) {
-            socket->disconnectFromHost();
-            // 如果断开连接需要时间，等待一段时间后强制关闭
-            QTimer::singleShot(1000, [socket]() {
-                if (socket->state() != QAbstractSocket::UnconnectedState) {
-                    socket->abort();
-                }
-                socket->deleteLater();
-            });
-        } else {
-            socket->deleteLater();
-        }
-    });
+    // 不等待，立即返回，让程序快速退出
+    qDebug() << "ServerManager优雅关闭完成";
 }

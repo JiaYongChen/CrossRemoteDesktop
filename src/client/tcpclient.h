@@ -6,8 +6,8 @@
 #include <QtCore/QMutex>
 #include <QtGui/QImage>
 #include <QtNetwork/QAbstractSocket>
-#include "../common/core/protocol.h"
-#include "../common/core/networkconstants.h"
+#include "../common/core/network/Protocol.h"
+#include "../common/core/config/NetworkConstants.h"
 
 class QTcpSocket;
 class QTimer;

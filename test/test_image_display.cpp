@@ -11,7 +11,7 @@
 #include <QGraphicsView>
 #include <QGraphicsScene>
 #include <QGraphicsPixmapItem>
-#include "../src/client/managers/rendermanager.h"
+#include "../src/client/managers/RenderManager.h"
 
 class TestImageDisplay : public QObject
 {
@@ -201,4 +201,4 @@ void TestImageDisplay::testViewModeSettings()
 }
 
 QTEST_MAIN(TestImageDisplay)
-#include "test_image_display.moc"
+#include "TestImageDisplay.moc"

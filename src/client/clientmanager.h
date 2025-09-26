@@ -7,8 +7,8 @@
 #include <QtCore/QStringList>
 #include <QtCore/QPointer>
 #include <QtGui/QPixmap>
-#include "./managers/connectionmanager.h"
-#include "clientremotewindow.h"
+#include "./managers/ConnectionManager.h"
+#include "ClientRemoteWindow.h"
 
 class SessionManager;
 class QSettings;

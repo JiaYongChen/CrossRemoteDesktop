@@ -1,15 +1,13 @@
-#include "clienthandler.h"
+#include "ClientHandler.h"
 #include <QtNetwork/QTcpSocket>
 #include <QtCore/QTimer>
-#include "inputsimulator.h"
-#include "../common/core/protocol.h"
-#include "../common/core/encryption.h"
-#include "../common/core/networkconstants.h"
-#include <QtNetwork/QTcpSocket>
-#include <QtCore/QTimer>
+#include "InputSimulator.h"
+#include "../common/core/network/Protocol.h"
+#include "../common/core/crypto/Encryption.h"
+#include "../common/core/config/NetworkConstants.h"
 #include <QtCore/QDateTime>
 #include <QtCore/QDebug>
-#include "../common/core/logging_categories.h"
+#include "../common/core/logging/LoggingCategories.h"
 #include <QtCore/QDataStream>
 #include <QtCore/QBuffer>
 #include <QtCore/QCryptographicHash>
@@ -300,28 +298,40 @@ void ClientHandler::checkHeartbeat()
 
 void ClientHandler::processMessage(const MessageHeader &header, const QByteArray &payload)
 {
-    switch (header.type) {
-        case MessageType::HANDSHAKE_REQUEST:
-            handleHandshakeRequest(payload);
-            break;
-        case MessageType::AUTHENTICATION_REQUEST:
-            handleAuthenticationRequest(payload);
-            break;
-        case MessageType::HEARTBEAT:
-            handleHeartbeat();
-            break;
-        case MessageType::MOUSE_EVENT:
-            handleMouseEvent(payload);
-            break;
-        case MessageType::KEYBOARD_EVENT:
-            handleKeyboardEvent(payload);
-            break;
-        case MessageType::DISCONNECT_REQUEST:
-            handleDisconnectRequest();
-            break;
-        default:
-            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Unhandled message type:" << static_cast<quint32>(header.type);
-            break;
+    try {
+        switch (header.type) {
+            case MessageType::HANDSHAKE_REQUEST:
+                handleHandshakeRequest(payload);
+                break;
+            case MessageType::AUTHENTICATION_REQUEST:
+                handleAuthenticationRequest(payload);
+                break;
+            case MessageType::HEARTBEAT:
+                handleHeartbeat();
+                break;
+            case MessageType::MOUSE_EVENT:
+                handleMouseEvent(payload);
+                break;
+            case MessageType::KEYBOARD_EVENT:
+                handleKeyboardEvent(payload);
+                break;
+            case MessageType::DISCONNECT_REQUEST:
+                handleDisconnectRequest();
+                break;
+            default:
+                QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcServerManager) << "Unhandled message type:" << static_cast<quint32>(header.type);
+                break;
+        }
+    } catch (const std::exception& e) {
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).critical(lcServerManager) 
+            << "Exception in processMessage for client" << m_clientId << ":" << e.what();
+        emit errorOccurred(QString("Message processing exception: %1").arg(e.what()));
+        // 不断开连接，只记录错误
+    } catch (...) {
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).critical(lcServerManager) 
+            << "Unknown exception in processMessage for client" << m_clientId;
+        emit errorOccurred("Unknown message processing exception");
+        // 不断开连接，只记录错误
     }
 }
 

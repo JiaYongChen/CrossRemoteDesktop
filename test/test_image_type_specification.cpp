@@ -1,10 +1,10 @@
 #include <QtTest/QtTest>
 #include <QtGui/QImage>
 #include <QtCore/QBuffer>
-#include "../src/common/core/protocol.h"
-#include "../src/common/core/compression.h"
-#include "../src/client/tcpclient.h"
-#include "../src/server/servermanager.h"
+#include "../src/common/core/network/Protocol.h"
+#include "../src/common/core/compression/Compression.h"
+#include "../src/client/TcpClient.h"
+#include "../src/server/ServerManager.h"
 
 class TestImageTypeSpecification : public QObject
 {
@@ -190,4 +190,4 @@ void TestImageTypeSpecification::cleanupTestCase()
 }
 
 QTEST_MAIN(TestImageTypeSpecification)
-#include "test_image_type_specification.moc"
+#include "TestImageTypeSpecification.moc"

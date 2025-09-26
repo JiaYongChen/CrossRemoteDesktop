@@ -1,6 +1,6 @@
 #include <QtTest/QtTest>
 #include <QtCore/QDebug>
-#include "../src/common/core/compression.h"
+#include "../src/common/core/compression/Compression.h"
 
 class TestCompressionBench : public QObject {
     Q_OBJECT
@@ -25,4 +25,4 @@ void TestCompressionBench::bench_all_algorithms()
 }
 
 QTEST_MAIN(TestCompressionBench)
-#include "test_compression_bench.moc"
+#include "TestCompressionBench.moc"

@@ -40,6 +40,9 @@ build-tests
 build-noopt
 docs
 debug
+Release
+logs
+script
 
 #files
 需求文档.md

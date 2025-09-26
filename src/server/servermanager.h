@@ -7,15 +7,18 @@
 #include <QtCore/QStringList>
 #include <QtCore/QElapsedTimer>
 #include <QtGui/QImage>
-#include "../common/core/protocol.h"
+#include "../common/core/network/Protocol.h"
 
-class TcpServer;
-class ScreenCapture;
-class QSystemTrayIcon;
-class QTimer;
-class ClientHandler;
+class ServerWorker;
+class ThreadManager;
 class IMessageCodec;
 
+/**
+ * @brief 服务器管理器类（线程代理）
+ * 
+ * 作为服务器工作线程的代理，提供线程安全的服务器管理接口。
+ * 所有服务器操作都通过ServerWorker在独立线程中执行。
+ */
 class ServerManager : public QObject
 {
     Q_OBJECT
@@ -25,16 +28,18 @@ public:
     ~ServerManager();
     
     // 服务器控制
-    bool startServer();
-    void stopServer(bool synchronous = false);
+    bool startServer(quint16 port, const QString &password = QString());
+    void stopServer();
+    void gracefulShutdown();
+    bool isRunning() const;
+    quint16 getPort() const;
     bool isServerRunning() const;
     quint16 getCurrentPort() const;
     
-    // 屏幕捕获管理
-    ScreenCapture* getScreenCapture() const;
-    void applyScreenCaptureSettings();
-    
     // 客户端状态查询
+    int getConnectedClientCount() const;
+    QStringList getConnectedClients() const;
+    bool isClientConnected(const QString &clientAddress) const;
     bool hasConnectedClients() const;
     bool hasAuthenticatedClients() const;
     
@@ -42,101 +47,70 @@ public:
     int clientCount() const;
     QStringList connectedClients() const;
     
-    // 客户端配置
-    void setMaxClients(int maxClients);
-    int maxClients() const;
-    // 阶段C：不再存储明文密码，对外提供设置口令的API，但内部保存盐+摘要
+    // 密码管理
     void setPassword(const QString &password);
-    QString password() const; // 为兼容旧UI，暂时保留读取接口（后续移除）；返回空或掩码
-    void setAllowMultipleClients(bool allow);
-    bool allowMultipleClients() const;
+    QString password() const;
+    bool verifyPassword(const QString &password) const;
     
-    // 数据发送
-    void sendScreenData(const QImage &frame);
+    // 消息发送
+    void sendMessageToClient(const QString &clientAddress, MessageType type, const QByteArray &data);
     
-    // 客户端管理
-    void sendMessageToClient(const QString &clientId, MessageType type, const IMessageCodec &message);
-    void sendMessageToAllClients(MessageType type, const IMessageCodec &message);
-    
-    // 断开连接
-    void disconnectClient(const QString &clientId);
-    void disconnectAllClients();
-    
-    // 连接拒绝处理
-    void sendConnectionRejectionMessage(qintptr socketDescriptor, const QString &errorMessage);
+    // 客户端断开
+    void disconnectClient(const QString &clientAddress);
     
 signals:
     // 服务器状态信号
-    void serverStarted(quint16 port);  // 服务器启动成功信号，包含端口号
-    void serverStopped();
-    void serverError(const QString &error);
+    void serverStarted(quint16 port);  ///< 服务器启动成功信号
+    void serverStopped();              ///< 服务器停止信号
+    void serverError(const QString &error); ///< 服务器错误信号
     
-    // 客户端连接信号
-    void clientConnected(const QString &clientAddress);
-    void clientDisconnected(const QString &clientAddress);
-    void clientAuthenticated(const QString &clientAddress);
-    
-    // 客户端消息信号
-    void messageReceived(const QString &clientAddress, MessageType type, const QByteArray &data);
-    
-    // 服务器状态消息信号
-    void serverStatusMessage(const QString &message);
-    
-    // 客户端连接状态消息信号
-    void clientStatusMessage(const QString &message);
+    // 客户端状态信号
+    void clientConnected(const QString &clientAddress);    ///< 客户端连接信号
+    void clientDisconnected(const QString &clientAddress); ///< 客户端断开信号
+    void clientAuthenticated(const QString &clientAddress); ///< 客户端认证信号
     
 private slots:
-    void onServerStopped();
-    void onNewConnection(qintptr socketDescriptor);
-    void onClientConnected(const QString &clientAddress);
-    void onClientDisconnected(const QString &clientAddress);
-    void onClientAuthenticated(const QString &clientAddress);
-    void onMessageReceived(const QString &clientAddress, MessageType type, const QByteArray &data);
-    void onClientError(const QString &error);
-    void onServerError(const QString &error);
-    void onStopTimeout();
-    
-    // 客户端管理槽函数
-    void cleanupDisconnectedClients();
-    
-    // 屏幕捕获相关槽函数
-    void onFrameReady(const QImage &frame);
+    // 从ServerWorker转发的信号处理
+    void onWorkerServerStarted(quint16 port);
+    void onWorkerServerStopped();
+    void onWorkerServerError(const QString &error);
+    void onWorkerClientConnected(const QString &clientAddress);
+    void onWorkerClientDisconnected(const QString &clientAddress);
+    void onWorkerClientAuthenticated(const QString &clientAddress);
+    void onWorkerMessageReceived(const QString &clientAddress, MessageType type, const QByteArray &message);
     
 private:
-    void setupServerConnections();
-    void disconnectServerSignals();
-    void startScreenCapture();
-    void stopScreenCapture();
+    /**
+     * @brief 设置与ServerWorker的信号连接
+     */
+    void setupWorkerConnections();
     
-    // 客户端管理辅助方法
-    ClientHandler* findClientHandler(const QString &clientId);
-    QString generateClientId(const QString &address, quint16 port);
-    void registerClientHandler(ClientHandler *handler);
-    void unregisterClientHandler(const QString &clientId);
+    /**
+     * @brief 断开与ServerWorker的信号连接
+     */
+    void disconnectWorkerSignals();
     
-    // 网络组件
-    TcpServer *m_tcpServer;
-    ScreenCapture *m_screenCapture;
+    /**
+     * @brief 连接到ServerWorker的信号
+     */
+    void connectToServerWorker();
     
-    // 定时器
-    QTimer *m_stopTimeoutTimer;
-    QTimer *m_cleanupTimer;
+    /**
+     * @brief 获取ServerWorker实例
+     * @return ServerWorker指针
+     */
+    ServerWorker* getServerWorker() const;
+
+private:
+    ThreadManager* m_threadManager;     ///< 线程管理器
+    std::atomic<bool> m_shuttingDown{false};
+    mutable QMutex m_workerMutex;       ///< 工作线程互斥锁
     
-    // 状态变量
-    bool m_isServerRunning;
-    quint16 m_currentPort;
-    
-    // 客户端管理
-    QHash<QString, ClientHandler*> m_clients;
-    mutable QMutex m_clientsMutex;
-    
-    // 配置
-    int m_maxClients;
-    // 阶段C：改为摘要策略（PBKDF2-SHA256），不再持久保存明文
-    QString m_password; // 已弃用：仅为旧UI过渡；不再对外返回明文
-    QByteArray m_passwordSalt;
-    QByteArray m_passwordDigest; // PBKDF2 派生的摘要
-    bool m_allowMultipleClients;
+    // 缓存的状态信息（用于线程安全访问）
+    mutable QMutex m_stateMutex;        ///< 状态互斥锁
+    bool m_isServerRunning;             ///< 服务器运行状态
+    quint16 m_currentPort;              ///< 当前端口
+    QString m_password;                 ///< 密码（兼容性保留）
 };
 
 #endif // SERVERMANAGER_H

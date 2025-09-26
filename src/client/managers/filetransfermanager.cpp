@@ -1,4 +1,4 @@
-#include "filetransfermanager.h"
+#include "FileTransferManager.h"
 #include <QtWidgets/QWidget>
 #include <QtGui/QDragEnterEvent>
 #include <QtGui/QDropEvent>

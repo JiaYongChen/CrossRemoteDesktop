@@ -1,8 +1,10 @@
-#include "rendermanager.h"
+#include "RenderManager.h"
 #include <QtWidgets/QGraphicsScene>
 #include <QtWidgets/QGraphicsPixmapItem>
 #include <QtWidgets/QGraphicsView>
+#ifndef QT_NO_OPENGL
 #include <QtOpenGLWidgets/QOpenGLWidget>
+#endif
 #include <QtCore/QTimer>
 #include <QtCore/QDebug>
 #include <QtGui/QPainter>
@@ -336,6 +338,7 @@ void RenderManager::enableOpenGL(bool enable)
         return;
     }
     
+#ifndef QT_NO_OPENGL
     if (enable) {
         QOpenGLWidget *openGLWidget = new QOpenGLWidget();
         m_graphicsView->setViewport(openGLWidget);
@@ -344,6 +347,12 @@ void RenderManager::enableOpenGL(bool enable)
         m_graphicsView->setViewport(new QWidget());
         qDebug() << "RenderManager: OpenGL rendering disabled";
     }
+#else
+    // OpenGL is disabled, always use software rendering
+    m_graphicsView->setViewport(new QWidget());
+    qDebug() << "RenderManager: OpenGL disabled at compile time, using software rendering";
+    Q_UNUSED(enable)
+#endif
 }
 
 void RenderManager::setUpdateMode(QGraphicsView::ViewportUpdateMode mode)

@@ -4,8 +4,8 @@
 #include <QtGui/QPixmap>
 #include <QtCore/QBuffer>
 #include <QtCore/QDebug>
-#include "../src/common/core/protocol.h"
-#include "../src/common/core/logging_categories.h"
+#include "../src/common/core/network/Protocol.h"
+#include "../src/common/core/logging/LoggingCategories.h"
 
 /**
  * @brief 测试屏幕数据传输的编码和解码功能
@@ -297,4 +297,4 @@ QByteArray TestScreenDataTransmission::encodeImage(const QImage &image, const ch
 }
 
 QTEST_MAIN(TestScreenDataTransmission)
-#include "test_screen_data_transmission.moc"
+#include "TestScreenDataTransmission.moc"

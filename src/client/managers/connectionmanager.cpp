@@ -1,9 +1,9 @@
-#include "connectionmanager.h"
+#include "ConnectionManager.h"
 #include <QtCore/QDebug>
-#include "../../common/core/logging_categories.h"
+#include "../../common/core/logging/LoggingCategories.h"
 #include <QtCore/QMessageLogger>
 #include <QtCore/QTimer>
-#include "../tcpclient.h"
+#include "../TcpClient.h"
 
 ConnectionManager::ConnectionManager(QObject *parent)
     : QObject(parent)

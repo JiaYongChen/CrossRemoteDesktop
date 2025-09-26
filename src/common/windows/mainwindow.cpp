@@ -1,12 +1,11 @@
-#include "mainwindow.h"
-#include "connectiondialog.h"
-#include "settingsdialog.h"
-#include "../../server/servermanager.h"
-#include "../../client/clientmanager.h"
-#include "../core/logger.h"
-#include "../core/uiconstants.h"
-#include "../core/messageconstants.h"
-#include "../core/logging_categories.h"
+#include "MainWindow.h"
+#include "ConnectionDialog.h"
+#include "SettingsDialog.h"
+#include "../../server/ServerManager.h"
+#include "../../client/ClientManager.h"
+#include "../core/config/UiConstants.h"
+#include "../core/config/MessageConstants.h"
+#include "../core/logging/LoggingCategories.h"
 
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QMessageBox>
@@ -34,6 +33,7 @@
 #include <QtCore/QSettings>
 #include <QtCore/QStandardPaths>
 #include <QtCore/QDir>
+#include <QtCore/QThread>
 #include <QtGui/QIcon>
 #include <QtGui/QPixmap>
 #include <QtGui/QCloseEvent>
@@ -85,20 +85,35 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {    
-    // 断开所有客户端连接（使用abort避免析构时阻塞）
-    if (m_clientManager && m_clientManager->hasActiveConnections()) {
-            m_clientManager->disconnectAll();
-    }
+    qCInfo(lcUI, "MainWindow::~MainWindow() - 开始析构");
     
-    // 先断开ServerManager的信号连接，避免析构时信号槽问题
+    // 在析构函数中进行最后的资源清理
+    // 注意：此时不应该再调用可能触发信号的方法
+    
+    // 1. 断开所有信号连接，防止在析构过程中触发信号
     if (m_serverManager) {
         disconnect(m_serverManager, nullptr, this, nullptr);
-        
-        // 停止服务器（同步方式，避免析构时卡死）
-        if (m_serverManager->isServerRunning()) {
-            m_serverManager->stopServer(true); // 强制同步停止
-        }
     }
+    
+    if (m_clientManager) {
+        disconnect(m_clientManager, nullptr, this, nullptr);
+    }
+    
+    // 2. 清理系统托盘图标
+    if (m_trayIcon) {
+        m_trayIcon->hide();
+    }
+    
+    // 3. 清理对话框
+    if (m_connectionDialog) {
+        m_connectionDialog->close();
+    }
+    
+    if (m_settingsDialog) {
+        m_settingsDialog->close();
+    }
+    
+    qCInfo(lcUI, "MainWindow::~MainWindow() - 析构完成");
 }
 
 void MainWindow::createActions()
@@ -356,15 +371,26 @@ void MainWindow::setupConnections()
         connect(connectButton, &QPushButton::clicked, this, &MainWindow::connectToHost);
     }
     if (serverButton) {
+        // 初始状态连接到startServer
         connect(serverButton, &QPushButton::clicked, this, &MainWindow::startServer);
+        // 设置初始状态
+        serverButton->setText(tr("启动服务器"));
+        serverButton->setProperty("serverRunning", false);
     }
     
     // ServerManager信号连接
     if (m_serverManager) {
         connect(m_serverManager, &ServerManager::serverStarted, this, &MainWindow::onServerStarted);
+        connect(m_serverManager, &ServerManager::serverStopped, this, &MainWindow::onServerStopped);
         connect(m_serverManager, &ServerManager::serverError, this, &MainWindow::onServerError);
-        connect(m_serverManager, &ServerManager::serverStatusMessage, this, &MainWindow::updateServerStatus);
-        connect(m_serverManager, &ServerManager::clientStatusMessage, this, &MainWindow::updateConnectionStatus);
+
+        // 连接ServerManager的信号
+        connect(m_serverManager, &ServerManager::clientConnected,
+                this, &MainWindow::onClientConnected);
+        connect(m_serverManager, &ServerManager::clientDisconnected,
+                this, &MainWindow::onClientDisconnected);
+        connect(m_serverManager, &ServerManager::clientAuthenticated,
+                this, &MainWindow::onClientAuthenticated);
     }
     
     // ClientManager信号连接
@@ -422,47 +448,40 @@ void MainWindow::saveSettings()
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
-    // 在窗口关闭前立即保存设置，避免在析构过程中调用Qt方法
+    qCInfo(lcUI, "MainWindow::closeEvent() - 开始关闭窗口");
+    
+    // 快速保存设置
     if (m_settings) {
         try {
-            // 保存窗口几何形状
             m_settings->setValue("geometry", QWidget::saveGeometry());
             m_settings->setValue("windowState", saveState());
-            
-            // 保存分割器状态
             if (m_mainSplitter) {
                 m_settings->setValue("splitterState", m_mainSplitter->saveState());
             }
-            
-            // 保存历史连接记录
             saveConnectionHistory();
-            
             m_settings->sync();
+            qCInfo(lcUI, "设置已保存");
         } catch (...) {
-            // 忽略保存过程中的异常
+            qCWarning(lcUI, "保存设置时发生异常");
         }
     }
     
-    // 立即接受关闭事件
+    // 断开所有信号连接，防止在退出过程中触发回调
+    if (m_serverManager) {
+        disconnect(m_serverManager, nullptr, this, nullptr);
+    }
+    if (m_clientManager) {
+        disconnect(m_clientManager, nullptr, this, nullptr);
+    }
+    
+    // 接受关闭事件
     event->accept();
     
-    // 异步处理清理工作，避免阻塞
-    QTimer::singleShot(0, this, [this]() {
-        // 断开所有客户端连接
-        if (m_clientManager) {
-        m_clientManager->disconnectAll();
-        }
-        
-        // 如果服务器正在运行，异步停止
-        if (m_serverManager) {
-            m_serverManager->stopServer();
-        }
-        
-        // 延迟退出，确保服务器完全停止
-        QTimer::singleShot(200, []() {
-            QApplication::quit();
-        });
-    });
+    qCInfo(lcUI, "MainWindow::closeEvent() - 窗口关闭完成");
+    
+    // 立即强制退出应用程序，不等待任何清理
+    qCInfo(lcUI, "应用程序即将强制退出");
+    QCoreApplication::exit(0);
 }
 
 void MainWindow::changeEvent(QEvent *event)
@@ -521,8 +540,8 @@ void MainWindow::startServer()
         return;
     }
     
-    // 使用ServerManager启动服务器
-    m_serverManager->startServer();
+    // 使用ServerManager启动服务器（使用默认端口，避免与系统VNC冲突）
+    m_serverManager->startServer(UIConstants::DEFAULT_SERVER_PORT);
 }
 
 void MainWindow::stopServer()
@@ -646,11 +665,38 @@ void MainWindow::onServerStarted(quint16 port)
 {
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcApp) << "MainWindow::onServerStarted() called with port:" << port;
     updateServerStatus(tr("服务器启动成功，端口: %1").arg(port));
+    
+    // 更新服务器按钮状态
+    QPushButton *serverButton = findChild<QPushButton*>("serverButton");
+    if (serverButton) {
+        serverButton->setText(tr("停止服务器"));
+        serverButton->setProperty("serverRunning", true);
+        // 断开之前的连接，重新连接到stopServer
+        disconnect(serverButton, &QPushButton::clicked, this, &MainWindow::startServer);
+        connect(serverButton, &QPushButton::clicked, this, &MainWindow::stopServer);
+    }
+    
     // 在UI层保存成功启动的端口到设置
     if (m_settings) {
         m_settings->setValue("Connection/defaultPort", port);
         m_settings->setValue("server/port", port);
         m_settings->sync();  // 立即同步到磁盘
+    }
+}
+
+void MainWindow::onServerStopped()
+{
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcApp) << "MainWindow::onServerStopped() called";
+    updateServerStatus(tr("服务器已停止"));
+    
+    // 更新服务器按钮状态
+    QPushButton *serverButton = findChild<QPushButton*>("serverButton");
+    if (serverButton) {
+        serverButton->setText(tr("启动服务器"));
+        serverButton->setProperty("serverRunning", false);
+        // 断开之前的连接，重新连接到startServer
+        disconnect(serverButton, &QPushButton::clicked, this, &MainWindow::stopServer);
+        connect(serverButton, &QPushButton::clicked, this, &MainWindow::startServer);
     }
 }
 
@@ -663,6 +709,24 @@ void MainWindow::onServerError(const QString &error)
     msgBox.setText(error);
     msgBox.setStandardButtons(QMessageBox::Ok);
     msgBox.exec();
+}
+
+void MainWindow::onClientConnected(const QString &clientId)
+{
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcApp) << "MainWindow::onClientConnected() called with clientId:" << clientId;
+    updateConnectionStatus(tr("客户端已连接: %1").arg(clientId));
+}
+
+void MainWindow::onClientDisconnected(const QString &clientId)
+{
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcApp) << "MainWindow::onClientDisconnected() called with clientId:" << clientId;
+    updateConnectionStatus(tr("客户端已断开: %1").arg(clientId));
+}
+
+void MainWindow::onClientAuthenticated(const QString &clientId)
+{
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcApp) << "MainWindow::onClientAuthenticated() called with clientId:" << clientId;
+    updateConnectionStatus(tr("客户端已认证: %1").arg(clientId));
 }
 
 void MainWindow::iconActivated(QSystemTrayIcon::ActivationReason reason)
@@ -896,14 +960,14 @@ void MainWindow::setClientMode(bool clientMode)
             m_serverManager->stopServer();
         }
         
-        LOG_INFO("Application set to client mode");
+        qCInfo(lcUI, "Application set to client mode");
     } else {
         // 服务器模式：正常启动服务器
         setWindowTitle(tr("Qt远程桌面"));
-        LOG_INFO("Application set to server mode");
+        qCInfo(lcUI, "Application set to server mode");
         
         // 延迟启动服务器
-        QTimer::singleShot(1000, this, &MainWindow::startServer);
+        QTimer::singleShot(500, this, &MainWindow::startServer);
     }
 }
 

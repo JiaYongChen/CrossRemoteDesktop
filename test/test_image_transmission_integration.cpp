@@ -5,8 +5,8 @@
 #include <QtCore/QBuffer>
 #include <QtCore/QDebug>
 #include <QtCore/QDateTime>
-#include "../src/common/core/protocol.h"
-#include "../src/common/core/logging_categories.h"
+#include "../src/common/core/network/Protocol.h"
+#include "../src/common/core/logging/LoggingCategories.h"
 
 // 确保常量定义可用
 #ifndef PROTOCOL_MAGIC
@@ -338,4 +338,4 @@ QByteArray TestImageTransmissionIntegration::createScreenDataMessage(const Scree
 }
 
 QTEST_MAIN(TestImageTransmissionIntegration)
-#include "test_image_transmission_integration.moc"
+#include "TestImageTransmissionIntegration.moc"

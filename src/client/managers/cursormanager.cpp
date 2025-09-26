@@ -1,4 +1,4 @@
-#include "cursormanager.h"
+#include "CursorManager.h"
 #include <QtWidgets/QGraphicsScene>
 #include <QtWidgets/QGraphicsRectItem>
 #include <QtGui/QPainter>

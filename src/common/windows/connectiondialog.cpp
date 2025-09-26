@@ -1,8 +1,8 @@
-#include "connectiondialog.h"
-#include "ui_connectiondialog.h"
-#include "../../client/tcpclient.h"
-#include "../core/uiconstants.h"
-#include "../core/messageconstants.h"
+#include "ConnectionDialog.h"
+#include "ui_ConnectionDialog.h"
+#include "../../client/TcpClient.h"
+#include "../core/config/UiConstants.h"
+#include "../core/config/MessageConstants.h"
 #include <algorithm>
 #include <QtWidgets/QMessageBox>
 #include <QtCore/QSettings>
@@ -11,7 +11,6 @@
 #include <QtGui/QIntValidator>
 #include <QtCore/QTimer>
 #include <QtWidgets/QProgressDialog>
-#include <algorithm>
 
 ConnectionDialog::ConnectionDialog(QWidget *parent)
     : QDialog(parent)
@@ -68,7 +67,6 @@ void ConnectionDialog::setupConnections()
     connect(ui->testConnectionButton, &QPushButton::clicked, this, &ConnectionDialog::onTestConnectionClicked);
     connect(ui->buttonBox, &QDialogButtonBox::accepted, this, &ConnectionDialog::accept);
     connect(ui->buttonBox, &QDialogButtonBox::rejected, this, &ConnectionDialog::reject);
-    
 
 }
 
@@ -126,7 +124,6 @@ void ConnectionDialog::loadSettings()
             ui->savePasswordCheckBox->setChecked(m_settings->value("Connection/savePassword", false).toBool());
         }
     }
-    
 
 }
 
@@ -158,7 +155,6 @@ void ConnectionDialog::saveSettings()
         m_settings->setValue("Connection/savePassword", false);
         m_settings->remove("Connection/lastPassword");
     }
-    
 
 }
 

@@ -11,16 +11,16 @@
 
 // 平台特定包含
 #ifdef Q_OS_WIN
-#include <windows.h>
+#include <Windows.h>
 #endif
 
 #ifdef Q_OS_MACOS
-#include <ApplicationServices/ApplicationServices.h>
+#include <ApplicationServices/Applicationservices.h>
 #endif
 
 #ifdef Q_OS_LINUX
 #include <X11/Xlib.h>
-#include <X11/extensions/XTest.h>
+#include <X11/extensions/Xtest.h>
 #endif
 
 class InputSimulator : public QObject

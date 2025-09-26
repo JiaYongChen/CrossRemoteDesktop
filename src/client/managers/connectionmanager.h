@@ -4,7 +4,7 @@
 #include <QtCore/QObject>
 #include <QtCore/QString>
 #include <functional>
-#include "../../common/core/networkconstants.h"
+#include "../../common/core/config/NetworkConstants.h"
 
 class QTimer;
 class TcpClient;

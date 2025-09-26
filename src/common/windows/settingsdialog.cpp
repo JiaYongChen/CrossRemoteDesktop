@@ -1,5 +1,5 @@
-#include "settingsdialog.h"
-#include "ui_settingsdialog.h"
+#include "SettingsDialog.h"
+#include "ui_SettingsDialog.h"
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QFileDialog>
 #include <QtWidgets/QPushButton>
@@ -29,8 +29,8 @@
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
 #include <QtCore/QCryptographicHash>
-#include "common/core/config.h"
-#include "common/core/logger.h"
+#include "common/core/config/Config.h"
+#include "common/core/logging/LoggingCategories.h"
 
 SettingsDialog::SettingsDialog(QWidget *parent)
     : QDialog(parent)
@@ -263,7 +263,6 @@ void SettingsDialog::setupAdvancedPageComponents()
     m_loggingRulesEdit = findChild<QTextEdit*>("logRulesTextEdit");
     // m_browseLogPathButton = ui->browseLogPathButton;  // Component not found in UI
 
-    
     // 这些组件在UI文件中可能没有定义，设置为nullptr
     m_logFilePathEdit = nullptr;
     m_maxLogFileSizeSpinBox = nullptr;
@@ -660,10 +659,10 @@ void SettingsDialog::applySettings()
     const QByteArray envRules = qgetenv("QT_LOGGING_RULES");
     if (envRules.isEmpty()) {
         if (!m_advancedSettings.loggingRules.trimmed().isEmpty()) {
-            Logger::applyQtLoggingRules(m_advancedSettings.loggingRules);
+            QLoggingCategory::setFilterRules(m_advancedSettings.loggingRules);
         }
     }
-    Logger::instance()->setLogLevel(Logger::stringToLevel(m_advancedSettings.loggingLevel));
+    // 注意：QLoggingCategory不支持动态设置日志级别，需要通过环境变量或过滤规则设置
 }
 
 void SettingsDialog::resetToDefaults()

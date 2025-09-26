@@ -1,5 +1,5 @@
-#include "inputsimulator.h"
-#include "../common/core/constants.h"
+#include "InputSimulator.h"
+#include "../common/core/config/Constants.h"
 #include <QtWidgets/QApplication>
 #include <QtCore/QTimer>
 #include <QtCore/QThread>
@@ -9,17 +9,17 @@
 #include <QtGui/QCursor>
 
 #ifdef Q_OS_WIN
-#include <windows.h>
-#include <winuser.h>
+#include <Windows.h>
+#include <Winuser.h>
 #elif defined(Q_OS_MACOS)
-#include <ApplicationServices/ApplicationServices.h>
+#include <ApplicationServices/Applicationservices.h>
 #include <Carbon/Carbon.h>
 #elif defined(Q_OS_LINUX)
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
-#include <X11/extensions/XTest.h>
-#include <X11/keysym.h>
-#include <X11/XKBlib.h>
+#include <X11/extensions/Xtest.h>
+#include <X11/Keysym.h>
+#include <X11/Xkblib.h>
 #endif
 
 InputSimulator::InputSimulator(QObject *parent)
@@ -27,9 +27,9 @@ InputSimulator::InputSimulator(QObject *parent)
     , m_initialized(false)
     , m_enabled(true)
     , m_batchMode(false)
-    , m_mouseSpeed(CoreConstants::DEFAULT_MOUSE_SPEED)
-    , m_keyboardDelay(CoreConstants::DEFAULT_KEYBOARD_DELAY)
-    , m_mouseDelay(CoreConstants::DEFAULT_MOUSE_DELAY)
+    , m_mouseSpeed(CoreConstants::Input::DEFAULT_MOUSE_SPEED)
+    , m_keyboardDelay(CoreConstants::Input::DEFAULT_KEYBOARD_DELAY)
+    , m_mouseDelay(CoreConstants::Input::DEFAULT_MOUSE_DELAY)
 #ifdef Q_OS_LINUX
     , m_display(nullptr)
 #endif
@@ -522,7 +522,7 @@ bool InputSimulator::isValidCoordinate(int x, int y) const
 
 bool InputSimulator::isValidKey(int key) const
 {
-    return key > 0 && key <= CoreConstants::MAX_KEY_VALUE;
+    return key > 0 && key <= CoreConstants::Input::MAX_KEY_VALUE;
 }
 
 QPoint InputSimulator::transformCoordinates(const QPoint &point) const

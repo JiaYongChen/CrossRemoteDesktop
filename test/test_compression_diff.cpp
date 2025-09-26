@@ -2,7 +2,7 @@
 #include <QtCore/QRandomGenerator>
 #include <QtCore/QByteArray>
 
-#include "../src/common/core/compression.h"
+#include "../src/common/core/compression/Compression.h"
 
 static QByteArray makeRandom(int size, quint32 seed)
 {
@@ -100,4 +100,4 @@ void TestCompressionDiff::fallback_to_full_data_when_diff_bigger()
 }
 
 QTEST_MAIN(TestCompressionDiff)
-#include "test_compression_diff.moc"
+#include "TestCompressionDiff.moc"

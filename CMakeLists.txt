@@ -5,12 +5,307 @@ project(QtRemoteDesktop VERSION 1.0.0 LANGUAGES CXX)
 option(ENABLE_LZ4 "Enable optional LZ4 compression" ON)
 option(ENABLE_ZSTD "Enable optional Zstandard compression" ON)
 
-
 # 设置C++标准
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# 查找Qt6组件
+# [跨平台Qt6自动检测与配置]
+# 说明：
+# 1) 自动检测操作系统类型（Windows/Linux/macOS）和处理器架构（x86/x64/ARM）
+# 2) 根据平台特性配置Qt6库路径、OpenSSL路径等依赖项
+# 3) 支持多种Qt6安装方式：官方安装器、包管理器（Homebrew/vcpkg/apt等）、手动编译
+# 4) 确保架构一致性，避免混合不同架构的库文件
+
+# 检测操作系统和架构信息
+if(WIN32)
+    set(PLATFORM_NAME "Windows")
+    # Windows架构检测
+    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+        set(PLATFORM_ARCH "x64")
+    else()
+        set(PLATFORM_ARCH "x86")
+    endif()
+    # 检测ARM64 Windows
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|aarch64")
+        set(PLATFORM_ARCH "ARM64")
+    endif()
+elseif(APPLE)
+    set(PLATFORM_NAME "macOS")
+    # macOS架构检测
+    execute_process(COMMAND uname -m OUTPUT_VARIABLE SYSTEM_ARCH OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if(SYSTEM_ARCH STREQUAL "arm64")
+        set(PLATFORM_ARCH "ARM64")
+    else()
+        set(PLATFORM_ARCH "x64")
+    endif()
+elseif(UNIX)
+    set(PLATFORM_NAME "Linux")
+    # Linux架构检测
+    execute_process(COMMAND uname -m OUTPUT_VARIABLE SYSTEM_ARCH OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if(SYSTEM_ARCH MATCHES "aarch64|arm64")
+        set(PLATFORM_ARCH "ARM64")
+    elseif(SYSTEM_ARCH MATCHES "armv7l|armhf")
+        set(PLATFORM_ARCH "ARM32")
+    elseif(SYSTEM_ARCH MATCHES "x86_64|amd64")
+        set(PLATFORM_ARCH "x64")
+    else()
+        set(PLATFORM_ARCH "x86")
+    endif()
+else()
+    set(PLATFORM_NAME "Unknown")
+    set(PLATFORM_ARCH "Unknown")
+endif()
+
+message(STATUS "[Qt6 Auto-Detection] Platform: ${PLATFORM_NAME}, Architecture: ${PLATFORM_ARCH}")
+
+# 平台特定的Qt6路径配置
+if(APPLE)
+    # macOS平台配置
+    if(NOT CMAKE_OSX_ARCHITECTURES)
+        if(PLATFORM_ARCH STREQUAL "ARM64")
+            set(CMAKE_OSX_ARCHITECTURES arm64 CACHE STRING "Target architecture" FORCE)
+        else()
+            set(CMAKE_OSX_ARCHITECTURES x86_64 CACHE STRING "Target architecture" FORCE)
+        endif()
+    endif()
+    
+    # Qt6路径检测优先级（按常见安装位置排序）
+    set(QT6_SEARCH_PATHS "")
+    
+    if(PLATFORM_ARCH STREQUAL "ARM64")
+        # Apple Silicon Mac优先路径
+        list(APPEND QT6_SEARCH_PATHS
+            "/opt/homebrew/opt/qt@6/lib/cmake/Qt6"
+            "/opt/homebrew/opt/qt/lib/cmake/Qt6"
+            "/opt/homebrew/lib/cmake/Qt6"
+            "/usr/local/opt/qt@6/lib/cmake/Qt6"  # 备用路径
+            "/usr/local/opt/qt/lib/cmake/Qt6"
+            "/Applications/Qt/*/macos/lib/cmake/Qt6"
+            "~/Qt/*/macos/lib/cmake/Qt6"
+        )
+        set(HOMEBREW_PREFIX "/opt/homebrew")
+        set(OPENSSL_SEARCH_PATH "/opt/homebrew/opt/openssl@3")
+    else()
+        # Intel Mac优先路径
+        list(APPEND QT6_SEARCH_PATHS
+            "/usr/local/opt/qt@6/lib/cmake/Qt6"
+            "/usr/local/opt/qt/lib/cmake/Qt6"
+            "/usr/local/lib/cmake/Qt6"
+            "/opt/homebrew/opt/qt@6/lib/cmake/Qt6"  # 备用路径
+            "/opt/homebrew/opt/qt/lib/cmake/Qt6"
+            "/Applications/Qt/*/macos/lib/cmake/Qt6"
+            "~/Qt/*/macos/lib/cmake/Qt6"
+        )
+        set(HOMEBREW_PREFIX "/usr/local")
+        set(OPENSSL_SEARCH_PATH "/usr/local/opt/openssl@3")
+    endif()
+    
+elseif(WIN32)
+    # Windows平台配置
+    set(QT6_SEARCH_PATHS "")
+    
+    # 检测常见的Qt6安装路径
+    if(PLATFORM_ARCH STREQUAL "x64")
+        list(APPEND QT6_SEARCH_PATHS
+            "C:/Qt/*/msvc*/lib/cmake/Qt6"
+            "C:/Qt/*/msvc*_64/lib/cmake/Qt6"
+            "C:/Program Files/Qt/*/lib/cmake/Qt6"
+            "$ENV{QTDIR}/lib/cmake/Qt6"
+            "$ENV{Qt6_DIR}"
+        )
+    elseif(PLATFORM_ARCH STREQUAL "ARM64")
+        list(APPEND QT6_SEARCH_PATHS
+            "C:/Qt/*/msvc*_arm64/lib/cmake/Qt6"
+            "C:/Program Files/Qt/*/lib/cmake/Qt6"
+            "$ENV{QTDIR}/lib/cmake/Qt6"
+            "$ENV{Qt6_DIR}"
+        )
+    else()
+        list(APPEND QT6_SEARCH_PATHS
+            "C:/Qt/*/msvc*/lib/cmake/Qt6"
+            "C:/Qt/*/msvc*_32/lib/cmake/Qt6"
+            "C:/Program Files (x86)/Qt/*/lib/cmake/Qt6"
+            "$ENV{QTDIR}/lib/cmake/Qt6"
+            "$ENV{Qt6_DIR}"
+        )
+    endif()
+    
+    # vcpkg支持
+    if(DEFINED ENV{VCPKG_ROOT})
+        if(PLATFORM_ARCH STREQUAL "x64")
+            list(APPEND QT6_SEARCH_PATHS "$ENV{VCPKG_ROOT}/installed/x64-windows/share/qt6")
+        elseif(PLATFORM_ARCH STREQUAL "ARM64")
+            list(APPEND QT6_SEARCH_PATHS "$ENV{VCPKG_ROOT}/installed/arm64-windows/share/qt6")
+        else()
+            list(APPEND QT6_SEARCH_PATHS "$ENV{VCPKG_ROOT}/installed/x86-windows/share/qt6")
+        endif()
+    endif()
+    
+elseif(UNIX)
+    # Linux平台配置
+    set(QT6_SEARCH_PATHS "")
+    
+    # 检测常见的Qt6安装路径
+    list(APPEND QT6_SEARCH_PATHS
+        "/usr/lib/cmake/Qt6"
+        "/usr/lib64/cmake/Qt6"
+        "/usr/local/lib/cmake/Qt6"
+        "/usr/local/lib64/cmake/Qt6"
+        "/opt/qt*/lib/cmake/Qt6"
+        "~/Qt/*/gcc_64/lib/cmake/Qt6"
+        "$ENV{QTDIR}/lib/cmake/Qt6"
+        "$ENV{Qt6_DIR}"
+    )
+    
+    # 架构特定路径
+    if(PLATFORM_ARCH STREQUAL "ARM64")
+        list(APPEND QT6_SEARCH_PATHS
+            "/usr/lib/aarch64-linux-gnu/cmake/Qt6"
+            "~/Qt/*/gcc_arm64/lib/cmake/Qt6"
+        )
+    elseif(PLATFORM_ARCH STREQUAL "ARM32")
+        list(APPEND QT6_SEARCH_PATHS
+            "/usr/lib/arm-linux-gnueabihf/cmake/Qt6"
+            "~/Qt/*/gcc_armhf/lib/cmake/Qt6"
+        )
+    else()
+        list(APPEND QT6_SEARCH_PATHS
+            "/usr/lib/x86_64-linux-gnu/cmake/Qt6"
+        )
+    endif()
+endif()
+
+# 自动检测Qt6安装路径
+set(QT6_FOUND_PATH "")
+foreach(QT6_PATH ${QT6_SEARCH_PATHS})
+    # 展开通配符路径
+    file(GLOB QT6_EXPANDED_PATHS "${QT6_PATH}")
+    foreach(QT6_EXPANDED_PATH ${QT6_EXPANDED_PATHS})
+        if(EXISTS "${QT6_EXPANDED_PATH}/Qt6Config.cmake")
+            set(QT6_FOUND_PATH "${QT6_EXPANDED_PATH}")
+            break()
+        endif()
+    endforeach()
+    if(QT6_FOUND_PATH)
+        break()
+    endif()
+endforeach()
+
+# 配置Qt6路径
+if(QT6_FOUND_PATH)
+    set(Qt6_DIR "${QT6_FOUND_PATH}" CACHE PATH "Qt6 Config path (Auto-detected)" FORCE)
+    get_filename_component(QT6_ROOT_DIR "${QT6_FOUND_PATH}/../../.." ABSOLUTE)
+    
+    # 设置CMAKE_PREFIX_PATH
+    if(APPLE AND HOMEBREW_PREFIX)
+        set(CMAKE_PREFIX_PATH "${HOMEBREW_PREFIX};${QT6_ROOT_DIR};${HOMEBREW_PREFIX}/opt/qt" CACHE STRING "Auto-detected prefixes" FORCE)
+    else()
+        set(CMAKE_PREFIX_PATH "${QT6_ROOT_DIR}" CACHE STRING "Auto-detected Qt6 prefix" FORCE)
+    endif()
+    
+    message(STATUS "[Qt6 Auto-Detection] Found Qt6 at: ${QT6_FOUND_PATH}")
+    message(STATUS "[Qt6 Auto-Detection] Qt6 Root: ${QT6_ROOT_DIR}")
+else()
+    message(WARNING "[Qt6 Auto-Detection] Qt6 not found in standard locations. Please set Qt6_DIR manually.")
+endif()
+
+# OpenSSL路径配置（平台特定）
+if(APPLE AND OPENSSL_SEARCH_PATH AND EXISTS "${OPENSSL_SEARCH_PATH}")
+    set(OPENSSL_ROOT_DIR "${OPENSSL_SEARCH_PATH}" CACHE PATH "OpenSSL root (Auto-detected)" FORCE)
+    set(OPENSSL_INCLUDE_DIR "${OPENSSL_SEARCH_PATH}/include" CACHE PATH "OpenSSL include (Auto-detected)" FORCE)
+    set(OPENSSL_CRYPTO_LIBRARY "${OPENSSL_SEARCH_PATH}/lib/libcrypto.dylib" CACHE FILEPATH "OpenSSL crypto lib (Auto-detected)" FORCE)
+    set(OPENSSL_SSL_LIBRARY "${OPENSSL_SEARCH_PATH}/lib/libssl.dylib" CACHE FILEPATH "OpenSSL ssl lib (Auto-detected)" FORCE)
+    message(STATUS "[OpenSSL Auto-Detection] Found OpenSSL at: ${OPENSSL_SEARCH_PATH}")
+elseif(WIN32)
+    # Windows OpenSSL检测
+    if(DEFINED ENV{VCPKG_ROOT})
+        if(PLATFORM_ARCH STREQUAL "x64")
+            set(OPENSSL_ROOT_DIR "$ENV{VCPKG_ROOT}/installed/x64-windows" CACHE PATH "OpenSSL root (vcpkg)" FORCE)
+        elseif(PLATFORM_ARCH STREQUAL "ARM64")
+            set(OPENSSL_ROOT_DIR "$ENV{VCPKG_ROOT}/installed/arm64-windows" CACHE PATH "OpenSSL root (vcpkg)" FORCE)
+        else()
+            set(OPENSSL_ROOT_DIR "$ENV{VCPKG_ROOT}/installed/x86-windows" CACHE PATH "OpenSSL root (vcpkg)" FORCE)
+        endif()
+    endif()
+endif()
+
+# 优化CMake查找行为
+set(CMAKE_FIND_USE_PACKAGE_REGISTRY OFF CACHE BOOL "Disable package registry" FORCE)
+set(CMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY OFF CACHE BOOL "Disable system package registry" FORCE)
+
+# 架构一致性验证（确保Qt6库与目标架构匹配）
+if(QT6_FOUND_PATH)
+    # 检测Qt6库的实际架构
+    get_filename_component(QT6_LIB_DIR "${QT6_FOUND_PATH}/../.." ABSOLUTE)
+    
+    if(APPLE)
+        # 在macOS上验证Qt6库架构
+        find_file(QT6_CORE_LIB 
+            NAMES QtCore QtCore.framework/QtCore
+            PATHS "${QT6_LIB_DIR}" "${QT6_LIB_DIR}/QtCore.framework"
+            NO_DEFAULT_PATH
+        )
+        
+        if(QT6_CORE_LIB)
+            execute_process(
+                COMMAND file "${QT6_CORE_LIB}"
+                OUTPUT_VARIABLE QT6_LIB_ARCH_INFO
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+            )
+            
+            if(PLATFORM_ARCH STREQUAL "ARM64" AND QT6_LIB_ARCH_INFO MATCHES "x86_64")
+                message(WARNING "[Qt6 Auto-Detection] Architecture mismatch: Found x86_64 Qt6 on ARM64 system")
+                message(WARNING "[Qt6 Auto-Detection] This may cause linking issues. Consider installing ARM64 Qt6.")
+            elseif(PLATFORM_ARCH STREQUAL "x64" AND QT6_LIB_ARCH_INFO MATCHES "arm64")
+                message(WARNING "[Qt6 Auto-Detection] Architecture mismatch: Found ARM64 Qt6 on x86_64 system")
+                message(WARNING "[Qt6 Auto-Detection] This may cause linking issues. Consider installing x86_64 Qt6.")
+            else()
+                message(STATUS "[Qt6 Auto-Detection] Architecture verification passed")
+            endif()
+        endif()
+    endif()
+    
+    # 设置Qt6相关的环境变量（便于调试和工具使用）
+    set(ENV{Qt6_DIR} "${Qt6_DIR}")
+    set(ENV{QTDIR} "${QT6_ROOT_DIR}")
+endif()
+
+# 跨平台编译器和链接器标志优化
+if(QT6_FOUND_PATH)
+    # Windows特定配置
+    if(WIN32)
+        # 确保使用正确的运行时库
+        if(MSVC)
+            set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+        endif()
+        
+        # 设置Windows SDK版本（如果需要）
+        if(CMAKE_SYSTEM_VERSION)
+            set(CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION "${CMAKE_SYSTEM_VERSION}")
+        endif()
+    endif()
+    
+    # Linux特定配置
+    if(UNIX AND NOT APPLE)
+        # 设置RPATH以便运行时找到Qt6库
+        set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+        list(APPEND CMAKE_INSTALL_RPATH "${QT6_ROOT_DIR}/lib")
+    endif()
+    
+    # macOS特定配置
+    if(APPLE)
+        # 设置macOS部署目标
+        if(NOT CMAKE_OSX_DEPLOYMENT_TARGET)
+            set(CMAKE_OSX_DEPLOYMENT_TARGET "15.0" CACHE STRING "macOS deployment target" FORCE)
+        endif()
+        
+        # 设置RPATH
+        set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+        list(APPEND CMAKE_INSTALL_RPATH "${QT6_ROOT_DIR}/lib")
+    endif()
+endif()
+
+# 最终查找 Qt6 组件
 find_package(Qt6 6.9 REQUIRED COMPONENTS
     Core
     Widgets
@@ -20,7 +315,12 @@ find_package(Qt6 6.9 REQUIRED COMPONENTS
     OpenGL
     OpenGLWidgets
     Test
+    Concurrent
 )
+
+# 新增：查找第三方依赖（用于加解密与压缩）
+find_package(OpenSSL REQUIRED)
+find_package(ZLIB REQUIRED)
 
 # 标准Qt项目设置（可用时）
 if(COMMAND qt_standard_project_setup)
@@ -32,126 +332,420 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
+# 开启“警告即错误”的全局编译策略（仅对本项目源文件生效）
+# 说明：按用户要求将所有编译 warning 当作 error 处理，避免潜在问题被忽略。
+# 注意：此处不强制开启 -Wall/-Wextra，以降低与第三方或历史代码的兼容风险；若仍有警告出现，将以 -Werror 直接中断构建，便于定位和修复。
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang|GNU")
+    add_compile_options(-Werror)
+elseif(MSVC)
+    add_compile_options(/WX)
+endif()
+
 # 设置UIC搜索路径
 set(CMAKE_AUTOUIC_SEARCH_PATHS src/ui)
 
-# 设置输出目录
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+# 设置输出目录（将 Debug/Release 产物分别放到项目根的 Debug 与 Release 目录）
+# 使用生成器表达式根据配置路由到对应文件夹；当配置非 Debug 时，统一归入 Release 文件夹
+# 符合定制要求：
+#  - 生成的debug调试文件放入Debug文件夹中
+#  - 生成的release版本文件放入Release文件夹中
+set(_OUT_DIR $<IF:$<CONFIG:Debug>,${CMAKE_SOURCE_DIR}/Debug,${CMAKE_SOURCE_DIR}/Release>)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${_OUT_DIR})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${_OUT_DIR})
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${_OUT_DIR})
 
 # 目标私有包含目录（替代全局 include_directories）
 set(PRIVATE_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/client
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/client/managers
     ${CMAKE_CURRENT_SOURCE_DIR}/src/common
     ${CMAKE_CURRENT_SOURCE_DIR}/src/common/core
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/codec
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/core/compression
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/core/memory
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/core/threading
     ${CMAKE_CURRENT_SOURCE_DIR}/src/common/windows
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/client/managers
     ${CMAKE_CURRENT_SOURCE_DIR}/src/server
     ${CMAKE_CURRENT_SOURCE_DIR}/src/server/capture
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/client
 )
 
 # 源文件
 set(SOURCES
     src/main.cpp
-    src/common/windows/mainwindow.cpp
-    src/server/tcpserver.cpp
-    src/server/clienthandler.cpp
-    src/client/tcpclient.cpp
-    src/common/core/protocol.cpp
-    src/common/core/protocol_impl.cpp
-    src/server/screencapture.cpp
-    src/client/inputhandler.cpp
-    src/server/inputsimulator.cpp
-    src/common/windows/connectiondialog.cpp
-    src/client/clientremotewindow.cpp
-    src/common/windows/settingsdialog.cpp
-    src/common/core/encryption.cpp
-    src/common/core/compression.cpp
-    src/common/core/logger.cpp
-    src/common/core/logging_categories.cpp
-    src/common/core/config.cpp
-    src/common/core/constants.cpp
-    src/common/codec/zlib_compressor.cpp
-    src/common/codec/lz4_compressor.cpp
-    src/common/codec/zstd_compressor.cpp
-    src/common/codec/compressor_factory.cpp
-    src/server/servermanager.cpp
-    src/client/clientmanager.cpp
 
-    src/client/managers/connectionmanager.cpp
-    src/client/managers/sessionmanager.cpp
-    src/client/managers/clipboardmanager.cpp
-    src/client/managers/filetransfermanager.cpp
-    src/client/managers/cursormanager.cpp
-    src/client/managers/rendermanager.cpp
+    # client 源文件
+    src/client/ClientManager.cpp
+    src/client/ClientRemoteWindow.cpp
+    src/client/InputHandler.cpp
+    src/client/TcpClient.cpp
+    # client managers 源文件
+    src/client/managers/ClipboardManager.cpp
+    src/client/managers/ConnectionManager.cpp
+    src/client/managers/CursorManager.cpp
+    src/client/managers/FileTransferManager.cpp
+    src/client/managers/RenderManager.cpp
+    src/client/managers/SessionManager.cpp
 
+    # 公共核心模块
+    src/common/core/config/Config.cpp
+    src/common/core/config/Constants.cpp
+    src/common/core/logging/DebugLogger.cpp
+    src/common/core/crypto/Encryption.cpp
+    src/common/core/logging/LoggingCategories.cpp
+    src/common/core/network/ProtocolImpl.cpp
+    # common core compression 源文件
+    src/common/core/compression/AdvancedCompressionManager.cpp
+    src/common/core/compression/Compression.cpp
+    src/common/core/compression/DifferentialCompression.cpp
+    # common core memory 源文件
+    src/common/core/memory/ByteArrayPool.cpp
+    # common core threading 源文件
+    src/common/core/threading/PerformanceOptimizer.cpp
+    src/common/core/threading/ThreadCommunication.cpp
+    src/common/core/threading/ThreadManager.cpp
+    src/common/core/threading/Worker.cpp
+
+    # common windows 源文件
+    src/common/windows/ConnectionDialog.cpp
+    src/common/windows/MainWindow.cpp
+    src/common/windows/SettingsDialog.cpp
+
+    # server 源文件
+    src/server/ClientHandler.cpp
+    src/server/InputSimulator.cpp
+    src/server/ServerManager.cpp
+    src/server/ServerWorker.cpp
+    src/server/TcpServer.cpp
+    # server capture 源文件
+    src/server/capture/ScreenCapture.cpp
+    src/server/capture/ScreenCaptureWorker.cpp
+    # server dataprocessing 源文件
+    src/server/dataprocessing/DataProcessing.cpp
+    src/server/dataprocessing/DataProcessingConfig.cpp
+    src/server/dataprocessing/StorageManager.cpp
 )
 
 # 头文件
 set(HEADERS
-    src/common/windows/mainwindow.h
-    src/server/tcpserver.h
-    src/server/clienthandler.h
-    src/client/tcpclient.h
-    src/common/core/protocol.h
-    src/common/codec/icodec.h
-    src/server/screencapture.h
-    src/client/inputhandler.h
-    src/server/inputsimulator.h
-    src/common/windows/connectiondialog.h
-    src/client/clientremotewindow.h
-    src/common/windows/settingsdialog.h
-    src/common/core/encryption.h
-    src/common/core/compression.h
-    src/common/core/logger.h
-    src/common/core/logging_categories.h
-    src/common/core/config.h
-    src/server/servermanager.h
-    src/client/clientmanager.h
-    src/common/codec/icompressor.h
-    src/common/codec/zlib_compressor.h
-    src/common/codec/lz4_compressor.h
-    src/common/codec/zstd_compressor.h
-    src/common/codec/compressor_factory.h
+    # client 头文件
+    src/client/ClientManager.h
+    src/client/ClientRemoteWindow.h
+    src/client/InputHandler.h
+    src/client/TcpClient.h
+    # client managers 头文件
+    src/client/managers/ClipboardManager.h
+    src/client/managers/ConnectionManager.h
+    src/client/managers/CursorManager.h
+    src/client/managers/FileTransferManager.h
+    src/client/managers/RenderManager.h
+    src/client/managers/SessionManager.h
 
-    src/client/managers/connectionmanager.h
-    src/client/managers/sessionmanager.h
-    src/client/managers/clipboardmanager.h
-    src/client/managers/filetransfermanager.h
-    src/client/managers/cursormanager.h
-    src/client/managers/rendermanager.h
+    # 公共核心头文件
+    src/common/core/config/Config.h
+    src/common/core/config/Constants.h
+    src/common/core/logging/DebugLogger.h
+    src/common/core/crypto/Encryption.h
+    src/common/core/logging/LoggingCategories.h
+    src/common/core/config/MessageConstants.h
+    src/common/core/config/NetworkConstants.h
+    src/common/core/network/Protocol.h
+    src/common/core/config/UiConstants.h
+    # common core compression 头文件
+    src/common/core/compression/AdvancedCompressionManager.h
+    src/common/core/compression/Compression.h
+    src/common/core/compression/DifferentialCompression.h
+    # common core memory 头文件
+    src/common/core/memory/ByteArrayPool.h
+    src/common/core/memory/ZeroCopyData.h
+    # common core threading 头文件
+    src/common/core/threading/PerformanceOptimizer.h
+    src/common/core/threading/ThreadCommunication.h
+    src/common/core/threading/ThreadManager.h
+    src/common/core/threading/ThreadSafeQueue.h
+    src/common/core/threading/Worker.h
 
+    # common windows 头文件
+    src/common/windows/ConnectionDialog.h
+    src/common/windows/MainWindow.h
+    src/common/windows/SettingsDialog.h
+
+    # server 头文件
+    src/server/ClientHandler.h
+    src/server/InputSimulator.h
+    src/server/ServerManager.h
+    src/server/ServerWorker.h
+    src/server/TcpServer.h
+    # server capture 头文件
+    src/server/capture/ScreenCapture.h
+    src/server/capture/ScreenCaptureWorker.h
 )
 
-# UI文件
-set(UI_FILES
-    src/ui/mainwindow.ui
-    src/ui/connectiondialog.ui
-    src/ui/settingsdialog.ui
-)
-
-# 资源文件
-set(RESOURCES
+# 生成可执行文件
+qt_add_executable(QtRemoteDesktop
+    ${SOURCES}
+    ${HEADERS}
     resources/resources.qrc
 )
 
-# 创建可执行文件（Qt6 风格）
-qt_add_executable(QtRemoteDesktop
-    MACOSX_BUNDLE
-    MANUAL_FINALIZATION
-    ${SOURCES}
-    ${HEADERS}
-    ${UI_FILES}
-    ${RESOURCES}
+# 私有包含目录
+target_include_directories(QtRemoteDesktop PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/core
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/core/config
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/core/crypto
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/core/logging
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/core/network
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/core/compression
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/core/memory
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/core/threading
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/data
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/types
 )
 
-# 目标私有包含
-target_include_directories(QtRemoteDesktop PRIVATE ${PRIVATE_INCLUDE_DIRS})
+# 链接Qt与其它依赖（仅在Apple平台去除QtGui传播的AGL/OpenGL，保留其它必要框架）
+get_target_property(_qtgui_link_libs Qt6::Gui INTERFACE_LINK_LIBRARIES)
+if(APPLE AND _qtgui_link_libs)
+    set(_filtered_qtgui_link_libs "")
+    foreach(_lib IN LISTS _qtgui_link_libs)
+        if(_lib MATCHES "(^|[/:;-])AGL($|[/:;-])" OR _lib MATCHES "(^|[/:;-])OpenGL($|[/:;-])")
+            # 跳过AGL/OpenGL
+        else()
+            list(APPEND _filtered_qtgui_link_libs "${_lib}")
+        endif()
+    endforeach()
+    if(NOT _filtered_qtgui_link_libs STREQUAL _qtgui_link_libs)
+        set_property(TARGET Qt6::Gui PROPERTY INTERFACE_LINK_LIBRARIES "${_filtered_qtgui_link_libs}")
+        message(STATUS "[App] Filtered Qt6::Gui INTERFACE_LINK_LIBRARIES to remove AGL/OpenGL: ${_filtered_qtgui_link_libs}")
+    endif()
+endif()
 
-# 链接Qt库
+# 二次过滤：移除 INTERFACE_LINK_LIBRARIES 中通过 "-framework;AGL/OpenGL" 形式传递的条目
+get_target_property(_qtgui_link_libs2 Qt6::Gui INTERFACE_LINK_LIBRARIES)
+if(APPLE AND _qtgui_link_libs2)
+    set(_filtered_qtgui_link_libs2 "")
+    list(LENGTH _qtgui_link_libs2 _len2)
+    set(_i2 0)
+    while(_i2 LESS _len2)
+        list(GET _qtgui_link_libs2 ${_i2} _cur2)
+        if(_cur2 STREQUAL "-framework")
+            math(EXPR _nx2 "${_i2}+1")
+            if(_nx2 LESS _len2)
+                list(GET _qtgui_link_libs2 ${_nx2} _fw2)
+                if(_fw2 STREQUAL "AGL" OR _fw2 STREQUAL "OpenGL")
+                    math(EXPR _i2 "${_i2}+2")
+                    continue()
+                endif()
+            endif()
+        endif()
+        list(APPEND _filtered_qtgui_link_libs2 "${_cur2}")
+        math(EXPR _i2 "${_i2}+1")
+    endwhile()
+    if(NOT _filtered_qtgui_link_libs2 STREQUAL _qtgui_link_libs2)
+        set_property(TARGET Qt6::Gui PROPERTY INTERFACE_LINK_LIBRARIES "${_filtered_qtgui_link_libs2}")
+        message(STATUS "[App] Filtered Qt6::Gui INTERFACE_LINK_LIBRARIES to remove -framework AGL/OpenGL (pair form)")
+    endif()
+endif()
+
+# 继续过滤 Qt6::Gui 的 IMPORTED_LINK_INTERFACE_LIBRARIES（以及各配置特定属性）中的 AGL/OpenGL（部分Qt版本以链接接口库而非链接选项传递）
+get_target_property(_qtgui_imp_libs Qt6::Gui IMPORTED_LINK_INTERFACE_LIBRARIES)
+if(APPLE AND _qtgui_imp_libs)
+    set(_filtered_imp_libs "")
+    foreach(_lib IN LISTS _qtgui_imp_libs)
+        if(_lib STREQUAL "AGL" OR _lib STREQUAL "OpenGL")
+            # 跳过AGL和OpenGL框架
+        else()
+            list(APPEND _filtered_imp_libs "${_lib}")
+        endif()
+    endforeach()
+    if(NOT _filtered_imp_libs STREQUAL _qtgui_imp_libs)
+        set_target_properties(Qt6::Gui PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES "${_filtered_imp_libs}")
+        message(STATUS "[App] Filtered Qt6::Gui IMPORTED_LINK_INTERFACE_LIBRARIES to remove AGL/OpenGL: ${_filtered_imp_libs}")
+    endif()
+endif()
+
+# 针对不同构建配置（Debug/Release/RelWithDebInfo/MinSizeRel）进行相同过滤
+foreach(_cfg IN ITEMS DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
+    string(TOUPPER "${_cfg}" _CFG_UP)
+    get_target_property(_qtgui_imp_libs_${_CFG_UP} Qt6::Gui IMPORTED_LINK_INTERFACE_LIBRARIES_${_CFG_UP})
+    if(APPLE AND _qtgui_imp_libs_${_CFG_UP})
+        set(_filtered_imp_libs_${_CFG_UP} "")
+        foreach(_lib IN LISTS _qtgui_imp_libs_${_CFG_UP})
+            if(_lib STREQUAL "AGL" OR _lib STREQUAL "OpenGL")
+                # 跳过AGL和OpenGL框架
+            else()
+                list(APPEND _filtered_imp_libs_${_CFG_UP} "${_lib}")
+            endif()
+        endforeach()
+        if(NOT _filtered_imp_libs_${_CFG_UP} STREQUAL _qtgui_imp_libs_${_CFG_UP})
+            set_target_properties(Qt6::Gui PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES_${_CFG_UP} "${_filtered_imp_libs_${_CFG_UP}}")
+            message(STATUS "[App] Filtered Qt6::Gui IMPORTED_LINK_INTERFACE_LIBRARIES_${_CFG_UP} to remove AGL/OpenGL: ${_filtered_imp_libs_${_CFG_UP}}")
+        endif()
+    endif()
+endforeach()
+
+# 进一步：过滤 WrapOpenGL::WrapOpenGL 的传播内容，避免通过该中间目标引入 AGL/OpenGL 框架
+if(APPLE AND TARGET WrapOpenGL::WrapOpenGL)
+    # 过滤其 INTERFACE_LINK_LIBRARIES
+    get_target_property(_wrap_link_libs WrapOpenGL::WrapOpenGL INTERFACE_LINK_LIBRARIES)
+    if(_wrap_link_libs)
+        set(_filtered_wrap_link_libs "")
+        foreach(_lib IN LISTS _wrap_link_libs)
+            # 过滤名称形式与*.framework路径形式
+            if(_lib STREQUAL "AGL" OR _lib STREQUAL "OpenGL" OR _lib MATCHES "(^|/)(AGL|OpenGL)(\\.framework)?(/|$)")
+                # 跳过 AGL/OpenGL
+            else()
+                list(APPEND _filtered_wrap_link_libs "${_lib}")
+            endif()
+        endforeach()
+        if(NOT _filtered_wrap_link_libs STREQUAL _wrap_link_libs)
+            set_property(TARGET WrapOpenGL::WrapOpenGL PROPERTY INTERFACE_LINK_LIBRARIES "${_filtered_wrap_link_libs}")
+            message(STATUS "[App] Filtered WrapOpenGL::WrapOpenGL INTERFACE_LINK_LIBRARIES to remove AGL/OpenGL: ${_filtered_wrap_link_libs}")
+        endif()
+        # 二次过滤：移除以 "-framework;AGL/OpenGL" 成对传递的条目
+        get_target_property(_wrap_link_libs2 WrapOpenGL::WrapOpenGL INTERFACE_LINK_LIBRARIES)
+        if(_wrap_link_libs2)
+            set(_filtered_wrap_link_libs2 "")
+            list(LENGTH _wrap_link_libs2 _wlen)
+            set(_wi 0)
+            while(_wi LESS _wlen)
+                list(GET _wrap_link_libs2 ${_wi} _curw)
+                if(_curw STREQUAL "-framework")
+                    math(EXPR _wnx "${_wi}+1")
+                    if(_wnx LESS _wlen)
+                        list(GET _wrap_link_libs2 ${_wnx} _fw)
+                        if(_fw STREQUAL "AGL" OR _fw STREQUAL "OpenGL")
+                            math(EXPR _wi "${_wi}+2")
+                            continue()
+                        endif()
+                    endif()
+                endif()
+                list(APPEND _filtered_wrap_link_libs2 "${_curw}")
+                math(EXPR _wi "${_wi}+1")
+            endwhile()
+            if(NOT _filtered_wrap_link_libs2 STREQUAL _wrap_link_libs2)
+                set_property(TARGET WrapOpenGL::WrapOpenGL PROPERTY INTERFACE_LINK_LIBRARIES "${_filtered_wrap_link_libs2}")
+                message(STATUS "[App] Filtered WrapOpenGL::WrapOpenGL INTERFACE_LINK_LIBRARIES to remove -framework AGL/OpenGL (pair form)")
+            endif()
+        endif()
+    endif()
+    
+    # 过滤其 INTERFACE_LINK_OPTIONS 中的 -framework 传递
+    get_target_property(_wrap_link_opts WrapOpenGL::WrapOpenGL INTERFACE_LINK_OPTIONS)
+    if(_wrap_link_opts)
+        set(_filtered_wrap_link_opts "")
+        list(LENGTH _wrap_link_opts _l2)
+        set(_j 0)
+        while(_j LESS _l2)
+            list(GET _wrap_link_opts ${_j} _cur)
+            if(_cur STREQUAL "-framework")
+                math(EXPR _nx "${_j}+1")
+                if(_nx LESS _l2)
+                    list(GET _wrap_link_opts ${_nx} _fw)
+                    if(_fw STREQUAL "AGL" OR _fw STREQUAL "OpenGL")
+                        math(EXPR _j "${_j}+2")
+                        continue()
+                    endif()
+                endif()
+            endif()
+            list(APPEND _filtered_wrap_link_opts "${_cur}")
+            math(EXPR _j "${_j}+1")
+        endwhile()
+        if(NOT _filtered_wrap_link_opts STREQUAL _wrap_link_opts)
+            set_property(TARGET WrapOpenGL::WrapOpenGL PROPERTY INTERFACE_LINK_OPTIONS "${_filtered_wrap_link_opts}")
+            message(STATUS "[App] Filtered WrapOpenGL::WrapOpenGL INTERFACE_LINK_OPTIONS to remove -framework AGL/OpenGL")
+        endif()
+    endif()
+endif()
+
+# 先过滤 Qt6::Gui 的 IMPORTED_LINK_OPTIONS（以及各构建配置）中的 -framework AGL/OpenGL
+foreach(_prop IN ITEMS IMPORTED_LINK_OPTIONS IMPORTED_LINK_OPTIONS_DEBUG IMPORTED_LINK_OPTIONS_RELEASE IMPORTED_LINK_OPTIONS_RELWITHDEBINFO IMPORTED_LINK_OPTIONS_MINSIZEREL)
+    get_target_property(_qtgui_imp_opts Qt6::Gui ${_prop})
+    if(APPLE AND _qtgui_imp_opts)
+        set(_filtered_qtgui_imp_opts "")
+        list(LENGTH _qtgui_imp_opts _len_imp)
+        set(_k 0)
+        while(_k LESS _len_imp)
+            list(GET _qtgui_imp_opts ${_k} _cur_imp)
+            if(_cur_imp STREQUAL "-framework")
+                math(EXPR _nx_imp "${_k}+1")
+                if(_nx_imp LESS _len_imp)
+                    list(GET _qtgui_imp_opts ${_nx_imp} _fw_imp)
+                    if(_fw_imp STREQUAL "AGL" OR _fw_imp STREQUAL "OpenGL")
+                        math(EXPR _k "${_k}+2")
+                        continue()
+                    endif()
+                endif()
+            endif()
+            list(APPEND _filtered_qtgui_imp_opts "${_cur_imp}")
+            math(EXPR _k "${_k}+1")
+        endwhile()
+        if(NOT _filtered_qtgui_imp_opts STREQUAL _qtgui_imp_opts)
+            set_target_properties(Qt6::Gui PROPERTIES ${_prop} "${_filtered_qtgui_imp_opts}")
+            message(STATUS "[App] Filtered Qt6::Gui ${_prop} to remove -framework AGL/OpenGL")
+        endif()
+    endif()
+endforeach()
+
+# 同样过滤 WrapOpenGL::WrapOpenGL 的 IMPORTED_LINK_OPTIONS（以及各构建配置）
+if(APPLE AND TARGET WrapOpenGL::WrapOpenGL)
+    foreach(_prop IN ITEMS IMPORTED_LINK_OPTIONS IMPORTED_LINK_OPTIONS_DEBUG IMPORTED_LINK_OPTIONS_RELEASE IMPORTED_LINK_OPTIONS_RELWITHDEBINFO IMPORTED_LINK_OPTIONS_MINSIZEREL)
+        get_target_property(_wrap_imp_opts WrapOpenGL::WrapOpenGL ${_prop})
+        if(_wrap_imp_opts)
+            set(_filtered_wrap_imp_opts "")
+            list(LENGTH _wrap_imp_opts _len_wimp)
+            set(_w 0)
+            while(_w LESS _len_wimp)
+                list(GET _wrap_imp_opts ${_w} _cur_wimp)
+                if(_cur_wimp STREQUAL "-framework")
+                    math(EXPR _wnx "${_w}+1")
+                    if(_wnx LESS _len_wimp)
+                        list(GET _wrap_imp_opts ${_wnx} _fw_wimp)
+                        if(_fw_wimp STREQUAL "AGL" OR _fw_wimp STREQUAL "OpenGL")
+                            math(EXPR _w "${_w}+2")
+                            continue()
+                        endif()
+                    endif()
+                endif()
+                list(APPEND _filtered_wrap_imp_opts "${_cur_wimp}")
+                math(EXPR _w "${_w}+1")
+            endwhile()
+            if(NOT _filtered_wrap_imp_opts STREQUAL _wrap_imp_opts)
+                set_target_properties(WrapOpenGL::WrapOpenGL PROPERTIES ${_prop} "${_filtered_wrap_imp_opts}")
+                message(STATUS "[App] Filtered WrapOpenGL::WrapOpenGL ${_prop} to remove -framework AGL/OpenGL")
+            endif()
+        endif()
+    endforeach()
+endif()
+
+# 继续过滤 Qt6::Gui 的 INTERFACE_LINK_OPTIONS 中的 "-framework AGL/OpenGL"（Homebrew Qt 常以链接选项传递）
+get_target_property(_qtgui_link_opts Qt6::Gui INTERFACE_LINK_OPTIONS)
+if(APPLE AND _qtgui_link_opts)
+    set(_filtered_qtgui_link_opts "")
+    list(LENGTH _qtgui_link_opts _len)
+    set(_i 0)
+    while(_i LESS _len)
+        list(GET _qtgui_link_opts ${_i} _cur)
+        if(_cur STREQUAL "-framework")
+            math(EXPR _next "${_i}+1")
+            if(_next LESS _len)
+                list(GET _qtgui_link_opts ${_next} _fw)
+                if(_fw STREQUAL "AGL" OR _fw STREQUAL "OpenGL")
+                    # 跳过该对（-framework AGL/OpenGL）
+                    math(EXPR _i "${_i}+2")
+                    continue()
+                endif()
+            endif()
+        endif()
+        list(APPEND _filtered_qtgui_link_opts "${_cur}")
+        math(EXPR _i "${_i}+1")
+    endwhile()
+    if(NOT _filtered_qtgui_link_opts STREQUAL _qtgui_link_opts)
+        set_property(TARGET Qt6::Gui PROPERTY INTERFACE_LINK_OPTIONS "${_filtered_qtgui_link_opts}")
+        message(STATUS "[App] Filtered Qt6::Gui INTERFACE_LINK_OPTIONS to remove -framework AGL/OpenGL")
+    endif()
+endif()
+
+# 链接库
 target_link_libraries(QtRemoteDesktop PRIVATE
     Qt6::Core
     Qt6::Widgets
@@ -160,192 +754,22 @@ target_link_libraries(QtRemoteDesktop PRIVATE
     Qt6::Gui
     Qt6::OpenGL
     Qt6::OpenGLWidgets
+    Qt6::Test
+    Qt6::Concurrent
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    ZLIB::ZLIB
 )
 
-# 平台特定设置
-if(WIN32)
-    # Windows特定设置
-    target_link_libraries(QtRemoteDesktop PRIVATE
-        ws2_32
-        user32
-        gdi32
-        ole32
-        oleaut32
-        uuid
-        advapi32
-        shell32
-    )
-    
-    # 设置Windows应用程序图标
-    set_target_properties(QtRemoteDesktop PROPERTIES
-        WIN32_EXECUTABLE TRUE
-    )
-elseif(APPLE)
-    # macOS特定设置
-    find_library(COREFOUNDATION_LIBRARY CoreFoundation)
-    find_library(COREGRAPHICS_LIBRARY CoreGraphics)
-    find_library(IOKIT_LIBRARY IOKit)
-    find_library(COCOA_LIBRARY Cocoa)
-    
-    target_link_libraries(QtRemoteDesktop PRIVATE
-        ${COREFOUNDATION_LIBRARY}
-        ${COREGRAPHICS_LIBRARY}
-        ${IOKIT_LIBRARY}
-        ${COCOA_LIBRARY}
-    )
-    
-    # 设置macOS应用程序包属性
-    set_target_properties(QtRemoteDesktop PROPERTIES
-        MACOSX_BUNDLE TRUE
-        MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/resources/Info.plist.in
-    )
-endif()
-
-# 查找并链接OpenSSL
-find_package(OpenSSL REQUIRED)
-target_link_libraries(QtRemoteDesktop PRIVATE OpenSSL::SSL OpenSSL::Crypto)
-
-# 查找并链接zlib
-find_package(ZLIB REQUIRED)
-target_link_libraries(QtRemoteDesktop PRIVATE ZLIB::ZLIB)
-
-if(ENABLE_ZSTD)
-    # Find and link ZSTD library
-    find_library(ZSTD_LIBRARY NAMES zstd libzstd PATHS /usr/local/lib /opt/homebrew/lib)
-    find_path(ZSTD_INCLUDE_DIR NAMES zstd.h PATHS /usr/local/include /opt/homebrew/include)
-    if(ZSTD_LIBRARY AND ZSTD_INCLUDE_DIR)
-    target_link_libraries(QtRemoteDesktop PRIVATE ${ZSTD_LIBRARY})
-        target_include_directories(QtRemoteDesktop PRIVATE ${ZSTD_INCLUDE_DIR})
-        target_compile_definitions(QtRemoteDesktop PRIVATE HAVE_ZSTD)
-        message(STATUS "Found ZSTD: ${ZSTD_LIBRARY}")
-    else()
-        message(WARNING "ZSTD library not found; ZSTD disabled")
-    endif()
-else()
-    message(STATUS "ZSTD disabled by option")
-endif()
-
-if(ENABLE_LZ4)
-    # Find and link LZ4 library
-    find_library(LZ4_LIBRARY NAMES lz4 liblz4 PATHS /usr/local/lib /opt/homebrew/lib)
-    find_path(LZ4_INCLUDE_DIR NAMES lz4.h PATHS /usr/local/include /opt/homebrew/include)
-    if(LZ4_LIBRARY AND LZ4_INCLUDE_DIR)
-    target_link_libraries(QtRemoteDesktop PRIVATE ${LZ4_LIBRARY})
-        target_include_directories(QtRemoteDesktop PRIVATE ${LZ4_INCLUDE_DIR})
-        target_compile_definitions(QtRemoteDesktop PRIVATE HAVE_LZ4)
-        message(STATUS "Found LZ4: ${LZ4_LIBRARY}")
-    else()
-        message(WARNING "LZ4 library not found; LZ4 disabled")
-    endif()
-else()
-    message(STATUS "LZ4 disabled by option")
-endif()
-
-
-
-# 平台特定的库链接（用于InputSimulator）
-if(APPLE)
-    # macOS需要ApplicationServices框架
-    find_library(APPLICATION_SERVICES_FRAMEWORK ApplicationServices)
-    if(APPLICATION_SERVICES_FRAMEWORK)
-    target_link_libraries(QtRemoteDesktop PRIVATE ${APPLICATION_SERVICES_FRAMEWORK})
-        message(STATUS "Found ApplicationServices framework")
-    else()
-        message(WARNING "ApplicationServices framework not found")
-    endif()
-elseif(UNIX AND NOT APPLE)
-    # Linux需要X11库
-    find_package(X11 REQUIRED)
-    if(X11_FOUND)
-    target_link_libraries(QtRemoteDesktop PRIVATE ${X11_LIBRARIES})
-        target_include_directories(QtRemoteDesktop PRIVATE ${X11_INCLUDE_DIR})
-        
-        # 查找XTest扩展
-        find_library(XTEST_LIBRARY Xtst PATHS ${X11_LIB_SEARCH_PATH})
-        if(XTEST_LIBRARY)
-            target_link_libraries(QtRemoteDesktop PRIVATE ${XTEST_LIBRARY})
-            message(STATUS "Found XTest library: ${XTEST_LIBRARY}")
-        else()
-            message(WARNING "XTest library not found")
-        endif()
-        
-        message(STATUS "Found X11 libraries")
-    else()
-        message(FATAL_ERROR "X11 libraries not found")
-    endif()
-elseif(WIN32)
-    # Windows需要user32库（通常自动链接）
-    target_link_libraries(QtRemoteDesktop PRIVATE user32)
-    message(STATUS "Linked Windows user32 library")
-endif()
-
-# 编译器特定设置
-if(MSVC)
-    target_compile_options(QtRemoteDesktop PRIVATE /W4)
-else()
-    target_compile_options(QtRemoteDesktop PRIVATE -Wall -Wextra -Wpedantic)
-endif()
-
-# 调试信息
+# 定义宏与编译选项（debug 日志开关、平台宏等）
+# 说明：日志输出使用 QLoggingCategory，默认级别为 debug（通过运行时环境变量控制过滤）。
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    target_compile_definitions(QtRemoteDesktop PRIVATE DEBUG_MODE)
+    target_compile_definitions(QtRemoteDesktop PRIVATE QT_MESSAGELOGCONTEXT)
 endif()
 
-# 安装规则
+# 安装规则（可根据需要扩展）
 install(TARGETS QtRemoteDesktop
-    BUNDLE DESTINATION .
-    RUNTIME DESTINATION bin
-)
+        RUNTIME DESTINATION bin)
 
-# Qt部署
-if(WIN32)
-    # 为 Windows 配置部署（使用 windeployqt）
-    find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS ${Qt6_DIR}/../../../bin)
-    if(WINDEPLOYQT_EXECUTABLE)
-        add_custom_command(TARGET QtRemoteDesktop POST_BUILD
-            COMMAND ${WINDEPLOYQT_EXECUTABLE} $<TARGET_FILE:QtRemoteDesktop>
-            COMMENT "Deploying Qt libraries (Windows)")
-    endif()
-elseif(APPLE)
-    # macOS 使用标准 macdeployqt（通过自定义目标）
-    # 不再手工 copy frameworks 或使用 install_name_tool
-    # 在配置阶段查找 macdeployqt
-    find_program(MACDEPLOYQT_EXECUTABLE macdeployqt
-        HINTS
-            ${Qt6_DIR}/../../../bin
-            ${Qt6_DIR}/../../../../bin
-            /usr/local/opt/qt/bin
-            /opt/homebrew/opt/qt/bin
-            /usr/local/bin
-            /opt/homebrew/bin
-    )
-
-    if(MACDEPLOYQT_EXECUTABLE)
-        add_custom_target(deploy_macos
-            COMMAND ${CMAKE_COMMAND} -E remove_directory $<TARGET_BUNDLE_DIR:QtRemoteDesktop>/Contents/Frameworks
-            COMMAND ${MACDEPLOYQT_EXECUTABLE} $<TARGET_BUNDLE_DIR:QtRemoteDesktop> -always-overwrite -verbose=1
-            DEPENDS QtRemoteDesktop
-            COMMENT "Deploying Qt application bundle with macdeployqt")
-    else()
-        add_custom_target(deploy_macos
-            COMMAND ${CMAKE_COMMAND} -E echo "macdeployqt not found. Please ensure Qt6 tools are installed and Qt6_DIR/CMAKE_PREFIX_PATH is set."
-            COMMENT "macdeployqt not found - printing help")
-    endif()
-endif()
-
-# 启用测试
-enable_testing()
-
-# 添加测试子目录（当前仅包含稳定用例）
+# 测试子目录
 add_subdirectory(test)
-
-# 打印配置信息
-message(STATUS "Qt version: ${Qt6_VERSION}")
-message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
-message(STATUS "C++ standard: ${CMAKE_CXX_STANDARD}")
-message(STATUS "Install prefix: ${CMAKE_INSTALL_PREFIX}")
-
-# 最终化 Qt 可执行文件（确保插件与rpath等设置到位）
-if(COMMAND qt_finalize_executable)
-    qt_finalize_executable(QtRemoteDesktop)
-endif()

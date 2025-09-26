@@ -11,8 +11,8 @@
 #include <QtCore/QPoint>
 #include <QtCore/QSize>
 #include <QtCore/QRect>
-#include "./managers/connectionmanager.h"
-#include "./managers/rendermanager.h"
+#include "./managers/ConnectionManager.h"
+#include "./managers/RenderManager.h"
 
 // 前置声明以减少编译依赖
 class QGraphicsScene;
@@ -55,6 +55,11 @@ public:
     ~ClientRemoteWindow();
     
     QString getConnectionId() const;
+    // 设置连接主机（IP 或主机名）。用于更新窗口标题仅显示 IP/主机。
+    // 说明：
+    // - 由 ClientManager 在建立连接时调用，传入 connectToHost 的 host
+    // - 仅当 host 变化时才刷新标题，避免不必要的 UI 更新
+    void setConnectionHost(const QString &host);
     
     // Connection state management
     void setConnectionState(ConnectionManager::ConnectionState state);
@@ -120,6 +125,12 @@ public:
     void pauseSession();
     void resumeSession();
     void terminateSession();
+
+    // 新增：查询窗口是否处于关闭流程中
+    // 说明：
+    // - 当 closeEvent 被触发时会设置该标志位，
+    // - 用于让外部（如 ClientManager）判断是否需要再次调用 close()，避免重入导致卡死。
+    bool isClosing() const;
     
 signals:
     // Mouse movement and wheel events used for network transmission or UI updates
@@ -151,7 +162,6 @@ public slots:
 protected:
     void closeEvent(QCloseEvent *event) override;
     
-    // Event handlers
     void paintEvent(QPaintEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
@@ -167,32 +177,26 @@ private slots:
     void onConnectionClosed();
     void onConnectionError(const QString &error);
     
-    // Session management slots
     void onSessionStateChanged();
     void onScreenUpdated(const QPixmap &screen);
     void onPerformanceStatsUpdated();
     
 private:
-    // Manager initialization and configuration
     void initializeManagers();
     void configureWindow();
     void enableManagerFeatures();
     
-    // Setup methods
     void setupManagerConnections();
     void setupScene();
     void setupView();
     
-    // Coordinate mapping (delegated to RenderManager)
     QPoint mapToRemote(const QPoint &localPoint) const;
     QPoint mapFromRemote(const QPoint &remotePoint) const;
     QRect mapToRemote(const QRect &viewRect) const;
     QRect mapFromRemote(const QRect &remoteRect) const;
     
-    // Cursor management (delegated to CursorManager)
     CursorManager* cursorManager() const;
     
-    // Performance optimization
     void setUpdateMode(QGraphicsView::ViewportUpdateMode mode);
     void enableOpenGL(bool enable = true);
     
@@ -200,34 +204,29 @@ private:
     void drawPerformanceInfo(QPainter &painter);
     
     void saveScreenshot(const QString &fileName = QString());
-    
-    // Core component
+
     QString m_connectionId;
-    
-    // State variables
     ConnectionManager::ConnectionState m_connectionState;
     bool m_isFullScreen;
+
+    // 新增：窗口关闭中的标志位
+    bool m_isClosing;
     
-    // Input state
     bool m_inputEnabled;
     bool m_keyboardGrabbed;
     bool m_mouseGrabbed;
     QPoint m_lastMousePos;
     
-    // Manager instances
     ClipboardManager *m_clipboardManager;
     FileTransferManager *m_fileTransferManager;
     InputHandler *m_inputHandler;
     CursorManager *m_cursorManager;
     RenderManager *m_renderManager;
     
-    // 性能相关
     QPoint m_lastPanPoint;
     
-    // Display options
     bool m_showPerformanceInfo;
     
-    // Network components
     SessionManager *m_sessionManager;
 };
 

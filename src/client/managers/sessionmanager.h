@@ -7,8 +7,8 @@
 #include <QtCore/QDateTime>
 #include <QtCore/QQueue>
 #include <QtCore/QSize>
-#include "../core/protocol.h"
-#include "../core/uiconstants.h"
+#include "../../common/core/network/Protocol.h"
+#include "../../common/core/config/UiConstants.h"
 
 class TcpClient;
 class ConnectionManager;

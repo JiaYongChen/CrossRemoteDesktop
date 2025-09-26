@@ -1,9 +1,10 @@
-#include "clientmanager.h"
-#include "./managers/connectionmanager.h"
-#include "./managers/sessionmanager.h"
-#include "clientremotewindow.h"
-#include "../core/uiconstants.h"
-#include "../../common/core/logging_categories.h"
+#include "ClientManager.h"
+#include "./managers/ConnectionManager.h"
+#include "./managers/SessionManager.h"
+#include "ClientRemoteWindow.h"
+#include "../common/core/config/UiConstants.h"
+#include "../../common/core/logging/LoggingCategories.h"
+#include "TcpClient.h"  // 新增：获取实际服务器IP地址
 
 #include <QtCore/QSettings>
 #include <QtCore/QDateTime>
@@ -18,8 +19,14 @@ ConnectionInstance::~ConnectionInstance()
 {
     // QPointer会自动处理对象的安全访问，但我们仍需要确保正确的清理顺序
     if (remoteDesktopWindow) {
-        remoteDesktopWindow->close();
-        remoteDesktopWindow->deleteLater();
+        // 若窗口未进入关闭流程，则触发关闭；否则跳过，避免重入
+        if (!remoteDesktopWindow->isClosing()) {
+            qCDebug(lcClientManager, "~ConnectionInstance(): request close for %s", qPrintable(connectionId));
+            remoteDesktopWindow->close();
+        } else {
+            qCDebug(lcClientManager, "~ConnectionInstance(): window already closing %s", qPrintable(connectionId));
+        }
+        // 统一由onWindowClosed回调与cleanupConnection()负责最终清理，因此此处不直接deleteLater
     }
     
     if (sessionManager) {
@@ -86,80 +93,75 @@ ClientManager::ClientManager(QObject *parent)
 
 ClientManager::~ClientManager()
 {
+    qCDebug(lcClientManager) << "~ClientManager(): cleanupResources begin";
     cleanupResources();
+    qCDebug(lcClientManager) << "~ClientManager(): cleanupResources end";
 }
 
 QString ClientManager::connectToHost(const QString &host, int port)
 {
-    qDebug() << "[ClientManager] connectToHost called for" << host << ":" << port;
-    
-    // 创建新的连接实例
+    qCDebug(lcClientManager) << "connectToHost(): target" << host << ":" << port;
+    // 生成新的连接ID并创建连接实例
     QString connectionId = generateConnectionId();
     ConnectionInstance* instance = new ConnectionInstance(connectionId);
+    qCDebug(lcClientManager) << "connectToHost(): generated connectionId" << connectionId;
     
-    qDebug() << "[ClientManager] Generated connectionId:" << connectionId;
-    
-    // 创建连接管理器
+    // 建立组件（ConnectionManager / SessionManager 等）
     instance->connectionManager = new ConnectionManager(this);
-    
-    // 从设置读取连接参数并应用到 ConnectionManager（秒 -> 毫秒）
-    {
-        QSettings settings;
-        settings.beginGroup("Connection");
-        const int timeoutSec = settings.value("connectionTimeout", 30).toInt();
-        const bool autoReconnect = settings.value("autoReconnect", false).toBool();
-        const int reconnectIntervalSec = settings.value("reconnectInterval", 5).toInt();
-        const int maxReconnectAttempts = settings.value("maxReconnectAttempts", 3).toInt();
-        settings.endGroup();
-    
-        // 应用到连接管理器
-        instance->connectionManager->setConnectionTimeout(timeoutSec * 1000);
-        instance->connectionManager->setAutoReconnect(autoReconnect);
-        instance->connectionManager->setReconnectInterval(reconnectIntervalSec * 1000);
-        instance->connectionManager->setMaxReconnectAttempts(maxReconnectAttempts);
-    }
-    
-    // 创建会话管理器
     instance->sessionManager = new SessionManager(instance->connectionManager, this);
-
-    // 存储连接实例（必须在创建窗口之前）
+    
+    // 注册到连接表
     m_connections.insert(instance->connectionId, instance);
     
     // 创建远程桌面窗口
     createRemoteDesktopWindow(instance->connectionId);
     
-    // 设置连接
+    // 新增：将 host 传递给远程桌面窗口，用于仅显示 IP/主机名的窗口标题
+    if (instance->remoteDesktopWindow) {
+        instance->remoteDesktopWindow->setConnectionHost(host);
+    }
+    
+    // 建立内部信号连接
     setupConnections(instance);
     
-    // 发起连接
+    // 发起网络连接
     instance->connectionManager->connectToHost(host, port);
-    
+    qCDebug(lcClientManager) << "connectToHost(): connect request sent";
     return instance->connectionId;
 }
 
 void ClientManager::disconnectFromHost(const QString &connectionId)
 {
+    qCDebug(lcClientManager) << "disconnectFromHost(): begin for" << connectionId;
     ConnectionInstance* instance = getConnectionInstance(connectionId);
     if (instance && instance->connectionManager) {
         instance->connectionManager->disconnectFromHost();
-        
         // 关闭远程桌面窗口
         if (instance->remoteDesktopWindow) {
-            instance->remoteDesktopWindow->close();
+            if (!instance->remoteDesktopWindow->isClosing()) {
+                qCDebug(lcClientManager, "disconnectFromHost(): request close for %s", qPrintable(connectionId));
+                instance->remoteDesktopWindow->close();
+            } else {
+                qCDebug(lcClientManager, "disconnectFromHost(): window already closing %s", qPrintable(connectionId));
+            }
         }
-        
         // 清理连接
         cleanupConnection(instance);
         m_connections.remove(connectionId);
+        qCDebug(lcClientManager) << "disconnectFromHost(): end for" << connectionId;
+    } else {
+        qCDebug(lcClientManager) << "disconnectFromHost(): no instance for" << connectionId;
     }
 }
 
 void ClientManager::disconnectAll()
 {
+    qCDebug(lcClientManager) << "disconnectAll(): begin, active count" << m_connections.size();
     QStringList connectionIds = m_connections.keys();
     for (const QString &connectionId : connectionIds) {
         disconnectFromHost(connectionId);
     }
+    qCDebug(lcClientManager) << "disconnectAll(): end, remaining" << m_connections.size();
 }
 
 QStringList ClientManager::getActiveConnectionIds() const
@@ -229,10 +231,10 @@ void ClientManager::createRemoteDesktopWindow(const QString &connectionId)
 {
     ConnectionInstance* instance = getConnectionInstance(connectionId);
     if (!instance || instance->remoteDesktopWindow) {
+        qCDebug(lcClientManager) << "createRemoteDesktopWindow(): skip, window exists or invalid instance for" << connectionId;
         return;
     }
-    
-    // 创建远程桌面窗口
+    qCDebug(lcClientManager) << "createRemoteDesktopWindow(): create window for" << connectionId;
     instance->remoteDesktopWindow = new ClientRemoteWindow(connectionId, nullptr);
     
     // 设置SessionManager
@@ -256,7 +258,12 @@ void ClientManager::closeAllRemoteDesktopWindows()
 {
     for (auto it = m_connections.begin(); it != m_connections.end(); ++it) {
         if (it.value()->remoteDesktopWindow) {
-            it.value()->remoteDesktopWindow->close();
+            if (!it.value()->remoteDesktopWindow->isClosing()) {
+                qCDebug(lcClientManager, "closeAllRemoteDesktopWindows(): request close for %s", qPrintable(it.key()));
+                it.value()->remoteDesktopWindow->close();
+            } else {
+                qCDebug(lcClientManager, "closeAllRemoteDesktopWindows(): window already closing %s", qPrintable(it.key()));
+            }
         }
     }
 }
@@ -265,12 +272,29 @@ void ClientManager::onConnectionEstablished()
 {
     ConnectionManager* manager = qobject_cast<ConnectionManager*>(sender());
     if (!manager) {
+        qCDebug(lcClientManager) << "onConnectionEstablished(): invalid sender";
         return;
     }
-    
     ConnectionInstance* instance = findConnectionByManager(manager);
     if (instance) {
+        qCDebug(lcClientManager) << "onConnectionEstablished(): for" << instance->connectionId;
+        // 新增：连接建立后，用真实的服务器IP更新窗口标题，确保仅显示IP
+        if (instance->remoteDesktopWindow) {
+            QString ip;
+            if (TcpClient* tcp = manager->tcpClient()) {
+                ip = tcp->serverAddress();  // 直接获取对端IP（字符串）
+            }
+            if (ip.isEmpty()) {
+                ip = manager->currentHost();  // 兜底使用当前主机名/地址
+            }
+            if (!ip.isEmpty()) {
+                qCDebug(lcClientManager) << "onConnectionEstablished(): update window title to IP" << ip;
+                instance->remoteDesktopWindow->setConnectionHost(ip);
+            }
+        }
         emit connectionEstablished(instance->connectionId);
+    } else {
+        qCDebug(lcClientManager) << "onConnectionEstablished(): instance not found";
     }
 }
 
@@ -278,15 +302,16 @@ void ClientManager::onAuthenticated()
 {
     ConnectionManager* manager = qobject_cast<ConnectionManager*>(sender());
     if (!manager) {
+        qCDebug(lcClientManager) << "onAuthenticated(): invalid sender";
         return;
     }
-    
     ConnectionInstance* instance = findConnectionByManager(manager);
     if (!instance) {
+        qCDebug(lcClientManager) << "onAuthenticated(): instance not found";
         return;
     }
-    
     if (instance->sessionManager) {
+        qCDebug(lcClientManager) << "onAuthenticated(): start session for" << instance->connectionId;
         // 认证成功后启动会话
         instance->sessionManager->startSession();
         // 连接屏幕更新信号
@@ -299,16 +324,21 @@ void ClientManager::onConnectionClosed()
 {
     ConnectionManager* manager = qobject_cast<ConnectionManager*>(sender());
     if (!manager) {
+        qCDebug(lcClientManager) << "onConnectionClosed(): invalid sender";
         return;
     }
-    
     ConnectionInstance* instance = findConnectionByManager(manager);
     if (instance) {
+        qCDebug(lcClientManager) << "onConnectionClosed(): for" << instance->connectionId;
         // 关闭远程桌面窗口
         if (instance->remoteDesktopWindow) {
-            instance->remoteDesktopWindow->close();
+            if (!instance->remoteDesktopWindow->isClosing()) {
+                qCDebug(lcClientManager, "onConnectionClosed(): request close for %s", qPrintable(instance->connectionId));
+                instance->remoteDesktopWindow->close();
+            } else {
+                qCDebug(lcClientManager, "onConnectionClosed(): window already closing %s", qPrintable(instance->connectionId));
+            }
         }
-        
         // 清理连接
         QString connectionId = instance->connectionId;
         cleanupConnection(instance);
@@ -320,11 +350,12 @@ void ClientManager::onConnectionError(const QString &error)
 {
     ConnectionManager* manager = qobject_cast<ConnectionManager*>(sender());
     if (!manager) {
+        qCDebug(lcClientManager) << "onConnectionError(): invalid sender";
         return;
     }
-    
     ConnectionInstance* instance = findConnectionByManager(manager);
     if (instance) {
+        qCDebug(lcClientManager) << "onConnectionError():" << error;
         QMessageBox msgBox(instance->remoteDesktopWindow);
         msgBox.setIcon(QMessageBox::Warning);
         msgBox.setWindowTitle(tr("服务器错误"));
@@ -348,9 +379,9 @@ void ClientManager::onConnectionStateChanged(ConnectionManager::ConnectionState 
 {
     ConnectionManager* manager = qobject_cast<ConnectionManager*>(sender());
     if (!manager) {
+        qCDebug(lcClientManager) << "onConnectionStateChanged(): invalid sender";
         return;
     }
-    
     ConnectionInstance* instance = findConnectionByManager(manager);
     if (instance) {        
         // 根据连接状态更新UI
@@ -378,6 +409,7 @@ void ClientManager::onWindowClosed()
 {
     ClientRemoteWindow* window = qobject_cast<ClientRemoteWindow*>(sender());
     if (!window) {
+        qCDebug(lcClientManager) << "onWindowClosed(): invalid sender";
         return;
     }
     
@@ -431,11 +463,13 @@ void ClientManager::setupConnections(ConnectionInstance* instance)
 
 void ClientManager::cleanupResources()
 {
+    qCDebug(lcClientManager) << "cleanupResources(): begin, connections" << m_connections.size();
     // 清理所有连接
     for (auto it = m_connections.begin(); it != m_connections.end(); ++it) {
         cleanupConnection(it.value());
     }
     m_connections.clear();
+    qCDebug(lcClientManager) << "cleanupResources(): end";
 }
 
 void ClientManager::cleanupConnection(ConnectionInstance* instance)

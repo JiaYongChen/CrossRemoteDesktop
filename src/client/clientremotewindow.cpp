@@ -1,19 +1,21 @@
-#include "clientremotewindow.h"
-#include "tcpclient.h"
-#include "./managers/sessionmanager.h"
-#include "./managers/clipboardmanager.h"
-#include "./managers/filetransfermanager.h"
-#include "./managers/cursormanager.h"
-#include "./managers/rendermanager.h"
-#include "inputhandler.h"
-#include "clientmanager.h"
-#include "../common/core/uiconstants.h"
-#include "../common/core/messageconstants.h"
+#include "ClientRemoteWindow.h"
+#include "TcpClient.h"
+#include "./managers/SessionManager.h"
+#include "./managers/ClipboardManager.h"
+#include "./managers/FileTransferManager.h"
+#include "./managers/CursorManager.h"
+#include "./managers/RenderManager.h"
+#include "InputHandler.h"
+#include "ClientManager.h"
+#include "../common/core/config/UiConstants.h"
+#include "../common/core/config/MessageConstants.h"
 
 #include <QtWidgets/QGraphicsScene>
 #include <QtWidgets/QGraphicsPixmapItem>
 #include <QtWidgets/QGraphicsRectItem>
+#ifndef QT_NO_OPENGL
 #include <QtOpenGLWidgets/QOpenGLWidget>
+#endif
 #include <QtCore/QPropertyAnimation>
 #include <QtCore/QEasingCurve>
 #include <QtGui/QPainter>
@@ -39,16 +41,20 @@
 #include <QtGui/QActionGroup>
 #include <QtCore/QSettings>
 #include <QtCore/QDebug>
+#include <QLoggingCategory>
 #include <QtWidgets/QMenuBar>
 #include <QtGui/QKeySequence>
 #include <QtGui/QIcon>
 #include <cmath>
+
+Q_LOGGING_CATEGORY(lcClientRemoteWindow, "client.remote.window")
 
 ClientRemoteWindow::ClientRemoteWindow(const QString &connectionId, QWidget *parent)
     : QGraphicsView(parent)
     , m_connectionId(connectionId)
     , m_connectionState(ConnectionManager::Disconnected)
     , m_isFullScreen(false)
+    , m_isClosing(false) // 初始化关闭标志，默认不在关闭流程中
     , m_inputEnabled(true)
     , m_keyboardGrabbed(false)
     , m_mouseGrabbed(false)
@@ -62,29 +68,26 @@ ClientRemoteWindow::ClientRemoteWindow(const QString &connectionId, QWidget *par
     , m_showPerformanceInfo(false)
     , m_sessionManager(nullptr)
 {
+    // 确保窗口关闭时自动删除，避免无父对象窗口内存泄漏
+    // 使用属性而非手动deleteLater，减少重复释放风险
+    setAttribute(Qt::WA_DeleteOnClose, true);
     qDebug() << "[ClientRemoteWindow] Constructor started for connectionId:" << connectionId;
     
     // Initialize all managers using composition pattern
     initializeManagers();
     
+    // Configure window properties (size, title, etc.)
+    configureWindow();
+    
     // Setup UI components
     setupScene();
     setupView();
-    
-    // Configure window properties
-    configureWindow();
-    
-    // Setup manager connections and enable features
-    setupManagerConnections();
-    enableManagerFeatures();
-    
-    qDebug() << "[ClientRemoteWindow] Constructor completed for connectionId:" << connectionId;
 }
 
 ClientRemoteWindow::~ClientRemoteWindow()
 {
-    // Cleanup is handled by smart pointers and Qt's parent-child relationship
-    emit windowClosed();
+    // 注意：不在析构中发射 windowClosed()，避免与 closeEvent 重复
+    // Qt 父子关系将自动清理子对象
 }
 
 void ClientRemoteWindow::initializeManagers()
@@ -111,11 +114,14 @@ void ClientRemoteWindow::initializeManagers()
 void ClientRemoteWindow::configureWindow()
 {
     // Set window properties
+    // 原逻辑：仅显示连接ID，不够直观
     setWindowTitle(QString("远程桌面 - %1").arg(m_connectionId));
+
+    // 设置窗口的最小尺寸与初始尺寸，保证初次打开时有合理的显示区域
     setMinimumSize(400, 300);
     resize(1024, 768);
     
-    // Set focus policy for proper input handling
+    // 设置焦点策略，确保输入事件能够被正确接收和处理
     setFocusPolicy(Qt::StrongFocus);
 }
 
@@ -163,15 +169,11 @@ void ClientRemoteWindow::setupManagerConnections()
     // Connect clipboard manager signals
     if (m_clipboardManager) {
         // Forward clipboard changes to external listeners if needed
-        // connect(m_clipboardManager, &ClipboardManager::clipboardChanged, 
-        //         this, &ClientRemoteWindow::onClipboardChanged);
     }
     
     // Connect file transfer manager signals  
     if (m_fileTransferManager) {
         // Forward file drop events to external listeners if needed
-        // connect(m_fileTransferManager, &FileTransferManager::filesDropped,
-        //         this, &ClientRemoteWindow::onFilesDropped);
     }
     
     // Connect input handler signals
@@ -223,6 +225,20 @@ QString ClientRemoteWindow::getConnectionId() const
     return m_connectionId;
 }
 
+// 新增：设置连接主机（IP 或主机名）并刷新窗口标题
+// 说明：
+// - 由 ClientManager 在调用 connectToHost 时传入 host
+// - 仅当 host 变化时才更新，避免无谓的 UI 重绘
+void ClientRemoteWindow::setConnectionHost(const QString &host)
+{
+    // 若标题已为该主机名/IP，则无需重复设置
+    if (windowTitle() == host)
+        return;
+    // 直接设置窗口标题，不再持久化到成员变量，避免冗余状态
+    setWindowTitle(host);
+    qCDebug(lcClientRemoteWindow, "Connection host set: %s", qPrintable(host));
+}
+
 // Connection state management
 void ClientRemoteWindow::setConnectionState(ConnectionManager::ConnectionState state)
 {
@@ -259,9 +275,6 @@ void ClientRemoteWindow::updateRemoteRegion(const QPixmap &region, const QRect &
     }
 }
 
-// View mode and scaling
-// applyViewMode is now handled by RenderManager
-
 void ClientRemoteWindow::setViewMode(ViewMode mode)
 {
     if (m_renderManager) {
@@ -277,8 +290,6 @@ ClientRemoteWindow::ViewMode ClientRemoteWindow::viewMode() const
     }
     return FitToWindow;
 }
-
-// updateSceneRect is now handled by RenderManager
 
 // Scaling methods
 void ClientRemoteWindow::setScaleFactor(double factor)
@@ -637,7 +648,6 @@ void ClientRemoteWindow::resizeEvent(QResizeEvent *event)
     }
 }
 
-
 // Note: Drag and drop events are now handled by FileTransferManager
 // The events are automatically forwarded to the manager through Qt's event system
 
@@ -653,18 +663,26 @@ void ClientRemoteWindow::focusOutEvent(QFocusEvent *event)
 
 void ClientRemoteWindow::closeEvent(QCloseEvent *event)
 {
-    // Emit window closed signal
+    qCDebug(lcClientRemoteWindow, "closeEvent received for %s, isClosing=%d", qPrintable(m_connectionId), m_isClosing);
+
+    // 若已处于关闭流程，直接接受事件并返回，避免重入
+    if (m_isClosing) {
+        event->accept();
+        return;
+    }
+
+    // 设置关闭标志，表示进入窗口关闭流程
+    m_isClosing = true;
+
+    // 先发射一次 windowClosed，保证上层（ClientManager）进行清理。
+    // 通过标志位确保只发射一次，避免析构或其他路径再次发射。
     emit windowClosed();
-    
-    // Cleanup is handled by smart pointers and Qt's parent-child relationship
-    
-    // Terminate session
+
+    // 终止会话（内部不会进行阻塞等待）
     terminateSession();
-    
-    // Accept the close event
+
+    // 接受事件并调用父类实现，确保正常的 QWidget/QGraphicsView 关闭流程
     event->accept();
-    
-    // Call parent implementation
     QGraphicsView::closeEvent(event);
 }
 
@@ -690,7 +708,6 @@ void ClientRemoteWindow::onConnectionError(const QString &error)
 }
 
 // Note: Clipboard changes are now handled by ClipboardManager
-
 
 void ClientRemoteWindow::onSessionStateChanged()
 {
@@ -826,8 +843,6 @@ void ClientRemoteWindow::drawPerformanceInfo(QPainter &painter)
     painter.restore();
 }
 
-
-
 // Note: Mouse and keyboard input handling is now managed by InputHandler
 // Events are processed through the InputHandler and forwarded to SessionManager
 
@@ -842,9 +857,7 @@ void ClientRemoteWindow::saveScreenshot(const QString &fileName)
     }
 }
 
-
 // onSceneChanged, updateViewTransform and enableOpenGL are now handled by RenderManager
-
 
 void ClientRemoteWindow::setSessionManager(SessionManager *sessionManager)
 {
@@ -860,4 +873,9 @@ void ClientRemoteWindow::setSessionManager(SessionManager *sessionManager)
         connect(m_sessionManager, &SessionManager::sessionStateChanged, this, &ClientRemoteWindow::onSessionStateChanged);
         connect(m_sessionManager, &SessionManager::performanceStatsUpdated, this, &ClientRemoteWindow::onPerformanceStatsUpdated);
     }
+}
+
+bool ClientRemoteWindow::isClosing() const
+{
+    return m_isClosing;
 }

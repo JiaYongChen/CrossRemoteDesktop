@@ -67,9 +67,7 @@ public:
     void setPort(int port);
     void setUsername(const QString &username);
     void setPassword(const QString &password);
-    
 
-    
 protected:
     void accept() override;
     void reject() override;
@@ -100,7 +98,6 @@ private:
     void createBasicTab();
     void createAdvancedTab();
 
-    
     void updateHistoryList();
     void selectHistoryItem(int index);
     bool validateConnectionInfo();
@@ -129,9 +126,7 @@ private:
     QCheckBox *m_shareAudioCheck;
     QCheckBox *m_enableEncryptionCheck;
     QSpinBox *m_connectionTimeoutSpinBox;
-    
 
-    
     // 按钮
     QPushButton *m_connectButton;
     QPushButton *m_cancelButton;
@@ -142,9 +137,7 @@ private:
     
     // 设置
     QSettings *m_settings;
-    
 
-    
     // 验证状态
     bool m_isValid;
     QString m_validationError;
