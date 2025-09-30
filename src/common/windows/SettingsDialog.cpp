@@ -198,7 +198,7 @@ void SettingsDialog::setupDisplayPageComponents()
     // m_fullScreenCheck = ui->defaultFullScreenCheckBox;  // Component not found
     
     // 这些组件在UI文件中没有定义，设置为nullptr
-    m_defaultViewModeCombo = nullptr;
+
     m_enableWallpaperCheck = nullptr;
     m_enableAnimationsCheck = nullptr;
     m_enableFontSmoothingCheck = nullptr;
@@ -380,7 +380,6 @@ void SettingsDialog::loadSettings()
     m_settings->endGroup();
     
     m_settings->beginGroup("Display");
-    m_displaySettings.defaultViewMode = m_settings->value("defaultViewMode", "Fit to Window").toString();
     m_displaySettings.compressionLevel = m_settings->value("compressionLevel", 3).toInt();
     m_displaySettings.frameRate = m_settings->value("frameRate", 60).toInt();
     m_displaySettings.colorDepth = m_settings->value("colorDepth", "32-bit").toString();
@@ -434,7 +433,6 @@ void SettingsDialog::saveSettings()
     m_settings->endGroup();
     
     m_settings->beginGroup("Display");
-    m_settings->setValue("defaultViewMode", m_displaySettings.defaultViewMode);
     m_settings->setValue("compressionLevel", m_displaySettings.compressionLevel);
     m_settings->setValue("frameRate", m_displaySettings.frameRate);
     m_settings->setValue("colorDepth", m_displaySettings.colorDepth);
@@ -674,7 +672,6 @@ void SettingsDialog::resetToDefaults()
     m_minimizeToTrayCheck->setChecked(false);
     m_showNotificationsCheck->setChecked(true);
     m_checkUpdatesCheck->setChecked(true);
-    
     m_defaultPortSpinBox->setValue(3389);
     m_connectionTimeoutSpinBox->setValue(30);
     m_autoReconnectCheck->setChecked(false);
@@ -702,7 +699,6 @@ void SettingsDialog::onStartupBehaviorChanged(bool checked) { Q_UNUSED(checked);
 void SettingsDialog::onDefaultPortChanged(int value) { Q_UNUSED(value); onSettingChanged(); }
 void SettingsDialog::onConnectionTimeoutChanged(int value) { Q_UNUSED(value); onSettingChanged(); }
 void SettingsDialog::onAutoReconnectChanged(bool checked) { Q_UNUSED(checked); onSettingChanged(); }
-void SettingsDialog::onDefaultViewModeChanged(int index) { Q_UNUSED(index); onSettingChanged(); }
 void SettingsDialog::onCompressionLevelChanged(int value) { Q_UNUSED(value); onSettingChanged(); }
 void SettingsDialog::onFrameRateChanged(int value) { Q_UNUSED(value); onSettingChanged(); }
 void SettingsDialog::onCaptureQualityChanged(int index) { Q_UNUSED(index); onSettingChanged(); }

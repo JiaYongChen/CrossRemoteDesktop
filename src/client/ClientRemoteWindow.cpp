@@ -113,12 +113,8 @@ void ClientRemoteWindow::initializeManagers()
 
 void ClientRemoteWindow::configureWindow()
 {
-    // Set window properties
-    // 原逻辑：仅显示连接ID，不够直观
-    setWindowTitle(QString("远程桌面 - %1").arg(m_connectionId));
-
     // 设置窗口的最小尺寸与初始尺寸，保证初次打开时有合理的显示区域
-    setMinimumSize(400, 300);
+    setMinimumSize(1024, 768);
     resize(1024, 768);
     
     // 设置焦点策略，确保输入事件能够被正确接收和处理
@@ -159,9 +155,6 @@ void ClientRemoteWindow::setupView()
     
     // Enable mouse tracking
     setMouseTracking(true);
-    
-    // Set initial view mode
-    setViewMode(FitToWindow);
 }
 
 void ClientRemoteWindow::setupManagerConnections()
@@ -213,10 +206,9 @@ void ClientRemoteWindow::setupManagerConnections()
         connect(m_renderManager, &RenderManager::scaleFactorChanged,
                 this, &ClientRemoteWindow::scaleFactorChanged);
         
-        connect(m_renderManager, &RenderManager::viewModeChanged,
-                this, [this](RenderManager::ViewMode mode) {
-                    emit viewModeChanged(static_cast<ViewMode>(mode));
-                });
+        // 连接窗口大小调整请求信号
+        connect(m_renderManager, &RenderManager::windowResizeRequested,
+                this, &ClientRemoteWindow::onWindowResizeRequested);
     }
 }
 
@@ -275,28 +267,14 @@ void ClientRemoteWindow::updateRemoteRegion(const QPixmap &region, const QRect &
     }
 }
 
-void ClientRemoteWindow::setViewMode(ViewMode mode)
-{
-    if (m_renderManager) {
-        RenderManager::ViewMode renderMode = static_cast<RenderManager::ViewMode>(mode);
-        m_renderManager->setViewMode(renderMode);
-    }
-}
 
-ClientRemoteWindow::ViewMode ClientRemoteWindow::viewMode() const
-{
-    if (m_renderManager) {
-        return static_cast<ViewMode>(m_renderManager->viewMode());
-    }
-    return FitToWindow;
-}
 
 // Scaling methods
 void ClientRemoteWindow::setScaleFactor(double factor)
 {
     if (m_renderManager) {
         m_renderManager->setScaleFactor(factor);
-        m_renderManager->setViewMode(RenderManager::CustomScale);
+    
     }
 }
 
@@ -338,27 +316,6 @@ RenderManager::ImageQuality ClientRemoteWindow::imageQuality() const
         return m_renderManager->imageQuality();
     }
     return RenderManager::SmoothRendering;
-}
-
-/**
- * @brief 设置动画模式
- */
-void ClientRemoteWindow::setAnimationMode(RenderManager::AnimationMode mode)
-{
-    if (m_renderManager) {
-        m_renderManager->setAnimationMode(mode);
-    }
-}
-
-/**
- * @brief 获取当前动画模式
- */
-RenderManager::AnimationMode ClientRemoteWindow::animationMode() const
-{
-    if (m_renderManager) {
-        return m_renderManager->animationMode();
-    }
-    return RenderManager::NoAnimation;
 }
 
 /**
@@ -512,37 +469,6 @@ void ClientRemoteWindow::terminateSession()
 }
 
 // Public slots
-void ClientRemoteWindow::fitToWindow()
-{
-    setViewMode(FitToWindow);
-}
-
-void ClientRemoteWindow::actualSize()
-{
-    setViewMode(ActualSize);
-}
-
-void ClientRemoteWindow::zoomIn()
-{
-    if (m_renderManager) {
-        m_renderManager->zoomIn();
-    }
-}
-
-void ClientRemoteWindow::zoomOut()
-{
-    if (m_renderManager) {
-        m_renderManager->zoomOut();
-    }
-}
-
-void ClientRemoteWindow::resetZoom()
-{
-    if (m_renderManager) {
-        m_renderManager->resetZoom();
-    }
-}
-
 void ClientRemoteWindow::toggleFullScreen()
 {
     setFullScreen(!m_isFullScreen);
@@ -643,9 +569,7 @@ void ClientRemoteWindow::resizeEvent(QResizeEvent *event)
     QGraphicsView::resizeEvent(event);
     
     // Update view transformation when window is resized
-    if (m_renderManager) {
-        m_renderManager->handleResize(event->size());
-    }
+    // 窗口大小改变处理已简化
 }
 
 // Note: Drag and drop events are now handled by FileTransferManager
@@ -878,4 +802,57 @@ void ClientRemoteWindow::setSessionManager(SessionManager *sessionManager)
 bool ClientRemoteWindow::isClosing() const
 {
     return m_isClosing;
+}
+
+void ClientRemoteWindow::onWindowResizeRequested(const QSize &size)
+{
+    // 智能窗口大小调整：根据图片宽高比调整窗口大小以消除黑边
+    if (size.isEmpty()) {
+        return;
+    }
+    
+    // 获取当前窗口的父窗口（主窗口）
+    QWidget *parentWindow = window();
+    if (!parentWindow) {
+        return;
+    }
+    
+    // 计算窗口边框和标题栏的额外空间
+    QSize currentWindowSize = parentWindow->size();
+    QSize currentViewportSize = viewport()->size();
+    QSize extraSpace = currentWindowSize - currentViewportSize;
+    
+    // 计算新的窗口大小
+    QSize newWindowSize = size + extraSpace;
+    
+    // 获取屏幕可用区域，确保窗口不会超出屏幕
+    QScreen *screen = parentWindow->screen();
+    if (screen) {
+        QRect availableGeometry = screen->availableGeometry();
+        
+        // 限制窗口大小不超过屏幕的80%
+        int maxWidth = static_cast<int>(availableGeometry.width() * 0.8);
+        int maxHeight = static_cast<int>(availableGeometry.height() * 0.8);
+        
+        if (newWindowSize.width() > maxWidth || newWindowSize.height() > maxHeight) {
+            // 如果计算出的窗口大小太大，按比例缩小
+            double scaleX = static_cast<double>(maxWidth) / newWindowSize.width();
+            double scaleY = static_cast<double>(maxHeight) / newWindowSize.height();
+            double scale = qMin(scaleX, scaleY);
+            
+            newWindowSize = QSize(static_cast<int>(newWindowSize.width() * scale),
+                                 static_cast<int>(newWindowSize.height() * scale));
+        }
+        
+        // 设置最小窗口大小
+        newWindowSize = newWindowSize.expandedTo(QSize(400, 300));
+    }
+    
+    // 调整窗口大小
+    parentWindow->resize(newWindowSize);
+    
+    // 记录调试信息
+    qCDebug(lcClientRemoteWindow) << "Window resize requested:" 
+                                  << "requested viewport size:" << size
+                                  << "new window size:" << newWindowSize;
 }

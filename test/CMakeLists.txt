@@ -648,3 +648,55 @@ endif()
 if(TARGET run_core_tests)
     add_dependencies(run_core_tests test_clientremotewindow)
 endif()
+
+# 屏幕数据流程测试用例
+set(SCREEN_DATA_FLOW_TEST_SOURCES
+    test_screen_data_flow.cpp
+    
+    # 只包含必要的核心源文件
+    ../src/common/core/logging/LoggingCategories.cpp
+    ../src/common/core/network/ProtocolImpl.cpp
+)
+
+# 创建屏幕数据流程测试可执行文件
+qt_add_executable(test_screen_data_flow
+    ${SCREEN_DATA_FLOW_TEST_SOURCES}
+)
+
+# 链接库
+# 屏幕数据流程测试需要完整的GUI和网络组件
+target_link_libraries(test_screen_data_flow PRIVATE
+    Qt6::Core
+    Qt6::Test
+    Qt6::Gui
+    Qt6::Widgets
+    Qt6::Network
+    Qt6::Concurrent
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    ZLIB::ZLIB
+)
+
+target_compile_definitions(test_screen_data_flow PRIVATE QT_NO_OPENGL)
+
+# 添加屏幕数据流程测试
+add_test(
+    NAME ScreenDataFlowTest
+    COMMAND test_screen_data_flow
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+)
+
+# 设置屏幕数据流程测试属性
+set_tests_properties(ScreenDataFlowTest PROPERTIES
+    TIMEOUT 120  # 2分钟超时
+    LABELS "integration;screen;data;flow;network"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
+# 保证自定义测试目标的依赖
+if(TARGET run_all_tests)
+    add_dependencies(run_all_tests test_screen_data_flow)
+endif()
+if(TARGET run_integration_tests)
+    add_dependencies(run_integration_tests test_screen_data_flow)
+endif()

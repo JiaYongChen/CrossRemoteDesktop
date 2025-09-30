@@ -21,7 +21,6 @@ class QTimer;
  * 
  * 该类封装了以下功能：
  * - 远程屏幕内容的显示和更新
- * - 视图模式管理（适应窗口、实际大小、自定义缩放等）
  * - 缩放因子计算和应用
  * - 坐标映射（本地坐标与远程坐标之间的转换）
  * - 场景和视图的设置与管理
@@ -31,18 +30,7 @@ class RenderManager : public QObject
 {
     Q_OBJECT
     
-public:
-    /**
-     * @brief 视图模式枚举
-     */
-    enum ViewMode {
-        FitToWindow,    ///< 适应窗口大小
-        ActualSize,     ///< 实际大小
-        CustomScale,    ///< 自定义缩放
-        FillWindow      ///< 填充窗口
-    };
-    Q_ENUM(ViewMode)
-    
+public:    
     /**
      * @brief 图片质量枚举
      */
@@ -52,16 +40,6 @@ public:
         HighQualityRendering ///< 高质量渲染（双三次插值）
     };
     Q_ENUM(ImageQuality)
-    
-    /**
-     * @brief 缩放动画模式枚举
-     */
-    enum AnimationMode {
-        NoAnimation,        ///< 无动画
-        SmoothAnimation,    ///< 平滑动画
-        FastAnimation       ///< 快速动画
-    };
-    Q_ENUM(AnimationMode)
     
     /**
      * @brief 构造函数
@@ -107,18 +85,7 @@ public:
     void updateRemoteRegion(const QPixmap &region, const QRect &rect);
     
     // 视图模式和缩放
-    /**
-     * @brief 设置视图模式
-     * @param mode 视图模式
-     */
-    void setViewMode(ViewMode mode);
-    
-    /**
-     * @brief 获取当前视图模式
-     * @return 当前视图模式
-     */
-    ViewMode viewMode() const { return m_viewMode; }
-    
+
     /**
      * @brief 设置图片质量
      * @param quality 图片质量级别
@@ -130,18 +97,6 @@ public:
      * @return 当前图片质量级别
      */
     ImageQuality imageQuality() const { return m_imageQuality; }
-    
-    /**
-     * @brief 设置缩放动画模式
-     * @param mode 动画模式
-     */
-    void setAnimationMode(AnimationMode mode);
-    
-    /**
-     * @brief 获取当前动画模式
-     * @return 当前动画模式
-     */
-    AnimationMode animationMode() const { return m_animationMode; }
     
     /**
      * @brief 启用或禁用图片缓存
@@ -161,11 +116,6 @@ public:
     void setCacheSizeLimit(int sizeMB);
     
     /**
-     * @brief 应用当前视图模式
-     */
-    void applyViewMode();
-    
-    /**
      * @brief 设置缩放因子
      * @param factor 缩放因子
      */
@@ -176,18 +126,6 @@ public:
      * @return 当前缩放因子
      */
     double scaleFactor() const { return m_scaleFactor; }
-    
-    /**
-     * @brief 设置自定义缩放因子
-     * @param factor 自定义缩放因子
-     */
-    void setCustomScaleFactor(double factor);
-    
-    /**
-     * @brief 获取自定义缩放因子
-     * @return 自定义缩放因子
-     */
-    double customScaleFactor() const { return m_customScaleFactor; }
     
     // 尺寸和坐标管理
     /**
@@ -258,39 +196,7 @@ public:
      * @brief 设置视图更新模式
      * @param mode 更新模式
      */
-    void setUpdateMode(QGraphicsView::ViewportUpdateMode mode);
-    
-    // 便捷方法
-    /**
-     * @brief 适应窗口大小
-     */
-    void fitToWindow();
-    
-    /**
-     * @brief 显示实际大小
-     */
-    void actualSize();
-    
-    /**
-     * @brief 放大
-     */
-    void zoomIn();
-    
-    /**
-     * @brief 缩小
-     */
-    void zoomOut();
-    
-    /**
-     * @brief 重置缩放
-     */
-    void resetZoom();
-    
-    /**
-     * @brief 处理窗口大小改变
-     * @param newSize 新的窗口大小
-     */
-    void handleResize(const QSize &newSize);
+    void setUpdateMode(QGraphicsView::ViewportUpdateMode mode);    
     
     /**
      * @brief 获取图形场景
@@ -306,16 +212,16 @@ public:
     
 signals:
     /**
-     * @brief 视图模式改变信号
-     * @param mode 新的视图模式
-     */
-    void viewModeChanged(ViewMode mode);
-    
-    /**
      * @brief 缩放因子改变信号
      * @param factor 新的缩放因子
      */
     void scaleFactorChanged(double factor);
+    
+    /**
+     * @brief 请求调整窗口大小信号（用于FitToWindow模式消除黑边）
+     * @param size 建议的窗口大小
+     */
+    void windowResizeRequested(const QSize &size);
     
 public slots:
     /**
@@ -368,7 +274,6 @@ private:
     QSize m_remoteSize;                     ///< 远程屏幕尺寸
     QSize m_scaledSize;                     ///< 缩放后的尺寸
 
-    ViewMode m_viewMode;                    ///< 当前视图模式
     double m_scaleFactor;                   ///< 当前缩放因子
     double m_customScaleFactor;             ///< 自定义缩放因子
 
@@ -377,7 +282,6 @@ private:
     
     // 新增的成员变量
     ImageQuality m_imageQuality;            ///< 图片质量设置
-    AnimationMode m_animationMode;          ///< 动画模式
     bool m_cacheEnabled;                    ///< 是否启用缓存
     int m_cacheSizeLimit;                   ///< 缓存大小限制（MB）
     QHash<QString, QPixmap> m_pixmapCache;  ///< 图片缓存

@@ -43,14 +43,6 @@ class ClientRemoteWindow : public QGraphicsView
     Q_OBJECT
     
 public:
-    enum ViewMode {
-        FitToWindow,
-        ActualSize,
-        CustomScale,
-        FillWindow
-    };
-    Q_ENUM(ViewMode)
-    
     explicit ClientRemoteWindow(const QString &connectionId, QWidget *parent = nullptr);
     ~ClientRemoteWindow();
     
@@ -73,9 +65,7 @@ public:
     void updateRemoteScreen(const QPixmap &screen);
     void updateRemoteRegion(const QPixmap &region, const QRect &rect);
     
-    // View mode and scaling (delegated to RenderManager)
-    void setViewMode(ViewMode mode);
-    ViewMode viewMode() const;
+    // Scaling (delegated to RenderManager)
     
     void setScaleFactor(double factor);
     double scaleFactor() const;
@@ -86,9 +76,6 @@ public:
     // Image quality and rendering options
     void setImageQuality(RenderManager::ImageQuality quality);
     RenderManager::ImageQuality imageQuality() const;
-    
-    void setAnimationMode(RenderManager::AnimationMode mode);
-    RenderManager::AnimationMode animationMode() const;
     
     void enableImageCache(bool enable);
     void clearImageCache();
@@ -142,18 +129,13 @@ signals:
     void keyboardEvent(int key, int modifiers, bool pressed, const QString &text);
     
     // View events
-    void viewModeChanged(ViewMode mode);
+
     void scaleFactorChanged(double factor);
     
     // Lifecycle events
     void windowClosed();
     
 public slots:
-    void fitToWindow();
-    void actualSize();
-    void zoomIn();
-    void zoomOut();
-    void resetZoom();
     void toggleFullScreen();
     void takeScreenshot();
     void showConnectionInfo();
@@ -161,7 +143,6 @@ public slots:
     
 protected:
     void closeEvent(QCloseEvent *event) override;
-    
     void paintEvent(QPaintEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
@@ -180,6 +161,8 @@ private slots:
     void onSessionStateChanged();
     void onScreenUpdated(const QPixmap &screen);
     void onPerformanceStatsUpdated();
+    
+    void onWindowResizeRequested(const QSize &size);
     
 private:
     void initializeManagers();

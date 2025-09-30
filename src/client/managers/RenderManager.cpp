@@ -1,4 +1,5 @@
 #include "RenderManager.h"
+#include "../../common/core/logging/LoggingCategories.h"
 #include <QtWidgets/QGraphicsScene>
 #include <QtWidgets/QGraphicsPixmapItem>
 #include <QtWidgets/QGraphicsView>
@@ -8,6 +9,7 @@
 #include <QtCore/QTimer>
 #include <QtCore/QDebug>
 #include <QtGui/QPainter>
+#include <QtGui/QScreen>
 #include <cmath>
 
 RenderManager::RenderManager(QGraphicsView *graphicsView, QObject *parent)
@@ -17,13 +19,12 @@ RenderManager::RenderManager(QGraphicsView *graphicsView, QObject *parent)
     , m_pixmapItem(nullptr)
     , m_remoteSize(1024, 768)
     , m_scaledSize(1024, 768)
-    , m_viewMode(FitToWindow)
+    
     , m_scaleFactor(1.0)
     , m_customScaleFactor(1.0)
     , m_updateTimer(new QTimer(this))
     , m_pendingUpdate(false)
     , m_imageQuality(SmoothRendering)
-    , m_animationMode(NoAnimation)
     , m_cacheEnabled(true)
     , m_cacheSizeLimit(100)
     , m_currentCacheSize(0)
@@ -32,6 +33,9 @@ RenderManager::RenderManager(QGraphicsView *graphicsView, QObject *parent)
     m_updateTimer->setSingleShot(true);
     m_updateTimer->setInterval(16); // ~60 FPS
     connect(m_updateTimer, &QTimer::timeout, this, &RenderManager::updateDisplay);
+    
+    initializeScene();
+    setupView();
 }
 
 RenderManager::~RenderManager()
@@ -106,9 +110,6 @@ void RenderManager::setRemoteScreen(const QPixmap &pixmap)
     // 更新场景矩形
     updateSceneRect();
     
-    // 应用当前视图模式
-    applyViewMode();
-    
     // 计算缩放后的尺寸
     calculateScaledSize();
     
@@ -173,85 +174,6 @@ void RenderManager::updateRemoteRegion(const QPixmap &region, const QRect &rect)
     scheduleUpdate();
 }
 
-void RenderManager::setViewMode(ViewMode mode)
-{
-    if (m_viewMode != mode) {
-        m_viewMode = mode;
-        applyViewMode();
-        emit viewModeChanged(mode);
-    }
-}
-
-void RenderManager::applyViewMode()
-{
-    if (!m_graphicsView || !m_pixmapItem || m_remoteScreen.isNull()) {
-        return;
-    }
-    
-    switch (m_viewMode) {
-        case FitToWindow: {
-            // 计算缩放因子以适应整个图像到视图中
-            QSize viewSize = m_graphicsView->viewport()->size();
-            QSize imageSize = m_remoteSize;
-            
-            if (imageSize.isEmpty() || viewSize.isEmpty()) {
-                return;
-            }
-            
-            double scaleX = static_cast<double>(viewSize.width()) / imageSize.width();
-            double scaleY = static_cast<double>(viewSize.height()) / imageSize.height();
-            double scale = qMin(scaleX, scaleY);
-            
-            m_scaleFactor = scale;
-            
-            // 应用变换
-            QTransform transform;
-            transform.scale(scale, scale);
-            m_graphicsView->setTransform(transform);
-            
-            // 居中显示
-            m_graphicsView->centerOn(m_pixmapItem);
-            break;
-        }
-        case ActualSize: {
-            m_scaleFactor = 1.0;
-            m_graphicsView->resetTransform();
-            break;
-        }
-        case CustomScale: {
-            QTransform transform;
-            transform.scale(m_customScaleFactor, m_customScaleFactor);
-            m_graphicsView->setTransform(transform);
-            m_scaleFactor = m_customScaleFactor;
-            break;
-        }
-        case FillWindow: {
-            // 缩放以填充整个视图，可能会裁剪图像
-            QSize viewSize = m_graphicsView->viewport()->size();
-            QSize imageSize = m_remoteSize;
-            
-            if (imageSize.isEmpty() || viewSize.isEmpty()) {
-                return;
-            }
-            
-            double scaleX = static_cast<double>(viewSize.width()) / imageSize.width();
-            double scaleY = static_cast<double>(viewSize.height()) / imageSize.height();
-            double scale = qMax(scaleX, scaleY);
-            
-            m_scaleFactor = scale;
-            
-            QTransform transform;
-            transform.scale(scale, scale);
-            m_graphicsView->setTransform(transform);
-            
-            m_graphicsView->centerOn(m_pixmapItem);
-            break;
-        }
-    }
-    
-    emit scaleFactorChanged(m_scaleFactor);
-}
-
 void RenderManager::setScaleFactor(double factor)
 {
     if (factor <= 0.0) {
@@ -260,14 +182,6 @@ void RenderManager::setScaleFactor(double factor)
     }
     
     m_customScaleFactor = factor;
-    if (m_viewMode == CustomScale) {
-        applyViewMode();
-    }
-}
-
-void RenderManager::setCustomScaleFactor(double factor)
-{
-    setScaleFactor(factor);
 }
 
 QPoint RenderManager::mapToRemote(const QPoint &localPoint) const
@@ -362,55 +276,8 @@ void RenderManager::setUpdateMode(QGraphicsView::ViewportUpdateMode mode)
     }
 }
 
-void RenderManager::fitToWindow()
-{
-    setViewMode(FitToWindow);
-}
-
-void RenderManager::actualSize()
-{
-    setViewMode(ActualSize);
-}
-
-void RenderManager::zoomIn()
-{
-    double newScale = m_customScaleFactor * 1.25;
-    if (newScale <= 10.0) { // 限制最大缩放
-        setCustomScaleFactor(newScale);
-        setViewMode(CustomScale);
-    }
-}
-
-void RenderManager::zoomOut()
-{
-    double newScale = m_customScaleFactor / 1.25;
-    if (newScale >= 0.1) { // 限制最小缩放
-        setCustomScaleFactor(newScale);
-        setViewMode(CustomScale);
-    }
-}
-
-void RenderManager::resetZoom()
-{
-    setCustomScaleFactor(1.0);
-    setViewMode(ActualSize);
-}
-
-void RenderManager::handleResize(const QSize &newSize)
-{
-    Q_UNUSED(newSize)
-    
-    // Update view transformation when window is resized
-    if (m_viewMode == FitToWindow || m_viewMode == FillWindow) {
-        applyViewMode();
-    }
-}
-
 void RenderManager::onViewResized()
 {
-    if (m_viewMode == FitToWindow || m_viewMode == FillWindow) {
-        applyViewMode();
-    }
     calculateScaledSize();
 }
 
@@ -429,41 +296,26 @@ void RenderManager::calculateScaledSize()
         return;
     }
     
-    switch (m_viewMode) {
-        case FitToWindow:
-        case FillWindow: {
-            if (!m_graphicsView) {
-                m_scaledSize = m_remoteSize;
-                return;
-            }
-            
-            QSize viewSize = m_graphicsView->viewport()->size();
-            if (viewSize.isEmpty()) {
-                m_scaledSize = m_remoteSize;
-                return;
-            }
-            
-            double scaleX = static_cast<double>(viewSize.width()) / m_remoteSize.width();
-            double scaleY = static_cast<double>(viewSize.height()) / m_remoteSize.height();
-            
-            double scale = (m_viewMode == FitToWindow) ? qMin(scaleX, scaleY) : qMax(scaleX, scaleY);
-            
-            m_scaledSize = QSize(
-                static_cast<int>(m_remoteSize.width() * scale),
-                static_cast<int>(m_remoteSize.height() * scale)
-            );
-            break;
-        }
-        case ActualSize:
-            m_scaledSize = m_remoteSize;
-            break;
-        case CustomScale:
-            m_scaledSize = QSize(
-                static_cast<int>(m_remoteSize.width() * m_customScaleFactor),
-                static_cast<int>(m_remoteSize.height() * m_customScaleFactor)
-            );
-            break;
+    if (!m_graphicsView) {
+        m_scaledSize = m_remoteSize;
+        return;
     }
+    
+    QSize viewSize = m_graphicsView->viewport()->size();
+    if (viewSize.isEmpty()) {
+        m_scaledSize = m_remoteSize;
+        return;
+    }
+    
+    // 在AutoFit模式下，使用qMin确保图片完全显示
+    double scaleX = static_cast<double>(viewSize.width()) / m_remoteSize.width();
+    double scaleY = static_cast<double>(viewSize.height()) / m_remoteSize.height();
+    double scale = qMin(scaleX, scaleY);
+    
+    m_scaledSize = QSize(
+        static_cast<int>(m_remoteSize.width() * scale),
+        static_cast<int>(m_remoteSize.height() * scale)
+    );
 }
 
 void RenderManager::updateSceneRect()
@@ -475,7 +327,6 @@ void RenderManager::updateSceneRect()
 
 void RenderManager::updateViewTransform()
 {
-    // 当前实现中，变换在applyViewMode中处理
     // 这个方法保留用于未来的扩展
 }
 
@@ -507,14 +358,6 @@ void RenderManager::setImageQuality(ImageQuality quality)
         applyImageQualitySettings();
         forceUpdate();
     }
-}
-
-/**
- * @brief 设置缩放动画模式
- */
-void RenderManager::setAnimationMode(AnimationMode mode)
-{
-    m_animationMode = mode;
 }
 
 /**

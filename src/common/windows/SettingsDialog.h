@@ -41,7 +41,6 @@ private slots:
     void onAutoReconnectChanged(bool checked);
     
     // 显示设置
-    void onDefaultViewModeChanged(int index);
     void onCompressionLevelChanged(int value);
     void onFrameRateChanged(int value);
     void onCaptureQualityChanged(int index);
@@ -119,7 +118,7 @@ private:
     
     // 显示设置选项卡
     class QWidget *m_displayTab;
-    class QComboBox *m_defaultViewModeCombo;
+
     class QSlider *m_compressionLevelSlider;
     class QLabel *m_compressionLevelLabel;
     class QSpinBox *m_frameRateSpinBox;
@@ -207,7 +206,6 @@ private:
     } m_connectionSettings;
     
     struct DisplaySettings {
-        QString defaultViewMode;
         int compressionLevel;
         int frameRate;
         QString colorDepth;

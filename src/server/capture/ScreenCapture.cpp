@@ -27,7 +27,7 @@ ScreenCapture::ScreenCapture(QObject *parent)
     qCDebug(screenCaptureManager, "ScreenCapture 多线程管理器构造函数调用");
     
     // 初始化默认配置
-    m_captureConfig.frameRate = CoreConstants::Capture::MAX_FRAME_RATE;
+    m_captureConfig.frameRate = CoreConstants::Capture::DEFAULT_FRAME_RATE;
     m_captureConfig.quality = CoreConstants::Capture::DEFAULT_CAPTURE_QUALITY;
     m_captureConfig.highDefinition = true;
     m_captureConfig.antiAliasing = true;

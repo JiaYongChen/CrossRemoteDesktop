@@ -127,9 +127,11 @@ private:
     QImage captureScreen();
     QImage captureScreenRegion(const QRect& region);
     
-    // 帧率控制方法
+    // 帧率和时序控制
     void calculateFrameDelay();
     bool shouldCaptureFrame();
+    
+    // 屏幕变化检测方法已移除
     
     // 性能监控方法
     void recordCaptureTime(std::chrono::milliseconds time);

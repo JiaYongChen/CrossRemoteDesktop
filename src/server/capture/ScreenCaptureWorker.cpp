@@ -30,7 +30,7 @@ ScreenCaptureWorker::ScreenCaptureWorker(QObject *parent)
     qCDebug(screenCaptureWorker, "ScreenCaptureWorker 构造函数调用");
     
     // 初始化配置
-    m_config.frameRate = CoreConstants::Capture::MAX_FRAME_RATE;
+    m_config.frameRate = CoreConstants::Capture::DEFAULT_FRAME_RATE;
     m_config.quality = CoreConstants::Capture::DEFAULT_CAPTURE_QUALITY;
     m_config.highDefinition = true;
     m_config.antiAliasing = true;
@@ -274,6 +274,7 @@ void ScreenCaptureWorker::performCapture()
         emit frameCaptured(capturedImage, QDateTime::currentMSecsSinceEpoch());
         qCDebug(screenCaptureWorker, "成功捕获帧，大小: %dx%d，耗时: %lld ms",
                capturedImage.width(), capturedImage.height(), captureTime.count());
+
                
         // 【新增】收集性能数据到存储管理器
         if (m_storageManager) {
@@ -399,8 +400,6 @@ bool ScreenCaptureWorker::shouldCaptureFrame()
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_lastCaptureTime);
     return elapsed >= m_frameDelay;
 }
-
-// 已移除enqueueImage与handleQueueOverflow
 
 void ScreenCaptureWorker::recordCaptureTime(std::chrono::milliseconds time)
 {
