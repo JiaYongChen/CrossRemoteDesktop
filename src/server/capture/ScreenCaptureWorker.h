@@ -4,7 +4,6 @@
 #include "../../common/core/threading/Worker.h"
 #include "../../common/core/threading/ThreadSafeQueue.h"
 #include "../dataprocessing/DataProcessing.h"
-#include "../dataprocessing/StorageManager.h"
 #include "CaptureConfig.h"
 #include <QtGui/QImage>
 #include <QtGui/QScreen>
@@ -55,9 +54,7 @@ public:
     bool isDataValidationEnabled() const;
     quint64 getLastFrameChecksum() const;
     
-    // 存储管理配置方法
-    void setStorageManager(StorageManager* storageManager);
-    StorageManager* getStorageManager() const;
+    
 
     // 统计信息获取（内部使用）
     CaptureStats getCaptureStats() const;
@@ -177,9 +174,6 @@ private:
     std::unique_ptr<DataValidator> m_dataValidator;  ///< 数据验证器
     bool m_dataValidationEnabled{false};            ///< 数据验证开关
     quint64 m_lastFrameChecksum{0};                 ///< 最后一帧的校验和
-    
-    // 存储管理相关
-    StorageManager* m_storageManager{nullptr};      ///< 存储管理器（外部注入）
     
     // 常量定义
     static constexpr int STATS_UPDATE_INTERVAL = 1000;     ///< 统计更新间隔(ms)

@@ -422,7 +422,7 @@ set(SOURCES
     # server dataprocessing 源文件
     src/server/dataprocessing/DataProcessing.cpp
     src/server/dataprocessing/DataProcessingConfig.cpp
-    src/server/dataprocessing/StorageManager.cpp
+
 )
 
 # 头文件

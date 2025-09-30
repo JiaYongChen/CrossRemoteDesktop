@@ -274,20 +274,6 @@ void ScreenCaptureWorker::performCapture()
         emit frameCaptured(capturedImage, QDateTime::currentMSecsSinceEpoch());
         qCDebug(screenCaptureWorker, "成功捕获帧，大小: %dx%d，耗时: %lld ms",
                capturedImage.width(), capturedImage.height(), captureTime.count());
-
-               
-        // 【新增】收集性能数据到存储管理器
-        if (m_storageManager) {
-            QJsonObject metadata;
-            metadata["frame_width"] = capturedImage.width();
-            metadata["frame_height"] = capturedImage.height();
-            metadata["validation_enabled"] = m_dataValidationEnabled;
-            metadata["checksum"] = static_cast<qint64>(m_lastFrameChecksum);
-            
-            m_storageManager->collectPerformanceData("frame_capture", 
-                                                    captureTime.count(), 
-                                                    metadata);
-        }
     } catch (const std::exception& e) {
         handleCaptureError(QString("捕获异常: %1").arg(e.what()));
     } catch (...) {
@@ -526,16 +512,4 @@ bool ScreenCaptureWorker::isDataValidationEnabled() const
 quint64 ScreenCaptureWorker::getLastFrameChecksum() const
 {
     return m_lastFrameChecksum;
-}
-
-void ScreenCaptureWorker::setStorageManager(StorageManager* storageManager)
-{
-    m_storageManager = storageManager;
-    qCDebug(screenCaptureWorker, "存储管理器已设置: %s", 
-            storageManager ? "已启用" : "已禁用");
-}
-
-StorageManager* ScreenCaptureWorker::getStorageManager() const
-{
-    return m_storageManager;
 }

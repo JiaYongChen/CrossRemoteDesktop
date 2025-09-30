@@ -6,7 +6,6 @@
 #include "../common/core/config/Constants.h"
 #include "../common/core/network/Protocol.h"
 #include "../common/core/logging/LoggingCategories.h"
-// 新增：引入自适应压缩管理器与基础压缩API
 #include "../common/core/compression/AdvancedCompressionManager.h"
 #include "../common/core/compression/Compression.h"
 #include <QtCore/QSettings>
@@ -36,27 +35,10 @@ ServerWorker::ServerWorker(QObject *parent)
     , m_password("")
     , m_dataProcessor(std::make_unique<DataProcessor>(this))
     , m_dataConfig(std::make_unique<DataProcessingConfig>(this))
-    , m_storageManager(std::make_unique<StorageManager>(this))
 {
     setName("ServerWorker");
     qCDebug(lcServer, "初始化服务器工作线程");
     qCDebug(lcServer, "数据处理模块已初始化");
-    
-    // 初始化存储管理器
-    if (m_storageManager) {
-        StorageManager::StorageConfig storageConfig;
-        storageConfig.policy = StorageManager::StoragePolicy::KeyFramesOnly;
-        storageConfig.maxStorageMB = 500;
-        storageConfig.keyFrameIntervalSec = 10;
-        storageConfig.retentionDays = 7;
-        storageConfig.enableDiagnostics = true;
-        
-        if (m_storageManager->initialize(storageConfig)) {
-            qCDebug(lcServer, "存储管理器初始化成功");
-        } else {
-            qCWarning(lcServer, "存储管理器初始化失败");
-        }
-    }
 }
 
 ServerWorker::~ServerWorker()
@@ -67,8 +49,6 @@ ServerWorker::~ServerWorker()
     if (m_isServerRunning) {
         stopServer(true);
     }
-    
-    // 清理资源在cleanup()中进行
 }
 
 bool ServerWorker::initialize()
@@ -415,13 +395,6 @@ void ServerWorker::startScreenCapture()
     connect(m_screenCapture, &ScreenCapture::frameReady, 
             this, &ServerWorker::onFrameReady, Qt::QueuedConnection);
     
-    // 将存储管理器注入到屏幕捕获工作线程
-    if (m_storageManager) {
-        // 注意：这里需要通过ScreenCapture访问其内部的ScreenCaptureWorker
-        // 为了简化，我们先在这里记录日志，实际注入需要ScreenCapture提供接口
-        qCDebug(lcServer, "准备将存储管理器注入到屏幕捕获工作线程");
-    }
-    
     // 启动屏幕捕获
     m_screenCapture->startCapture();
     qCDebug(lcServer, "屏幕捕获已启动");
@@ -706,7 +679,6 @@ void ServerWorker::sendProcessedImageData(const DataRecord& record)
     try {
         // 处理后的数据已经是ARGB32格式的原始像素数据
         // 需要重新构造为可传输的图像格式
-        
         // 从处理后的数据创建QImage
         if (record.size.isEmpty() || record.payload.isEmpty()) {
             qCWarning(lcServer, "处理后的数据记录无效");
@@ -755,25 +727,6 @@ void ServerWorker::sendProcessedImageData(const DataRecord& record)
                 processedImage.width(), processedImage.height(),
                 Compression::imageFormatToString(format).toUtf8().constData(), quality,
                 record.checksum, static_cast<long long>(encodedData.size()));
-                
-        // 【新增】存储关键帧到存储管理器
-        if (m_storageManager && screenData.compressionType == 2) {
-            // 判断是否为关键帧（每10秒存储一次）
-            static QDateTime lastKeyFrameTime;
-            QDateTime currentTime = QDateTime::currentDateTime();
-            bool isKeyFrame = lastKeyFrameTime.isNull() || 
-                             lastKeyFrameTime.secsTo(currentTime) >= 10;
-            
-            if (isKeyFrame) {
-                if (m_storageManager->storeFrame(record, true)) {
-                    lastKeyFrameTime = currentTime;
-                    qCDebug(lcServer, "关键帧已存储: %s", record.id.toUtf8().constData());
-                } else {
-                    qCWarning(lcServer, "关键帧存储失败: %s", record.id.toUtf8().constData());
-                }
-            }
-        }
-                
     } catch (const std::exception &e) {
         qCWarning(lcServer, "发送处理后数据时发生异常: %s", e.what());
     } catch (...) {

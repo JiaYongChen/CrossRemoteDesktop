@@ -200,7 +200,7 @@ set(SCREENCAPTUREWORKER_TEST_SOURCES
     # ScreenCaptureWorker相关源文件
     ../src/server/capture/ScreenCaptureWorker.cpp
     ../src/server/dataprocessing/DataProcessing.cpp
-    ../src/server/dataprocessing/StorageManager.cpp
+
     ../src/common/core/threading/Worker.cpp
     ../src/common/core/threading/ThreadManager.cpp
     ../src/common/core/threading/PerformanceOptimizer.cpp
@@ -287,7 +287,7 @@ set(SCREENCAPTURE_TEST_SOURCES
     ../src/server/capture/ScreenCapture.cpp
     ../src/server/capture/ScreenCaptureWorker.cpp
     ../src/server/dataprocessing/DataProcessing.cpp
-    ../src/server/dataprocessing/StorageManager.cpp
+
     ../src/common/core/threading/Worker.cpp
     ../src/common/core/threading/ThreadManager.cpp
     ../src/common/core/threading/PerformanceOptimizer.cpp
@@ -406,7 +406,7 @@ set(SCREEN_CAPTURE_INTEGRATION_TEST_SOURCES
     ../src/server/capture/ScreenCapture.cpp
     ../src/server/capture/ScreenCaptureWorker.cpp
     ../src/server/dataprocessing/DataProcessing.cpp
-    ../src/server/dataprocessing/StorageManager.cpp
+
     
     # ThreadManager相关源文件
     ../src/common/core/threading/ThreadManager.cpp
@@ -490,36 +490,14 @@ target_compile_definitions(test_dataprocessing PRIVATE QT_NO_OPENGL)
 add_test(NAME DataProcessingTest COMMAND test_dataprocessing)
 set_tests_properties(DataProcessingTest PROPERTIES LABELS "unit;server;dataprocessing")
 
-# StorageManager测试用例
-set(STORAGEMANAGER_TEST_SOURCES
-    test_storagemanager.cpp
-    ../src/server/dataprocessing/StorageManager.cpp
-    ../src/common/data/DataRecord.h
-    ../src/common/core/logging/LoggingCategories.cpp
-)
 
-qt_add_executable(test_storagemanager
-    ${STORAGEMANAGER_TEST_SOURCES}
-)
-
-target_link_libraries(test_storagemanager PRIVATE
-    Qt6::Core
-    Qt6::Test
-    Qt6::Gui
-)
-
-target_compile_definitions(test_storagemanager PRIVATE QT_NO_OPENGL)
-
-# 添加测试
-add_test(NAME StorageManagerTest COMMAND test_storagemanager)
-set_tests_properties(StorageManagerTest PROPERTIES LABELS "unit;server;storage")
 
 # 数据一致性验证测试用例
 set(DATA_CONSISTENCY_TEST_SOURCES
     test_data_consistency.cpp
     ../src/server/dataprocessing/DataProcessing.cpp
     ../src/server/dataprocessing/DataProcessingConfig.cpp
-    ../src/server/dataprocessing/StorageManager.cpp
+
     ../src/common/core/logging/LoggingCategories.cpp
     ../src/common/core/network/ProtocolImpl.cpp
     ../src/common/core/threading/Worker.cpp
@@ -548,7 +526,7 @@ set(FRAME_TRANSMISSION_LATENCY_TEST_SOURCES
     test_frame_transmission_latency.cpp
     ../src/server/dataprocessing/DataProcessing.cpp
     ../src/server/dataprocessing/DataProcessingConfig.cpp
-    ../src/server/dataprocessing/StorageManager.cpp
+
     ../src/common/core/logging/LoggingCategories.cpp
     ../src/common/core/network/ProtocolImpl.cpp
     ../src/common/core/threading/Worker.cpp

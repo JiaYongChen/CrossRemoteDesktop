@@ -5,7 +5,7 @@
 #include "../common/core/network/Protocol.h"
 #include "dataprocessing/DataProcessing.h"
 #include "dataprocessing/DataProcessingConfig.h"
-#include "dataprocessing/StorageManager.h"
+
 #include <QtCore/QObject>
 #include <QtCore/QHash>
 #include <QtCore/QMutex>
@@ -255,7 +255,7 @@ private:
     // 数据处理模块
     std::unique_ptr<DataProcessor> m_dataProcessor;     ///< 数据处理器
     std::unique_ptr<DataProcessingConfig> m_dataConfig; ///< 数据处理配置
-    std::unique_ptr<StorageManager> m_storageManager;   ///< 存储管理器
+
  };
 
  #endif // SERVERWORKER_H

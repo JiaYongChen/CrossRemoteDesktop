@@ -489,9 +489,18 @@ void TcpClient::handleScreenData(const QByteArray &data)
                 frameData = reconstructedData;
                 m_previousFrameData = reconstructedData;
             } else {
-                // 差异数据处理失败，可能是完整帧
-                frameData = screenData.imageData;
-                m_previousFrameData = screenData.imageData;
+                // 差异数据处理失败，记录错误并清空前一帧数据
+                QString errorDetails = QString("Difference processing failed - previous frame size: %1, diff data size: %2")
+                                      .arg(m_previousFrameData.size()).arg(screenData.imageData.size());
+                recordDecodeFailure(errorDetails);
+                QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) 
+                    << "Difference processing failed, clearing previous frame data to force full frame";
+                
+                // 清空前一帧数据，强制下一帧作为完整帧处理
+                m_previousFrameData.clear();
+                
+                // 跳过当前帧，等待下一个完整帧
+                return;
             }
         }
     }
