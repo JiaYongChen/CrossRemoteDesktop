@@ -291,74 +291,6 @@ void ServerManager::onWorkerServerError(const QString& error) {
     emit serverError(error);
 }
 
-void ServerManager::onWorkerClientConnected(const QString& clientAddress) {
-    qCDebug(lcServerManager) << "onWorkerClientConnected():" << clientAddress;
-
-    // 启动时机已调整为“认证成功”，此处仅记录连接事件，不再触发工作线程启动
-    ServerWorker* serverWorker = getServerWorker();
-    if ( serverWorker ) {
-        int clientCount = 0;
-        QMetaObject::invokeMethod(serverWorker, "clientCount", Qt::BlockingQueuedConnection,
-            Q_RETURN_ARG(int, clientCount));
-        qCDebug(lcServerManager) << "当前有" << clientCount << "个客户端连接（等待认证以启动工作线程）";
-    }
-
-    emit clientConnected(clientAddress);
-}
-
-void ServerManager::onWorkerClientDisconnected(const QString& clientAddress) {
-    qCDebug(lcServerManager) << "onWorkerClientDisconnected():" << clientAddress;
-
-    // 检查是否还有其他客户端连接
-    ServerWorker* serverWorker = getServerWorker();
-    if ( serverWorker ) {
-        int remainingClients = 0;
-        QMetaObject::invokeMethod(serverWorker, "clientCount", Qt::BlockingQueuedConnection,
-            Q_RETURN_ARG(int, remainingClients));
-
-        // 如果没有其他客户端连接，完全停止工作线程
-        if ( remainingClients == 0 ) {
-            qCDebug(lcServerManager) << "最后一个客户端断开连接，完全停止DataProcessingWorker和ScreenCaptureWorker线程";
-
-            // 调用新的停止工作线程方法
-            stopWorkerThreads();
-
-            qCDebug(lcServerManager) << "工作线程已完全停止，节省系统资源";
-        } else {
-            qCDebug(lcServerManager) << "还有" << remainingClients << "个客户端连接，继续数据处理";
-        }
-    }
-
-    emit clientDisconnected(clientAddress);
-}
-
-void ServerManager::onWorkerClientAuthenticated(const QString& clientAddress) {
-    qCDebug(lcServerManager) << "onWorkerClientAuthenticated():" << clientAddress;
-    // 在首个客户端认证成功后启动工作线程，增强安全性与一致性
-    ServerWorker* serverWorker = getServerWorker();
-    if ( serverWorker ) {
-        bool hasAuthClients = false;
-        QMetaObject::invokeMethod(serverWorker, "hasAuthenticatedClients", Qt::BlockingQueuedConnection,
-            Q_RETURN_ARG(bool, hasAuthClients));
-
-        bool alreadyStarted = false;
-        {
-            QMutexLocker lock(&m_stateMutex);
-            alreadyStarted = m_captureStarted;
-        }
-
-        if ( hasAuthClients && !alreadyStarted ) {
-            qCDebug(lcServerManager) << "首个客户端认证成功，启动DataProcessingWorker与ScreenCapture";
-            startWorkerThreads();
-        } else if ( alreadyStarted ) {
-            qCDebug(lcServerManager) << "工作线程已处于运行状态，跳过重复启动";
-        } else {
-            qCDebug(lcServerManager) << "认证事件收到，但暂未满足启动条件（hasAuthClients=" << hasAuthClients << ")";
-        }
-    }
-    emit clientAuthenticated(clientAddress);
-}
-
 void ServerManager::setupWorkerConnections() {
     // 注意：这里不能直接连接，因为ServerWorker还没有创建
     // 连接将在ServerWorker创建后通过ThreadManager建立
@@ -711,15 +643,6 @@ void ServerManager::onNewClientConnection(qintptr socketDescriptor) {
         this, &ServerManager::onClientHandlerMessageReceived, Qt::QueuedConnection);
 
     qCDebug(lcServerManager) << "ClientHandlerWorker已启动在线程中";
-}
-
-void ServerManager::onClientHandlerConnected() {
-    if ( !m_currentClient ) return;
-
-    QString clientAddress = m_currentClient->clientAddress();
-    qCDebug(lcServerManager) << "客户端已连接:" << clientAddress;
-
-    emit clientConnected(clientAddress);
 }
 
 void ServerManager::onClientHandlerDisconnected() {

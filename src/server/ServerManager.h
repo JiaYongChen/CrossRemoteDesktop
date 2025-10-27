@@ -73,15 +73,11 @@ private slots:
     void onWorkerServerStarted(quint16 port);
     void onWorkerServerStopped();
     void onWorkerServerError(const QString& error);
-    void onWorkerClientConnected(const QString& clientAddress);
-    void onWorkerClientDisconnected(const QString& clientAddress);
-    void onWorkerClientAuthenticated(const QString& clientAddress);
 
     // 新客户端连接处理
     void onNewClientConnection(qintptr socketDescriptor);
 
     // ClientHandlerWorker信号处理
-    void onClientHandlerConnected();
     void onClientHandlerDisconnected();
     void onClientHandlerAuthenticated();
     void onClientHandlerError(const QString& error);
