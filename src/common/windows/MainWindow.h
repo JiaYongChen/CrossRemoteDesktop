@@ -49,6 +49,7 @@ private slots:
     
     // 连接相关槽函数
     void onConnectionEstablished(const QString &connectionId);
+    void onAllConnectionsClosed();       // 处理所有客户端连接关闭
     
     // 服务器相关槽函数
     void onServerStarted(quint16 port);  // 处理服务器启动成功
@@ -75,6 +76,9 @@ private slots:
     QListWidgetItem* createConnectionListItem(const QString &host, int port, const QString &connectionTime);
     void updateConnectionListItem(QListWidgetItem *item, const QString &host, int port, const QString &connectionTime);
     QString formatConnectionText(const QString &host, int port, const QString &connectionTime);
+    
+    // 优雅停止相关
+    void gracefulShutdown();
 
 private:
     void createActions();
@@ -146,6 +150,9 @@ private:
     
     // 客户端模式标志
     bool m_clientMode;
+    
+    // 停止状态标志
+    bool m_isShuttingDown;
 };
 
 #endif // MAINWINDOW_H

@@ -30,19 +30,19 @@
 *.exe
 *.out
 *.app
+*.user
+*.log
 
 #path
-.codacy
-.trae
-.vscode
-build
-build-tests
-build-noopt
-docs
-debug
-Release
-logs
-script
+.codacy/
+.trae/
+.vscode/
+build/
+docs/
+debug/
+Release/
+logs/
+scripts/
 
 #files
 需求文档.md

@@ -35,7 +35,7 @@ public:
 
 // 数据清洗与格式化：
 // - 清洗（过滤不可用数据、去除无效头部、统一编码等）
-// - 格式化（根据业务约定统一输出结构，如PNG统一为RGBA或统一压缩参数）
+// - 格式化（根据业务约定统一输出结构，如PNG统一为RGBA）
 class DataCleanerFormatter final : public QObject {
     Q_OBJECT
 public:

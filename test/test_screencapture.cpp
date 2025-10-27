@@ -13,6 +13,8 @@
 #include "../src/server/capture/ScreenCapture.h"
 #include "../src/common/core/threading/ThreadManager.h"
 #include "../src/common/core/logging/LoggingCategories.h"
+#include "../src/server/dataflow/QueueManager.h"
+#include "../src/server/dataflow/DataFlowStructures.h"
 
 Q_LOGGING_CATEGORY(testScreenCapture, "test.screencapture")
 
@@ -362,29 +364,48 @@ void TestScreenCapture::test_performanceStats()
 
 void TestScreenCapture::test_syncCapture()
 {
-    qCDebug(testScreenCapture, "测试异步捕获功能");
+    qCDebug(testScreenCapture, "测试异步捕获功能（通过队列）");
     
-    // 使用信号监听器等待帧捕获
-    QSignalSpy frameSpy(m_screenCapture.get(), &ScreenCapture::frameReady);
+    // 获取捕获队列
+    QueueManager* queueManager = QueueManager::instance();
+    auto captureQueue = queueManager->getCaptureQueue();
+    QVERIFY(captureQueue != nullptr);
+    
+    // 清空队列
+    CapturedFrame tempFrame;
+    while (captureQueue->tryDequeue(tempFrame)) {}
     
     // 开始捕获
     m_screenCapture->startCapture();
     
-    // 等待至少一帧
-    QVERIFY(frameSpy.wait(5000)); // 等待5秒
+    // 等待至少一帧进入队列
+    int maxWaitTime = 5000; // 5秒
+    int waitInterval = 100;
+    int waited = 0;
+    bool frameReceived = false;
     
-    // 验证捕获的信号
-    QVERIFY(frameSpy.count() > 0);
+    while (waited < maxWaitTime && !frameReceived) {
+        QTest::qWait(waitInterval);
+        waited += waitInterval;
+        QCoreApplication::processEvents();
+        
+        if (captureQueue->tryDequeue(tempFrame)) {
+            frameReceived = true;
+            break;
+        }
+    }
     
-    // 获取第一帧数据
-    QList<QVariant> arguments = frameSpy.takeFirst();
-    QImage image = arguments.at(0).value<QImage>();
+    // 验证至少接收到一帧
+    QVERIFY2(frameReceived, "应该从队列中接收到至少一帧");
+    
+    // 获取帧数据
+    QImage capturedImage = tempFrame.image;
     
     // 验证捕获的图像
-    if (!image.isNull()) {
-        QVERIFY(image.width() > 0);
-        QVERIFY(image.height() > 0);
-        qCDebug(testScreenCapture, "同步捕获成功，图像尺寸: %dx%d", image.width(), image.height());
+    if (!capturedImage.isNull()) {
+        QVERIFY(capturedImage.width() > 0);
+        QVERIFY(capturedImage.height() > 0);
+        qCDebug(testScreenCapture, "同步捕获成功，图像尺寸: %dx%d", capturedImage.width(), capturedImage.height());
     } else {
         qCDebug(testScreenCapture, "同步捕获返回空图像（可能在测试环境中正常）");
     }
@@ -394,15 +415,13 @@ void TestScreenCapture::test_syncCapture()
 
 void TestScreenCapture::test_signalEmission()
 {
-    qCDebug(testScreenCapture, "测试信号发射");
+    qCDebug(testScreenCapture, "测试信号发射（错误和性能信号）");
     
-    // 创建信号监听器
-    QSignalSpy frameReadySpy(m_screenCapture.get(), &ScreenCapture::frameReady);
+    // 创建信号监听器（frameReady已删除，只测试错误和性能信号）
     QSignalSpy captureErrorSpy(m_screenCapture.get(), &ScreenCapture::captureError);
     QSignalSpy performanceStatsSpy(m_screenCapture.get(), &ScreenCapture::performanceStatsUpdated);
     
     // 验证信号监听器有效
-    QVERIFY(frameReadySpy.isValid());
     QVERIFY(captureErrorSpy.isValid());
     QVERIFY(performanceStatsSpy.isValid());
     
@@ -411,7 +430,6 @@ void TestScreenCapture::test_signalEmission()
     QTest::qWait(2000); // 等待足够时间以产生信号
     
     // 检查是否有信号发射（在测试环境中可能没有实际的帧）
-    qCDebug(testScreenCapture, "frameReady信号数量: %lld", static_cast<long long>(frameReadySpy.count()));
     qCDebug(testScreenCapture, "captureError信号数量: %lld", static_cast<long long>(captureErrorSpy.count()));
     qCDebug(testScreenCapture, "performanceStatsUpdated信号数量: %lld", static_cast<long long>(performanceStatsSpy.count()));
     

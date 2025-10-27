@@ -9,14 +9,13 @@
 
 /**
  * @brief 日志分类管理类
- * 
+ *
  * 提供统一的日志分类定义和管理功能，支持动态日志级别控制。
  * 按功能模块组织日志分类，便于调试和问题定位。
  */
-class LoggingCategories : public QObject
-{
+class LoggingCategories : public QObject {
     Q_OBJECT
-    
+
 public:
     /**
      * @brief 日志级别枚举
@@ -29,31 +28,31 @@ public:
         Fatal = 4
     };
     Q_ENUM(LogLevel)
-    
-    /**
-     * @brief 获取单例实例
-     */
-    static LoggingCategories* instance();
-    
+
+        /**
+         * @brief 获取单例实例
+         */
+        static LoggingCategories* instance();
+
     /**
      * @brief 设置全局日志级别
      * @param level 日志级别
      */
     static void setGlobalLogLevel(LogLevel level);
-    
+
     /**
      * @brief 设置特定分类的日志级别
      * @param categoryName 分类名称
      * @param level 日志级别
      */
     static void setCategoryLogLevel(const QString& categoryName, LogLevel level);
-    
+
     /**
      * @brief 获取所有日志分类名称
      * @return 分类名称列表
      */
     static QStringList getAllCategoryNames();
-    
+
 private:
     explicit LoggingCategories(QObject* parent = nullptr);
     static LoggingCategories* s_instance;
@@ -68,9 +67,6 @@ Q_DECLARE_LOGGING_CATEGORY(lcApp)
 
 /// 协议处理模块日志
 Q_DECLARE_LOGGING_CATEGORY(lcProtocol)
-
-/// 压缩模块日志
-Q_DECLARE_LOGGING_CATEGORY(lcCompression)
 
 /// 加密模块日志
 Q_DECLARE_LOGGING_CATEGORY(lcEncryption)
@@ -156,9 +152,6 @@ Q_DECLARE_LOGGING_CATEGORY(lcStatusBar)
 // ============================================================================
 // 专用处理模块日志分类
 // ============================================================================
-
-/// 差分压缩日志
-Q_DECLARE_LOGGING_CATEGORY(lcDiffCompression)
 
 /// 线程通信日志
 Q_DECLARE_LOGGING_CATEGORY(lcThreading)

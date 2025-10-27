@@ -17,12 +17,11 @@ class Worker;
 
 /**
  * @brief 性能优化器类
- * 
+ *
  * 负责监控和优化系统性能，包括线程调度策略、内存管理和队列优化。
  * 提供自适应性能调整和资源使用监控功能。
  */
-class PerformanceOptimizer : public QObject
-{
+class PerformanceOptimizer : public QObject {
     Q_OBJECT
 
 public:
@@ -65,19 +64,18 @@ public:
         int maxConcurrentThreads = 4;              ///< 最大并发线程数
         int threadPoolSize = 2;                    ///< 线程池大小
         bool enableThreadAffinity = false;         ///< 是否启用线程亲和性
-        
+
         // 内存管理配置
         MemoryStrategy memoryStrategy = MemoryStrategy::Balanced;
         size_t maxMemoryUsage = 512 * 1024 * 1024; ///< 最大内存使用（字节）
         size_t memoryWarningThreshold = 400 * 1024 * 1024; ///< 内存警告阈值
         bool enableMemoryPooling = true;           ///< 是否启用内存池
-        
+
         // 队列优化配置
         QueueStrategy queueStrategy = QueueStrategy::Adaptive;
         int defaultQueueSize = 100;                ///< 默认队列大小
         int maxQueueSize = 1000;                   ///< 最大队列大小
-        bool enableQueueCompression = false;       ///< 是否启用队列压缩
-        
+
         // 监控配置
         int monitoringInterval = 1000;             ///< 监控间隔（毫秒）
         bool enablePerformanceLogging = true;      ///< 是否启用性能日志
@@ -91,27 +89,27 @@ public:
         // CPU使用率
         double cpuUsage = 0.0;                     ///< CPU使用率（百分比）
         double averageCpuUsage = 0.0;              ///< 平均CPU使用率
-        
+
         // 内存使用
         size_t memoryUsage = 0;                    ///< 当前内存使用（字节）
         size_t peakMemoryUsage = 0;                ///< 峰值内存使用
         double memoryUsagePercent = 0.0;           ///< 内存使用百分比
-        
+
         // 线程统计
         int activeThreads = 0;                     ///< 活跃线程数
         int totalThreads = 0;                      ///< 总线程数
         double threadEfficiency = 0.0;             ///< 线程效率
-        
+
         // 队列统计
         int totalQueueSize = 0;                    ///< 总队列大小
         int averageQueueSize = 0;                  ///< 平均队列大小
         double queueThroughput = 0.0;              ///< 队列吞吐量（项/秒）
-        
+
         // 性能指标
-        std::chrono::milliseconds responseTime{0}; ///< 响应时间
+        std::chrono::milliseconds responseTime{ 0 }; ///< 响应时间
         double frameRate = 0.0;                    ///< 帧率（FPS）
         int droppedFrames = 0;                     ///< 丢帧数
-        
+
         QDateTime lastUpdated;                     ///< 最后更新时间
     };
 
@@ -238,7 +236,7 @@ private:
      * @brief 构造函数
      * @param parent 父对象
      */
-    explicit PerformanceOptimizer(QObject *parent = nullptr);
+    explicit PerformanceOptimizer(QObject* parent = nullptr);
 
     /**
      * @brief 更新CPU使用率
@@ -277,21 +275,21 @@ private:
 
 private:
     static PerformanceOptimizer* s_instance;    ///< 单例实例
-    
+
     mutable QMutex m_mutex;                     ///< 互斥锁
     PerformanceConfig m_config;                 ///< 性能配置
     PerformanceStats m_stats;                   ///< 性能统计
-    
+
     QTimer* m_monitoringTimer;                  ///< 监控定时器
     QTimer* m_autoOptimizationTimer;            ///< 自动优化定时器
-    
+
     ThreadManager* m_threadManager;             ///< 线程管理器引用
-    
+
     // 历史数据用于趋势分析
     QHash<QString, QList<double>> m_cpuHistory; ///< CPU使用历史
     QHash<QString, QList<size_t>> m_memoryHistory; ///< 内存使用历史
     QHash<QString, QList<int>> m_queueSizeHistory; ///< 队列大小历史
-    
+
     bool m_isMonitoring;                        ///< 是否正在监控
     QDateTime m_startTime;                      ///< 监控开始时间
 };

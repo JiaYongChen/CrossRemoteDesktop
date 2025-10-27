@@ -20,21 +20,8 @@ Worker::Worker(QObject *parent)
 
 Worker::~Worker()
 {
-    // 确保工作线程已停止
-    if (m_state.load() != State::Stopped) {
-        stop(false); // 不等待完成，强制停止
-        
-        // 等待状态变为Stopped，最多等待3秒
-        int timeout = 0;
-        while (m_state.load() != State::Stopped && timeout < 300) {
-            QThread::msleep(10);
-            timeout++;
-        }
-        
-        if (m_state.load() != State::Stopped) {
-            qCDebug(lcThreading) << "Worker destructor: Worker did not stop within timeout";
-        }
-    }
+    // 析构阶段不再主动干预线程停止，避免跨线程调度与等待导致的潜在崩溃。
+    // 线程的生命周期由 ThreadManager 显式管理（stopThread/destroyThread 中确保线程已退出）。
 }
 
 Worker::State Worker::state() const
@@ -56,7 +43,8 @@ bool Worker::isPaused() const
 bool Worker::isStopped() const
 {
     State currentState = m_state.load();
-    return currentState == State::Stopped || currentState == State::Stopping;
+    // 修正语义：仅当状态为 Stopped 时返回 true；Stopping 表示正在停止过程中，尚未真正完成
+    return currentState == State::Stopped;
 }
 
 QString Worker::name() const
@@ -98,7 +86,7 @@ void Worker::resetPerformanceStats()
 
 void Worker::start()
 {
-    qCDebug(lcApp, "[DEBUG] Worker::start called for thread: %s", qPrintable(QThread::currentThread()->objectName()));
+    qCDebug(lcApp) << "[DEBUG] Worker::start called for thread:" << QThread::currentThread()->objectName();
     
     State currentState = m_state.load();
     if (currentState != State::Stopped) {
@@ -112,12 +100,19 @@ void Worker::start()
     // 重置性能统计
     resetPerformanceStats();
     
-    qCDebug(lcApp, "[DEBUG] About to call doStart for thread: %s", qPrintable(QThread::currentThread()->objectName()));
-    
-    // 直接调用doStart，避免QueuedConnection在新线程中的问题
-    doStart();
-    
-    qCDebug(lcApp, "[DEBUG] doStart completed for thread: %s", qPrintable(QThread::currentThread()->objectName()));
+    // 关键改动：改为通过单次定时器在事件循环启动后调度 doStart
+    // 原因：QThread::started 信号在事件循环启动之前发出，若在此直接调用 doStart/workLoop，
+    //       该线程将没有事件循环，BlockingQueuedConnection/QueuedConnection 将无法投递到该线程，
+    //       导致诸如 ThreadManager::stopThread(waitForFinish=true) 阻塞并引发测试超时。
+    // 方案：使用 QTimer::singleShot(0, this, ...) 将 doStart 投递到 worker 所属线程的事件队列，
+    //       等事件循环启动后再执行。workLoop 内部通过 QCoreApplication::processEvents() 主动处理事件，
+    //       确保 stop/pause/resume 等跨线程调用能够被及时响应。
+    qCDebug(lcApp) << "[DEBUG] Scheduling doStart after event loop starts for thread:" << QThread::currentThread()->objectName();
+    QTimer::singleShot(0, this, [this]() {
+        qCDebug(lcApp) << "[DEBUG] doStart executing in thread:" << QThread::currentThread()->objectName();
+        doStart();
+        qCDebug(lcApp) << "[DEBUG] doStart returned in thread:" << QThread::currentThread()->objectName();
+    });
 }
 
 void Worker::stop(bool waitForFinish)
@@ -127,7 +122,7 @@ void Worker::stop(bool waitForFinish)
         return;
     }
     
-    qCDebug(lcApp, "Stopping worker: %s waitForFinish: %s", qPrintable(m_name), waitForFinish ? "true" : "false");
+    qCDebug(lcApp) << "Stopping worker:" << m_name << "waitForFinish:" << (waitForFinish ? "true" : "false");
     
     m_waitForFinish = waitForFinish;
     m_stopRequested.store(true);
@@ -137,15 +132,17 @@ void Worker::stop(bool waitForFinish)
     m_pauseCondition.wakeAll();
     
     // 根据waitForFinish调整强制停止超时时间
-    int forceStopTimeout = waitForFinish ? 2000 : 500; // 同步停止3秒，异步停止1秒
-    
-    // 启动强制停止定时器，直接在主线程中创建
-    QTimer::singleShot(forceStopTimeout, QCoreApplication::instance(), [this, forceStopTimeout]() {
+    int forceStopTimeout = waitForFinish ? 2000 : 500;
+
+    // 启动强制停止定时器，绑定到当前Worker对象。
+    // 这样一来：
+    // - 如果Worker在超时前被销毁，单次定时器会自动失效，不会在销毁后访问悬挂的this指针（避免SEGFAULT）。
+    // - 定时器回调将在Worker所属线程执行，且workLoop中调用的QCoreApplication::processEvents()会驱动该回调，确保在事件循环繁忙时也能得到处理。
+    QTimer::singleShot(forceStopTimeout, this, [this, forceStopTimeout]() {
         if (m_state.load() == State::Stopping) {
-            // 如果超时后仍然是Stopping状态，强制设置为Stopped
             qCDebug(lcThreading) << "Worker强制停止（超时" << forceStopTimeout << "ms）：" << m_name;
-            setState(State::Stopped);
-            emit stopped();
+            // 在超时兜底路径执行完整的收尾逻辑，确保清理定时器并发射stopped信号
+            doStop();
         }
     });
 }
@@ -197,7 +194,12 @@ void Worker::setState(State newState)
 
 bool Worker::shouldStop() const
 {
-    return m_stopRequested.load();
+    // 同时响应线程中断请求，以提升停止的灵敏度
+    if (m_stopRequested.load()) {
+        return true;
+    }
+    QThread* t = QThread::currentThread();
+    return t && t->isInterruptionRequested();
 }
 
 void Worker::waitIfPaused()
@@ -252,6 +254,13 @@ bool Worker::initialize()
 void Worker::cleanup()
 {
     // 默认实现：什么都不做
+}
+
+void Worker::callCleanup()
+{
+    // 提供给ThreadManager通过QMetaObject::invokeMethod调用的包装槽
+    // 保证在Worker所在线程中执行清理逻辑，避免跨线程停止定时器的警告
+    cleanup();
 }
 
 void Worker::workLoop() {
@@ -346,6 +355,15 @@ void Worker::doStop()
     cleanup();
     setState(State::Stopped);
     emit stopped();
+
+    // 确保事件循环退出：
+    // 说明：当工作循环正常结束或强制停止触发时，统一在所属线程中请求退出事件循环，
+    // 避免线程保持运行导致 QThread 在销毁时仍在运行的错误。
+    QThread* workerThread = this->thread();
+    if (workerThread && workerThread->isRunning()) {
+        qCDebug(lcApp) << "[DEBUG] Worker::doStop() requesting thread quit for:" << m_name;
+        workerThread->quit();
+    }
 }
 
 void Worker::updatePerformanceStats(quint64 processingTime)

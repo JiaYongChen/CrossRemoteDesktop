@@ -6,12 +6,11 @@
 
 /**
  * @brief 数据处理配置类
- * 
+ *
  * 管理数据处理模块的各种配置选项，支持从配置文件加载和保存设置。
  * 提供运行时配置控制，支持动态启用/禁用各种数据处理功能。
  */
-class DataProcessingConfig : public QObject
-{
+class DataProcessingConfig : public QObject {
     Q_OBJECT
 
 public:
@@ -65,12 +64,12 @@ signals:
 
 private:
     // 配置项
-    bool m_validationEnabled{true};      ///< 启用数据验证
-    bool m_cleaningEnabled{false};       ///< 启用数据清洗
-    bool m_storageEnabled{false};        ///< 启用存储功能
-    int m_storageLimitMB{100};          ///< 存储限制（MB）
-    int m_keyFrameIntervalSec{5};       ///< 关键帧间隔（秒）
-    bool m_debugMode{false};            ///< 调试模式
+    bool m_validationEnabled{ true };      ///< 启用数据验证
+    bool m_cleaningEnabled{ false };       ///< 启用数据清洗
+    bool m_storageEnabled{ false };        ///< 启用存储功能
+    int m_storageLimitMB{ 100 };          ///< 存储限制（MB）
+    int m_keyFrameIntervalSec{ 5 };       ///< 关键帧间隔（秒）
+    bool m_debugMode{ false };            ///< 调试模式
 
     // 配置文件相关
     static constexpr const char* CONFIG_GROUP = "DataProcessing";

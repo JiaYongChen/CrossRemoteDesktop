@@ -16,9 +16,6 @@ Q_LOGGING_CATEGORY(lcApp, "app", QtDebugMsg)
 /// 协议处理模块日志
 Q_LOGGING_CATEGORY(lcProtocol, "core.protocol", QtDebugMsg)
 
-/// 压缩模块日志
-Q_LOGGING_CATEGORY(lcCompression, "core.compression", QtDebugMsg)
-
 /// 加密模块日志
 Q_LOGGING_CATEGORY(lcEncryption, "core.encryption", QtDebugMsg)
 
@@ -104,9 +101,6 @@ Q_LOGGING_CATEGORY(lcStatusBar, "ui.statusbar", QtDebugMsg)
 // 专用处理模块日志分类定义
 // ============================================================================
 
-/// 差分压缩日志
-Q_LOGGING_CATEGORY(lcDiffCompression, "core.diffcompression", QtDebugMsg)
-
 /// 线程通信日志
 Q_LOGGING_CATEGORY(lcThreading, "core.threading", QtDebugMsg)
 
@@ -137,64 +131,59 @@ Q_LOGGING_CATEGORY(lcPerformanceTest, "test.performance", QtDebugMsg)
 // ============================================================================
 
 LoggingCategories::LoggingCategories(QObject* parent)
-    : QObject(parent)
-{
+    : QObject(parent) {
 }
 
-LoggingCategories* LoggingCategories::instance()
-{
+LoggingCategories* LoggingCategories::instance() {
     static QMutex mutex;
     QMutexLocker locker(&mutex);
-    
-    if (!s_instance) {
+
+    if ( !s_instance ) {
         s_instance = new LoggingCategories();
     }
-    
+
     return s_instance;
 }
 
-void LoggingCategories::setGlobalLogLevel(LogLevel level)
-{
+void LoggingCategories::setGlobalLogLevel(LogLevel level) {
     QtMsgType qtLevel = static_cast<QtMsgType>(level);
-    
+
     // 设置所有分类的日志级别
     QLoggingCategory::setFilterRules(QString("*=%1").arg(qtLevel));
 }
 
-void LoggingCategories::setCategoryLogLevel(const QString& categoryName, LogLevel level)
-{
+void LoggingCategories::setCategoryLogLevel(const QString& categoryName, LogLevel level) {
     QtMsgType qtLevel = static_cast<QtMsgType>(level);
-    
+
     // 设置特定分类的日志级别
     QString rule = QString("%1=%2").arg(categoryName).arg(qtLevel);
     QLoggingCategory::setFilterRules(rule);
 }
 
-QStringList LoggingCategories::getAllCategoryNames()
-{
+QStringList LoggingCategories::getAllCategoryNames() {
     static QStringList categories = {
         // 核心模块
-        "app", "core.protocol", "core.compression", "core.encryption",
+        "app", "core.protocol", "core.encryption",
         "performance", "core.memory", "core.config",
-        
+
         // 服务端模块
         "server", "server.manager", "server.capture", "server.net",
         "server.dataprocessor", "server.inputsimulator", "server.clienthandler",
-        
+
         // 客户端模块
         "client", "client.window", "client.net", "client.connection",
         "client.manager",
         "client.session", "client.render", "client.input",
-        
+
         // UI模块
         "ui", "ui.mainwindow", "ui.settings", "ui.statusbar",
-        
+
         // 专用处理模块
-        "core.diffcompression", "core.threading", "core.ssl", "core.adaptive",
-        
+        "core.threading", "core.ssl", "core.adaptive",
+
         // 测试模块
         "test", "test.unit", "test.integration", "test.performance"
     };
-    
+
     return categories;
 }

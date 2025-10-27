@@ -21,7 +21,6 @@ class QTimer;
  * 
  * 重构后的ScreenCapture类作为多线程架构的协调器，
  * 管理ScreenCaptureWorker工作线程，
- * 改造说明：移除了原有的ThreadSafeQueue图像消息队列，
  * 通过Qt信号/槽直接传递帧，降低耦合、减少阻塞点。
  */
 class ScreenCapture : public QObject
@@ -50,19 +49,12 @@ public:
         double processingFrameRate = 0.0;
         quint64 averageCaptureTime = 0;
         quint64 averageProcessingTime = 0;
-        // 移除：队列使用率字段
     };
     
     PerformanceStats getPerformanceStats() const;
     void resetPerformanceStats();
 
 signals:
-    /**
-     * @brief 处理完成的帧信号
-     * @param frame 处理后的图像
-     */
-    void frameReady(const QImage &frame);
-
     /**
      * @brief 捕获错误信号
      * @param error 错误描述

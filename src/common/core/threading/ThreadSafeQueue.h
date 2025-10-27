@@ -27,6 +27,8 @@ public:
     explicit ThreadSafeQueue(int maxSize = 0)
         : m_maxSize(maxSize)
         , m_stopped(false)
+        , m_totalEnqueued(0)
+        , m_totalDequeued(0)
     {
     }
 
@@ -66,6 +68,7 @@ public:
         }
         
         m_queue.enqueue(item);
+        ++m_totalEnqueued;
         m_notEmpty.wakeOne();
         return true;
     }
@@ -86,6 +89,7 @@ public:
         }
         
         m_queue.enqueue(std::move(item));
+        ++m_totalEnqueued;
         m_notEmpty.wakeOne();
         return true;
     }
@@ -107,6 +111,7 @@ public:
         }
         
         m_queue.enqueue(item);
+        ++m_totalEnqueued;
         m_notEmpty.wakeOne();
         return true;
     }
@@ -135,6 +140,7 @@ public:
         }
         
         m_queue.enqueue(item);
+        ++m_totalEnqueued;
         m_notEmpty.wakeOne();
         return true;
     }
@@ -161,6 +167,7 @@ public:
         }
         
         item = m_queue.dequeue();
+        ++m_totalDequeued;
         m_notFull.wakeOne();
         return true;
     }
@@ -182,6 +189,7 @@ public:
         }
         
         item = m_queue.dequeue();
+        ++m_totalDequeued;
         m_notFull.wakeOne();
         return true;
     }
@@ -210,6 +218,7 @@ public:
         }
         
         item = m_queue.dequeue();
+        ++m_totalDequeued;
         m_notFull.wakeOne();
         return true;
     }
@@ -309,6 +318,26 @@ public:
         }
     }
 
+    /**
+     * @brief 获取总入队数量
+     * @return 总入队数量
+     */
+    quint64 getTotalEnqueued() const
+    {
+        QMutexLocker locker(&m_mutex);
+        return m_totalEnqueued;
+    }
+
+    /**
+     * @brief 获取总出队数量
+     * @return 总出队数量
+     */
+    quint64 getTotalDequeued() const
+    {
+        QMutexLocker locker(&m_mutex);
+        return m_totalDequeued;
+    }
+
 private:
     mutable QMutex m_mutex;           ///< 互斥锁
     QWaitCondition m_notEmpty;        ///< 非空条件变量
@@ -316,6 +345,8 @@ private:
     QQueue<T> m_queue;                ///< 底层队列
     int m_maxSize;                    ///< 最大容量
     bool m_stopped;                   ///< 停止标志
+    quint64 m_totalEnqueued;          ///< 总入队数量
+    quint64 m_totalDequeued;          ///< 总出队数量
 };
 
 #endif // THREADSAFEQUEUE_H

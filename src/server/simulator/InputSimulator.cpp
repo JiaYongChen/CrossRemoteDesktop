@@ -1,5 +1,5 @@
 #include "InputSimulator.h"
-#include "../common/core/config/Constants.h"
+#include "../../common/core/config/Constants.h"
 #include <QtWidgets/QApplication>
 #include <QtCore/QTimer>
 #include <QtCore/QThread>

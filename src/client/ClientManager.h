@@ -25,6 +25,7 @@ struct ConnectionInstance
     QPointer<ConnectionManager> connectionManager;  ///< 网络连接管理器
     QPointer<SessionManager> sessionManager;       ///< 会话和远程桌面数据管理器
     QPointer<ClientRemoteWindow> remoteDesktopWindow; ///< 远程桌面窗口
+    bool isBeingDeleted = false;                    ///< 标志位：防止双重删除
     
     /**
      * @brief 默认构造函数
@@ -112,6 +113,7 @@ public:
     
 signals:
     void connectionEstablished(const QString &connectionId);
+    void allConnectionsClosed();
     
 private slots:
     void onConnectionEstablished();

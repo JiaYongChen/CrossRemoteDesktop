@@ -8,14 +8,13 @@
 
 /**
  * @brief 核心常量定义类
- * 
+ *
  * 提供系统级别的常量定义，按功能模块分组管理。
  * 使用命名空间和结构体提供更好的类型安全性和组织结构。
  */
-class CoreConstants : public QObject
-{
+class CoreConstants : public QObject {
     Q_OBJECT
-    
+
 public:
     /**
      * @brief 系统版本信息
@@ -27,28 +26,25 @@ public:
         static const QString VERSION_STRING;
         static const QString BUILD_DATE;
     };
-    
+
     /**
      * @brief 文件和帧大小相关常量
      */
     struct Frame {
         static constexpr int DEFAULT_MAX_FILE_SIZE = 10 * 1024 * 1024;  ///< 默认最大文件大小 10MB
         static constexpr int MAX_FRAME_SIZE = 10 * 1024 * 1024;         ///< 最大帧大小 10MB
-        static constexpr int COMPRESSION_THRESHOLD = 1024 * 1024;       ///< 压缩阈值 1MB
         static constexpr int MIN_FRAME_SIZE = 1024;                     ///< 最小帧大小 1KB
         static constexpr int FRAME_HEADER_SIZE = 32;                    ///< 帧头大小 32字节
     };
-    
+
     /**
      * @brief 缓冲区相关常量
      */
     struct Buffer {
-        static constexpr int COMPRESSION_BUFFER_SIZE = 64 * 1024;       ///< 压缩缓冲区大小 64KB
-        static constexpr int DECOMPRESSION_BUFFER_SIZE = 64 * 1024;     ///< 解压缩缓冲区大小 64KB
         static constexpr int STREAM_BUFFER_SIZE = 32 * 1024;            ///< 流缓冲区大小 32KB
         static constexpr int IMAGE_BUFFER_SIZE = 512 * 1024;            ///< 图像缓冲区大小 512KB
     };
-    
+
     /**
      * @brief 捕获和帧率相关常量
      */
@@ -61,7 +57,7 @@ public:
         static constexpr int MILLISECONDS_PER_SECOND = 1000;            ///< 每秒毫秒数
         static constexpr double DEFAULT_CAPTURE_QUALITY = 0.9;          ///< 默认捕获质量
     };
-    
+
     /**
      * @brief 输入处理相关常量
      */
@@ -74,19 +70,7 @@ public:
         static constexpr int DEFAULT_MOUSE_DELAY = 10;                  ///< 默认鼠标延迟 ms
         static constexpr int MAX_KEY_VALUE = 255;                       ///< 最大按键值
     };
-    
-    /**
-     * @brief 压缩相关常量
-     */
-    struct Compression {
-        static constexpr int DEFAULT_ZLIB_LEVEL = 6;                    ///< 默认zlib压缩级别
-        static constexpr int DEFAULT_ZLIB_WINDOW_BITS = 15;             ///< 默认zlib窗口位数
-        static constexpr int DEFAULT_ZLIB_MEM_LEVEL = 8;                ///< 默认zlib内存级别
-        static constexpr int MIN_WINDOW_BITS = 9;                       ///< 最小窗口位数
-        static constexpr int MAX_WINDOW_BITS = 15;                      ///< 最大窗口位数
-        static constexpr int SMALL_DATA_THRESHOLD = 1024;               ///< 小数据阈值 1KB
-    };
-    
+
     /**
      * @brief 服务器相关常量
      */
@@ -96,7 +80,7 @@ public:
         static constexpr int DEFAULT_PORT = 8080;                       ///< 默认端口
         static constexpr int CONNECTION_TIMEOUT = 30000;                ///< 连接超时时间 30s
     };
-    
+
     /**
      * @brief 网络相关常量
      */
@@ -110,7 +94,7 @@ public:
         static constexpr int RECONNECT_DELAY_MS = 1000;                 ///< 重连延迟 1s
         static constexpr int MAX_RECONNECT_ATTEMPTS = 5;                ///< 最大重连次数
     };
-    
+
     /**
      * @brief 性能相关常量
      */
@@ -122,7 +106,7 @@ public:
         static constexpr int CPU_USAGE_THRESHOLD_PERCENT = 80;          ///< CPU使用率阈值 80%
         static constexpr int GC_INTERVAL_MS = 30000;                    ///< 垃圾回收间隔 30s
     };
-    
+
     /**
      * @brief 安全相关常量
      */
@@ -134,34 +118,34 @@ public:
         static constexpr int SESSION_TIMEOUT_MS = 3600000;              ///< 会话超时时间 1小时
         static const QString DEFAULT_CIPHER_SUITE;                      ///< 默认加密套件
     };
-    
+
     // 静态工具方法
     /**
      * @brief 获取应用程序版本信息
      * @return 版本字符串
      */
     static QString getVersionString();
-    
+
     /**
      * @brief 获取构建日期
      * @return 构建日期字符串
      */
     static QString getBuildDate();
-    
+
     /**
      * @brief 验证帧率是否在有效范围内
      * @param fps 帧率值
      * @return 是否有效
      */
     static bool isValidFrameRate(int fps);
-    
+
     /**
      * @brief 验证端口号是否有效
      * @param port 端口号
      * @return 是否有效
      */
     static bool isValidPort(int port);
-    
+
     /**
      * @brief 获取推荐的线程池大小
      * @return 线程池大小

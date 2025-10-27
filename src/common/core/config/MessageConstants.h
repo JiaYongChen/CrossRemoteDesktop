@@ -15,20 +15,6 @@ namespace MessageConstants {
         const QString UNSUPPORTED_OPERATION = "Unsupported operation";
     }
 
-    // 压缩相关消息
-    namespace Compression {
-        const QString UNSUPPORTED_ALGORITHM = "Unsupported compression algorithm";
-        const QString INVALID_COMPRESSION_LEVEL = "Invalid compression level. Valid range: 0-9";
-        const QString INVALID_WINDOW_BITS = "Invalid window bits. Valid range: 8-15";
-        const QString INVALID_MEMORY_LEVEL = "Invalid memory level. Valid range: 1-9";
-        const QString ZLIB_INIT_FAILED = "Failed to initialize zlib compression";
-        const QString ZLIB_COMPRESSION_FAILED = "Zlib compression failed with error:";
-        const QString ZLIB_DECOMPRESSION_FAILED = "Zlib decompression failed with error:";
-        const QString ZLIB_DECOMPRESSION_INCOMPLETE = "Zlib decompression incomplete";
-    // Removed legacy LZ4/ZSTD-specific constants (unused after refactor)
-        const QString ALGORITHM_DETECTION_FAILED = "Cannot detect compression algorithm";
-    }
-
     // 加密相关消息
     namespace Encryption {
         inline QString invalidKeySize(int expected, int got) {
@@ -113,7 +99,6 @@ namespace MessageConstants {
         const QString AUTH_RESPONSE_RECEIVED = "Received authentication response from server";
         const QString AUTH_SUCCESSFUL = "Authentication successful, session ID: %1";
         const QString HEARTBEAT_RECEIVED = "Received heartbeat from server";
-        const QString DISCONNECT_REQUEST_RECEIVED = "Received disconnect request from server";
         const QString HANDSHAKE_REQUEST_SENT = "Sent handshake request to server";
         const QString AUTH_REQUEST_SENT = "Sent authentication request to server for user: %1";
     }
@@ -125,12 +110,8 @@ namespace MessageConstants {
         const QString SESSION_NOT_ACTIVE = "Session not active, ignoring";
         const QString EMPTY_SCREEN_DATA = "Received empty screen data";
         const QString PROCESSING_SCREEN_DATA = "Processing screen data, size:";
-        const QString DECOMPRESSION_FAILED = "Failed to decompress screen data, trying fallback methods";
-        const QString LOADED_UNCOMPRESSED = "Successfully loaded uncompressed screen data";
-        const QString DECOMPRESSION_SUCCESS = "Successfully decompressed with algorithm:";
-        const QString ALL_DECOMPRESSION_FAILED = "All decompression attempts failed";
-        const QString SCREEN_DATA_LOADED = "Successfully loaded screen data, decompressed size:";
-        const QString FAILED_LOAD_SCREEN_DATA = "Failed to load screen data from decompressed bytes, size:";
+        const QString SCREEN_DATA_LOADED = "Successfully loaded screen data, size:";
+        const QString FAILED_LOAD_SCREEN_DATA = "Failed to load screen data from bytes, size:";
     }
 
     // 屏幕捕获消息

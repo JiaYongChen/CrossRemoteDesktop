@@ -105,6 +105,9 @@ public:
      */
     void resetPerformanceStats();
 
+    // 允许线程管理器访问受保护的生命周期方法，以便在销毁阶段执行安全的跨线程清理
+    friend class ThreadManager;
+
 public slots:
     /**
      * @brief 启动工作线程
@@ -135,6 +138,11 @@ public slots:
      * 恢复已暂停的工作线程。
      */
     virtual void resume();
+
+    // 兼容旧版Qt：提供一个可通过QMetaObject::invokeMethod调用的包装槽，内部调用受保护的cleanup()
+    // 说明：部分平台/旧版Qt不支持以lambda作为invokeMethod目标，为保证跨线程阻塞清理的可靠性
+    // ThreadManager会改为调用该槽函数。
+    void callCleanup();
 
     /**
      * @brief 线程安全的请求暂停（仅设置原子标志，不直接发射信号）

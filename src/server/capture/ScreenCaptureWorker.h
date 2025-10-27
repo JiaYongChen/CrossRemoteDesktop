@@ -3,6 +3,8 @@
 
 #include "../../common/core/threading/Worker.h"
 #include "../../common/core/threading/ThreadSafeQueue.h"
+#include "../dataflow/DataFlowStructures.h"
+#include "../dataflow/QueueManager.h"
 #include "../dataprocessing/DataProcessing.h"
 #include "CaptureConfig.h"
 #include <QtGui/QImage>
@@ -29,10 +31,11 @@ class ScreenCaptureWorker : public Worker
 
 public:
     /**
-     * @brief 构造函数（重构后不再依赖输出队列）
+     * @brief 构造函数（支持队列作为生产者）
+     * @param queueManager 队列管理器，用于将捕获的帧放入队列
      * @param parent 父对象
      */
-    explicit ScreenCaptureWorker(QObject *parent = nullptr);
+    explicit ScreenCaptureWorker(QueueManager* queueManager = nullptr, QObject *parent = nullptr);
 
     /**
      * @brief 析构函数
@@ -53,8 +56,6 @@ public:
     void setDataValidationEnabled(bool enabled);
     bool isDataValidationEnabled() const;
     quint64 getLastFrameChecksum() const;
-    
-    
 
     // 统计信息获取（内部使用）
     CaptureStats getCaptureStats() const;
@@ -76,13 +77,6 @@ public:
     Q_INVOKABLE void stopCapturing();
 
 signals:
-    /**
-     * @brief 帧捕获完成信号
-     * @param frame 捕获的图像
-     * @param timestamp 捕获时间戳
-     */
-    void frameCaptured(const QImage& frame, qint64 timestamp);
-
     /**
      * @brief 捕获统计更新信号（内部使用）
      * @param stats 统计信息
@@ -128,8 +122,6 @@ private:
     void calculateFrameDelay();
     bool shouldCaptureFrame();
     
-    // 屏幕变化检测方法已移除
-    
     // 性能监控方法
     void recordCaptureTime(std::chrono::milliseconds time);
     void updateFrameRate();
@@ -140,7 +132,10 @@ private:
     bool recoverFromError();
 
 private:
-    // 配置参数 (线程安全)
+    // 队列管理
+    QueueManager* m_queueManager{nullptr};  ///< 队列管理器，用于将捕获的帧放入队列
+    
+    // 配置相关
     mutable QMutex m_configMutex;
     CaptureConfig m_config;
     

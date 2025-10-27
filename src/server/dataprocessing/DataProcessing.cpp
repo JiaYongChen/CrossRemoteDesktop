@@ -16,11 +16,11 @@ DataValidator::~DataValidator() {}
 
 bool DataValidator::validate(const QByteArray& raw, const QString& mimeType, DataRecord& recordOut) {
     // 基本非空校验
-    if (raw.isEmpty()) {
+    if ( raw.isEmpty() ) {
         qCWarning(DataProcessingLog) << "验证失败：原始数据为空";
         return false;
     }
-    if (mimeType.isEmpty()) {
+    if ( mimeType.isEmpty() ) {
         qCWarning(DataProcessingLog) << "验证失败：MIME类型为空";
         return false;
     }
@@ -29,7 +29,7 @@ bool DataValidator::validate(const QByteArray& raw, const QString& mimeType, Dat
     const QByteArray hash = QCryptographicHash::hash(raw, QCryptographicHash::Sha256);
     quint64 checksum = 0;
     // 简单将前8字节拷贝为quint64（注意大小端，本处以小端序直接解释）
-    if (hash.size() >= 8) {
+    if ( hash.size() >= 8 ) {
         memcpy(&checksum, hash.constData(), 8);
     }
 
@@ -40,13 +40,13 @@ bool DataValidator::validate(const QByteArray& raw, const QString& mimeType, Dat
     recordOut.checksum = checksum;
 
     // 若为图像类型，尝试解码以确认基本尺寸
-    if (mimeType.startsWith("image/")) {
+    if ( mimeType.startsWith("image/") ) {
         QBuffer buffer;
         buffer.setData(raw);
         buffer.open(QIODevice::ReadOnly);
         QImageReader reader(&buffer, mimeType.section('/', 1).toUtf8());
         const QImage img = reader.read();
-        if (img.isNull()) {
+        if ( img.isNull() ) {
             qCWarning(DataProcessingLog) << "验证失败：图像解码失败" << reader.errorString();
             return false;
         }
@@ -69,19 +69,19 @@ bool DataCleanerFormatter::cleanAndFormat(const DataRecord& in, DataRecord& out,
     // 去除首尾空字节（示例）：
     int start = 0;
     int end = out.payload.size();
-    while (start < end && out.payload.at(start) == '\0') ++start;
-    while (end > start && out.payload.at(end - 1) == '\0') --end;
-    if (start > 0 || end < out.payload.size()) {
+    while ( start < end && out.payload.at(start) == '\0' ) ++start;
+    while ( end > start && out.payload.at(end - 1) == '\0' ) --end;
+    if ( start > 0 || end < out.payload.size() ) {
         out.payload = out.payload.mid(start, end - start);
     }
 
-    if (out.mimeType.startsWith("image/")) {
+    if ( out.mimeType.startsWith("image/") ) {
         QBuffer buffer;
         buffer.setData(out.payload);
         buffer.open(QIODevice::ReadOnly);
         QImageReader reader(&buffer, out.mimeType.section('/', 1).toUtf8());
         QImage img = reader.read();
-        if (img.isNull()) {
+        if ( img.isNull() ) {
             errorOut = QStringLiteral("清洗失败：图像解码失败：%1").arg(reader.errorString());
             qCWarning(DataProcessingLog) << errorOut;
             return false;
@@ -106,7 +106,7 @@ InMemoryDataStore::InMemoryDataStore(QObject* parent) : IDataStore(parent) {}
 InMemoryDataStore::~InMemoryDataStore() {}
 
 bool InMemoryDataStore::save(const DataRecord& record, QString& errorOut) {
-    if (record.id.isEmpty()) {
+    if ( record.id.isEmpty() ) {
         errorOut = QStringLiteral("存储失败：记录ID为空");
         qCWarning(DataProcessingLog) << errorOut;
         return false;
@@ -118,14 +118,14 @@ bool InMemoryDataStore::save(const DataRecord& record, QString& errorOut) {
 }
 
 bool InMemoryDataStore::get(const QString& id, DataRecord& out, QString& errorOut) const {
-    if (id.isEmpty()) {
+    if ( id.isEmpty() ) {
         errorOut = QStringLiteral("检索失败：ID为空");
         qCWarning(DataProcessingLog) << errorOut;
         return false;
     }
     QMutexLocker locker(&m_mutex);
     auto it = m_storage.constFind(id);
-    if (it == m_storage.constEnd()) {
+    if ( it == m_storage.constEnd() ) {
         errorOut = QStringLiteral("检索失败：未找到ID=%1").arg(id);
         qCWarning(DataProcessingLog) << errorOut;
         return false;
@@ -135,14 +135,14 @@ bool InMemoryDataStore::get(const QString& id, DataRecord& out, QString& errorOu
 }
 
 bool InMemoryDataStore::remove(const QString& id, QString& errorOut) {
-    if (id.isEmpty()) {
+    if ( id.isEmpty() ) {
         errorOut = QStringLiteral("删除失败：ID为空");
         qCWarning(DataProcessingLog) << errorOut;
         return false;
     }
     QMutexLocker locker(&m_mutex);
     const int removed = m_storage.remove(id);
-    if (removed == 0) {
+    if ( removed == 0 ) {
         errorOut = QStringLiteral("删除失败：未找到ID=%1").arg(id);
         qCWarning(DataProcessingLog) << errorOut;
         return false;
@@ -167,25 +167,25 @@ DataProcessor::DataProcessor(QObject* parent)
 DataProcessor::~DataProcessor() {}
 
 void DataProcessor::setStore(std::unique_ptr<IDataStore> store) {
-    if (store) {
+    if ( store ) {
         m_store = std::move(store);
     }
 }
 
 bool DataProcessor::processAndStore(const QByteArray& raw, const QString& mimeType, QString& outId, QString& errorOut) {
     DataRecord validated;
-    if (!m_validator->validate(raw, mimeType, validated)) {
+    if ( !m_validator->validate(raw, mimeType, validated) ) {
         errorOut = QStringLiteral("处理失败：数据验证不通过");
         return false;
     }
 
     DataRecord cleaned;
-    if (!m_cleaner->cleanAndFormat(validated, cleaned, errorOut)) {
+    if ( !m_cleaner->cleanAndFormat(validated, cleaned, errorOut) ) {
         // errorOut 由清洗组件填充
         return false;
     }
 
-    if (!m_store->save(cleaned, errorOut)) {
+    if ( !m_store->save(cleaned, errorOut) ) {
         // errorOut 由存储层填充
         return false;
     }

@@ -91,65 +91,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../build/test)
 # 启用测试
 enable_testing()
 
-# 高级压缩管理器测试用例
-set(ADVANCED_COMPRESSION_MANAGER_TEST_SOURCES
-    test_advancedcompressionmanager.cpp
-    
-    # 高级压缩管理器源文件
-    ../src/common/core/compression/AdvancedCompressionManager.cpp
-    
-    # 压缩相关源文件
-    ../src/common/core/compression/Compression.cpp
-    
-    # 公共核心源文件
-    ../src/common/core/logging/LoggingCategories.cpp
-    ../src/common/core/config/Constants.cpp
-)
-
-# 创建高级压缩管理器测试可执行文件
-qt_add_executable(test_advancedcompressionmanager
-    ${ADVANCED_COMPRESSION_MANAGER_TEST_SOURCES}
-)
-
-# 链接库
-# 高级压缩管理器测试需要使用QImage/QPixmap（Compression.cpp中），因此必须链接Qt6::Gui
-# 注意：仅链接Qt6::Gui，不链接OpenGL/OpenGLWidgets，避免引入AGL
-target_link_libraries(test_advancedcompressionmanager PRIVATE
-    Qt6::Core
-    Qt6::Test
-    Qt6::Gui
-    Qt6::Network
-    Qt6::Concurrent
-    z  # zlib库
-)
-# 强制禁用OpenGL路径，防止QtGui尝试加载OpenGL相关插件/符号
-# 这在macOS arm64下可避免AGL符号引入造成的不匹配
-# 参考：test_compression_features已设置QT_NO_OPENGL
-# 且本测试并未使用任何OpenGL API，仅需图像处理能力
-
-# 添加QT_NO_OPENGL定义
-# 注：保持与工程其它测试一致的做法
-# 我们在编译阶段禁止OpenGL相关代码路径
-# 从而避免链接/运行时的OpenGL依赖
-#
-# 如果未来需要使用OpenGL，请去除此定义，并显式链接所需模块
-#（同时确保目标平台支持）
-target_compile_definitions(test_advancedcompressionmanager PRIVATE QT_NO_OPENGL)
-
-# 添加高级压缩管理器测试
-add_test(
-    NAME AdvancedCompressionManagerTest
-    COMMAND test_advancedcompressionmanager
-    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
-)
-
-# 设置高级压缩管理器测试属性
-set_tests_properties(AdvancedCompressionManagerTest PROPERTIES
-    TIMEOUT 180  # 3分钟超时
-    LABELS "unit;compression;advanced;optimization"
-    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
-)
-
 # ThreadManager测试用例
 set(THREADMANAGER_TEST_SOURCES
     test_threadmanager.cpp
@@ -200,6 +141,10 @@ set(SCREENCAPTUREWORKER_TEST_SOURCES
     # ScreenCaptureWorker相关源文件
     ../src/server/capture/ScreenCaptureWorker.cpp
     ../src/server/dataprocessing/DataProcessing.cpp
+
+    # 数据流相关源文件
+    ../src/server/dataflow/QueueManager.cpp
+    ../src/server/dataflow/DataFlowStructures.cpp
 
     ../src/common/core/threading/Worker.cpp
     ../src/common/core/threading/ThreadManager.cpp
@@ -288,6 +233,10 @@ set(SCREENCAPTURE_TEST_SOURCES
     ../src/server/capture/ScreenCaptureWorker.cpp
     ../src/server/dataprocessing/DataProcessing.cpp
 
+    # 数据流相关源文件
+    ../src/server/dataflow/QueueManager.cpp
+    ../src/server/dataflow/DataFlowStructures.cpp
+
     ../src/common/core/threading/Worker.cpp
     ../src/common/core/threading/ThreadManager.cpp
     ../src/common/core/threading/PerformanceOptimizer.cpp
@@ -327,72 +276,19 @@ set_tests_properties(ScreenCaptureTest PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
-# 创建压缩功能测试可执行文件
-qt_add_executable(test_compression_features
-    test_compression_features.cpp
-    
-    # 压缩相关源文件
-    ../src/common/core/compression/Compression.cpp
-
-    # 公共核心源文件
-    ../src/common/core/logging/LoggingCategories.cpp
-    ../src/common/core/config/Constants.cpp
-)
-
-# 链接库
-# 压缩特性测试同样依赖Compression.cpp中的QImage/QPixmap，必须链接Qt6::Gui
-# 注意：仅链接Qt6::Gui，不链接OpenGL/OpenGLWidgets，避免引入AGL
-target_link_libraries(test_compression_features PRIVATE
-    Qt6::Core
-    Qt6::Test
-    Qt6::Gui
-    ZLIB::ZLIB
-)
-target_compile_definitions(test_compression_features PRIVATE QT_NO_OPENGL)
-
-# 设置包含目录
-target_include_directories(test_compression_features PRIVATE
-    ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_SOURCE_DIR}/src/common/core
-)
-
-# 添加LZ4和ZSTD支持（如果可用）
-if(ENABLE_LZ4)
-    find_library(LZ4_LIBRARY NAMES lz4 liblz4 PATHS /opt/homebrew/lib /usr/local/lib)
-    find_path(LZ4_INCLUDE_DIR NAMES lz4.h PATHS /opt/homebrew/include /usr/local/include)
-    if(LZ4_LIBRARY AND LZ4_INCLUDE_DIR)
-        target_link_libraries(test_compression_features PRIVATE ${LZ4_LIBRARY})
-        target_include_directories(test_compression_features PRIVATE ${LZ4_INCLUDE_DIR})
-        target_compile_definitions(test_compression_features PRIVATE HAVE_LZ4)
-    endif()
-endif()
-
-if(ENABLE_ZSTD)
-    find_library(ZSTD_LIBRARY NAMES zstd libzstd PATHS /opt/homebrew/lib /usr/local/lib)
-    find_path(ZSTD_INCLUDE_DIR NAMES zstd.h PATHS /opt/homebrew/include /usr/local/include)
-    if(ZSTD_LIBRARY AND ZSTD_INCLUDE_DIR)
-        target_link_libraries(test_compression_features PRIVATE ${ZSTD_LIBRARY})
-        target_include_directories(test_compression_features PRIVATE ${ZSTD_INCLUDE_DIR})
-        target_compile_definitions(test_compression_features PRIVATE HAVE_ZSTD)
-    endif()
-endif()
-
-# 添加测试
-add_test(NAME CompressionFeatures COMMAND test_compression_features)
-set_tests_properties(CompressionFeatures PROPERTIES LABELS "unit;compression")
 
 # --- 保证自定义测试目标的依赖是“目标”而非“文件路径” ---
 # 注意：当使用add_custom_target(DEPENDS ...)且依赖的目标尚未定义时，
 # 某些生成器可能将其解析为输出文件路径，最终引发“No rule to make target”错误。
 # 因此在所有测试可执行目标创建完毕后，使用add_dependencies进行明确的目标依赖。
 if(TARGET run_all_tests)
-    add_dependencies(run_all_tests test_advancedcompressionmanager test_threadmanager test_screencaptureworker test_screencapture test_compression_features)
+    add_dependencies(run_all_tests test_threadmanager test_screencaptureworker test_screencapture)
 endif()
 if(TARGET run_quick_tests)
-    add_dependencies(run_quick_tests test_advancedcompressionmanager test_threadmanager test_compression_features)
+    add_dependencies(run_quick_tests test_threadmanager)
 endif()
 if(TARGET run_core_tests)
-    add_dependencies(run_core_tests test_advancedcompressionmanager test_threadmanager test_screencaptureworker test_screencapture test_compression_features)
+    add_dependencies(run_core_tests test_threadmanager test_screencaptureworker test_screencapture)
 endif()
 if(TARGET run_threading_tests)
     add_dependencies(run_threading_tests test_threadmanager test_screencaptureworker)
@@ -407,6 +303,9 @@ set(SCREEN_CAPTURE_INTEGRATION_TEST_SOURCES
     ../src/server/capture/ScreenCaptureWorker.cpp
     ../src/server/dataprocessing/DataProcessing.cpp
 
+    # 数据流相关源文件
+    ../src/server/dataflow/QueueManager.cpp
+    ../src/server/dataflow/DataFlowStructures.cpp
     
     # ThreadManager相关源文件
     ../src/common/core/threading/ThreadManager.cpp
@@ -447,7 +346,7 @@ set_tests_properties(ScreenCaptureIntegrationTest PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
-message(STATUS "  Tests: Memory Optimization, Advanced Compression, ThreadManager, ScreenCaptureWorker, PerformanceOptimizer, CompressionFeatures, ScreenCaptureIntegration")
+message(STATUS "  Tests: Memory Optimization, ThreadManager, ScreenCaptureWorker, PerformanceOptimizer, ScreenCaptureIntegration")
 message(STATUS "  Test targets:")
 message(STATUS "    - run_all_tests: 运行所有测试")
 message(STATUS "    - run_quick_tests: 运行快速测试")
@@ -579,10 +478,6 @@ set(CLIENTREMOTEWINDOW_TEST_SOURCES
     ../src/common/core/config/Config.cpp
     ../src/common/core/network/ProtocolImpl.cpp
     ../src/common/core/crypto/Encryption.cpp
-    
-    # 压缩相关源文件
-    ../src/common/core/compression/Compression.cpp
-    ../src/common/core/compression/DifferentialCompression.cpp
 )
 
 # 创建ClientRemoteWindow测试可执行文件
@@ -678,3 +573,155 @@ endif()
 if(TARGET run_integration_tests)
     add_dependencies(run_integration_tests test_screen_data_flow)
 endif()
+
+# ClientHandlerWorker测试用例
+set(CLIENTHANDLERWORKER_TEST_SOURCES
+    test_clienthandlerworker.cpp
+    
+    # 基本核心源文件
+    ../src/common/core/logging/LoggingCategories.cpp
+    ../src/common/core/config/Config.cpp
+    ../src/common/core/config/Constants.cpp
+)
+
+# 创建ClientHandlerWorker测试可执行文件
+qt_add_executable(test_clienthandlerworker
+    ${CLIENTHANDLERWORKER_TEST_SOURCES}
+)
+
+# 链接库
+target_link_libraries(test_clienthandlerworker PRIVATE
+    Qt6::Core
+    Qt6::Test
+)
+
+target_compile_definitions(test_clienthandlerworker PRIVATE QT_NO_OPENGL)
+
+# 添加ClientHandlerWorker测试
+add_test(
+    NAME ClientHandlerWorkerTest
+    COMMAND test_clienthandlerworker
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+)
+
+# 设置ClientHandlerWorker测试属性
+set_tests_properties(ClientHandlerWorkerTest PROPERTIES
+    TIMEOUT 60  # 1分钟超时
+    LABELS "unit;server;worker;network"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
+# 保证自定义测试目标的依赖
+if(TARGET run_all_tests)
+    add_dependencies(run_all_tests test_clienthandlerworker)
+endif()
+if(TARGET run_unit_tests)
+    add_dependencies(run_unit_tests test_clienthandlerworker)
+endif()
+
+# ============================================================================
+# 生产者-消费者集成测试
+# ============================================================================
+
+# 生产者-消费者集成测试源文件
+set(PRODUCER_CONSUMER_INTEGRATION_TEST_SOURCES
+    test_producer_consumer_integration.cpp
+    
+    # 服务器相关源文件
+    ../src/server/service/ServerWorker.cpp
+    ../src/server/dataprocessing/DataProcessingWorker.cpp
+    ../src/server/dataprocessing/DataProcessing.cpp
+    ../src/server/dataprocessing/DataProcessingConfig.cpp
+    ../src/server/capture/ScreenCapture.cpp
+    ../src/server/capture/ScreenCaptureWorker.cpp
+    ../src/server/clienthandler/ClientHandlerWorker.cpp
+    ../src/server/service/TcpServer.cpp
+    ../src/server/simulator/InputSimulator.cpp
+    
+    # 公共核心源文件
+    ../src/common/core/threading/Worker.cpp
+    ../src/common/core/threading/ThreadManager.cpp
+    ../src/server/dataflow/QueueManager.cpp
+    ../src/common/core/network/ProtocolImpl.cpp
+    ../src/common/core/crypto/Encryption.cpp
+    ../src/common/core/logging/LoggingCategories.cpp
+    ../src/common/core/config/Constants.cpp
+)
+
+# 创建生产者-消费者集成测试可执行文件
+qt_add_executable(test_producer_consumer_integration
+    ${PRODUCER_CONSUMER_INTEGRATION_TEST_SOURCES}
+)
+
+# 链接库
+target_link_libraries(test_producer_consumer_integration PRIVATE
+    Qt6::Core
+    Qt6::Test
+    Qt6::Gui
+    Qt6::Network
+    Qt6::Concurrent
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    z  # zlib库
+)
+
+target_compile_definitions(test_producer_consumer_integration PRIVATE QT_NO_OPENGL)
+
+# 添加生产者-消费者集成测试
+add_test(
+    NAME ProducerConsumerIntegrationTest
+    COMMAND test_producer_consumer_integration
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+)
+
+# 设置生产者-消费者集成测试属性
+set_tests_properties(ProducerConsumerIntegrationTest PROPERTIES
+    TIMEOUT 300  # 5分钟超时
+    LABELS "integration;producer;consumer;queue;threading"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
+# 保证自定义测试目标的依赖
+if(TARGET run_all_tests)
+    add_dependencies(run_all_tests test_producer_consumer_integration)
+endif()
+if(TARGET run_integration_tests)
+    add_dependencies(run_integration_tests test_producer_consumer_integration)
+endif()
+
+# 关闭事件集成测试工具（GUI）
+set(CLOSE_EVENT_TEST_SOURCES
+    test_close_event.cpp
+)
+
+qt_add_executable(test_close_event
+    ${CLOSE_EVENT_TEST_SOURCES}
+)
+
+target_link_libraries(test_close_event PRIVATE
+    Qt6::Core
+    Qt6::Gui
+    Qt6::Widgets
+    Qt6::Network
+    Qt6::Test
+    Qt6::Concurrent
+)
+
+target_compile_definitions(test_close_event PRIVATE QT_NO_OPENGL)
+
+# 将关闭事件测试纳入CTest，允许在CI中运行
+add_test(
+    NAME CloseEventTest
+    COMMAND test_close_event
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+)
+
+set_tests_properties(CloseEventTest PROPERTIES
+    TIMEOUT 60
+    LABELS "integration;ui;closeevent;app"
+    # 指定主应用可执行文件路径，避免测试误用旧版本的.app bundle
+    # 这里使用主工程在Debug配置下的输出位置（见顶层CMakeLists: CMAKE_RUNTIME_OUTPUT_DIRECTORY 设置）
+    # 对于非Debug配置，路径可根据需要扩展；当前测试默认在Debug下运行
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;AUTO_RUN=1;RD_MAIN_APP_PATH=${CMAKE_SOURCE_DIR}/Debug/QtRemoteDesktop.app/Contents/MacOS/QtRemoteDesktop"
+)
+

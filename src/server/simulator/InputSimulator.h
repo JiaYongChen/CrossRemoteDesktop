@@ -15,7 +15,7 @@
 #endif
 
 #ifdef Q_OS_MACOS
-#include <ApplicationServices/Applicationservices.h>
+#include <ApplicationServices/ApplicationServices.h>
 #endif
 
 #ifdef Q_OS_LINUX

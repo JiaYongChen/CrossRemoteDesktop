@@ -33,11 +33,41 @@ public:
         bool autoRestart;                       ///< 是否自动重启
         int restartCount;                       ///< 重启次数
         int maxRestarts;                        ///< 最大重启次数
+        bool stopRequested = false;             ///< 是否为主动停止（手动stop/destroy触发），用于跳过自动重启
         
         // 析构函数，负责清理资源
         ~ThreadInfo() {
-            delete worker;
-            delete thread;
+            // 析构时尽量避免强制终止线程导致的不确定崩溃：
+            // 1) 若线程仍在运行，尝试请求退出并短暂等待；
+            // 2) 不使用 terminate()，由上层的 stopThread/destroyThread 保证线程已结束；
+            if (thread) {
+                if (thread->isRunning()) {
+                    // 尝试优雅退出
+                    thread->quit();
+                    thread->wait(800);
+                }
+                // 若仍在运行，避免直接delete导致崩溃，改为延迟删除
+                if (thread->isRunning()) {
+                    qWarning() << "ThreadInfo destructor: QThread is still running; deferring deletion for thread" << name;
+                    // Worker同样延迟删除，防止跨线程析构
+                    if (worker) {
+                        QObject::connect(thread, &QThread::finished, worker, &QObject::deleteLater);
+                        worker = nullptr;
+                    }
+                    QObject::connect(thread, &QThread::finished, thread, &QObject::deleteLater);
+                    thread = nullptr;
+                    return; // 延迟删除已安排，避免下面的直接delete
+                }
+            }
+
+            if (worker) {
+                delete worker;
+                worker = nullptr;
+            }
+            if (thread) {
+                delete thread;
+                thread = nullptr;
+            }
         }
     };
 

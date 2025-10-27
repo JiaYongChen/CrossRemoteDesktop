@@ -123,23 +123,8 @@ bool ThreadCommunicationHub::sendMessage(const ThreadMessage& message)
     // 立即尝试路由消息
     locker.unlock();
     
-    // 使用QMetaObject::invokeMethod确保在正确的线程中处理
-    QMetaObject::invokeMethod(this, [this]() {
-        QMutexLocker locker(&m_mutex);
-        
-        while (!m_messageQueue.isEmpty()) {
-            ThreadMessage msg = m_messageQueue.dequeue();
-            locker.unlock();
-            
-            if (!routeMessage(msg)) {
-                QMutexLocker relocker(&m_mutex);
-                m_stats.totalErrors++;
-                emit messageError(msg, "Failed to route message");
-            }
-            
-            locker.relock();
-        }
-    }, Qt::QueuedConnection);
+    // 使用QMetaObject::invokeMethod确保在正确的线程中处理（兼容旧版Qt，调用槽函数）
+    QMetaObject::invokeMethod(this, "processMessageQueue", Qt::QueuedConnection);
     
     return true;
 }
@@ -361,5 +346,22 @@ void ThreadCommunicationHub::updateStats(bool sent, double latency)
             double alpha = 0.1; // 平滑因子
             m_stats.averageLatency = alpha * latency + (1.0 - alpha) * m_stats.averageLatency;
         }
+    }
+}
+void ThreadCommunicationHub::processMessageQueue()
+{
+    QMutexLocker locker(&m_mutex);
+
+    while (!m_messageQueue.isEmpty()) {
+        ThreadMessage msg = m_messageQueue.dequeue();
+        locker.unlock();
+
+        if (!routeMessage(msg)) {
+            QMutexLocker relocker(&m_mutex);
+            m_stats.totalErrors++;
+            emit messageError(msg, "Failed to route message");
+        }
+
+        locker.relock();
     }
 }

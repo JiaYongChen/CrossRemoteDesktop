@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(QtRemoteDesktop VERSION 1.0.0 LANGUAGES CXX)
-# Feature options
-option(ENABLE_LZ4 "Enable optional LZ4 compression" ON)
-option(ENABLE_ZSTD "Enable optional Zstandard compression" ON)
 
 # 设置C++标准
 set(CMAKE_CXX_STANDARD 20)
@@ -318,7 +315,7 @@ find_package(Qt6 6.9 REQUIRED COMPONENTS
     Concurrent
 )
 
-# 新增：查找第三方依赖（用于加解密与压缩）
+# 新增：查找第三方依赖（用于加解密和PNG编码）
 find_package(OpenSSL REQUIRED)
 find_package(ZLIB REQUIRED)
 
@@ -354,152 +351,38 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${_OUT_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${_OUT_DIR})
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${_OUT_DIR})
 
-# 目标私有包含目录（替代全局 include_directories）
-set(PRIVATE_INCLUDE_DIRS
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/client
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/client/managers
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/common
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/core
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/core/compression
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/core/memory
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/core/threading
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/windows
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/server
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/server/capture
+# 头文件（自动检测）
+# 使用 GLOB_RECURSE + CONFIGURE_DEPENDS 自动收集 src 目录下所有 .h/.hpp 文件
+# 当新增/删除头文件时，CMake 会在下一次配置时自动更新，无需手动维护列表
+file(GLOB_RECURSE PROJECT_HEADERS CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.hpp"
 )
+set(HEADERS ${PROJECT_HEADERS})
 
-# 源文件
-set(SOURCES
-    src/main.cpp
-
-    # client 源文件
-    src/client/ClientManager.cpp
-    src/client/ClientRemoteWindow.cpp
-    src/client/InputHandler.cpp
-    src/client/TcpClient.cpp
-    # client managers 源文件
-    src/client/managers/ClipboardManager.cpp
-    src/client/managers/ConnectionManager.cpp
-    src/client/managers/CursorManager.cpp
-    src/client/managers/FileTransferManager.cpp
-    src/client/managers/RenderManager.cpp
-    src/client/managers/SessionManager.cpp
-
-    # 公共核心模块
-    src/common/core/config/Config.cpp
-    src/common/core/config/Constants.cpp
-    src/common/core/logging/DebugLogger.cpp
-    src/common/core/crypto/Encryption.cpp
-    src/common/core/logging/LoggingCategories.cpp
-    src/common/core/network/ProtocolImpl.cpp
-    # common core compression 源文件
-    src/common/core/compression/AdvancedCompressionManager.cpp
-    src/common/core/compression/Compression.cpp
-    src/common/core/compression/DifferentialCompression.cpp
-    # common core memory 源文件
-    src/common/core/memory/ByteArrayPool.cpp
-    # common core threading 源文件
-    src/common/core/threading/PerformanceOptimizer.cpp
-    src/common/core/threading/ThreadCommunication.cpp
-    src/common/core/threading/ThreadManager.cpp
-    src/common/core/threading/Worker.cpp
-
-    # common windows 源文件
-    src/common/windows/ConnectionDialog.cpp
-    src/common/windows/MainWindow.cpp
-    src/common/windows/SettingsDialog.cpp
-
-    # server 源文件
-    src/server/ClientHandler.cpp
-    src/server/InputSimulator.cpp
-    src/server/ServerManager.cpp
-    src/server/ServerWorker.cpp
-    src/server/TcpServer.cpp
-    # server capture 源文件
-    src/server/capture/ScreenCapture.cpp
-    src/server/capture/ScreenCaptureWorker.cpp
-    # server dataprocessing 源文件
-    src/server/dataprocessing/DataProcessing.cpp
-    src/server/dataprocessing/DataProcessingConfig.cpp
-
+# 源文件（自动检测）
+# 使用 GLOB_RECURSE + CONFIGURE_DEPENDS 自动收集 src 目录下所有 .cpp/.cc/.cxx 文件
+# 当新增/删除源文件时，CMake 会在下一次配置时自动更新，无需手动维护列表
+file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cxx"
 )
-
-# 头文件
-set(HEADERS
-    # client 头文件
-    src/client/ClientManager.h
-    src/client/ClientRemoteWindow.h
-    src/client/InputHandler.h
-    src/client/TcpClient.h
-    # client managers 头文件
-    src/client/managers/ClipboardManager.h
-    src/client/managers/ConnectionManager.h
-    src/client/managers/CursorManager.h
-    src/client/managers/FileTransferManager.h
-    src/client/managers/RenderManager.h
-    src/client/managers/SessionManager.h
-
-    # 公共核心头文件
-    src/common/core/config/Config.h
-    src/common/core/config/Constants.h
-    src/common/core/logging/DebugLogger.h
-    src/common/core/crypto/Encryption.h
-    src/common/core/logging/LoggingCategories.h
-    src/common/core/config/MessageConstants.h
-    src/common/core/config/NetworkConstants.h
-    src/common/core/network/Protocol.h
-    src/common/core/config/UiConstants.h
-    # common core compression 头文件
-    src/common/core/compression/AdvancedCompressionManager.h
-    src/common/core/compression/Compression.h
-    src/common/core/compression/DifferentialCompression.h
-    # common core memory 头文件
-    src/common/core/memory/ByteArrayPool.h
-    src/common/core/memory/ZeroCopyData.h
-    # common core threading 头文件
-    src/common/core/threading/PerformanceOptimizer.h
-    src/common/core/threading/ThreadCommunication.h
-    src/common/core/threading/ThreadManager.h
-    src/common/core/threading/ThreadSafeQueue.h
-    src/common/core/threading/Worker.h
-
-    # common windows 头文件
-    src/common/windows/ConnectionDialog.h
-    src/common/windows/MainWindow.h
-    src/common/windows/SettingsDialog.h
-
-    # server 头文件
-    src/server/ClientHandler.h
-    src/server/InputSimulator.h
-    src/server/ServerManager.h
-    src/server/ServerWorker.h
-    src/server/TcpServer.h
-    # server capture 头文件
-    src/server/capture/ScreenCapture.h
-    src/server/capture/ScreenCaptureWorker.h
-)
+set(SOURCES ${PROJECT_SOURCES})
 
 # 生成可执行文件
 qt_add_executable(QtRemoteDesktop
     ${SOURCES}
-    ${HEADERS}
     resources/resources.qrc
 )
 
-# 私有包含目录
+# 头文件包含目录（为便于使用诸如 "common/core/..." 和 "config/..." 的包含路径）
 target_include_directories(QtRemoteDesktop PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/common
     ${CMAKE_CURRENT_SOURCE_DIR}/src/common/core
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/core/config
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/core/crypto
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/core/logging
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/core/network
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/core/compression
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/core/memory
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/core/threading
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/data
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/types
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/client
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/server
 )
 
 # 链接Qt与其它依赖（仅在Apple平台去除QtGui传播的AGL/OpenGL，保留其它必要框架）
@@ -770,6 +653,11 @@ endif()
 # 安装规则（可根据需要扩展）
 install(TARGETS QtRemoteDesktop
         RUNTIME DESTINATION bin)
+
+# 启用CTest测试收集（顶层）
+# 说明：仅在子目录调用 enable_testing() 会在该子目录生成 CTestTestfile.cmake，
+# 顶层未生成则 ctest 无法发现任何测试。这里在顶层启用测试，让ctest能递归收集 test 子目录中的测试。
+enable_testing()
 
 # 测试子目录
 add_subdirectory(test)

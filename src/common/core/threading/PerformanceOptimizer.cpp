@@ -154,7 +154,7 @@ void PerformanceOptimizer::resetStats()
 
 void PerformanceOptimizer::optimizeThreadPriority(const QString& threadName, ThreadPriority priority)
 {
-    qCDebug(performanceOptimizer, "优化线程优先级: %s 优先级: %d", qPrintable(threadName), static_cast<int>(priority));
+    qCDebug(performanceOptimizer) << "优化线程优先级:" << threadName << "优先级:" << static_cast<int>(priority);
     
     if (!m_threadManager) {
         qCDebug(performanceOptimizer, "ThreadManager 未初始化");
@@ -189,13 +189,13 @@ void PerformanceOptimizer::optimizeThreadPriority(const QString& threadName, Thr
 
 void PerformanceOptimizer::optimizeQueueSize(const QString& queueName, int optimalSize)
 {
-    qCDebug(performanceOptimizer, "优化队列大小: %s 最优大小: %d", qPrintable(queueName), optimalSize);
+    qCDebug(performanceOptimizer) << "优化队列大小:" << queueName << "最优大小:" << optimalSize;
     
     // 确保队列大小在合理范围内
     int adjustedSize = qBound(10, optimalSize, m_config.maxQueueSize);
     
     if (adjustedSize != optimalSize) {
-        qCDebug(performanceOptimizer, "队列大小已调整为: %d", adjustedSize);
+        qCDebug(performanceOptimizer) << "队列大小已调整为:" << adjustedSize;
     }
     
     // 这里可以通过信号通知相关组件调整队列大小
@@ -235,7 +235,7 @@ void PerformanceOptimizer::autoOptimize()
 
 void PerformanceOptimizer::setThreadAffinity(const QString& threadName, int cpuCore)
 {
-    qCDebug(performanceOptimizer, "设置线程亲和性: %s CPU核心: %d", qPrintable(threadName), cpuCore);
+    qCDebug(performanceOptimizer) << "设置线程亲和性:" << threadName << "CPU核心:" << cpuCore;
     
     if (!m_config.enableThreadAffinity) {
         qCDebug(performanceOptimizer, "线程亲和性未启用");
@@ -268,8 +268,8 @@ void PerformanceOptimizer::onMonitoringTimer()
     
     // 记录性能日志
     if (m_config.enablePerformanceLogging) {
-        qCDebug(performanceOptimizer, "性能统计 - CPU: %.1f%% 内存: %zuMB 活跃线程: %d", 
-                m_stats.cpuUsage, m_stats.memoryUsage / (1024 * 1024), m_stats.activeThreads);
+        qCDebug(performanceOptimizer) << "性能统计 - CPU:" << m_stats.cpuUsage << "% 内存:" 
+                                      << (m_stats.memoryUsage / (1024 * 1024)) << "MB 活跃线程:" << m_stats.activeThreads;
     }
 }
 

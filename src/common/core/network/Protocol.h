@@ -22,7 +22,6 @@ enum class MessageType : quint32 {
     HANDSHAKE_RESPONSE = 0x0002,
     AUTHENTICATION_REQUEST = 0x0003,
     AUTHENTICATION_RESPONSE = 0x0004,
-    DISCONNECT_REQUEST = 0x0005,
     HEARTBEAT = 0x0006,
     HEARTBEAT_RESPONSE = 0x0007,
     AUTH_CHALLENGE = 0x0008,
@@ -133,7 +132,6 @@ struct HandshakeRequest : public IMessageCodec {
     quint16 screenWidth;
     quint16 screenHeight;
     quint8 colorDepth;
-    quint8 compressionLevel;
     char clientName[64];
     char clientOS[32];
     
@@ -218,7 +216,6 @@ struct ScreenData : public IMessageCodec {
     quint16 width;
     quint16 height;
     quint8 imageType;
-    quint8 compressionType;
     quint32 dataSize;
     QByteArray imageData;
     

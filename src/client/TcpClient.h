@@ -87,12 +87,10 @@ private:
     void handleHeartbeat();
     void handleErrorMessage(const QByteArray &data);
     void handleStatusUpdate(const QByteArray &data);
-    void handleDisconnectRequest();
     void handleScreenData(const QByteArray &data);
     
     void sendHandshakeRequest();
     void sendAuthenticationRequest(const QString &username, const QString &password);
-    void sendDisconnectRequest();
     
     void resetConnection();
     

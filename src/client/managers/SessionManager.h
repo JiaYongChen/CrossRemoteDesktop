@@ -14,10 +14,9 @@ class TcpClient;
 class ConnectionManager;
 class QTimer;
 
-class SessionManager : public QObject
-{
+class SessionManager : public QObject {
     Q_OBJECT
-    
+
 public:
     enum SessionState {
         Inactive,
@@ -27,85 +26,81 @@ public:
         Terminated
     };
     Q_ENUM(SessionState)
-    
-    struct PerformanceStats {
+
+        struct PerformanceStats {
         double currentFPS;
         QDateTime sessionStartTime;
         int frameCount;
     };
-    
-    explicit SessionManager(ConnectionManager *connectionManager, QObject *parent = nullptr);
+
+    explicit SessionManager(ConnectionManager* connectionManager, QObject* parent = nullptr);
     ~SessionManager();
-    
+
     // 会话控制
     void startSession();
     void suspendSession();
     void resumeSession();
     void terminateSession();
-    
+
     // 状态查询
     SessionState sessionState() const;
     bool isActive() const;
-    
+
     // 远程桌面数据
     QPixmap currentScreen() const;
     QSize remoteScreenSize() const;
-    
+
     // 输入事件发送
     void sendMouseEvent(int x, int y, int buttons, int eventType);
-    void sendKeyboardEvent(int key, int modifiers, bool pressed, const QString &text);
+    void sendKeyboardEvent(int key, int modifiers, bool pressed, const QString& text);
     void sendWheelEvent(int x, int y, int delta, int orientation);
-    
+
     // 性能统计
     PerformanceStats performanceStats() const;
     void resetStats();
-    
+
     // 性能信息格式化
     QString getFormattedPerformanceInfo() const;
-    
+
     // 配置
     void setFrameRate(int fps);
     int frameRate() const;
-    
-    void setCompressionLevel(int level);
-    int compressionLevel() const;
-    
+
 signals:
     void sessionStateChanged(SessionState state);
-    void screenUpdated(const QPixmap &screen);
-    void screenRegionUpdated(const QPixmap &region, const QRect &rect);
-    void performanceStatsUpdated(const PerformanceStats &stats);
-    void sessionError(const QString &error);
+    void screenUpdated(const QPixmap& screen);
+    void screenRegionUpdated(const QPixmap& region, const QRect& rect);
+    void performanceStatsUpdated(const PerformanceStats& stats);
+    void sessionError(const QString& error);
     void connectionStateChanged(int state);
-    
+
 private slots:
     void onConnectionStateChanged();
-    void onScreenDataReceived(const QImage &image);
-    void onMessageReceived(MessageType type, const QByteArray &data);
+    void onScreenDataReceived(const QImage& image);
+    void onMessageReceived(MessageType type, const QByteArray& data);
     void updatePerformanceStats();
-    
+
 private:
     void setSessionState(SessionState state);
     void setupConnections();
-    void processInputResponse(const QByteArray &data);
+    void processInputResponse(const QByteArray& data);
     void calculateFPS();
-    
-    ConnectionManager *m_connectionManager;
-    TcpClient *m_tcpClient;
+
+    ConnectionManager* m_connectionManager;
+    TcpClient* m_tcpClient;
     SessionState m_sessionState;
-    
+
     // 远程桌面数据
     QPixmap m_currentScreen;
     QSize m_remoteScreenSize;
-    
+
     // 性能统计
-    QTimer *m_statsTimer;
+    QTimer* m_statsTimer;
     PerformanceStats m_stats;
     QQueue<QDateTime> m_frameTimes;
-    
+
     // 配置
     int m_frameRate;
-    int m_compressionLevel;
 };
 
 #endif // SESSIONMANAGER_H

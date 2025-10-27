@@ -483,7 +483,6 @@ ScreenData TestFrameTransmissionLatency::createScreenData(const QByteArray& imag
     screenData.width = 800;  // 示例值
     screenData.height = 600; // 示例值
     screenData.imageType = 1; // 图像类型
-    screenData.compressionType = 1; // JPEG
     screenData.dataSize = imageData.size();
     screenData.imageData = imageData;
     

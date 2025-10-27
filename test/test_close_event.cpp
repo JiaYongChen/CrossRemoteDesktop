@@ -17,6 +17,8 @@
 #include <QtWidgets/QWidget>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QTextEdit>
+#include <QtCore/QDir>
+#include <QtCore/QFileInfo>
 
 class TestWindow : public QMainWindow
 {
@@ -40,7 +42,7 @@ public:
         }
     }
     
-private slots:
+public slots:
     void startApp()
     {
         if (m_process->state() != QProcess::NotRunning) {
@@ -49,9 +51,13 @@ private slots:
         }
         
         appendLog("启动QtRemoteDesktop应用程序...");
-        
-        QString program = "./bin/QtRemoteDesktop.app/Contents/MacOS/QtRemoteDesktop";
-        m_process->setWorkingDirectory("/Users/chenjiayong/Documents/aicode/TraeAI/QtRemoteDesktop/build");
+        QString program = locateProgram();
+        if (program.isEmpty()) {
+            appendLog("❌ 未找到QtRemoteDesktop可执行文件，请检查构建输出");
+            return;
+        }
+        appendLog("使用可执行路径: " + program);
+        // 使用当前工作目录（由CTest配置），不再硬编码
         m_process->start(program);
         
         if (!m_process->waitForStarted(5000)) {
@@ -104,30 +110,30 @@ private slots:
     
     void analyzeOutput()
     {
+        // 合并通道读取，确保捕获所有输出（已设置MergedChannels，仅读取标准输出即可）
         QString output = m_process->readAllStandardOutput();
-        QString errorOutput = m_process->readAllStandardError();
         
         appendLog("\n=== 应用程序输出分析 ===");
         
         // 检查是否包含我们的closeEvent日志
-        bool hasCloseEventStart = output.contains("MainWindow::closeEvent() - 开始关闭窗口") ||
-                                 errorOutput.contains("MainWindow::closeEvent() - 开始关闭窗口");
+        bool hasCloseEventStart = output.contains("MainWindow::closeEvent() - 开始关闭窗口");
         
-        bool hasSettingsSaved = output.contains("设置已保存") ||
-                               errorOutput.contains("设置已保存");
+        bool hasSettingsSaved = output.contains("设置已保存");
         
-        bool hasServerStopped = output.contains("服务器已停止") ||
-                               errorOutput.contains("服务器已停止");
+        // 更严格：最终态
+        bool hasServerStoppedFinal = output.contains("服务器已停止");
+        // 辅助态：信息性日志
+        bool hasServerStoppedAux = output.contains("TCP服务器已停止") ||
+                                   output.contains("服务器已在关闭过程中");
         
-        bool hasCloseEventComplete = output.contains("MainWindow::closeEvent() - 窗口关闭完成") ||
-                                    errorOutput.contains("MainWindow::closeEvent() - 窗口关闭完成");
+        bool hasCloseEventComplete = output.contains("MainWindow::closeEvent() - 窗口关闭完成");
         
-        bool hasAppExit = output.contains("应用程序即将退出") ||
-                         errorOutput.contains("应用程序即将退出");
+        bool hasAppExit = output.contains("应用程序即将退出");
         
         appendLog("closeEvent开始: " + QString(hasCloseEventStart ? "✅" : "❌"));
         appendLog("设置保存: " + QString(hasSettingsSaved ? "✅" : "❌"));
-        appendLog("服务器停止: " + QString(hasServerStopped ? "✅" : "❌"));
+        appendLog("服务器停止(最终态): " + QString(hasServerStoppedFinal ? "✅" : "❌"));
+        appendLog("服务器停止(辅助态): " + QString(hasServerStoppedAux ? "✅" : "❌"));
         appendLog("closeEvent完成: " + QString(hasCloseEventComplete ? "✅" : "❌"));
         appendLog("应用程序退出: " + QString(hasAppExit ? "✅" : "❌"));
         
@@ -136,25 +142,31 @@ private slots:
             appendLog(output);
         }
         
-        if (!errorOutput.isEmpty()) {
-            appendLog("\n=== 错误输出 ===");
-            appendLog(errorOutput);
-        }
+        // 错误输出已合并到标准输出
         
         // 总结
         int passedChecks = (hasCloseEventStart ? 1 : 0) +
                           (hasSettingsSaved ? 1 : 0) +
-                          (hasServerStopped ? 1 : 0) +
+                          (hasServerStoppedFinal ? 1 : 0) +
+                          (hasServerStoppedAux ? 1 : 0) +
                           (hasCloseEventComplete ? 1 : 0) +
                           (hasAppExit ? 1 : 0);
         
-        appendLog(QString("\n=== 测试结果: %1/5 项检查通过 ===").arg(passedChecks));
+        appendLog(QString("\n=== 测试结果: %1/6 项检查通过 ===").arg(passedChecks));
         
-        if (passedChecks >= 3) {
+        // 关键判定（更严格）：必须检测到最终态“服务器已停止”，且至少有一次closeEvent日志
+        const bool criticalCloseEvent = hasCloseEventStart || hasCloseEventComplete;
+        const bool criticalServerStopped = hasServerStoppedFinal;
+        const bool passed = (criticalServerStopped && criticalCloseEvent);
+        if (passed) {
             appendLog("✅ closeEvent方法基本正常工作");
         } else {
             appendLog("❌ closeEvent方法可能存在问题");
         }
+
+        // 分析完成后退出测试程序（用于自动化测试场景），根据结果设置退出码
+        int exitCode = passed ? 0 : 1;
+        QTimer::singleShot(0, qApp, [exitCode]() { QCoreApplication::exit(exitCode); });
     }
     
     void clearLog()
@@ -163,6 +175,49 @@ private slots:
     }
     
 private:
+    QString locateProgram()
+    {
+        // 优先使用环境变量指定的路径
+        QString envPath = qEnvironmentVariable("RD_MAIN_APP_PATH");
+        if (!envPath.isEmpty() && QFileInfo::exists(envPath)) {
+            return QFileInfo(envPath).absoluteFilePath();
+        }
+
+        // 基于当前工作目录尝试常见构建输出位置
+        QDir cwd = QDir::current();
+        QDir appDir(QCoreApplication::applicationDirPath());
+        QString projectRoot = QDir(appDir.filePath("../..")).canonicalPath();
+        QStringList candidates;
+
+#ifdef Q_OS_MAC
+        // .app bundle 可能存在
+        candidates << cwd.filePath("../QtRemoteDesktop.app/Contents/MacOS/QtRemoteDesktop");
+        candidates << cwd.filePath("../Debug/QtRemoteDesktop.app/Contents/MacOS/QtRemoteDesktop");
+        candidates << cwd.filePath("../Release/QtRemoteDesktop.app/Contents/MacOS/QtRemoteDesktop");
+        candidates << cwd.filePath("QtRemoteDesktop.app/Contents/MacOS/QtRemoteDesktop");
+        // 项目根输出（CMAKE_RUNTIME_OUTPUT_DIRECTORY）
+        candidates << QDir(projectRoot).filePath("QtRemoteDesktop.app/Contents/MacOS/QtRemoteDesktop");
+        candidates << QDir(projectRoot).filePath("Debug/QtRemoteDesktop.app/Contents/MacOS/QtRemoteDesktop");
+        candidates << QDir(projectRoot).filePath("Release/QtRemoteDesktop.app/Contents/MacOS/QtRemoteDesktop");
+#endif
+        // 非bundle（常见于开发构建）
+        candidates << cwd.filePath("../QtRemoteDesktop");
+        candidates << cwd.filePath("../Debug/QtRemoteDesktop");
+        candidates << cwd.filePath("../Release/QtRemoteDesktop");
+        candidates << cwd.filePath("QtRemoteDesktop");
+        // 项目根输出（CMAKE_RUNTIME_OUTPUT_DIRECTORY）
+        candidates << QDir(projectRoot).filePath("QtRemoteDesktop");
+        candidates << QDir(projectRoot).filePath("Debug/QtRemoteDesktop");
+        candidates << QDir(projectRoot).filePath("Release/QtRemoteDesktop");
+
+        for (const QString &path : candidates) {
+            QFileInfo fi(path);
+            if (fi.exists() && fi.isExecutable())
+                return fi.absoluteFilePath();
+        }
+        return QString();
+    }
+
     void setupUI()
     {
         setWindowTitle("QtRemoteDesktop CloseEvent 测试工具");
@@ -209,6 +264,7 @@ private:
     void setupProcess()
     {
         m_process = new QProcess(this);
+        m_process->setProcessChannelMode(QProcess::MergedChannels);
         
         connect(m_process, &QProcess::started, this, [this]() {
             appendLog("进程已启动");
@@ -237,7 +293,9 @@ private:
     void appendLog(const QString &message)
     {
         QString timestamp = QDateTime::currentDateTime().toString("hh:mm:ss.zzz");
-        m_logOutput->append(QString("[%1] %2").arg(timestamp, message));
+        const QString line = QString("[%1] %2").arg(timestamp, message);
+        m_logOutput->append(line);
+        qInfo().noquote() << line;
         m_logOutput->ensureCursorVisible();
     }
     
@@ -252,8 +310,15 @@ int main(int argc, char *argv[])
     
     TestWindow window;
     window.show();
-    
+
+    // 自动运行模式：用于CTest/CI环境，无需人工点击
+    const bool autoRun = qEnvironmentVariableIsSet("AUTO_RUN") ||
+                         app.arguments().contains("--auto");
+    if (autoRun) {
+        QTimer::singleShot(200, &window, &TestWindow::testCloseEvent);
+    }
+
     return app.exec();
 }
 
-#include "TestCloseEvent.moc"
+#include "test_close_event.moc"

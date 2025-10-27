@@ -253,8 +253,10 @@ signals:
      * @param threadName 线程名称
      */
     void handlerUnregistered(const QString& threadName);
-    
+
 private slots:
+    // 兼容旧版Qt：用于在正确线程中处理消息队列的槽函数
+    void processMessageQueue();
     /**
      * @brief 清理定时器槽函数
      */

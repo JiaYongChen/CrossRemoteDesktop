@@ -8,6 +8,8 @@
 
 #include "../src/server/capture/ScreenCaptureWorker.h"
 #include "../src/common/core/threading/ThreadManager.h"
+#include "../src/server/dataflow/QueueManager.h"
+#include "../src/server/dataflow/DataFlowStructures.h"
 
 /**
  * @brief ScreenCaptureWorker单元测试类
@@ -402,24 +404,65 @@ void TestScreenCaptureWorker::test_memoryManagement()
 
 void TestScreenCaptureWorker::test_signalEmission()
 {
-    // 使用QSignalSpy监听frameCaptured信号
-    QSignalSpy frameSpy(m_worker.get(), SIGNAL(frameCaptured(QImage,qint64)));
-
-    // 设置较低帧率，短时间内应捕获到至少一帧
+    // 重新创建worker，使用队列管理器
+    m_worker.reset();
+    
+    // 初始化队列管理器
+    QueueManager* queueManager = QueueManager::instance();
+    queueManager->initialize(120, 120); // 捕获队列和处理队列各120帧容量
+    
+    // 创建带队列管理器的worker
+    m_worker = std::make_unique<ScreenCaptureWorker>(queueManager);
+    QVERIFY(m_worker != nullptr);
+    
+    // 设置较低帧率进行测试
     auto config = m_worker->getCurrentConfig();
-    config.frameRate = 2;
+    config.frameRate = 2; // 2 FPS
     m_worker->updateConfig(config);
-
-    // 启动捕获，等待一段时间
+    
+    // 获取捕获队列
+    auto captureQueue = queueManager->getCaptureQueue();
+    QVERIFY(captureQueue != nullptr);
+    
+    // 清空队列
+    CapturedFrame tempFrame;
+    while (captureQueue->tryDequeue(tempFrame)) {
+        // 清空队列中的旧数据
+    }
+    
+    // 启动捕获
     m_worker->startCapturing();
-    // 等待最多2秒，直到捕获到至少1帧
-    QVERIFY(frameSpy.wait(2000));
-
+    
+    // 等待至少捕获一帧（最多等待2秒，2 FPS应该能捕获至少1帧）
+    int maxWaitTime = 2000; // 2秒
+    int waitInterval = 100; // 100ms检查一次
+    int waited = 0;
+    bool frameReceived = false;
+    
+    while (waited < maxWaitTime && !frameReceived) {
+        QTest::qWait(waitInterval);
+        waited += waitInterval;
+        QCoreApplication::processEvents();
+        
+        // 检查队列中是否有数据
+        if (captureQueue->tryDequeue(tempFrame)) {
+            frameReceived = true;
+            break;
+        }
+    }
+    
     // 停止捕获
     m_worker->stopCapturing();
-
-    // 至少收到1次信号
-    QVERIFY(frameSpy.count() >= 1);
+    
+    // 验证至少接收到一帧
+    QVERIFY2(frameReceived, "应该从队列中接收到至少一帧数据");
+    
+    // 验证帧数据的有效性
+    QVERIFY(!tempFrame.image.isNull());
+    QVERIFY(tempFrame.image.width() > 0);
+    QVERIFY(tempFrame.image.height() > 0);
+    QVERIFY(tempFrame.timestamp.isValid());
+    QVERIFY(tempFrame.frameId > 0);
 }
 
 // 包含moc生成的代码

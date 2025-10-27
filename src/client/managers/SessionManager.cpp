@@ -1,7 +1,6 @@
 #include "SessionManager.h"
 #include "ConnectionManager.h"
 #include "../../client/TcpClient.h"
-#include "../core/compression/Compression.h"
 #include <QtCore/QDebug>
 #include "../../common/core/logging/LoggingCategories.h"
 #include <QtCore/QMessageLogger>
@@ -9,206 +8,165 @@
 #include <QtCore/QDataStream>
 #include <QtCore/QTimer>
 
-SessionManager::SessionManager(ConnectionManager *connectionManager, QObject *parent)
+SessionManager::SessionManager(ConnectionManager* connectionManager, QObject* parent)
     : QObject(parent)
     , m_connectionManager(connectionManager)
     , m_tcpClient(nullptr)
     , m_sessionState(Inactive)
     , m_statsTimer(new QTimer(this))
-    , m_frameRate(30)
-    , m_compressionLevel(5)
-{
-    if (m_connectionManager) {
+    , m_frameRate(30) {
+    if ( m_connectionManager ) {
         m_tcpClient = m_connectionManager->tcpClient();
         setupConnections();
     }
-    
+
     // 设置性能统计定时器
     m_statsTimer->setInterval(UIConstants::STATS_UPDATE_INTERVAL);
     connect(m_statsTimer, &QTimer::timeout, this, &SessionManager::updatePerformanceStats);
-    
+
     // 初始化统计数据
     resetStats();
 }
 
-SessionManager::~SessionManager()
-{
+SessionManager::~SessionManager() {
     terminateSession();
 }
 
-void SessionManager::startSession()
-{
-    if (m_sessionState != Inactive) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "SessionManager: Session already active or starting";
+void SessionManager::startSession() {
+    if ( m_sessionState != Inactive ) {
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "SessionManager: Session already active or starting";
         return;
     }
-    
-    if (!m_connectionManager || !m_connectionManager->isAuthenticated()) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "SessionManager: Cannot start session - not authenticated";
+
+    if ( !m_connectionManager || !m_connectionManager->isAuthenticated() ) {
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "SessionManager: Cannot start session - not authenticated";
         emit sessionError(tr("无法启动会话 - 未认证"));
         return;
     }
-    
+
     setSessionState(Initializing);
-    
+
     // 重置统计数据
     resetStats();
     m_stats.sessionStartTime = QDateTime::currentDateTime();
-    
+
     // 启动统计定时器
     m_statsTimer->start();
-    
-    // 发送会话启动请求
-    // if (m_tcpClient) {
-    //     QByteArray sessionData;
-    //     QDataStream stream(&sessionData, QIODevice::WriteOnly);
-    //     stream << m_frameRate << m_compressionLevel;
-    //     HandshakeRequest handshakeRequest{};
-    //     memset(&handshakeRequest, 0, sizeof(handshakeRequest));  // 清零整个结构体
-        
-    //     handshakeRequest.clientVersion = PROTOCOL_VERSION;
-    //     handshakeRequest.screenWidth = 1920;
-    //     handshakeRequest.screenHeight = 1080;
-    //     handshakeRequest.colorDepth = 32;
-    //     handshakeRequest.compressionLevel = 6;    //     strcpy(handshakeRequest.clientOS, getClientOS().toUtf8().constData());
-    //     m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST, handshakeRequest);
-    // }
-    
+
     setSessionState(Active);
 }
 
-void SessionManager::suspendSession()
-{
-    if (m_sessionState != Active) {
+void SessionManager::suspendSession() {
+    if ( m_sessionState != Active ) {
         return;
     }
-    
+
     setSessionState(Suspended);
     m_statsTimer->stop();
-    
-    if (m_tcpClient) {
-        // SessionSuspend not available in protocol, using DISCONNECT_REQUEST
-        m_tcpClient->sendMessage(MessageType::DISCONNECT_REQUEST, BaseMessage());
-    }
 }
 
-void SessionManager::resumeSession()
-{
-    if (m_sessionState != Suspended) {
+void SessionManager::resumeSession() {
+    if ( m_sessionState != Suspended ) {
         return;
     }
-    
+
     setSessionState(Active);
     m_statsTimer->start();
-    
-    if (m_tcpClient) {
+
+    if ( m_tcpClient ) {
         // SessionResume not available in protocol, using HANDSHAKE_REQUEST
         m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST, BaseMessage());
     }
 }
 
-void SessionManager::terminateSession()
-{
-    if (m_sessionState == Inactive || m_sessionState == Terminated) {
+void SessionManager::terminateSession() {
+    if ( m_sessionState == Inactive || m_sessionState == Terminated ) {
         return;
     }
-    
+
     setSessionState(Terminated);
     m_statsTimer->stop();
-    
-    if (m_tcpClient) {
-        // SessionEnd not available in protocol, using DISCONNECT_REQUEST
-        m_tcpClient->sendMessage(MessageType::DISCONNECT_REQUEST, BaseMessage());
-    }
-    
+
+    // 注意：会话终止不发送断开请求，避免重复发送
+    // 断开请求统一由 ConnectionManager/TcpClient 在 disconnectFromHost() 时发送
+    // 此处只负责清理会话本地数据和状态
+
     // 清理会话数据
     m_currentScreen = QPixmap();
     m_remoteScreenSize = QSize();
     m_frameTimes.clear();
-    
+
     setSessionState(Inactive);
 }
 
-SessionManager::SessionState SessionManager::sessionState() const
-{
+SessionManager::SessionState SessionManager::sessionState() const {
     return m_sessionState;
 }
 
-bool SessionManager::isActive() const
-{
+bool SessionManager::isActive() const {
     return m_sessionState == Active;
 }
 
-QPixmap SessionManager::currentScreen() const
-{
+QPixmap SessionManager::currentScreen() const {
     return m_currentScreen;
 }
 
-QSize SessionManager::remoteScreenSize() const
-{
+QSize SessionManager::remoteScreenSize() const {
     return m_remoteScreenSize;
 }
 
-void SessionManager::sendMouseEvent(int x, int y, int buttons, int eventType)
-{
-    if (!isActive() || !m_tcpClient) {
+void SessionManager::sendMouseEvent(int x, int y, int buttons, int eventType) {
+    if ( !isActive() || !m_tcpClient ) {
         return;
     }
-    
+
     m_tcpClient->sendMouseEvent(x, y, buttons, eventType);
 }
 
-void SessionManager::sendKeyboardEvent(int key, int modifiers, bool pressed, const QString &text)
-{
-    if (!isActive() || !m_tcpClient) {
+void SessionManager::sendKeyboardEvent(int key, int modifiers, bool pressed, const QString& text) {
+    if ( !isActive() || !m_tcpClient ) {
         return;
     }
-    
+
     m_tcpClient->sendKeyboardEvent(key, modifiers, pressed, text);
 }
 
-void SessionManager::sendWheelEvent(int x, int y, int delta, int orientation)
-{
-    if (!isActive() || !m_tcpClient) {
+void SessionManager::sendWheelEvent(int x, int y, int delta, int orientation) {
+    if ( !isActive() || !m_tcpClient ) {
         return;
     }
-    
+
     m_tcpClient->sendWheelEvent(x, y, delta, orientation);
 }
 
-SessionManager::PerformanceStats SessionManager::performanceStats() const
-{
+SessionManager::PerformanceStats SessionManager::performanceStats() const {
     return m_stats;
 }
 
-void SessionManager::resetStats()
-{
+void SessionManager::resetStats() {
     m_stats.currentFPS = 0.0;
     m_stats.sessionStartTime = QDateTime();
     m_stats.frameCount = 0;
     m_frameTimes.clear();
 }
 
-QString SessionManager::getFormattedPerformanceInfo() const
-{
+QString SessionManager::getFormattedPerformanceInfo() const {
     QStringList info;
     info << QString("FPS: %1").arg(m_stats.currentFPS, 0, 'f', 1);
     info << QString("Frame Rate: %1").arg(m_frameRate);
-    info << QString("Compression: %1").arg(m_compressionLevel);
-    
-    if (m_stats.sessionStartTime.isValid()) {
+
+    if ( m_stats.sessionStartTime.isValid() ) {
         qint64 sessionDuration = m_stats.sessionStartTime.secsTo(QDateTime::currentDateTime());
         info << QString("Duration: %1s").arg(sessionDuration);
     }
-    
+
     return info.join(" | ");
 }
 
-void SessionManager::setFrameRate(int fps)
-{
+void SessionManager::setFrameRate(int fps) {
     m_frameRate = qBound(1, fps, 60);
-    
-    if (isActive() && m_tcpClient) {
+
+    if ( isActive() && m_tcpClient ) {
         QByteArray data;
         QDataStream stream(&data, QIODevice::WriteOnly);
         stream << m_frameRate;
@@ -217,48 +175,27 @@ void SessionManager::setFrameRate(int fps)
     }
 }
 
-int SessionManager::frameRate() const
-{
+int SessionManager::frameRate() const {
     return m_frameRate;
 }
 
-void SessionManager::setCompressionLevel(int level)
-{
-    m_compressionLevel = qBound(0, level, 9);
-    
-    if (isActive() && m_tcpClient) {
-        QByteArray data;
-        QDataStream stream(&data, QIODevice::WriteOnly);
-        stream << m_compressionLevel;
-        // ConfigUpdate not available in protocol, using HANDSHAKE_REQUEST
-        // m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST, data);
-    }
-}
-
-int SessionManager::compressionLevel() const
-{
-    return m_compressionLevel;
-}
-
-void SessionManager::onConnectionStateChanged()
-{
-    if (!m_connectionManager) {
+void SessionManager::onConnectionStateChanged() {
+    if ( !m_connectionManager ) {
         return;
     }
-    
+
     auto state = m_connectionManager->connectionState();
-    
-    if (state == ConnectionManager::Disconnected || state == ConnectionManager::Error) {
+
+    if ( state == ConnectionManager::Disconnected || state == ConnectionManager::Error ) {
         terminateSession();
-    } else if (state == ConnectionManager::Authenticated && m_sessionState == Inactive) {
+    } else if ( state == ConnectionManager::Authenticated && m_sessionState == Inactive ) {
         // 连接认证成功后可以启动会话
         // 这里不自动启动，等待外部调用startSession()
     }
 }
 
-void SessionManager::onScreenDataReceived(const QImage &image)
-{
-    if (!isActive()) {
+void SessionManager::onScreenDataReceived(const QImage& image) {
+    if ( !isActive() ) {
         QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "SessionManager::onScreenDataReceived - Session not active, ignoring";
         return;
     }
@@ -266,87 +203,77 @@ void SessionManager::onScreenDataReceived(const QImage &image)
 
     m_currentScreen = pixmap;
     m_remoteScreenSize = pixmap.size();
-    
+
     // 记录帧时间用于FPS计算
     QDateTime now = QDateTime::currentDateTime();
     m_frameTimes.enqueue(now);
-    
+
     // 限制帧时间历史记录数量
-    while (m_frameTimes.size() > UIConstants::MAX_FRAME_HISTORY) {
+    while ( m_frameTimes.size() > UIConstants::MAX_FRAME_HISTORY ) {
         m_frameTimes.dequeue();
     }
-    
+
     m_stats.frameCount++;
     calculateFPS();
 
     emit screenUpdated(pixmap);
 }
 
-void SessionManager::onMessageReceived(MessageType type, const QByteArray &data)
-{
-    switch (type) {
-    case MessageType::SCREEN_DATA:
-    // 图像解码已在 TcpClient::handleScreenData 完成，这里无需重复处理
-        break;
-    case MessageType::HANDSHAKE_RESPONSE:
-        // InputResponse not available, using HANDSHAKE_RESPONSE
-        processInputResponse(data);
-        break;
-    case MessageType::DISCONNECT_REQUEST:
-         // SessionEnd not available, using DISCONNECT_REQUEST
-         terminateSession();
-        break;
-    default:
-        // 其他消息类型由其他组件处理
-        break;
+void SessionManager::onMessageReceived(MessageType type, const QByteArray& data) {
+    switch ( type ) {
+        case MessageType::SCREEN_DATA:
+            // 图像解码已在 TcpClient::handleScreenData 完成，这里无需重复处理
+            break;
+        case MessageType::HANDSHAKE_RESPONSE:
+            // InputResponse not available, using HANDSHAKE_RESPONSE
+            processInputResponse(data);
+            break;
+        default:
+            // 其他消息类型由其他组件处理
+            break;
     }
 }
 
-void SessionManager::updatePerformanceStats()
-{
+void SessionManager::updatePerformanceStats() {
     // 只更新FPS相关的统计信息，网络统计信息已移除
     emit performanceStatsUpdated(m_stats);
 }
 
-void SessionManager::setSessionState(SessionState state)
-{
-    if (m_sessionState != state) {
+void SessionManager::setSessionState(SessionState state) {
+    if ( m_sessionState != state ) {
         m_sessionState = state;
         emit sessionStateChanged(state);
     }
 }
 
-void SessionManager::setupConnections()
-{
-    if (m_connectionManager) {
+void SessionManager::setupConnections() {
+    if ( m_connectionManager ) {
         connect(m_connectionManager, &ConnectionManager::connectionStateChanged,
-                this, &SessionManager::onConnectionStateChanged);
+            this, &SessionManager::onConnectionStateChanged);
     }
-    
-    if (m_tcpClient) {
+
+    if ( m_tcpClient ) {
         connect(m_tcpClient, &TcpClient::screenDataReceived,
-                this, &SessionManager::onScreenDataReceived);
+            this, &SessionManager::onScreenDataReceived);
     }
 }
 
-void SessionManager::processInputResponse(const QByteArray &data)
-{
+void SessionManager::processInputResponse(const QByteArray& data) {
     // 处理输入响应（如果需要）
     Q_UNUSED(data)
 }
 
-void SessionManager::calculateFPS()
-{
-    if (m_frameTimes.size() < 2) {
+void SessionManager::calculateFPS() {
+    if ( m_frameTimes.size() < 2 ) {
         m_stats.currentFPS = 0.0;
         return;
     }
-    
+
     QDateTime oldest = m_frameTimes.first();
     QDateTime newest = m_frameTimes.last();
-    
+
     qint64 timeSpan = oldest.msecsTo(newest);
-    if (timeSpan > 0) {
+    if ( timeSpan > 0 ) {
         m_stats.currentFPS = (m_frameTimes.size() - 1) * 1000.0 / timeSpan;
     } else {
         m_stats.currentFPS = 0.0;
