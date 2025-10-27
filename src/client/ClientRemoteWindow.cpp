@@ -24,7 +24,6 @@
 #include <QtGui/QWheelEvent>
 #include <QtGui/QResizeEvent>
 #include <QtGui/QPaintEvent>
-// Note: Clipboard, drag/drop related includes moved to respective managers
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QApplication>
 #include <QtGui/QScreen>
@@ -110,10 +109,10 @@ void ClientRemoteWindow::initializeManagers() {
 
 void ClientRemoteWindow::configureWindow() {
     // 设置窗口的最小尺寸与初始尺寸，保证初次打开时有合理的显示区域
-    // 最小尺寸设为400x300，确保基本可用性
-    setMinimumSize(400, 300);
-    // 默认初始尺寸设为1024x768，提供良好的初始体验
-    resize(1024, 768);
+    // 最小尺寸设为400x225，确保基本可用性
+    setMinimumSize(400, 225);
+    // 默认初始尺寸设为1600x900，提供良好的初始体验
+    resize(1600, 900);
 
     // 设置焦点策略，确保输入事件能够被正确接收和处理
     setFocusPolicy(Qt::StrongFocus);
@@ -503,8 +502,10 @@ void ClientRemoteWindow::keyReleaseEvent(QKeyEvent* event) {
 void ClientRemoteWindow::resizeEvent(QResizeEvent* event) {
     QGraphicsView::resizeEvent(event);
 
-    // Update view transformation when window is resized
-    // 窗口大小改变处理已简化
+    // 通知 RenderManager 视图大小已改变，以重新适应显示
+    if ( m_renderManager ) {
+        m_renderManager->onViewResized();
+    }
 }
 
 // Note: Drag and drop events are now handled by FileTransferManager

@@ -113,6 +113,11 @@ void RenderManager::setRemoteScreen(const QPixmap &pixmap)
     // 计算缩放后的尺寸
     calculateScaledSize();
     
+    // 让视图适应场景，完全显示远程屏幕
+    if (m_graphicsView && m_pixmapItem) {
+        m_graphicsView->fitInView(m_pixmapItem, Qt::KeepAspectRatio);
+    }
+    
     // 更新显示
     forceUpdate();
 }
@@ -279,6 +284,11 @@ void RenderManager::setUpdateMode(QGraphicsView::ViewportUpdateMode mode)
 void RenderManager::onViewResized()
 {
     calculateScaledSize();
+    
+    // 当视图大小改变时，重新适应场景以确保完全显示
+    if (m_graphicsView && m_pixmapItem && !m_remoteScreen.isNull()) {
+        m_graphicsView->fitInView(m_pixmapItem, Qt::KeepAspectRatio);
+    }
 }
 
 void RenderManager::onSceneChanged()
