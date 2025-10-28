@@ -182,7 +182,9 @@ void ClientHandlerWorker::sendScreenDataFromQueue() {
 
         // 创建ScreenData消息
         ScreenData screenData;
-        screenData.imageData = processedData.compressedData; // 存储编码后的图像数据(PNG/JPEG)
+        screenData.x = 0;  // 全屏捕获，从坐标(0,0)开始
+        screenData.y = 0;
+        screenData.imageData = processedData.compressedData; // 存储原始像素数据
         screenData.width = processedData.imageSize.width();
         screenData.height = processedData.imageSize.height();
         screenData.dataSize = processedData.compressedData.size();
@@ -428,17 +430,16 @@ void ClientHandlerWorker::onReadyRead() {
             continue;
         }
 
+        // 重置解析失败计数
+        m_parseFailCount = 0;
+
         // 计算消息的总大小（加密后的大小）
-        int totalMessageSize = SERIALIZED_HEADER_SIZE + header.length;
-        if ( m_receiveBuffer.size() < totalMessageSize ) {
-            break; // 等待更多数据
-        }
+        // 关键修复：加密消息大小 = header大小 + 加密payload大小
+        // 由于XOR加密长度不变，加密payload大小 = header.length
+        qsizetype totalMessageSize = static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) + header.length;
 
         // 移除已处理的数据
         m_receiveBuffer.remove(0, totalMessageSize);
-
-        // 重置解析失败计数
-        m_parseFailCount = 0;
 
         // 处理消息
         processMessage(header, payload);

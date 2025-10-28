@@ -82,7 +82,6 @@ private slots:
             // 测试配置设置冗余
             auto config = capture.getCaptureConfig();
             config.frameRate = 30;
-            config.quality = 0.8;
             capture.updateCaptureConfig(config);
             
             // 冗余设置（相同配置）
@@ -91,7 +90,6 @@ private slots:
             // 验证配置
             auto updatedConfig = capture.getCaptureConfig();
             QVERIFY(updatedConfig.frameRate == 30);
-            QVERIFY(updatedConfig.quality == 0.8);
         } catch (const std::exception& e) {
             QFAIL(QString("Exception in test_configurationRedundancy: %1").arg(e.what()).toLocal8Bit().constData());
         } catch (...) {

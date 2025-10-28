@@ -83,9 +83,8 @@ void TestScreenDataFlow::test_screenDataEncoding() {
     screenData.y = 200;
     screenData.width = 800;
     screenData.height = 600;
-    screenData.imageType = 1; // JPEG
 
-    // 准备图像数据
+    // 准备图像数据（原始像素数据）
     QByteArray imageData = imageToByteArray(m_testImage);
     screenData.dataSize = imageData.size();
     screenData.imageData = imageData;
@@ -110,7 +109,6 @@ void TestScreenDataFlow::test_screenDataDecoding() {
     originalData.y = 250;
     originalData.width = 640;
     originalData.height = 480;
-    originalData.imageType = 2; // PNG
 
     QByteArray imageData = imageToByteArray(m_smallTestImage, "PNG");
     originalData.dataSize = imageData.size();
@@ -130,7 +128,6 @@ void TestScreenDataFlow::test_screenDataDecoding() {
     QCOMPARE(decodedData.y, originalData.y);
     QCOMPARE(decodedData.width, originalData.width);
     QCOMPARE(decodedData.height, originalData.height);
-    QCOMPARE(decodedData.imageType, originalData.imageType);
     QCOMPARE(decodedData.dataSize, originalData.dataSize);
     QCOMPARE(decodedData.imageData, originalData.imageData);
 
@@ -173,7 +170,6 @@ void TestScreenDataFlow::test_dataIntegrity() {
         data.y = i * 50;
         data.width = 800 + i * 10;
         data.height = 600 + i * 10;
-        data.imageType = 1; // JPEG
 
         QByteArray imageData = imageToByteArray(m_testImage);
         data.dataSize = imageData.size();
@@ -200,7 +196,6 @@ void TestScreenDataFlow::test_dataIntegrity() {
         QCOMPARE(decoded.y, original.y);
         QCOMPARE(decoded.width, original.width);
         QCOMPARE(decoded.height, original.height);
-        QCOMPARE(decoded.imageType, original.imageType);
         QCOMPARE(decoded.dataSize, original.dataSize);
         QCOMPARE(decoded.imageData.size(), original.imageData.size());
 

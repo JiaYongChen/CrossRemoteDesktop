@@ -215,7 +215,6 @@ struct ScreenData : public IMessageCodec {
     quint16 y;
     quint16 width;
     quint16 height;
-    quint8 imageType;
     quint32 dataSize;
     QByteArray imageData;
     

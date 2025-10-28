@@ -146,6 +146,65 @@ public:
     }
 
     /**
+     * @brief 入队操作（丢弃旧帧策略）
+     * 
+     * 如果队列已满，自动丢弃队首元素（最旧的帧），然后将新元素入队。
+     * 这种策略确保始终处理最新的数据，适用于实时数据流场景（如视频帧）。
+     * 
+     * @param item 要入队的元素
+     * @return true 成功入队（可能丢弃了旧元素），false 队列已停止
+     */
+    bool enqueueDropOldest(const T& item)
+    {
+        QMutexLocker locker(&m_mutex);
+        
+        if (m_stopped) {
+            return false;
+        }
+        
+        // 如果队列已满，丢弃队首元素（最旧的帧）
+        if (m_maxSize > 0 && m_queue.size() >= m_maxSize) {
+            m_queue.dequeue();
+            ++m_totalDequeued;
+            m_notFull.wakeOne();
+        }
+        
+        m_queue.enqueue(item);
+        ++m_totalEnqueued;
+        m_notEmpty.wakeOne();
+        return true;
+    }
+
+    /**
+     * @brief 入队操作（丢弃旧帧策略，移动语义版本）
+     * 
+     * 如果队列已满，自动丢弃队首元素（最旧的帧），然后将新元素入队。
+     * 
+     * @param item 要入队的元素（右值引用）
+     * @return true 成功入队（可能丢弃了旧元素），false 队列已停止
+     */
+    bool enqueueDropOldest(T&& item)
+    {
+        QMutexLocker locker(&m_mutex);
+        
+        if (m_stopped) {
+            return false;
+        }
+        
+        // 如果队列已满，丢弃队首元素（最旧的帧）
+        if (m_maxSize > 0 && m_queue.size() >= m_maxSize) {
+            m_queue.dequeue();
+            ++m_totalDequeued;
+            m_notFull.wakeOne();
+        }
+        
+        m_queue.enqueue(std::move(item));
+        ++m_totalEnqueued;
+        m_notEmpty.wakeOne();
+        return true;
+    }
+
+    /**
      * @brief 出队操作（阻塞版本）
      * 
      * 如果队列为空，会阻塞等待直到有元素或队列被停止。

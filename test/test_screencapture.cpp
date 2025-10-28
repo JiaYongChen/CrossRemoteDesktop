@@ -174,8 +174,6 @@ void TestScreenCapture::test_basicFunctionality()
     QVERIFY(!m_screenCapture->isCapturing());
     auto config = m_screenCapture->getCaptureConfig();
     QVERIFY(config.frameRate > 0);
-    QVERIFY(config.quality > 0.0);
-    QVERIFY(config.quality <= 1.0);
     
     qCDebug(testScreenCapture, "基本功能测试通过");
 }
@@ -230,27 +228,6 @@ void TestScreenCapture::test_qualityControl()
 {
     qCDebug(testScreenCapture, "测试质量控制");
     
-    // 测试设置和获取质量
-    double testQualities[] = {0.1, 0.5, 0.8, 1.0};
-    for (double quality : testQualities) {
-        auto config = m_screenCapture->getCaptureConfig();
-        config.quality = quality;
-        m_screenCapture->updateCaptureConfig(config);
-        
-        auto updatedConfig = m_screenCapture->getCaptureConfig();
-        QCOMPARE(updatedConfig.quality, quality);
-    }
-    
-    // 测试边界值
-    auto config = m_screenCapture->getCaptureConfig();
-    config.quality = 0.0;
-    m_screenCapture->updateCaptureConfig(config);
-    QVERIFY(m_screenCapture->getCaptureConfig().quality >= 0.0);
-    
-    config.quality = 1.5;
-    m_screenCapture->updateCaptureConfig(config);
-    QVERIFY(m_screenCapture->getCaptureConfig().quality <= 1.0);
-    
     qCDebug(testScreenCapture, "质量控制测试通过");
 }
 
@@ -302,20 +279,20 @@ void TestScreenCapture::test_scaleQuality()
 {
     qCDebug(testScreenCapture, "测试缩放质量控制");
     
-    // 测试启用高质量缩放
+    // 测试高质量缩放
     auto config = m_screenCapture->getCaptureConfig();
-    config.quality = 1.0; // 高质量
+    config.highScaleQuality = true;
     m_screenCapture->updateCaptureConfig(config);
     
     auto updatedConfig = m_screenCapture->getCaptureConfig();
-    QCOMPARE(updatedConfig.quality, 1.0);
+    QVERIFY(updatedConfig.highScaleQuality);
     
     // 测试禁用高质量缩放
-    config.quality = 0.5; // 中等质量
+    config.highScaleQuality = false;
     m_screenCapture->updateCaptureConfig(config);
     
     updatedConfig = m_screenCapture->getCaptureConfig();
-    QCOMPARE(updatedConfig.quality, 0.5);
+    QVERIFY(!updatedConfig.highScaleQuality);
     
     qCDebug(testScreenCapture, "缩放质量控制测试通过");
 }
@@ -476,7 +453,6 @@ void TestScreenCapture::test_threadSafety()
             while (!stopTest.load()) {
                 auto config = m_screenCapture->getCaptureConfig();
                 config.frameRate = 30 + i;
-                config.quality = 0.5 + i * 0.1;
                 config.highDefinition = (i % 2 == 0);
                 m_screenCapture->updateCaptureConfig(config);
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -496,7 +472,6 @@ void TestScreenCapture::test_threadSafety()
     // 验证对象仍然有效
     auto config = m_screenCapture->getCaptureConfig();
     QVERIFY(config.frameRate > 0);
-    QVERIFY(config.quality > 0.0);
     
     qCDebug(testScreenCapture, "线程安全性测试通过");
 }
@@ -554,12 +529,10 @@ void TestScreenCapture::test_updateCaptureConfig()
     qCDebug(testScreenCapture, "test_updateCaptureConfig");
     auto cfg = m_screenCapture->getCaptureConfig();
     cfg.frameRate = 24;
-    cfg.quality = 0.7;
     cfg.highDefinition = true;
     m_screenCapture->updateCaptureConfig(cfg);
     auto updated = m_screenCapture->getCaptureConfig();
     QCOMPARE(updated.frameRate, 24);
-    QCOMPARE(updated.quality, 0.7);
     QCOMPARE(updated.highDefinition, true);
 }
 
@@ -569,8 +542,6 @@ void TestScreenCapture::test_getCaptureConfig()
     auto cfg = m_screenCapture->getCaptureConfig();
     QVERIFY(cfg.frameRate >= 1);
     QVERIFY(cfg.frameRate <= 120);
-    QVERIFY(cfg.quality >= 0.0);
-    QVERIFY(cfg.quality <= 1.0);
 }
 
 void TestScreenCapture::test_getPerformanceStats()

@@ -55,7 +55,6 @@ public:
         static constexpr int DEBUG_LOG_INTERVAL = 1000;                 ///< 调试日志间隔 1000ms
         static constexpr int FAILURE_LOG_INTERVAL = 5000;               ///< 失败日志间隔 5000ms
         static constexpr int MILLISECONDS_PER_SECOND = 1000;            ///< 每秒毫秒数
-        static constexpr double DEFAULT_CAPTURE_QUALITY = 0.9;          ///< 默认捕获质量
     };
 
     /**

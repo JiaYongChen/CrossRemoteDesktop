@@ -22,40 +22,35 @@ struct CapturedFrame {
     QDateTime timestamp;             ///< 捕获时间戳
     quint64 frameId;                 ///< 帧ID，用于追踪和调试
     QSize originalSize;              ///< 原始屏幕尺寸
-    int quality;                     ///< 捕获质量设置
 
     /**
      * @brief 默认构造函数
      */
     CapturedFrame()
         : timestamp(QDateTime::currentDateTime())
-        , frameId(0)
-        , quality(100) {
+        , frameId(0) {
     }
 
     /**
      * @brief 构造函数
      * @param img 捕获的图像
      * @param id 帧ID
-     * @param qual 质量设置
      */
-    CapturedFrame(const QImage& img, quint64 id, int qual = 100)
+    CapturedFrame(const QImage& img, quint64 id)
         : image(img)
         , timestamp(QDateTime::currentDateTime())
         , frameId(id)
-        , originalSize(img.size())
-        , quality(qual) {
+        , originalSize(img.size()) {
     }
 
     /**
      * @brief 移动构造函数
      */
-    CapturedFrame(QImage&& img, quint64 id, int qual = 100)
+    CapturedFrame(QImage&& img, quint64 id)
         : image(std::move(img))
         , timestamp(QDateTime::currentDateTime())
         , frameId(id)
-        , originalSize(image.size())
-        , quality(qual) {
+        , originalSize(image.size()) {
     }
 
     /**
@@ -93,7 +88,7 @@ struct CapturedFrame {
  * 包含处理后的数据和传输所需的元信息。
  */
 struct ProcessedData {
-    QByteArray compressedData;       ///< 处理后的图像数据（PNG编码）
+    QByteArray compressedData;       ///< 处理后的图像数据（原始像素数据）
     QDateTime processedTime;         ///< 处理完成时间戳
     quint64 originalFrameId;         ///< 原始帧ID
     QSize imageSize;                 ///< 图像尺寸

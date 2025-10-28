@@ -3,7 +3,9 @@
 #include <QtCore/QThread>
 #include <QtCore/QIODevice>
 #include <QtCore/QBuffer>
+#include <QtConcurrent/QtConcurrent>
 #include <cstring>
+#include <algorithm>
 
 Q_LOGGING_CATEGORY(lcDataProcessingWorker, "dataprocessingworker", QtDebugMsg)
 
@@ -33,8 +35,11 @@ DataProcessingWorker::DataProcessingWorker(QObject* parent)
     , m_memoryUsage(0.0)
     , m_resourceMonitorTimer(nullptr)
     , m_adaptiveMode(true)
-    , m_adaptiveTimer(nullptr) {
+    , m_adaptiveTimer(nullptr)
+    , m_maxParallelTasks(QThread::idealThreadCount())
+    , m_activeParallelTasks(0) {
     qCDebug(lcDataProcessingWorker) << "DataProcessingWorker 构造函数";
+    qCInfo(lcDataProcessingWorker) << "并行处理线程数:" << m_maxParallelTasks;
 }
 
 DataProcessingWorker::~DataProcessingWorker() {
@@ -234,19 +239,21 @@ void DataProcessingWorker::processTask() {
     }
 
     try {
-        // 批量处理帧数据以提高效率
-        const int maxBatchSize = 3; // 每次最多处理3帧
-        int processedCount = 0;
+        // 批量处理帧数据以提高效率 - 动态调整批大小
+        const int maxBatchSize = std::min(m_maxParallelTasks * 2, 10); // 最多10帧
+        // qCDebug(lcDataProcessingWorker) << "当前批量处理最大帧数:" << maxBatchSize;
+        std::vector<CapturedFrame> frameBatch;
+        frameBatch.reserve(maxBatchSize);
+
         QElapsedTimer batchTimer;
         batchTimer.start();
 
         // 自动处理机制：使用带超时的阻塞式获取第一帧数据
-        // 这样当队列中有数据时会立即处理，没有数据时等待而不是轮询
-        CapturedFrame frame;
+        CapturedFrame firstFrame;
         bool hasFirstFrame = false;
 
         // 第一次获取使用带超时的阻塞方式，实现自动处理
-        if ( m_captureQueue->dequeue(frame, 100) ) { // 100ms超时
+        if ( m_captureQueue->dequeue(firstFrame, 100) ) { // 100ms超时
             // 获取到数据后再次检查停止状态
             if ( shouldStop() ) {
                 qCDebug(lcDataProcessingWorker) << "获取帧数据后检测到停止信号，退出处理";
@@ -254,54 +261,45 @@ void DataProcessingWorker::processTask() {
             }
 
             hasFirstFrame = true;
-            // qCDebug(lcDataProcessingWorker) << "自动获取到帧数据，ID:" << frame.frameId;
-
-            // 处理第一帧数据（带重试机制）
-            if ( processFrameWithRetry(frame) ) {
-                processedCount++;
-            } else {
-                qCWarning(lcDataProcessingWorker) << "帧处理最终失败，ID:" << frame.frameId;
-            }
+            frameBatch.push_back(std::move(firstFrame));
         }
 
-        // 如果获取到第一帧，继续批量处理剩余帧数据
+        // 如果获取到第一帧，继续收集更多帧进行批量处理
         if ( hasFirstFrame ) {
-            while ( processedCount < maxBatchSize ) {
+            while ( frameBatch.size() < static_cast<size_t>(maxBatchSize) ) {
                 CapturedFrame additionalFrame;
                 if ( !m_captureQueue->tryDequeue(additionalFrame) ) {
-                    // 队列为空，退出批量处理
+                    // 队列为空，退出收集
+                    // qCDebug(lcDataProcessingWorker) << "捕获队列为空，退出批量收集";
                     break;
                 }
-
-                // qCDebug(lcDataProcessingWorker) << "批量处理额外帧，ID:" << additionalFrame.frameId 
-                //                                << "批次:" << processedCount + 1;
-
-                // 处理帧数据（带重试机制）
-                if ( processFrameWithRetry(additionalFrame) ) {
-                    processedCount++;
-                } else {
-                    qCWarning(lcDataProcessingWorker) << "帧处理最终失败，ID:" << additionalFrame.frameId;
-                }
+                frameBatch.push_back(std::move(additionalFrame));
 
                 // 检查是否需要停止
                 if ( shouldStop() ) {
-                    qCDebug(lcDataProcessingWorker) << "检测到停止信号，退出批量处理";
+                    qCDebug(lcDataProcessingWorker) << "检测到停止信号，退出批量收集";
                     break;
+                }
+            }
+
+            // 使用并行处理批量帧
+            if ( !frameBatch.empty() ) {
+                int processedCount = processBatchParallel(frameBatch);
+
+                // qint64 batchTime = batchTimer.elapsed();
+                if ( processedCount > 0 ) {
+                    // qCDebug(lcDataProcessingWorker) << "并行批处理完成，处理帧数:" << processedCount
+                    //     << "/" << frameBatch.size()
+                    //     << "总时间:" << batchTime << "ms"
+                    //     << "平均每帧:" << (batchTime / processedCount) << "ms"
+                    //     << "活跃线程:" << m_activeParallelTasks.load();
                 }
             }
         }
 
-        // 记录批量处理统计
-        // if ( processedCount > 0 ) {
-        //     qint64 batchTime = batchTimer.elapsed();
-        //     qCDebug(lcDataProcessingWorker) << "自动处理完成，处理帧数:" << processedCount
-        //         << "总时间:" << batchTime << "ms"
-        //         << "平均每帧:" << (batchTime / processedCount) << "ms";
-        // }
-
         // 定期检查系统资源和性能
         static int taskCount = 0;
-        if ( ++taskCount % 100 == 0 ) { // 每100次任务检查一次
+        if ( ++taskCount % 50 == 0 ) { // 每50次任务检查一次（减少频率因为批处理更高效）
             // 在检查系统资源前也要确认没有停止信号
             if ( shouldStop() ) {
                 qCDebug(lcDataProcessingWorker) << "检测到停止信号，跳过系统资源检查";
@@ -332,119 +330,114 @@ void DataProcessingWorker::processTask() {
     }
 }
 
-bool DataProcessingWorker::processFrameWithRetry(const CapturedFrame& frame) {
-    int retryCount = 0;
-    QString lastError;
 
-    while ( retryCount <= m_maxRetries ) {
-        try {
-            QElapsedTimer frameTimer;
-            frameTimer.start();
+int DataProcessingWorker::processBatchParallel(const std::vector<CapturedFrame>& frames) {
+    if ( frames.empty() ) {
+        return 0;
+    }
 
-            // 验证帧数据
-            if ( !validateFrame(frame) ) {
-                lastError = "帧数据验证失败";
-                break; // 验证失败不重试
-            }
+    QElapsedTimer timer;
+    timer.start();
 
-            // 直接处理图像数据
-            ProcessedData processedData = processImage(frame.image, frame.frameId);
+    int successCount = 0;
+    int droppedCount = 0;
 
-            if ( !processedData.isValid() ) {
-                lastError = QString("图像处理失败，重试次数: %1").arg(retryCount);
-                if ( retryCount < m_maxRetries ) {
-                    retryCount++;
-                    m_retryCount++;
-                    emit retryAttempted(frame.frameId, retryCount, lastError);
-                    QThread::msleep(m_retryDelayMs);
-                    continue;
-                } else {
-                    break;
-                }
-            }
+    // 使用 QtConcurrent 并行处理所有帧
+    QList<CapturedFrame> frameList;
+    for ( const auto& frame : frames ) {
+        frameList.append(frame);
+    }
 
-            // 将处理后的数据放入处理队列
-            if ( !m_processedQueue->tryEnqueue(std::move(processedData)) ) {
-                lastError = "处理队列已满";
-                if ( retryCount < m_maxRetries ) {
-                    retryCount++;
-                    m_retryCount++;
-                    emit retryAttempted(frame.frameId, retryCount, lastError);
-                    QThread::msleep(m_retryDelayMs * 2); // 队列满时延迟更长
-                    continue;
-                } else {
-                    break;
-                }
-            }
+    // 并行编码所有图像
+    QFuture<ProcessedData> future = QtConcurrent::mapped(frameList,
+        [](const CapturedFrame& frame) -> ProcessedData {
+        // 验证帧数据
+        if ( !frame.isValid() ) {
+            qCWarning(lcDataProcessingWorker) << "帧数据无效，ID:" << frame.frameId;
+            return ProcessedData(); // 返回无效数据
+        }
 
-            // 更新统计信息
-            qint64 processingTime = frameTimer.elapsed();
-            m_totalProcessingTime += processingTime;
-            m_processedFrames++;
+        // 检查帧延迟
+        qint64 latency = frame.getLatency();
+        if ( latency > 5000 ) { // 5秒超时
+            qCWarning(lcDataProcessingWorker) << "帧延迟过高:" << latency << "ms，ID:" << frame.frameId;
+            return ProcessedData();
+        }
 
-            // qCDebug(lcDataProcessingWorker) << "帧处理成功，ID:" << frame.frameId
-            //     << "处理时间:" << processingTime << "ms";
+        // 并行编码图像
+        return DataProcessingWorker::encodeImageParallel(frame.image, frame.frameId);
+    });
 
-            return true;
-        } catch ( const std::exception& e ) {
-            lastError = QString("处理异常: %1").arg(e.what());
-            qCWarning(lcDataProcessingWorker) << lastError << "帧ID:" << frame.frameId;
+    // 等待所有编码完成
+    future.waitForFinished();
 
-            if ( retryCount < m_maxRetries ) {
-                retryCount++;
-                m_retryCount++;
-                emit retryAttempted(frame.frameId, retryCount, lastError);
-                QThread::msleep(m_retryDelayMs);
-                continue;
+    // 收集结果并入队
+    QList<ProcessedData> results = future.results();
+    for ( const auto& processedData : results ) {
+        if ( processedData.isValid() ) {
+            // 使用丢弃旧帧策略将结果放入队列
+            // 当队列满时，自动丢弃最旧的帧，确保最新数据能够入队
+            if ( m_processedQueue->enqueueDropOldest(processedData) ) {
+                successCount++;
+                m_processedFrames++;
             } else {
-                break;
+                // 队列已停止
+                droppedCount++;
+                m_droppedFrames++;
+                qCWarning(lcDataProcessingWorker) << "处理队列已停止，无法入队，帧ID:" << processedData.originalFrameId;
             }
-        } catch ( ... ) {
-            lastError = "未知异常";
-            qCCritical(lcDataProcessingWorker) << lastError << "帧ID:" << frame.frameId;
-
-            if ( retryCount < m_maxRetries ) {
-                retryCount++;
-                m_retryCount++;
-                emit retryAttempted(frame.frameId, retryCount, lastError);
-                QThread::msleep(m_retryDelayMs);
-                continue;
-            } else {
-                break;
-            }
+        } else {
+            droppedCount++;
+            m_droppedFrames++;
         }
     }
 
-    // 所有重试都失败了
-    m_droppedFrames++;
-    emit processingError(QString("帧处理失败，ID: %1，原因: %2").arg(frame.frameId).arg(lastError));
-    return false;
+    qint64 elapsed = timer.elapsed();
+    if ( successCount > 0 ) {
+        m_totalProcessingTime += elapsed;
+    }
+
+    // 记录批处理统计信息
+    if ( droppedCount > 0 ) {
+        // qCWarning(lcDataProcessingWorker) << "批处理完成: 成功" << successCount
+        //     << "丢弃" << droppedCount << "耗时" << elapsed << "ms";
+    } else if ( successCount > 0 ) {
+        // qCDebug(lcDataProcessingWorker) << "批处理完成: 成功" << successCount << "耗时" << elapsed << "ms";
+    }
+
+    return successCount;
 }
 
-ProcessedData DataProcessingWorker::processImage(const QImage& image, quint64 frameId) {
+ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, quint64 frameId) {
     ProcessedData result;
 
     try {
-        // 直接将图像转换为PNG格式
-        QByteArray imageData;
-        QBuffer buffer(&imageData);
-        buffer.open(QIODevice::WriteOnly);
+        // 使用原始像素数据，避免编码开销
+        // 确保图像格式为 RGB32 或 ARGB32，便于客户端解析
+        QImage convertedImage = image;
+        if ( image.format() != QImage::Format_RGB32 && image.format() != QImage::Format_ARGB32 ) {
+            convertedImage = image.convertToFormat(QImage::Format_RGB32);
+        }
 
-        if ( !image.save(&buffer, "PNG") ) {
-            qCWarning(lcDataProcessingWorker) << "图像保存为PNG失败，帧ID:" << frameId;
+        // 直接获取原始像素数据
+        const uchar* bits = convertedImage.constBits();
+        int dataSize = convertedImage.sizeInBytes();
+        
+        if ( !bits || dataSize <= 0 ) {
+            qCWarning(lcDataProcessingWorker) << "无法获取图像原始数据，帧ID:" << frameId;
             return result;
         }
 
-        // 构造ProcessedData（使用新的构造函数签名）
-        result.originalFrameId = frameId;
-        result.compressedData = imageData;  // 使用PNG编码的数据
-        result.imageSize = image.size();
-        result.processedTime = QDateTime::currentDateTime();
-        result.originalDataSize = image.sizeInBytes();
-        result.compressedDataSize = imageData.size();
+        // 将原始像素数据复制到 QByteArray
+        QByteArray imageData(reinterpret_cast<const char*>(bits), dataSize);
 
-        // qCDebug(lcDataProcessingWorker) << "图像处理成功，帧ID:" << frameId
-        //     << "PNG大小:" << imageData.size() << "bytes";
+        // 构造ProcessedData
+        result.originalFrameId = frameId;
+        result.compressedData = imageData;
+        result.imageSize = convertedImage.size();
+        result.processedTime = QDateTime::currentDateTime();
+        result.originalDataSize = convertedImage.sizeInBytes();
+        result.compressedDataSize = imageData.size();
 
     } catch ( const std::exception& e ) {
         qCCritical(lcDataProcessingWorker) << "图像处理异常:" << e.what() << "帧ID:" << frameId;

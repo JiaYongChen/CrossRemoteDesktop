@@ -139,11 +139,6 @@ void TcpClient::sendMessage(MessageType type, const IMessageCodec& message) {
     // 使用编解码器创建帧
     QByteArray messageData = Protocol::createMessage(type, message);
 
-    // 调试：显示发送的原始数据
-    qDebug() << "Client sending message type:" << static_cast<int>(type)
-        << "size:" << messageData.size()
-        << "first 16 bytes:" << messageData.left(16).toHex();
-
     m_socket->write(messageData);
 }
 
@@ -425,6 +420,12 @@ void TcpClient::handleStatusUpdate(const QByteArray& data) {
  *
  * 该方法负责解码服务器发送的ScreenData格式数据，
  * 提取图像数据并转换为QImage格式供UI显示使用。
+ * 
+ * 数据格式说明：
+ * - Server端发送RGB32格式的原始像素数据（RAW format）
+ * - 每像素4字节（R, G, B, A）
+ * - 数据已在DataProcessingWorker中转换为RGB32格式
+ * - 不使用任何压缩算法，直接传输原始像素数据
  */
 void TcpClient::handleScreenData(const QByteArray& data) {
     // 更新总帧数统计
@@ -480,17 +481,35 @@ void TcpClient::handleScreenData(const QByteArray& data) {
     QImage frame;
     bool loaded = false;
 
-    // 优化图像加载：首先尝试最常见的JPEG格式
-    if ( frame.loadFromData(frameData, "JPEG") ) {
-        loaded = true;
-    }
-    // 如果JPEG失败，尝试PNG格式
-    else if ( frame.loadFromData(frameData, "PNG") ) {
-        loaded = true;
-    }
-    // 如果都失败，尝试自动检测格式
-    else if ( frame.loadFromData(frameData) ) {
-        loaded = true;
+    // 直接使用原始像素数据（RAW格式 - RGB32）
+    // Server端在DataProcessingWorker::encodeImageParallel中已转换为RGB32格式
+    int x = screenData.x;          // 图像起始X坐标（当前server发送全屏，固定为0）
+    int y = screenData.y;          // 图像起始Y坐标（当前server发送全屏，固定为0）
+    int width = screenData.width;  // 图像宽度
+    int height = screenData.height; // 图像高度
+    int expectedSize = width * height * 4; // RGB32格式，每像素4字节
+
+    if ( frameData.size() >= expectedSize ) {
+        // 从原始像素数据创建 QImage
+        // QImage构造函数参数：数据指针、宽度、高度、每行字节数、格式
+        // 注意：此构造函数不会复制数据，只是引用，所以需要后续调用copy()
+        frame = QImage(reinterpret_cast<const uchar*>(frameData.constData()),
+            width, height, width * 4, QImage::Format_RGB32);
+
+        if ( !frame.isNull() ) {
+            // 必须深拷贝，确保数据独立于frameData的生命周期
+            frame = frame.copy();
+            loaded = true;
+            
+            // 注：当前server发送全屏数据(x=0, y=0)，未来如支持区域更新，
+            // 需要在此处理x, y坐标，将局部图像合成到完整画面中
+            Q_UNUSED(x);  // 当前未使用，预留用于未来区域更新功能
+            Q_UNUSED(y);
+        }
+    } else {
+        qCWarning(lcClient) << "原始像素数据大小不匹配，期望:" << expectedSize
+            << "实际:" << frameData.size()
+            << "尺寸:" << width << "x" << height;
     }
 
     if ( loaded && !frame.isNull() ) {
@@ -498,7 +517,10 @@ void TcpClient::handleScreenData(const QByteArray& data) {
         // 发出信号，传递屏幕数据给UI（QImage，线程安全）
         emit screenDataReceived(frame);
     } else {
-        QString errorDetails = QString("Frame data size: %1, first 16 bytes: %2, formats tried: JPEG, PNG, auto-detect").arg(frameData.size()).arg(frameData.left(16).toHex());
+        QString errorDetails = QString("Frame data size: %1, dimensions: %2x%3")
+            .arg(frameData.size())
+            .arg(screenData.width)
+            .arg(screenData.height);
         recordImageLoadFailure(errorDetails);
         QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient)
             << "Failed to load image from frame data, size:" << frameData.size()
@@ -522,9 +544,6 @@ void TcpClient::sendHandshakeRequest() {
     request.colorDepth = 32;
     strcpy(request.clientName, "QtRemoteDesktop Client");
     strcpy(request.clientOS, getClientOS().toUtf8().constData());
-
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "HandshakeRequest struct size:" << sizeof(HandshakeRequest);
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Expected size:" << (4 + 2 + 2 + 1 + 1 + 64 + 32);
 
     sendMessage(MessageType::HANDSHAKE_REQUEST, request);
 

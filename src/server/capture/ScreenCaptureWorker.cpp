@@ -17,7 +17,6 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
-#include <QtCore/QSemaphore>
 
 // 日志分类
 Q_LOGGING_CATEGORY(screenCaptureWorker, "screencapture.worker")
@@ -26,13 +25,11 @@ Q_LOGGING_CATEGORY(screenCaptureWorker, "screencapture.worker")
 ScreenCaptureWorker::ScreenCaptureWorker(QueueManager* queueManager, QObject* parent)
     : Worker(parent)
     , m_queueManager(queueManager)
-    , m_primaryScreen(nullptr)
-    , m_dataValidator(std::make_unique<DataValidator>(this)) {
+    , m_primaryScreen(nullptr) {
     qCDebug(screenCaptureWorker) << "ScreenCaptureWorker构造函数: 初始化基础配置";
 
     // 初始化配置
     m_config.frameRate = CoreConstants::Capture::DEFAULT_FRAME_RATE;
-    m_config.quality = CoreConstants::Capture::DEFAULT_CAPTURE_QUALITY;
     m_config.highDefinition = true;
     m_config.antiAliasing = true;
     m_config.maxQueueSize = 10; // 仅作为配置保留，不再用于实际队列
@@ -251,24 +248,6 @@ void ScreenCaptureWorker::performCapture() {
             return;
         }
 
-        // 【新增】数据验证步骤
-        if ( m_dataValidationEnabled && m_dataValidator ) {
-            QByteArray imageData;
-            QBuffer buffer(&imageData);
-            buffer.open(QIODevice::WriteOnly);
-            capturedImage.save(&buffer, "PNG");
-
-            DataRecord record;
-            if ( !m_dataValidator->validate(imageData, "image/png", record) ) {
-                handleCaptureError("帧数据验证失败");
-                return;
-            }
-
-            // 记录校验和用于后续验证
-            m_lastFrameChecksum = record.checksum;
-            // qCDebug(screenCaptureWorker, "帧数据验证成功，校验和: %llu", record.checksum);
-        }
-
         // 记录捕获耗时
         auto captureEndTime = std::chrono::steady_clock::now();
         auto captureTime = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -295,12 +274,13 @@ void ScreenCaptureWorker::performCapture() {
 
             auto captureQueue = m_queueManager->getCaptureQueue();
             if ( captureQueue ) {
-                // 使用非阻塞入队，避免队列满时阻塞工作线程导致停止流程无法推进
-                bool enqueued = captureQueue->tryEnqueue(frame);
+                // 使用丢弃旧帧策略入队，当队列满时自动丢弃最旧的帧
+                // 这确保始终处理最新的屏幕捕获数据，适合实时远程桌面场景
+                bool enqueued = captureQueue->enqueueDropOldest(frame);
                 if ( enqueued ) {
                     //qCDebug(screenCaptureWorker, "成功将帧放入捕获队列，帧ID: %llu", frame.frameId);
                 } else {
-                    qCWarning(screenCaptureWorker, "捕获队列已满或已停止，丢弃帧ID: %llu", frame.frameId);
+                    qCWarning(screenCaptureWorker, "捕获队列已停止，无法入队，丢弃帧ID: %llu", frame.frameId);
                     QMutexLocker locker(&m_statsMutex);
                     m_stats.droppedFrames++;
                 }
@@ -312,7 +292,7 @@ void ScreenCaptureWorker::performCapture() {
         }
 
         // qCDebug(screenCaptureWorker, "成功捕获帧，大小: %dx%d，耗时: %lld ms",
-        //        capturedImage.width(), capturedImage.height(), captureTime.count());
+        //     capturedImage.width(), capturedImage.height(), captureTime.count());
     } catch ( const std::exception& e ) {
         handleCaptureError(QString("捕获异常: %1").arg(e.what()));
     } catch ( ... ) {
@@ -327,137 +307,61 @@ QImage ScreenCaptureWorker::captureScreen() {
         return QImage();
     }
 
-    // 当处于单元测试环境或无可用屏幕时，生成一帧模拟图像，保证信号可发射
-    auto isTestEnvironment = []() -> bool {
-        QCoreApplication* app = QCoreApplication::instance();
-        if ( !app ) return false;
-        const QString appName = app->applicationName().toLower();
-        const QString appPath = app->applicationFilePath().toLower();
-        const QStringList args = app->arguments();
-        const bool hasTestInName = appName.contains("test");
-        const bool hasTestInPath = appPath.contains("test");
-        const bool hasTestInArgs = std::any_of(args.begin(), args.end(), [](const QString& arg) { return arg.toLower().contains("test"); });
-        return hasTestInName || hasTestInPath || hasTestInArgs;
-    }();
-
-    if ( !m_primaryScreen || isTestEnvironment ) {
-        // 取当前配置的捕获区域大小，若为空则使用默认分辨率
-        QRect rect;
-        {
-            QMutexLocker locker(&m_configMutex);
-            rect = m_config.captureRect.isEmpty() ? QRect(0, 0, 320, 240) : m_config.captureRect;
-        }
-        rect.setWidth(std::max(1, rect.width()));
-        rect.setHeight(std::max(1, rect.height()));
-        QImage img(rect.size(), QImage::Format_ARGB32_Premultiplied);
-        img.fill(QColor(30, 30, 30, 255));
-        // 使用简单的棋盘格与时间戳绘制，便于调试
-        QPainter p(&img);
-        p.setRenderHint(QPainter::Antialiasing, true);
-        const int cell = 20;
-        for ( int y = 0; y < img.height(); y += cell ) {
-            for ( int x = 0; x < img.width(); x += cell ) {
-                if ( ((x / cell) + (y / cell)) % 2 == 0 ) {
-                    p.fillRect(x, y, cell, cell, QColor(60, 60, 60));
-                }
-            }
-        }
-        p.setPen(Qt::green);
-        p.drawText(10, 20, QStringLiteral("MockFrame %1").arg(QDateTime::currentMSecsSinceEpoch() & 0xFFFF));
-        p.end();
-        return img;
-    }
-
     if ( !m_primaryScreen ) {
         qCWarning(screenCaptureWorker, "主屏幕指针为空");
         return QImage();
     }
-    QMutexLocker locker(&m_configMutex);
-    QRect captureRect = m_config.captureRect;
+
+    // 使用完整的屏幕区域，不使用配置的捕获区域
+    QRect captureRect = m_screenGeometry;
     if ( captureRect.isEmpty() ) {
-        captureRect = m_screenGeometry;
-    }
-    captureRect = captureRect.intersected(m_screenGeometry);
-    if ( captureRect.isEmpty() ) {
-        qCWarning(screenCaptureWorker, "捕获区域无效");
+        qCWarning(screenCaptureWorker, "屏幕区域无效");
         return QImage();
     }
+
     // 在调用潜在耗时的 grabWindow 前再次检查停止请求
     if ( shouldStop() ) {
         return QImage();
     }
-    // 将屏幕抓取委派到 GUI 线程执行，避免在工作线程中使用 QPixmap 导致阻塞或不安全
-    if ( !qApp ) {
-        qCWarning(screenCaptureWorker, "QGuiApplication 不存在，无法在 GUI 线程执行屏幕抓取");
-        return QImage();
-    }
-    // 避免BlockingQueuedConnection导致停止流程无法推进，改为排队调用并设置超时
-    QSharedPointer<QImage> imgPtr = QSharedPointer<QImage>::create();
-    QSemaphore sem;
-    QMetaObject::invokeMethod(qApp, [this, captureRect, imgPtr, &sem]() {
-        if ( !m_primaryScreen ) {
-            sem.release();
-            return;
-        }
-        QPixmap pixmap = m_primaryScreen->grabWindow(0,
-            captureRect.x(),
-            captureRect.y(),
-            captureRect.width(),
-            captureRect.height());
-        if ( !pixmap.isNull() ) {
-            *imgPtr = pixmap.toImage();
-        }
-        sem.release();
-    }, Qt::QueuedConnection);
 
-    // 最多等待200ms获取抓取结果，期间若请求停止则提前返回
-    const int waitMs = 200;
-    if ( !sem.tryAcquire(1, waitMs) || shouldStop() || imgPtr->isNull() ) {
+    // 直接在当前线程执行屏幕抓取
+    QPixmap pixmap = m_primaryScreen->grabWindow(0,
+        captureRect.x(),
+        captureRect.y(),
+        captureRect.width(),
+        captureRect.height());
+
+    if ( pixmap.isNull() ) {
         qCWarning(screenCaptureWorker, "屏幕捕获失败");
         return QImage();
     }
-    return *imgPtr;
+
+    return pixmap.toImage();
 }
 
-QImage ScreenCaptureWorker::captureScreenRegion(const QRect& region) {
+QImage ScreenCaptureWorker::captureScreenRegion(const QRect& /*region*/) {
     if ( !m_primaryScreen ) {
         return QImage();
     }
-    QRect validRegion = region.intersected(m_screenGeometry);
-    if ( validRegion.isEmpty() ) {
-        return QImage();
-    }
-    // 在 GUI 线程中执行屏幕抓取，避免在工作线程中使用 QPixmap
-    if ( !qApp ) {
-        qCWarning(screenCaptureWorker, "QGuiApplication 不存在，无法在 GUI 线程执行屏幕抓取");
-        return QImage();
-    }
-    // 避免BlockingQueuedConnection导致停止流程无法推进，改为排队调用并设置超时
-    QSharedPointer<QImage> imgPtr = QSharedPointer<QImage>::create();
-    QSemaphore sem;
-    QMetaObject::invokeMethod(qApp, [this, validRegion, imgPtr, &sem]() {
-        if ( !m_primaryScreen ) {
-            sem.release();
-            return;
-        }
-        QPixmap pixmap = m_primaryScreen->grabWindow(0,
-            validRegion.x(),
-            validRegion.y(),
-            validRegion.width(),
-            validRegion.height());
-        if ( !pixmap.isNull() ) {
-            *imgPtr = pixmap.toImage();
-        }
-        sem.release();
-    }, Qt::QueuedConnection);
 
-    // 最多等待200ms获取抓取结果，期间若请求停止则提前返回
-    const int waitMs = 200;
-    if ( !sem.tryAcquire(1, waitMs) || shouldStop() || imgPtr->isNull() ) {
-        qCWarning(screenCaptureWorker, "屏幕捕获失败");
+    // 使用完整的屏幕区域，忽略传入的区域参数
+    QRect captureRect = m_screenGeometry;
+    if ( captureRect.isEmpty() ) {
         return QImage();
     }
-    return *imgPtr;
+
+    // 直接在当前线程执行屏幕抓取
+    QPixmap pixmap = m_primaryScreen->grabWindow(0,
+        captureRect.x(),
+        captureRect.y(),
+        captureRect.width(),
+        captureRect.height());
+
+    if ( pixmap.isNull() ) {
+        return QImage();
+    }
+
+    return pixmap.toImage();
 }
 
 void ScreenCaptureWorker::calculateFrameDelay() {
@@ -553,9 +457,7 @@ void ScreenCaptureWorker::updateStats() {
 void ScreenCaptureWorker::updateConfig(const CaptureConfig& config) {
     CaptureConfig normalized = config;
     {
-        // 边界裁剪：质量与帧率
-        if ( normalized.quality < 0.0 ) normalized.quality = 0.0;
-        if ( normalized.quality > 1.0 ) normalized.quality = 1.0;
+        // 边界裁剪：帧率
         if ( normalized.frameRate < MIN_FRAME_RATE ) normalized.frameRate = MIN_FRAME_RATE;
         if ( normalized.frameRate > MAX_FRAME_RATE ) normalized.frameRate = MAX_FRAME_RATE;
         QMutexLocker locker(&m_configMutex);
@@ -577,17 +479,4 @@ CaptureConfig ScreenCaptureWorker::getCurrentConfig() const {
 CaptureStats ScreenCaptureWorker::getCaptureStats() const {
     QMutexLocker locker(&m_statsMutex);
     return m_stats;
-}
-
-void ScreenCaptureWorker::setDataValidationEnabled(bool enabled) {
-    m_dataValidationEnabled = enabled;
-    qCDebug(screenCaptureWorker, "数据验证已%s", enabled ? "启用" : "禁用");
-}
-
-bool ScreenCaptureWorker::isDataValidationEnabled() const {
-    return m_dataValidationEnabled;
-}
-
-quint64 ScreenCaptureWorker::getLastFrameChecksum() const {
-    return m_lastFrameChecksum;
 }

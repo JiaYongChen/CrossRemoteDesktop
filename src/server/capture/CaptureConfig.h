@@ -12,7 +12,6 @@
  */
 struct CaptureConfig {
     int frameRate = 30;                    ///< 目标帧率
-    double quality = 0.8;                 ///< 捕获质量 (0.0-1.0)
     bool highDefinition = true;            ///< 高清模式
     bool antiAliasing = true;              ///< 抗锯齿
     bool highScaleQuality = true;          ///< 高质量缩放
@@ -25,7 +24,6 @@ struct CaptureConfig {
      */
     bool isValid() const {
         return frameRate > 0 && frameRate <= 120 &&
-               quality >= 0.0 && quality <= 1.0 &&
                maxQueueSize > 0 && maxQueueSize <= 100;
     }
     
@@ -34,7 +32,6 @@ struct CaptureConfig {
      */
     void reset() {
         frameRate = 30;
-        quality = 0.8;
         highDefinition = true;
         antiAliasing = true;
         highScaleQuality = true;
@@ -49,7 +46,6 @@ struct CaptureConfig {
      */
     bool operator==(const CaptureConfig& other) const {
         return frameRate == other.frameRate &&
-               qFuzzyCompare(quality, other.quality) &&
                highDefinition == other.highDefinition &&
                antiAliasing == other.antiAliasing &&
                highScaleQuality == other.highScaleQuality &&

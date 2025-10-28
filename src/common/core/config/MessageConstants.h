@@ -123,10 +123,9 @@ namespace MessageConstants {
         const QString STOPPING_CAPTURE = "Stopping capture";
         const QString CAPTURE_STOPPED = "Capture stopped successfully";
         const QString NO_PRIMARY_SCREEN = "No primary screen found";
-        const QString FRAME_CAPTURED = "Frame captured (count: %1), size: %2, quality: %3";
+        const QString FRAME_CAPTURED = "Frame captured (count: %1), size: %2";
         const QString CAPTURE_FAILED = "Failed to capture frame - screenshot is null (failures: %1)";
         const QString FRAME_RATE_SET = "Frame rate set to %1 FPS, interval: %2 ms";
-        const QString QUALITY_SET = "Capture quality set to %1";
     }
 
     // 配置相关消息

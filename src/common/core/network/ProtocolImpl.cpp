@@ -36,45 +36,41 @@ QByteArray Protocol::createMessage(MessageType type, const IMessageCodec& messag
 }
 
 bool Protocol::parseMessage(const QByteArray& data, MessageHeader& header, QByteArray& payload) {
+    // 检查数据是否足够包含header
     if ( data.size() < static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) ) {
         return false;
     }
 
-    // 调试：显示接收到的原始数据
-    // qDebug() << "Received raw data (first 16 bytes):" << data.left(16).toHex();
-
-    // 解密数据
-    QByteArray decryptedData = decryptData(data, Protocol::XORkey);
-    if ( decryptedData.size() < static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) ) {
-        return false;
-    }
-
-    // 调试：显示解密后的数据
-    // qDebug() << "Decrypted data (first 16 bytes):" << decryptedData.left(16).toHex();
+    // 先解密header，读取消息长度
+    QByteArray encryptedHeader = data.left(static_cast<qsizetype>(SERIALIZED_HEADER_SIZE));
+    QByteArray decryptedHeader = decryptData(encryptedHeader, Protocol::XORkey);
 
     // 反序列化消息头
-    QByteArray headerData = decryptedData.left(static_cast<qsizetype>(SERIALIZED_HEADER_SIZE));
-    if ( header.decode(headerData) == false ) {
+    if ( header.decode(decryptedHeader) == false ) {
         return false;
     }
 
-    // 调试：显示解析出的魔数
-    // qDebug() << "Parsed magic number:" << Qt::hex << header.magic
-    //     << "Expected:" << Qt::hex << PROTOCOL_MAGIC;
-
-    // 检查数据长度
+    // 计算完整消息需要的大小
     qsizetype expectedSize = static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) + header.length;
-    if ( decryptedData.size() < expectedSize ) {
+
+    // 如果数据不够完整消息，等待更多数据
+    if ( data.size() < expectedSize ) {
         return false;
     }
 
-    // 提取载荷
-    payload = decryptedData.mid(static_cast<qsizetype>(SERIALIZED_HEADER_SIZE), header.length);
+    // 关键修复：解密整个消息（header+payload），然后提取payload
+    // 这样可以保证XOR key的使用是连续的
+    QByteArray encryptedMessage = data.left(expectedSize);
+    QByteArray decryptedMessage = decryptData(encryptedMessage, Protocol::XORkey);
+    
+    // 从解密后的完整消息中提取payload
+    payload = decryptedMessage.mid(static_cast<qsizetype>(SERIALIZED_HEADER_SIZE));
 
     // 验证消息
     if ( validateMessage(header, payload) == false ) {
         return false;
     }
+
     return true;
 }
 
@@ -103,9 +99,7 @@ bool Protocol::validateMessage(const MessageHeader& header, const QByteArray& pa
         qWarning(lcProtocol) << "无效的魔数:" << Qt::hex << header.magic
             << "期望:" << Qt::hex << PROTOCOL_MAGIC;
         return false;
-    }
-
-    // 验证版本
+    }    // 验证版本
     if ( header.version != PROTOCOL_VERSION ) {
         return false;
     }
@@ -118,9 +112,10 @@ bool Protocol::validateMessage(const MessageHeader& header, const QByteArray& pa
     // 验证校验和
     quint32 calculatedChecksum = calculateChecksum(payload);
     if ( calculatedChecksum != header.checksum ) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcProtocol) << "Checksum mismatch. Expected:" << Qt::hex << header.checksum
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcProtocol)
+            << "Checksum mismatch. Expected:" << Qt::hex << header.checksum
             << "Calculated:" << Qt::hex << calculatedChecksum
-            << "Payload size:" << payload.size()
+            << "Payload size:" << Qt::dec << payload.size()
             << "Payload hex:" << payload.toHex();
         return false;
     }
@@ -594,7 +589,6 @@ QByteArray ScreenData::encode() const {
     ds << static_cast<quint16>(y);
     ds << static_cast<quint16>(width);
     ds << static_cast<quint16>(height);
-    ds << static_cast<quint8>(imageType);
 
     // 验证数据大小一致性，防止缓冲区溢出
     quint32 actualDataSize = static_cast<quint32>(imageData.size());
@@ -620,8 +614,8 @@ QByteArray ScreenData::encode() const {
 }
 
 bool ScreenData::decode(const QByteArray& bytes) {
-    // 检查最小头部大小：x(2) + y(2) + width(2) + height(2) + imageType(1) + dataSize(4) = 13字节
-    const qsizetype headerSize = 2 + 2 + 2 + 2 + 1 + 4;
+    // 检查最小头部大小：x(2) + y(2) + width(2) + height(2) + dataSize(4) = 12字节
+    const qsizetype headerSize = 2 + 2 + 2 + 2 + 4;
     if ( bytes.size() < headerSize ) {
         QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcProtocol)
             << "ScreenData decode failed: insufficient header size"
@@ -633,14 +627,12 @@ bool ScreenData::decode(const QByteArray& bytes) {
     ds.setByteOrder(QDataStream::LittleEndian);
 
     quint16 x_val = 0, y_val = 0, w = 0, h = 0;
-    quint8 imty = 0;
     quint32 size = 0;
 
     ds >> x_val;
     ds >> y_val;
     ds >> w;
     ds >> h;
-    ds >> imty;
     ds >> size;
 
     if ( ds.status() != QDataStream::Ok ) {
@@ -680,7 +672,6 @@ bool ScreenData::decode(const QByteArray& bytes) {
     y = y_val;
     width = w;
     height = h;
-    imageType = imty;
     dataSize = size;
 
     // 提取图像数据

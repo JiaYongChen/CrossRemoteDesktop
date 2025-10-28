@@ -52,11 +52,6 @@ public:
     void updateConfig(const CaptureConfig& config);
     CaptureConfig getCurrentConfig() const;
 
-    // 数据验证配置方法
-    void setDataValidationEnabled(bool enabled);
-    bool isDataValidationEnabled() const;
-    quint64 getLastFrameChecksum() const;
-
     // 统计信息获取（内部使用）
     CaptureStats getCaptureStats() const;
 
@@ -165,18 +160,11 @@ private:
     std::atomic<bool> m_recoveryMode{false};
     QString m_lastError;
     
-    // 数据验证相关
-    std::unique_ptr<DataValidator> m_dataValidator;  ///< 数据验证器
-    bool m_dataValidationEnabled{false};            ///< 数据验证开关
-    quint64 m_lastFrameChecksum{0};                 ///< 最后一帧的校验和
-    
     // 常量定义
     static constexpr int STATS_UPDATE_INTERVAL = 1000;     ///< 统计更新间隔(ms)
     static constexpr int MAX_CAPTURE_TIME_HISTORY = 100;   ///< 最大捕获时间历史记录数
     static constexpr int MAX_FRAME_TIMESTAMP_HISTORY = 60; ///< 最大帧时间戳历史记录数
     static constexpr int MAX_ERROR_COUNT = 10;             ///< 最大错误计数
-    static constexpr double MIN_QUALITY = 0.1;            ///< 最小质量值
-    static constexpr double MAX_QUALITY = 1.0;            ///< 最大质量值
     static constexpr int MIN_FRAME_RATE = 1;              ///< 最小帧率
     static constexpr int MAX_FRAME_RATE = 120;            ///< 最大帧率
 };

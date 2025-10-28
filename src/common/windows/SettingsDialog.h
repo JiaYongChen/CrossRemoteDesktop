@@ -41,7 +41,6 @@ private slots:
 
     // 显示设置
     void onFrameRateChanged(int value);
-    void onCaptureQualityChanged(int index);
     void onScalingModeChanged(int index);
 
     // 音频设置
@@ -123,7 +122,6 @@ private:
     class QCheckBox* m_enableWallpaperCheck;
     class QCheckBox* m_enableAnimationsCheck;
     class QCheckBox* m_enableFontSmoothingCheck;
-    class QComboBox* m_captureQualityCombo;
     class QComboBox* m_scalingModeCombo;
 
     // 音频设置选项卡
@@ -208,7 +206,6 @@ private:
         bool enableWallpaper;
         bool enableAnimations;
         bool enableFontSmoothing;
-        double captureQuality;
         QString scalingMode;
     } m_displaySettings;
 

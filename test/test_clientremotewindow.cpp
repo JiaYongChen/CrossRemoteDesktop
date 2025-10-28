@@ -200,22 +200,22 @@ void TestClientRemoteWindow::testConnectionStateDisplay()
 
 void TestClientRemoteWindow::testDefaultWindowSize()
 {
-    // 测试默认窗口大小是否为 1024x768
+    // 测试默认窗口大小是否为 1600x900 (16:9 宽高比)
     // 注意：由于在 init() 中我们手动设置了窗口大小为 800x600，
     // 我们需要创建一个新的窗口实例来测试默认大小
     
     QWidget *testParent = new QWidget();
     ClientRemoteWindow *testWindow = new ClientRemoteWindow("test-default-size", testParent);
     
-    // 验证默认窗口大小
-    QSize expectedSize(1024, 768);
+    // 验证默认窗口大小 (1600x900, 符合现代显示器的 16:9 比例)
+    QSize expectedSize(1600, 900);
     QSize actualSize = testWindow->size();
     
     QCOMPARE(actualSize.width(), expectedSize.width());
     QCOMPARE(actualSize.height(), expectedSize.height());
     
-    // 验证最小窗口大小
-    QSize expectedMinSize(400, 300);
+    // 验证最小窗口大小 (400x225, 保持 16:9 比例)
+    QSize expectedMinSize(400, 225);
     QSize actualMinSize = testWindow->minimumSize();
     
     QCOMPARE(actualMinSize.width(), expectedMinSize.width());

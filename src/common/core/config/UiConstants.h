@@ -41,9 +41,6 @@ public:
     static const int FAILURE_LOG_INTERVAL = 10; // 每10次失败输出一次调试信息
     static const int MILLISECONDS_PER_SECOND = 1000;
 
-    // 捕获质量常量
-    static constexpr double DEFAULT_CAPTURE_QUALITY = 0.9; // 默认高质量
-
     // 输入处理常量
     static const int DEFAULT_INPUT_BUFFER_SIZE = 100;
     static const int DEFAULT_INPUT_FLUSH_INTERVAL = 10; // 毫秒
@@ -108,8 +105,5 @@ inline const int UIConstants::CLEANUP_TIMER_INTERVAL;
 inline const int UIConstants::DEFAULT_SERVER_PORT;
 inline const int UIConstants::MIN_SERVER_PORT;
 inline const int UIConstants::MAX_SERVER_PORT;
-
-// 捕获质量常量
-inline constexpr double UIConstants::DEFAULT_CAPTURE_QUALITY;
 
 #endif // UICONSTANTS_H

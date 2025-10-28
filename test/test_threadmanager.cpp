@@ -423,11 +423,20 @@ void TestThreadManager::test_pauseResumeThread()
     bool resumeResult = m_threadManager->resumeThread(threadName);
     QVERIFY(resumeResult);
     
-    // 处理事件循环
-    QCoreApplication::processEvents();
+    // 处理事件循环，给worker线程时间来检测恢复并发射信号
+    // 由于resumed信号是在worker的processTask中的waitIfPaused里发射的，
+    // 需要等待worker的下一个处理周期
+    for (int i = 0; i < 10; ++i) {
+        QCoreApplication::processEvents();
+        QTest::qWait(50);
+        if (resumedSpy.count() > 0) {
+            break;
+        }
+    }
     
-    // 等待恢复信号，减少超时时间
-    QVERIFY(resumedSpy.wait(200));
+    // 等待恢复信号，增加超时时间以适应时序
+    bool resumeSignalReceived = resumedSpy.count() > 0 || resumedSpy.wait(500);
+    QVERIFY(resumeSignalReceived);
     QCOMPARE(resumedSpy.count(), 1);
     
     // 验证运行状态

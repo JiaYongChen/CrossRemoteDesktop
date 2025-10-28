@@ -26,10 +26,8 @@ ScreenCapture::ScreenCapture(QObject* parent)
 
     // 初始化默认配置
     m_captureConfig.frameRate = CoreConstants::Capture::DEFAULT_FRAME_RATE;
-    m_captureConfig.quality = CoreConstants::Capture::DEFAULT_CAPTURE_QUALITY;
     m_captureConfig.highDefinition = true;
     m_captureConfig.antiAliasing = true;
-
     m_captureConfig.highScaleQuality = true;
     m_captureConfig.captureRect = QRect(); // 空矩形表示全屏
 
@@ -75,14 +73,11 @@ void ScreenCapture::startCapture() {
     }
 
     int currentFrameRate;
-    double currentQuality;
     {
         QMutexLocker locker(&m_configMutex);
         currentFrameRate = m_captureConfig.frameRate;
-        currentQuality = m_captureConfig.quality;
     }
-    qCInfo(screenCaptureManager, "启动多线程屏幕捕获，帧率: %d, 质量: %.2f",
-        currentFrameRate, currentQuality);
+    qCInfo(screenCaptureManager, "启动多线程屏幕捕获，帧率: %d", currentFrameRate);
 
     // 初始化线程架构
     if ( !initializeThreads() ) {
@@ -358,9 +353,8 @@ void ScreenCapture::onCaptureError(const QString& error) {
 
 // 统一配置管理方法实现
 void ScreenCapture::updateCaptureConfig(const CaptureConfig& config) {
-    // 本地归一化配置：对帧率与质量进行边界裁剪，确保对外可见配置始终有效
+    // 本地归一化配置：对帧率进行边界裁剪，确保对外可见配置始终有效
     const int originalFrameRate = config.frameRate;            // 记录输入帧率（用于日志）
-    const double originalQuality = config.quality;             // 记录输入质量（用于日志）
     CaptureConfig normalized = config;
     // 帧率裁剪到平台允许范围
     normalized.frameRate = std::clamp(
@@ -368,9 +362,6 @@ void ScreenCapture::updateCaptureConfig(const CaptureConfig& config) {
         CoreConstants::Capture::MIN_FRAME_RATE,
         CoreConstants::Capture::MAX_FRAME_RATE
     );
-    // 质量裁剪到[0.0, 1.0]
-    if ( normalized.quality < 0.0 ) normalized.quality = 0.0;
-    if ( normalized.quality > 1.0 ) normalized.quality = 1.0;
 
     {
         QMutexLocker locker(&m_configMutex);
@@ -385,9 +376,8 @@ void ScreenCapture::updateCaptureConfig(const CaptureConfig& config) {
 
     // 日志增强：同时打印输入值与裁剪后的值，便于问题定位
     qCInfo(screenCaptureManager,
-        "捕获配置已更新: 帧率(输入=%d, 裁剪=%d), 质量(输入=%.2f, 裁剪=%.2f), 高清=%s, 抗锯齿=%s",
+        "捕获配置已更新: 帧率(输入=%d, 裁剪=%d), 高清=%s, 抗锯齿=%s",
         originalFrameRate, m_captureConfig.frameRate,
-        originalQuality, m_captureConfig.quality,
         m_captureConfig.highDefinition ? "开启" : "关闭",
         m_captureConfig.antiAliasing ? "开启" : "关闭");
 }

@@ -696,12 +696,19 @@ void ThreadManager::onWorkerPaused() {
 }
 
 void ThreadManager::onWorkerResumed() {
+    qCDebug(lcThreading) << "ThreadManager::onWorkerResumed() called";
     Worker* worker = qobject_cast<Worker*>(sender());
-    if ( !worker ) return;
+    if ( !worker ) {
+        qCDebug(lcThreading) << "ThreadManager::onWorkerResumed() - No worker sender";
+        return;
+    }
 
     QString name = getThreadNameByWorker(worker);
+    qCDebug(lcThreading) << "ThreadManager::onWorkerResumed() - Worker name:" << name;
     if ( !name.isEmpty() ) {
+        qCDebug(lcThreading) << "ThreadManager::onWorkerResumed() - Emitting threadResumed signal for:" << name;
         emit threadResumed(name);
+        qCDebug(lcThreading) << "ThreadManager::onWorkerResumed() - threadResumed signal emitted";
     }
 }
 

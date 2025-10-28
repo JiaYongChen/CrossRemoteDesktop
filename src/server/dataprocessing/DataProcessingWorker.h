@@ -12,8 +12,11 @@
 #include <QtCore/QMutex>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QElapsedTimer>
+#include <QtCore/QThreadPool>
+#include <QtConcurrent/QtConcurrent>
 #include <memory>
 #include <atomic>
+#include <vector>
 
 Q_DECLARE_LOGGING_CATEGORY(lcDataProcessingWorker)
 ;;
@@ -229,19 +232,19 @@ signals:
 
 private:
     /**
-     * @brief 处理单个帧数据（带重试机制）
-     * @param frame 帧数据
-     * @return 处理是否成功
+     * @brief 批量并行处理多个帧
+     * @param frames 待处理的帧列表
+     * @return 处理成功的帧数
      */
-    bool processFrameWithRetry(const CapturedFrame& frame);
+    int processBatchParallel(const std::vector<CapturedFrame>& frames);
 
     /**
-     * @brief 处理图像数据
+     * @brief 并行编码单帧图像（线程安全的静态方法）
      * @param image 图像数据
      * @param frameId 帧ID
      * @return 处理后的数据
      */
-    ProcessedData processImage(const QImage& image, quint64 frameId);
+    static ProcessedData encodeImageParallel(const QImage& image, quint64 frameId);
 
     /**
      * @brief 检查系统资源使用情况
@@ -315,6 +318,11 @@ private:
     // 自适应参数
     bool m_adaptiveMode;                                                ///< 自适应模式开关
     QTimer* m_adaptiveTimer;                                            ///< 自适应调整定时器
+
+    // 并行处理
+    int m_maxParallelTasks;                                             ///< 最大并行任务数
+    std::atomic<int> m_activeParallelTasks;                             ///< 当前活跃的并行任务数
+    mutable QMutex m_batchMutex;                                        ///< 批处理互斥锁
 
     // 性能监控阈值
     static constexpr double MAX_PROCESSING_LATENCY = 100.0;             ///< 最大处理延迟阈值（毫秒）

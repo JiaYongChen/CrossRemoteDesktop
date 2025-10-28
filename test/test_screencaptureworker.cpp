@@ -164,12 +164,10 @@ void TestScreenCaptureWorker::test_captureConfig()
     // 测试默认配置
     auto config = m_worker->getCurrentConfig();
     QVERIFY(config.frameRate > 0);
-    QVERIFY(config.quality >= 0 && config.quality <= 1.0);
     
     // 测试配置结构
     CaptureConfig newConfig;
     newConfig.frameRate = 30;
-    newConfig.quality = 0.8;
     newConfig.captureRect = QRect(100, 100, 800, 600);
     
     m_worker->updateConfig(newConfig);
@@ -177,7 +175,6 @@ void TestScreenCaptureWorker::test_captureConfig()
     // 验证配置已更新
     auto updatedConfig = m_worker->getCurrentConfig();
     QCOMPARE(updatedConfig.frameRate, 30);
-    QCOMPARE(updatedConfig.quality, 0.8);
     QCOMPARE(updatedConfig.captureRect, QRect(100, 100, 800, 600));
 }
 
@@ -193,13 +190,6 @@ void TestScreenCaptureWorker::test_startCapture()
     // 验证配置设置成功
     auto updatedConfig = m_worker->getCurrentConfig();
     QCOMPARE(updatedConfig.frameRate, 1);
-    
-    // 测试质量设置
-    config.quality = 0.5;
-    m_worker->updateConfig(config);
-    
-    updatedConfig = m_worker->getCurrentConfig();
-    QCOMPARE(updatedConfig.quality, 0.5);
     
     // 测试其他配置设置
     config.highDefinition = true;
@@ -265,28 +255,24 @@ void TestScreenCaptureWorker::test_frameRateControl()
 
 void TestScreenCaptureWorker::test_qualitySettings()
 {
-    // 简化测试：只验证质量配置功能
+    // 简化测试：质量设置功能已删除，测试其他配置
     
-    // 测试设置不同质量值
+    // 测试设置高清模式
     auto config = m_worker->getCurrentConfig();
-    config.quality = 0.3;
+    config.highDefinition = true;
     m_worker->updateConfig(config);
-    QCOMPARE(m_worker->getCurrentConfig().quality, 0.3);
+    QVERIFY(m_worker->getCurrentConfig().highDefinition);
     
-    config.quality = 0.6;
+    config.highDefinition = false;
     m_worker->updateConfig(config);
-    QCOMPARE(m_worker->getCurrentConfig().quality, 0.6);
-    
-    config.quality = 0.9;
-    m_worker->updateConfig(config);
-    QCOMPARE(m_worker->getCurrentConfig().quality, 0.9);
+    QVERIFY(!m_worker->getCurrentConfig().highDefinition);
     
     // 测试最终配置
-    config.quality = 0.75;
+    config.antiAliasing = true;
     m_worker->updateConfig(config);
     
     auto updatedConfig = m_worker->getCurrentConfig();
-    QCOMPARE(updatedConfig.quality, 0.75);
+    QVERIFY(updatedConfig.antiAliasing);
 }
 
 void TestScreenCaptureWorker::test_regionCapture()
@@ -324,21 +310,17 @@ void TestScreenCaptureWorker::test_errorHandling()
     // 测试有效配置
     auto config = m_worker->getCurrentConfig();
     config.frameRate = 30;
-    config.quality = 0.8;
     m_worker->updateConfig(config);
     
     auto updatedConfig = m_worker->getCurrentConfig();
     QCOMPARE(updatedConfig.frameRate, 30);
-    QCOMPARE(updatedConfig.quality, 0.8);
     
     // 测试边界值
     config.frameRate = 1; // 最小值
-    config.quality = 0.1; // 最小质量
     m_worker->updateConfig(config);
     
     updatedConfig = m_worker->getCurrentConfig();
     QCOMPARE(updatedConfig.frameRate, 1);
-    QCOMPARE(updatedConfig.quality, 0.1);
 }
 
 void TestScreenCaptureWorker::test_performanceMonitoring()
@@ -371,12 +353,10 @@ void TestScreenCaptureWorker::test_threadSafety()
     for (int i = 0; i < 5; ++i) {
         auto config = m_worker->getCurrentConfig();
         config.frameRate = 10 + i;
-        config.quality = 0.5 + i * 0.1;
         m_worker->updateConfig(config);
     
         auto updatedConfig = m_worker->getCurrentConfig();
         QCOMPARE(updatedConfig.frameRate, 10 + i);
-        QCOMPARE(updatedConfig.quality, 0.5 + i * 0.1);
     }
     
     // 验证最终状态

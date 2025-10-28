@@ -114,12 +114,6 @@ void SettingsDialog::setupConnections() {
             this, &SettingsDialog::onFrameRateChanged);
     }
 
-    // 连接捕获质量设置信号
-    if ( ui->captureQualityComboBox ) {
-        connect(ui->captureQualityComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &SettingsDialog::onCaptureQualityChanged);
-    }
-
     // 连接缩放模式设置信号
     if ( ui->scalingModeComboBox ) {
         connect(ui->scalingModeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
@@ -181,7 +175,6 @@ void SettingsDialog::setupDisplayPageComponents() {
     m_colorDepthCombo = ui->defaultColorDepthComboBox;
     m_enableCursorCheck = ui->showCursorCheckBox;
     m_frameRateSpinBox = ui->frameRateSpinBox;
-    m_captureQualityCombo = ui->captureQualityComboBox;
     m_scalingModeCombo = ui->scalingModeComboBox;
     // m_qualitySlider = ui->defaultQualitySlider;  // Component not found
     // m_adaptiveQualityCheck = ui->enableAdaptiveQualityCheckBox;  // Component not found
@@ -364,7 +357,6 @@ void SettingsDialog::loadSettings() {
     m_displaySettings.enableWallpaper = m_settings->value("enableWallpaper", false).toBool();
     m_displaySettings.enableAnimations = m_settings->value("enableAnimations", false).toBool();
     m_displaySettings.enableFontSmoothing = m_settings->value("enableFontSmoothing", true).toBool();
-    m_displaySettings.captureQuality = m_settings->value("captureQuality", 0.8).toDouble();
     m_displaySettings.scalingMode = m_settings->value("scalingMode", "FitToWindow").toString();
     m_settings->endGroup();
 
@@ -415,7 +407,6 @@ void SettingsDialog::saveSettings() {
     m_settings->setValue("enableWallpaper", m_displaySettings.enableWallpaper);
     m_settings->setValue("enableAnimations", m_displaySettings.enableAnimations);
     m_settings->setValue("enableFontSmoothing", m_displaySettings.enableFontSmoothing);
-    m_settings->setValue("captureQuality", m_displaySettings.captureQuality);
     m_settings->setValue("scalingMode", m_displaySettings.scalingMode);
     m_settings->endGroup();
 
@@ -455,15 +446,6 @@ void SettingsDialog::applySettingsToUI() {
     // 显示设置
     if ( m_frameRateSpinBox ) m_frameRateSpinBox->setValue(m_displaySettings.frameRate);
     if ( m_enableCursorCheck ) m_enableCursorCheck->setChecked(m_displaySettings.enableCursor);
-
-    // 设置捕获质量
-    if ( m_captureQualityCombo ) {
-        int qualityIndex = 0;
-        if ( m_displaySettings.captureQuality >= 0.9 ) qualityIndex = 2; // 超高
-        else if ( m_displaySettings.captureQuality >= 0.7 ) qualityIndex = 1; // 高
-        else qualityIndex = 0; // 标准
-        m_captureQualityCombo->setCurrentIndex(qualityIndex);
-    }
 
     // 设置缩放模式
     if ( m_scalingModeCombo ) {
@@ -514,17 +496,6 @@ void SettingsDialog::getSettingsFromUI() {
     // 显示设置 - 添加空指针检查
     if ( m_frameRateSpinBox ) m_displaySettings.frameRate = m_frameRateSpinBox->value();
     if ( m_enableCursorCheck ) m_displaySettings.enableCursor = m_enableCursorCheck->isChecked();
-
-    // 捕获质量设置
-    if ( m_captureQualityCombo ) {
-        int qualityIndex = m_captureQualityCombo->currentIndex();
-        switch ( qualityIndex ) {
-            case 0: m_displaySettings.captureQuality = 0.5; break; // 标准
-            case 1: m_displaySettings.captureQuality = 0.8; break; // 高
-            case 2: m_displaySettings.captureQuality = 1.0; break; // 超高
-            default: m_displaySettings.captureQuality = 0.8; break;
-        }
-    }
 
     // 缩放模式设置
     if ( m_scalingModeCombo ) {
@@ -659,7 +630,6 @@ void SettingsDialog::onDefaultPortChanged(int value) { Q_UNUSED(value); onSettin
 void SettingsDialog::onConnectionTimeoutChanged(int value) { Q_UNUSED(value); onSettingChanged(); }
 void SettingsDialog::onAutoReconnectChanged(bool checked) { Q_UNUSED(checked); onSettingChanged(); }
 void SettingsDialog::onFrameRateChanged(int value) { Q_UNUSED(value); onSettingChanged(); }
-void SettingsDialog::onCaptureQualityChanged(int index) { Q_UNUSED(index); onSettingChanged(); }
 void SettingsDialog::onScalingModeChanged(int index) { Q_UNUSED(index); onSettingChanged(); }
 void SettingsDialog::onAudioEnabledChanged(bool checked) { Q_UNUSED(checked); onSettingChanged(); }
 void SettingsDialog::onAudioQualityChanged(int index) { Q_UNUSED(index); onSettingChanged(); }

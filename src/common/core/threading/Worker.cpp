@@ -209,19 +209,29 @@ void Worker::waitIfPaused()
         // 切换到Paused状态并发射paused信号（在工作线程内发射，避免事件循环阻塞）
         if (m_state.load() != State::Paused) {
             setState(State::Paused);
+            qCDebug(lcThreading) << "Worker" << m_name << "entering paused state, emitting paused signal";
             emit paused();
         }
         QMutexLocker locker(&m_pauseMutex);
+        qCDebug(lcThreading) << "Worker" << m_name << "waiting in paused state";
         while (m_pauseRequested.load() && !m_stopRequested.load()) {
             // 处理Qt事件，保证其它槽函数能被执行
             QCoreApplication::processEvents();
             // 带超时等待，周期性检查退出条件
             m_pauseCondition.wait(&m_pauseMutex, 50);
         }
+        qCDebug(lcThreading) << "Worker" << m_name << "exited pause wait loop, pauseRequested:" 
+                             << m_pauseRequested.load() << "stopRequested:" << m_stopRequested.load() 
+                             << "state:" << static_cast<int>(m_state.load());
         // 从暂停恢复：如果未停止，则切换回Running并发射resumed信号
         if (!m_stopRequested.load() && m_state.load() == State::Paused) {
             setState(State::Running);
+            qCDebug(lcThreading) << "Worker" << m_name << "emitting resumed signal";
             emit resumed();
+            qCDebug(lcThreading) << "Worker" << m_name << "resumed signal emitted";
+        } else {
+            qCDebug(lcThreading) << "Worker" << m_name << "NOT emitting resumed signal - stopRequested:" 
+                                 << m_stopRequested.load() << "state:" << static_cast<int>(m_state.load());
         }
     }
 }
