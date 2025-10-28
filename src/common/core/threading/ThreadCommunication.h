@@ -39,25 +39,23 @@ struct ThreadMessage {
     int priority;                  // 优先级（0-10，数字越大优先级越高）
     bool requiresResponse;         // 是否需要响应
     QString correlationId;         // 关联ID（用于请求-响应配对）
-    
+
     ThreadMessage()
         : type(ThreadMessageType::Data)
         , timestamp(QDateTime::currentDateTime())
         , priority(5)
-        , requiresResponse(false)
-    {
+        , requiresResponse(false) {
     }
-    
-    ThreadMessage(const QString& senderId, const QString& receiverId, 
-                 ThreadMessageType msgType, const QVariant& msgData)
+
+    ThreadMessage(const QString& senderId, const QString& receiverId,
+        ThreadMessageType msgType, const QVariant& msgData)
         : sender(senderId)
         , receiver(receiverId)
         , type(msgType)
         , data(msgData)
         , timestamp(QDateTime::currentDateTime())
         , priority(5)
-        , requiresResponse(false)
-    {
+        , requiresResponse(false) {
         // 生成唯一ID，使用线程指针避免QRandomGenerator多线程问题
         id = QString("%1_%2_%3").arg(sender).arg(timestamp.toMSecsSinceEpoch()).arg(reinterpret_cast<quintptr>(QThread::currentThread()));
     }
@@ -66,18 +64,17 @@ struct ThreadMessage {
 /**
  * @brief 消息处理器接口
  */
-class IMessageHandler
-{
+class IMessageHandler {
 public:
     virtual ~IMessageHandler() = default;
-    
+
     /**
      * @brief 处理接收到的消息
      * @param message 消息对象
      * @return 是否处理成功
      */
     virtual bool handleMessage(const ThreadMessage& message) = 0;
-    
+
     /**
      * @brief 获取处理器名称
      * @return 处理器名称
@@ -89,17 +86,16 @@ public:
  * @brief 线程通信中心
  * 负责管理线程间的消息传递和路由
  */
-class ThreadCommunicationHub : public QObject
-{
+class ThreadCommunicationHub : public QObject {
     Q_OBJECT
-    
+
 public:
     /**
      * @brief 获取单例实例
      * @return 通信中心实例
      */
     static ThreadCommunicationHub* instance();
-    
+
     /**
      * @brief 注册消息处理器
      * @param threadName 线程名称
@@ -107,20 +103,20 @@ public:
      * @return 是否注册成功
      */
     bool registerHandler(const QString& threadName, std::shared_ptr<IMessageHandler> handler);
-    
+
     /**
      * @brief 注销消息处理器
      * @param threadName 线程名称
      */
     void unregisterHandler(const QString& threadName);
-    
+
     /**
      * @brief 发送消息
      * @param message 消息对象
      * @return 是否发送成功
      */
     bool sendMessage(const ThreadMessage& message);
-    
+
     /**
      * @brief 发送命令消息
      * @param sender 发送者
@@ -131,9 +127,9 @@ public:
      * @return 消息ID
      */
     QString sendCommand(const QString& sender, const QString& receiver,
-                       const QString& command, const QVariant& data = QVariant(),
-                       bool requiresResponse = false);
-    
+        const QString& command, const QVariant& data = QVariant(),
+        bool requiresResponse = false);
+
     /**
      * @brief 发送数据消息
      * @param sender 发送者
@@ -143,8 +139,8 @@ public:
      * @return 消息ID
      */
     QString sendData(const QString& sender, const QString& receiver,
-                    const QVariant& data, int priority = 5);
-    
+        const QVariant& data, int priority = 5);
+
     /**
      * @brief 发送状态消息
      * @param sender 发送者
@@ -153,8 +149,8 @@ public:
      * @return 消息ID
      */
     QString sendStatus(const QString& sender, const QString& receiver,
-                      const QVariant& status);
-    
+        const QVariant& status);
+
     /**
      * @brief 发送错误消息
      * @param sender 发送者
@@ -163,8 +159,8 @@ public:
      * @return 消息ID
      */
     QString sendError(const QString& sender, const QString& receiver,
-                     const QString& error);
-    
+        const QString& error);
+
     /**
      * @brief 广播消息
      * @param sender 发送者
@@ -173,9 +169,9 @@ public:
      * @param excludeThreads 排除的线程列表
      */
     void broadcastMessage(const QString& sender, const QVariant& message,
-                         ThreadMessageType type = ThreadMessageType::Data,
-                         const QStringList& excludeThreads = QStringList());
-    
+        ThreadMessageType type = ThreadMessageType::Data,
+        const QStringList& excludeThreads = QStringList());
+
     /**
      * @brief 发送响应消息
      * @param originalMessage 原始消息
@@ -183,13 +179,13 @@ public:
      * @return 是否发送成功
      */
     bool sendResponse(const ThreadMessage& originalMessage, const QVariant& responseData);
-    
+
     /**
      * @brief 获取已注册的线程列表
      * @return 线程名称列表
      */
     QStringList getRegisteredThreads() const;
-    
+
     /**
      * @brief 获取消息统计信息
      * @return 统计信息
@@ -203,51 +199,51 @@ public:
         QDateTime lastActivity;     // 最后活动时间
     };
     MessageStats getMessageStats() const;
-    
+
     /**
      * @brief 清理过期消息
      * @param maxAgeMs 最大保留时间（毫秒）
      */
     void cleanupExpiredMessages(qint64 maxAgeMs = 300000); // 默认5分钟
-    
+
     /**
      * @brief 设置消息队列最大大小
      * @param maxSize 最大大小
      */
     void setMaxQueueSize(int maxSize);
-    
+
     /**
      * @brief 获取消息队列最大大小
      * @return 最大大小
      */
     int maxQueueSize() const;
-    
+
 signals:
     /**
      * @brief 消息发送信号
      * @param message 消息对象
      */
     void messageSent(const ThreadMessage& message);
-    
+
     /**
      * @brief 消息接收信号
      * @param message 消息对象
      */
     void messageReceived(const ThreadMessage& message);
-    
+
     /**
      * @brief 消息处理错误信号
      * @param message 消息对象
      * @param error 错误信息
      */
     void messageError(const ThreadMessage& message, const QString& error);
-    
+
     /**
      * @brief 处理器注册信号
      * @param threadName 线程名称
      */
     void handlerRegistered(const QString& threadName);
-    
+
     /**
      * @brief 处理器注销信号
      * @param threadName 线程名称
@@ -261,35 +257,35 @@ private slots:
      * @brief 清理定时器槽函数
      */
     void onCleanupTimer();
-    
+
 private:
     explicit ThreadCommunicationHub(QObject* parent = nullptr);
     ~ThreadCommunicationHub();
-    
+
     /**
      * @brief 路由消息到目标处理器
      * @param message 消息对象
      * @return 是否路由成功
      */
     bool routeMessage(const ThreadMessage& message);
-    
+
     /**
      * @brief 生成唯一消息ID
      * @param sender 发送者
      * @return 消息ID
      */
     QString generateMessageId(const QString& sender);
-    
+
     /**
      * @brief 更新统计信息
      * @param sent 是否为发送
      * @param latency 延迟时间
      */
     void updateStats(bool sent, double latency = 0.0);
-    
+
 private:
     static ThreadCommunicationHub* s_instance;  // 单例实例
-    
+
     mutable QMutex m_mutex;                     // 互斥锁
     QMap<QString, std::shared_ptr<IMessageHandler>> m_handlers;  // 消息处理器映射
     QQueue<ThreadMessage> m_messageQueue;       // 消息队列
@@ -303,27 +299,27 @@ private:
  * @brief 函数式消息处理器
  * 允许使用lambda或函数指针作为消息处理器
  */
-class FunctionalMessageHandler : public IMessageHandler
-{
+class FunctionalMessageHandler : public IMessageHandler {
 public:
     using HandlerFunction = std::function<bool(const ThreadMessage&)>;
-    
+
     /**
      * @brief 构造函数
      * @param name 处理器名称
      * @param handler 处理函数
      */
     FunctionalMessageHandler(const QString& name, HandlerFunction handler)
-        : m_name(name), m_handler(handler) {}
-    
+        : m_name(name), m_handler(handler) {
+    }
+
     bool handleMessage(const ThreadMessage& message) override {
         return m_handler ? m_handler(message) : false;
     }
-    
+
     QString handlerName() const override {
         return m_name;
     }
-    
+
 private:
     QString m_name;
     HandlerFunction m_handler;

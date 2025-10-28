@@ -58,7 +58,6 @@ signals:
     void disconnected();
     void authenticated();
     void authenticationFailed(const QString &reason);
-    void messageReceived(MessageType type, const QByteArray &data);
 
     void errorOccurred(const QString &error);
     void statusUpdated(const QString &status);
@@ -130,9 +129,6 @@ private:
     void recordNetworkError(const QString &details);
     void recordDataCorruption(const QString &details);
     
-    // 常量
-    static const int HEARTBEAT_INTERVAL = NetworkConstants::HEARTBEAT_INTERVAL;
-    static const int HEARTBEAT_TIMEOUT = NetworkConstants::HEARTBEAT_TIMEOUT;
     QDateTime m_lastHeartbeat;
 };
 

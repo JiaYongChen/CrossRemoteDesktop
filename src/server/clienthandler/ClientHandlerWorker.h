@@ -267,7 +267,6 @@ private:
 
     // 屏幕数据发送相关
     QueueManager* m_queueManager;         ///< 队列管理器
-    int m_maxFramesPerCycle{ 2 };          ///< 每个周期最多发送的帧数
 };
 
 #endif // CLIENTHANDLERWORKER_H

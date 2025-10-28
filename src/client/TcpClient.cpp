@@ -28,11 +28,11 @@ TcpClient::TcpClient(QObject* parent)
         this, &TcpClient::onError);
 
     // 心跳定时器设置
-    m_heartbeatTimer->setInterval(HEARTBEAT_INTERVAL);
+    m_heartbeatTimer->setInterval(NetworkConstants::HEARTBEAT_INTERVAL);
     connect(m_heartbeatTimer, &QTimer::timeout, this, &TcpClient::sendHeartbeat);
 
     // 心跳超时检查定时器设置
-    m_heartbeatCheckTimer->setInterval(HEARTBEAT_TIMEOUT);
+    m_heartbeatCheckTimer->setInterval(NetworkConstants::HEARTBEAT_TIMEOUT);
     connect(m_heartbeatCheckTimer, &QTimer::timeout, this, &TcpClient::checkHeartbeat);
 }
 
@@ -146,9 +146,9 @@ void TcpClient::onConnected() {
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << "TcpClient::onConnected - TCP connection established";
 
     // 设置TCP优化选项
-    m_socket->setSocketOption(QAbstractSocket::LowDelayOption, 1);  // TCP_NODELAY
-    m_socket->setSocketOption(QAbstractSocket::SendBufferSizeSocketOption, 256 * 1024);  // 256KB发送缓冲区
-    m_socket->setSocketOption(QAbstractSocket::ReceiveBufferSizeSocketOption, 256 * 1024);  // 256KB接收缓冲区
+    m_socket->setSocketOption(QAbstractSocket::LowDelayOption, NetworkConstants::TCP_NODELAY_ENABLED);
+    m_socket->setSocketOption(QAbstractSocket::SendBufferSizeSocketOption, NetworkConstants::SOCKET_SEND_BUFFER_SIZE);
+    m_socket->setSocketOption(QAbstractSocket::ReceiveBufferSizeSocketOption, NetworkConstants::SOCKET_RECEIVE_BUFFER_SIZE);
 
     // 发送握手请求
     sendHandshakeRequest();
@@ -221,13 +221,46 @@ void TcpClient::onReadyRead() {
     // - 支持粘包/半包：循环解析，若数据不足一个完整帧则等待更多数据。
     // - 解析与消费：使用 Protocol::parseMessage 解析当前缓冲区首帧，成功后按帧长从缓冲区移除（SERIALIZED_HEADER_SIZE + header.length）。
     // - 重同步机制：连续解析失败达阈值时，小步丢弃1字节尝试重同步，避免异常数据卡死；仍保留最大包长防护。
-    QByteArray data = m_socket->readAll();
-    m_receiveBuffer.append(data);
+    // - 大数据优化：分批读取数据，避免一次性读取过大数据导致内存问题
+
+    constexpr qint64 kMaxReadChunkSize = 64 * 1024; // 每次最多读取64KB
+    constexpr qint64 kMaxBufferSize = 10 * 1024 * 1024; // 缓冲区最大10MB
+
+    // 分批读取数据，避免一次性读取过大
+    qint64 bytesAvailable = m_socket->bytesAvailable();
+    while ( bytesAvailable > 0 ) {
+        qint64 bytesToRead = qMin(bytesAvailable, kMaxReadChunkSize);
+        QByteArray data = m_socket->read(bytesToRead);
+
+        if ( data.isEmpty() ) {
+            break; // 没有更多数据可读
+        }
+
+        // 检查缓冲区大小，防止无限增长
+        if ( m_receiveBuffer.size() + data.size() > kMaxBufferSize ) {
+            qCCritical(lcClient) << "接收缓冲区超过最大限制:" << kMaxBufferSize
+                << "当前大小:" << m_receiveBuffer.size()
+                << "新增数据:" << data.size();
+            abort(); // 缓冲区溢出，中止连接
+            return;
+        }
+
+        m_receiveBuffer.append(data);
+        bytesAvailable = m_socket->bytesAvailable();
+    }
+
     m_lastHeartbeat = QDateTime::currentDateTime();
 
     constexpr int kMaxResyncAttempts = 4; // 与服务端保持一致的保守阈值
+    int processedMessages = 0; // 统计本次处理的消息数
 
     while ( m_receiveBuffer.size() >= static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) ) {
+
+        // 减少日志输出频率，仅在处理第一个消息或大数据包时输出
+        if ( processedMessages == 0 || m_receiveBuffer.size() > 1024 * 1024 ) {
+            qCDebug(lcClient) << "TcpClient::onReadyRead - 缓冲区大小:" << m_receiveBuffer.size();
+        }
+
         MessageHeader header;
         QByteArray payload;
         const bool ok = Protocol::parseMessage(m_receiveBuffer, header, payload);
@@ -235,6 +268,7 @@ void TcpClient::onReadyRead() {
             // 半包或错误：先视为数据不足；若连续失败过多，尝试小步丢弃重同步
             m_parseFailCount++;
             if ( m_parseFailCount >= kMaxResyncAttempts ) {
+                qCWarning(lcClient) << "连续解析失败" << m_parseFailCount << "次，尝试重同步";
                 m_receiveBuffer.remove(0, 1);
                 m_parseFailCount = 0;
                 continue; // 继续尝试解析
@@ -255,7 +289,7 @@ void TcpClient::onReadyRead() {
 
         // 分发处理
         processMessage(header, payload);
-        emit messageReceived(header.type, payload);
+        processedMessages++;
 
         // 精确移除已处理的帧
         const qsizetype consumed = static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) + static_cast<qsizetype>(header.length);
@@ -263,10 +297,21 @@ void TcpClient::onReadyRead() {
             m_receiveBuffer.remove(0, consumed);
         } else {
             // 防御性处理：异常则清空缓冲并退出循环
+            qCWarning(lcClient) << "消息帧大小异常，清空缓冲区";
             m_receiveBuffer.clear();
             break;
         }
+
+        // 如果已处理多个消息，给其他事件处理机会
+        if ( processedMessages >= 10 ) {
+            qCDebug(lcClient) << "已处理" << processedMessages << "个消息，暂停解析等待下次readyRead";
+            break;
+        }
     }
+
+    // if ( processedMessages > 0 ) {
+    //     qCDebug(lcClient) << "本次readyRead处理了" << processedMessages << "个消息，剩余缓冲:" << m_receiveBuffer.size();
+    // }
 }
 
 void TcpClient::sendHeartbeat() {
@@ -420,12 +465,12 @@ void TcpClient::handleStatusUpdate(const QByteArray& data) {
  *
  * 该方法负责解码服务器发送的ScreenData格式数据，
  * 提取图像数据并转换为QImage格式供UI显示使用。
- * 
+ *
  * 数据格式说明：
- * - Server端发送RGB32格式的原始像素数据（RAW format）
- * - 每像素4字节（R, G, B, A）
- * - 数据已在DataProcessingWorker中转换为RGB32格式
- * - 不使用任何压缩算法，直接传输原始像素数据
+ * - Server端发送JPG格式的压缩图像数据
+ * - 数据已在DataProcessingWorker中编码为JPG格式（质量85）
+ * - 使用QImage::loadFromData直接加载JPG数据
+ * - JPG格式提供了良好的压缩率，减少网络传输数据量
  */
 void TcpClient::handleScreenData(const QByteArray& data) {
     // 更新总帧数统计
@@ -445,6 +490,11 @@ void TcpClient::handleScreenData(const QByteArray& data) {
 
         return;
     }
+
+    // 调试日志：记录解码后的信息
+    // qCDebug(lcClient) << "ScreenData解码成功 - 尺寸:" << screenData.width << "x" << screenData.height
+    //     << "数据大小:" << screenData.dataSize << "bytes"
+    //     << "imageData大小:" << screenData.imageData.size() << "bytes";
 
     // 验证数据完整性
     if ( screenData.imageData.isEmpty() || screenData.dataSize == 0 ) {
@@ -468,68 +518,53 @@ void TcpClient::handleScreenData(const QByteArray& data) {
         return;
     }
 
+    // 验证JPG格式头部（JPG文件以0xFF 0xD8开头）
+    if ( screenData.imageData.size() >= 2 ) {
+        unsigned char byte0 = static_cast<unsigned char>(screenData.imageData[0]);
+        unsigned char byte1 = static_cast<unsigned char>(screenData.imageData[1]);
+        if ( byte0 != 0xFF || byte1 != 0xD8 ) {
+            qCWarning(lcClient) << "接收到的数据不是有效的JPG格式，前2字节:"
+                << QString("0x%1 0x%2").arg(byte0, 2, 16, QChar('0')).arg(byte1, 2, 16, QChar('0'));
+        } else {
+            // qCDebug(lcClient) << "JPG格式验证通过";
+        }
+    }
+
     QByteArray frameData;
     {
         QMutexLocker locker(m_frameDataMutex);
-
-        // 直接使用接收到的数据（不进行差异处理）
+        // 直接使用接收到的JPG数据
         frameData = screenData.imageData;
         m_previousFrameData = screenData.imageData;
     }
 
-    // 将处理后的字节数组转换为QImage
+    // 从JPG格式数据加载QImage
     QImage frame;
-    bool loaded = false;
-
-    // 直接使用原始像素数据（RAW格式 - RGB32）
-    // Server端在DataProcessingWorker::encodeImageParallel中已转换为RGB32格式
-    int x = screenData.x;          // 图像起始X坐标（当前server发送全屏，固定为0）
-    int y = screenData.y;          // 图像起始Y坐标（当前server发送全屏，固定为0）
-    int width = screenData.width;  // 图像宽度
-    int height = screenData.height; // 图像高度
-    int expectedSize = width * height * 4; // RGB32格式，每像素4字节
-
-    if ( frameData.size() >= expectedSize ) {
-        // 从原始像素数据创建 QImage
-        // QImage构造函数参数：数据指针、宽度、高度、每行字节数、格式
-        // 注意：此构造函数不会复制数据，只是引用，所以需要后续调用copy()
-        frame = QImage(reinterpret_cast<const uchar*>(frameData.constData()),
-            width, height, width * 4, QImage::Format_RGB32);
-
-        if ( !frame.isNull() ) {
-            // 必须深拷贝，确保数据独立于frameData的生命周期
-            frame = frame.copy();
-            loaded = true;
-            
-            // 注：当前server发送全屏数据(x=0, y=0)，未来如支持区域更新，
-            // 需要在此处理x, y坐标，将局部图像合成到完整画面中
-            Q_UNUSED(x);  // 当前未使用，预留用于未来区域更新功能
-            Q_UNUSED(y);
-        }
-    } else {
-        qCWarning(lcClient) << "原始像素数据大小不匹配，期望:" << expectedSize
-            << "实际:" << frameData.size()
-            << "尺寸:" << width << "x" << height;
-    }
+    bool loaded = frame.loadFromData(frameData, "JPG");
 
     if ( loaded && !frame.isNull() ) {
         // 成功加载图像
+        qCDebug(lcClient) << "JPG图像加载成功，尺寸:" << frame.width() << "x" << frame.height()
+            << "格式:" << frame.format()
+            << "压缩数据大小:" << frameData.size() << "bytes";
+
         // 发出信号，传递屏幕数据给UI（QImage，线程安全）
         emit screenDataReceived(frame);
     } else {
-        QString errorDetails = QString("Frame data size: %1, dimensions: %2x%3")
+        QString errorDetails = QString("Frame data size: %1, dimensions: %2x%3, JPG header: %4")
             .arg(frameData.size())
             .arg(screenData.width)
-            .arg(screenData.height);
+            .arg(screenData.height)
+            .arg(QString(frameData.left(16).toHex()));
         recordImageLoadFailure(errorDetails);
         QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient)
-            << "Failed to load image from frame data, size:" << frameData.size()
+            << "Failed to load JPG image from frame data, size:" << frameData.size()
             << "first 16 bytes:" << frameData.left(16).toHex();
     }
 }
 
 void TcpClient::checkHeartbeat() {
-    if ( m_lastHeartbeat.secsTo(QDateTime::currentDateTime()) > HEARTBEAT_TIMEOUT / 1000 ) {
+    if ( m_lastHeartbeat.secsTo(QDateTime::currentDateTime()) > NetworkConstants::HEARTBEAT_TIMEOUT / 1000 ) {
         emit errorOccurred("心跳超时");
         disconnectFromHost();
     }

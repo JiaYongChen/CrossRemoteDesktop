@@ -69,9 +69,9 @@ bool ClientHandlerWorker::initialize() {
     }
 
     // 设置TCP优化选项
-    m_socket->setSocketOption(QAbstractSocket::LowDelayOption, 1);  // TCP_NODELAY
-    m_socket->setSocketOption(QAbstractSocket::SendBufferSizeSocketOption, 256 * 1024);  // 256KB发送缓冲区
-    m_socket->setSocketOption(QAbstractSocket::ReceiveBufferSizeSocketOption, 256 * 1024);  // 256KB接收缓冲区
+    m_socket->setSocketOption(QAbstractSocket::LowDelayOption, NetworkConstants::TCP_NODELAY_ENABLED);
+    m_socket->setSocketOption(QAbstractSocket::SendBufferSizeSocketOption, NetworkConstants::SOCKET_SEND_BUFFER_SIZE);
+    m_socket->setSocketOption(QAbstractSocket::ReceiveBufferSizeSocketOption, NetworkConstants::SOCKET_RECEIVE_BUFFER_SIZE);
 
     // 获取客户端信息
     {
@@ -174,10 +174,16 @@ void ClientHandlerWorker::sendScreenDataFromQueue() {
     // 批量处理队列中的数据（每次最多处理指定数量）
     int processedCount = 0;
 
-    while ( processedCount < m_maxFramesPerCycle ) {
+    while ( processedCount < NetworkConstants::MAX_FRAMES_PER_CYCLE ) {
         ProcessedData processedData;
         if ( !processedQueue->tryDequeue(processedData) ) {
             break; // 队列为空
+        }
+
+        // 验证数据有效性
+        if ( !processedData.isValid() ) {
+            qCWarning(clientHandlerWorker) << "ProcessedData无效，跳过发送，帧ID:" << processedData.originalFrameId;
+            continue;
         }
 
         // 创建ScreenData消息
@@ -189,14 +195,28 @@ void ClientHandlerWorker::sendScreenDataFromQueue() {
         screenData.height = processedData.imageSize.height();
         screenData.dataSize = processedData.compressedData.size();
 
+        // 调试日志：记录屏幕数据信息
+        // qCDebug(clientHandlerWorker) << "发送屏幕数据 - 尺寸:" << screenData.width << "x" << screenData.height
+        //     << "数据大小:" << screenData.dataSize << "bytes"
+        //     << "帧ID:" << processedData.originalFrameId;
+
         // 预先编码消息,然后发送
         QByteArray messageData = Protocol::createMessage(MessageType::SCREEN_DATA, screenData);
+
+        if ( messageData.isEmpty() ) {
+            qCWarning(clientHandlerWorker) << "消息编码失败，messageData为空";
+            continue;
+        }
 
         // 直接调用sendEncodedMessage(同步发送,在当前线程)
         sendEncodedMessage(messageData);
 
         processedCount++;
     }
+
+    // if ( processedCount > 0 ) {
+    //     qCDebug(clientHandlerWorker) << "本周期发送了" << processedCount << "帧";
+    // }
 }
 
 QString ClientHandlerWorker::clientAddress() const {
@@ -285,61 +305,32 @@ void ClientHandlerWorker::sendEncodedMessage(const QByteArray& messageData) {
     }
 
     try {
-        // 检查消息大小，对于大消息进行分块发送
-        const qint64 CHUNK_SIZE = 64 * 1024; // 64KB分块
-        const qint64 LARGE_MESSAGE_THRESHOLD = 1024 * 1024; // 1MB阈值
-
+        // 直接发送完整消息，让TCP层处理分段
+        // 注意：协议层的加密消息是一个完整单元，不能在应用层分块
+        // TCP会自动处理大消息的分段和重组
         qint64 totalSize = messageData.size();
-        qint64 totalBytesSent = 0;
+        qint64 bytesWritten = m_socket->write(messageData);
 
-        if ( totalSize > LARGE_MESSAGE_THRESHOLD ) {
-            // 只在发送大消息时记录日志
-            qCDebug(clientHandlerWorker) << "发送大消息:" << totalSize << "bytes，使用分块发送";
-
-            // 分块发送大消息
-            qint64 offset = 0;
-            while ( offset < totalSize ) {
-                qint64 chunkSize = qMin(CHUNK_SIZE, totalSize - offset);
-                qint64 bytesWritten = m_socket->write(messageData.constData() + offset, chunkSize);
-
-                if ( bytesWritten == -1 ) {
-                    qCWarning(clientHandlerWorker, "发送消息块失败: %s", qPrintable(m_socket->errorString()));
-                    return;
-                }
-
-                if ( bytesWritten != chunkSize ) {
-                    qCWarning(clientHandlerWorker, "消息块部分发送: 期望 %lld bytes，实际 %lld bytes", chunkSize, bytesWritten);
-                }
-
-                offset += bytesWritten;
-                totalBytesSent += bytesWritten;
-
-                // 等待数据写入完成，避免缓冲区溢出
-                if ( !m_socket->waitForBytesWritten(5000) ) {
-                    qCWarning(clientHandlerWorker, "等待数据写入超时");
-                    break;
-                }
-            }
-        } else {
-            // 小消息直接发送
-            qint64 bytesWritten = m_socket->write(messageData);
-
-            if ( bytesWritten == -1 ) {
-                qCWarning(clientHandlerWorker) << "发送消息失败:" << m_socket->errorString();
-                return;
-            }
-
-            if ( bytesWritten != totalSize ) {
-                qCWarning(clientHandlerWorker) << "消息部分发送: 期望" << totalSize << "bytes，实际" << bytesWritten << "bytes";
-            }
-
-            totalBytesSent = bytesWritten;
+        if ( bytesWritten == -1 ) {
+            qCWarning(clientHandlerWorker) << "发送消息失败:" << m_socket->errorString();
+            return;
         }
 
-        // 更新统计信息
-        if ( totalBytesSent > 0 ) {
+        if ( bytesWritten != totalSize ) {
+            qCWarning(clientHandlerWorker) << "消息部分发送: 期望" << totalSize << "bytes，实际" << bytesWritten << "bytes";
+            // 注意：部分发送不是错误，剩余数据会在socket的写缓冲区中排队
+            // Qt会在缓冲区可用时自动继续发送
+        }
+
+        // 对于大消息（>1MB），记录日志
+        if ( totalSize > 1024 * 1024 ) {
+            qCDebug(clientHandlerWorker) << "发送大消息:" << totalSize << "bytes";
+        }
+
+        // 更新统计信息（按写入的字节数，不是消息大小）
+        if ( bytesWritten > 0 ) {
             QMutexLocker locker(&m_statsMutex);
-            m_bytesSent += totalBytesSent;
+            m_bytesSent += bytesWritten;
         }
 
     } catch ( const std::exception& e ) {
@@ -375,10 +366,6 @@ void ClientHandlerWorker::forceDisconnect() {
 
     if ( m_socket ) {
         m_socket->abort();
-        // socket->abort() 会触发 disconnected 信号,
-        // disconnected 信号会调用 onDisconnected(),
-        // onDisconnected() 会发送 disconnected 信号给 ClientHandler,
-        // ClientHandler 会调用 stop() 来停止 Worker
         qCDebug(clientHandlerWorker) << "Socket已abort,等待disconnected信号触发清理";
     } else {
         // 如果socket为空,直接发送disconnected信号（使用标志避免重复）
@@ -396,17 +383,44 @@ void ClientHandlerWorker::onReadyRead() {
         return;
     }
 
-    QByteArray newData = m_socket->readAll();
-    if ( newData.isEmpty() ) {
+    constexpr qint64 kMaxReadChunkSize = 64 * 1024; // 每次最多读取64KB
+    constexpr qint64 kMaxBufferSize = 10 * 1024 * 1024; // 缓冲区最大10MB
+
+    // 分批读取数据，避免一次性读取过大
+    qint64 bytesAvailable = m_socket->bytesAvailable();
+    qint64 totalBytesRead = 0;
+
+    while ( bytesAvailable > 0 ) {
+        qint64 bytesToRead = qMin(bytesAvailable, kMaxReadChunkSize);
+        QByteArray newData = m_socket->read(bytesToRead);
+
+        if ( newData.isEmpty() ) {
+            break; // 没有更多数据可读
+        }
+
+        // 检查缓冲区大小，防止无限增长
+        if ( m_receiveBuffer.size() + newData.size() > kMaxBufferSize ) {
+            qCCritical(clientHandlerWorker, "接收缓冲区超过最大限制: %lld，当前大小: %lld，新增数据: %lld",
+                kMaxBufferSize, static_cast<qint64>(m_receiveBuffer.size()), static_cast<qint64>(newData.size()));
+            forceDisconnect();
+            return;
+        }
+
+        totalBytesRead += newData.size();
+        m_receiveBuffer.append(newData);
+        bytesAvailable = m_socket->bytesAvailable();
+    }
+
+    if ( totalBytesRead == 0 ) {
         return;
     }
 
     {
         QMutexLocker locker(&m_statsMutex);
-        m_bytesReceived += newData.size();
+        m_bytesReceived += totalBytesRead;
     }
 
-    m_receiveBuffer.append(newData);
+    int processedMessages = 0; // 统计本次处理的消息数
 
     // 处理缓冲区中的完整消息
     while ( m_receiveBuffer.size() >= static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) ) {
@@ -443,6 +457,17 @@ void ClientHandlerWorker::onReadyRead() {
 
         // 处理消息
         processMessage(header, payload);
+        processedMessages++;
+
+        // 如果已处理多个消息，给其他事件处理机会
+        if ( processedMessages >= 10 ) {
+            qCDebug(clientHandlerWorker) << "已处理" << processedMessages << "个消息，暂停解析等待下次readyRead";
+            break;
+        }
+    }
+
+    if ( processedMessages > 0 && m_receiveBuffer.size() > 1024 ) {
+        qCDebug(clientHandlerWorker) << "本次readyRead处理了" << processedMessages << "个消息，剩余缓冲:" << m_receiveBuffer.size();
     }
 }
 

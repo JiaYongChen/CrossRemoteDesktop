@@ -3,107 +3,69 @@
 
 #include <QtGui/QColor>
 
+/**
+ * @brief UI相关常量定义类
+ * 
+ * 提供用户界面相关的常量定义，包括窗口尺寸、颜色、动画等。
+ * 对于通用的输入、帧率等常量，请参考 CoreConstants。
+ */
 class UIConstants {
 public:
-    // 文件大小常量
-    static const int DEFAULT_MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-    static const int MAX_FRAME_SIZE = 10 * 1024 * 1024;        // 10MB
+    // ==================== 窗口尺寸常量 ====================
+    static const int MIN_WINDOW_WIDTH = 800;              ///< 最小窗口宽度
+    static const int MIN_WINDOW_HEIGHT = 600;             ///< 最小窗口高度
+    static const int DEFAULT_WINDOW_WIDTH = 1024;         ///< 默认窗口宽度
+    static const int DEFAULT_WINDOW_HEIGHT = 768;         ///< 默认窗口高度
+    static const int MAIN_WINDOW_WIDTH = 1200;            ///< 主窗口宽度
+    static const int MAIN_WINDOW_HEIGHT = 800;            ///< 主窗口高度
+    static const int CONNECTION_DIALOG_WIDTH = 400;       ///< 连接对话框宽度
+    static const int CONNECTION_DIALOG_HEIGHT = 300;      ///< 连接对话框高度
 
-    static const int STREAM_BUFFER_SIZE = 4096;
-    static const int IMAGE_BUFFER_SIZE = 16384;
+    // ==================== 显示分辨率常量 ====================
+    static const int MAX_DISPLAY_WIDTH = 1920;            ///< 最大显示宽度
+    static const int MAX_DISPLAY_HEIGHT = 1080;           ///< 最大显示高度
 
-    // 窗口尺寸常量
-    static const int MIN_WINDOW_WIDTH = 800;
-    static const int MIN_WINDOW_HEIGHT = 600;
-    static const int DEFAULT_WINDOW_WIDTH = 1024;
-    static const int DEFAULT_WINDOW_HEIGHT = 768;
-    static const int MAIN_WINDOW_WIDTH = 1200;
-    static const int MAIN_WINDOW_HEIGHT = 800;
-    static const int CONNECTION_DIALOG_WIDTH = 400;
-    static const int CONNECTION_DIALOG_HEIGHT = 300;
+    // ==================== 历史记录常量 ====================
+    static const int MAX_CONNECTION_HISTORY = 20;         ///< 最大连接历史记录数
 
-    // 显示分辨率常量
-    static const int MAX_DISPLAY_WIDTH = 1920;
-    static const int MAX_DISPLAY_HEIGHT = 1080;
+    // ==================== 会话管理常量 ====================
+    static const int STATS_UPDATE_INTERVAL = 500;         ///< 统计更新间隔 500ms
+    static const int MAX_FRAME_HISTORY = 60;              ///< 保留60帧的时间记录
 
-    // 历史记录常量
-    static const int MAX_CONNECTION_HISTORY = 20;
+    // ==================== 输入处理常量（UI特定） ====================
+    static const int DEFAULT_INPUT_BUFFER_SIZE = 100;     ///< 输入缓冲区大小
+    static const int DEFAULT_INPUT_FLUSH_INTERVAL = 10;   ///< 输入刷新间隔 10ms
+    static const int MAX_PROCESSING_TIMES_HISTORY = 1000; ///< 保留1000次处理时间记录
 
-    // 会话管理常量
-    static const int STATS_UPDATE_INTERVAL = 500; // 500毫秒 - 提高统计更新频率
-    static const int MAX_FRAME_HISTORY = 60; // 保留60帧的时间记录
+    // ==================== 服务器端口常量 ====================
+    static const int DEFAULT_SERVER_PORT = 5901;          ///< 默认服务器端口（避免与VNC 5900冲突）
+    static const int MIN_SERVER_PORT = 1024;              ///< 最小端口号
+    static const int MAX_SERVER_PORT = 65535;             ///< 最大端口号
 
-    // 屏幕捕获常量
-    static const int DEFAULT_FRAME_RATE = 60; // 默认60 FPS
-    static const int MIN_FRAME_RATE = 1;
-    static const int MAX_FRAME_RATE = 120;
-    static const int DEBUG_LOG_INTERVAL = 100; // 每100帧输出一次调试信息
-    static const int FAILURE_LOG_INTERVAL = 10; // 每10次失败输出一次调试信息
-    static const int MILLISECONDS_PER_SECOND = 1000;
+    // ==================== 颜色常量 ====================
+    static const QColor LIGHT_GRAY_COLOR;                 ///< 浅灰色
+    static const QColor WHITE_COLOR;                      ///< 白色
+    static const QColor MEDIUM_GRAY_COLOR;                ///< 中灰色
 
-    // 输入处理常量
-    static const int DEFAULT_INPUT_BUFFER_SIZE = 100;
-    static const int DEFAULT_INPUT_FLUSH_INTERVAL = 10; // 毫秒
-    static const int MAX_PROCESSING_TIMES_HISTORY = 1000; // 保留1000次处理时间记录
-
-    // 输入模拟器常量
-    static const int DEFAULT_MOUSE_SPEED = 5;
-    static const int DEFAULT_KEYBOARD_DELAY = 10; // 毫秒
-    static const int DEFAULT_MOUSE_DELAY = 10; // 毫秒
-    static const int MAX_KEY_VALUE = 0xFFFF; // 最大键值
-
-    // 网络连接常量
-    static const int DEFAULT_MAX_CLIENTS = 1;
-    static const int CLEANUP_TIMER_INTERVAL = 1000; // 1秒，清理断开连接的客户端
-
-    // 服务器端口常量
-    static const int DEFAULT_SERVER_PORT = 5901; // 默认服务器端口，避免与系统VNC(5900)冲突
-    static const int MIN_SERVER_PORT = 1024; // 最小端口号（避免系统保留端口）
-    static const int MAX_SERVER_PORT = 65535; // 最大端口号
-
-    // 颜色常量
-    static const QColor LIGHT_GRAY_COLOR;
-    static const QColor WHITE_COLOR;
-    static const QColor MEDIUM_GRAY_COLOR;
-
-    // 动画常量
-    static const double PULSE_MULTIPLIER;
-    static const double PULSE_DIVISOR;
-    static const int PULSE_BASE_ALPHA;
-    static const int PULSE_AMPLITUDE;
+    // ==================== 动画常量 ====================
+    static const double PULSE_MULTIPLIER;                 ///< 脉冲倍数
+    static const double PULSE_DIVISOR;                    ///< 脉冲除数
+    static const int PULSE_BASE_ALPHA;                    ///< 脉冲基础透明度
+    static const int PULSE_AMPLITUDE;                     ///< 脉冲振幅
 
 private:
     UIConstants() = delete; // 禁止实例化
 };
 
-// 内联定义颜色常量
+// ==================== 内联定义颜色常量 ====================
 inline const QColor UIConstants::LIGHT_GRAY_COLOR(200, 200, 200);
 inline const QColor UIConstants::WHITE_COLOR(255, 255, 255);
 inline const QColor UIConstants::MEDIUM_GRAY_COLOR(150, 150, 150);
 
+// ==================== 内联定义动画常量 ====================
 inline const double UIConstants::PULSE_MULTIPLIER = 100.0;
 inline const double UIConstants::PULSE_DIVISOR = 30.0;
 inline const int UIConstants::PULSE_BASE_ALPHA = 100;
 inline const int UIConstants::PULSE_AMPLITUDE = 100;
-
-// 内联定义整型常量
-inline const int UIConstants::DEFAULT_FRAME_RATE;
-inline const int UIConstants::MIN_FRAME_RATE;
-inline const int UIConstants::MAX_FRAME_RATE;
-inline const int UIConstants::DEBUG_LOG_INTERVAL;
-inline const int UIConstants::FAILURE_LOG_INTERVAL;
-inline const int UIConstants::MILLISECONDS_PER_SECOND;
-inline const int UIConstants::DEFAULT_INPUT_BUFFER_SIZE;
-inline const int UIConstants::DEFAULT_INPUT_FLUSH_INTERVAL;
-inline const int UIConstants::MAX_PROCESSING_TIMES_HISTORY;
-inline const int UIConstants::DEFAULT_MOUSE_SPEED;
-inline const int UIConstants::DEFAULT_KEYBOARD_DELAY;
-inline const int UIConstants::DEFAULT_MOUSE_DELAY;
-inline const int UIConstants::MAX_KEY_VALUE;
-inline const int UIConstants::DEFAULT_MAX_CLIENTS;
-inline const int UIConstants::CLEANUP_TIMER_INTERVAL;
-inline const int UIConstants::DEFAULT_SERVER_PORT;
-inline const int UIConstants::MIN_SERVER_PORT;
-inline const int UIConstants::MAX_SERVER_PORT;
 
 #endif // UICONSTANTS_H

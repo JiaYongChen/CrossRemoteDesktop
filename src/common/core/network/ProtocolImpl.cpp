@@ -36,38 +36,61 @@ QByteArray Protocol::createMessage(MessageType type, const IMessageCodec& messag
 }
 
 bool Protocol::parseMessage(const QByteArray& data, MessageHeader& header, QByteArray& payload) {
-    // 检查数据是否足够包含header
+    // parseMessage 是 createMessage 的逆过程
+    // createMessage 流程：
+    // 1. payload = message.encode() (未加密)
+    // 2. 创建 header，header.length = payload.size() (未加密大小)
+    // 3. headerData = header.encode() (未加密)
+    // 4. messageData = headerData + payload (未加密)
+    // 5. encryptedData = encryptData(messageData) (一次性加密整个消息)
+    //
+    // parseMessage 流程（逆向）：
+    // 1. 检查是否有足够的数据包含加密的 header
+    // 2. 先解密 header，获取 payload 长度（未加密长度）
+    // 3. 计算完整加密消息的大小 = SERIALIZED_HEADER_SIZE + header.length
+    //    （因为 XOR 加密长度不变，加密后大小 = 加密前大小）
+    // 4. 解密整个消息（header + payload）
+    // 5. 从解密后的消息中提取 header 和 payload
+    // 6. 验证消息的完整性
+
+    // 步骤1：检查数据是否足够包含加密的header
     if ( data.size() < static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) ) {
-        return false;
+        return false; // 等待更多数据
     }
 
-    // 先解密header，读取消息长度
+    // 步骤2：先解密header，读取payload长度
+    // 注意：这里只解密header部分来读取消息元数据
     QByteArray encryptedHeader = data.left(static_cast<qsizetype>(SERIALIZED_HEADER_SIZE));
     QByteArray decryptedHeader = decryptData(encryptedHeader, Protocol::XORkey);
 
     // 反序列化消息头
-    if ( header.decode(decryptedHeader) == false ) {
+    if ( !header.decode(decryptedHeader) ) {
         return false;
     }
 
-    // 计算完整消息需要的大小
-    qsizetype expectedSize = static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) + header.length;
+    // 步骤3：计算完整加密消息需要的大小
+    // 因为 XOR 加密长度不变：
+    // - 未加密消息大小 = SERIALIZED_HEADER_SIZE + header.length
+    // - 加密后消息大小 = SERIALIZED_HEADER_SIZE + header.length (长度相同)
+    qsizetype totalEncryptedSize = static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) + static_cast<qsizetype>(header.length);
 
-    // 如果数据不够完整消息，等待更多数据
-    if ( data.size() < expectedSize ) {
-        return false;
+    // 步骤4：如果数据不够完整消息，等待更多数据
+    if ( data.size() < totalEncryptedSize ) {
+        return false; // 半包，等待更多数据
     }
 
-    // 关键修复：解密整个消息（header+payload），然后提取payload
-    // 这样可以保证XOR key的使用是连续的
-    QByteArray encryptedMessage = data.left(expectedSize);
+    // 步骤5：解密整个消息（header+payload）
+    // 重要：必须一次性解密整个消息，以保证 XOR key 的连续性
+    // 这与 createMessage 中的 encryptData(headerData + payload) 对应
+    QByteArray encryptedMessage = data.left(totalEncryptedSize);
     QByteArray decryptedMessage = decryptData(encryptedMessage, Protocol::XORkey);
     
-    // 从解密后的完整消息中提取payload
+    // 步骤6：从解密后的完整消息中提取 payload
+    // decryptedMessage = [decrypted_header][decrypted_payload]
     payload = decryptedMessage.mid(static_cast<qsizetype>(SERIALIZED_HEADER_SIZE));
 
-    // 验证消息
-    if ( validateMessage(header, payload) == false ) {
+    // 步骤7：验证消息的完整性（魔数、版本、长度、校验和）
+    if ( !validateMessage(header, payload) ) {
         return false;
     }
 

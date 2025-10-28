@@ -11,6 +11,7 @@
  *
  * 提供系统级别的常量定义，按功能模块分组管理。
  * 使用命名空间和结构体提供更好的类型安全性和组织结构。
+ *
  */
 class CoreConstants : public QObject {
     Q_OBJECT
@@ -61,37 +62,10 @@ public:
      * @brief 输入处理相关常量
      */
     struct Input {
-        static constexpr int DEFAULT_INPUT_BUFFER_SIZE = 1024;          ///< 默认输入缓冲区大小
-        static constexpr int DEFAULT_INPUT_FLUSH_INTERVAL = 16;         ///< 默认输入刷新间隔 16ms
-        static constexpr int MAX_PROCESSING_TIMES_HISTORY = 100;        ///< 最大处理时间历史记录数
         static constexpr int DEFAULT_MOUSE_SPEED = 5;                   ///< 默认鼠标速度 px/step
         static constexpr int DEFAULT_KEYBOARD_DELAY = 50;               ///< 默认键盘延迟 ms
         static constexpr int DEFAULT_MOUSE_DELAY = 10;                  ///< 默认鼠标延迟 ms
         static constexpr int MAX_KEY_VALUE = 255;                       ///< 最大按键值
-    };
-
-    /**
-     * @brief 服务器相关常量
-     */
-    struct Server {
-        static constexpr int DEFAULT_MAX_CLIENTS = 10;                  ///< 默认最大客户端数
-        static constexpr int CLEANUP_TIMER_INTERVAL = 30000;            ///< 清理定时器间隔 30s
-        static constexpr int DEFAULT_PORT = 8080;                       ///< 默认端口
-        static constexpr int CONNECTION_TIMEOUT = 30000;                ///< 连接超时时间 30s
-    };
-
-    /**
-     * @brief 网络相关常量
-     */
-    struct Network {
-        static constexpr int DEFAULT_PORT = 8080;                       ///< 默认端口
-        static constexpr int MAX_CONNECTIONS = 100;                     ///< 最大连接数
-        static constexpr int CONNECTION_TIMEOUT_MS = 30000;             ///< 连接超时时间 30s
-        static constexpr int HEARTBEAT_INTERVAL_MS = 5000;              ///< 心跳间隔 5s
-        static constexpr int SOCKET_BUFFER_SIZE = 64 * 1024;            ///< Socket缓冲区大小 64KB
-        static constexpr int MAX_PACKET_SIZE = 1024 * 1024;             ///< 最大数据包大小 1MB
-        static constexpr int RECONNECT_DELAY_MS = 1000;                 ///< 重连延迟 1s
-        static constexpr int MAX_RECONNECT_ATTEMPTS = 5;                ///< 最大重连次数
     };
 
     /**

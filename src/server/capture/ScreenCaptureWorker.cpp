@@ -271,7 +271,7 @@ void ScreenCaptureWorker::performCapture() {
             frame.timestamp = QDateTime::fromMSecsSinceEpoch(timestamp);
             frame.frameId = m_stats.totalFramesCaptured;
             frame.originalSize = capturedImage.size();
-
+            
             auto captureQueue = m_queueManager->getCaptureQueue();
             if ( captureQueue ) {
                 // 使用丢弃旧帧策略入队，当队列满时自动丢弃最旧的帧
