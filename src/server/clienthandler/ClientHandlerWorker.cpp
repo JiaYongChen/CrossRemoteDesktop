@@ -166,14 +166,14 @@ void ClientHandlerWorker::processTask() {
 }
 
 void ClientHandlerWorker::sendScreenDataFromQueue() {
-    auto processedQueue = m_queueManager->getProcessedQueue();
-    if ( !processedQueue ) {
+    if ( !m_queueManager ) {
         return;
     }
 
     // 每次只发送一条数据，取消批处理
     ProcessedData processedData;
-    if ( !processedQueue->tryDequeue(processedData) ) {
+    // 使用 QueueManager 统一接口出队
+    if ( !m_queueManager->dequeueProcessedData(processedData) ) {
         return; // 队列为空
     }
 

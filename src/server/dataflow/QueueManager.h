@@ -64,18 +64,6 @@ public:
     void cleanup();
 
     /**
-     * @brief 获取捕获队列
-     * @return 捕获队列指针
-     */
-    ThreadSafeQueue<CapturedFrame>* getCaptureQueue();
-
-    /**
-     * @brief 获取处理队列
-     * @return 处理队列指针
-     */
-    ThreadSafeQueue<ProcessedData>* getProcessedQueue();
-
-    /**
      * @brief 获取队列统计信息
      * @param type 队列类型
      * @return 队列统计信息
@@ -130,6 +118,36 @@ public:
      * 立即更新所有队列的统计信息，主要用于测试场景。
      */
     void forceUpdateStats();
+
+    // ==================== 统一的入队和出队接口 ====================
+
+    /**
+     * @brief 捕获队列入队
+     * @param frame 要入队的捕获帧
+     * @return true 入队成功，false 入队失败
+     */
+    bool enqueueCapturedFrame(const CapturedFrame& frame);
+
+    /**
+     * @brief 捕获队列出队
+     * @param frame 用于接收出队帧的引用
+     * @return true 出队成功，false 队列已停止
+     */
+    bool dequeueCapturedFrame(CapturedFrame& frame);
+
+    /**
+     * @brief 处理队列入队
+     * @param data 要入队的处理数据
+     * @return true 入队成功，false 入队失败
+     */
+    bool enqueueProcessedData(const ProcessedData& data);
+
+    /**
+     * @brief 处理队列出队
+     * @param data 用于接收出队数据的引用
+     * @return true 出队成功，false 队列已停止
+     */
+    bool dequeueProcessedData(ProcessedData& data);
 
 signals:
     /**
@@ -195,6 +213,8 @@ private:
     int m_statsUpdateInterval;                                          ///< 统计更新间隔
 
     bool m_initialized;                                                 ///< 是否已初始化
+
+    quint64 m_lastProcessedFrameId;                                     ///< 最后入队的处理帧ID
 
     // 健康检查阈值
     static constexpr int QUEUE_WARNING_THRESHOLD = 80;                  ///< 队列警告阈值（百分比）

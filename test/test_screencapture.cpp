@@ -343,14 +343,12 @@ void TestScreenCapture::test_syncCapture()
 {
     qCDebug(testScreenCapture, "测试异步捕获功能（通过队列）");
     
-    // 获取捕获队列
+    // 获取捕获队列管理器并清空队列
     QueueManager* queueManager = QueueManager::instance();
-    auto captureQueue = queueManager->getCaptureQueue();
-    QVERIFY(captureQueue != nullptr);
+    QVERIFY(queueManager != nullptr);
     
     // 清空队列
-    CapturedFrame tempFrame;
-    while (captureQueue->tryDequeue(tempFrame)) {}
+    queueManager->clearQueue(QueueManager::CaptureQueue);
     
     // 开始捕获
     m_screenCapture->startCapture();
@@ -360,13 +358,14 @@ void TestScreenCapture::test_syncCapture()
     int waitInterval = 100;
     int waited = 0;
     bool frameReceived = false;
+    CapturedFrame tempFrame;
     
     while (waited < maxWaitTime && !frameReceived) {
         QTest::qWait(waitInterval);
         waited += waitInterval;
         QCoreApplication::processEvents();
         
-        if (captureQueue->tryDequeue(tempFrame)) {
+        if (queueManager->dequeueCapturedFrame(tempFrame)) {
             frameReceived = true;
             break;
         }

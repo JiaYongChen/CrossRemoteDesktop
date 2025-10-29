@@ -130,8 +130,6 @@ Q_LOGGING_CATEGORY(lcProducerConsumerTest, "test.producer.consumer")
 
     private:
         QueueManager* m_queueManager;                           ///< 队列管理器
-        ThreadSafeQueue<CapturedFrame>* m_captureQueue;        ///< 捕获队列
-        ThreadSafeQueue<ProcessedData>* m_processedQueue;      ///< 处理队列
         DataProcessingWorker* m_dataProcessor;                 ///< 数据处理器（生产者）
         ServerWorker* m_serverWorker;                          ///< 服务器工作器（消费者）
         ThreadManager* m_threadManager;                        ///< 线程管理器
@@ -145,8 +143,6 @@ Q_LOGGING_CATEGORY(lcProducerConsumerTest, "test.producer.consumer")
 
 TestProducerConsumerIntegration::TestProducerConsumerIntegration()
     : m_queueManager(nullptr)
-    , m_captureQueue(nullptr)
-    , m_processedQueue(nullptr)
     , m_dataProcessor(nullptr)
     , m_serverWorker(nullptr)
     , m_threadManager(nullptr)
@@ -174,15 +170,9 @@ void TestProducerConsumerIntegration::initTestCase() {
     bool initResult = m_queueManager->initialize(10, 5);
     QVERIFY(initResult);
 
-    // 获取队列
-    m_captureQueue = m_queueManager->getCaptureQueue();
-    m_processedQueue = m_queueManager->getProcessedQueue();
-    QVERIFY(m_captureQueue != nullptr);
-    QVERIFY(m_processedQueue != nullptr);
-
     // 清空队列
-    m_captureQueue->clear();
-    m_processedQueue->clear();
+    m_queueManager->clearQueue(QueueManager::CaptureQueue);
+    m_queueManager->clearQueue(QueueManager::ProcessedQueue);
 }
 
 void TestProducerConsumerIntegration::cleanupTestCase() {
@@ -213,12 +203,8 @@ void TestProducerConsumerIntegration::cleanupTestCase() {
     delete m_serverThread;
 
     // 清空队列
-    if ( m_captureQueue ) {
-        m_captureQueue->clear();
-    }
-    if ( m_processedQueue ) {
-        m_processedQueue->clear();
-    }
+    m_queueManager->clearQueue(QueueManager::CaptureQueue);
+    m_queueManager->clearQueue(QueueManager::ProcessedQueue);
 }
 
 void TestProducerConsumerIntegration::init() {
@@ -230,12 +216,8 @@ void TestProducerConsumerIntegration::init() {
 
 void TestProducerConsumerIntegration::cleanup() {
     // 清空队列
-    if ( m_captureQueue ) {
-        m_captureQueue->clear();
-    }
-    if ( m_processedQueue ) {
-        m_processedQueue->clear();
-    }
+    m_queueManager->clearQueue(QueueManager::CaptureQueue);
+    m_queueManager->clearQueue(QueueManager::ProcessedQueue);
 }
 
 void TestProducerConsumerIntegration::test_basicProducerConsumer() {
@@ -246,13 +228,17 @@ void TestProducerConsumerIntegration::test_basicProducerConsumer() {
     CapturedFrame testFrame = createTestFrame(1, testImage);
 
     // 验证队列初始状态
-    QVERIFY(m_captureQueue->isEmpty());
-    QVERIFY(m_processedQueue->isEmpty());
+    auto captureStats = m_queueManager->getQueueStats(QueueManager::CaptureQueue);
+    auto processedStats = m_queueManager->getQueueStats(QueueManager::ProcessedQueue);
+    QCOMPARE(captureStats.currentSize, 0);
+    QCOMPARE(processedStats.currentSize, 0);
 
     // 生产者：添加数据到捕获队列
-    bool enqueued = m_captureQueue->enqueue(testFrame);
+    bool enqueued = m_queueManager->enqueueCapturedFrame(testFrame);
     QVERIFY(enqueued);
-    QCOMPARE(m_captureQueue->size(), 1);
+    
+    captureStats = m_queueManager->getQueueStats(QueueManager::CaptureQueue);
+    QCOMPARE(captureStats.currentSize, 1);
 
     // 创建数据处理器（生产者）
     m_dataProcessor = new DataProcessingWorker();
@@ -278,12 +264,15 @@ void TestProducerConsumerIntegration::test_basicProducerConsumer() {
     QVERIFY(waitForQueueProcessing(3000));
 
     // 验证处理结果
-    QVERIFY(m_captureQueue->isEmpty());
-    QCOMPARE(m_processedQueue->size(), 1);
+    captureStats = m_queueManager->getQueueStats(QueueManager::CaptureQueue);
+    QCOMPARE(captureStats.currentSize, 0);
+    
+    processedStats = m_queueManager->getQueueStats(QueueManager::ProcessedQueue);
+    QCOMPARE(processedStats.currentSize, 1);
 
     // 验证处理后的数据
     ProcessedData processedData;
-    bool dequeued = m_processedQueue->tryDequeue(processedData);
+    bool dequeued = m_queueManager->dequeueProcessedData(processedData);
     QVERIFY(dequeued);
     QVERIFY(verifyProcessedData(processedData, testFrame));
 
@@ -322,7 +311,16 @@ void TestProducerConsumerIntegration::test_queueThreadSafety() {
                 QImage image = createTestImage(200, 150, i * 100 + j);
                 CapturedFrame frame = createTestFrame(i * 10 + j, image);
 
-                bool success = m_captureQueue->enqueue(frame, 1000); // 1秒超时
+                // 使用重试循环模拟超时入队
+                bool success = false;
+                int retries = 100; // 1000ms / 10ms = 100次
+                for (int retry = 0; retry < retries && !success; ++retry) {
+                    success = m_queueManager->enqueueCapturedFrame(frame);
+                    if (!success) {
+                        QThread::msleep(10);
+                    }
+                }
+                
                 if ( success ) {
                     QMutexLocker locker(&m_counterMutex);
                     m_processedCount++;
@@ -348,13 +346,24 @@ void TestProducerConsumerIntegration::test_queueThreadSafety() {
         connect(thread, &QThread::started, [this]() {
             CapturedFrame frame;
             while ( true ) {
-                if ( m_captureQueue->dequeue(frame, 100) ) { // 100ms超时
+                // 使用重试循环模拟超时出队
+                bool success = false;
+                int retries = 10; // 100ms / 10ms = 10次
+                for (int retry = 0; retry < retries && !success; ++retry) {
+                    success = m_queueManager->dequeueCapturedFrame(frame);
+                    if (!success) {
+                        QThread::msleep(10);
+                    }
+                }
+                
+                if ( success ) {
                     QMutexLocker locker(&m_counterMutex);
                     m_consumedCount++;
                 } else {
                     // 检查是否所有生产者都完成了
                     QMutexLocker locker(&m_counterMutex);
-                    if ( m_processedCount >= 30 && m_captureQueue->isEmpty() ) { // 3 * 10 = 30
+                    auto stats = m_queueManager->getQueueStats(QueueManager::CaptureQueue);
+                    if ( m_processedCount >= 30 && stats.currentSize == 0 ) { // 3 * 10 = 30
                         break;
                     }
                 }
@@ -399,7 +408,8 @@ void TestProducerConsumerIntegration::test_queueThreadSafety() {
     QMutexLocker locker(&m_counterMutex);
     QCOMPARE(m_processedCount, numProducers * itemsPerProducer);
     QCOMPARE(m_consumedCount, numProducers * itemsPerProducer);
-    QVERIFY(m_captureQueue->isEmpty());
+    auto stats = m_queueManager->getQueueStats(QueueManager::CaptureQueue);
+    QVERIFY(stats.currentSize == 0);
 }
 
 void TestProducerConsumerIntegration::test_dataIntegrity() {
@@ -412,7 +422,7 @@ void TestProducerConsumerIntegration::test_dataIntegrity() {
         CapturedFrame frame = createTestFrame(i + 1, image); // 帧ID从1开始
         testFrames.append(frame);
 
-        bool enqueued = m_captureQueue->enqueue(frame);
+        bool enqueued = m_queueManager->enqueueCapturedFrame(frame);
         QVERIFY(enqueued);
     }
 
@@ -440,7 +450,7 @@ void TestProducerConsumerIntegration::test_dataIntegrity() {
 
     // 从处理队列中收集结果
     ProcessedData processedData;
-    while ( m_processedQueue->tryDequeue(processedData) ) {
+    while ( m_queueManager->dequeueProcessedData(processedData) ) {
         processedResults.append(processedData);
     }
 
@@ -512,28 +522,36 @@ void TestProducerConsumerIntegration::test_queueEmptyHandling() {
     qCDebug(lcProducerConsumerTest) << "测试队列空时的处理";
 
     // 确保队列为空
-    m_captureQueue->clear();
-    QVERIFY(m_captureQueue->isEmpty());
+    m_queueManager->clearQueue(QueueManager::CaptureQueue);
+    auto stats = m_queueManager->getQueueStats(QueueManager::CaptureQueue);
+    QVERIFY(stats.currentSize == 0);
 
     // 尝试从空队列获取数据
     CapturedFrame frame;
 
     // 非阻塞方式应该失败
-    bool dequeued = m_captureQueue->tryDequeue(frame);
+    bool dequeued = m_queueManager->dequeueCapturedFrame(frame);
     QVERIFY(!dequeued);
 
-    // 超时方式应该超时
-    bool dequeuedWithTimeout = m_captureQueue->dequeue(frame, 100); // 100ms超时
+    // 超时方式模拟（使用重试循环）
+    bool dequeuedWithTimeout = false;
+    int retries = 10; // 100ms / 10ms = 10次
+    for (int retry = 0; retry < retries && !dequeuedWithTimeout; ++retry) {
+        dequeuedWithTimeout = m_queueManager->dequeueCapturedFrame(frame);
+        if (!dequeuedWithTimeout) {
+            QThread::msleep(10);
+        }
+    }
     QVERIFY(!dequeuedWithTimeout);
 
     // 添加数据后应该能够获取
     QImage testImage = createTestImage(200, 150, 1);
     CapturedFrame testFrame = createTestFrame(1, testImage);
-    bool enqueued = m_captureQueue->enqueue(testFrame);
+    bool enqueued = m_queueManager->enqueueCapturedFrame(testFrame);
     QVERIFY(enqueued);
 
     // 现在应该能够获取数据
-    dequeued = m_captureQueue->tryDequeue(frame);
+    dequeued = m_queueManager->dequeueCapturedFrame(frame);
     QVERIFY(dequeued);
     QCOMPARE(frame.frameId, testFrame.frameId);
 }
@@ -559,11 +577,29 @@ void TestProducerConsumerIntegration::test_highConcurrency() {
                 // 生产数据
                 QImage image = createTestImage(150, 100, i * 20 + j);
                 CapturedFrame frame = createTestFrame(i * 20 + j, image);
-                m_captureQueue->enqueue(frame, 1000);
+                
+                // 使用重试循环模拟超时入队
+                bool enqueued = false;
+                int retries = 100; // 1000ms / 10ms = 100次
+                for (int retry = 0; retry < retries && !enqueued; ++retry) {
+                    enqueued = m_queueManager->enqueueCapturedFrame(frame);
+                    if (!enqueued) {
+                        QThread::msleep(10);
+                    }
+                }
 
                 // 消费数据
                 CapturedFrame consumedFrame;
-                if ( m_captureQueue->dequeue(consumedFrame, 100) ) {
+                bool dequeued = false;
+                retries = 10; // 100ms / 10ms = 10次
+                for (int retry = 0; retry < retries && !dequeued; ++retry) {
+                    dequeued = m_queueManager->dequeueCapturedFrame(consumedFrame);
+                    if (!dequeued) {
+                        QThread::msleep(10);
+                    }
+                }
+                
+                if ( dequeued ) {
                     QMutexLocker locker(&m_counterMutex);
                     m_consumedCount++;
                 }
@@ -617,7 +653,7 @@ void TestProducerConsumerIntegration::test_queueStatistics() {
     for ( int i = 0; i < testItems; ++i ) {
         QImage image = createTestImage(100, 100, i);
         CapturedFrame frame = createTestFrame(i, image);
-        m_captureQueue->enqueue(frame);
+        m_queueManager->enqueueCapturedFrame(frame);
     }
 
     // 强制更新统计信息
@@ -633,7 +669,7 @@ void TestProducerConsumerIntegration::test_queueStatistics() {
     // 消费一些数据
     for ( int i = 0; i < 3; ++i ) {
         CapturedFrame frame;
-        m_captureQueue->tryDequeue(frame);
+        m_queueManager->dequeueCapturedFrame(frame);
     }
 
     // 强制更新统计信息
@@ -702,10 +738,12 @@ bool TestProducerConsumerIntegration::waitForQueueProcessing(int maxWaitMs) {
     int stableCount = 0;
 
     while ( timer.elapsed() < maxWaitMs ) {
-        int currentProcessedSize = m_processedQueue->size();
+        auto processedStats = m_queueManager->getQueueStats(QueueManager::ProcessedQueue);
+        int currentProcessedSize = processedStats.currentSize;
 
         // 如果捕获队列为空且处理队列有数据，检查处理队列大小是否稳定
-        if ( m_captureQueue->isEmpty() ) {
+        auto captureStats = m_queueManager->getQueueStats(QueueManager::CaptureQueue);
+        if ( captureStats.currentSize == 0 ) {
             if ( currentProcessedSize == lastProcessedSize && currentProcessedSize > 0 ) {
                 stableCount++;
                 // 如果处理队列大小连续3次检查都稳定，认为处理完成

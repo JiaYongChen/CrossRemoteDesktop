@@ -277,8 +277,6 @@ private:
 
 private:
     QueueManager* m_queueManager;                                       ///< 队列管理器
-    ThreadSafeQueue<CapturedFrame>* m_captureQueue;                     ///< 捕获队列
-    ThreadSafeQueue<ProcessedData>* m_processedQueue;                   ///< 处理队列
 
     std::shared_ptr<DataProcessingConfig> m_config;                     ///< 处理配置
     std::unique_ptr<DataProcessor> m_dataProcessor;                     ///< 数据处理器

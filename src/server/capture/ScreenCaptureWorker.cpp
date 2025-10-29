@@ -271,21 +271,13 @@ void ScreenCaptureWorker::performCapture() {
             frame.timestamp = QDateTime::fromMSecsSinceEpoch(timestamp);
             frame.frameId = m_stats.totalFramesCaptured;
             frame.originalSize = capturedImage.size();
-            
-            auto captureQueue = m_queueManager->getCaptureQueue();
-            if ( captureQueue ) {
-                // 使用丢弃旧帧策略入队，当队列满时自动丢弃最旧的帧
-                // 这确保始终处理最新的屏幕捕获数据，适合实时远程桌面场景
-                bool enqueued = captureQueue->enqueueDropOldest(frame);
-                if ( enqueued ) {
-                    //qCDebug(screenCaptureWorker, "成功将帧放入捕获队列，帧ID: %llu", frame.frameId);
-                } else {
-                    qCWarning(screenCaptureWorker, "捕获队列已停止，无法入队，丢弃帧ID: %llu", frame.frameId);
-                    QMutexLocker locker(&m_statsMutex);
-                    m_stats.droppedFrames++;
-                }
+
+            // 使用 QueueManager 统一接口入队
+            bool enqueued = m_queueManager->enqueueCapturedFrame(frame);
+            if ( enqueued ) {
+                //qCDebug(screenCaptureWorker, "成功将帧放入捕获队列，帧ID: %llu", frame.frameId);
             } else {
-                qCWarning(screenCaptureWorker, "捕获队列不可用（未初始化），丢弃帧ID: %llu", frame.frameId);
+                qCWarning(screenCaptureWorker, "捕获队列已停止，无法入队，丢弃帧ID: %llu", frame.frameId);
                 QMutexLocker locker(&m_statsMutex);
                 m_stats.droppedFrames++;
             }

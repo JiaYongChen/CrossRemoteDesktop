@@ -12,8 +12,6 @@ Q_LOGGING_CATEGORY(lcDataProcessingWorker, "dataprocessingworker", QtDebugMsg)
 DataProcessingWorker::DataProcessingWorker(QObject* parent)
     : Worker(parent)
     , m_queueManager(nullptr)
-    , m_captureQueue(nullptr)
-    , m_processedQueue(nullptr)
     , m_config(nullptr)
     , m_dataProcessor(nullptr)
     , m_statsTimer(nullptr)
@@ -111,17 +109,8 @@ bool DataProcessingWorker::initialize() {
             qCCritical(lcDataProcessingWorker) << "无法获取队列管理器实例";
             return false;
         }
-        // 保存队列管理器指针，便于后续断开信号连接
+        // 保存队列管理器指针，便于后续使用统一接口和断开信号连接
         m_queueManager = queueManager;
-
-        // 获取捕获队列和处理队列
-        m_captureQueue = queueManager->getCaptureQueue();
-        m_processedQueue = queueManager->getProcessedQueue();
-
-        if ( !m_captureQueue || !m_processedQueue ) {
-            qCCritical(lcDataProcessingWorker) << "无法获取队列实例";
-            return false;
-        }
 
         // 连接队列信号
         connect(queueManager, &QueueManager::queueWarning,
@@ -218,9 +207,7 @@ void DataProcessingWorker::cleanup() {
     // 清理数据处理器
     m_dataProcessor.reset();
 
-    // 重置队列引用
-    m_captureQueue = nullptr;
-    m_processedQueue = nullptr;
+    // 重置队列管理器引用
     m_queueManager = nullptr;
 
     Worker::cleanup();
@@ -234,7 +221,7 @@ void DataProcessingWorker::processTask() {
         return;
     }
 
-    if ( !m_captureQueue || !m_processedQueue ) {
+    if ( !m_queueManager ) {
         return;
     }
 
@@ -249,7 +236,8 @@ void DataProcessingWorker::processTask() {
         bool hasFirstFrame = false;
 
         // 第一次获取使用带超时的阻塞方式，实现自动处理
-        if ( m_captureQueue->dequeue(firstFrame, 100) ) { // 100ms超时
+        // 使用 QueueManager 统一接口出队
+        if ( m_queueManager->dequeueCapturedFrame(firstFrame) ) {
             // 获取到数据后再次检查停止状态
             if ( shouldStop() ) {
                 qCDebug(lcDataProcessingWorker) << "获取帧数据后检测到停止信号，退出处理";
@@ -264,7 +252,8 @@ void DataProcessingWorker::processTask() {
         if ( hasFirstFrame ) {
             while ( frameBatch.size() < static_cast<size_t>(maxBatchSize) ) {
                 CapturedFrame additionalFrame;
-                if ( !m_captureQueue->tryDequeue(additionalFrame) ) {
+                // 使用 QueueManager 统一接口尝试出队
+                if ( !m_queueManager->dequeueCapturedFrame(additionalFrame) ) {
                     // 队列为空，退出收集
                     break;
                 }
@@ -277,92 +266,9 @@ void DataProcessingWorker::processTask() {
                 }
             }
 
-            // 异步批处理：使用 QtConcurrent::run 在后台线程处理
+            // 调用统一的异步批处理方法
             if ( !frameBatch.empty() ) {
-                // 增加活跃任务计数
-                m_activeParallelTasks.fetch_add(1);
-
-                // 捕获必要的成员变量指针，避免 this 指针失效
-                auto processedQueue = m_processedQueue;
-                auto processedFrames = &m_processedFrames;
-                auto droppedFrames = &m_droppedFrames;
-                auto totalProcessingTime = &m_totalProcessingTime;
-                auto activeParallelTasks = &m_activeParallelTasks;
-
-                // 异步执行批处理，保存 QFuture 避免警告
-                QFuture<void> asyncFuture = QtConcurrent::run([frameBatch, processedQueue, processedFrames,
-                    droppedFrames, totalProcessingTime, activeParallelTasks]() {
-                    QElapsedTimer batchTimer;
-                    batchTimer.start();
-
-                    int successCount = 0;
-                    int droppedCount = 0;
-
-                    // 使用 QtConcurrent 并行处理所有帧
-                    QList<CapturedFrame> frameList;
-                    for ( const auto& frame : frameBatch ) {
-                        frameList.append(frame);
-                    }
-
-                    // 并行编码所有图像
-                    QFuture<ProcessedData> future = QtConcurrent::mapped(frameList,
-                        [](const CapturedFrame& frame) -> ProcessedData {
-                        // 验证帧数据
-                        if ( !frame.isValid() ) {
-                            qCWarning(lcDataProcessingWorker) << "帧数据无效，ID:" << frame.frameId;
-                            return ProcessedData();
-                        }
-
-                        // 检查帧延迟
-                        qint64 latency = frame.getLatency();
-                        if ( latency > 5000 ) { // 5秒超时
-                            qCWarning(lcDataProcessingWorker) << "帧延迟过高:" << latency << "ms，ID:" << frame.frameId;
-                            return ProcessedData();
-                        }
-
-                        // 并行编码图像
-                        return DataProcessingWorker::encodeImageParallel(frame.image, frame.frameId);
-                    });
-
-                    // 等待所有编码完成
-                    future.waitForFinished();
-
-                    // 收集结果并入队
-                    QList<ProcessedData> results = future.results();
-                    for ( const auto& processedData : results ) {
-                        if ( processedData.isValid() ) {
-                            // 使用丢弃旧帧策略将结果放入队列
-                            if ( processedQueue->enqueueDropOldest(processedData) ) {
-                                successCount++;
-                                processedFrames->fetch_add(1);
-                            } else {
-                                droppedCount++;
-                                droppedFrames->fetch_add(1);
-                                qCWarning(lcDataProcessingWorker) << "处理队列已停止，无法入队，帧ID:" << processedData.originalFrameId;
-                            }
-                        } else {
-                            droppedCount++;
-                            droppedFrames->fetch_add(1);
-                        }
-                    }
-
-                    qint64 elapsed = batchTimer.elapsed();
-                    if ( successCount > 0 ) {
-                        totalProcessingTime->fetch_add(elapsed);
-                    }
-
-                    // 减少活跃任务计数
-                    activeParallelTasks->fetch_sub(1);
-
-                    // 记录批处理统计信息（可选）
-                    if ( droppedCount > 0 ) {
-                        qCDebug(lcDataProcessingWorker) << "异步批处理完成: 成功" << successCount
-                            << "丢弃" << droppedCount << "耗时" << elapsed << "ms";
-                    }
-                });
-
-                // 将 future 存储起来避免被优化掉（这里我们不需要等待它完成）
-                Q_UNUSED(asyncFuture);
+                processBatchParallel(frameBatch);
             }
         }
 
@@ -443,9 +349,8 @@ int DataProcessingWorker::processBatchParallel(const std::vector<CapturedFrame>&
     QList<ProcessedData> results = future.results();
     for ( const auto& processedData : results ) {
         if ( processedData.isValid() ) {
-            // 使用丢弃旧帧策略将结果放入队列
-            // 当队列满时，自动丢弃最旧的帧，确保最新数据能够入队
-            if ( m_processedQueue->enqueueDropOldest(processedData) ) {
+            // 使用 QueueManager 统一接口入队
+            if ( m_queueManager && m_queueManager->enqueueProcessedData(processedData) ) {
                 successCount++;
                 m_processedFrames++;
             } else {
@@ -544,9 +449,11 @@ void DataProcessingWorker::checkSystemResources() {
 
         // 基于处理队列状态估算CPU使用率
         double queueUtilization = 0.0;
-        if ( m_captureQueue && m_processedQueue ) {
-            int captureSize = m_captureQueue->size();
-            int processedSize = m_processedQueue->size();
+        if ( m_queueManager ) {
+            auto captureStats = m_queueManager->getQueueStats(QueueManager::CaptureQueue);
+            auto processedStats = m_queueManager->getQueueStats(QueueManager::ProcessedQueue);
+            int captureSize = captureStats.currentSize;
+            int processedSize = processedStats.currentSize;
             queueUtilization = static_cast<double>(captureSize + processedSize) / (m_maxQueueSize * 2) * 100.0;
         }
 
@@ -739,17 +646,11 @@ void DataProcessingWorker::stopProcessingAndClearQueues() {
         qCDebug(lcDataProcessingWorker) << "已设置停止标志，暂停数据处理任务";
     }
 
-    // 清空队列
-    if ( m_captureQueue ) {
-        int captureQueueSize = m_captureQueue->size();
-        m_captureQueue->clear();
-        qCDebug(lcDataProcessingWorker) << "清空捕获队列，原大小:" << captureQueueSize;
-    }
-
-    if ( m_processedQueue ) {
-        int processedQueueSize = m_processedQueue->size();
-        m_processedQueue->clear();
-        qCDebug(lcDataProcessingWorker) << "清空处理队列，原大小:" << processedQueueSize;
+    // 使用 QueueManager 统一接口清空队列
+    if ( m_queueManager ) {
+        m_queueManager->clearQueue(QueueManager::CaptureQueue);
+        m_queueManager->clearQueue(QueueManager::ProcessedQueue);
+        qCDebug(lcDataProcessingWorker) << "已清空捕获队列和处理队列";
     }
 
     // 重置统计信息

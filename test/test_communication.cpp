@@ -155,12 +155,6 @@ void TestCommunication::testBasicSignalConnection() {
     // 验证队列管理器已初始化
     QVERIFY(m_queueManager != nullptr);
     
-    // 验证队列可用
-    auto captureQueue = m_queueManager->getCaptureQueue();
-    auto processedQueue = m_queueManager->getProcessedQueue();
-    
-    QVERIFY(captureQueue != nullptr);
-    QVERIFY(processedQueue != nullptr);
     qDebug() << "队列初始化成功";
 
     // 测试错误处理信号连接（DataProcessorWorker仍可能有错误信号）
@@ -177,18 +171,9 @@ void TestCommunication::testBasicSignalConnection() {
 void TestCommunication::testFrameDataTransmission() {
     qDebug() << "测试帧数据传输（通过队列）";
 
-    // 获取队列
-    auto captureQueue = m_queueManager->getCaptureQueue();
-    auto processedQueue = m_queueManager->getProcessedQueue();
-    
-    QVERIFY(captureQueue != nullptr);
-    QVERIFY(processedQueue != nullptr);
-    
     // 清空队列
-    CapturedFrame tempFrame;
-    while (captureQueue->tryDequeue(tempFrame)) {}
-    ProcessedData tempData;
-    while (processedQueue->tryDequeue(tempData)) {}
+    m_queueManager->clearQueue(QueueManager::CaptureQueue);
+    m_queueManager->clearQueue(QueueManager::ProcessedQueue);
 
     // 监听数据就绪信号和错误信号
     QSignalSpy dataReadySpy(m_processorWorker, &DataProcessorWorker::dataReady);

@@ -400,15 +400,8 @@ void TestScreenCaptureWorker::test_signalEmission()
     config.frameRate = 2; // 2 FPS
     m_worker->updateConfig(config);
     
-    // 获取捕获队列
-    auto captureQueue = queueManager->getCaptureQueue();
-    QVERIFY(captureQueue != nullptr);
-    
-    // 清空队列
-    CapturedFrame tempFrame;
-    while (captureQueue->tryDequeue(tempFrame)) {
-        // 清空队列中的旧数据
-    }
+    // 清空捕获队列
+    queueManager->clearQueue(QueueManager::CaptureQueue);
     
     // 启动捕获
     m_worker->startCapturing();
@@ -418,14 +411,14 @@ void TestScreenCaptureWorker::test_signalEmission()
     int waitInterval = 100; // 100ms检查一次
     int waited = 0;
     bool frameReceived = false;
+    CapturedFrame tempFrame;
     
     while (waited < maxWaitTime && !frameReceived) {
         QTest::qWait(waitInterval);
         waited += waitInterval;
         QCoreApplication::processEvents();
         
-        // 检查队列中是否有数据
-        if (captureQueue->tryDequeue(tempFrame)) {
+        if (queueManager->dequeueCapturedFrame(tempFrame)) {
             frameReceived = true;
             break;
         }
