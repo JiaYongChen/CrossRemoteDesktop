@@ -425,7 +425,7 @@ ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, qui
         // 保存为 JPG 格式，质量设置为 85（平衡质量和文件大小）
         // 质量范围：0-100，越高质量越好但文件越大
         // 85 是一个较好的平衡点，既保证质量又有较好的压缩率
-        int quality = 85;
+        int quality = 100;
         if ( !convertedImage.save(&buffer, "JPG", quality) ) {
             qCWarning(lcDataProcessingWorker) << "无法将图像编码为JPG格式，帧ID:" << frameId;
             return result;
@@ -448,8 +448,8 @@ ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, qui
         result.compressedDataSize = jpgData.size();
 
         // 计算压缩率
-        double compressionRatio = (result.originalDataSize > 0) 
-            ? (double(result.compressedDataSize) / result.originalDataSize * 100.0) 
+        double compressionRatio = (result.originalDataSize > 0)
+            ? (double(result.compressedDataSize) / result.originalDataSize * 100.0)
             : 0.0;
 
         // 输出日志（减少频繁输出，只在压缩率显著或出现问题时输出）

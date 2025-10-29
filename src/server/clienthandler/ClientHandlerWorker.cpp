@@ -171,52 +171,42 @@ void ClientHandlerWorker::sendScreenDataFromQueue() {
         return;
     }
 
-    // 批量处理队列中的数据（每次最多处理指定数量）
-    int processedCount = 0;
-
-    while ( processedCount < NetworkConstants::MAX_FRAMES_PER_CYCLE ) {
-        ProcessedData processedData;
-        if ( !processedQueue->tryDequeue(processedData) ) {
-            break; // 队列为空
-        }
-
-        // 验证数据有效性
-        if ( !processedData.isValid() ) {
-            qCWarning(clientHandlerWorker) << "ProcessedData无效，跳过发送，帧ID:" << processedData.originalFrameId;
-            continue;
-        }
-
-        // 创建ScreenData消息
-        ScreenData screenData;
-        screenData.x = 0;  // 全屏捕获，从坐标(0,0)开始
-        screenData.y = 0;
-        screenData.imageData = processedData.compressedData; // 存储原始像素数据
-        screenData.width = processedData.imageSize.width();
-        screenData.height = processedData.imageSize.height();
-        screenData.dataSize = processedData.compressedData.size();
-
-        // 调试日志：记录屏幕数据信息
-        // qCDebug(clientHandlerWorker) << "发送屏幕数据 - 尺寸:" << screenData.width << "x" << screenData.height
-        //     << "数据大小:" << screenData.dataSize << "bytes"
-        //     << "帧ID:" << processedData.originalFrameId;
-
-        // 预先编码消息,然后发送
-        QByteArray messageData = Protocol::createMessage(MessageType::SCREEN_DATA, screenData);
-
-        if ( messageData.isEmpty() ) {
-            qCWarning(clientHandlerWorker) << "消息编码失败，messageData为空";
-            continue;
-        }
-
-        // 直接调用sendEncodedMessage(同步发送,在当前线程)
-        sendEncodedMessage(messageData);
-
-        processedCount++;
+    // 每次只发送一条数据，取消批处理
+    ProcessedData processedData;
+    if ( !processedQueue->tryDequeue(processedData) ) {
+        return; // 队列为空
     }
 
-    // if ( processedCount > 0 ) {
-    //     qCDebug(clientHandlerWorker) << "本周期发送了" << processedCount << "帧";
-    // }
+    // 验证数据有效性
+    if ( !processedData.isValid() ) {
+        qCWarning(clientHandlerWorker) << "ProcessedData无效，跳过发送，帧ID:" << processedData.originalFrameId;
+        return;
+    }
+
+    // 创建ScreenData消息
+    ScreenData screenData;
+    screenData.x = 0;  // 全屏捕获，从坐标(0,0)开始
+    screenData.y = 0;
+    screenData.imageData = processedData.compressedData; // 存储JPG压缩数据
+    screenData.width = processedData.imageSize.width();
+    screenData.height = processedData.imageSize.height();
+    screenData.dataSize = processedData.compressedData.size();
+
+    // 调试日志：记录屏幕数据信息（可选）
+    // qCDebug(clientHandlerWorker) << "发送屏幕数据 - 尺寸:" << screenData.width << "x" << screenData.height
+    //     << "数据大小:" << screenData.dataSize << "bytes"
+    //     << "帧ID:" << processedData.originalFrameId;
+
+    // 预先编码消息,然后发送
+    QByteArray messageData = Protocol::createMessage(MessageType::SCREEN_DATA, screenData);
+
+    if ( messageData.isEmpty() ) {
+        qCWarning(clientHandlerWorker) << "消息编码失败，messageData为空";
+        return;
+    }
+
+    // 直接调用sendEncodedMessage(同步发送,在当前线程)
+    sendEncodedMessage(messageData);
 }
 
 QString ClientHandlerWorker::clientAddress() const {
