@@ -41,7 +41,7 @@ private slots:
 private:
     // 辅助方法
     void createTestImage();
-    QByteArray imageToByteArray(const QImage& image, const char* format = "JPG", int quality = 80);
+    QByteArray imageToByteArray(const QImage& image, const char* format = "JPEG", int quality = 80);
     QImage byteArrayToImage(const QByteArray& data);
 
     // 测试数据
@@ -138,7 +138,7 @@ void TestScreenDataFlow::test_imageProcessing() {
     qCDebug(lcTest) << "测试图像处理";
 
     // 测试图像转换
-    QByteArray jpegData = imageToByteArray(m_testImage, "JPG", 85);
+    QByteArray jpegData = imageToByteArray(m_testImage, "JPEG", 85);
     QByteArray pngData = imageToByteArray(m_testImage, "PNG");
 
     QVERIFY(!jpegData.isEmpty());

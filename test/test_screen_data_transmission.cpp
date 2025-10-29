@@ -69,7 +69,7 @@ private:
     /**
      * @brief 将QImage编码为指定格式的字节数组
      * @param image 要编码的图像
-     * @param format 图像格式（如"JPG"、"PNG"）
+     * @param format 图像格式（如"JPEG"、"PNG"）
      * @param quality 图像质量（0-100，仅对JPEG有效）
      * @return 编码后的字节数组
      */
@@ -90,7 +90,7 @@ void TestScreenDataTransmission::testScreenDataCodec() {
     QVERIFY(!testImage.isNull());
 
     // 将图像编码为JPEG格式
-    QByteArray imageData = encodeImage(testImage, "JPG", 95);
+    QByteArray imageData = encodeImage(testImage, "JPEG", 95);
     QVERIFY(!imageData.isEmpty());
 
     // 创建ScreenData结构体
@@ -99,7 +99,7 @@ void TestScreenDataTransmission::testScreenDataCodec() {
     screenData.y = 0;
     screenData.width = static_cast<quint16>(testImage.width());
     screenData.height = static_cast<quint16>(testImage.height());
-    screenData.imageType = 1; // JPG
+    screenData.imageType = 1; // JPEG
     screenData.dataSize = static_cast<quint32>(imageData.size());
     screenData.imageData = imageData;
 
@@ -123,7 +123,7 @@ void TestScreenDataTransmission::testScreenDataCodec() {
 
     // 验证图像数据可以正确加载
     QImage decodedImage;
-    bool imageLoadSuccess = decodedImage.loadFromData(decodedScreenData.imageData, "JPG");
+    bool imageLoadSuccess = decodedImage.loadFromData(decodedScreenData.imageData, "JPEG");
     QVERIFY(imageLoadSuccess);
     QVERIFY(!decodedImage.isNull());
     QCOMPARE(decodedImage.size(), testImage.size());
@@ -140,12 +140,12 @@ void TestScreenDataTransmission::testImageJpegEncoding() {
     QList<int> qualities = { 50, 75, 95 };
 
     for ( int quality : qualities ) {
-        QByteArray jpegData = encodeImage(testImage, "JPG", quality);
+        QByteArray jpegData = encodeImage(testImage, "JPEG", quality);
         QVERIFY(!jpegData.isEmpty());
 
         // 验证可以正确解码
         QImage decodedImage;
-        bool loadSuccess = decodedImage.loadFromData(jpegData, "JPG");
+        bool loadSuccess = decodedImage.loadFromData(jpegData, "JPEG");
         QVERIFY(loadSuccess);
         QVERIFY(!decodedImage.isNull());
         QCOMPARE(decodedImage.size(), testImage.size());
@@ -220,7 +220,7 @@ void TestScreenDataTransmission::testLargeImageData() {
     QImage largeImage = createTestImage(1920, 1080);
     QVERIFY(!largeImage.isNull());
 
-    QByteArray imageData = encodeImage(largeImage, "JPG", 85);
+    QByteArray imageData = encodeImage(largeImage, "JPEG", 85);
     QVERIFY(!imageData.isEmpty());
 
     // 创建ScreenData
@@ -243,7 +243,7 @@ void TestScreenDataTransmission::testLargeImageData() {
 
     // 验证图像数据
     QImage decodedImage;
-    bool imageLoadSuccess = decodedImage.loadFromData(decodedScreenData.imageData, "JPG");
+    bool imageLoadSuccess = decodedImage.loadFromData(decodedScreenData.imageData, "JPEG");
     QVERIFY(imageLoadSuccess);
     QCOMPARE(decodedImage.size(), largeImage.size());
 

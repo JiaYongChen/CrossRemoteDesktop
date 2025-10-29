@@ -44,7 +44,7 @@ private slots:
 private:
     // 辅助方法
     QImage createTestFrame(int width, int height, const QString& content);
-    QByteArray encodeFrame(const QImage& frame, const QString& format = "JPG", int quality = 85);
+    QByteArray encodeFrame(const QImage& frame, const QString& format = "JPEG", int quality = 85);
     ScreenData createScreenData(const QByteArray& imageData);
     void simulateNetworkDelay(int delayMs);
 
@@ -172,7 +172,7 @@ void TestFrameTransmissionLatency::test_serverProcessingTime() {
         timer.start();
 
         // 模拟服务器端处理：图像编码
-        QByteArray encodedData = encodeFrame(frame, "JPG", 85);
+        QByteArray encodedData = encodeFrame(frame, "JPEG", 85);
         QVERIFY(!encodedData.isEmpty());
 
         // 创建ScreenData结构
@@ -278,14 +278,14 @@ void TestFrameTransmissionLatency::test_clientProcessingTime() {
 
     for ( const QImage& originalFrame : m_testFrames ) {
         // 编码帧数据
-        QByteArray encodedData = encodeFrame(originalFrame, "JPG", 85);
+        QByteArray encodedData = encodeFrame(originalFrame, "JPEG", 85);
 
         QElapsedTimer timer;
         timer.start();
 
         // 模拟客户端处理：数据解码
         QImage decodedFrame;
-        bool loaded = decodedFrame.loadFromData(encodedData, "JPG");
+        bool loaded = decodedFrame.loadFromData(encodedData, "JPEG");
         QVERIFY2(loaded, "图像解码失败");
 
         // 验证解码结果
@@ -350,12 +350,12 @@ void TestFrameTransmissionLatency::test_latencyUnderDifferentConditions() {
         QElapsedTimer timer;
         timer.start();
 
-        QByteArray encodedData = encodeFrame(testFrame, "JPG", quality);
+        QByteArray encodedData = encodeFrame(testFrame, "JPEG", quality);
         qint64 encodeTime = timer.elapsed();
 
         timer.restart();
         QImage decodedFrame;
-        decodedFrame.loadFromData(encodedData, "JPG");
+        decodedFrame.loadFromData(encodedData, "JPEG");
         qint64 decodeTime = timer.elapsed();
 
         qDebug() << QString("JPEG质量 %1%: 编码=%2ms, 解码=%3ms, 大小=%4KB")
@@ -493,7 +493,7 @@ TestFrameTransmissionLatency::measureFrameLatency(const QImage& frame, int netwo
     QElapsedTimer serverTimer;
     serverTimer.start();
 
-    QByteArray encodedData = encodeFrame(frame, "JPG", 85);
+    QByteArray encodedData = encodeFrame(frame, "JPEG", 85);
     ScreenData screenData = createScreenData(encodedData);
     QByteArray serializedData = screenData.encode();
 
@@ -517,7 +517,7 @@ TestFrameTransmissionLatency::measureFrameLatency(const QImage& frame, int netwo
 
     // 解码图像
     QImage decodedFrame;
-    decodedFrame.loadFromData(receivedData.imageData, "JPG");
+    decodedFrame.loadFromData(receivedData.imageData, "JPEG");
 
     measurement.clientProcessingTime = clientTimer.elapsed();
 

@@ -99,7 +99,7 @@ void TestImageTransmissionIntegration::testScreenDataMessageFlow() {
     screenData.y = 0;
     screenData.width = static_cast<quint16>(testImage.width());
     screenData.height = static_cast<quint16>(testImage.height());
-    screenData.imageType = 1; // JPG
+    screenData.imageType = 1; // JPEG
     screenData.dataSize = static_cast<quint32>(imageData.size());
     screenData.imageData = imageData;
 
@@ -127,7 +127,7 @@ void TestImageTransmissionIntegration::testScreenDataMessageFlow() {
 
     // 验证图像数据可以正确加载
     QImage decodedImage;
-    bool imageLoadSuccess = decodedImage.loadFromData(decodedScreenData.imageData, "JPG");
+    bool imageLoadSuccess = decodedImage.loadFromData(decodedScreenData.imageData, "JPEG");
     QVERIFY(imageLoadSuccess);
     QCOMPARE(decodedImage.size(), testImage.size());
 
@@ -153,7 +153,7 @@ void TestImageTransmissionIntegration::testImageEncodingAndTransmission() {
 
         // 验证编码后的图像可以正确解码
         QImage decodedImage;
-        bool loadSuccess = decodedImage.loadFromData(encodedData, "JPG");
+        bool loadSuccess = decodedImage.loadFromData(encodedData, "JPEG");
         QVERIFY(loadSuccess);
         QVERIFY(!decodedImage.isNull());
         QCOMPARE(decodedImage.size(), testImage.size());
@@ -164,7 +164,7 @@ void TestImageTransmissionIntegration::testImageEncodingAndTransmission() {
         screenData.y = 0;
         screenData.width = static_cast<quint16>(testImage.width());
         screenData.height = static_cast<quint16>(testImage.height());
-        screenData.imageType = 1; // JPG
+        screenData.imageType = 1; // JPEG
         screenData.dataSize = static_cast<quint32>(encodedData.size());
         screenData.imageData = encodedData;
 
@@ -203,7 +203,7 @@ void TestImageTransmissionIntegration::testCompleteImageDataFlow() {
     screenData.y = 50;
     screenData.width = static_cast<quint16>(testImage.width());
     screenData.height = static_cast<quint16>(testImage.height());
-    screenData.imageType = 1; // JPG
+    screenData.imageType = 1; // JPEG
     screenData.dataSize = static_cast<quint32>(imageData.size());
     screenData.imageData = imageData;
 
@@ -235,7 +235,7 @@ void TestImageTransmissionIntegration::testCompleteImageDataFlow() {
 
     // 验证图像数据可以正确加载
     QImage receivedImage;
-    bool imageLoadSuccess = receivedImage.loadFromData(receivedScreenData.imageData, "JPG");
+    bool imageLoadSuccess = receivedImage.loadFromData(receivedScreenData.imageData, "JPEG");
     QVERIFY(imageLoadSuccess);
     QVERIFY(!receivedImage.isNull());
     QCOMPARE(receivedImage.size(), testImage.size());
@@ -294,9 +294,9 @@ QByteArray TestImageTransmissionIntegration::encodeImageAsJpeg(const QImage& ima
     QBuffer buffer(&data);
     buffer.open(QIODevice::WriteOnly);
 
-    bool success = image.save(&buffer, "JPG", quality);
+    bool success = image.save(&buffer, "JPEG", quality);
     if ( !success ) {
-        qWarning() << "Failed to encode image as JPG";
+        qWarning() << "Failed to encode image as JPEG";
         return QByteArray();
     }
 

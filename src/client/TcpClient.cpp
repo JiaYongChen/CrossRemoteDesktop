@@ -494,7 +494,7 @@ void TcpClient::handleScreenData(const QByteArray& data) {
 
     // 从JPEG格式数据加载QImage
     QImage frame;
-    bool loaded = frame.loadFromData(frameData, "JPG");
+    bool loaded = frame.loadFromData(frameData, "JPEG");
 
     if ( loaded && !frame.isNull() ) {
         // 成功加载图像
@@ -505,14 +505,14 @@ void TcpClient::handleScreenData(const QByteArray& data) {
         // 发出信号，传递屏幕数据给UI（QImage，线程安全）
         emit screenDataReceived(frame);
     } else {
-        QString errorDetails = QString("Frame data size: %1, dimensions: %2x%3, JPG header: %4")
+        QString errorDetails = QString("Frame data size: %1, dimensions: %2x%3, JPEG header: %4")
             .arg(frameData.size())
             .arg(screenData.width)
             .arg(screenData.height)
             .arg(QString(frameData.left(16).toHex()));
         recordImageLoadFailure(errorDetails);
         QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient)
-            << "Failed to load JPG image from frame data, size:" << frameData.size()
+            << "Failed to load JPEG image from frame data, size:" << frameData.size()
             << "first 16 bytes:" << frameData.left(16).toHex();
     }
 }

@@ -337,21 +337,21 @@ ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, qui
     ProcessedData result;
 
     try {
-        // 确保图像格式为 RGB888，这是 JPG 格式推荐的格式
+        // 确保图像格式为 RGB888，这是 JPEG 格式推荐的格式
         QImage convertedImage = image;
         if ( image.format() != QImage::Format_RGB888 && image.format() != QImage::Format_RGB32 ) {
             convertedImage = image.convertToFormat(QImage::Format_RGB888);
         }
 
-        // 使用 QBuffer 将图像编码为 JPG 格式
+        // 使用 QBuffer 将图像编码为 JPEG 格式
         QBuffer buffer;
         buffer.open(QIODevice::WriteOnly);
 
-        // 保存为 JPG 格式，质量设置为 85（推荐值）
-        // JPG 是有损压缩格式，quality 范围 0-100
+        // 保存为 JPEG 格式，质量设置为 85（推荐值）
+        // JPEG 是有损压缩格式，quality 范围 0-100
         // 85 提供良好的压缩率和视觉质量平衡
         int quality = 85;
-        if ( !convertedImage.save(&buffer, "JPG", quality) ) {
+        if ( !convertedImage.save(&buffer, "JPEG", quality) ) {
             qCWarning(lcDataProcessingWorker) << "无法将图像编码为JPEG格式，帧ID:" << frameId;
             return result;
         }

@@ -52,7 +52,7 @@ ScreenData TestImageTypeSpecification::createScreenDataWithImageType(const QImag
     QBuffer buffer;
     buffer.open(QIODevice::WriteOnly);
 
-    const char* formatStr = "JPG";
+    const char* formatStr = "JPEG";
     if ( format == Compression::ImageFormat::PNG ) {
         formatStr = "PNG";
     } else if ( format == Compression::ImageFormat::WEBP ) {
@@ -75,21 +75,21 @@ void TestImageTypeSpecification::testServerSpecifiesJpegType() {
     qDebug() << "测试服务端指定JPEG类型";
 
     QImage originalImage = createTestImage();
-    ScreenData screenData = createScreenDataWithImageType(originalImage, Compression::ImageFormat::JPG);
+    ScreenData screenData = createScreenDataWithImageType(originalImage, Compression::ImageFormat::JPEG);
 
     // 验证服务端正确设置了图像类型
-    QCOMPARE(screenData.imageType, static_cast<quint8>(Compression::ImageFormat::JPG));
+    QCOMPARE(screenData.imageType, static_cast<quint8>(Compression::ImageFormat::JPEG));
 
     // 验证图像数据格式
     Compression::ImageFormat detectedFormat = Compression::detectImageFormat(screenData.imageData);
-    QCOMPARE(detectedFormat, Compression::ImageFormat::JPG);
+    QCOMPARE(detectedFormat, Compression::ImageFormat::JPEG);
 
     // 模拟客户端解析
     QImage decodedImage;
     Compression::ImageFormat specifiedFormat = static_cast<Compression::ImageFormat>(screenData.imageType);
 
-    if ( specifiedFormat == Compression::ImageFormat::JPG ) {
-        bool loaded = decodedImage.loadFromData(screenData.imageData, "JPG");
+    if ( specifiedFormat == Compression::ImageFormat::JPEG ) {
+        bool loaded = decodedImage.loadFromData(screenData.imageData, "JPEG");
         QVERIFY(loaded);
         QVERIFY(!decodedImage.isNull());
         QCOMPARE(decodedImage.size(), originalImage.size());
@@ -129,7 +129,7 @@ void TestImageTypeSpecification::testClientHandlesUnknownType() {
     qDebug() << "测试客户端处理未知类型";
 
     QImage originalImage = createTestImage();
-    ScreenData screenData = createScreenDataWithImageType(originalImage, Compression::ImageFormat::JPG);
+    ScreenData screenData = createScreenDataWithImageType(originalImage, Compression::ImageFormat::JPEG);
 
     // 故意设置一个未知的图像类型
     screenData.imageType = 99; // 未知类型
@@ -139,16 +139,16 @@ void TestImageTypeSpecification::testClientHandlesUnknownType() {
     Compression::ImageFormat specifiedFormat = static_cast<Compression::ImageFormat>(screenData.imageType);
 
     // 由于是未知类型，应该使用格式检测作为回退
-    if ( specifiedFormat != Compression::ImageFormat::JPG &&
+    if ( specifiedFormat != Compression::ImageFormat::JPEG &&
         specifiedFormat != Compression::ImageFormat::PNG &&
         specifiedFormat != Compression::ImageFormat::WEBP &&
         specifiedFormat != Compression::ImageFormat::BMP ) {
 
         // 使用格式检测
         Compression::ImageFormat detectedFormat = Compression::detectImageFormat(screenData.imageData);
-        QCOMPARE(detectedFormat, Compression::ImageFormat::JPG); // 实际数据是JPEG
+        QCOMPARE(detectedFormat, Compression::ImageFormat::JPEG); // 实际数据是JPEG
 
-        bool loaded = decodedImage.loadFromData(screenData.imageData, "JPG");
+        bool loaded = decodedImage.loadFromData(screenData.imageData, "JPEG");
         QVERIFY(loaded);
         QVERIFY(!decodedImage.isNull());
     }
@@ -162,7 +162,7 @@ void TestImageTypeSpecification::testImageTypeConsistency() {
     QImage originalImage = createTestImage();
 
     // 测试JPEG格式一致性
-    ScreenData jpegData = createScreenDataWithImageType(originalImage, Compression::ImageFormat::JPG);
+    ScreenData jpegData = createScreenDataWithImageType(originalImage, Compression::ImageFormat::JPEG);
     Compression::ImageFormat jpegDetected = Compression::detectImageFormat(jpegData.imageData);
     QCOMPARE(static_cast<quint8>(jpegDetected), jpegData.imageType);
 
@@ -172,7 +172,7 @@ void TestImageTypeSpecification::testImageTypeConsistency() {
     QCOMPARE(static_cast<quint8>(pngDetected), pngData.imageType);
 
     qDebug() << "图像类型一致性测试通过";
-    qDebug() << "JPG - 指定类型:" << jpegData.imageType << "检测类型:" << static_cast<quint8>(jpegDetected);
+    qDebug() << "JPEG - 指定类型:" << jpegData.imageType << "检测类型:" << static_cast<quint8>(jpegDetected);
     qDebug() << "PNG - 指定类型:" << pngData.imageType << "检测类型:" << static_cast<quint8>(pngDetected);
 }
 
