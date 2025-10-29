@@ -241,12 +241,8 @@ void DataProcessingWorker::processTask() {
     try {
         // 批量处理帧数据以提高效率 - 动态调整批大小
         const int maxBatchSize = std::min(m_maxParallelTasks * 2, 10); // 最多10帧
-        // qCDebug(lcDataProcessingWorker) << "当前批量处理最大帧数:" << maxBatchSize;
         std::vector<CapturedFrame> frameBatch;
         frameBatch.reserve(maxBatchSize);
-
-        QElapsedTimer batchTimer;
-        batchTimer.start();
 
         // 自动处理机制：使用带超时的阻塞式获取第一帧数据
         CapturedFrame firstFrame;
@@ -270,7 +266,6 @@ void DataProcessingWorker::processTask() {
                 CapturedFrame additionalFrame;
                 if ( !m_captureQueue->tryDequeue(additionalFrame) ) {
                     // 队列为空，退出收集
-                    // qCDebug(lcDataProcessingWorker) << "捕获队列为空，退出批量收集";
                     break;
                 }
                 frameBatch.push_back(std::move(additionalFrame));
@@ -282,24 +277,98 @@ void DataProcessingWorker::processTask() {
                 }
             }
 
-            // 使用并行处理批量帧
+            // 异步批处理：使用 QtConcurrent::run 在后台线程处理
             if ( !frameBatch.empty() ) {
-                int processedCount = processBatchParallel(frameBatch);
+                // 增加活跃任务计数
+                m_activeParallelTasks.fetch_add(1);
 
-                // qint64 batchTime = batchTimer.elapsed();
-                if ( processedCount > 0 ) {
-                    // qCDebug(lcDataProcessingWorker) << "并行批处理完成，处理帧数:" << processedCount
-                    //     << "/" << frameBatch.size()
-                    //     << "总时间:" << batchTime << "ms"
-                    //     << "平均每帧:" << (batchTime / processedCount) << "ms"
-                    //     << "活跃线程:" << m_activeParallelTasks.load();
-                }
+                // 捕获必要的成员变量指针，避免 this 指针失效
+                auto processedQueue = m_processedQueue;
+                auto processedFrames = &m_processedFrames;
+                auto droppedFrames = &m_droppedFrames;
+                auto totalProcessingTime = &m_totalProcessingTime;
+                auto activeParallelTasks = &m_activeParallelTasks;
+
+                // 异步执行批处理，保存 QFuture 避免警告
+                QFuture<void> asyncFuture = QtConcurrent::run([frameBatch, processedQueue, processedFrames,
+                    droppedFrames, totalProcessingTime, activeParallelTasks]() {
+                    QElapsedTimer batchTimer;
+                    batchTimer.start();
+
+                    int successCount = 0;
+                    int droppedCount = 0;
+
+                    // 使用 QtConcurrent 并行处理所有帧
+                    QList<CapturedFrame> frameList;
+                    for ( const auto& frame : frameBatch ) {
+                        frameList.append(frame);
+                    }
+
+                    // 并行编码所有图像
+                    QFuture<ProcessedData> future = QtConcurrent::mapped(frameList,
+                        [](const CapturedFrame& frame) -> ProcessedData {
+                        // 验证帧数据
+                        if ( !frame.isValid() ) {
+                            qCWarning(lcDataProcessingWorker) << "帧数据无效，ID:" << frame.frameId;
+                            return ProcessedData();
+                        }
+
+                        // 检查帧延迟
+                        qint64 latency = frame.getLatency();
+                        if ( latency > 5000 ) { // 5秒超时
+                            qCWarning(lcDataProcessingWorker) << "帧延迟过高:" << latency << "ms，ID:" << frame.frameId;
+                            return ProcessedData();
+                        }
+
+                        // 并行编码图像
+                        return DataProcessingWorker::encodeImageParallel(frame.image, frame.frameId);
+                    });
+
+                    // 等待所有编码完成
+                    future.waitForFinished();
+
+                    // 收集结果并入队
+                    QList<ProcessedData> results = future.results();
+                    for ( const auto& processedData : results ) {
+                        if ( processedData.isValid() ) {
+                            // 使用丢弃旧帧策略将结果放入队列
+                            if ( processedQueue->enqueueDropOldest(processedData) ) {
+                                successCount++;
+                                processedFrames->fetch_add(1);
+                            } else {
+                                droppedCount++;
+                                droppedFrames->fetch_add(1);
+                                qCWarning(lcDataProcessingWorker) << "处理队列已停止，无法入队，帧ID:" << processedData.originalFrameId;
+                            }
+                        } else {
+                            droppedCount++;
+                            droppedFrames->fetch_add(1);
+                        }
+                    }
+
+                    qint64 elapsed = batchTimer.elapsed();
+                    if ( successCount > 0 ) {
+                        totalProcessingTime->fetch_add(elapsed);
+                    }
+
+                    // 减少活跃任务计数
+                    activeParallelTasks->fetch_sub(1);
+
+                    // 记录批处理统计信息（可选）
+                    if ( droppedCount > 0 ) {
+                        qCDebug(lcDataProcessingWorker) << "异步批处理完成: 成功" << successCount
+                            << "丢弃" << droppedCount << "耗时" << elapsed << "ms";
+                    }
+                });
+
+                // 将 future 存储起来避免被优化掉（这里我们不需要等待它完成）
+                Q_UNUSED(asyncFuture);
             }
         }
 
         // 定期检查系统资源和性能
         static int taskCount = 0;
-        if ( ++taskCount % 50 == 0 ) { // 每50次任务检查一次（减少频率因为批处理更高效）
+        if ( ++taskCount % 50 == 0 ) { // 每50次任务检查一次
             // 在检查系统资源前也要确认没有停止信号
             if ( shouldStop() ) {
                 qCDebug(lcDataProcessingWorker) << "检测到停止信号，跳过系统资源检查";
@@ -329,7 +398,6 @@ void DataProcessingWorker::processTask() {
         QThread::msleep(10);
     }
 }
-
 
 int DataProcessingWorker::processBatchParallel(const std::vector<CapturedFrame>& frames) {
     if ( frames.empty() ) {
