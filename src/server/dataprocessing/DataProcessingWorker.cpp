@@ -347,44 +347,30 @@ ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, qui
         QBuffer buffer;
         buffer.open(QIODevice::WriteOnly);
 
-        // 保存为 JPG 格式，质量设置为 100（最高质量，文件大小最大）
-        // 质量范围：0-100，越高质量越好但文件越大
-        // 100 是最高质量，文件大小最大
-        int quality = 100;
+        // 保存为 JPG 格式，质量设置为 85（推荐值）
+        // JPG 是有损压缩格式，quality 范围 0-100
+        // 85 提供良好的压缩率和视觉质量平衡
+        int quality = 85;
         if ( !convertedImage.save(&buffer, "JPG", quality) ) {
-            qCWarning(lcDataProcessingWorker) << "无法将图像编码为JPG格式，帧ID:" << frameId;
+            qCWarning(lcDataProcessingWorker) << "无法将图像编码为JPEG格式，帧ID:" << frameId;
             return result;
         }
 
         buffer.close();
-        QByteArray jpgData = buffer.data();
+        QByteArray jpegData = buffer.data();
 
-        if ( jpgData.isEmpty() ) {
-            qCWarning(lcDataProcessingWorker) << "JPG编码结果为空，帧ID:" << frameId;
+        if ( jpegData.isEmpty() ) {
+            qCWarning(lcDataProcessingWorker) << "JPEG编码结果为空，帧ID:" << frameId;
             return result;
         }
 
         // 构造ProcessedData
         result.originalFrameId = frameId;
-        result.compressedData = jpgData;
+        result.compressedData = jpegData;
         result.imageSize = convertedImage.size();
         result.processedTime = QDateTime::currentDateTime();
         result.originalDataSize = convertedImage.sizeInBytes();
-        result.compressedDataSize = jpgData.size();
-
-        // 计算压缩率
-        // double compressionRatio = (result.originalDataSize > 0)
-        //     ? (double(result.compressedDataSize) / result.originalDataSize * 100.0)
-        //     : 0.0;
-
-        // 输出日志（减少频繁输出，只在压缩率显著或出现问题时输出）
-        // if ( compressionRatio > 50.0 || compressionRatio < 5.0 ) {
-        //     qCDebug(lcDataProcessingWorker) << "图像JPG编码完成，帧ID:" << frameId
-        //         << "原始大小:" << result.originalDataSize << "bytes"
-        //         << "JPG大小:" << result.compressedDataSize << "bytes"
-        //         << "压缩率:" << QString::number(compressionRatio, 'f', 2) << "%";
-        // }
-
+        result.compressedDataSize = jpegData.size();
     } catch ( const std::exception& e ) {
         qCCritical(lcDataProcessingWorker) << "图像处理异常:" << e.what() << "帧ID:" << frameId;
     } catch ( ... ) {

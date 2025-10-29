@@ -426,10 +426,10 @@ void TcpClient::handleStatusUpdate(const QByteArray& data) {
  * 提取图像数据并转换为QImage格式供UI显示使用。
  *
  * 数据格式说明：
- * - Server端发送JPG格式的压缩图像数据
- * - 数据已在DataProcessingWorker中编码为JPG格式（质量85）
- * - 使用QImage::loadFromData直接加载JPG数据
- * - JPG格式提供了良好的压缩率，减少网络传输数据量
+ * - Server端发送JPEG格式的压缩图像数据
+ * - 数据已在DataProcessingWorker中编码为JPEG格式（quality=85）
+ * - 使用QImage::loadFromData直接加载JPEG数据
+ * - JPEG格式提供良好的压缩率，减少网络传输量
  */
 void TcpClient::handleScreenData(const QByteArray& data) {
     // 更新总帧数统计
@@ -472,33 +472,33 @@ void TcpClient::handleScreenData(const QByteArray& data) {
         return;
     }
 
-    // 验证JPG格式头部（JPG文件以0xFF 0xD8开头）
+    // 验证JPEG格式头部（JPEG文件以0xFF 0xD8开头）
     if ( screenData.imageData.size() >= 2 ) {
         unsigned char byte0 = static_cast<unsigned char>(screenData.imageData[0]);
         unsigned char byte1 = static_cast<unsigned char>(screenData.imageData[1]);
         if ( byte0 != 0xFF || byte1 != 0xD8 ) {
-            qCWarning(lcClient) << "接收到的数据不是有效的JPG格式，前2字节:"
-                << QString("0x%1 0x%2").arg(byte0, 2, 16, QChar('0')).arg(byte1, 2, 16, QChar('0'));
-        } else {
-            // qCDebug(lcClient) << "JPG格式验证通过";
+            qCWarning(lcClient) << "接收到的数据不是有效的JPEG格式，前2字节:"
+                << QString("0x%1 0x%2")
+                .arg(byte0, 2, 16, QChar('0'))
+                .arg(byte1, 2, 16, QChar('0'));
         }
     }
 
     QByteArray frameData;
     {
         QMutexLocker locker(m_frameDataMutex);
-        // 直接使用接收到的JPG数据
+        // 直接使用接收到的JPEG数据
         frameData = screenData.imageData;
         m_previousFrameData = screenData.imageData;
     }
 
-    // 从JPG格式数据加载QImage
+    // 从JPEG格式数据加载QImage
     QImage frame;
     bool loaded = frame.loadFromData(frameData, "JPG");
 
     if ( loaded && !frame.isNull() ) {
         // 成功加载图像
-        qCDebug(lcClient) << "JPG图像加载成功，尺寸:" << frame.width() << "x" << frame.height()
+        qCDebug(lcClient) << "JPEG图像加载成功，尺寸:" << frame.width() << "x" << frame.height()
             << "格式:" << frame.format()
             << "压缩数据大小:" << frameData.size() << "bytes";
 

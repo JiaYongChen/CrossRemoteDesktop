@@ -328,7 +328,26 @@ QImage ScreenCaptureWorker::captureScreen() {
         return QImage();
     }
 
-    return pixmap.toImage();
+    QImage image = pixmap.toImage();
+
+    // 优化：适度缩小图像以减少数据传输量，同时保持视觉清晰度
+    // 缩放比例：75% 可减少约 44% 的数据量，同时保持良好的视觉效果
+    // 使用 SmoothTransformation 保证缩放质量
+    // const double SCALE_FACTOR = 0.75; // 可调整：0.5-1.0，推荐 0.75
+
+    // if ( !image.isNull() && SCALE_FACTOR < 1.0 ) {
+    //     int scaledWidth = static_cast<int>(image.width() * SCALE_FACTOR);
+    //     int scaledHeight = static_cast<int>(image.height() * SCALE_FACTOR);
+
+    //     // 确保缩放后的尺寸至少为 1x1
+    //     if ( scaledWidth > 0 && scaledHeight > 0 ) {
+    //         image = image.scaled(scaledWidth, scaledHeight,
+    //             Qt::IgnoreAspectRatio,
+    //             Qt::SmoothTransformation);
+    //     }
+    // }
+
+    return image;
 }
 
 QImage ScreenCaptureWorker::captureScreenRegion(const QRect& /*region*/) {
