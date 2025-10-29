@@ -24,16 +24,6 @@ DataProcessingWorker::DataProcessingWorker(QObject* parent)
     , m_processingTimeout(DEFAULT_PROCESSING_TIMEOUT)
     , m_maxQueueSize(100)
     , m_statsUpdateInterval(DEFAULT_STATS_INTERVAL)
-    , m_maxRetries(3)
-    , m_retryDelayMs(100)
-    , m_retryCount(0)
-    , m_maxLatencyThreshold(MAX_PROCESSING_LATENCY)
-    , m_minRateThreshold(MIN_PROCESSING_RATE)
-    , m_cpuUsage(0.0)
-    , m_memoryUsage(0.0)
-    , m_resourceMonitorTimer(nullptr)
-    , m_adaptiveMode(true)
-    , m_adaptiveTimer(nullptr)
     , m_maxParallelTasks(QThread::idealThreadCount())
     , m_activeParallelTasks(0) {
     qCDebug(lcDataProcessingWorker) << "DataProcessingWorker 构造函数";
@@ -131,20 +121,6 @@ bool DataProcessingWorker::initialize() {
         connect(m_statsTimer, &QTimer::timeout, this, &DataProcessingWorker::updateStats);
         m_statsTimer->start();
 
-        // 创建资源监控定时器
-        m_resourceMonitorTimer = new QTimer(this);
-        m_resourceMonitorTimer->setInterval(5000); // 每5秒检查一次
-        connect(m_resourceMonitorTimer, &QTimer::timeout, this, &DataProcessingWorker::checkSystemResources);
-        m_resourceMonitorTimer->start();
-
-        // 创建自适应调整定时器
-        if ( m_adaptiveMode ) {
-            m_adaptiveTimer = new QTimer(this);
-            m_adaptiveTimer->setInterval(10000); // 每10秒调整一次
-            connect(m_adaptiveTimer, &QTimer::timeout, this, &DataProcessingWorker::adaptProcessingParameters);
-            m_adaptiveTimer->start();
-        }
-
         // 初始化性能计时器
         m_performanceTimer.start();
         m_lastStatsUpdate = m_performanceTimer.elapsed();
@@ -162,11 +138,7 @@ bool DataProcessingWorker::initialize() {
 }
 
 void DataProcessingWorker::stop(bool waitForFinish) {
-    qCDebug(lcDataProcessingWorker) << "停止DataProcessingWorker，立即禁用自适应模式";
-
-    // 立即禁用自适应模式，防止在停止过程中继续调整参数
-    m_adaptiveMode = false;
-    qCDebug(lcDataProcessingWorker) << "自适应模式已立即禁用";
+    qCDebug(lcDataProcessingWorker) << "停止DataProcessingWorker";
 
     // 调用父类的stop方法
     Worker::stop(waitForFinish);
@@ -174,10 +146,6 @@ void DataProcessingWorker::stop(bool waitForFinish) {
 
 void DataProcessingWorker::cleanup() {
     qCDebug(lcDataProcessingWorker) << "清理DataProcessingWorker";
-
-    // 确保自适应模式已禁用（在stop方法中已经设置，这里是双重保险）
-    m_adaptiveMode = false;
-    qCDebug(lcDataProcessingWorker) << "自适应模式已禁用";
 
     // 停止处理并清空队列，确保processTask能快速退出
     stopProcessingAndClearQueues();
@@ -187,16 +155,6 @@ void DataProcessingWorker::cleanup() {
     if ( m_statsTimer && m_statsTimer->isActive() ) {
         m_statsTimer->stop();
         qCDebug(lcDataProcessingWorker) << "统计定时器已停止";
-    }
-
-    if ( m_resourceMonitorTimer && m_resourceMonitorTimer->isActive() ) {
-        m_resourceMonitorTimer->stop();
-        qCDebug(lcDataProcessingWorker) << "资源监控定时器已停止";
-    }
-
-    if ( m_adaptiveTimer && m_adaptiveTimer->isActive() ) {
-        m_adaptiveTimer->stop();
-        qCDebug(lcDataProcessingWorker) << "自适应调整定时器已停止";
     }
 
     // 断开队列管理器信号连接
@@ -277,17 +235,11 @@ void DataProcessingWorker::processTask() {
         if ( ++taskCount % 50 == 0 ) { // 每50次任务检查一次
             // 在检查系统资源前也要确认没有停止信号
             if ( shouldStop() ) {
-                qCDebug(lcDataProcessingWorker) << "检测到停止信号，跳过系统资源检查";
+                qCDebug(lcDataProcessingWorker) << "检测到停止信号，跳过性能检查";
                 return;
             }
 
-            checkSystemResources();
             checkPerformance();
-
-            // 如果启用自适应模式且没有停止信号，调整处理参数
-            if ( m_adaptiveMode && !shouldStop() ) {
-                adaptProcessingParameters();
-            }
         }
 
     } catch ( const std::exception& e ) {
@@ -395,9 +347,9 @@ ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, qui
         QBuffer buffer;
         buffer.open(QIODevice::WriteOnly);
 
-        // 保存为 JPG 格式，质量设置为 85（平衡质量和文件大小）
+        // 保存为 JPG 格式，质量设置为 100（最高质量，文件大小最大）
         // 质量范围：0-100，越高质量越好但文件越大
-        // 85 是一个较好的平衡点，既保证质量又有较好的压缩率
+        // 100 是最高质量，文件大小最大
         int quality = 100;
         if ( !convertedImage.save(&buffer, "JPG", quality) ) {
             qCWarning(lcDataProcessingWorker) << "无法将图像编码为JPG格式，帧ID:" << frameId;
@@ -421,17 +373,17 @@ ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, qui
         result.compressedDataSize = jpgData.size();
 
         // 计算压缩率
-        double compressionRatio = (result.originalDataSize > 0)
-            ? (double(result.compressedDataSize) / result.originalDataSize * 100.0)
-            : 0.0;
+        // double compressionRatio = (result.originalDataSize > 0)
+        //     ? (double(result.compressedDataSize) / result.originalDataSize * 100.0)
+        //     : 0.0;
 
         // 输出日志（减少频繁输出，只在压缩率显著或出现问题时输出）
-        if ( compressionRatio > 50.0 || compressionRatio < 5.0 ) {
-            qCDebug(lcDataProcessingWorker) << "图像JPG编码完成，帧ID:" << frameId
-                << "原始大小:" << result.originalDataSize << "bytes"
-                << "JPG大小:" << result.compressedDataSize << "bytes"
-                << "压缩率:" << QString::number(compressionRatio, 'f', 2) << "%";
-        }
+        // if ( compressionRatio > 50.0 || compressionRatio < 5.0 ) {
+        //     qCDebug(lcDataProcessingWorker) << "图像JPG编码完成，帧ID:" << frameId
+        //         << "原始大小:" << result.originalDataSize << "bytes"
+        //         << "JPG大小:" << result.compressedDataSize << "bytes"
+        //         << "压缩率:" << QString::number(compressionRatio, 'f', 2) << "%";
+        // }
 
     } catch ( const std::exception& e ) {
         qCCritical(lcDataProcessingWorker) << "图像处理异常:" << e.what() << "帧ID:" << frameId;
@@ -442,113 +394,13 @@ ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, qui
     return result;
 }
 
-void DataProcessingWorker::checkSystemResources() {
-    try {
-        // 简化的资源监控实现
-        // 在实际应用中，可以使用系统API获取真实的CPU和内存使用率
-
-        // 基于处理队列状态估算CPU使用率
-        double queueUtilization = 0.0;
-        if ( m_queueManager ) {
-            auto captureStats = m_queueManager->getQueueStats(QueueManager::CaptureQueue);
-            auto processedStats = m_queueManager->getQueueStats(QueueManager::ProcessedQueue);
-            int captureSize = captureStats.currentSize;
-            int processedSize = processedStats.currentSize;
-            queueUtilization = static_cast<double>(captureSize + processedSize) / (m_maxQueueSize * 2) * 100.0;
-        }
-
-        // 基于处理速率估算CPU使用率
-        double processingLoad = (m_processingRate.load() / 60.0) * 100.0; // 假设60fps为满负载
-        m_cpuUsage = std::min(std::max(queueUtilization, processingLoad), 100.0);
-
-        // 基于处理延迟估算内存压力
-        double latencyFactor = (m_averageLatency.load() / m_maxLatencyThreshold) * 100.0;
-        m_memoryUsage = std::min(latencyFactor, 100.0);
-
-        // 检查资源使用阈值
-        if ( m_cpuUsage.load() > MAX_CPU_USAGE ) {
-            emit processingWarning(QString("CPU使用率过高: %1%").arg(m_cpuUsage.load(), 0, 'f', 1));
-        }
-
-        if ( m_memoryUsage.load() > MAX_MEMORY_USAGE ) {
-            emit processingWarning(QString("内存使用率过高: %1%").arg(m_memoryUsage.load(), 0, 'f', 1));
-        }
-
-    } catch ( const std::exception& e ) {
-        qCWarning(lcDataProcessingWorker) << "资源监控异常:" << e.what();
-    } catch ( ... ) {
-        qCWarning(lcDataProcessingWorker) << "资源监控未知异常";
-    }
-}
-
-void DataProcessingWorker::adaptProcessingParameters() {
-    // 首先检查是否应该停止
-    if ( shouldStop() ) {
-        qCDebug(lcDataProcessingWorker) << "检测到停止信号，跳过自适应参数调整";
-        return;
-    }
-
-    if ( !m_adaptiveMode ) {
-        return;
-    }
-
-    try {
-        double currentLatency = m_averageLatency.load();
-        double currentRate = m_processingRate.load();
-        double currentCpuUsage = m_cpuUsage.load();
-
-        // 根据性能指标自适应调整参数
-        if ( currentLatency > m_maxLatencyThreshold || currentCpuUsage > MAX_CPU_USAGE ) {
-            // 性能压力较大，调整处理参数
-            qCDebug(lcDataProcessingWorker) << "检测到性能压力，调整处理参数";
-
-            // 增加重试延迟
-            m_retryDelayMs = std::min(m_retryDelayMs + 10, 500);
-
-        } else if ( currentLatency < m_maxLatencyThreshold * 0.5 && currentCpuUsage < MAX_CPU_USAGE * 0.5 ) {
-            // 性能充足，可以提高处理质量
-            qCDebug(lcDataProcessingWorker) << "检测到性能充足，调整处理参数";
-
-            // 减少重试延迟
-            m_retryDelayMs = std::max(m_retryDelayMs - 10, 50);
-        }
-
-        qCDebug(lcDataProcessingWorker) << "自适应调整完成，延迟:" << currentLatency
-            << "ms，速率:" << currentRate
-            << "fps，CPU:" << currentCpuUsage << "%";
-
-    } catch ( const std::exception& e ) {
-        qCWarning(lcDataProcessingWorker) << "自适应调整异常:" << e.what();
-    } catch ( ... ) {
-        qCWarning(lcDataProcessingWorker) << "自适应调整未知异常";
-    }
-}
-
-// 新增的公共方法实现
-void DataProcessingWorker::setRetryConfig(int maxRetries, int retryDelayMs) {
-    m_maxRetries = std::max(0, maxRetries);
-    m_retryDelayMs = std::max(10, retryDelayMs);
-    qCDebug(lcDataProcessingWorker) << "重试配置更新，最大重试次数:" << m_maxRetries
-        << "重试延迟:" << m_retryDelayMs << "ms";
-}
-
 DataProcessingWorker::PerformanceMetrics DataProcessingWorker::getPerformanceMetrics() const {
     PerformanceMetrics metrics;
     metrics.processedFrames = m_processedFrames.load();
     metrics.droppedFrames = m_droppedFrames.load();
-    metrics.retryCount = m_retryCount.load();
     metrics.averageLatency = m_averageLatency.load();
     metrics.processingRate = m_processingRate.load();
-    metrics.cpuUsage = m_cpuUsage.load();
-    metrics.memoryUsage = m_memoryUsage.load();
     return metrics;
-}
-
-void DataProcessingWorker::setPerformanceThresholds(double maxLatency, double minRate) {
-    m_maxLatencyThreshold = std::max(1.0, maxLatency);
-    m_minRateThreshold = std::max(0.1, minRate);
-    qCDebug(lcDataProcessingWorker) << "性能阈值更新，最大延迟:" << m_maxLatencyThreshold
-        << "ms，最小速率:" << m_minRateThreshold << "fps";
 }
 
 bool DataProcessingWorker::validateFrame(const CapturedFrame& frame) const {
@@ -661,9 +513,6 @@ void DataProcessingWorker::stopProcessingAndClearQueues() {
         m_totalProcessingTime = 0;
         m_averageLatency = 0.0;
         m_processingRate = 0.0;
-        m_retryCount = 0;
-        m_cpuUsage = 0.0;
-        m_memoryUsage = 0.0;
 
         qCDebug(lcDataProcessingWorker) << "重置统计信息完成";
     }
@@ -687,18 +536,6 @@ void DataProcessingWorker::resumeProcessing() {
     if ( m_statsTimer && !m_statsTimer->isActive() ) {
         m_statsTimer->start(m_statsUpdateInterval);
         qCDebug(lcDataProcessingWorker) << "重新启动统计定时器";
-    }
-
-    // 重新启动资源监控定时器
-    if ( m_resourceMonitorTimer && !m_resourceMonitorTimer->isActive() ) {
-        m_resourceMonitorTimer->start(5000); // 每5秒监控一次
-        qCDebug(lcDataProcessingWorker) << "重新启动资源监控定时器";
-    }
-
-    // 重新启动自适应调整定时器
-    if ( m_adaptiveTimer && m_adaptiveMode && !m_adaptiveTimer->isActive() ) {
-        m_adaptiveTimer->start(10000); // 每10秒调整一次
-        qCDebug(lcDataProcessingWorker) << "重新启动自适应调整定时器";
     }
 
     qCDebug(lcDataProcessingWorker) << "恢复数据处理完成";

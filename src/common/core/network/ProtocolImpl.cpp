@@ -55,6 +55,7 @@ bool Protocol::parseMessage(const QByteArray& data, MessageHeader& header, QByte
 
     // 步骤1：检查数据是否足够包含加密的header
     if ( data.size() < static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) ) {
+        qCDebug(lcProtocol) << "等待更多数据";
         return false; // 等待更多数据
     }
 
@@ -76,6 +77,7 @@ bool Protocol::parseMessage(const QByteArray& data, MessageHeader& header, QByte
 
     // 步骤4：如果数据不够完整消息，等待更多数据
     if ( data.size() < totalEncryptedSize ) {
+        qCDebug(lcProtocol) << "等待更多数据" << totalEncryptedSize << "bytes, 当前只有" << data.size() << "bytes";
         return false; // 半包，等待更多数据
     }
 
@@ -84,7 +86,7 @@ bool Protocol::parseMessage(const QByteArray& data, MessageHeader& header, QByte
     // 这与 createMessage 中的 encryptData(headerData + payload) 对应
     QByteArray encryptedMessage = data.left(totalEncryptedSize);
     QByteArray decryptedMessage = decryptData(encryptedMessage, Protocol::XORkey);
-    
+
     // 步骤6：从解密后的完整消息中提取 payload
     // decryptedMessage = [decrypted_header][decrypted_payload]
     payload = decryptedMessage.mid(static_cast<qsizetype>(SERIALIZED_HEADER_SIZE));
@@ -93,7 +95,6 @@ bool Protocol::parseMessage(const QByteArray& data, MessageHeader& header, QByte
     if ( !validateMessage(header, payload) ) {
         return false;
     }
-
     return true;
 }
 

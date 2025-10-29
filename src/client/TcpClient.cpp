@@ -12,6 +12,7 @@
 #include <QtCore/QMessageLogger>
 #include "../common/core/crypto/Encryption.h"
 #include <QtCore/QMutexLocker>
+#include <QtConcurrent/QtConcurrent>
 
 TcpClient::TcpClient(QObject* parent)
     : QObject(parent)
@@ -66,8 +67,6 @@ void TcpClient::disconnectFromHost() {
 
     // 清理接收缓冲区
     m_receiveBuffer.clear();
-    // 重置解析失败计数器，避免影响下次连接
-    m_parseFailCount = 0;
 
     // 如果仍处于连接状态，优雅断开连接
     if ( m_socket->state() == QAbstractSocket::ConnectedState ) {
@@ -92,8 +91,6 @@ void TcpClient::abort() {
 
     // 清理接收缓冲区
     m_receiveBuffer.clear();
-    // 重置解析失败计数器，避免影响下次连接
-    m_parseFailCount = 0;
 
     m_socket->abort();
 }
@@ -217,101 +214,63 @@ void TcpClient::onError(QAbstractSocket::SocketError error) {
 }
 
 void TcpClient::onReadyRead() {
-    // 说明：
-    // - 支持粘包/半包：循环解析，若数据不足一个完整帧则等待更多数据。
-    // - 解析与消费：使用 Protocol::parseMessage 解析当前缓冲区首帧，成功后按帧长从缓冲区移除（SERIALIZED_HEADER_SIZE + header.length）。
-    // - 重同步机制：连续解析失败达阈值时，小步丢弃1字节尝试重同步，避免异常数据卡死；仍保留最大包长防护。
-    // - 大数据优化：分批读取数据，避免一次性读取过大数据导致内存问题
-
-    constexpr qint64 kMaxReadChunkSize = 64 * 1024; // 每次最多读取64KB
-    constexpr qint64 kMaxBufferSize = 10 * 1024 * 1024; // 缓冲区最大10MB
-
-    // 分批读取数据，避免一次性读取过大
-    qint64 bytesAvailable = m_socket->bytesAvailable();
-    while ( bytesAvailable > 0 ) {
-        qint64 bytesToRead = qMin(bytesAvailable, kMaxReadChunkSize);
-        QByteArray data = m_socket->read(bytesToRead);
-
-        if ( data.isEmpty() ) {
-            break; // 没有更多数据可读
-        }
-
-        // 检查缓冲区大小，防止无限增长
-        if ( m_receiveBuffer.size() + data.size() > kMaxBufferSize ) {
-            qCCritical(lcClient) << "接收缓冲区超过最大限制:" << kMaxBufferSize
-                << "当前大小:" << m_receiveBuffer.size()
-                << "新增数据:" << data.size();
-            abort(); // 缓冲区溢出，中止连接
-            return;
-        }
-
-        m_receiveBuffer.append(data);
-        bytesAvailable = m_socket->bytesAvailable();
+    if ( !m_socket ) {
+        return;
     }
 
+    // 一次性读取所有可用数据
+    QByteArray newData = m_socket->readAll();
+    if ( newData.isEmpty() ) {
+        return;
+    }
+
+    // 检查缓冲区大小，防止无限增长
+    if ( m_receiveBuffer.size() + newData.size() > NetworkConstants::MAX_PACKET_SIZE ) {
+        qCCritical(lcClient) << "接收缓冲区超过最大限制:" << NetworkConstants::MAX_PACKET_SIZE
+            << "当前大小:" << m_receiveBuffer.size()
+            << "新增数据:" << newData.size();
+        abort();
+        return;
+    }
+
+    // 预留空间以减少内存分配次数
+    m_receiveBuffer.reserve(m_receiveBuffer.size() + newData.size());
+    m_receiveBuffer.append(newData);
+
+    // 更新心跳时间
     m_lastHeartbeat = QDateTime::currentDateTime();
 
-    constexpr int kMaxResyncAttempts = 4; // 与服务端保持一致的保守阈值
-    int processedMessages = 0; // 统计本次处理的消息数
-
+    // 处理缓冲区中的完整消息
     while ( m_receiveBuffer.size() >= static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) ) {
-
-        // 减少日志输出频率，仅在处理第一个消息或大数据包时输出
-        if ( processedMessages == 0 || m_receiveBuffer.size() > 1024 * 1024 ) {
-            qCDebug(lcClient) << "TcpClient::onReadyRead - 缓冲区大小:" << m_receiveBuffer.size();
-        }
-
+        // 尝试解析消息（包括解密）
         MessageHeader header;
         QByteArray payload;
-        const bool ok = Protocol::parseMessage(m_receiveBuffer, header, payload);
-        if ( !ok ) {
-            // 半包或错误：先视为数据不足；若连续失败过多，尝试小步丢弃重同步
-            m_parseFailCount++;
-            if ( m_parseFailCount >= kMaxResyncAttempts ) {
-                qCWarning(lcClient) << "连续解析失败" << m_parseFailCount << "次，尝试重同步";
-                m_receiveBuffer.remove(0, 1);
-                m_parseFailCount = 0;
-                continue; // 继续尝试解析
-            }
-            break; // 等待更多数据
+
+        if ( !Protocol::parseMessage(m_receiveBuffer, header, payload) ) {
+            // 数据不足，等待更多数据到达
+            qCWarning(lcClient) << "消息解析失败，等待更多数据";
+            break;
         }
 
-        // 解析成功，重置失败计数
-        m_parseFailCount = 0;
+        // 计算消息的总大小（加密后的大小）
+        qsizetype totalMessageSize = static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) + header.length;
 
-        // 最大包长防护（客户端同样防御）
-        if ( header.length > static_cast<quint32>(NetworkConstants::MAX_PACKET_SIZE) ) {
-            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient)
-                << "Payload too large, length:" << header.length;
-            abort(); // 立即中止连接，防御异常数据
+        // 验证消息长度
+        if ( totalMessageSize > static_cast<quint32>(NetworkConstants::MAX_PACKET_SIZE) ) {
+            qCCritical(lcClient) << "消息长度超过最大限制:" << header.length;
+            abort();
             return;
         }
 
-        // 分发处理
-        processMessage(header, payload);
-        processedMessages++;
+        // 移除已处理的数据
+        m_receiveBuffer.remove(0, totalMessageSize);
 
-        // 精确移除已处理的帧
-        const qsizetype consumed = static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) + static_cast<qsizetype>(header.length);
-        if ( consumed > 0 && consumed <= m_receiveBuffer.size() ) {
-            m_receiveBuffer.remove(0, consumed);
-        } else {
-            // 防御性处理：异常则清空缓冲并退出循环
-            qCWarning(lcClient) << "消息帧大小异常，清空缓冲区";
-            m_receiveBuffer.clear();
-            break;
-        }
-
-        // 如果已处理多个消息，给其他事件处理机会
-        if ( processedMessages >= 10 ) {
-            qCDebug(lcClient) << "已处理" << processedMessages << "个消息，暂停解析等待下次readyRead";
-            break;
-        }
+        // 异步处理消息，使用 QMetaObject::invokeMethod 调度到主线程
+        // 这样可以避免跨线程访问 QTcpSocket 的问题
+        QMetaObject::invokeMethod(this, [this, header, payload]() {
+            processMessage(header, payload);
+        }, Qt::QueuedConnection);
     }
-
-    // if ( processedMessages > 0 ) {
-    //     qCDebug(lcClient) << "本次readyRead处理了" << processedMessages << "个消息，剩余缓冲:" << m_receiveBuffer.size();
-    // }
 }
 
 void TcpClient::sendHeartbeat() {
@@ -491,11 +450,6 @@ void TcpClient::handleScreenData(const QByteArray& data) {
         return;
     }
 
-    // 调试日志：记录解码后的信息
-    // qCDebug(lcClient) << "ScreenData解码成功 - 尺寸:" << screenData.width << "x" << screenData.height
-    //     << "数据大小:" << screenData.dataSize << "bytes"
-    //     << "imageData大小:" << screenData.imageData.size() << "bytes";
-
     // 验证数据完整性
     if ( screenData.imageData.isEmpty() || screenData.dataSize == 0 ) {
         QString errorDetails = QString("Empty image data - dataSize: %1, imageData size: %2")
@@ -603,8 +557,6 @@ void TcpClient::sendAuthenticationRequest(const QString& username, const QString
 void TcpClient::resetConnection() {
     m_receiveBuffer.clear();
     m_sessionId.clear();
-    // 重置解析失败计数器，确保连接状态复位
-    m_parseFailCount = 0;
 }
 
 QString TcpClient::hashPassword(const QString& password) {

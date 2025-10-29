@@ -88,38 +88,19 @@ public:
     void setMaxQueueSize(int maxSize);
 
     /**
-     * @brief 设置重试配置
-     * @param maxRetries 最大重试次数
-     * @param retryDelayMs 重试延迟（毫秒）
-     */
-    void setRetryConfig(int maxRetries, int retryDelayMs);
-
-    /**
      * @brief 获取详细的性能指标
      * @return 性能指标结构
      */
     struct PerformanceMetrics {
         quint64 processedFrames;
         quint64 droppedFrames;
-        quint64 retryCount;
         double averageLatency;
         double processingRate;
-        double cpuUsage;
-        double memoryUsage;
     };
     PerformanceMetrics getPerformanceMetrics() const;
 
     /**
-     * @brief 设置性能阈值
-     * @param maxLatency 最大延迟阈值（毫秒）
-     * @param minRate 最小处理速率阈值（帧/秒）
-     */
-    void setPerformanceThresholds(double maxLatency, double minRate);
-
-    /**
      * @brief 停止工作线程
-     *
-     * 重写父类的stop方法，在停止时立即禁用自适应模式
      * @param waitForFinish 是否等待完成
      */
     void stop(bool waitForFinish = true) override;
@@ -222,14 +203,6 @@ signals:
      */
     void performanceMetricsUpdated(const PerformanceMetrics& metrics);
 
-    /**
-     * @brief 重试事件信号
-     * @param frameId 帧ID
-     * @param retryCount 重试次数
-     * @param reason 重试原因
-     */
-    void retryAttempted(quint64 frameId, int retryCount, const QString& reason);
-
 private:
     /**
      * @brief 批量并行处理多个帧
@@ -245,16 +218,6 @@ private:
      * @return 处理后的数据
      */
     static ProcessedData encodeImageParallel(const QImage& image, quint64 frameId);
-
-    /**
-     * @brief 检查系统资源使用情况
-     */
-    void checkSystemResources();
-
-    /**
-     * @brief 自适应调整处理参数
-     */
-    void adaptProcessingParameters();
 
     /**
      * @brief 验证帧数据
@@ -299,24 +262,6 @@ private:
     int m_maxQueueSize;                                                 ///< 最大队列大小
     int m_statsUpdateInterval;                                          ///< 统计更新间隔（毫秒）
 
-    // 重试配置
-    int m_maxRetries;                                                   ///< 最大重试次数
-    int m_retryDelayMs;                                                 ///< 重试延迟（毫秒）
-    std::atomic<quint64> m_retryCount;                                  ///< 重试计数
-
-    // 性能阈值
-    double m_maxLatencyThreshold;                                       ///< 最大延迟阈值（毫秒）
-    double m_minRateThreshold;                                          ///< 最小处理速率阈值（帧/秒）
-
-    // 系统资源监控
-    std::atomic<double> m_cpuUsage;                                     ///< CPU使用率
-    std::atomic<double> m_memoryUsage;                                  ///< 内存使用率
-    QTimer* m_resourceMonitorTimer;                                     ///< 资源监控定时器
-
-    // 自适应参数
-    bool m_adaptiveMode;                                                ///< 自适应模式开关
-    QTimer* m_adaptiveTimer;                                            ///< 自适应调整定时器
-
     // 并行处理
     int m_maxParallelTasks;                                             ///< 最大并行任务数
     std::atomic<int> m_activeParallelTasks;                             ///< 当前活跃的并行任务数
@@ -325,8 +270,6 @@ private:
     // 性能监控阈值
     static constexpr double MAX_PROCESSING_LATENCY = 100.0;             ///< 最大处理延迟阈值（毫秒）
     static constexpr double MIN_PROCESSING_RATE = 10.0;                 ///< 最小处理速率阈值（帧/秒）
-    static constexpr double MAX_CPU_USAGE = 80.0;                       ///< 最大CPU使用率阈值
-    static constexpr double MAX_MEMORY_USAGE = 70.0;                    ///< 最大内存使用率阈值
 
     static constexpr int DEFAULT_PROCESSING_TIMEOUT = 5000;             ///< 默认处理超时时间（毫秒）
     static constexpr int DEFAULT_STATS_INTERVAL = 1000;                 ///< 默认统计更新间隔（毫秒）

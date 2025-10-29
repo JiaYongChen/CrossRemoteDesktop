@@ -100,7 +100,6 @@ private:
     // 网络
     QTcpSocket *m_socket;
     QByteArray m_receiveBuffer;
-    int m_parseFailCount{0}; // 连续解析失败计数器（用于重同步）
     
     // 连接信息
     QString m_hostName;

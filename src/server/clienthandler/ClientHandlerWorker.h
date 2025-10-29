@@ -232,7 +232,6 @@ private:
     qintptr m_socketDescriptor;           ///< 套接字描述符
     QTcpSocket* m_socket;                 ///< TCP套接字
     QByteArray m_receiveBuffer;           ///< 接收缓冲区
-    int m_parseFailCount{ 0 };              ///< 连续解析失败计数器
 
     // 客户端信息（线程安全访问需要互斥锁）
     mutable QMutex m_clientInfoMutex;     ///< 客户端信息互斥锁

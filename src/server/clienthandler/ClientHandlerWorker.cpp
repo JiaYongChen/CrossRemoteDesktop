@@ -19,6 +19,7 @@
 #include <QtCore/QMutex>
 #include <QtCore/QMutexLocker>
 #include <QtCore/QRandomGenerator>
+#include <QtConcurrent/QtConcurrent>
 #include <cstring>
 
 // 日志分类
@@ -150,14 +151,6 @@ void ClientHandlerWorker::processTask() {
         return;
     }
 
-    // 处理接收缓冲区中的数据
-    // readyRead信号已经连接到onReadyRead槽，这里只做额外检查
-    // 如果有数据但信号未触发（罕见情况），手动触发处理
-    if ( m_socket && m_socket->bytesAvailable() > 0 ) {
-        // 使用异步调用避免阻塞processTask
-        QMetaObject::invokeMethod(this, "onReadyRead", Qt::QueuedConnection);
-    }
-
     // 认证成功后，异步从处理队列获取并发送屏幕数据
     // 使用QMetaObject::invokeMethod异步调用，避免阻塞processTask
     if ( isAuthenticated() && m_queueManager ) {
@@ -191,11 +184,6 @@ void ClientHandlerWorker::sendScreenDataFromQueue() {
     screenData.width = processedData.imageSize.width();
     screenData.height = processedData.imageSize.height();
     screenData.dataSize = processedData.compressedData.size();
-
-    // 调试日志：记录屏幕数据信息（可选）
-    // qCDebug(clientHandlerWorker) << "发送屏幕数据 - 尺寸:" << screenData.width << "x" << screenData.height
-    //     << "数据大小:" << screenData.dataSize << "bytes"
-    //     << "帧ID:" << processedData.originalFrameId;
 
     // 预先编码消息,然后发送
     QByteArray messageData = Protocol::createMessage(MessageType::SCREEN_DATA, screenData);
@@ -308,13 +296,6 @@ void ClientHandlerWorker::sendEncodedMessage(const QByteArray& messageData) {
 
         if ( bytesWritten != totalSize ) {
             qCWarning(clientHandlerWorker) << "消息部分发送: 期望" << totalSize << "bytes，实际" << bytesWritten << "bytes";
-            // 注意：部分发送不是错误，剩余数据会在socket的写缓冲区中排队
-            // Qt会在缓冲区可用时自动继续发送
-        }
-
-        // 对于大消息（>1MB），记录日志
-        if ( totalSize > 1024 * 1024 ) {
-            qCDebug(clientHandlerWorker) << "发送大消息:" << totalSize << "bytes";
         }
 
         // 更新统计信息（按写入的字节数，不是消息大小）
@@ -322,6 +303,9 @@ void ClientHandlerWorker::sendEncodedMessage(const QByteArray& messageData) {
             QMutexLocker locker(&m_statsMutex);
             m_bytesSent += bytesWritten;
         }
+
+        // 数据大小和发送数据大小日志
+        qCDebug(clientHandlerWorker) << "数据大小:" << totalSize << "bytes" << "发送数据大小:" << bytesWritten << "bytes";
 
     } catch ( const std::exception& e ) {
         qCWarning(clientHandlerWorker, "发送消息时发生异常: %s", e.what());
@@ -354,6 +338,8 @@ void ClientHandlerWorker::disconnectClient() {
 void ClientHandlerWorker::forceDisconnect() {
     qCWarning(clientHandlerWorker, "强制断开客户端连接: %s", qPrintable(clientId()));
 
+    m_receiveBuffer.clear();
+
     if ( m_socket ) {
         m_socket->abort();
         qCDebug(clientHandlerWorker) << "Socket已abort,等待disconnected信号触发清理";
@@ -373,44 +359,29 @@ void ClientHandlerWorker::onReadyRead() {
         return;
     }
 
-    constexpr qint64 kMaxReadChunkSize = 64 * 1024; // 每次最多读取64KB
-    constexpr qint64 kMaxBufferSize = 10 * 1024 * 1024; // 缓冲区最大10MB
-
-    // 分批读取数据，避免一次性读取过大
-    qint64 bytesAvailable = m_socket->bytesAvailable();
-    qint64 totalBytesRead = 0;
-
-    while ( bytesAvailable > 0 ) {
-        qint64 bytesToRead = qMin(bytesAvailable, kMaxReadChunkSize);
-        QByteArray newData = m_socket->read(bytesToRead);
-
-        if ( newData.isEmpty() ) {
-            break; // 没有更多数据可读
-        }
-
-        // 检查缓冲区大小，防止无限增长
-        if ( m_receiveBuffer.size() + newData.size() > kMaxBufferSize ) {
-            qCCritical(clientHandlerWorker, "接收缓冲区超过最大限制: %lld，当前大小: %lld，新增数据: %lld",
-                kMaxBufferSize, static_cast<qint64>(m_receiveBuffer.size()), static_cast<qint64>(newData.size()));
-            forceDisconnect();
-            return;
-        }
-
-        totalBytesRead += newData.size();
-        m_receiveBuffer.append(newData);
-        bytesAvailable = m_socket->bytesAvailable();
-    }
-
-    if ( totalBytesRead == 0 ) {
+    // 一次性读取所有可用数据
+    QByteArray newData = m_socket->readAll();
+    if ( newData.isEmpty() ) {
         return;
     }
 
-    {
-        QMutexLocker locker(&m_statsMutex);
-        m_bytesReceived += totalBytesRead;
+    // 检查缓冲区大小，防止无限增长
+    if ( m_receiveBuffer.size() + newData.size() > NetworkConstants::MAX_PACKET_SIZE ) {
+        qCCritical(clientHandlerWorker) << "接收缓冲区超过最大限制:" << NetworkConstants::MAX_PACKET_SIZE
+            << "当前大小:" << m_receiveBuffer.size()
+            << "新增数据:" << newData.size();
+        forceDisconnect();
+        return;
     }
 
-    int processedMessages = 0; // 统计本次处理的消息数
+    // 预留空间以减少内存分配次数
+    m_receiveBuffer.reserve(m_receiveBuffer.size() + newData.size());
+    m_receiveBuffer.append(newData);
+
+    {
+        QMutexLocker locker(&m_statsMutex);
+        m_bytesReceived += newData.size();
+    }
 
     // 处理缓冲区中的完整消息
     while ( m_receiveBuffer.size() >= static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) ) {
@@ -418,46 +389,30 @@ void ClientHandlerWorker::onReadyRead() {
         MessageHeader header;
         QByteArray payload;
 
-        // 首先尝试解析当前缓冲区的数据
         if ( !Protocol::parseMessage(m_receiveBuffer, header, payload) ) {
-            qCWarning(clientHandlerWorker, "消息解析失败");
-            m_parseFailCount++;
-
-            if ( m_parseFailCount > 10 ) {
-                qCCritical(clientHandlerWorker, "连续解析失败次数过多，断开连接");
-                forceDisconnect();
-                return;
-            }
-
-            // 尝试重新同步
-            m_receiveBuffer.remove(0, 1);
-            continue;
+            // 数据不足，等待更多数据到达
+            qCWarning(clientHandlerWorker) << "消息解析失败，等待更多数据";
+            break;
         }
 
-        // 重置解析失败计数
-        m_parseFailCount = 0;
-
         // 计算消息的总大小（加密后的大小）
-        // 关键修复：加密消息大小 = header大小 + 加密payload大小
-        // 由于XOR加密长度不变，加密payload大小 = header.length
         qsizetype totalMessageSize = static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) + header.length;
+
+        // 验证消息长度
+        if ( totalMessageSize > static_cast<quint32>(NetworkConstants::MAX_PACKET_SIZE) ) {
+            qCCritical(clientHandlerWorker) << "消息长度超过最大限制:" << header.length;
+            forceDisconnect();
+            return;
+        }
 
         // 移除已处理的数据
         m_receiveBuffer.remove(0, totalMessageSize);
 
-        // 处理消息
-        processMessage(header, payload);
-        processedMessages++;
-
-        // 如果已处理多个消息，给其他事件处理机会
-        if ( processedMessages >= 10 ) {
-            qCDebug(clientHandlerWorker) << "已处理" << processedMessages << "个消息，暂停解析等待下次readyRead";
-            break;
-        }
-    }
-
-    if ( processedMessages > 0 && m_receiveBuffer.size() > 1024 ) {
-        qCDebug(clientHandlerWorker) << "本次readyRead处理了" << processedMessages << "个消息，剩余缓冲:" << m_receiveBuffer.size();
+        // 异步处理消息，使用 QMetaObject::invokeMethod 调度到 Worker 线程
+        // 这样可以避免跨线程访问 QTcpSocket 的问题
+        QMetaObject::invokeMethod(this, [this, header, payload]() {
+            processMessage(header, payload);
+        }, Qt::QueuedConnection);
     }
 }
 
