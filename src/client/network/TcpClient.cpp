@@ -17,7 +17,6 @@
 TcpClient::TcpClient(QObject* parent)
     : QObject(parent)
     , m_socket(new QTcpSocket(this))
-    , m_heartbeatTimer(new QTimer(this))
     , m_heartbeatCheckTimer(new QTimer(this))
     , m_frameDataMutex(new QMutex())
     , m_errorStatsMutex(new QMutex()) {
@@ -28,11 +27,7 @@ TcpClient::TcpClient(QObject* parent)
     connect(m_socket, QOverload<QAbstractSocket::SocketError>::of(&QTcpSocket::errorOccurred),
         this, &TcpClient::onError);
 
-    // 心跳定时器设置
-    m_heartbeatTimer->setInterval(NetworkConstants::HEARTBEAT_INTERVAL);
-    connect(m_heartbeatTimer, &QTimer::timeout, this, &TcpClient::sendHeartbeat);
-
-    // 心跳超时检查定时器设置
+    // 心跳超时检查定时器设置 - 用于检测服务端心跳超时
     m_heartbeatCheckTimer->setInterval(NetworkConstants::HEARTBEAT_TIMEOUT);
     connect(m_heartbeatCheckTimer, &QTimer::timeout, this, &TcpClient::checkHeartbeat);
 }
@@ -62,7 +57,6 @@ void TcpClient::disconnectFromHost() {
         return;
     }
 
-    m_heartbeatTimer->stop();
     m_heartbeatCheckTimer->stop();
 
     // 清理接收缓冲区
@@ -86,7 +80,6 @@ void TcpClient::disconnectFromHost() {
 }
 
 void TcpClient::abort() {
-    m_heartbeatTimer->stop();
     m_heartbeatCheckTimer->stop();
 
     // 清理接收缓冲区
@@ -143,6 +136,7 @@ void TcpClient::onConnected() {
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << "TcpClient::onConnected - TCP connection established";
 
     // 设置TCP优化选项
+    m_socket->setSocketOption(QAbstractSocket::KeepAliveOption, NetworkConstants::KEEP_ALIVE_ENABLED);
     m_socket->setSocketOption(QAbstractSocket::LowDelayOption, NetworkConstants::TCP_NODELAY_ENABLED);
     m_socket->setSocketOption(QAbstractSocket::SendBufferSizeSocketOption, NetworkConstants::SOCKET_SEND_BUFFER_SIZE);
     m_socket->setSocketOption(QAbstractSocket::ReceiveBufferSizeSocketOption, NetworkConstants::SOCKET_RECEIVE_BUFFER_SIZE);
@@ -150,8 +144,7 @@ void TcpClient::onConnected() {
     // 发送握手请求
     sendHandshakeRequest();
 
-    // 启动心跳定时器
-    m_heartbeatTimer->start();
+    // 启动心跳超时检查定时器（用于检测服务端心跳）
     m_lastHeartbeat = QDateTime::currentDateTime();
     m_heartbeatCheckTimer->start();
 
@@ -162,7 +155,7 @@ void TcpClient::onConnected() {
 void TcpClient::onDisconnected() {
     QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << "TcpClient::onDisconnected - TCP connection closed";
 
-    m_heartbeatTimer->stop();
+    // 停止心跳检查定时器
     m_heartbeatCheckTimer->stop();
 
     resetConnection();
@@ -241,41 +234,28 @@ void TcpClient::onReadyRead() {
     m_lastHeartbeat = QDateTime::currentDateTime();
 
     // 处理缓冲区中的完整消息
-    while ( m_receiveBuffer.size() >= static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) ) {
-        // 尝试解析消息（包括解密）
+    while ( !m_receiveBuffer.isEmpty() ) {
+        // 步骤1：先验证数据完整性，同时获取MessageHeader
         MessageHeader header;
         QByteArray payload;
+        qsizetype result = Protocol::parseMessage(m_receiveBuffer, header, payload);
+        if ( result > 0 ) {
+            // 步骤3：移除已处理的数据
+            m_receiveBuffer.remove(0, result);
 
-        if ( !Protocol::parseMessage(m_receiveBuffer, header, payload) ) {
-            // 数据不足，等待更多数据到达
-            qCWarning(lcClient) << "消息解析失败，等待更多数据";
+            // 步骤4：异步处理消息，使用 QMetaObject::invokeMethod 调度到主线程
+            // 这样可以避免跨线程访问 QTcpSocket 的问题
+            QMetaObject::invokeMethod(this, [this, header, payload]() {
+                processMessage(header, payload);
+            }, Qt::QueuedConnection);
+        } else if ( result == 0 ) {
+            // 消息无效，清空缓冲区
+            qCCritical(lcClient) << "接收到无效消息，清空缓冲区";
+            m_receiveBuffer.clear();
+        } else {
+            // 数据不完整，等待更多数据
             break;
         }
-
-        // 计算消息的总大小（加密后的大小）
-        qsizetype totalMessageSize = static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) + header.length;
-
-        // 验证消息长度
-        if ( totalMessageSize > static_cast<quint32>(NetworkConstants::MAX_PACKET_SIZE) ) {
-            qCCritical(lcClient) << "消息长度超过最大限制:" << header.length;
-            abort();
-            return;
-        }
-
-        // 移除已处理的数据
-        m_receiveBuffer.remove(0, totalMessageSize);
-
-        // 异步处理消息，使用 QMetaObject::invokeMethod 调度到主线程
-        // 这样可以避免跨线程访问 QTcpSocket 的问题
-        QMetaObject::invokeMethod(this, [this, header, payload]() {
-            processMessage(header, payload);
-        }, Qt::QueuedConnection);
-    }
-}
-
-void TcpClient::sendHeartbeat() {
-    if ( isConnected() ) {
-        sendMessage(MessageType::HEARTBEAT, BaseMessage());
     }
 }
 
@@ -383,8 +363,13 @@ void TcpClient::handleAuthenticationResponse(const QByteArray& data) {
 }
 
 void TcpClient::handleHeartbeat() {
-    // 简单实现，暂时不处理
+    // 收到服务端的心跳请求，更新最后心跳时间并发送响应
     m_lastHeartbeat = QDateTime::currentDateTime();
+
+    // 发送心跳响应
+    sendMessage(MessageType::HEARTBEAT_RESPONSE, BaseMessage());
+
+    qDebug() << "收到服务端心跳请求，已发送响应";
 }
 
 void TcpClient::handleErrorMessage(const QByteArray& data) {
@@ -498,9 +483,9 @@ void TcpClient::handleScreenData(const QByteArray& data) {
 
     if ( loaded && !frame.isNull() ) {
         // 成功加载图像
-        qCDebug(lcClient) << "JPEG图像加载成功，尺寸:" << frame.width() << "x" << frame.height()
-            << "格式:" << frame.format()
-            << "压缩数据大小:" << frameData.size() << "bytes";
+        // qCDebug(lcClient) << "JPEG图像加载成功，尺寸:" << frame.width() << "x" << frame.height()
+        //     << "格式:" << frame.format()
+        //     << "压缩数据大小:" << frameData.size() << "bytes";
 
         // 发出信号，传递屏幕数据给UI（QImage，线程安全）
         emit screenDataReceived(frame);

@@ -6,8 +6,9 @@
 #include <QtCore/QCryptographicHash>
 #include <QtCore/QDateTime>
 #include <QtCore/QtEndian>
-#include "../logging/LoggingCategories.h"
 #include <QtCore/QMessageLogger>
+#include "../logging/LoggingCategories.h"
+#include "../config/NetworkConstants.h"
 #include <cstring>
 #include <zlib.h>
 
@@ -16,7 +17,10 @@ const QByteArray Protocol::XORkey = "3fG7qR9TkL2pY8xN";
 
 // Protocol 类的静态函数实现
 QByteArray Protocol::createMessage(MessageType type, const IMessageCodec& message) {
-    QByteArray payload = message.encode();
+    // 步骤1：编码并加密消息载荷
+    QByteArray payload = encryptData(message.encode(), Protocol::XORkey); // 加密数据
+
+    // 步骤2：构建消息头
     MessageHeader header;
     // 设置协议基础字段，确保可被正确解析
     header.magic = PROTOCOL_MAGIC;          // 魔数
@@ -25,77 +29,96 @@ QByteArray Protocol::createMessage(MessageType type, const IMessageCodec& messag
     header.length = static_cast<quint32>(payload.size()); // 数据长度
     header.timestamp = QDateTime::currentMSecsSinceEpoch(); // 时间戳
     header.checksum = calculateChecksum(payload);           // 校验和
+    QByteArray headerData = encryptData(header.encode(), Protocol::XORkey); // 加密数据
 
-    QByteArray headerData = header.encode();
-    QByteArray messageData = headerData + payload;
+    // 步骤3：组合完整消息
+    QByteArray messageData = headerData + payload; // 头部 + 载荷
 
-    // 加密数据
-    QByteArray encryptedData = encryptData(messageData, Protocol::XORkey);
-
-    return encryptedData;
+    return messageData;
 }
 
-bool Protocol::parseMessage(const QByteArray& data, MessageHeader& header, QByteArray& payload) {
-    // parseMessage 是 createMessage 的逆过程
-    // createMessage 流程：
-    // 1. payload = message.encode() (未加密)
-    // 2. 创建 header，header.length = payload.size() (未加密大小)
-    // 3. headerData = header.encode() (未加密)
-    // 4. messageData = headerData + payload (未加密)
-    // 5. encryptedData = encryptData(messageData) (一次性加密整个消息)
-    //
-    // parseMessage 流程（逆向）：
-    // 1. 检查是否有足够的数据包含加密的 header
-    // 2. 先解密 header，获取 payload 长度（未加密长度）
-    // 3. 计算完整加密消息的大小 = SERIALIZED_HEADER_SIZE + header.length
-    //    （因为 XOR 加密长度不变，加密后大小 = 加密前大小）
-    // 4. 解密整个消息（header + payload）
-    // 5. 从解密后的消息中提取 header 和 payload
-    // 6. 验证消息的完整性
-
-    // 步骤1：检查数据是否足够包含加密的header
-    if ( data.size() < static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) ) {
-        qCDebug(lcProtocol) << "等待更多数据";
-        return false; // 等待更多数据
+qsizetype Protocol::parseMessage(const QByteArray& data, MessageHeader& header, QByteArray& payload) {
+    // 步骤1：验证数据完整性 , 同时获取MessageHeader
+    qsizetype validationResult = validateReceivedDataIntegrity(data, header);
+    if ( validationResult <= 0 ) {
+        // 数据不完整或无效
+        return validationResult;
     }
 
-    // 步骤2：先解密header，读取payload长度
-    // 注意：这里只解密header部分来读取消息元数据
+    // 步骤2：获取加密的消息数据,并解密
+    QByteArray encryptedMessage = data.mid(static_cast<qsizetype>(SERIALIZED_HEADER_SIZE), validationResult);
+    payload = decryptData(encryptedMessage, Protocol::XORkey);
+
+    return validationResult;
+}
+
+qsizetype Protocol::validateReceivedDataIntegrity(const QByteArray& data, MessageHeader& header) {
+    // 步骤1：检查数据是否足够包含消息头
+    if ( data.size() < static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) ) {
+        // 数据不完整，需要等待更多数据
+        return -1;
+    }
+
+    // 步骤2：解密消息头
     QByteArray encryptedHeader = data.left(static_cast<qsizetype>(SERIALIZED_HEADER_SIZE));
     QByteArray decryptedHeader = decryptData(encryptedHeader, Protocol::XORkey);
 
-    // 反序列化消息头
+    // 步骤3：反序列化消息头
     if ( !header.decode(decryptedHeader) ) {
-        return false;
+        // 消息头解析失败，数据无效
+        qWarning(lcProtocol) << "消息头解析失败";
+        return 0;
     }
 
-    // 步骤3：计算完整加密消息需要的大小
-    // 因为 XOR 加密长度不变：
-    // - 未加密消息大小 = SERIALIZED_HEADER_SIZE + header.length
-    // - 加密后消息大小 = SERIALIZED_HEADER_SIZE + header.length (长度相同)
-    qsizetype totalEncryptedSize = static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) + static_cast<qsizetype>(header.length);
-
-    // 步骤4：如果数据不够完整消息，等待更多数据
-    if ( data.size() < totalEncryptedSize ) {
-        qCDebug(lcProtocol) << "等待更多数据" << totalEncryptedSize << "bytes, 当前只有" << data.size() << "bytes";
-        return false; // 半包，等待更多数据
+    // 步骤4：验证魔数
+    if ( header.magic != PROTOCOL_MAGIC ) {
+        qWarning(lcProtocol) << "无效的魔数:" << Qt::hex << header.magic
+            << "期望:" << Qt::hex << PROTOCOL_MAGIC;
+        return 0;
     }
 
-    // 步骤5：解密整个消息（header+payload）
-    // 重要：必须一次性解密整个消息，以保证 XOR key 的连续性
-    // 这与 createMessage 中的 encryptData(headerData + payload) 对应
-    QByteArray encryptedMessage = data.left(totalEncryptedSize);
-    QByteArray decryptedMessage = decryptData(encryptedMessage, Protocol::XORkey);
-
-    // 步骤6：从解密后的完整消息中提取 payload
-    // decryptedMessage = [decrypted_header][decrypted_payload]
-    payload = decryptedMessage.mid(static_cast<qsizetype>(SERIALIZED_HEADER_SIZE));
-
-    // 步骤7：验证消息的完整性（魔数、版本、长度、校验和）
-    if ( !validateMessage(header, payload) ) {
-        return false;
+    // 步骤5：验证协议版本
+    if ( header.version != PROTOCOL_VERSION ) {
+        qWarning(lcProtocol) << "不支持的协议版本:" << header.version
+            << "期望:" << PROTOCOL_VERSION;
+        return 0;
     }
-    return true;
+
+    // 步骤6：检查payload长度是否合理（防止恶意超大消息）
+    const quint32 MAX_PAYLOAD_SIZE = NetworkConstants::MAX_PACKET_SIZE - SERIALIZED_HEADER_SIZE;
+    if ( header.length > MAX_PAYLOAD_SIZE ) {
+        qWarning(lcProtocol) << "Payload长度过大:" << header.length
+            << "最大允许:" << MAX_PAYLOAD_SIZE;
+        return 0;
+    }
+
+    // 步骤7：计算完整消息需要的总长度
+    qsizetype totalMessageSize = static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) + static_cast<qsizetype>(header.length);
+
+    // 步骤8：检查当前接收的数据是否包含完整消息
+    if ( data.size() < totalMessageSize ) {
+        // 数据不完整，需要等待更多数据
+        // 返回负值表示还需要接收的字节数（可选：返回-1表示不完整，或返回具体差值）
+        return -1;
+    }
+
+    // 步骤9：验证校验和
+    QByteArray payload = data.mid(static_cast<qsizetype>(SERIALIZED_HEADER_SIZE), totalMessageSize);
+    quint32 calculatedChecksum = calculateChecksum(payload);
+    if ( calculatedChecksum != header.checksum ) {
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcProtocol)
+            << "Checksum mismatch. Expected:" << Qt::hex << header.checksum
+            << "Calculated:" << Qt::hex << calculatedChecksum
+            << "Payload hex:" << payload.toHex();
+        return 0;
+    }
+
+    // 步骤10：数据完整，header已填充，返回完整消息的总长度
+    // qCDebug(lcProtocol) << "接收到完整消息，总长度:" << totalMessageSize
+    //     << "bytes (Header:" << SERIALIZED_HEADER_SIZE
+    //     << "+ Payload:" << header.length << ")"
+    //     << "消息类型:" << static_cast<quint32>(header.type);
+    return totalMessageSize;
 }
 
 QByteArray Protocol::encryptData(const QByteArray& data, const QByteArray& key) {
@@ -105,9 +128,16 @@ QByteArray Protocol::encryptData(const QByteArray& data, const QByteArray& key) 
     }
 
     QByteArray encrypted = data;
+
+    // 加密前
+    //qCDebug(lcProtocol) << "加密前数据:" << encrypted.toHex();
+
     for ( int i = 0; i < encrypted.size(); ++i ) {
         encrypted[i] = encrypted[i] ^ key[i % key.size()];
     }
+
+    // 加密后
+    //qCDebug(lcProtocol) << "加密后数据:" << encrypted.toHex();
 
     return encrypted;
 }
@@ -115,36 +145,6 @@ QByteArray Protocol::encryptData(const QByteArray& data, const QByteArray& key) 
 QByteArray Protocol::decryptData(const QByteArray& data, const QByteArray& key) {
     // XOR加密的解密就是再次XOR
     return encryptData(data, key);
-}
-
-bool Protocol::validateMessage(const MessageHeader& header, const QByteArray& payload) {
-    // 验证魔数
-    if ( header.magic != PROTOCOL_MAGIC ) {
-        qWarning(lcProtocol) << "无效的魔数:" << Qt::hex << header.magic
-            << "期望:" << Qt::hex << PROTOCOL_MAGIC;
-        return false;
-    }    // 验证版本
-    if ( header.version != PROTOCOL_VERSION ) {
-        return false;
-    }
-
-    // 验证长度
-    if ( header.length != static_cast<quint32>(payload.size()) ) {
-        return false;
-    }
-
-    // 验证校验和
-    quint32 calculatedChecksum = calculateChecksum(payload);
-    if ( calculatedChecksum != header.checksum ) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcProtocol)
-            << "Checksum mismatch. Expected:" << Qt::hex << header.checksum
-            << "Calculated:" << Qt::hex << calculatedChecksum
-            << "Payload size:" << Qt::dec << payload.size()
-            << "Payload hex:" << payload.toHex();
-        return false;
-    }
-
-    return true;
 }
 
 quint32 Protocol::calculateChecksum(const QByteArray& data) {
@@ -217,17 +217,7 @@ bool MessageHeader::decode(const QByteArray& data) {
 
     type = static_cast<MessageType>(typeValue);
 
-    // 验证魔数
-    if ( magic != PROTOCOL_MAGIC ) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcProtocol) << "无效的魔数:" << Qt::hex << magic;
-        return false;
-    }
-
-    // 验证版本
-    if ( version != PROTOCOL_VERSION ) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcProtocol) << "不支持的协议版本:" << version;
-        return false;
-    }
+    if ( stream.status() != QDataStream::Ok ) return false;
 
     return true;
 }

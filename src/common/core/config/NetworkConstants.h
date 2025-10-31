@@ -13,7 +13,7 @@
 namespace NetworkConstants {
     // ==================== 连接和超时设置 ====================
     const int DEFAULT_CONNECTION_TIMEOUT = 15000;  // 15秒 - 连接建立超时时间
-    const int HEARTBEAT_TIMEOUT = 45000;           // 45秒 - 心跳超时（无心跳后断开）
+    const int HEARTBEAT_TIMEOUT = 25000;           // 25秒 - 心跳超时（无心跳后断开）
     const int HEARTBEAT_INTERVAL = 15000;          // 15秒 - 心跳发送间隔
     const int DEFAULT_RECONNECT_INTERVAL = 3000;   // 3秒 - 重连间隔
     const int ADAPTIVE_HEARTBEAT_MIN = 5000;       // 5秒 - 自适应心跳最小间隔

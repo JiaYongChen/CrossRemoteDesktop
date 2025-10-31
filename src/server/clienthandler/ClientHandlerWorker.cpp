@@ -34,7 +34,7 @@ ClientHandlerWorker::ClientHandlerWorker(qintptr socketDescriptor, QObject* pare
     , m_failedAuthCount(0)
     , m_connectionTime(QDateTime::currentDateTime())
     , m_lastHeartbeat(QDateTime::currentDateTime())
-    , m_heartbeatTimer(nullptr)
+    , m_heartbeatSendTimer(nullptr)
     , m_heartbeatCheckTimer(nullptr)
     , m_bytesReceived(0)
     , m_bytesSent(0)
@@ -70,6 +70,7 @@ bool ClientHandlerWorker::initialize() {
     }
 
     // 设置TCP优化选项
+    m_socket->setSocketOption(QAbstractSocket::KeepAliveOption, NetworkConstants::KEEP_ALIVE_ENABLED);
     m_socket->setSocketOption(QAbstractSocket::LowDelayOption, NetworkConstants::TCP_NODELAY_ENABLED);
     m_socket->setSocketOption(QAbstractSocket::SendBufferSizeSocketOption, NetworkConstants::SOCKET_SEND_BUFFER_SIZE);
     m_socket->setSocketOption(QAbstractSocket::ReceiveBufferSizeSocketOption, NetworkConstants::SOCKET_RECEIVE_BUFFER_SIZE);
@@ -93,6 +94,11 @@ bool ClientHandlerWorker::initialize() {
     m_heartbeatCheckTimer->setInterval(NetworkConstants::HEARTBEAT_TIMEOUT);
     connect(m_heartbeatCheckTimer, &QTimer::timeout, this, &ClientHandlerWorker::checkHeartbeat);
 
+    // 创建心跳发送定时器
+    m_heartbeatSendTimer = new QTimer(this);
+    m_heartbeatSendTimer->setInterval(NetworkConstants::HEARTBEAT_INTERVAL);
+    connect(m_heartbeatSendTimer, &QTimer::timeout, this, &ClientHandlerWorker::sendHeartbeat);
+
     // 创建输入模拟器
     m_inputSimulator = new InputSimulator(this);
     if ( !m_inputSimulator->initialize() ) {
@@ -108,6 +114,9 @@ bool ClientHandlerWorker::initialize() {
     // 启动心跳检查定时器
     m_heartbeatCheckTimer->start();
 
+    // 启动心跳发送定时器
+    m_heartbeatSendTimer->start();
+
     qCInfo(clientHandlerWorker, "ClientHandlerWorker 初始化成功，客户端: %s", qPrintable(clientId()));
 
     return true;
@@ -121,8 +130,8 @@ void ClientHandlerWorker::cleanup() {
         m_heartbeatCheckTimer->stop();
     }
 
-    if ( m_heartbeatTimer ) {
-        m_heartbeatTimer->stop();
+    if ( m_heartbeatSendTimer ) {
+        m_heartbeatSendTimer->stop();
     }
 
     // 断开套接字连接
@@ -305,7 +314,7 @@ void ClientHandlerWorker::sendEncodedMessage(const QByteArray& messageData) {
         }
 
         // 数据大小和发送数据大小日志
-        qCDebug(clientHandlerWorker) << "数据大小:" << totalSize << "bytes" << "发送数据大小:" << bytesWritten << "bytes";
+        // qCDebug(clientHandlerWorker) << "数据大小:" << totalSize << "bytes" << "发送数据大小:" << bytesWritten << "bytes";
 
     } catch ( const std::exception& e ) {
         qCWarning(clientHandlerWorker, "发送消息时发生异常: %s", e.what());
@@ -378,41 +387,37 @@ void ClientHandlerWorker::onReadyRead() {
     m_receiveBuffer.reserve(m_receiveBuffer.size() + newData.size());
     m_receiveBuffer.append(newData);
 
+    // 更新心跳时间
+    m_lastHeartbeat = QDateTime::currentDateTime();
+
     {
         QMutexLocker locker(&m_statsMutex);
         m_bytesReceived += newData.size();
     }
 
     // 处理缓冲区中的完整消息
-    while ( m_receiveBuffer.size() >= static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) ) {
-        // 尝试解析消息（包括解密）
+    while ( !m_receiveBuffer.isEmpty() ) {
+        // 步骤1：先验证数据完整性，同时获取MessageHeader
         MessageHeader header;
         QByteArray payload;
+        qsizetype result = Protocol::parseMessage(m_receiveBuffer, header, payload);
+        if ( result > 0 ) {
+            // 步骤3：移除已处理的数据
+            m_receiveBuffer.remove(0, result);
 
-        if ( !Protocol::parseMessage(m_receiveBuffer, header, payload) ) {
-            // 数据不足，等待更多数据到达
-            qCWarning(clientHandlerWorker) << "消息解析失败，等待更多数据";
+            // 步骤4：异步处理消息，使用 QMetaObject::invokeMethod 调度到主线程
+            // 这样可以避免跨线程访问 QTcpSocket 的问题
+            QMetaObject::invokeMethod(this, [this, header, payload]() {
+                processMessage(header, payload);
+            }, Qt::QueuedConnection);
+        } else if ( result == 0 ) {
+            // 消息无效，清空缓冲区
+            qCCritical(lcClient) << "接收到无效消息，清空缓冲区";
+            m_receiveBuffer.clear();
+        } else {
+            // 数据不完整，等待更多数据
             break;
         }
-
-        // 计算消息的总大小（加密后的大小）
-        qsizetype totalMessageSize = static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) + header.length;
-
-        // 验证消息长度
-        if ( totalMessageSize > static_cast<quint32>(NetworkConstants::MAX_PACKET_SIZE) ) {
-            qCCritical(clientHandlerWorker) << "消息长度超过最大限制:" << header.length;
-            forceDisconnect();
-            return;
-        }
-
-        // 移除已处理的数据
-        m_receiveBuffer.remove(0, totalMessageSize);
-
-        // 异步处理消息，使用 QMetaObject::invokeMethod 调度到 Worker 线程
-        // 这样可以避免跨线程访问 QTcpSocket 的问题
-        QMetaObject::invokeMethod(this, [this, header, payload]() {
-            processMessage(header, payload);
-        }, Qt::QueuedConnection);
     }
 }
 
@@ -427,9 +432,9 @@ void ClientHandlerWorker::onDisconnected() {
         qCDebug(clientHandlerWorker) << "心跳检查定时器已停止";
     }
 
-    if ( m_heartbeatTimer ) {
-        m_heartbeatTimer->stop();
-        qCDebug(clientHandlerWorker) << "心跳定时器已停止";
+    if ( m_heartbeatSendTimer ) {
+        m_heartbeatSendTimer->stop();
+        qCDebug(clientHandlerWorker) << "心跳发送定时器已停止";
     }
 
     // 记录连接统计信息
@@ -508,10 +513,6 @@ void ClientHandlerWorker::onError(QAbstractSocket::SocketError error) {
     }
 }
 
-void ClientHandlerWorker::sendHeartbeat() {
-    // 目前服务器不主动发送心跳，只检查客户端心跳
-}
-
 void ClientHandlerWorker::checkHeartbeat() {
     QDateTime now = QDateTime::currentDateTime();
     if ( m_lastHeartbeat.msecsTo(now) > NetworkConstants::HEARTBEAT_TIMEOUT ) {
@@ -528,7 +529,7 @@ void ClientHandlerWorker::processMessage(const MessageHeader& header, const QByt
         case MessageType::AUTHENTICATION_REQUEST:
             handleAuthenticationRequest(payload);
             break;
-        case MessageType::HEARTBEAT:
+        case MessageType::HEARTBEAT_RESPONSE:
             handleHeartbeat();
             break;
         case MessageType::MOUSE_EVENT:
@@ -622,8 +623,25 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
 }
 
 void ClientHandlerWorker::handleHeartbeat() {
+    // 收到客户端的心跳响应，更新最后心跳时间
     m_lastHeartbeat = QDateTime::currentDateTime();
-    qCDebug(clientHandlerWorker) << "收到客户端心跳:" << clientId();
+    qCDebug(clientHandlerWorker) << "收到客户端心跳响应:" << clientId();
+}
+
+void ClientHandlerWorker::sendHeartbeat() {
+    if ( !m_socket || !m_socket->isOpen() ) {
+        qCDebug(clientHandlerWorker) << "套接字未连接，无法发送心跳请求";
+        return;
+    }
+
+    if ( !isAuthenticated() ) {
+        qCDebug(clientHandlerWorker) << "客户端未认证，跳过心跳发送";
+        return;
+    }
+
+    sendMessage(MessageType::HEARTBEAT, BaseMessage());
+
+    qCDebug(clientHandlerWorker) << "发送心跳请求到客户端:" << clientId();
 }
 
 void ClientHandlerWorker::handleMouseEvent(const QByteArray& data) {

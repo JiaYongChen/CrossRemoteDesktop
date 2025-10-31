@@ -152,14 +152,14 @@ private slots:
     void onError(QAbstractSocket::SocketError error);
 
     /**
-     * @brief 发送心跳包
-     */
-    void sendHeartbeat();
-
-    /**
      * @brief 检查心跳超时
      */
     void checkHeartbeat();
+
+    /**
+     * @brief 发送心跳包
+     */
+    void sendHeartbeat();
 
 private:
     /**
@@ -243,14 +243,14 @@ private:
     // 认证相关
     QByteArray m_expectedSalt;            ///< 期望的密码盐值
     QByteArray m_expectedDigest;          ///< 期望的密码摘要
-    quint32 m_pbkdf2Iterations{ 100000 };   ///< PBKDF2迭代次数
-    quint32 m_pbkdf2KeyLength{ 32 };        ///< PBKDF2密钥长度
+    quint32 m_pbkdf2Iterations{ 100000 }; ///< PBKDF2迭代次数
+    quint32 m_pbkdf2KeyLength{ 32 };      ///< PBKDF2密钥长度
     int m_failedAuthCount;                ///< 认证失败次数
 
     // 时间和心跳
     QDateTime m_connectionTime;           ///< 连接时间
     QDateTime m_lastHeartbeat;            ///< 最后心跳时间
-    QTimer* m_heartbeatTimer;             ///< 心跳发送定时器
+    QTimer* m_heartbeatSendTimer;         ///< 心跳发送定时器
     QTimer* m_heartbeatCheckTimer;        ///< 心跳检查定时器
 
     // 断开连接标志（避免重复发送disconnected信号）

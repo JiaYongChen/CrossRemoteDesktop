@@ -325,11 +325,9 @@ void ScreenCapture::updatePerformanceStats() {
     }
 
     // 更新统计信息
-    if ( m_captureWorker ) {
-        qCDebug(screenCaptureManager, "捕获Worker状态正常");
-    }
-
-    // 移除：队列状态检查与告警
+    // if ( m_captureWorker ) {
+    //     qCDebug(screenCaptureManager, "捕获Worker状态正常");
+    // }
 }
 
 void ScreenCapture::resetPerformanceStats() {

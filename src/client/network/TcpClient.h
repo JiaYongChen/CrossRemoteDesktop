@@ -74,7 +74,6 @@ private slots:
     void onDisconnected();
     void onReadyRead();
     void onError(QAbstractSocket::SocketError error);
-    void sendHeartbeat();
     void checkHeartbeat();
 
 private:
@@ -108,9 +107,8 @@ private:
     QString m_username;
     QString m_password;
 
-    // 心跳相关
-    QTimer* m_heartbeatTimer;
-    QTimer* m_heartbeatCheckTimer;
+    // 心跳相关 - 仅接收服务端心跳请求并响应
+    QTimer* m_heartbeatCheckTimer;  // 用于检测服务端心跳超时
 
     // 帧数据缓存和线程安全
     QByteArray m_previousFrameData;
