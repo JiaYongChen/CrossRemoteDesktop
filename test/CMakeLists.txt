@@ -462,15 +462,15 @@ set(CLIENTREMOTEWINDOW_TEST_SOURCES
     test_clientremotewindow.cpp
     
     # ClientRemoteWindow相关源文件
-    ../src/client/ClientRemoteWindow.cpp
-    ../src/client/InputHandler.cpp
+    ../src/client/window/ClientRemoteWindow.cpp
+    ../src/client/managers/InputHandler.cpp
     ../src/client/managers/ClipboardManager.cpp
     ../src/client/managers/FileTransferManager.cpp
     ../src/client/managers/CursorManager.cpp
-    ../src/client/managers/RenderManager.cpp
+    ../src/client/window/RenderManager.cpp
     ../src/client/managers/SessionManager.cpp
-    ../src/client/managers/ConnectionManager.cpp
-    ../src/client/TcpClient.cpp
+    ../src/client/network/ConnectionManager.cpp
+    ../src/client/network/TcpClient.cpp
     
     # 公共核心源文件
     ../src/common/core/logging/LoggingCategories.cpp

@@ -574,17 +574,6 @@
    <item>
     <layout class="QHBoxLayout" name="buttonLayout">
      <item>
-      <widget class="QPushButton" name="testConnectionButton">
-       <property name="text">
-        <string>测试连接</string>
-       </property>
-       <property name="icon">
-      <iconset resource="../../resources/resources.qrc">
-         <normaloff>:/icons/test.svg</normaloff>:/icons/test.svg</iconset>
-       </property>
-      </widget>
-     </item>
-     <item>
       <spacer name="buttonSpacer">
        <property name="orientation">
         <enum>Qt::Horizontal</enum>

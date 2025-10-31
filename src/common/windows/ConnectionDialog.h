@@ -6,9 +6,6 @@
 #include <QtCore/QDateTime>
 #include <QtCore/QMetaType>
 
-class TcpClient;
-class QProgressDialog;
-class QTimer;
 class QTabWidget;
 class QWidget;
 class QLineEdit;
@@ -73,18 +70,11 @@ protected:
 private slots:
     void onConnectClicked();
     void onCancelClicked();
-    void onTestConnectionClicked();
 
     void onAdvancedToggled(bool show);
     void onHostChanged();
     void onPortChanged();
     void validateInput();
-
-    // 测试连接相关槽函数
-    void onTestConnected();
-    void onTestDisconnected();
-    void onTestError(const QString& error);
-    void onTestTimeout();
 
 private:
     void setupUI();
@@ -127,7 +117,6 @@ private:
     // 按钮
     QPushButton* m_connectButton;
     QPushButton* m_cancelButton;
-    QPushButton* m_testButton;
 
     // 状态标签
     QLabel* m_statusLabel;
@@ -138,11 +127,6 @@ private:
     // 验证状态
     bool m_isValid;
     QString m_validationError;
-
-    // 测试连接相关
-    TcpClient* m_testClient;
-    QProgressDialog* m_testProgressDialog;
-    QTimer* m_testTimer;
 };
 
 // 注册ConnectionInfo类型到Qt元类型系统

@@ -1,10 +1,11 @@
 #include "ClientManager.h"
-#include "./managers/ConnectionManager.h"
+#include "./network/ConnectionManager.h"
 #include "./managers/SessionManager.h"
-#include "ClientRemoteWindow.h"
+#include "./window/ClientRemoteWindow.h"
 #include "../common/core/config/UiConstants.h"
 #include "../../common/core/logging/LoggingCategories.h"
-#include "TcpClient.h"  // 新增：获取实际服务器IP地址
+#include "../common/core/threading/ThreadManager.h"
+#include "./network/TcpClient.h"  // 新增：获取实际服务器IP地址
 
 #include <QtCore/QSettings>
 #include <QtCore/QDateTime>

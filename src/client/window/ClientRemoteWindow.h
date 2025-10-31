@@ -11,8 +11,8 @@
 #include <QtCore/QPoint>
 #include <QtCore/QSize>
 #include <QtCore/QRect>
-#include "./managers/ConnectionManager.h"
-#include "./managers/RenderManager.h"
+#include "../network/ConnectionManager.h"
+#include "RenderManager.h"
 
 // 前置声明以减少编译依赖
 class QGraphicsScene;

@@ -3,7 +3,7 @@
 #include "../../common/core/logging/LoggingCategories.h"
 #include <QtCore/QMessageLogger>
 #include <QtCore/QTimer>
-#include "../TcpClient.h"
+#include "TcpClient.h"
 
 ConnectionManager::ConnectionManager(QObject *parent)
     : QObject(parent)

@@ -4,7 +4,7 @@
 #include <QtGui/QPainter>
 #include <QtGui/QPixmap>
 #include <QtGui/QFontMetrics>
-#include "../src/client/ClientRemoteWindow.h"
+#include "../src/client/window/ClientRemoteWindow.h"
 #include "../src/common/core/config/MessageConstants.h"
 
 /**

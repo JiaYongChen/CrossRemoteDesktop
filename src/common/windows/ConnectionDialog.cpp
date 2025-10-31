@@ -1,6 +1,5 @@
 #include "ConnectionDialog.h"
 #include "ui_ConnectionDialog.h"
-#include "../../client/TcpClient.h"
 #include "../core/config/UiConstants.h"
 #include "../core/config/MessageConstants.h"
 #include <algorithm>
@@ -9,8 +8,6 @@
 #include <QtCore/QRegularExpression>
 #include <QtGui/QRegularExpressionValidator>
 #include <QtGui/QIntValidator>
-#include <QtCore/QTimer>
-#include <QtWidgets/QProgressDialog>
 
 ConnectionDialog::ConnectionDialog(QWidget* parent)
     : QDialog(parent)
@@ -32,13 +29,9 @@ ConnectionDialog::ConnectionDialog(QWidget* parent)
     , m_connectionTimeoutSpinBox(nullptr)
     , m_connectButton(nullptr)
     , m_cancelButton(nullptr)
-    , m_testButton(nullptr)
     , m_statusLabel(nullptr)
     , m_settings(new QSettings(this))
-    , m_isValid(false)
-    , m_testClient(nullptr)
-    , m_testProgressDialog(nullptr)
-    , m_testTimer(nullptr) {
+    , m_isValid(false) {
     ui->setupUi(this);
     setupUI();
     setupConnections();
@@ -58,8 +51,7 @@ void ConnectionDialog::setupUI() {
 }
 
 void ConnectionDialog::setupConnections() {
-    // 连接信号槽
-    connect(ui->testConnectionButton, &QPushButton::clicked, this, &ConnectionDialog::onTestConnectionClicked);
+    // 连接信号和槽
     connect(ui->buttonBox, &QDialogButtonBox::accepted, this, &ConnectionDialog::accept);
     connect(ui->buttonBox, &QDialogButtonBox::rejected, this, &ConnectionDialog::reject);
 
@@ -284,56 +276,6 @@ void ConnectionDialog::onCancelClicked() {
     reject();
 }
 
-void ConnectionDialog::onTestConnectionClicked() {
-    // 测试连接
-    if ( !validateConnectionInfo() ) {
-        QMessageBox::warning(this, MessageConstants::UI::INPUT_ERROR_TITLE, m_validationError);
-        return;
-    }
-
-    QString host = getHost();
-    int port = getPort();
-
-    if ( host.isEmpty() ) {
-        QMessageBox::warning(this, MessageConstants::UI::INPUT_ERROR_TITLE, MessageConstants::UI::INVALID_HOST_ADDRESS);
-        return;
-    }
-
-    // 创建测试客户端
-    if ( !m_testClient ) {
-        m_testClient = new TcpClient(this);
-        connect(m_testClient, &TcpClient::connected, this, &ConnectionDialog::onTestConnected);
-        connect(m_testClient, &TcpClient::disconnected, this, &ConnectionDialog::onTestDisconnected);
-        connect(m_testClient, &TcpClient::errorOccurred, this, &ConnectionDialog::onTestError);
-    }
-
-    // 创建进度对话框
-    if ( !m_testProgressDialog ) {
-        m_testProgressDialog = new QProgressDialog(this);
-        m_testProgressDialog->setWindowTitle(tr("测试连接"));
-        m_testProgressDialog->setLabelText(tr("正在连接到 %1:%2...").arg(host).arg(port));
-        m_testProgressDialog->setRange(0, 0); // 无限进度条
-        m_testProgressDialog->setModal(true);
-        connect(m_testProgressDialog, &QProgressDialog::canceled, this, [this]() {
-            if ( m_testClient ) {
-                m_testClient->disconnectFromHost();
-            }
-        });
-    }
-
-    // 创建超时定时器
-    if ( !m_testTimer ) {
-        m_testTimer = new QTimer(this);
-        m_testTimer->setSingleShot(true);
-        connect(m_testTimer, &QTimer::timeout, this, &ConnectionDialog::onTestTimeout);
-    }
-
-    // 开始连接测试
-    m_testProgressDialog->show();
-    m_testTimer->start(10000); // 10秒超时
-    m_testClient->connectToHost(host, port);
-}
-
 void ConnectionDialog::onAdvancedToggled(bool show) {
     Q_UNUSED(show)
 }
@@ -349,11 +291,6 @@ void ConnectionDialog::onPortChanged() {
 void ConnectionDialog::validateInput() {
     // 验证输入
     m_isValid = validateConnectionInfo();
-
-    // 更新UI状态（如果需要）
-    if ( ui && ui->testConnectionButton ) {
-        ui->testConnectionButton->setEnabled(m_isValid && !getHost().isEmpty());
-    }
 }
 
 void ConnectionDialog::accept() {
@@ -389,76 +326,5 @@ void ConnectionDialog::accept() {
 }
 
 void ConnectionDialog::reject() {
-    // 清理测试连接资源
-    if ( m_testClient ) {
-        m_testClient->abort();
-        m_testClient->deleteLater();
-        m_testClient = nullptr;
-    }
-    if ( m_testTimer ) {
-        m_testTimer->stop();
-        m_testTimer->deleteLater();
-        m_testTimer = nullptr;
-    }
-    if ( m_testProgressDialog ) {
-        m_testProgressDialog->close();
-        m_testProgressDialog->deleteLater();
-        m_testProgressDialog = nullptr;
-    }
-
     QDialog::reject();
-}
-
-// 测试连接相关槽函数
-void ConnectionDialog::onTestConnected() {
-    // 测试连接成功
-    if ( m_testTimer ) {
-        m_testTimer->stop();
-    }
-
-    if ( m_testProgressDialog ) {
-        m_testProgressDialog->hide();
-    }
-
-    QMessageBox::information(this, tr("连接测试"), tr("连接成功！"));
-
-    // 断开测试连接
-    if ( m_testClient ) {
-        m_testClient->disconnectFromHost();
-    }
-}
-
-void ConnectionDialog::onTestDisconnected() {
-    // 测试连接断开
-    if ( m_testProgressDialog && m_testProgressDialog->isVisible() ) {
-        m_testProgressDialog->hide();
-    }
-}
-
-void ConnectionDialog::onTestError(const QString& error) {
-    // 测试连接错误
-    if ( m_testTimer ) {
-        m_testTimer->stop();
-    }
-
-    if ( m_testProgressDialog ) {
-        m_testProgressDialog->hide();
-    }
-
-    QMessageBox::critical(this, tr("连接测试失败"),
-        tr("无法连接到服务器：\n%1").arg(error));
-}
-
-void ConnectionDialog::onTestTimeout() {
-    // 测试连接超时
-    if ( m_testClient ) {
-        m_testClient->disconnectFromHost();
-    }
-
-    if ( m_testProgressDialog ) {
-        m_testProgressDialog->hide();
-    }
-
-    QMessageBox::warning(this, tr("连接超时"),
-        tr("连接超时，请检查网络连接和服务器地址。"));
 }

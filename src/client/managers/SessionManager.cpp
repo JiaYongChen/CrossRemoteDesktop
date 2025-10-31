@@ -1,6 +1,6 @@
 #include "SessionManager.h"
-#include "ConnectionManager.h"
-#include "../../client/TcpClient.h"
+#include "../network/ConnectionManager.h"
+#include "../network/TcpClient.h"
 #include <QtCore/QDebug>
 #include "../../common/core/logging/LoggingCategories.h"
 #include <QtCore/QMessageLogger>

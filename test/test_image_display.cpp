@@ -11,7 +11,7 @@
 #include <QGraphicsView>
 #include <QGraphicsScene>
 #include <QGraphicsPixmapItem>
-#include "../src/client/managers/RenderManager.h"
+#include "../src/client/window/RenderManager.h"
 
 class TestImageDisplay : public QObject
 {
