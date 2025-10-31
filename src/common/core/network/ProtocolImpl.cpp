@@ -436,60 +436,6 @@ bool KeyboardEvent::decode(const QByteArray& bytes) {
     return true;
 }
 
-// ErrorMessage 序列化和反序列化实现
-QByteArray ErrorMessage::encode() const {
-    QByteArray bytes;
-    QDataStream ds(&bytes, QIODevice::WriteOnly);
-    ds.setByteOrder(QDataStream::LittleEndian);
-    ds << static_cast<quint32>(errorCode);
-    writeFixedStringLE(ds, QString::fromUtf8(errorText), 256);
-    return bytes;
-}
-
-bool ErrorMessage::decode(const QByteArray& bytes) {
-    if ( bytes.size() < (4 + 256) ) return false;
-    QDataStream ds(bytes);
-    ds.setByteOrder(QDataStream::LittleEndian);
-    quint32 code = 0; ds >> code;
-    QString textStr = readFixedStringLE(ds, 256);
-    if ( ds.status() != QDataStream::Ok ) return false;
-    errorCode = code;
-    memset(errorText, 0, sizeof(errorText));
-    QByteArray t8 = textStr.toUtf8();
-    qstrncpy(errorText, t8.constData(), int(sizeof(errorText)) - 1);
-    return true;
-}
-
-// StatusUpdate 序列化和反序列化实现
-QByteArray StatusUpdate::encode() const {
-    QByteArray bytes;
-    QDataStream ds(&bytes, QIODevice::WriteOnly);
-    ds.setByteOrder(QDataStream::LittleEndian);
-    ds << static_cast<quint8>(connectionStatus);
-    ds << static_cast<quint32>(bytesReceived);
-    ds << static_cast<quint32>(bytesSent);
-    ds << static_cast<quint16>(fps);
-    ds << static_cast<quint8>(cpuUsage);
-    ds << static_cast<quint32>(memoryUsage);
-    return bytes;
-}
-
-bool StatusUpdate::decode(const QByteArray& bytes) {
-    if ( bytes.size() < (1 + 4 + 4 + 2 + 1 + 4) ) return false;
-    QDataStream ds(bytes);
-    ds.setByteOrder(QDataStream::LittleEndian);
-    quint8 cs = 0; quint32 br = 0, bs = 0; quint16 fpsVal = 0; quint8 cpu = 0; quint32 mem = 0;
-    ds >> cs; ds >> br; ds >> bs; ds >> fpsVal; ds >> cpu; ds >> mem;
-    if ( ds.status() != QDataStream::Ok ) return false;
-    connectionStatus = cs;
-    bytesReceived = br;
-    bytesSent = bs;
-    fps = fpsVal;
-    cpuUsage = cpu;
-    memoryUsage = mem;
-    return true;
-}
-
 // FileTransferRequest 序列化和反序列化实现
 QByteArray FileTransferRequest::encode() const {
     QByteArray bytes;

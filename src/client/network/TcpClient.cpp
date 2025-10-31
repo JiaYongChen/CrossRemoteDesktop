@@ -295,12 +295,6 @@ void TcpClient::processMessage(const MessageHeader& header, const QByteArray& pa
         case MessageType::HEARTBEAT:
             handleHeartbeat();
             break;
-        case MessageType::ERROR_MESSAGE:
-            handleErrorMessage(payload);
-            break;
-        case MessageType::STATUS_UPDATE:
-            handleStatusUpdate(payload);
-            break;
         case MessageType::SCREEN_DATA:
             handleScreenData(payload);
             break;
@@ -370,37 +364,6 @@ void TcpClient::handleHeartbeat() {
     sendMessage(MessageType::HEARTBEAT_RESPONSE, BaseMessage());
 
     qDebug() << "收到服务端心跳请求，已发送响应";
-}
-
-void TcpClient::handleErrorMessage(const QByteArray& data) {
-    // 字段级解码 ErrorMessage
-    ErrorMessage errorMsg{};
-    if ( errorMsg.decode(data) ) {
-        QString errorText = QString::fromUtf8(errorMsg.errorText);
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "Received error message from server:" << errorText;
-        emit errorOccurred(errorText);
-    } else {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "Failed to deserialize error message";
-        emit errorOccurred("Unknown error occurred");
-    }
-}
-
-void TcpClient::handleStatusUpdate(const QByteArray& data) {
-    // 使用结构化解码
-    StatusUpdate st{};
-    if ( st.decode(data) ) {
-        QString statusMsg = QString("状态:%1  收:%2  发:%3  FPS:%4  CPU:%5%%  MEM:%6")
-            .arg(st.connectionStatus)
-            .arg(st.bytesReceived)
-            .arg(st.bytesSent)
-            .arg(st.fps)
-            .arg(st.cpuUsage)
-            .arg(st.memoryUsage);
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "Received status update:" << statusMsg;
-        emit statusUpdated(statusMsg);
-    } else {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "Failed to decode status update";
-    }
 }
 
 /**

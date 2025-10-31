@@ -81,8 +81,6 @@ private:
     void handleHandshakeResponse(const QByteArray& data);
     void handleAuthenticationResponse(const QByteArray& data);
     void handleHeartbeat();
-    void handleErrorMessage(const QByteArray& data);
-    void handleStatusUpdate(const QByteArray& data);
     void handleScreenData(const QByteArray& data);
 
     void sendHandshakeRequest();

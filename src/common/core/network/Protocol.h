@@ -49,11 +49,7 @@ enum class MessageType : quint32 {
     FILE_TRANSFER_ERROR = 0x4005,
 
     // 剪贴板
-    CLIPBOARD_DATA = 0x5001,
-
-    // 错误和状态
-    ERROR_MESSAGE = 0x9001,
-    STATUS_UPDATE = 0x9002
+    CLIPBOARD_DATA = 0x5001
 };
 
 // 鼠标事件类型
@@ -271,28 +267,6 @@ struct ClipboardData : public IMessageCodec {
     quint8 dataType;
     quint32 dataSize;
     // 实际剪贴板数据跟在后面
-
-    QByteArray encode() const;
-    bool decode(const QByteArray& dataBuffer);
-};
-
-// 错误消息
-struct ErrorMessage : public IMessageCodec {
-    quint32 errorCode;
-    char errorText[256];
-
-    QByteArray encode() const;
-    bool decode(const QByteArray& dataBuffer);
-};
-
-// 状态更新
-struct StatusUpdate : public IMessageCodec {
-    quint8 connectionStatus;
-    quint32 bytesReceived;
-    quint32 bytesSent;
-    quint16 fps;
-    quint8 cpuUsage;
-    quint32 memoryUsage;
 
     QByteArray encode() const;
     bool decode(const QByteArray& dataBuffer);
