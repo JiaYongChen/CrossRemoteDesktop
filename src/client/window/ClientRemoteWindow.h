@@ -42,22 +42,12 @@ class ClientRemoteWindow : public QGraphicsView {
     Q_OBJECT
 
 public:
-    explicit ClientRemoteWindow(const QString& connectionId, QWidget* parent = nullptr);
+    explicit ClientRemoteWindow(SessionManager* sessionManager, QWidget* parent = nullptr);
     ~ClientRemoteWindow();
-
-    QString getConnectionId() const;
-    // 设置连接主机（IP 或主机名）。用于更新窗口标题仅显示 IP/主机。
-    // 说明：
-    // - 由 ClientManager 在建立连接时调用，传入 connectToHost 的 host
-    // - 仅当 host 变化时才刷新标题，避免不必要的 UI 更新
-    void setConnectionHost(const QString& host);
 
     // Connection state management
     void setConnectionState(ConnectionManager::ConnectionState state);
     ConnectionManager::ConnectionState connectionState() const;
-
-    // Session manager
-    void setSessionManager(SessionManager* sessionManager);
 
     // Screen display methods (delegated to RenderManager)
     void setRemoteScreen(const QPixmap& pixmap);
@@ -154,7 +144,6 @@ private slots:
     void onConnectionClosed();
     void onConnectionError(const QString& error);
 
-    void onSessionStateChanged();
     void onScreenUpdated(const QPixmap& screen);
     void onPerformanceStatsUpdated();
 
@@ -184,7 +173,6 @@ private:
 
     void saveScreenshot(const QString& fileName = QString());
 
-    QString m_connectionId;
     ConnectionManager::ConnectionState m_connectionState;
     bool m_isFullScreen;
 

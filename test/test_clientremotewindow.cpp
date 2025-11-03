@@ -5,6 +5,8 @@
 #include <QtGui/QPixmap>
 #include <QtGui/QFontMetrics>
 #include "../src/client/window/ClientRemoteWindow.h"
+#include "../src/client/managers/SessionManager.h"
+#include "../src/client/network/ConnectionManager.h"
 #include "../src/common/core/config/MessageConstants.h"
 
 /**
@@ -36,6 +38,7 @@ private:
     QApplication *m_app = nullptr;
     ClientRemoteWindow *m_window = nullptr;
     QWidget *m_parentWidget = nullptr;
+    SessionManager *m_sessionManager = nullptr;
 };
 
 void TestClientRemoteWindow::initTestCase()
@@ -60,7 +63,12 @@ void TestClientRemoteWindow::init()
 {
     // 为每个测试创建干净的 ClientRemoteWindow 实例
     m_parentWidget = new QWidget();
-    m_window = new ClientRemoteWindow("test-connection-id", m_parentWidget);
+    
+    // 创建 SessionManager（内部会创建 ConnectionManager）
+    m_sessionManager = new SessionManager(m_parentWidget);
+    
+    // 创建 ClientRemoteWindow，传入 SessionManager
+    m_window = new ClientRemoteWindow(m_sessionManager, m_parentWidget);
     
     // 设置一个合理的窗口大小以便测试绘制功能
     m_window->resize(800, 600);
@@ -73,6 +81,11 @@ void TestClientRemoteWindow::cleanup()
         delete m_window;
         m_window = nullptr;
     }
+    if (m_sessionManager) {
+        delete m_sessionManager;
+        m_sessionManager = nullptr;
+    }
+    // ConnectionManager 由 SessionManager 内部管理，不需要单独删除
     if (m_parentWidget) {
         delete m_parentWidget;
         m_parentWidget = nullptr;
@@ -205,7 +218,8 @@ void TestClientRemoteWindow::testDefaultWindowSize()
     // 我们需要创建一个新的窗口实例来测试默认大小
     
     QWidget *testParent = new QWidget();
-    ClientRemoteWindow *testWindow = new ClientRemoteWindow("test-default-size", testParent);
+    SessionManager *testSessionManager = new SessionManager(testParent);
+    ClientRemoteWindow *testWindow = new ClientRemoteWindow(testSessionManager, testParent);
     
     // 验证默认窗口大小 (1600x900, 符合现代显示器的 16:9 比例)
     QSize expectedSize(1600, 900);
@@ -223,6 +237,8 @@ void TestClientRemoteWindow::testDefaultWindowSize()
     
     // 清理测试对象
     delete testWindow;
+    delete testSessionManager;
+    // ConnectionManager 由 SessionManager 内部管理
     delete testParent;
 }
 

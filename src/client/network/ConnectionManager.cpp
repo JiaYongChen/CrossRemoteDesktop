@@ -89,11 +89,6 @@ void ConnectionManager::abort()
     setConnectionState(Disconnected);
 }
 
-ConnectionManager::ConnectionState ConnectionManager::connectionState() const
-{
-    return m_connectionState;
-}
-
 bool ConnectionManager::isConnected() const
 {
     return m_connectionState == Connected || m_connectionState == Authenticated;
@@ -112,11 +107,6 @@ QString ConnectionManager::currentHost() const
 int ConnectionManager::currentPort() const
 {
     return m_currentPort;
-}
-
-QString ConnectionManager::sessionId() const
-{
-    return m_sessionId;
 }
 
 TcpClient* ConnectionManager::tcpClient() const
@@ -214,17 +204,12 @@ void ConnectionManager::onTcpConnected()
     
     // 连接成功后发送握手请求
     sendHandshakeRequest();
-    
-    emit connected();
 }
 
 void ConnectionManager::onTcpDisconnected()
 {
     m_connectionTimer->stop();
     cleanupConnection();
-    
-    // 清理会话信息
-    m_sessionId.clear();
     
     setConnectionState(Disconnected);
     
@@ -234,7 +219,6 @@ void ConnectionManager::onTcpDisconnected()
     } else {
         // 重置重连计数
         m_currentReconnectAttempts = 0;
-        emit disconnected();
     }
 }
 
@@ -249,7 +233,6 @@ void ConnectionManager::onTcpError(const QString &error)
     } else {
         // 重置重连计数
         m_currentReconnectAttempts = 0;
-        emit errorOccurred(error);
     }
 }
 
@@ -268,7 +251,6 @@ void ConnectionManager::onConnectionTimeout()
     } else {
         // 重置重连计数
         m_currentReconnectAttempts = 0;
-        emit errorOccurred(tr("连接超时"));
     }
 }
 
@@ -277,6 +259,8 @@ void ConnectionManager::setConnectionState(ConnectionState state)
     if (m_connectionState != state) {
         QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << "ConnectionManager: State changed from" << m_connectionState << "to" << state;
         m_connectionState = state;
+        
+        // 发射状态变化信号，供 UI 层使用
         emit connectionStateChanged(state);
     }
 }
@@ -354,7 +338,6 @@ void ConnectionManager::handleHandshakeResponse(const QByteArray& data)
     } else {
         QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) 
             << "Failed to parse handshake response";
-        emit errorOccurred("服务器握手响应无效");
     }
 }
 
@@ -368,14 +351,12 @@ void ConnectionManager::handleAuthenticationResponse(const QByteArray& data)
             << "Auth result:" << static_cast<int>(response.result);
 
         if (response.result == AuthResult::SUCCESS) {
-            m_sessionId = QString::fromUtf8(response.sessionId);
             QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) 
-                << MessageConstants::Network::AUTH_SUCCESSFUL.arg(m_sessionId);
+                << MessageConstants::Network::AUTH_SUCCESSFUL.arg(QString::fromUtf8(response.sessionId));
 
             stopAutoReconnect();
             m_currentReconnectAttempts = 0;
             setConnectionState(Authenticated);
-            emit authenticated();
         } else {
             QString errorMsg;
             switch (response.result) {
@@ -393,12 +374,10 @@ void ConnectionManager::handleAuthenticationResponse(const QByteArray& data)
                     break;
             }
             setConnectionState(Error);
-            emit errorOccurred(errorMsg);
         }
     } else {
         QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) 
             << "Failed to parse authentication response";
-        emit errorOccurred("服务器认证响应无效");
     }
 }
 

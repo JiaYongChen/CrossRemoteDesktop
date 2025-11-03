@@ -40,9 +40,9 @@ public:
         Disconnected,
         Error
     };
-    Q_ENUM(ConnectionState)
+    Q_ENUM(ConnectionState);
 
-        explicit ConnectionManager(QObject* parent = nullptr);
+    explicit ConnectionManager(QObject* parent = nullptr);
     ~ConnectionManager();
 
     // 连接控制
@@ -51,14 +51,12 @@ public:
     void abort();
 
     // 状态查询
-    ConnectionState connectionState() const;
     bool isConnected() const;
     bool isAuthenticated() const;
 
     // 连接信息
     QString currentHost() const;
     int currentPort() const;
-    QString sessionId() const;
 
     // 网络客户端访问
     TcpClient* tcpClient() const;
@@ -83,12 +81,8 @@ public:
     int connectionTimeout() const;
 
 signals:
+    // 状态变化通知信号（用于 UI 状态显示）
     void connectionStateChanged(ConnectionState state);
-    void connected();
-    void disconnected();
-    void authenticated();
-    void authenticationFailed(const QString& reason);
-    void errorOccurred(const QString& error);
 
     // 通用消息转发信号 - 供上层业务处理
     void messageReceived(MessageType type, const QByteArray& payload);
@@ -124,7 +118,6 @@ private:
     QTimer* m_connectionTimer;
 
     // 认证信息
-    QString m_sessionId;
     QString m_username;
     QString m_password;
 

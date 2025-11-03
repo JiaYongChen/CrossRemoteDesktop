@@ -4,11 +4,10 @@
 #include "../managers/ClipboardManager.h"
 #include "../managers/FileTransferManager.h"
 #include "../managers/CursorManager.h"
-#include "RenderManager.h"
 #include "../managers/InputHandler.h"
-#include "../ClientManager.h"
 #include "../../common/core/config/UiConstants.h"
 #include "../../common/core/config/MessageConstants.h"
+#include "RenderManager.h"
 
 #include <QtWidgets/QGraphicsScene>
 #include <QtWidgets/QGraphicsPixmapItem>
@@ -48,9 +47,8 @@
 
 Q_LOGGING_CATEGORY(lcClientRemoteWindow, "client.remote.window")
 
-ClientRemoteWindow::ClientRemoteWindow(const QString& connectionId, QWidget* parent)
+ClientRemoteWindow::ClientRemoteWindow(SessionManager* sessionManager, QWidget* parent)
     : QGraphicsView(parent)
-    , m_connectionId(connectionId)
     , m_connectionState(ConnectionManager::Disconnected)
     , m_isFullScreen(false)
     , m_isClosing(false) // 初始化关闭标志，默认不在关闭流程中
@@ -65,11 +63,11 @@ ClientRemoteWindow::ClientRemoteWindow(const QString& connectionId, QWidget* par
     , m_renderManager(nullptr)
     , m_lastPanPoint(0, 0)
     , m_showPerformanceInfo(false)
-    , m_sessionManager(nullptr) {
+    , m_sessionManager(sessionManager) {
     // 确保窗口关闭时自动删除，避免无父对象窗口内存泄漏
     // 使用属性而非手动deleteLater，减少重复释放风险
     setAttribute(Qt::WA_DeleteOnClose, true);
-    qDebug() << "[ClientRemoteWindow] Constructor started for connectionId:" << connectionId;
+    qDebug() << "[ClientRemoteWindow] Constructor started for sessionManager:" << sessionManager;
 
     // Initialize all managers using composition pattern
     initializeManagers();
@@ -80,6 +78,12 @@ ClientRemoteWindow::ClientRemoteWindow(const QString& connectionId, QWidget* par
     // Setup UI components
     setupScene();
     setupView();
+    setWindowTitle(tr("%1").arg(sessionManager->currentHost()));
+
+    // Setup connections to SessionManager if provided
+    if ( m_sessionManager ) {
+        setupManagerConnections();
+    }
 }
 
 ClientRemoteWindow::~ClientRemoteWindow() {
@@ -152,6 +156,18 @@ void ClientRemoteWindow::setupView() {
 }
 
 void ClientRemoteWindow::setupManagerConnections() {
+    // Connect SessionManager signals
+    if ( m_sessionManager ) {
+        connect(m_sessionManager, &SessionManager::performanceStatsUpdated,
+            this, &ClientRemoteWindow::onPerformanceStatsUpdated);
+        connect(m_sessionManager, &SessionManager::screenUpdated,
+            this, &ClientRemoteWindow::onScreenUpdated);
+        
+        // 连接状态变化信号，同步更新 UI 显示
+        connect(m_sessionManager, &SessionManager::connectionStateChanged,
+            this, &ClientRemoteWindow::setConnectionState);
+    }
+
     // Connect clipboard manager signals
     if ( m_clipboardManager ) {
         // Forward clipboard changes to external listeners if needed
@@ -203,23 +219,6 @@ void ClientRemoteWindow::setupManagerConnections() {
         connect(m_renderManager, &RenderManager::windowResizeRequested,
             this, &ClientRemoteWindow::onWindowResizeRequested);
     }
-}
-
-QString ClientRemoteWindow::getConnectionId() const {
-    return m_connectionId;
-}
-
-// 新增：设置连接主机（IP 或主机名）并刷新窗口标题
-// 说明：
-// - 由 ClientManager 在调用 connectToHost 时传入 host
-// - 仅当 host 变化时才更新，避免无谓的 UI 重绘
-void ClientRemoteWindow::setConnectionHost(const QString& host) {
-    // 若标题已为该主机名/IP，则无需重复设置
-    if ( windowTitle() == host )
-        return;
-    // 直接设置窗口标题，不再持久化到成员变量，避免冗余状态
-    setWindowTitle(host);
-    qCDebug(lcClientRemoteWindow) << "Connection host set:" << host;
 }
 
 // Connection state management
@@ -520,7 +519,7 @@ void ClientRemoteWindow::focusOutEvent(QFocusEvent* event) {
 }
 
 void ClientRemoteWindow::closeEvent(QCloseEvent* event) {
-    qCDebug(lcClientRemoteWindow) << "closeEvent received for" << m_connectionId << "isClosing=" << m_isClosing;
+    qCDebug(lcClientRemoteWindow) << "closeEvent received, isClosing=" << m_isClosing;
 
     // 若已处于关闭流程，直接接受事件并返回，避免重入
     if ( m_isClosing ) {
@@ -563,13 +562,6 @@ void ClientRemoteWindow::onConnectionError(const QString& error) {
 }
 
 // Note: Clipboard changes are now handled by ClipboardManager
-
-void ClientRemoteWindow::onSessionStateChanged() {
-    // Handle session state changes
-    if ( m_sessionManager ) {
-        // Update UI based on session state
-    }
-}
 
 void ClientRemoteWindow::onScreenUpdated(const QPixmap& screen) {
     updateRemoteScreen(screen);
@@ -705,21 +697,6 @@ void ClientRemoteWindow::saveScreenshot(const QString& fileName) {
 }
 
 // onSceneChanged, updateViewTransform and enableOpenGL are now handled by RenderManager
-
-void ClientRemoteWindow::setSessionManager(SessionManager* sessionManager) {
-    if ( m_sessionManager ) {
-        // Disconnect old session manager signals
-        disconnect(m_sessionManager, nullptr, this, nullptr);
-    }
-
-    m_sessionManager = sessionManager;
-
-    if ( m_sessionManager ) {
-        // Connect new session manager signals
-        connect(m_sessionManager, &SessionManager::sessionStateChanged, this, &ClientRemoteWindow::onSessionStateChanged);
-        connect(m_sessionManager, &SessionManager::performanceStatsUpdated, this, &ClientRemoteWindow::onPerformanceStatsUpdated);
-    }
-}
 
 bool ClientRemoteWindow::isClosing() const {
     return m_isClosing;

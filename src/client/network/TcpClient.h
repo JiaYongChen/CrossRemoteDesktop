@@ -12,17 +12,13 @@ class QTimer;
 
 /**
  * @brief TcpClient 只负责底层网络通信
- * 
+ *
  * 职责：
  * - 管理 QTcpSocket 连接
  * - 管理接收缓冲区(m_receiveBuffer)
  * - 处理心跳机制
  * - 提供 sendMessage 接口发送消息
  * - 解析消息并发出 messageReceived 信号
- * 
- * 不负责：
- * - 业务逻辑处理（握手、认证、屏幕数据等）
- * - 这些由 ConnectionManager 处理
  */
 class TcpClient : public QObject {
     Q_OBJECT
@@ -50,7 +46,7 @@ signals:
     void connected();
     void disconnected();
     void errorOccurred(const QString& error);
-    
+
     // 通用消息接收信号 - 由 ConnectionManager 处理具体业务逻辑
     void messageReceived(MessageType type, const QByteArray& payload);
 
@@ -59,11 +55,11 @@ private slots:
     void onDisconnected();
     void onReadyRead();
     void onError(QAbstractSocket::SocketError error);
-    void checkHeartbeat();
 
 private:
     void processMessage(const MessageHeader& header, const QByteArray& payload);
     void handleHeartbeat();
+    void checkHeartbeat();
 
     // 网络
     QTcpSocket* m_socket;

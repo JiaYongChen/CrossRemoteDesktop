@@ -10,30 +10,21 @@
 #include <QtCore/QSize>
 #include "../../common/core/network/Protocol.h"
 #include "../../common/core/config/UiConstants.h"
+#include "../network/ConnectionManager.h"
 
-class ConnectionManager;
 class QTimer;
 
 class SessionManager : public QObject {
     Q_OBJECT
 
 public:
-    enum SessionState {
-        Inactive,
-        Initializing,
-        Active,
-        Suspended,
-        Terminated
-    };
-    Q_ENUM(SessionState);
-
     struct PerformanceStats {
         double currentFPS;
         QDateTime sessionStartTime;
         int frameCount;
     };
 
-    explicit SessionManager(ConnectionManager* connectionManager, QObject* parent = nullptr);
+    explicit SessionManager(QObject* parent = nullptr);
     ~SessionManager();
 
     // 会话控制
@@ -43,7 +34,6 @@ public:
     void terminateSession();
 
     // 状态查询
-    SessionState sessionState() const;
     bool isActive() const;
 
     // 远程桌面数据
@@ -66,27 +56,35 @@ public:
     void setFrameRate(int fps);
     int frameRate() const;
 
+    // 连接信息
+    QString currentHost() const;
+    int currentPort() const;
+    bool isConnected() const;
+    bool isAuthenticated() const;
+
+    // 连接控制
+    void connectToHost(const QString& host, int port);
+    void disconnectFromHost();
+
 signals:
-    void sessionStateChanged(SessionState state);
     void screenUpdated(const QPixmap& screen);
     void screenRegionUpdated(const QPixmap& region, const QRect& rect);
     void performanceStatsUpdated(const PerformanceStats& stats);
     void sessionError(const QString& error);
-    void connectionStateChanged(int state);
+    
+    // 连接状态变化信号（用于 UI 更新）
+    void connectionStateChanged(ConnectionManager::ConnectionState state);
 
 private slots:
-    void onConnectionStateChanged();
     void onMessageReceived(MessageType type, const QByteArray& data);
     void updatePerformanceStats();
 
 private:
-    void setSessionState(SessionState state);
     void setupConnections();
     void calculateFPS();
     void handleScreenData(const QByteArray& data);
 
     ConnectionManager* m_connectionManager;
-    SessionState m_sessionState;
 
     // 远程桌面数据
     QPixmap m_currentScreen;

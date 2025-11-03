@@ -16,12 +16,11 @@ class QSettings;
 /**
  * @brief 连接实例结构体 - 管理单个远程桌面连接的所有组件
  *
- * 该结构体封装了一个远程桌面连接所需的所有组件，包括连接管理器、
+ * 该结构体封装了一个远程桌面连接所需的所有组件，包括
  * 会话管理器和远程桌面窗口。使用QPointer确保对象安全访问。
  */
 struct ConnectionInstance {
     QString connectionId;                           ///< 连接的唯一标识符
-    QPointer<ConnectionManager> connectionManager;  ///< 网络连接管理器
     QPointer<SessionManager> sessionManager;       ///< 会话和远程桌面数据管理器
     QPointer<ClientRemoteWindow> remoteDesktopWindow; ///< 远程桌面窗口
     bool isBeingDeleted = false;                    ///< 标志位：防止双重删除
@@ -56,13 +55,13 @@ struct ConnectionInstance {
 
     /**
      * @brief 获取连接的主机地址
-     * @return 主机地址，如果连接管理器无效则返回空字符串
+     * @return 主机地址，如果会话管理器无效则返回空字符串
      */
     QString getHost() const;
 
     /**
      * @brief 获取连接的端口号
-     * @return 端口号，如果连接管理器无效则返回0
+     * @return 端口号，如果会话管理器无效则返回0
      */
     int getPort() const;
 
@@ -101,12 +100,11 @@ public:
     int getCurrentPort(const QString& connectionId) const;
 
     // 组件访问
-    ConnectionManager* connectionManager(const QString& connectionId) const;
     SessionManager* sessionManager(const QString& connectionId) const;
     ClientRemoteWindow* remoteDesktopWindow(const QString& connectionId) const;
 
     // 窗口管理
-    void createRemoteDesktopWindow(const QString& connectionId);
+    ClientRemoteWindow* createRemoteDesktopWindow(const SessionManager* sessionManager);
     void closeAllRemoteDesktopWindows();
 
 signals:
@@ -118,8 +116,6 @@ private slots:
     void onAuthenticated();
     void onConnectionClosed();
     void onConnectionError(const QString& error);
-    void onSessionStateChanged();
-    void onConnectionStateChanged(ConnectionManager::ConnectionState state);
     void onScreenUpdated(const QPixmap& screen);
     void onWindowClosed();
 
@@ -130,9 +126,8 @@ private:
     QString generateConnectionId() const;
 
     ConnectionInstance* getConnectionInstance(const QString& connectionId) const;
-    ConnectionInstance* findConnectionByManager(ConnectionManager* manager) const;
-    ConnectionInstance* findConnectionBySessionManager(SessionManager* sessionManager) const;
-    ConnectionInstance* findConnectionByWindow(ClientRemoteWindow* window) const;
+    ConnectionInstance* findConnectionBySessionManager(const SessionManager* sessionManager) const;
+    ConnectionInstance* findConnectionByWindow(const ClientRemoteWindow* window) const;
 
     QHash<QString, ConnectionInstance*> m_connections;
 };

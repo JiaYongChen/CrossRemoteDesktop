@@ -8,16 +8,15 @@
 #include <QtCore/QTimer>
 #include <QtCore/QMutexLocker>
 
-SessionManager::SessionManager(ConnectionManager* connectionManager, QObject* parent)
+SessionManager::SessionManager(QObject* parent)
     : QObject(parent)
-    , m_connectionManager(connectionManager)
-    , m_sessionState(Inactive)
+    , m_connectionManager(new ConnectionManager(this))
     , m_frameDataMutex(new QMutex())
     , m_statsTimer(new QTimer(this))
     , m_frameRate(30) {
-    if ( m_connectionManager ) {
-        setupConnections();
-    }
+
+    // SessionManager 拥有并管理 ConnectionManager
+    setupConnections();
 
     // 设置性能统计定时器
     m_statsTimer->setInterval(UIConstants::STATS_UPDATE_INTERVAL);
@@ -29,22 +28,17 @@ SessionManager::SessionManager(ConnectionManager* connectionManager, QObject* pa
 
 SessionManager::~SessionManager() {
     terminateSession();
+
+    // ConnectionManager 由 Qt 父对象机制自动删除
     delete m_frameDataMutex;
 }
 
 void SessionManager::startSession() {
-    if ( m_sessionState != Inactive ) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "SessionManager: Session already active or starting";
-        return;
-    }
-
     if ( !m_connectionManager || !m_connectionManager->isAuthenticated() ) {
         QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "SessionManager: Cannot start session - not authenticated";
         emit sessionError(tr("无法启动会话 - 未认证"));
         return;
     }
-
-    setSessionState(Initializing);
 
     // 重置统计数据
     resetStats();
@@ -52,25 +46,13 @@ void SessionManager::startSession() {
 
     // 启动统计定时器
     m_statsTimer->start();
-
-    setSessionState(Active);
 }
 
 void SessionManager::suspendSession() {
-    if ( m_sessionState != Active ) {
-        return;
-    }
-
-    setSessionState(Suspended);
     m_statsTimer->stop();
 }
 
 void SessionManager::resumeSession() {
-    if ( m_sessionState != Suspended ) {
-        return;
-    }
-
-    setSessionState(Active);
     m_statsTimer->start();
 
     // 发送恢复会话的消息 (使用握手请求作为替代)
@@ -80,11 +62,6 @@ void SessionManager::resumeSession() {
 }
 
 void SessionManager::terminateSession() {
-    if ( m_sessionState == Inactive || m_sessionState == Terminated ) {
-        return;
-    }
-
-    setSessionState(Terminated);
     m_statsTimer->stop();
 
     // 注意：会话终止不发送断开请求，避免重复发送
@@ -95,16 +72,10 @@ void SessionManager::terminateSession() {
     m_currentScreen = QPixmap();
     m_remoteScreenSize = QSize();
     m_frameTimes.clear();
-
-    setSessionState(Inactive);
-}
-
-SessionManager::SessionState SessionManager::sessionState() const {
-    return m_sessionState;
 }
 
 bool SessionManager::isActive() const {
-    return m_sessionState == Active;
+    return m_connectionManager && m_connectionManager->isAuthenticated() && m_statsTimer->isActive();
 }
 
 QPixmap SessionManager::currentScreen() const {
@@ -206,21 +177,6 @@ int SessionManager::frameRate() const {
     return m_frameRate;
 }
 
-void SessionManager::onConnectionStateChanged() {
-    if ( !m_connectionManager ) {
-        return;
-    }
-
-    auto state = m_connectionManager->connectionState();
-
-    if ( state == ConnectionManager::Disconnected || state == ConnectionManager::Error ) {
-        terminateSession();
-    } else if ( state == ConnectionManager::Authenticated && m_sessionState == Inactive ) {
-        // 连接认证成功后可以启动会话
-        // 这里不自动启动，等待外部调用startSession()
-    }
-}
-
 void SessionManager::onMessageReceived(MessageType type, const QByteArray& data) {
     switch ( type ) {
         case MessageType::SCREEN_DATA:
@@ -240,20 +196,14 @@ void SessionManager::updatePerformanceStats() {
     emit performanceStatsUpdated(m_stats);
 }
 
-void SessionManager::setSessionState(SessionState state) {
-    if ( m_sessionState != state ) {
-        m_sessionState = state;
-        emit sessionStateChanged(state);
-    }
-}
-
 void SessionManager::setupConnections() {
-    if ( m_connectionManager ) {
-        connect(m_connectionManager, &ConnectionManager::connectionStateChanged,
-            this, &SessionManager::onConnectionStateChanged);
-        connect(m_connectionManager, &ConnectionManager::messageReceived,
-            this, &SessionManager::onMessageReceived);
-    }
+    // 转发连接状态变化信号（用于 UI 更新）
+    connect(m_connectionManager, &ConnectionManager::connectionStateChanged,
+        this, &SessionManager::connectionStateChanged);
+
+    // m_connectionManager 在构造函数中创建，永远不为空
+    connect(m_connectionManager, &ConnectionManager::messageReceived,
+        this, &SessionManager::onMessageReceived);
 }
 
 void SessionManager::calculateFPS() {
@@ -339,5 +289,33 @@ void SessionManager::handleScreenData(const QByteArray& data) {
         QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient)
             << "Failed to load JPEG image from frame data, size:" << frameData.size()
             << "first 16 bytes:" << frameData.left(16).toHex();
+    }
+}
+
+QString SessionManager::currentHost() const {
+    return m_connectionManager ? m_connectionManager->currentHost() : QString();
+}
+
+int SessionManager::currentPort() const {
+    return m_connectionManager ? m_connectionManager->currentPort() : 0;
+}
+
+bool SessionManager::isConnected() const {
+    return m_connectionManager && m_connectionManager->isConnected();
+}
+
+bool SessionManager::isAuthenticated() const {
+    return m_connectionManager && m_connectionManager->isAuthenticated();
+}
+
+void SessionManager::connectToHost(const QString& host, int port) {
+    if ( m_connectionManager ) {
+        m_connectionManager->connectToHost(host, port);
+    }
+}
+
+void SessionManager::disconnectFromHost() {
+    if ( m_connectionManager ) {
+        m_connectionManager->disconnectFromHost();
     }
 }
