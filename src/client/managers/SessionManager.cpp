@@ -1,22 +1,21 @@
 #include "SessionManager.h"
 #include "../network/ConnectionManager.h"
-#include "../network/TcpClient.h"
 #include <QtCore/QDebug>
 #include "../../common/core/logging/LoggingCategories.h"
 #include <QtCore/QMessageLogger>
 #include <QtCore/QBuffer>
 #include <QtCore/QDataStream>
 #include <QtCore/QTimer>
+#include <QtCore/QMutexLocker>
 
 SessionManager::SessionManager(ConnectionManager* connectionManager, QObject* parent)
     : QObject(parent)
     , m_connectionManager(connectionManager)
-    , m_tcpClient(nullptr)
     , m_sessionState(Inactive)
+    , m_frameDataMutex(new QMutex())
     , m_statsTimer(new QTimer(this))
     , m_frameRate(30) {
     if ( m_connectionManager ) {
-        m_tcpClient = m_connectionManager->tcpClient();
         setupConnections();
     }
 
@@ -30,6 +29,7 @@ SessionManager::SessionManager(ConnectionManager* connectionManager, QObject* pa
 
 SessionManager::~SessionManager() {
     terminateSession();
+    delete m_frameDataMutex;
 }
 
 void SessionManager::startSession() {
@@ -73,9 +73,9 @@ void SessionManager::resumeSession() {
     setSessionState(Active);
     m_statsTimer->start();
 
-    if ( m_tcpClient ) {
-        // SessionResume not available in protocol, using HANDSHAKE_REQUEST
-        m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST, BaseMessage());
+    // 发送恢复会话的消息 (使用握手请求作为替代)
+    if ( m_connectionManager && m_connectionManager->isAuthenticated() ) {
+        m_connectionManager->sendMessage(MessageType::HANDSHAKE_REQUEST, BaseMessage());
     }
 }
 
@@ -116,27 +116,54 @@ QSize SessionManager::remoteScreenSize() const {
 }
 
 void SessionManager::sendMouseEvent(int x, int y, int buttons, int eventType) {
-    if ( !isActive() || !m_tcpClient ) {
+    if ( !isActive() || !m_connectionManager || !m_connectionManager->isAuthenticated() ) {
         return;
     }
 
-    m_tcpClient->sendMouseEvent(x, y, buttons, eventType);
+    MouseEvent mouseEvent;
+    mouseEvent.x = x;
+    mouseEvent.y = y;
+    mouseEvent.buttons = buttons;
+    mouseEvent.eventType = static_cast<MouseEventType>(eventType);
+    mouseEvent.wheelDelta = 0;
+
+    m_connectionManager->sendMessage(MessageType::MOUSE_EVENT, mouseEvent);
 }
 
 void SessionManager::sendKeyboardEvent(int key, int modifiers, bool pressed, const QString& text) {
-    if ( !isActive() || !m_tcpClient ) {
+    if ( !isActive() || !m_connectionManager || !m_connectionManager->isAuthenticated() ) {
         return;
     }
 
-    m_tcpClient->sendKeyboardEvent(key, modifiers, pressed, text);
+    KeyboardEvent keyEvent;
+    keyEvent.keyCode = key;
+    keyEvent.modifiers = modifiers;
+    keyEvent.eventType = pressed ? KeyboardEventType::KEY_PRESS : KeyboardEventType::KEY_RELEASE;
+
+    // 复制文本，确保不超过缓冲区大小
+    QByteArray textBytes = text.toUtf8();
+    int copySize = qMin(textBytes.size(), static_cast<int>(sizeof(keyEvent.text) - 1));
+    memcpy(keyEvent.text, textBytes.constData(), copySize);
+    keyEvent.text[copySize] = '\0';
+
+    m_connectionManager->sendMessage(MessageType::KEYBOARD_EVENT, keyEvent);
 }
 
 void SessionManager::sendWheelEvent(int x, int y, int delta, int orientation) {
-    if ( !isActive() || !m_tcpClient ) {
+    if ( !isActive() || !m_connectionManager || !m_connectionManager->isAuthenticated() ) {
         return;
     }
 
-    m_tcpClient->sendWheelEvent(x, y, delta, orientation);
+    Q_UNUSED(orientation)
+
+        MouseEvent wheelEvent;
+    wheelEvent.x = x;
+    wheelEvent.y = y;
+    wheelEvent.buttons = 0;
+    wheelEvent.eventType = delta > 0 ? MouseEventType::WHEEL_UP : MouseEventType::WHEEL_DOWN;
+    wheelEvent.wheelDelta = delta;
+
+    m_connectionManager->sendMessage(MessageType::MOUSE_EVENT, wheelEvent);
 }
 
 SessionManager::PerformanceStats SessionManager::performanceStats() const {
@@ -166,12 +193,12 @@ QString SessionManager::getFormattedPerformanceInfo() const {
 void SessionManager::setFrameRate(int fps) {
     m_frameRate = qBound(1, fps, 60);
 
-    if ( isActive() && m_tcpClient ) {
+    if ( isActive() && m_connectionManager && m_connectionManager->isAuthenticated() ) {
         QByteArray data;
         QDataStream stream(&data, QIODevice::WriteOnly);
         stream << m_frameRate;
         // ConfigUpdate not available in protocol, using HANDSHAKE_REQUEST
-        // m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST, data);
+        // m_connectionManager->sendMessage(MessageType::HANDSHAKE_REQUEST, data);
     }
 }
 
@@ -194,42 +221,16 @@ void SessionManager::onConnectionStateChanged() {
     }
 }
 
-void SessionManager::onScreenDataReceived(const QImage& image) {
-    if ( !isActive() ) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "SessionManager::onScreenDataReceived - Session not active, ignoring";
-        return;
-    }
-    QPixmap pixmap = QPixmap::fromImage(image);
-
-    m_currentScreen = pixmap;
-    m_remoteScreenSize = pixmap.size();
-
-    // 记录帧时间用于FPS计算
-    QDateTime now = QDateTime::currentDateTime();
-    m_frameTimes.enqueue(now);
-
-    // 限制帧时间历史记录数量
-    while ( m_frameTimes.size() > UIConstants::MAX_FRAME_HISTORY ) {
-        m_frameTimes.dequeue();
-    }
-
-    m_stats.frameCount++;
-    calculateFPS();
-
-    emit screenUpdated(pixmap);
-}
-
 void SessionManager::onMessageReceived(MessageType type, const QByteArray& data) {
     switch ( type ) {
         case MessageType::SCREEN_DATA:
-            // 图像解码已在 TcpClient::handleScreenData 完成，这里无需重复处理
-            break;
-        case MessageType::HANDSHAKE_RESPONSE:
-            // InputResponse not available, using HANDSHAKE_RESPONSE
-            processInputResponse(data);
+            // 处理屏幕数据
+            handleScreenData(data);
             break;
         default:
-            // 其他消息类型由其他组件处理
+            // 其他消息类型忽略
+            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient)
+                << "SessionManager: Unhandled message type:" << static_cast<quint32>(type);
             break;
     }
 }
@@ -250,17 +251,9 @@ void SessionManager::setupConnections() {
     if ( m_connectionManager ) {
         connect(m_connectionManager, &ConnectionManager::connectionStateChanged,
             this, &SessionManager::onConnectionStateChanged);
+        connect(m_connectionManager, &ConnectionManager::messageReceived,
+            this, &SessionManager::onMessageReceived);
     }
-
-    if ( m_tcpClient ) {
-        connect(m_tcpClient, &TcpClient::screenDataReceived,
-            this, &SessionManager::onScreenDataReceived);
-    }
-}
-
-void SessionManager::processInputResponse(const QByteArray& data) {
-    // 处理输入响应（如果需要）
-    Q_UNUSED(data)
 }
 
 void SessionManager::calculateFPS() {
@@ -277,5 +270,74 @@ void SessionManager::calculateFPS() {
         m_stats.currentFPS = (m_frameTimes.size() - 1) * 1000.0 / timeSpan;
     } else {
         m_stats.currentFPS = 0.0;
+    }
+}
+
+void SessionManager::handleScreenData(const QByteArray& data) {
+    // 使用正确的ScreenData结构体解码数据
+    ScreenData screenData{};
+    if ( !screenData.decode(data) ) {
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient)
+            << "Failed to decode ScreenData from received data, size:" << data.size();
+        return;
+    }
+
+    // 验证数据完整性
+    if ( screenData.imageData.isEmpty() || screenData.dataSize == 0 ) {
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient)
+            << "ScreenData contains empty image data";
+        return;
+    }
+
+    if ( static_cast<quint32>(screenData.imageData.size()) != screenData.dataSize ) {
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient)
+            << "ScreenData size mismatch - expected:" << screenData.dataSize
+            << "actual:" << screenData.imageData.size();
+        return;
+    }
+
+    // 验证JPEG格式头部（JPEG文件以0xFF 0xD8开头）
+    if ( screenData.imageData.size() >= 2 ) {
+        unsigned char byte0 = static_cast<unsigned char>(screenData.imageData[0]);
+        unsigned char byte1 = static_cast<unsigned char>(screenData.imageData[1]);
+        if ( byte0 != 0xFF || byte1 != 0xD8 ) {
+            qCWarning(lcClient) << "接收到的数据不是有效的JPEG格式，前2字节:"
+                << QString("0x%1 0x%2")
+                .arg(byte0, 2, 16, QChar('0'))
+                .arg(byte1, 2, 16, QChar('0'));
+        }
+    }
+
+    QByteArray frameData;
+    {
+        QMutexLocker locker(m_frameDataMutex);
+        // 直接使用接收到的JPEG数据
+        frameData = screenData.imageData;
+        m_previousFrameData = screenData.imageData;
+    }
+
+    // 从JPEG格式数据加载QImage
+    QImage image;
+    bool loaded = image.loadFromData(frameData, "JPEG");
+
+    if ( loaded && !image.isNull() ) {
+        // 成功加载图像，转换为QPixmap并更新
+        m_currentScreen = QPixmap::fromImage(image);
+        m_remoteScreenSize = image.size();
+
+        // 更新性能统计
+        m_frameTimes.enqueue(QDateTime::currentDateTime());
+        if ( m_frameTimes.size() > 100 ) {
+            m_frameTimes.dequeue();
+        }
+        m_stats.frameCount++;
+        calculateFPS();
+
+        // 发出屏幕更新信号
+        emit screenUpdated(m_currentScreen);
+    } else {
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient)
+            << "Failed to load JPEG image from frame data, size:" << frameData.size()
+            << "first 16 bytes:" << frameData.left(16).toHex();
     }
 }

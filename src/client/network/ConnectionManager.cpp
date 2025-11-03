@@ -4,6 +4,8 @@
 #include <QtCore/QMessageLogger>
 #include <QtCore/QTimer>
 #include "TcpClient.h"
+#include "../common/core/config/MessageConstants.h"
+#include "../common/core/crypto/Encryption.h"
 
 ConnectionManager::ConnectionManager(QObject *parent)
     : QObject(parent)
@@ -114,12 +116,26 @@ int ConnectionManager::currentPort() const
 
 QString ConnectionManager::sessionId() const
 {
-    return m_tcpClient ? m_tcpClient->sessionId() : QString();
+    return m_sessionId;
 }
 
 TcpClient* ConnectionManager::tcpClient() const
 {
     return m_tcpClient;
+}
+
+// 业务逻辑接口实现
+void ConnectionManager::authenticate(const QString& username, const QString& password)
+{
+    if (!isConnected()) {
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << MessageConstants::Network::NOT_CONNECTED;
+        return;
+    }
+
+    m_username = username;
+    m_password = password;
+
+    sendAuthenticationRequest(username, password);
 }
 
 // 自动重连管理方法
@@ -195,6 +211,10 @@ void ConnectionManager::onTcpConnected()
     stopAutoReconnect();
     m_currentReconnectAttempts = 0; // 重置重连计数
     setConnectionState(Connected);
+    
+    // 连接成功后发送握手请求
+    sendHandshakeRequest();
+    
     emit connected();
 }
 
@@ -202,6 +222,10 @@ void ConnectionManager::onTcpDisconnected()
 {
     m_connectionTimer->stop();
     cleanupConnection();
+    
+    // 清理会话信息
+    m_sessionId.clear();
+    
     setConnectionState(Disconnected);
     
     // 如果启用了自动重连且未达到最大重连次数，则启动重连
@@ -212,20 +236,6 @@ void ConnectionManager::onTcpDisconnected()
         m_currentReconnectAttempts = 0;
         emit disconnected();
     }
-}
-
-void ConnectionManager::onTcpAuthenticated()
-{
-    stopAutoReconnect();
-    m_currentReconnectAttempts = 0; // 重置重连计数
-    setConnectionState(Authenticated);
-    emit authenticated();
-}
-
-void ConnectionManager::onTcpAuthenticationFailed(const QString &reason)
-{
-    setConnectionState(Error);
-    emit authenticationFailed(reason);
 }
 
 void ConnectionManager::onTcpError(const QString &error)
@@ -278,9 +288,8 @@ void ConnectionManager::setupTcpClient()
     // 连接TCP客户端信号
     connect(m_tcpClient, &TcpClient::connected, this, &ConnectionManager::onTcpConnected);
     connect(m_tcpClient, &TcpClient::disconnected, this, &ConnectionManager::onTcpDisconnected);
-    connect(m_tcpClient, &TcpClient::authenticated, this, &ConnectionManager::onTcpAuthenticated);
-    connect(m_tcpClient, &TcpClient::authenticationFailed, this, &ConnectionManager::onTcpAuthenticationFailed);
     connect(m_tcpClient, &TcpClient::errorOccurred, this, &ConnectionManager::onTcpError);
+    connect(m_tcpClient, &TcpClient::messageReceived, this, &ConnectionManager::onTcpMessageReceived);
 }
 
 void ConnectionManager::cleanupConnection()
@@ -306,4 +315,171 @@ void ConnectionManager::setConnectionTimeout(int msecs)
 int ConnectionManager::connectionTimeout() const
 {
     return m_connectionTimeout;
+}
+
+// 消息处理 - 只处理连接相关消息，其他转发给上层
+void ConnectionManager::onTcpMessageReceived(MessageType type, const QByteArray& payload)
+{
+    switch (type) {
+        case MessageType::HANDSHAKE_RESPONSE:
+            handleHandshakeResponse(payload);
+            break;
+        case MessageType::AUTHENTICATION_RESPONSE:
+            handleAuthenticationResponse(payload);
+            break;
+        case MessageType::AUTH_CHALLENGE:
+            handleAuthChallenge(payload);
+            break;
+        default:
+            // 其他消息转发给上层业务处理
+            emit messageReceived(type, payload);
+            break;
+    }
+}
+
+void ConnectionManager::handleHandshakeResponse(const QByteArray& data)
+{
+    HandshakeResponse response;
+    if (response.decode(data)) {
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) 
+            << MessageConstants::Network::HANDSHAKE_RESPONSE_RECEIVED;
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) 
+            << "Server version:" << response.serverVersion;
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) 
+            << "Screen resolution:" << response.screenWidth << "x" << response.screenHeight;
+
+        // 发送认证请求
+        sendAuthenticationRequest(m_username.isEmpty() ? "guest" : m_username,
+                                 m_password.isEmpty() ? "" : m_password);
+    } else {
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) 
+            << "Failed to parse handshake response";
+        emit errorOccurred("服务器握手响应无效");
+    }
+}
+
+void ConnectionManager::handleAuthenticationResponse(const QByteArray& data)
+{
+    AuthenticationResponse response;
+    if (response.decode(data)) {
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) 
+            << MessageConstants::Network::AUTH_RESPONSE_RECEIVED;
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) 
+            << "Auth result:" << static_cast<int>(response.result);
+
+        if (response.result == AuthResult::SUCCESS) {
+            m_sessionId = QString::fromUtf8(response.sessionId);
+            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) 
+                << MessageConstants::Network::AUTH_SUCCESSFUL.arg(m_sessionId);
+
+            stopAutoReconnect();
+            m_currentReconnectAttempts = 0;
+            setConnectionState(Authenticated);
+            emit authenticated();
+        } else {
+            QString errorMsg;
+            switch (response.result) {
+                case AuthResult::INVALID_PASSWORD:
+                    errorMsg = "密码错误";
+                    break;
+                case AuthResult::ACCESS_DENIED:
+                    errorMsg = "访问被拒绝";
+                    break;
+                case AuthResult::SERVER_FULL:
+                    errorMsg = "服务器已满";
+                    break;
+                default:
+                    errorMsg = "认证失败";
+                    break;
+            }
+            setConnectionState(Error);
+            emit errorOccurred(errorMsg);
+        }
+    } else {
+        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) 
+            << "Failed to parse authentication response";
+        emit errorOccurred("服务器认证响应无效");
+    }
+}
+
+void ConnectionManager::handleAuthChallenge(const QByteArray& data)
+{
+    AuthChallenge ch{};
+    if (ch.decode(data)) {
+        QByteArray salt = QByteArray::fromHex(QByteArray(ch.saltHex));
+        if (!salt.isEmpty()) {
+            // 本地派生 PBKDF2-SHA256
+            QByteArray derived = HashGenerator::pbkdf2(m_password.toUtf8(), salt, 
+                                                      int(ch.iterations), int(ch.keyLength));
+            QString hex = derived.toHex();
+            
+            // 构造 AuthenticationRequest 并序列化发送
+            AuthenticationRequest ar{};
+            QByteArray uname = (m_username.isEmpty() ? QString("guest") : m_username).toUtf8();
+            int uc = qMin(uname.size(), static_cast<int>(sizeof(ar.username) - 1));
+            memcpy(ar.username, uname.constData(), uc);
+            ar.username[uc] = '\0';
+            
+            QByteArray hexBytes = hex.toUtf8();
+            int hc = qMin(hexBytes.size(), static_cast<int>(sizeof(ar.passwordHash) - 1));
+            memcpy(ar.passwordHash, hexBytes.constData(), hc);
+            ar.passwordHash[hc] = '\0';
+            ar.authMethod = 1u;
+            
+            m_tcpClient->sendMessage(MessageType::AUTHENTICATION_REQUEST, ar);
+        }
+    }
+}
+
+void ConnectionManager::sendHandshakeRequest()
+{
+    HandshakeRequest request{};
+    request.clientVersion = PROTOCOL_VERSION;
+    request.screenWidth = 1920;
+    request.screenHeight = 1080;
+    request.colorDepth = 32;
+    strcpy(request.clientName, "QtRemoteDesktop Client");
+    strcpy(request.clientOS, getClientOS().toUtf8().constData());
+
+    m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST, request);
+
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) 
+        << MessageConstants::Network::HANDSHAKE_REQUEST_SENT;
+}
+
+void ConnectionManager::sendAuthenticationRequest(const QString& username, const QString& password)
+{
+    Q_UNUSED(password);
+    // 第一次发送不带hash，触发服务端下发挑战
+    AuthenticationRequest ar{};
+    QByteArray uname = username.toUtf8();
+    int uc = qMin(uname.size(), static_cast<int>(sizeof(ar.username) - 1));
+    memcpy(ar.username, uname.constData(), uc);
+    ar.username[uc] = '\0';
+    ar.passwordHash[0] = '\0';
+    ar.authMethod = 1u; // 请求PBKDF2
+    
+    m_tcpClient->sendMessage(MessageType::AUTHENTICATION_REQUEST, ar);
+
+    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) 
+        << MessageConstants::Network::AUTH_REQUEST_SENT.arg(username);
+}
+
+QString ConnectionManager::getClientOS()
+{
+#ifdef Q_OS_WIN
+    return "Windows";
+#elif defined(Q_OS_MAC)
+    return "macOS";
+#elif defined(Q_OS_LINUX)
+    return "Linux";
+#else
+    return "Unknown";
+#endif
+}
+
+void ConnectionManager::sendMessage(MessageType type, const IMessageCodec& message) {
+    if (m_tcpClient) {
+        m_tcpClient->sendMessage(type, message);
+    }
 }

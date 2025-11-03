@@ -3,13 +3,29 @@
 
 #include <QtCore/QObject>
 #include <QtCore/QString>
+#include <QtCore/QMutex>
+#include <QtGui/QImage>
 #include <functional>
 #include "../../common/core/config/NetworkConstants.h"
+#include "../../common/core/network/Protocol.h"
 
 class QTimer;
 class TcpClient;
 class IMessageCodec;
 
+/**
+ * @brief ConnectionManager 负责管理连接、握手和认证
+ *
+ * 职责：
+ * - 管理连接状态和自动重连
+ * - 处理握手和认证逻辑
+ * - 提供消息发送接口
+ * - 转发消息给上层处理
+ *
+ * 不负责：
+ * - 业务数据处理（屏幕数据、输入事件等）
+ * - 这些由 SessionManager 处理
+ */
 class ConnectionManager : public QObject {
     Q_OBJECT
 
@@ -47,6 +63,12 @@ public:
     // 网络客户端访问
     TcpClient* tcpClient() const;
 
+    // 认证接口
+    void authenticate(const QString& username, const QString& password);
+
+    // 消息发送接口
+    void sendMessage(MessageType type, const IMessageCodec& message);
+
     // 自动重连管理
     void setAutoReconnect(bool enable);
     bool autoReconnect() const;
@@ -68,14 +90,16 @@ signals:
     void authenticationFailed(const QString& reason);
     void errorOccurred(const QString& error);
 
+    // 通用消息转发信号 - 供上层业务处理
+    void messageReceived(MessageType type, const QByteArray& payload);
+
 private slots:
     void onTcpConnected();
     void onTcpDisconnected();
-    void onTcpAuthenticated();
-    void onTcpAuthenticationFailed(const QString& reason);
     void onTcpError(const QString& error);
     void onConnectionTimeout();
     void onReconnectTimer();
+    void onTcpMessageReceived(MessageType type, const QByteArray& payload);
 
 private:
     void setConnectionState(ConnectionState state);
@@ -84,11 +108,25 @@ private:
     void startAutoReconnect();
     void stopAutoReconnect();
 
+    // 连接相关处理方法（握手和认证）
+    void handleHandshakeResponse(const QByteArray& data);
+    void handleAuthenticationResponse(const QByteArray& data);
+    void handleAuthChallenge(const QByteArray& data);
+
+    void sendHandshakeRequest();
+    void sendAuthenticationRequest(const QString& username, const QString& password);
+    QString getClientOS();
+
     TcpClient* m_tcpClient;
     ConnectionState m_connectionState;
     QString m_currentHost;
     int m_currentPort;
     QTimer* m_connectionTimer;
+
+    // 认证信息
+    QString m_sessionId;
+    QString m_username;
+    QString m_password;
 
     // 自动重连相关
     QTimer* m_reconnectTimer;

@@ -2,6 +2,7 @@
 #define SESSIONMANAGER_H
 
 #include <QtCore/QObject>
+#include <QtCore/QMutex>
 #include <QtGui/QPixmap>
 #include <QtGui/QImage>
 #include <QtCore/QDateTime>
@@ -10,7 +11,6 @@
 #include "../../common/core/network/Protocol.h"
 #include "../../common/core/config/UiConstants.h"
 
-class TcpClient;
 class ConnectionManager;
 class QTimer;
 
@@ -25,9 +25,9 @@ public:
         Suspended,
         Terminated
     };
-    Q_ENUM(SessionState)
+    Q_ENUM(SessionState);
 
-        struct PerformanceStats {
+    struct PerformanceStats {
         double currentFPS;
         QDateTime sessionStartTime;
         int frameCount;
@@ -76,23 +76,25 @@ signals:
 
 private slots:
     void onConnectionStateChanged();
-    void onScreenDataReceived(const QImage& image);
     void onMessageReceived(MessageType type, const QByteArray& data);
     void updatePerformanceStats();
 
 private:
     void setSessionState(SessionState state);
     void setupConnections();
-    void processInputResponse(const QByteArray& data);
     void calculateFPS();
+    void handleScreenData(const QByteArray& data);
 
     ConnectionManager* m_connectionManager;
-    TcpClient* m_tcpClient;
     SessionState m_sessionState;
 
     // 远程桌面数据
     QPixmap m_currentScreen;
     QSize m_remoteScreenSize;
+
+    // 帧数据缓存和线程安全
+    QByteArray m_previousFrameData;
+    mutable QMutex* m_frameDataMutex;
 
     // 性能统计
     QTimer* m_statsTimer;
