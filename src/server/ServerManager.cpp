@@ -609,6 +609,7 @@ void ServerManager::onNewClientConnection(qintptr socketDescriptor) {
     if ( m_currentClient ) {
         qCDebug(lcServerManager) << "已有客户端连接，拒绝新连接";
         // 发送拒绝消息的逻辑可以在这里实现
+        
         return;
     }
 

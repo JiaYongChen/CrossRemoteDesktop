@@ -9,7 +9,7 @@
 #include <QtCore/QDebug>
 
 #include "../src/server/capture/ScreenCaptureWorker.h"
-#include "../src/server/processing/Dataprocessorworker.h"
+#include "../src/server/dataprocessing/DataProcessingWorker.h"
 #include "../src/common/core/threading/Threading.h"
 #include "../src/server/dataflow/QueueManager.h"
 #include "../src/server/dataflow/DataFlowStructures.h"
@@ -65,7 +65,7 @@ private slots:
 
 private:
     ScreenCaptureWorker* m_captureWorker;
-    DataProcessorWorker* m_processorWorker;
+    DataProcessingWorker* m_processorWorker;
     QThread* m_captureThread;
     QThread* m_processorThread;
     QueueManager* m_queueManager;
@@ -80,7 +80,7 @@ void TestCommunication::initTestCase() {
 
     // 创建工作线程（使用队列管理器）
     m_captureWorker = new ScreenCaptureWorker(m_queueManager);
-    m_processorWorker = new DataProcessorWorker(m_queueManager);
+    m_processorWorker = new DataProcessingWorker(m_queueManager);
 
     // 创建线程
     m_captureThread = new QThread(this);
@@ -122,7 +122,7 @@ void TestCommunication::cleanupTestCase() {
     if ( m_processorWorker ) {
         delete m_processorWorker;
         m_processorWorker = nullptr;
-        qDebug() << "DataProcessorWorker destroyed";
+        qDebug() << "DataProcessingWorker destroyed";
     }
 
     // 然后强制终止线程
@@ -154,16 +154,16 @@ void TestCommunication::testBasicSignalConnection() {
 
     // 验证队列管理器已初始化
     QVERIFY(m_queueManager != nullptr);
-    
+
     qDebug() << "队列初始化成功";
 
     // 测试错误处理信号连接（DataProcessorWorker仍可能有错误信号）
-    QSignalSpy errorSpy(m_processorWorker, &DataProcessorWorker::processingError);
+    QSignalSpy errorSpy(m_processorWorker, &DataProcessingWorker::processingError);
     QVERIFY(errorSpy.isValid());
     qDebug() << "错误处理信号连接成功";
 
     // 测试性能统计信号连接
-    QSignalSpy perfSpy(m_processorWorker, &DataProcessorWorker::performanceUpdate);
+    QSignalSpy perfSpy(m_processorWorker, &DataProcessingWorker::performanceUpdate);
     QVERIFY(perfSpy.isValid());
     qDebug() << "性能统计信号连接成功";
 }
@@ -176,9 +176,9 @@ void TestCommunication::testFrameDataTransmission() {
     m_queueManager->clearQueue(QueueManager::ProcessedQueue);
 
     // 监听数据就绪信号和错误信号
-    QSignalSpy dataReadySpy(m_processorWorker, &DataProcessorWorker::dataReady);
-    QSignalSpy dataReadyZeroCopySpy(m_processorWorker, &DataProcessorWorker::dataReadyZeroCopy);
-    QSignalSpy errorSpy(m_processorWorker, &DataProcessorWorker::processingError);
+    QSignalSpy dataReadySpy(m_processorWorker, &DataProcessingWorker::dataReady);
+    QSignalSpy dataReadyZeroCopySpy(m_processorWorker, &DataProcessingWorker::dataReadyZeroCopy);
+    QSignalSpy errorSpy(m_processorWorker, &DataProcessingWorker::processingError);
 
     // 创建测试图像
     QImage testImage(800, 600, QImage::Format_RGB32);
@@ -188,13 +188,13 @@ void TestCommunication::testFrameDataTransmission() {
     m_processorWorker->start();
 
     // 等待Worker完全启动并进入运行状态
-    QSignalSpy startedSpy(m_processorWorker, &DataProcessorWorker::started);
-    if ( m_processorWorker->state() != DataProcessorWorker::State::Running ) {
+    QSignalSpy startedSpy(m_processorWorker, &DataProcessingWorker::started);
+    if ( m_processorWorker->state() != DataProcessingWorker::State::Running ) {
         QVERIFY(startedSpy.wait(2000)); // 等待最多2秒
     }
 
     // 确保Worker已经完全启动
-    QCOMPARE(m_processorWorker->state(), DataProcessorWorker::State::Running);
+    QCOMPARE(m_processorWorker->state(), DataProcessingWorker::State::Running);
 
     // 额外等待一段时间确保Worker完全进入工作循环
     QTest::qWait(200);
@@ -205,10 +205,10 @@ void TestCommunication::testFrameDataTransmission() {
     frame.timestamp = QDateTime::currentMSecsSinceEpoch();
     frame.frameId = 1;
     frame.originalSize = testImage.size();
-    
+
     bool enqueued = captureQueue->tryEnqueue(frame);
     QVERIFY2(enqueued, "应该成功将帧放入捕获队列");
-    
+
     qDebug() << "已将测试帧放入捕获队列";
 
     // 强制处理事件循环
@@ -274,13 +274,13 @@ void TestCommunication::testFrameDataTransmission() {
     }
 
     // 停止处理器，避免影响后续测试
-    if ( m_processorWorker->state() != DataProcessorWorker::State::Stopped ) {
+    if ( m_processorWorker->state() != DataProcessingWorker::State::Stopped ) {
         qDebug() << "DataProcessorWorker当前状态:" << static_cast<int>(m_processorWorker->state()) << "，开始停止";
         m_processorWorker->stop();
 
         // 等待Worker完全停止
         int stopTimeout = 0;
-        while ( m_processorWorker->state() != DataProcessorWorker::State::Stopped && stopTimeout < 200 ) {
+        while ( m_processorWorker->state() != DataProcessingWorker::State::Stopped && stopTimeout < 200 ) {
             QTest::qWait(50);
             QCoreApplication::processEvents();
             stopTimeout++;
@@ -289,7 +289,7 @@ void TestCommunication::testFrameDataTransmission() {
             }
         }
         qDebug() << "DataProcessorWorker最终状态:" << static_cast<int>(m_processorWorker->state());
-        QVERIFY(m_processorWorker->state() == DataProcessorWorker::State::Stopped);
+        QVERIFY(m_processorWorker->state() == DataProcessingWorker::State::Stopped);
     }
 }
 
@@ -301,7 +301,7 @@ void TestCommunication::testErrorHandling() {
     QObject::disconnect(m_processorWorker, nullptr, nullptr, nullptr);
 
     // 监听错误信号
-    QSignalSpy errorSpy(m_processorWorker, &DataProcessorWorker::processingError);
+    QSignalSpy errorSpy(m_processorWorker, &DataProcessingWorker::processingError);
 
     // 确保处理器已停止
     if ( m_processorWorker->isRunning() ) {
@@ -314,23 +314,23 @@ void TestCommunication::testErrorHandling() {
     }
 
     // 确保处理器Worker在启动前处于停止状态
-    if ( m_processorWorker->state() != DataProcessorWorker::State::Stopped ) {
+    if ( m_processorWorker->state() != DataProcessingWorker::State::Stopped ) {
         m_processorWorker->stop();
 
         // 等待Worker完全停止
         int stopTimeout = 0;
-        while ( m_processorWorker->state() != DataProcessorWorker::State::Stopped && stopTimeout < 100 ) {
+        while ( m_processorWorker->state() != DataProcessingWorker::State::Stopped && stopTimeout < 100 ) {
             QTest::qWait(50);
             QCoreApplication::processEvents();
             stopTimeout++;
         }
-        QVERIFY(m_processorWorker->state() == DataProcessorWorker::State::Stopped);
+        QVERIFY(m_processorWorker->state() == DataProcessingWorker::State::Stopped);
     }
 
     // 启动处理器并等待完全启动
     m_processorWorker->start();
-    QSignalSpy startedSpy(m_processorWorker, &DataProcessorWorker::started);
-    if ( m_processorWorker->state() != DataProcessorWorker::State::Running ) {
+    QSignalSpy startedSpy(m_processorWorker, &DataProcessingWorker::started);
+    if ( m_processorWorker->state() != DataProcessingWorker::State::Running ) {
         QVERIFY(startedSpy.wait(2000));
     }
     QTest::qWait(200); // 额外等待确保Worker完全进入工作循环
@@ -371,17 +371,17 @@ void TestCommunication::testErrorHandling() {
     qDebug() << "错误处理测试成功，错误信息:" << errorMessage;
 
     // 停止处理器，避免影响后续测试
-    if ( m_processorWorker->state() != DataProcessorWorker::State::Stopped ) {
+    if ( m_processorWorker->state() != DataProcessingWorker::State::Stopped ) {
         m_processorWorker->stop();
 
         // 等待Worker完全停止
         int stopTimeout = 0;
-        while ( m_processorWorker->state() != DataProcessorWorker::State::Stopped && stopTimeout < 100 ) {
+        while ( m_processorWorker->state() != DataProcessingWorker::State::Stopped && stopTimeout < 100 ) {
             QTest::qWait(50);
             QCoreApplication::processEvents();
             stopTimeout++;
         }
-        QVERIFY(m_processorWorker->state() == DataProcessorWorker::State::Stopped);
+        QVERIFY(m_processorWorker->state() == DataProcessingWorker::State::Stopped);
     }
 }
 
@@ -393,9 +393,9 @@ void TestCommunication::testPerformanceStats() {
     QObject::disconnect(m_processorWorker, nullptr, nullptr, nullptr);
 
     // 监听性能更新信号和数据就绪信号
-    QSignalSpy perfSpy(m_processorWorker, &DataProcessorWorker::performanceUpdate);
-    QSignalSpy dataReadySpy(m_processorWorker, &DataProcessorWorker::dataReady);
-    QSignalSpy dataReadyZeroCopySpy(m_processorWorker, &DataProcessorWorker::dataReadyZeroCopy);
+    QSignalSpy perfSpy(m_processorWorker, &DataProcessingWorker::performanceUpdate);
+    QSignalSpy dataReadySpy(m_processorWorker, &DataProcessingWorker::dataReady);
+    QSignalSpy dataReadyZeroCopySpy(m_processorWorker, &DataProcessingWorker::dataReadyZeroCopy);
 
     // 确保处理器已停止
     if ( m_processorWorker->isRunning() ) {
@@ -408,23 +408,23 @@ void TestCommunication::testPerformanceStats() {
     }
 
     // 确保处理器Worker在启动前处于停止状态
-    if ( m_processorWorker->state() != DataProcessorWorker::State::Stopped ) {
+    if ( m_processorWorker->state() != DataProcessingWorker::State::Stopped ) {
         m_processorWorker->stop();
 
         // 等待Worker完全停止
         int stopTimeout = 0;
-        while ( m_processorWorker->state() != DataProcessorWorker::State::Stopped && stopTimeout < 100 ) {
+        while ( m_processorWorker->state() != DataProcessingWorker::State::Stopped && stopTimeout < 100 ) {
             QTest::qWait(50);
             QCoreApplication::processEvents();
             stopTimeout++;
         }
-        QVERIFY(m_processorWorker->state() == DataProcessorWorker::State::Stopped);
+        QVERIFY(m_processorWorker->state() == DataProcessingWorker::State::Stopped);
     }
 
     // 启动处理器并等待完全启动
     m_processorWorker->start();
-    QSignalSpy startedSpy(m_processorWorker, &DataProcessorWorker::started);
-    if ( m_processorWorker->state() != DataProcessorWorker::State::Running ) {
+    QSignalSpy startedSpy(m_processorWorker, &DataProcessingWorker::started);
+    if ( m_processorWorker->state() != DataProcessingWorker::State::Running ) {
         QVERIFY(startedSpy.wait(2000));
     }
     QTest::qWait(200); // 额外等待确保Worker完全进入工作循环
@@ -497,17 +497,17 @@ void TestCommunication::testPerformanceStats() {
     qDebug() << "  平均处理时间:" << stats.averageProcessingTime << "ms";
 
     // 停止处理器，避免影响后续测试
-    if ( m_processorWorker->state() != DataProcessorWorker::State::Stopped ) {
+    if ( m_processorWorker->state() != DataProcessingWorker::State::Stopped ) {
         m_processorWorker->stop();
 
         // 等待Worker完全停止
         int stopTimeout = 0;
-        while ( m_processorWorker->state() != DataProcessorWorker::State::Stopped && stopTimeout < 100 ) {
+        while ( m_processorWorker->state() != DataProcessingWorker::State::Stopped && stopTimeout < 100 ) {
             QTest::qWait(50);
             QCoreApplication::processEvents();
             stopTimeout++;
         }
-        QVERIFY(m_processorWorker->state() == DataProcessorWorker::State::Stopped);
+        QVERIFY(m_processorWorker->state() == DataProcessingWorker::State::Stopped);
     }
 }
 
@@ -519,8 +519,8 @@ void TestCommunication::testMultiThreadedCommunication() {
     QObject::disconnect(m_processorWorker, nullptr, nullptr, nullptr);
 
     // 监听数据就绪信号
-    QSignalSpy dataReadySpy(m_processorWorker, &DataProcessorWorker::dataReady);
-    QSignalSpy dataReadyZeroCopySpy(m_processorWorker, &DataProcessorWorker::dataReadyZeroCopy);
+    QSignalSpy dataReadySpy(m_processorWorker, &DataProcessingWorker::dataReady);
+    QSignalSpy dataReadyZeroCopySpy(m_processorWorker, &DataProcessingWorker::dataReadyZeroCopy);
     QSignalSpy captureFrameSpy(m_captureWorker, &ScreenCaptureWorker::frameCaptured);
 
     // 确保Workers已停止
@@ -556,17 +556,17 @@ void TestCommunication::testMultiThreadedCommunication() {
         QVERIFY(m_captureWorker->state() == ScreenCaptureWorker::State::Stopped);
     }
 
-    if ( m_processorWorker->state() != DataProcessorWorker::State::Stopped ) {
+    if ( m_processorWorker->state() != DataProcessingWorker::State::Stopped ) {
         m_processorWorker->stop();
 
         // 等待Worker完全停止
         int stopTimeout = 0;
-        while ( m_processorWorker->state() != DataProcessorWorker::State::Stopped && stopTimeout < 100 ) {
+        while ( m_processorWorker->state() != DataProcessingWorker::State::Stopped && stopTimeout < 100 ) {
             QTest::qWait(50);
             QCoreApplication::processEvents();
             stopTimeout++;
         }
-        QVERIFY(m_processorWorker->state() == DataProcessorWorker::State::Stopped);
+        QVERIFY(m_processorWorker->state() == DataProcessingWorker::State::Stopped);
     }
 
     // 启动处理器Worker并等待完全启动
@@ -575,7 +575,7 @@ void TestCommunication::testMultiThreadedCommunication() {
 
     // 等待Worker状态变为Running
     int timeout = 0;
-    while ( m_processorWorker->state() != DataProcessorWorker::State::Running && timeout < 200 ) {
+    while ( m_processorWorker->state() != DataProcessingWorker::State::Running && timeout < 200 ) {
         QTest::qWait(10);
         QCoreApplication::processEvents();
         timeout++;
@@ -586,11 +586,11 @@ void TestCommunication::testMultiThreadedCommunication() {
 
     qDebug() << "Worker启动完成，最终状态:" << static_cast<int>(m_processorWorker->state());
 
-    if ( m_processorWorker->state() != DataProcessorWorker::State::Running ) {
+    if ( m_processorWorker->state() != DataProcessingWorker::State::Running ) {
         qDebug() << "Worker启动失败，当前状态:" << static_cast<int>(m_processorWorker->state());
-        QFAIL("DataProcessorWorker failed to start");
+        QFAIL("DataProcessingWorker failed to start");
     }
-    QVERIFY(m_processorWorker->state() == DataProcessorWorker::State::Running);
+    QVERIFY(m_processorWorker->state() == DataProcessingWorker::State::Running);
 
     // 额外等待确保Worker的工作循环已经开始
     QTest::qWait(500);
@@ -730,11 +730,11 @@ void TestCommunication::testMultiThreadedCommunication() {
         }
     }
 
-    if ( m_processorWorker->state() != DataProcessorWorker::State::Stopped ) {
+    if ( m_processorWorker->state() != DataProcessingWorker::State::Stopped ) {
         qDebug() << "DataProcessorWorker当前状态:" << static_cast<int>(m_processorWorker->state()) << "，开始停止";
         m_processorWorker->stop();
         int processorTimeout = 0;
-        while ( m_processorWorker->state() != DataProcessorWorker::State::Stopped && processorTimeout < 200 ) {
+        while ( m_processorWorker->state() != DataProcessingWorker::State::Stopped && processorTimeout < 200 ) {
             QTest::qWait(50);
             QCoreApplication::processEvents();
             processorTimeout++;
@@ -743,7 +743,7 @@ void TestCommunication::testMultiThreadedCommunication() {
             }
         }
         qDebug() << "DataProcessorWorker最终状态:" << static_cast<int>(m_processorWorker->state());
-        QVERIFY(m_processorWorker->state() == DataProcessorWorker::State::Stopped);
+        QVERIFY(m_processorWorker->state() == DataProcessingWorker::State::Stopped);
     }
 }
 
@@ -756,10 +756,10 @@ void TestCommunication::testDataFlowIntegrity() {
 
     // 监听各种信号
     QSignalSpy captureFrameSpy(m_captureWorker, &ScreenCaptureWorker::frameCaptured);
-    QSignalSpy dataReadySpy(m_processorWorker, &DataProcessorWorker::dataReady);
-    QSignalSpy dataReadyZeroCopySpy(m_processorWorker, &DataProcessorWorker::dataReadyZeroCopy);
+    QSignalSpy dataReadySpy(m_processorWorker, &DataProcessingWorker::dataReady);
+    QSignalSpy dataReadyZeroCopySpy(m_processorWorker, &DataProcessingWorker::dataReadyZeroCopy);
     QSignalSpy captureErrorSpy(m_captureWorker, &Worker::errorOccurred);
-    QSignalSpy processErrorSpy(m_processorWorker, &DataProcessorWorker::processingError);
+    QSignalSpy processErrorSpy(m_processorWorker, &DataProcessingWorker::processingError);
 
     // 确保Workers在启动前处于停止状态
     if ( m_captureWorker->state() != ScreenCaptureWorker::State::Stopped ) {
@@ -775,17 +775,17 @@ void TestCommunication::testDataFlowIntegrity() {
         QVERIFY(m_captureWorker->state() == ScreenCaptureWorker::State::Stopped);
     }
 
-    if ( m_processorWorker->state() != DataProcessorWorker::State::Stopped ) {
+    if ( m_processorWorker->state() != DataProcessingWorker::State::Stopped ) {
         m_processorWorker->stop();
 
         // 等待Worker完全停止
         int stopTimeout = 0;
-        while ( m_processorWorker->state() != DataProcessorWorker::State::Stopped && stopTimeout < 100 ) {
+        while ( m_processorWorker->state() != DataProcessingWorker::State::Stopped && stopTimeout < 100 ) {
             QTest::qWait(50);
             QCoreApplication::processEvents();
             stopTimeout++;
         }
-        QVERIFY(m_processorWorker->state() == DataProcessorWorker::State::Stopped);
+        QVERIFY(m_processorWorker->state() == DataProcessingWorker::State::Stopped);
     }
 
     // 启动处理器Worker并等待完全启动
@@ -794,7 +794,7 @@ void TestCommunication::testDataFlowIntegrity() {
 
     // 等待Worker状态变为Running
     int startTimeout = 0;
-    while ( m_processorWorker->state() != DataProcessorWorker::State::Running && startTimeout < 100 ) {
+    while ( m_processorWorker->state() != DataProcessingWorker::State::Running && startTimeout < 100 ) {
         QTest::qWait(50);
         QCoreApplication::processEvents();
         startTimeout++;
@@ -805,11 +805,11 @@ void TestCommunication::testDataFlowIntegrity() {
 
     qDebug() << "Worker启动完成，最终状态:" << static_cast<int>(m_processorWorker->state());
 
-    if ( m_processorWorker->state() != DataProcessorWorker::State::Running ) {
+    if ( m_processorWorker->state() != DataProcessingWorker::State::Running ) {
         qDebug() << "Worker启动失败，当前状态:" << static_cast<int>(m_processorWorker->state());
-        QFAIL("DataProcessorWorker failed to start");
+        QFAIL("DataProcessingWorker failed to start");
     }
-    QVERIFY(m_processorWorker->state() == DataProcessorWorker::State::Running);
+    QVERIFY(m_processorWorker->state() == DataProcessingWorker::State::Running);
 
     // 额外等待确保Worker的工作循环已经开始
     QTest::qWait(500);
@@ -931,17 +931,17 @@ void TestCommunication::testDataFlowIntegrity() {
     }
 
     // 停止处理器Worker
-    if ( m_processorWorker->state() != DataProcessorWorker::State::Stopped ) {
+    if ( m_processorWorker->state() != DataProcessingWorker::State::Stopped ) {
         m_processorWorker->stop();
 
         // 等待Worker完全停止
         int stopTimeout = 0;
-        while ( m_processorWorker->state() != DataProcessorWorker::State::Stopped && stopTimeout < 100 ) {
+        while ( m_processorWorker->state() != DataProcessingWorker::State::Stopped && stopTimeout < 100 ) {
             QTest::qWait(50);
             QCoreApplication::processEvents();
             stopTimeout++;
         }
-        QVERIFY(m_processorWorker->state() == DataProcessorWorker::State::Stopped);
+        QVERIFY(m_processorWorker->state() == DataProcessingWorker::State::Stopped);
     }
 
     qDebug() << "数据流完整性测试成功";
