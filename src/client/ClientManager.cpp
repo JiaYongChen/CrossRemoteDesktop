@@ -41,10 +41,10 @@ ConnectionInstance::~ConnectionInstance() {
         // 第二阶段：优雅地停止线程（等待 SessionManager 完成当前操作）
         if ( sessionThread && sessionThread->isRunning() ) {
             qCDebug(lcClientManager) << "~ConnectionInstance(): stopping session thread for" << connectionId;
-            
+
             // 先请求线程退出
             sessionThread->quit();
-            
+
             // 等待线程正常退出（3秒超时）
             if ( !sessionThread->wait(3000) ) {
                 qCWarning(lcClientManager) << "~ConnectionInstance(): session thread timeout, force terminating for" << connectionId;
@@ -84,7 +84,6 @@ ConnectionInstance::~ConnectionInstance() {
         }
 
         qCDebug(lcClientManager) << "~ConnectionInstance(): cleanup completed for" << connectionId;
-        
     } catch ( const std::exception& e ) {
         qCWarning(lcClientManager) << "~ConnectionInstance(): exception during cleanup:" << e.what();
     } catch ( ... ) {
@@ -420,20 +419,18 @@ void ClientManager::onWindowClosed() {
 
         // 断开连接并清理资源
         if ( instance->sessionManager ) {
-            instance->sessionManager->terminateSession();
-            instance->sessionManager->disconnectFromHost();
+            QMetaObject::invokeMethod(instance->sessionManager,
+                "terminateSession",
+                Qt::QueuedConnection);
+            QMetaObject::invokeMethod(instance->sessionManager,
+                "disconnectFromHost",
+                Qt::QueuedConnection);
         }
+
+        cleanupConnection(instance);
 
         // 从连接列表中移除
         m_connections.remove(instance->connectionId);
-
-        // 清理连接实例（但不删除窗口，因为窗口正在关闭）
-        if ( instance->sessionManager ) {
-            instance->sessionManager->deleteLater();
-            instance->sessionManager = nullptr;
-        }
-
-        delete instance;
 
         // 检查是否所有连接都已关闭，如果是则发射信号
         if ( m_connections.isEmpty() ) {
