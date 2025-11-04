@@ -20,13 +20,12 @@
 
 /**
  * @brief 屏幕捕获工作线程类
- * 
+ *
  * 继承Worker基类，在独立线程中执行屏幕捕获操作。
  * 支持帧率控制、质量调整、错误处理和性能监控。
  * 改造说明：移除了对ThreadSafeQueue的依赖，改为仅通过信号输出帧。
  */
-class ScreenCaptureWorker : public Worker
-{
+class ScreenCaptureWorker : public Worker {
     Q_OBJECT
 
 public:
@@ -35,7 +34,7 @@ public:
      * @param queueManager 队列管理器，用于将捕获的帧放入队列
      * @param parent 父对象
      */
-    explicit ScreenCaptureWorker(QueueManager* queueManager = nullptr, QObject *parent = nullptr);
+    explicit ScreenCaptureWorker(QueueManager* queueManager = nullptr, QObject* parent = nullptr);
 
     /**
      * @brief 析构函数
@@ -57,7 +56,7 @@ public:
 
     /**
      * @brief 开始捕获
-     * 
+     *
      * 设置内部原子标志m_isCapturing为true，并按需连接并启动统计定时器。
      * 线程安全：m_isCapturing为原子类型，直接设置即可。
      */
@@ -65,7 +64,7 @@ public:
 
     /**
      * @brief 停止捕获
-     * 
+     *
      * 将m_isCapturing置为false，并停止统计定时器且断开其超时信号，
      * 避免单元测试环境下产生多余的定时器触发与潜在告警。
      */
@@ -92,7 +91,7 @@ protected:
 
     /**
      * @brief 执行单次任务处理
-     * 
+     *
      * 实现Worker基类的纯虚函数，执行一次屏幕捕获操作。
      */
     void processTask() override;
@@ -101,7 +100,7 @@ protected:
      * @brief 定时器触发的捕获操作
      */
     void performCapture();
-    
+
 private slots:
     /**
      * @brief 更新统计信息
@@ -112,54 +111,54 @@ private:
     // 核心捕获方法
     QImage captureScreen();
     QImage captureScreenRegion(const QRect& region);
-    
+
     // 帧率和时序控制
     void calculateFrameDelay();
     bool shouldCaptureFrame();
-    
+
     // 性能监控方法
     void recordCaptureTime(std::chrono::milliseconds time);
     void updateFrameRate();
     void monitorResourceUsage();
-    
+
     // 错误处理方法
     void handleCaptureError(const QString& error);
     bool recoverFromError();
 
 private:
     // 队列管理
-    QueueManager* m_queueManager{nullptr};  ///< 队列管理器，用于将捕获的帧放入队列
-    
+    QueueManager* m_queueManager{ nullptr };  ///< 队列管理器，用于将捕获的帧放入队列
+
     // 配置相关
     mutable QMutex m_configMutex;
     CaptureConfig m_config;
-    
+
     // 捕获状态
-    std::atomic<bool> m_isCapturing{false};
-    std::atomic<bool> m_configChanged{false};
-    
+    std::atomic<bool> m_isCapturing{ false };
+    std::atomic<bool> m_configChanged{ false };
+
     // 时序控制
-    QTimer* m_statsTimer{nullptr};                      ///< 统计更新定时器
-    QTimer* m_captureTimer{nullptr};                    ///< 捕获定时器（仅在未启动Worker线程或测试环境下使用）
+    QTimer* m_statsTimer{ nullptr };                      ///< 统计更新定时器
+    QTimer* m_captureTimer{ nullptr };                    ///< 捕获定时器（仅在未启动Worker线程或测试环境下使用）
     std::chrono::steady_clock::time_point m_lastCaptureTime; ///< 上次捕获时间
-    std::chrono::milliseconds m_frameDelay{33}; ///< 帧间延迟
-    
+    std::chrono::milliseconds m_frameDelay{ 33 }; ///< 帧间延迟
+
     // 性能统计
     mutable QMutex m_statsMutex;
     CaptureStats m_stats;
     QElapsedTimer m_captureTimer_perf;         ///< 性能计时器
     std::deque<std::chrono::milliseconds> m_captureTimeHistory; ///< 捕获时间历史
     std::deque<qint64> m_frameTimestamps;      ///< 帧时间戳历史
-    
+
     // 屏幕相关
     QScreen* m_primaryScreen;                  ///< 主屏幕指针
     QRect m_screenGeometry;                    ///< 屏幕几何信息
-    
+
     // 错误处理
-    std::atomic<int> m_errorCount{0};
-    std::atomic<bool> m_recoveryMode{false};
+    std::atomic<int> m_errorCount{ 0 };
+    std::atomic<bool> m_recoveryMode{ false };
     QString m_lastError;
-    
+
     // 常量定义
     static constexpr int STATS_UPDATE_INTERVAL = 1000;     ///< 统计更新间隔(ms)
     static constexpr int MAX_CAPTURE_TIME_HISTORY = 100;   ///< 最大捕获时间历史记录数

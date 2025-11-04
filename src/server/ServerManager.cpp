@@ -9,9 +9,9 @@
 #include "../common/core/network/Protocol.h"
 #include "dataflow/QueueManager.h"
 #include "../common/core/config/Constants.h"
-#include <QMutexLocker>
-#include <QLoggingCategory>
-#include <QTimer>
+#include <QtCore/QMutexLocker>
+#include <QtCore/QLoggingCategory>
+#include <QtCore/QTimer>
 #include <memory>
 // 新增：引入日志分类声明头，使用统一的日志分类（lcServerManager）
 #include "../common/core/logging/LoggingCategories.h"

@@ -39,7 +39,7 @@
 #include <QtGui/QActionGroup>
 #include <QtCore/QSettings>
 #include <QtCore/QDebug>
-#include <QLoggingCategory>
+#include <QtCore/QLoggingCategory>
 #include <QtWidgets/QMenuBar>
 #include <QtGui/QKeySequence>
 #include <QtGui/QIcon>
@@ -162,7 +162,7 @@ void ClientRemoteWindow::setupManagerConnections() {
             this, &ClientRemoteWindow::onPerformanceStatsUpdated);
         connect(m_sessionManager, &SessionManager::screenUpdated,
             this, &ClientRemoteWindow::onScreenUpdated);
-        
+
         // 连接状态变化信号，同步更新 UI 显示
         connect(m_sessionManager, &SessionManager::connectionStateChanged,
             this, &ClientRemoteWindow::setConnectionState);
