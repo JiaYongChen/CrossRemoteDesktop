@@ -10,11 +10,11 @@
 
 SessionManager::SessionManager(const QString& connectionId, QObject* parent)
     : QObject(parent)
+    , m_connectionId(connectionId)
     , m_connectionManager(new ConnectionManager(this))
     , m_frameDataMutex(new QMutex())
     , m_statsTimer(new QTimer(this))
-    , m_frameRate(30)
-    , m_connectionId(connectionId) {
+    , m_frameRate(30) {
 
     // SessionManager 拥有并管理 ConnectionManager
     setupConnections();
@@ -276,7 +276,7 @@ void SessionManager::handleScreenData(const QByteArray& data) {
     bool loaded = image.loadFromData(frameData, "JPEG");
 
     if ( loaded && !image.isNull() ) {
-        // 成功加载图像，转换为QPixmap并更新
+        // 成功加载图像，转换为QPixmap并更新（仅用于内部缓存）
         m_currentScreen = QPixmap::fromImage(image);
         m_remoteScreenSize = image.size();
 
@@ -288,8 +288,9 @@ void SessionManager::handleScreenData(const QByteArray& data) {
         m_stats.frameCount++;
         calculateFPS();
 
-        // 发出屏幕更新信号
-        emit screenUpdated(m_currentScreen);
+        // 发出屏幕更新信号 - 直接发送 QImage 而不是 QPixmap
+        // QImage 设计用于跨线程传输，QPixmap 应该只在主线程使用
+        emit screenUpdated(image);
     } else {
         QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient)
             << "Failed to load JPEG image from frame data, size:" << frameData.size()

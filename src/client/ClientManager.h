@@ -119,7 +119,7 @@ private slots:
     void onAuthenticated();
     void onConnectionClosed();
     void onConnectionError(const QString& error);
-    void onScreenUpdated(const QPixmap& screen);
+    void onScreenUpdated(const QImage& screen);
     void onWindowClosed();
 
 private:

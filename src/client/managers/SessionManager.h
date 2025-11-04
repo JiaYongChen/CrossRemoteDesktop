@@ -72,8 +72,8 @@ public slots:
 
 signals:
     // 远程桌面数据更新信号
-    void screenUpdated(const QPixmap& screen);
-    void screenRegionUpdated(const QPixmap& region, const QRect& rect);
+    void screenUpdated(const QImage& screen);
+    void screenRegionUpdated(const QImage& region, const QRect& rect);
     void performanceStatsUpdated(const PerformanceStats& stats);
     void sessionError(const QString& error);
 

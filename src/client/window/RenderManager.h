@@ -67,22 +67,22 @@ public:
     // 远程屏幕管理
     /**
      * @brief 设置远程屏幕内容
-     * @param pixmap 远程屏幕的像素图
+     * @param image 远程屏幕的图像（QImage 适合跨线程传输）
      */
-    void setRemoteScreen(const QPixmap &pixmap);
+    void setRemoteScreen(const QImage &image);
     
     /**
      * @brief 更新远程屏幕内容
      * @param screen 新的屏幕内容
      */
-    void updateRemoteScreen(const QPixmap &screen);
+    void updateRemoteScreen(const QImage &screen);
     
     /**
      * @brief 更新远程屏幕的指定区域
      * @param region 区域内容
      * @param rect 更新区域
      */
-    void updateRemoteRegion(const QPixmap &region, const QRect &rect);
+    void updateRemoteRegion(const QImage &region, const QRect &rect);
     
     // 视图模式和缩放
 

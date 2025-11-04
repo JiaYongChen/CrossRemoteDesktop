@@ -289,19 +289,19 @@ ConnectionManager::ConnectionState ClientRemoteWindow::connectionState() const {
 }
 
 // Screen display methods
-void ClientRemoteWindow::setRemoteScreen(const QPixmap& pixmap) {
+void ClientRemoteWindow::setRemoteScreen(const QImage& image) {
     if ( m_renderManager ) {
-        m_renderManager->setRemoteScreen(pixmap);
+        m_renderManager->setRemoteScreen(image);
     }
 }
 
-void ClientRemoteWindow::updateRemoteScreen(const QPixmap& screen) {
+void ClientRemoteWindow::updateRemoteScreen(const QImage& screen) {
     if ( m_renderManager ) {
         m_renderManager->updateRemoteScreen(screen);
     }
 }
 
-void ClientRemoteWindow::updateRemoteRegion(const QPixmap& region, const QRect& rect) {
+void ClientRemoteWindow::updateRemoteRegion(const QImage& region, const QRect& rect) {
     if ( m_renderManager ) {
         m_renderManager->updateRemoteRegion(region, rect);
     }
@@ -584,7 +584,7 @@ void ClientRemoteWindow::onConnectionError(const QString& error) {
 
 // Note: Clipboard changes are now handled by ClipboardManager
 
-void ClientRemoteWindow::onScreenUpdated(const QPixmap& screen) {
+void ClientRemoteWindow::onScreenUpdated(const QImage& screen) {
     updateRemoteScreen(screen);
 }
 

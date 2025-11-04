@@ -367,7 +367,7 @@ void ClientManager::onConnectionError(const QString& error) {
     }
 }
 
-void ClientManager::onScreenUpdated(const QPixmap& screen) {
+void ClientManager::onScreenUpdated(const QImage& screen) {
     SessionManager* sessionManager = qobject_cast<SessionManager*>(sender());
     if ( !sessionManager ) {
         return;

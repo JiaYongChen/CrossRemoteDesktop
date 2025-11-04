@@ -56,9 +56,9 @@ public:
     ConnectionManager::ConnectionState connectionState() const;
 
     // Screen display methods (delegated to RenderManager)
-    void setRemoteScreen(const QPixmap& pixmap);
-    void updateRemoteScreen(const QPixmap& screen);
-    void updateRemoteRegion(const QPixmap& region, const QRect& rect);
+    void setRemoteScreen(const QImage& image);
+    void updateRemoteScreen(const QImage& screen);
+    void updateRemoteRegion(const QImage& region, const QRect& rect);
 
     // Scaling (delegated to RenderManager)
 
@@ -144,7 +144,7 @@ private slots:
     void onConnectionClosed();
     void onConnectionError(const QString& error);
 
-    void onScreenUpdated(const QPixmap& screen);
+    void onScreenUpdated(const QImage& screen);
     void onPerformanceStatsUpdated();
 
     void onWindowResizeRequested(const QSize& size);

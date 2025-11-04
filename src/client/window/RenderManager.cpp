@@ -90,15 +90,19 @@ void RenderManager::setupView()
     setUpdateMode(QGraphicsView::MinimalViewportUpdate);
 }
 
-void RenderManager::setRemoteScreen(const QPixmap &pixmap)
+void RenderManager::setRemoteScreen(const QImage &image)
 {
-    if (pixmap.isNull()) {
-        qWarning() << "RenderManager: Received null pixmap";
+    if (image.isNull()) {
+        qWarning() << "RenderManager: Received null image";
         return;
     }
     
+    // 在主线程中将 QImage 转换为 QPixmap
+    // QPixmap 应该只在主线程中创建和使用
+    QPixmap pixmap = QPixmap::fromImage(image);
+    
     m_remoteScreen = pixmap;
-    m_remoteSize = pixmap.size();
+    m_remoteSize = image.size();
     
     // 确保像素图项存在
     ensurePixmapItem();
@@ -122,12 +126,12 @@ void RenderManager::setRemoteScreen(const QPixmap &pixmap)
     forceUpdate();
 }
 
-void RenderManager::updateRemoteScreen(const QPixmap &screen)
+void RenderManager::updateRemoteScreen(const QImage &screen)
 {
     setRemoteScreen(screen);
 }
 
-void RenderManager::updateRemoteRegion(const QPixmap &region, const QRect &rect)
+void RenderManager::updateRemoteRegion(const QImage &region, const QRect &rect)
 {
     if (region.isNull() || rect.isEmpty()) {
         qWarning() << "RenderManager: Invalid region update parameters";
@@ -138,6 +142,9 @@ void RenderManager::updateRemoteRegion(const QPixmap &region, const QRect &rect)
         qWarning() << "RenderManager: No remote screen to update";
         return;
     }
+    
+    // 在主线程中将 QImage 转换为 QPixmap
+    QPixmap regionPixmap = QPixmap::fromImage(region);
     
     // 实现真正的区域更新
     QPixmap updatedScreen = m_remoteScreen.copy();
@@ -158,7 +165,7 @@ void RenderManager::updateRemoteRegion(const QPixmap &region, const QRect &rect)
     }
     
     // 在指定区域绘制新内容
-    painter.drawPixmap(rect, region);
+    painter.drawPixmap(rect, regionPixmap);
     painter.end();
     
     // 更新远程屏幕

@@ -33,9 +33,9 @@ private:
     QGraphicsView *view;
     
     /**
-     * @brief 创建测试用的像素图
+     * @brief 创建测试用的图像
      */
-    QPixmap createTestPixmap(int width = 800, int height = 600);
+    QImage createTestImage(int width = 800, int height = 600);
 };
 
 void TestImageDisplay::initTestCase()
@@ -76,12 +76,12 @@ void TestImageDisplay::cleanupTestCase()
     }
 }
 
-QPixmap TestImageDisplay::createTestPixmap(int width, int height)
+QImage TestImageDisplay::createTestImage(int width, int height)
 {
-    QPixmap pixmap(width, height);
-    pixmap.fill(Qt::white);
+    QImage image(width, height, QImage::Format_ARGB32);
+    image.fill(Qt::white);
     
-    QPainter painter(&pixmap);
+    QPainter painter(&image);
     painter.setPen(Qt::black);
     painter.setBrush(Qt::blue);
     
@@ -95,7 +95,7 @@ QPixmap TestImageDisplay::createTestPixmap(int width, int height)
     painter.drawLine(width, 0, 0, height);
     
     painter.end();
-    return pixmap;
+    return image;
 }
 
 void TestImageDisplay::testImageQualitySettings()
@@ -146,10 +146,10 @@ void TestImageDisplay::testImageCacheSettings()
 void TestImageDisplay::testRemoteScreenUpdate()
 {
     // 创建测试图片
-    QPixmap testPixmap = createTestPixmap(1024, 768);
+    QImage testImage = createTestImage(1024, 768);
     
     // 设置远程屏幕
-    renderManager->setRemoteScreen(testPixmap);
+    renderManager->setRemoteScreen(testImage);
     
     // 等待更新完成
     QTest::qWait(50);
@@ -160,21 +160,21 @@ void TestImageDisplay::testRemoteScreenUpdate()
 void TestImageDisplay::testRegionUpdate()
 {
     // 创建初始图片
-    QPixmap initialPixmap = createTestPixmap(800, 600);
-    renderManager->setRemoteScreen(initialPixmap);
+    QImage initialImage = createTestImage(800, 600);
+    renderManager->setRemoteScreen(initialImage);
     QTest::qWait(50);
     
     // 创建区域更新图片
-    QPixmap regionPixmap(200, 200);
-    regionPixmap.fill(Qt::yellow);
-    QPainter painter(&regionPixmap);
+    QImage regionImage(200, 200, QImage::Format_ARGB32);
+    regionImage.fill(Qt::yellow);
+    QPainter painter(&regionImage);
     painter.setPen(Qt::black);
     painter.drawText(50, 100, "Region Update");
     painter.end();
     
     // 更新指定区域
     QRect updateRegion(100, 100, 200, 200);
-    renderManager->updateRemoteRegion(regionPixmap, updateRegion);
+    renderManager->updateRemoteRegion(regionImage, updateRegion);
     
     // 等待更新完成
     QTest::qWait(50);

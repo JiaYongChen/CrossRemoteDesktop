@@ -14,9 +14,8 @@
  * 
  * 主要验证：
  * 1. 连接状态正确设置和获取
- * 2. drawConnectionState 在不同状态下的显示逻辑
- * 3. Connected/Authenticated 状态不显示叠层文本
- * 4. 其他状态正确显示对应的中文状态文本
+ * 2. 窗口标题根据连接状态动态更新
+ * 3. 默认窗口大小设置正确
  */
 class TestClientRemoteWindow : public QObject
 {
@@ -29,10 +28,9 @@ private slots:
     void cleanup();
 
     void testConnectionStateSetGet();
-    void testDrawConnectionStateNoOverlay();
-    void testDrawConnectionStateWithOverlay();
     void testConnectionStateDisplay();
     void testDefaultWindowSize();
+    void testWindowTitleUpdate();
 
 private:
     QApplication *m_app = nullptr;
@@ -65,7 +63,9 @@ void TestClientRemoteWindow::init()
     m_parentWidget = new QWidget();
     
     // 创建 SessionManager（内部会创建 ConnectionManager）
-    m_sessionManager = new SessionManager(m_parentWidget);
+    // 需要提供 connectionId 参数
+    QString testConnectionId = "test-connection-id";
+    m_sessionManager = new SessionManager(testConnectionId, m_parentWidget);
     
     // 创建 ClientRemoteWindow，传入 SessionManager
     m_window = new ClientRemoteWindow(m_sessionManager, m_parentWidget);
@@ -126,54 +126,6 @@ void TestClientRemoteWindow::testConnectionStateSetGet()
     QCOMPARE(m_window->connectionState(), ConnectionManager::Disconnected);
 }
 
-void TestClientRemoteWindow::testDrawConnectionStateNoOverlay()
-{
-    // 测试 Connected 和 Authenticated 状态不显示叠层文本
-    QVERIFY(m_window != nullptr);
-    
-    // 创建测试用的 QPixmap 和 QPainter
-    QPixmap testPixmap(800, 600);
-    testPixmap.fill(Qt::black);
-    QPainter painter(&testPixmap);
-    
-    // 测试 Connected 状态 - 不应显示叠层
-    m_window->setConnectionState(ConnectionManager::Connected);
-    
-    // 由于 drawConnectionState 是 private 方法，我们通过触发 paintEvent 来间接测试
-    // 这里我们通过查看 connectionState() 来验证状态设置正确
-    QCOMPARE(m_window->connectionState(), ConnectionManager::Connected);
-    
-    // 测试 Authenticated 状态 - 不应显示叠层
-    m_window->setConnectionState(ConnectionManager::Authenticated);
-    QCOMPARE(m_window->connectionState(), ConnectionManager::Authenticated);
-    
-    painter.end();
-}
-
-void TestClientRemoteWindow::testDrawConnectionStateWithOverlay()
-{
-    // 测试其他状态应显示叠层文本
-    QVERIFY(m_window != nullptr);
-    
-    // 测试各种需要显示叠层的状态
-    const QList<QPair<ConnectionManager::ConnectionState, QString>> testStates = {
-        {ConnectionManager::Connecting, MessageConstants::UI::STATUS_CONNECTING},
-        {ConnectionManager::Authenticating, MessageConstants::UI::STATUS_AUTHENTICATING},
-        {ConnectionManager::Disconnecting, MessageConstants::UI::STATUS_DISCONNECTING},
-        {ConnectionManager::Disconnected, MessageConstants::UI::STATUS_DISCONNECTED},
-        {ConnectionManager::Reconnecting, MessageConstants::UI::STATUS_RECONNECTING},
-        {ConnectionManager::Error, MessageConstants::UI::STATUS_ERROR}
-    };
-    
-    for (const auto &statePair : testStates) {
-        m_window->setConnectionState(statePair.first);
-        QCOMPARE(m_window->connectionState(), statePair.first);
-        
-        // 验证状态文本常量存在且不为空
-        QVERIFY(!statePair.second.isEmpty());
-    }
-}
-
 void TestClientRemoteWindow::testConnectionStateDisplay()
 {
     // 综合测试：验证连接状态显示的完整流程
@@ -218,7 +170,8 @@ void TestClientRemoteWindow::testDefaultWindowSize()
     // 我们需要创建一个新的窗口实例来测试默认大小
     
     QWidget *testParent = new QWidget();
-    SessionManager *testSessionManager = new SessionManager(testParent);
+    QString testConnectionId = "test-window-size-connection-id";
+    SessionManager *testSessionManager = new SessionManager(testConnectionId, testParent);
     ClientRemoteWindow *testWindow = new ClientRemoteWindow(testSessionManager, testParent);
     
     // 验证默认窗口大小 (1600x900, 符合现代显示器的 16:9 比例)
@@ -240,6 +193,44 @@ void TestClientRemoteWindow::testDefaultWindowSize()
     delete testSessionManager;
     // ConnectionManager 由 SessionManager 内部管理
     delete testParent;
+}
+
+void TestClientRemoteWindow::testWindowTitleUpdate()
+{
+    // 测试窗口标题根据连接状态自动更新
+    QVERIFY(m_window != nullptr);
+    
+    // 设置一个主机名用于测试
+    QString testHost = "192.168.1.100";
+    m_window->updateWindowTitle(testHost);
+    
+    // 验证窗口标题包含主机名
+    QVERIFY(m_window->windowTitle().contains(testHost));
+    
+    // 测试不同连接状态下的窗口标题
+    // 注意：由于 updateWindowTitle() 在 setConnectionState() 中自动调用
+    // 我们需要先设置主机名，然后改变状态
+    
+    // Connecting 状态
+    m_window->setConnectionState(ConnectionManager::Connecting);
+    QString title = m_window->windowTitle();
+    // 标题应该包含主机名和状态信息
+    QVERIFY(!title.isEmpty());
+    
+    // Connected 状态
+    m_window->setConnectionState(ConnectionManager::Connected);
+    title = m_window->windowTitle();
+    QVERIFY(!title.isEmpty());
+    
+    // Authenticated 状态
+    m_window->setConnectionState(ConnectionManager::Authenticated);
+    title = m_window->windowTitle();
+    QVERIFY(!title.isEmpty());
+    
+    // Error 状态
+    m_window->setConnectionState(ConnectionManager::Error);
+    title = m_window->windowTitle();
+    QVERIFY(!title.isEmpty());
 }
 
 QTEST_MAIN(TestClientRemoteWindow)
