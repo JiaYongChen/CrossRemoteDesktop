@@ -113,26 +113,28 @@ void ClientRemoteWindow::updateWindowTitle() {
             QString title;
             switch ( m_connectionState ) {
                 case ConnectionManager::Connecting:
-                    title = tr("%1 - 正在连接...").arg(host);
-                    break;
-                case ConnectionManager::Authenticating:
-                    title = tr("%1 - 正在认证...").arg(host);
+                    title = tr("%1 - %2").arg(host).arg(MessageConstants::UI::STATUS_CONNECTING);
                     break;
                 case ConnectionManager::Connected:
+                    title = tr("%1 - %2").arg(host).arg(MessageConstants::UI::STATUS_CONNECTED);
+                    break;
+                case ConnectionManager::Authenticating:
+                    title = tr("%1 - %2").arg(host).arg(MessageConstants::UI::STATUS_AUTHENTICATING);
+                    break;
                 case ConnectionManager::Authenticated:
-                    title = tr("%1 - 已连接").arg(host);
+                    title = tr("%1 - %2").arg(host).arg(MessageConstants::UI::STATUS_AUTHENTICATED);
                     break;
                 case ConnectionManager::Disconnecting:
-                    title = tr("%1 - 正在断开...").arg(host);
+                    title = tr("%1 - %2").arg(host).arg(MessageConstants::UI::STATUS_DISCONNECTING);
                     break;
                 case ConnectionManager::Disconnected:
-                    title = tr("%1 - 未连接").arg(host);
+                    title = tr("%1 - %2").arg(host).arg(MessageConstants::UI::STATUS_DISCONNECTED);
                     break;
                 case ConnectionManager::Reconnecting:
-                    title = tr("%1 - 正在重连...").arg(host);
+                    title = tr("%1 - %2").arg(host).arg(MessageConstants::UI::STATUS_RECONNECTING);
                     break;
                 case ConnectionManager::Error:
-                    title = tr("%1 - 连接错误").arg(host);
+                    title = tr("%1 - %2").arg(host).arg(MessageConstants::UI::STATUS_ERROR);
                     break;
                 default:
                     title = host;
@@ -279,7 +281,6 @@ void ClientRemoteWindow::setConnectionState(ConnectionManager::ConnectionState s
         m_connectionState = state;
         // 状态变化时自动更新窗口标题
         updateWindowTitle();
-        update();
     }
 }
 
@@ -463,9 +464,6 @@ void ClientRemoteWindow::paintEvent(QPaintEvent* event) {
 
     QPainter painter(viewport());
 
-    // Draw connection state overlay
-    drawConnectionState(painter);
-
     // Draw performance info if enabled
     if ( m_showPerformanceInfo ) {
         drawPerformanceInfo(painter);
@@ -612,76 +610,6 @@ QPoint ClientRemoteWindow::mapFromRemote(const QPoint& remotePoint) const {
         return m_renderManager->mapFromRemote(remotePoint);
     }
     return remotePoint;
-}
-
-void ClientRemoteWindow::drawConnectionState(QPainter& painter) {
-    /*
-     * 在视图中心绘制连接状态叠层文本：
-     * - 已连接：不显示叠层
-     * - 其他状态：显示来自 messageconstants.h 的中文状态文本
-     */
-    QString stateText;
-    QColor stateColor;
-
-    switch ( m_connectionState ) {
-        case ConnectionManager::Connecting:
-            stateText = MessageConstants::UI::STATUS_CONNECTING; // "正在连接..."
-            stateColor = Qt::yellow;
-            break;
-        case ConnectionManager::Connected:
-        case ConnectionManager::Authenticated:
-            // 已连接/已认证：不显示叠层提示
-            return;
-        case ConnectionManager::Authenticating:
-            stateText = MessageConstants::UI::STATUS_AUTHENTICATING; // "正在认证..."
-            stateColor = Qt::yellow;
-            break;
-        case ConnectionManager::Disconnecting:
-            stateText = MessageConstants::UI::STATUS_DISCONNECTING; // "正在断开连接..."
-            stateColor = Qt::yellow;
-            break;
-        case ConnectionManager::Disconnected:
-            stateText = MessageConstants::UI::STATUS_DISCONNECTED; // "未连接"
-            stateColor = Qt::red;
-            break;
-        case ConnectionManager::Reconnecting:
-            stateText = MessageConstants::UI::STATUS_RECONNECTING; // "正在重连..."
-            stateColor = QColor(255, 165, 0); // 橙色
-            break;
-        case ConnectionManager::Error:
-            stateText = MessageConstants::UI::STATUS_ERROR; // "连接错误"
-            stateColor = Qt::red;
-            break;
-    }
-
-    if ( !stateText.isEmpty() ) {
-        painter.save();
-
-        // 设置字体
-        QFont font = painter.font();
-        font.setPointSize(16);
-        font.setBold(true);
-        painter.setFont(font);
-
-        QFontMetrics metrics(font);
-        QRect textRect = metrics.boundingRect(stateText);
-
-        // 计算居中位置
-        QRect viewRect = viewport()->rect();
-        int x = (viewRect.width() - textRect.width()) / 2;
-        int y = (viewRect.height() - textRect.height()) / 2;
-
-        // 绘制半透明背景
-        QRect backgroundRect = textRect.adjusted(-10, -5, 10, 5);
-        backgroundRect.moveTopLeft(QPoint(x - 10, y - 5));
-        painter.fillRect(backgroundRect, QColor(0, 0, 0, 128));
-
-        // 绘制文本
-        painter.setPen(stateColor);
-        painter.drawText(x, y + metrics.ascent(), stateText);
-
-        painter.restore();
-    }
 }
 
 void ClientRemoteWindow::drawPerformanceInfo(QPainter& painter) {

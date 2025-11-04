@@ -30,7 +30,18 @@ ConnectionInstance::~ConnectionInstance() {
             remoteDesktopWindow->disconnect();
         }
 
-        // 2. 按照创建的逆顺序删除对象
+        // 2. 停止并清理 SessionManager 所在的线程
+        if ( sessionThread ) {
+            qCDebug(lcClientManager) << "~ConnectionInstance(): stopping session thread for" << connectionId;
+            sessionThread->quit();
+            if ( !sessionThread->wait(3000) ) {
+                qCWarning(lcClientManager) << "~ConnectionInstance(): session thread did not stop in time, terminating";
+                sessionThread->terminate();
+                sessionThread->wait(1000);
+            }
+        }
+
+        // 3. 按照创建的逆顺序删除对象
         if ( remoteDesktopWindow && !remoteDesktopWindow.isNull() ) {
             remoteDesktopWindow->close();
             remoteDesktopWindow->deleteLater();
@@ -40,6 +51,12 @@ ConnectionInstance::~ConnectionInstance() {
         if ( sessionManager && !sessionManager.isNull() ) {
             sessionManager->deleteLater();
             sessionManager.clear();
+        }
+
+        // 4. 删除线程对象
+        if ( sessionThread ) {
+            sessionThread->deleteLater();
+            sessionThread = nullptr;
         }
 
         qCDebug(lcClientManager) << "~ConnectionInstance(): cleanup completed for" << connectionId;
@@ -104,13 +121,31 @@ QString ClientManager::connectToHost(const QString& host, int port) {
     ConnectionInstance* instance = new ConnectionInstance(connectionId);
     qCDebug(lcClientManager) << "connectToHost(): generated connectionId" << connectionId;
 
-    // 创建 SessionManager
-    instance->sessionManager = new SessionManager(connectionId, this);
+    // 创建 SessionManager 的独立线程
+    instance->sessionThread = new QThread(this);
+    instance->sessionThread->setObjectName(QString("SessionThread-%1").arg(connectionId));
+    qCDebug(lcClientManager) << "connectToHost(): created session thread for" << connectionId;
 
-    // 创建远程桌面窗口
+    // 创建 SessionManager（不设置父对象，以便移动到线程）
+    instance->sessionManager = new SessionManager(connectionId, nullptr);
+    
+    // 将 SessionManager 移动到独立线程
+    instance->sessionManager->moveToThread(instance->sessionThread);
+    qCDebug(lcClientManager) << "connectToHost(): moved SessionManager to independent thread";
+
+    // 启动线程
+    instance->sessionThread->start();
+    qCDebug(lcClientManager) << "connectToHost(): session thread started";
+
+    // 创建远程桌面窗口（必须在主线程中，因为它是 QWidget）
     instance->remoteDesktopWindow = createRemoteDesktopWindow(instance->sessionManager);
     if ( !instance->remoteDesktopWindow ) {
         qCWarning(lcClientManager) << "connectToHost(): failed to create remote desktop window";
+        // 清理线程和 SessionManager
+        instance->sessionThread->quit();
+        instance->sessionThread->wait();
+        delete instance->sessionManager;
+        delete instance->sessionThread;
         delete instance;
         return QString();
     } else {
@@ -121,10 +156,12 @@ QString ClientManager::connectToHost(const QString& host, int port) {
     // 注册到连接表
     m_connections.insert(instance->connectionId, instance);
 
-    // 发起网络连接
-    if ( instance->sessionManager ) {
-        instance->sessionManager->connectToHost(host, port);
-    }
+    // 使用 Qt::QueuedConnection 从主线程调用 SessionManager 的方法（跨线程调用）
+    QMetaObject::invokeMethod(instance->sessionManager, 
+        "connectToHost", 
+        Qt::QueuedConnection,
+        Q_ARG(QString, host),
+        Q_ARG(int, port));
 
     qCDebug(lcClientManager) << "connectToHost(): connect request sent";
     return instance->connectionId;
@@ -135,7 +172,10 @@ void ClientManager::disconnectFromHost(const QString& connectionId) {
     ConnectionInstance* instance = getConnectionInstance(connectionId);
     if ( instance ) {
         if ( instance->sessionManager ) {
-            instance->sessionManager->disconnectFromHost();
+            // 使用 Qt::QueuedConnection 进行跨线程调用
+            QMetaObject::invokeMethod(instance->sessionManager, 
+                "disconnectFromHost", 
+                Qt::QueuedConnection);
         }
         // 关闭远程桌面窗口
         if ( instance->remoteDesktopWindow ) {

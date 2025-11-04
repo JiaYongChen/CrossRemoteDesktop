@@ -6,12 +6,14 @@
 #include <QtCore/QHash>
 #include <QtCore/QStringList>
 #include <QtCore/QPointer>
+#include <QtCore/QThread>
 #include <QtGui/QPixmap>
 #include "./network/ConnectionManager.h"
 #include "./window/ClientRemoteWindow.h"
 
 class SessionManager;
 class QSettings;
+class ThreadManager;
 
 /**
  * @brief 连接实例结构体 - 管理单个远程桌面连接的所有组件
@@ -23,6 +25,7 @@ struct ConnectionInstance {
     QString connectionId;                           ///< 连接的唯一标识符
     QPointer<SessionManager> sessionManager;       ///< 会话和远程桌面数据管理器
     QPointer<ClientRemoteWindow> remoteDesktopWindow; ///< 远程桌面窗口
+    QThread* sessionThread = nullptr;               ///< SessionManager 所在的独立线程
     bool isBeingDeleted = false;                    ///< 标志位：防止双重删除
 
     /**

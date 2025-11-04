@@ -65,7 +65,8 @@ public:
     bool isConnected() const;
     bool isAuthenticated() const;
 
-    // 连接控制
+public slots:
+    // 连接控制（声明为 slot 以支持跨线程调用）
     void connectToHost(const QString& host, int port);
     void disconnectFromHost();
 

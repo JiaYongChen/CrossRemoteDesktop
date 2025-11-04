@@ -169,7 +169,6 @@ private:
     void setUpdateMode(QGraphicsView::ViewportUpdateMode mode);
     void enableOpenGL(bool enable = true);
 
-    void drawConnectionState(QPainter& painter);
     void drawPerformanceInfo(QPainter& painter);
 
     void saveScreenshot(const QString& fileName = QString());
