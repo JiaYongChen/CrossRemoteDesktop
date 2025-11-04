@@ -120,15 +120,12 @@ private slots:
     void onWindowClosed();
 
 private:
-    void setupConnections(ConnectionInstance* instance);
+    ConnectionInstance* getConnectionInstance(const QString& connectionId) const;
     void cleanupResources();
     void cleanupConnection(ConnectionInstance* instance);
     QString generateConnectionId() const;
 
-    ConnectionInstance* getConnectionInstance(const QString& connectionId) const;
-    ConnectionInstance* findConnectionBySessionManager(const SessionManager* sessionManager) const;
-    ConnectionInstance* findConnectionByWindow(const ClientRemoteWindow* window) const;
-
+private:
     QHash<QString, ConnectionInstance*> m_connections;
 };
 

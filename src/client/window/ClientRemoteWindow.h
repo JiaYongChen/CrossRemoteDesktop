@@ -45,6 +45,12 @@ public:
     explicit ClientRemoteWindow(SessionManager* sessionManager, QWidget* parent = nullptr);
     ~ClientRemoteWindow();
 
+    // Connection identification
+    QString connectionId() const;
+
+    // Window title management
+    void updateWindowTitle(const QString& title);
+
     // Connection state management
     void setConnectionState(ConnectionManager::ConnectionState state);
     ConnectionManager::ConnectionState connectionState() const;
@@ -92,12 +98,6 @@ public:
 
     // Performance monitoring
     double currentFPS() const;
-
-    // Session control
-    void startSession();
-    void pauseSession();
-    void resumeSession();
-    void terminateSession();
 
     // 新增：查询窗口是否处于关闭流程中
     // 说明：
@@ -150,6 +150,7 @@ private slots:
     void onWindowResizeRequested(const QSize& size);
 
 private:
+    void updateWindowTitle(); // 使用当前连接的主机名更新标题
     void initializeManagers();
     void configureWindow();
     void enableManagerFeatures();
@@ -173,6 +174,9 @@ private:
 
     void saveScreenshot(const QString& fileName = QString());
 
+private:
+    QString m_connectionId;
+    SessionManager* m_sessionManager;
     ConnectionManager::ConnectionState m_connectionState;
     bool m_isFullScreen;
 
@@ -193,8 +197,6 @@ private:
     QPoint m_lastPanPoint;
 
     bool m_showPerformanceInfo;
-
-    SessionManager* m_sessionManager;
 };
 
 #endif // CLIENTREMOTEWINDOW_H

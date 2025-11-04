@@ -49,6 +49,8 @@ Q_LOGGING_CATEGORY(lcClientRemoteWindow, "client.remote.window")
 
 ClientRemoteWindow::ClientRemoteWindow(SessionManager* sessionManager, QWidget* parent)
     : QGraphicsView(parent)
+    , m_connectionId(QString::number(0))
+    , m_sessionManager(sessionManager)
     , m_connectionState(ConnectionManager::Disconnected)
     , m_isFullScreen(false)
     , m_isClosing(false) // 初始化关闭标志，默认不在关闭流程中
@@ -62,12 +64,13 @@ ClientRemoteWindow::ClientRemoteWindow(SessionManager* sessionManager, QWidget* 
     , m_cursorManager(nullptr)
     , m_renderManager(nullptr)
     , m_lastPanPoint(0, 0)
-    , m_showPerformanceInfo(false)
-    , m_sessionManager(sessionManager) {
+    , m_showPerformanceInfo(false) {
     // 确保窗口关闭时自动删除，避免无父对象窗口内存泄漏
     // 使用属性而非手动deleteLater，减少重复释放风险
     setAttribute(Qt::WA_DeleteOnClose, true);
     qDebug() << "[ClientRemoteWindow] Constructor started for sessionManager:" << sessionManager;
+
+    m_connectionId = sessionManager ? sessionManager->connectionId() : QString::number(0);
 
     // Initialize all managers using composition pattern
     initializeManagers();
@@ -89,6 +92,55 @@ ClientRemoteWindow::ClientRemoteWindow(SessionManager* sessionManager, QWidget* 
 ClientRemoteWindow::~ClientRemoteWindow() {
     // 注意：不在析构中发射 windowClosed()，避免与 closeEvent 重复
     // Qt 父子关系将自动清理子对象
+}
+
+QString ClientRemoteWindow::connectionId() const {
+    return m_connectionId;
+}
+
+// Window title management
+void ClientRemoteWindow::updateWindowTitle(const QString& title) {
+    if ( !title.isEmpty() ) {
+        setWindowTitle(title);
+    }
+}
+
+void ClientRemoteWindow::updateWindowTitle() {
+    if ( m_sessionManager ) {
+        QString host = m_sessionManager->currentHost();
+        if ( !host.isEmpty() ) {
+            // 根据连接状态显示不同的标题格式
+            QString title;
+            switch ( m_connectionState ) {
+                case ConnectionManager::Connecting:
+                    title = tr("%1 - 正在连接...").arg(host);
+                    break;
+                case ConnectionManager::Authenticating:
+                    title = tr("%1 - 正在认证...").arg(host);
+                    break;
+                case ConnectionManager::Connected:
+                case ConnectionManager::Authenticated:
+                    title = tr("%1 - 已连接").arg(host);
+                    break;
+                case ConnectionManager::Disconnecting:
+                    title = tr("%1 - 正在断开...").arg(host);
+                    break;
+                case ConnectionManager::Disconnected:
+                    title = tr("%1 - 未连接").arg(host);
+                    break;
+                case ConnectionManager::Reconnecting:
+                    title = tr("%1 - 正在重连...").arg(host);
+                    break;
+                case ConnectionManager::Error:
+                    title = tr("%1 - 连接错误").arg(host);
+                    break;
+                default:
+                    title = host;
+                    break;
+            }
+            setWindowTitle(title);
+        }
+    }
 }
 
 void ClientRemoteWindow::initializeManagers() {
@@ -225,6 +277,8 @@ void ClientRemoteWindow::setupManagerConnections() {
 void ClientRemoteWindow::setConnectionState(ConnectionManager::ConnectionState state) {
     if ( m_connectionState != state ) {
         m_connectionState = state;
+        // 状态变化时自动更新窗口标题
+        updateWindowTitle();
         update();
     }
 }
@@ -251,8 +305,6 @@ void ClientRemoteWindow::updateRemoteRegion(const QPixmap& region, const QRect& 
         m_renderManager->updateRemoteRegion(region, rect);
     }
 }
-
-
 
 // Scaling methods
 void ClientRemoteWindow::setScaleFactor(double factor) {
@@ -387,32 +439,6 @@ double ClientRemoteWindow::currentFPS() const {
     return m_sessionManager ? m_sessionManager->performanceStats().currentFPS : 0.0;
 }
 
-// Session control
-void ClientRemoteWindow::startSession() {
-    if ( m_sessionManager ) {
-        m_sessionManager->startSession();
-    }
-}
-
-void ClientRemoteWindow::pauseSession() {
-    if ( m_sessionManager ) {
-        m_sessionManager->suspendSession();
-    }
-}
-
-void ClientRemoteWindow::resumeSession() {
-    if ( m_sessionManager ) {
-        m_sessionManager->resumeSession();
-    }
-}
-
-void ClientRemoteWindow::terminateSession() {
-    if ( m_sessionManager ) {
-        // 终止会话
-        m_sessionManager->terminateSession();
-    }
-}
-
 // Public slots
 void ClientRemoteWindow::toggleFullScreen() {
     setFullScreen(!m_isFullScreen);
@@ -533,9 +559,6 @@ void ClientRemoteWindow::closeEvent(QCloseEvent* event) {
     // 先发射一次 windowClosed，保证上层（ClientManager）进行清理。
     // 通过标志位确保只发射一次，避免析构或其他路径再次发射。
     emit windowClosed();
-
-    // 终止会话（内部不会进行阻塞等待）
-    terminateSession();
 
     // 接受事件并调用父类实现，确保正常的 QWidget/QGraphicsView 关闭流程
     event->accept();

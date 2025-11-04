@@ -24,8 +24,11 @@ public:
         int frameCount;
     };
 
-    explicit SessionManager(QObject* parent = nullptr);
+    explicit SessionManager(const QString& connectionId, QObject* parent = nullptr);
     ~SessionManager();
+
+    // 连接ID
+    QString connectionId() const;
 
     // 会话控制
     void startSession();
@@ -67,11 +70,12 @@ public:
     void disconnectFromHost();
 
 signals:
+    // 远程桌面数据更新信号
     void screenUpdated(const QPixmap& screen);
     void screenRegionUpdated(const QPixmap& region, const QRect& rect);
     void performanceStatsUpdated(const PerformanceStats& stats);
     void sessionError(const QString& error);
-    
+
     // 连接状态变化信号（用于 UI 更新）
     void connectionStateChanged(ConnectionManager::ConnectionState state);
 
@@ -84,6 +88,8 @@ private:
     void calculateFPS();
     void handleScreenData(const QByteArray& data);
 
+    // 连接信息
+    QString m_connectionId;
     ConnectionManager* m_connectionManager;
 
     // 远程桌面数据

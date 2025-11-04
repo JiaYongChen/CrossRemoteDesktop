@@ -105,21 +105,27 @@ QString ClientManager::connectToHost(const QString& host, int port) {
     qCDebug(lcClientManager) << "connectToHost(): generated connectionId" << connectionId;
 
     // 创建 SessionManager
-    instance->sessionManager = new SessionManager(this);
+    instance->sessionManager = new SessionManager(connectionId, this);
 
     // 创建远程桌面窗口
     instance->remoteDesktopWindow = createRemoteDesktopWindow(instance->sessionManager);
+    if ( !instance->remoteDesktopWindow ) {
+        qCWarning(lcClientManager) << "connectToHost(): failed to create remote desktop window";
+        delete instance;
+        return QString();
+    } else {
+        qCDebug(lcClientManager) << "connectToHost(): created remote desktop window for" << connectionId;
+        instance->remoteDesktopWindow->updateWindowTitle(host);
+    }
 
     // 注册到连接表
     m_connections.insert(instance->connectionId, instance);
-
-    // 建立内部信号连接
-    setupConnections(instance);
 
     // 发起网络连接
     if ( instance->sessionManager ) {
         instance->sessionManager->connectToHost(host, port);
     }
+
     qCDebug(lcClientManager) << "connectToHost(): connect request sent";
     return instance->connectionId;
 }
@@ -248,13 +254,9 @@ void ClientManager::onConnectionEstablished() {
         qCDebug(lcClientManager) << "onConnectionEstablished(): invalid sender";
         return;
     }
-    ConnectionInstance* instance = findConnectionBySessionManager(sessionManager);
-    if ( instance ) {
-        qCDebug(lcClientManager) << "onConnectionEstablished(): for" << instance->connectionId;
-        emit connectionEstablished(instance->connectionId);
-    } else {
-        qCDebug(lcClientManager) << "onConnectionEstablished(): instance not found";
-    }
+
+    qCDebug(lcClientManager) << "onConnectionEstablished(): for" << sessionManager->connectionId();
+    emit connectionEstablished(sessionManager->connectionId());
 }
 
 void ClientManager::onAuthenticated() {
@@ -263,19 +265,13 @@ void ClientManager::onAuthenticated() {
         qCDebug(lcClientManager) << "onAuthenticated(): invalid sender";
         return;
     }
-    ConnectionInstance* instance = findConnectionBySessionManager(sessionManager);
-    if ( !instance ) {
-        qCDebug(lcClientManager) << "onAuthenticated(): instance not found";
-        return;
-    }
-    if ( instance->sessionManager ) {
-        qCDebug(lcClientManager) << "onAuthenticated(): start session for" << instance->connectionId;
-        // 认证成功后启动会话
-        instance->sessionManager->startSession();
-        // 连接屏幕更新信号
-        connect(instance->sessionManager, &SessionManager::screenUpdated,
-            this, &ClientManager::onScreenUpdated);
-    }
+
+    qCDebug(lcClientManager) << "onAuthenticated(): start session for" << sessionManager->connectionId();
+    // 认证成功后启动会话
+    sessionManager->startSession();
+    // 连接屏幕更新信号
+    connect(sessionManager, &SessionManager::screenUpdated,
+        this, &ClientManager::onScreenUpdated);
 }
 
 void ClientManager::onConnectionClosed() {
@@ -284,7 +280,7 @@ void ClientManager::onConnectionClosed() {
         qCDebug(lcClientManager) << "onConnectionClosed(): invalid sender";
         return;
     }
-    ConnectionInstance* instance = findConnectionBySessionManager(sessionManager);
+    ConnectionInstance* instance = getConnectionInstance(sessionManager->connectionId());
     if ( instance && !instance->isBeingDeleted ) {
         qCDebug(lcClientManager) << "onConnectionClosed(): for" << instance->connectionId;
 
@@ -313,7 +309,7 @@ void ClientManager::onConnectionError(const QString& error) {
         qCDebug(lcClientManager) << "onConnectionError(): invalid sender";
         return;
     }
-    ConnectionInstance* instance = findConnectionBySessionManager(sessionManager);
+    ConnectionInstance* instance = getConnectionInstance(sessionManager->connectionId());
     if ( instance && !instance->isBeingDeleted ) {
         qCDebug(lcClientManager) << "onConnectionError():" << error;
 
@@ -337,7 +333,7 @@ void ClientManager::onScreenUpdated(const QPixmap& screen) {
         return;
     }
 
-    ConnectionInstance* instance = findConnectionBySessionManager(sessionManager);
+    ConnectionInstance* instance = getConnectionInstance(sessionManager->connectionId());
     if ( instance && instance->remoteDesktopWindow ) {
         instance->remoteDesktopWindow->updateRemoteScreen(screen);
     }
@@ -350,7 +346,7 @@ void ClientManager::onWindowClosed() {
         return;
     }
 
-    ConnectionInstance* instance = findConnectionByWindow(window);
+    ConnectionInstance* instance = getConnectionInstance(window->connectionId());
     if ( instance && !instance->isBeingDeleted ) {
         qCDebug(lcClientManager) << "onWindowClosed(): for" << instance->connectionId;
 
@@ -359,6 +355,7 @@ void ClientManager::onWindowClosed() {
 
         // 断开连接并清理资源
         if ( instance->sessionManager ) {
+            instance->sessionManager->terminateSession();
             instance->sessionManager->disconnectFromHost();
         }
 
@@ -381,15 +378,6 @@ void ClientManager::onWindowClosed() {
     } else if ( instance && instance->isBeingDeleted ) {
         qCDebug(lcClientManager) << "onWindowClosed(): instance already being deleted for" << instance->connectionId;
     }
-}
-
-void ClientManager::setupConnections(ConnectionInstance* instance) {
-    if ( !instance || !instance->sessionManager ) {
-        return;
-    }
-
-    // 不再使用具体的连接信号,仅依赖 connectionStateChanged 信号进行状态同步
-    // UI 层通过 ClientRemoteWindow 的 m_connectionState 自动更新
 }
 
 void ClientManager::cleanupResources() {
@@ -437,22 +425,4 @@ QString ClientManager::generateConnectionId() const {
 
 ConnectionInstance* ClientManager::getConnectionInstance(const QString& connectionId) const {
     return m_connections.value(connectionId, nullptr);
-}
-
-ConnectionInstance* ClientManager::findConnectionBySessionManager(const SessionManager* sessionManager) const {
-    for ( auto it = m_connections.begin(); it != m_connections.end(); ++it ) {
-        if ( it.value()->sessionManager == sessionManager ) {
-            return it.value();
-        }
-    }
-    return nullptr;
-}
-
-ConnectionInstance* ClientManager::findConnectionByWindow(const ClientRemoteWindow* window) const {
-    for ( auto it = m_connections.begin(); it != m_connections.end(); ++it ) {
-        if ( it.value()->remoteDesktopWindow == window ) {
-            return it.value();
-        }
-    }
-    return nullptr;
 }

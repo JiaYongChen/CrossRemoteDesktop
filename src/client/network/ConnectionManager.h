@@ -58,9 +58,6 @@ public:
     QString currentHost() const;
     int currentPort() const;
 
-    // 网络客户端访问
-    TcpClient* tcpClient() const;
-
     // 认证接口
     void authenticate(const QString& username, const QString& password);
 
@@ -111,6 +108,7 @@ private:
     void sendAuthenticationRequest(const QString& username, const QString& password);
     QString getClientOS();
 
+private:
     TcpClient* m_tcpClient;
     ConnectionState m_connectionState;
     QString m_currentHost;

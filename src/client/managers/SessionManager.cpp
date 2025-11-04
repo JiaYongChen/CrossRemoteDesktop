@@ -8,12 +8,13 @@
 #include <QtCore/QTimer>
 #include <QtCore/QMutexLocker>
 
-SessionManager::SessionManager(QObject* parent)
+SessionManager::SessionManager(const QString& connectionId, QObject* parent)
     : QObject(parent)
     , m_connectionManager(new ConnectionManager(this))
     , m_frameDataMutex(new QMutex())
     , m_statsTimer(new QTimer(this))
-    , m_frameRate(30) {
+    , m_frameRate(30)
+    , m_connectionId(connectionId) {
 
     // SessionManager 拥有并管理 ConnectionManager
     setupConnections();
@@ -31,6 +32,10 @@ SessionManager::~SessionManager() {
 
     // ConnectionManager 由 Qt 父对象机制自动删除
     delete m_frameDataMutex;
+}
+
+QString SessionManager::connectionId() const {
+    return m_connectionId;
 }
 
 void SessionManager::startSession() {
