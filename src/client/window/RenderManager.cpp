@@ -113,7 +113,10 @@ void RenderManager::setRemoteScreen(const QImage& image) {
 
     // 让视图适应场景，完全显示远程屏幕
     if ( m_graphicsView && m_pixmapItem ) {
-        m_graphicsView->fitInView(m_pixmapItem, Qt::KeepAspectRatio);
+        // 异步更新视图
+        QMetaObject::invokeMethod(this, [this]() {
+            m_graphicsView->fitInView(m_pixmapItem, Qt::KeepAspectRatio);
+        }, Qt::QueuedConnection);
     }
 
     // 更新显示
