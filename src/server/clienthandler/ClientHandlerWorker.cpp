@@ -668,19 +668,27 @@ void ClientHandlerWorker::handleMouseEvent(const QByteArray& data) {
         return;
     }
 
-    if ( data.size() < 13 ) { // 最小鼠标事件数据大小
-        qCWarning(clientHandlerWorker, "鼠标事件数据不完整");
+    // MouseEvent结构: eventType(1) + x(2) + y(2) + buttons(1) + wheelDelta(2) = 8字节
+    if ( data.size() < 8 ) {
+        qCWarning(clientHandlerWorker, "鼠标事件数据不完整，期望至少8字节，实际: %lld", data.size());
         return;
     }
 
     QDataStream stream(data);
     stream.setByteOrder(QDataStream::LittleEndian);
 
-    qint32 x, y;
+    quint8 eventType;
+    qint16 x, y;
     quint8 buttons;
-    qint32 wheelDelta;
+    qint16 wheelDelta;
 
-    stream >> x >> y >> buttons >> wheelDelta;
+    stream >> eventType >> x >> y >> buttons >> wheelDelta;
+
+    // 检查数据流状态
+    if ( stream.status() != QDataStream::Ok ) {
+        qCWarning(clientHandlerWorker, "鼠标事件数据解析失败");
+        return;
+    }
 
     // 处理鼠标移动
     if ( x >= 0 && y >= 0 ) {
