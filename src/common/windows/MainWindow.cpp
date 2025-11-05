@@ -541,19 +541,19 @@ void MainWindow::startServer() {
 
 #ifdef Q_OS_MACOS
     // macOS 平台：检查辅助功能权限
-    if (!checkMacOSAccessibilityPermission()) {
+    if ( !checkMacOSAccessibilityPermission() ) {
         QMessageBox::warning(this, tr("需要辅助功能权限"),
             tr("<p>Qt远程桌面需要<b>辅助功能权限</b>才能模拟鼠标和键盘输入。</p>"
-               "<p>请按照以下步骤授予权限：</p>"
-               "<ol>"
-               "<li>打开<b>系统偏好设置</b></li>"
-               "<li>选择<b>安全性与隐私</b></li>"
-               "<li>点击<b>隐私</b>标签</li>"
-               "<li>在左侧列表中选择<b>辅助功能</b></li>"
-               "<li>点击左下角的锁图标解锁</li>"
-               "<li>在右侧列表中勾选<b>QtRemoteDesktop</b></li>"
-               "</ol>"
-               "<p>授予权限后，请重启应用程序。</p>"));
+                "<p>请按照以下步骤授予权限：</p>"
+                "<ol>"
+                "<li>打开<b>系统偏好设置</b></li>"
+                "<li>选择<b>安全性与隐私</b></li>"
+                "<li>点击<b>隐私</b>标签</li>"
+                "<li>在左侧列表中选择<b>辅助功能</b></li>"
+                "<li>点击左下角的锁图标解锁</li>"
+                "<li>在右侧列表中勾选<b>QtRemoteDesktop</b></li>"
+                "</ol>"
+                "<p>授予权限后，请重启应用程序。</p>"));
         // 尝试打开系统设置
         requestMacOSAccessibilityPermission();
         return;
@@ -826,16 +826,47 @@ void MainWindow::addConnectionToHistory(const QString& host, int port) {
         }
 
         if ( !exists ) {
-            // 添加新项目
+            // 添加新项目(会自动插入到顶部)
             QString currentTime = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
             createConnectionListItem(host, port, currentTime);
 
             // 保存到历史记录
             saveConnectionHistory();
         } else {
-            // 如果连接已存在，更新连接时间
+            // 如果连接已存在,更新连接时间并移到顶部
             QString currentTime = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
-            updateConnectionListItem(existingItem, host, port, currentTime);
+
+            // 先从列表中移除该项
+            int row = m_connectionList->row(existingItem);
+            QListWidgetItem* item = m_connectionList->takeItem(row);
+
+            // 更新项目数据
+            item->setData(Qt::UserRole, host);
+            item->setData(Qt::UserRole + 1, port);
+            item->setData(Qt::UserRole + 2, currentTime);
+
+            // 插入到列表顶部
+            m_connectionList->insertItem(0, item);
+
+            // 更新QLabel内容
+            QLabel* label = qobject_cast<QLabel*>(m_connectionList->itemWidget(item));
+            if ( label ) {
+                label->setText(formatConnectionText(host, port, currentTime));
+            } else {
+                // 如果widget丢失,重新创建
+                QLabel* newLabel = new QLabel(formatConnectionText(host, port, currentTime));
+                newLabel->setWordWrap(true);
+                newLabel->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+                newLabel->setStyleSheet(
+                    "QLabel {"
+                    "    color: #2c3e50;"
+                    "    padding: 15px 12px;"
+                    "    background-color: transparent;"
+                    "    font-size: 13px;"
+                    "}"
+                );
+                m_connectionList->setItemWidget(item, newLabel);
+            }
 
             // 保存到历史记录
             saveConnectionHistory();
@@ -929,6 +960,7 @@ void MainWindow::loadConnectionHistory() {
     // 确保所有列表长度一致
     int count = qMin(qMin(hosts.size(), ports.size()), times.size());
 
+    // 倒序加载,这样最新的记录会在最前面(因为createConnectionListItem会插入到顶部)
     for ( int i = 0; i < count; ++i ) {
         QString host = hosts[i];
         int port = ports[i].toInt();
@@ -939,7 +971,7 @@ void MainWindow::loadConnectionHistory() {
         }
     }
 
-    // 自动选中最近一次连接的记录（第一个就是最新的，因为ClientManager使用prepend）
+    // 自动选中最近一次连接的记录(第一个就是最新的)
     if ( m_connectionList->count() > 0 ) {
         m_connectionList->setCurrentRow(0);
     }
@@ -1033,9 +1065,9 @@ QListWidgetItem* MainWindow::createConnectionListItem(const QString& host, int p
     // 设置项目高度以适应多行文本
     item->setSizeHint(QSize(0, 120));
 
-    // 将QLabel关联到列表项
+    // 将QLabel关联到列表项 - 插入到列表顶部(第一位)
     if ( m_connectionList ) {
-        m_connectionList->addItem(item);
+        m_connectionList->insertItem(0, item);
         m_connectionList->setItemWidget(item, label);
     }
 

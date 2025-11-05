@@ -536,8 +536,21 @@ bool InputSimulator::isValidKey(int key) const
 
 QPoint InputSimulator::transformCoordinates(const QPoint &point) const
 {
-    // 简单的坐标变换，可以根据需要扩展
+    // 平台相关的坐标变换
+#ifdef Q_OS_MACOS
+    // CoreGraphics 的坐标系原点在屏幕左下，Qt 的坐标系原点在左上
+    // 需要将 y 翻转为 macOS 全局显示坐标
+    int x = point.x();
+    int y = point.y();
+    int screenH = m_screenSize.height();
+    // 防止越界
+    if (screenH <= 0) return point;
+    int flippedY = screenH - y;
+    return QPoint(x, flippedY);
+#else
+    // 其他平台当前不需要转换
     return point;
+#endif
 }
 
 #ifdef Q_OS_WIN
@@ -657,18 +670,31 @@ bool InputSimulator::simulateMouseMacOS(int x, int y, CGEventType eventType, CGM
         setLastError("需要辅助功能权限");
         return false;
     }
-    
-    CGPoint point = CGPointMake(x, y);
-    CGEventRef event = CGEventCreateMouseEvent(nullptr, eventType, point, button);
-    
+    // 使用 transformCoordinates 进行平台相关坐标变换（例如 macOS 需要翻转 Y）
+    QPoint transformed = transformCoordinates(QPoint(x, y));
+    int tx = transformed.x();
+    int ty = transformed.y();
+
+    // 创建事件源以提高事件注入的可靠性
+    CGEventSourceRef source = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
+    if (!source) {
+        qCWarning(lcInputSimulator) << "Failed to create CGEventSource";
+    }
+
+    CGPoint point = CGPointMake(static_cast<CGFloat>(tx), static_cast<CGFloat>(ty));
+    CGEventRef event = CGEventCreateMouseEvent(source, eventType, point, button);
+
     if (event) {
+        // 发布到 HID tap，这通常对远程输入更可靠
         CGEventPost(kCGHIDEventTap, event);
         CFRelease(event);
-        qCDebug(lcInputSimulator) << "Mouse event simulated:" << eventType << "at" << x << y << "button:" << button;
+        if (source) CFRelease(source);
+        qCDebug(lcInputSimulator) << "Mouse event simulated:" << eventType << "orig:" << x << y << "transformed:" << tx << ty << "button:" << button;
         return true;
     }
-    
-    qCWarning(lcInputSimulator) << "Failed to create CGEvent for mouse at" << x << y;
+
+    if (source) CFRelease(source);
+    qCWarning(lcInputSimulator) << "Failed to create CGEvent for mouse at" << x << y << "(transformed:" << tx << ty << ")";
     return false;
 }
 

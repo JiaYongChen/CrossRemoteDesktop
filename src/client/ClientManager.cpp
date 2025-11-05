@@ -205,6 +205,30 @@ QString ClientManager::connectToHost(const QString& host, int port) {
     // 注册到连接表
     m_connections.insert(instance->connectionId, instance);
 
+    // 连接到 SessionManager 的连接状态变化信号，监听认证成功和连接建立事件
+    connect(instance->sessionManager, &SessionManager::connectionStateChanged,
+        this, [this, sessionManager = instance->sessionManager](ConnectionManager::ConnectionState state) {
+            switch (state) {
+                case ConnectionManager::ConnectionState::Connected:
+                    // 连接建立成功
+                    qCDebug(lcClientManager) << "Connection established for" << sessionManager->connectionId();
+                    emit connectionEstablished(sessionManager->connectionId());
+                    break;
+                case ConnectionManager::ConnectionState::Authenticated:
+                    // 认证成功
+                    qCDebug(lcClientManager) << "Authentication successful for" << sessionManager->connectionId();
+                    // 认证成功后启动会话
+                    sessionManager->startSession();
+                    // 连接屏幕更新信号
+                    connect(sessionManager, &SessionManager::screenUpdated,
+                        this, &ClientManager::onScreenUpdated);
+                    break;
+                default:
+                    break;
+            }
+        }, Qt::QueuedConnection);
+    qCDebug(lcClientManager) << "connectToHost(): connected to session state change signals";
+
     // 使用 Qt::QueuedConnection 从主线程调用 SessionManager 的方法（跨线程调用）
     QMetaObject::invokeMethod(instance->sessionManager,
         "connectToHost",
