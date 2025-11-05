@@ -11,13 +11,9 @@
 ThreadManager* ThreadManager::s_instance = nullptr;
 
 ThreadManager* ThreadManager::instance() {
-    static QMutex mutex;
-    QMutexLocker locker(&mutex);
-
-    if ( !s_instance ) {
-        s_instance = new ThreadManager();
-    }
-
+    // 使用静态局部变量实现线程安全的单例，自动管理生命周期
+    static ThreadManager instance;
+    s_instance = &instance;
     return s_instance;
 }
 
