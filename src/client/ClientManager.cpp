@@ -217,8 +217,8 @@ QString ClientManager::connectToHost(const QString& host, int port) {
                 case ConnectionManager::ConnectionState::Authenticated:
                     // 认证成功
                     qCDebug(lcClientManager) << "Authentication successful for" << sessionManager->connectionId();
-                    // 认证成功后启动会话
-                    sessionManager->startSession();
+                    // 认证成功后启动会话 (跨线程调用，使用QueuedConnection)
+                    QMetaObject::invokeMethod(sessionManager, "startSession", Qt::QueuedConnection);
                     // 连接屏幕更新信号
                     connect(sessionManager, &SessionManager::screenUpdated,
                         this, &ClientManager::onScreenUpdated);
