@@ -960,7 +960,7 @@ void MainWindow::loadConnectionHistory() {
     // 确保所有列表长度一致
     int count = qMin(qMin(hosts.size(), ports.size()), times.size());
 
-    // 倒序加载,这样最新的记录会在最前面(因为createConnectionListItem会插入到顶部)
+    // 顺序加载历史记录:
     for ( int i = 0; i < count; ++i ) {
         QString host = hosts[i];
         int port = ports[i].toInt();
@@ -971,7 +971,7 @@ void MainWindow::loadConnectionHistory() {
         }
     }
 
-    // 自动选中最近一次连接的记录(第一个就是最新的)
+    // 自动选中最近一次连接的记录（第一个就是最新的，因为ClientManager使用prepend）
     if ( m_connectionList->count() > 0 ) {
         m_connectionList->setCurrentRow(0);
     }
@@ -1062,14 +1062,11 @@ QListWidgetItem* MainWindow::createConnectionListItem(const QString& host, int p
         "}"
     );
 
-    // 设置项目高度以适应多行文本
     item->setSizeHint(QSize(0, 120));
 
-    // 将QLabel关联到列表项 - 插入到列表顶部(第一位)
-    if ( m_connectionList ) {
-        m_connectionList->insertItem(0, item);
-        m_connectionList->setItemWidget(item, label);
-    }
+    // 添加到列表末尾,保持配置文件中的顺序
+    m_connectionList->addItem(item);
+    m_connectionList->setItemWidget(item, label);
 
     return item;
 }
