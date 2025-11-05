@@ -3,6 +3,7 @@
 #include "SettingsDialog.h"
 #include "../../server/ServerManager.h"
 #include "../../client/ClientManager.h"
+#include "../../server/simulator/InputSimulator.h"
 #include "../core/config/UiConstants.h"
 #include "../core/config/MessageConstants.h"
 #include "../core/logging/LoggingCategories.h"
@@ -538,6 +539,27 @@ void MainWindow::startServer() {
         return;
     }
 
+#ifdef Q_OS_MACOS
+    // macOS 平台：检查辅助功能权限
+    if (!checkMacOSAccessibilityPermission()) {
+        QMessageBox::warning(this, tr("需要辅助功能权限"),
+            tr("<p>Qt远程桌面需要<b>辅助功能权限</b>才能模拟鼠标和键盘输入。</p>"
+               "<p>请按照以下步骤授予权限：</p>"
+               "<ol>"
+               "<li>打开<b>系统偏好设置</b></li>"
+               "<li>选择<b>安全性与隐私</b></li>"
+               "<li>点击<b>隐私</b>标签</li>"
+               "<li>在左侧列表中选择<b>辅助功能</b></li>"
+               "<li>点击左下角的锁图标解锁</li>"
+               "<li>在右侧列表中勾选<b>QtRemoteDesktop</b></li>"
+               "</ol>"
+               "<p>授予权限后，请重启应用程序。</p>"));
+        // 尝试打开系统设置
+        requestMacOSAccessibilityPermission();
+        return;
+    }
+#endif
+
     // 使用ServerManager启动服务器（使用默认端口，避免与系统VNC冲突）
     m_serverManager->startServer(UIConstants::DEFAULT_SERVER_PORT);
 }
@@ -1049,3 +1071,15 @@ void MainWindow::onAllConnectionsClosed() {
         qCDebug(lcMainWindow) << "服务器模式下所有连接已关闭，保持运行状态";
     }
 }
+
+#ifdef Q_OS_MACOS
+bool MainWindow::checkMacOSAccessibilityPermission() {
+    // 使用 InputSimulator 的静态方法检查权限
+    return InputSimulator::checkAccessibilityPermission();
+}
+
+bool MainWindow::requestMacOSAccessibilityPermission() {
+    // 使用 InputSimulator 的静态方法请求权限
+    return InputSimulator::requestAccessibilityPermission();
+}
+#endif

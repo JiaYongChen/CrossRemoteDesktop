@@ -80,6 +80,12 @@ public:
     // 错误处理
     QString lastError() const;
     
+    // macOS 辅助功能权限检查
+#ifdef Q_OS_MACOS
+    static bool checkAccessibilityPermission();
+    static bool requestAccessibilityPermission();
+#endif
+    
 signals:
     void mouseSimulated(int x, int y, Qt::MouseButton button, const QString &action);
     void keyboardSimulated(int key, Qt::KeyboardModifiers modifiers, const QString &action);

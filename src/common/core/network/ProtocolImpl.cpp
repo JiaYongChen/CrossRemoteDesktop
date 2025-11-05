@@ -108,8 +108,7 @@ qsizetype Protocol::validateReceivedDataIntegrity(const QByteArray& data, Messag
     if ( calculatedChecksum != header.checksum ) {
         QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcProtocol)
             << "Checksum mismatch. Expected:" << Qt::hex << header.checksum
-            << "Calculated:" << Qt::hex << calculatedChecksum
-            << "Payload hex:" << payload.toHex();
+            << "Calculated:" << Qt::hex << calculatedChecksum;
         return 0;
     }
 

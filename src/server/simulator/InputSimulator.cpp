@@ -12,7 +12,7 @@
 #include <Windows.h>
 #include <Winuser.h>
 #elif defined(Q_OS_MACOS)
-#include <ApplicationServices/Applicationservices.h>
+#include <ApplicationServices/ApplicationServices.h>
 #include <Carbon/Carbon.h>
 #elif defined(Q_OS_LINUX)
 #include <X11/Xlib.h>
@@ -589,13 +589,56 @@ DWORD InputSimulator::qtModifiersToWindowsModifiers(Qt::KeyboardModifiers modifi
 #ifdef Q_OS_MACOS
 bool InputSimulator::initializeMacOS()
 {
-    return true; // macOS API 不需要特殊初始化
+    // 检查辅助功能权限
+    if (!checkAccessibilityPermission()) {
+        setLastError("需要辅助功能权限才能模拟输入事件。请在系统偏好设置 > 安全性与隐私 > 隐私 > 辅助功能中授予权限。");
+        qWarning() << "InputSimulator: 缺少辅助功能权限";
+        
+        // 尝试请求权限（会打开系统设置）
+        requestAccessibilityPermission();
+        return false;
+    }
+    
+    qDebug() << "InputSimulator: macOS 辅助功能权限已授予";
+    return true;
 }
 
 void InputSimulator::cleanupMacOS()
 {
     // macOS API 不需要特殊清理
 }
+
+bool InputSimulator::checkAccessibilityPermission()
+{
+    // 检查当前进程是否被信任（有辅助功能权限）
+    return AXIsProcessTrusted();
+}
+
+bool InputSimulator::requestAccessibilityPermission()
+{
+    // 创建带提示的选项字典，会弹出系统对话框引导用户授权
+    const void* keys[] = { kAXTrustedCheckOptionPrompt };
+    const void* values[] = { kCFBooleanTrue };
+    
+    CFDictionaryRef options = CFDictionaryCreate(
+        kCFAllocatorDefault,
+        keys,
+        values,
+        1,
+        &kCFTypeDictionaryKeyCallBacks,
+        &kCFTypeDictionaryValueCallBacks);
+    
+    Boolean trusted = AXIsProcessTrustedWithOptions(options);
+    
+    if (options) {
+        CFRelease(options);
+    }
+    
+    return trusted;
+}
+#endif
+
+#ifdef Q_OS_MACOS
 
 bool InputSimulator::simulateMouseMacOS(int x, int y, CGEventType eventType, CGMouseButton button)
 {

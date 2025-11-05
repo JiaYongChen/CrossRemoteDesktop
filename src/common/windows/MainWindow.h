@@ -97,6 +97,12 @@ private:
     
     void showConnectionDialog();
     void cleanupConnection(const QString &connectionId);
+
+#ifdef Q_OS_MACOS
+    // macOS 辅助功能权限检查
+    bool checkMacOSAccessibilityPermission();
+    bool requestMacOSAccessibilityPermission();
+#endif
     
     // UI组件
     class QWidget *m_centralWidget;
