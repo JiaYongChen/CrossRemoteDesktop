@@ -30,12 +30,14 @@ public:
     // 连接ID
     QString connectionId() const;
 
-    // 会话控制
+public slots:
+    // 会话控制（跨线程调用需要使用 slots）
     void startSession();
     void suspendSession();
     void resumeSession();
     void terminateSession();
 
+public:
     // 状态查询
     bool isActive() const;
 
@@ -43,11 +45,16 @@ public:
     QPixmap currentScreen() const;
     QSize remoteScreenSize() const;
 
-    // 输入事件发送
+public slots:
+    // 输入事件发送（跨线程调用需要使用 slots）
     void sendMouseEvent(int x, int y, int buttons, int eventType);
     void sendKeyboardEvent(int key, int modifiers, bool pressed, const QString& text);
     void sendWheelEvent(int x, int y, int delta, int orientation);
 
+    // 配置（跨线程调用需要使用 slots）
+    void setFrameRate(int fps);
+
+public:
     // 性能统计
     PerformanceStats performanceStats() const;
     void resetStats();
@@ -56,7 +63,6 @@ public:
     QString getFormattedPerformanceInfo() const;
 
     // 配置
-    void setFrameRate(int fps);
     int frameRate() const;
 
     // 连接信息

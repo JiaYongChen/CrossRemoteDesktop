@@ -130,9 +130,9 @@ void SessionManager::sendWheelEvent(int x, int y, int delta, int orientation) {
         return;
     }
 
-    Q_UNUSED(orientation)
+    Q_UNUSED(orientation);
 
-        MouseEvent wheelEvent;
+    MouseEvent wheelEvent;
     wheelEvent.x = x;
     wheelEvent.y = y;
     wheelEvent.buttons = 0;

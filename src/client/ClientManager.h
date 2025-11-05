@@ -22,10 +22,15 @@ class ThreadManager;
  * 会话管理器和远程桌面窗口。使用QPointer确保对象安全访问。
  */
 struct ConnectionInstance {
+    // 超时配置常量
+    static constexpr int THREAD_QUIT_TIMEOUT_MS = 3000;     ///< 线程优雅退出超时（毫秒）
+    static constexpr int THREAD_TERMINATE_TIMEOUT_MS = 1000; ///< 线程强制终止后等待超时（毫秒）
+    static constexpr int DISCONNECT_TIMEOUT_MS = 5000;       ///< 断开连接超时（毫秒）
+    
     QString connectionId;                           ///< 连接的唯一标识符
     QPointer<SessionManager> sessionManager;       ///< 会话和远程桌面数据管理器
     QPointer<ClientRemoteWindow> remoteDesktopWindow; ///< 远程桌面窗口
-    QThread* sessionThread = nullptr;               ///< SessionManager 所在的独立线程
+    QThread* instanceThread = nullptr;               ///< SessionManager 所在的独立线程
     bool isBeingDeleted = false;                    ///< 标志位：防止双重删除
 
     /**

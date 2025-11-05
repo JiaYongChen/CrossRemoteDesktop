@@ -181,6 +181,9 @@ private:
 
     // 新增：窗口关闭中的标志位
     bool m_isClosing;
+    
+    // 缓存主机名，避免跨线程直接调用 SessionManager
+    QString m_hostName;
 
     bool m_inputEnabled;
     bool m_keyboardGrabbed;

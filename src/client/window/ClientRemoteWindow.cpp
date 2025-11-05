@@ -54,6 +54,7 @@ ClientRemoteWindow::ClientRemoteWindow(SessionManager* sessionManager, QWidget* 
     , m_connectionState(ConnectionManager::Disconnected)
     , m_isFullScreen(false)
     , m_isClosing(false) // 初始化关闭标志，默认不在关闭流程中
+    , m_hostName()  // 初始化为空，将由外部通过 updateWindowTitle 设置
     , m_inputEnabled(true)
     , m_keyboardGrabbed(false)
     , m_mouseGrabbed(false)
@@ -70,6 +71,8 @@ ClientRemoteWindow::ClientRemoteWindow(SessionManager* sessionManager, QWidget* 
     setAttribute(Qt::WA_DeleteOnClose, true);
     qDebug() << "[ClientRemoteWindow] Constructor started for sessionManager:" << sessionManager;
 
+    // 注意：sessionManager 可能已经 moveToThread，所以要避免直接调用其方法
+    // connectionId() 访问的是构造时设置的 m_connectionId，通常是安全的
     m_connectionId = sessionManager ? sessionManager->connectionId() : QString::number(0);
 
     // Initialize all managers using composition pattern
@@ -81,7 +84,10 @@ ClientRemoteWindow::ClientRemoteWindow(SessionManager* sessionManager, QWidget* 
     // Setup UI components
     setupScene();
     setupView();
-    setWindowTitle(tr("%1").arg(sessionManager->currentHost()));
+    
+    // 不在构造函数中调用 sessionManager->currentHost()，因为可能已经 moveToThread
+    // 窗口标题将在外部通过 updateWindowTitle() 设置
+    setWindowTitle(tr("Remote Desktop"));
 
     // Setup connections to SessionManager if provided
     if ( m_sessionManager ) {
@@ -101,47 +107,47 @@ QString ClientRemoteWindow::connectionId() const {
 // Window title management
 void ClientRemoteWindow::updateWindowTitle(const QString& title) {
     if ( !title.isEmpty() ) {
+        // 缓存主机名，用于后续状态变化时更新标题
+        m_hostName = title;
         setWindowTitle(title);
     }
 }
 
 void ClientRemoteWindow::updateWindowTitle() {
-    if ( m_sessionManager ) {
-        QString host = m_sessionManager->currentHost();
-        if ( !host.isEmpty() ) {
-            // 根据连接状态显示不同的标题格式
-            QString title;
-            switch ( m_connectionState ) {
-                case ConnectionManager::Connecting:
-                    title = tr("%1 - %2").arg(host).arg(MessageConstants::UI::STATUS_CONNECTING);
-                    break;
-                case ConnectionManager::Connected:
-                    title = tr("%1 - %2").arg(host).arg(MessageConstants::UI::STATUS_CONNECTED);
-                    break;
-                case ConnectionManager::Authenticating:
-                    title = tr("%1 - %2").arg(host).arg(MessageConstants::UI::STATUS_AUTHENTICATING);
-                    break;
-                case ConnectionManager::Authenticated:
-                    title = tr("%1 - %2").arg(host).arg(MessageConstants::UI::STATUS_AUTHENTICATED);
-                    break;
-                case ConnectionManager::Disconnecting:
-                    title = tr("%1 - %2").arg(host).arg(MessageConstants::UI::STATUS_DISCONNECTING);
-                    break;
-                case ConnectionManager::Disconnected:
-                    title = tr("%1 - %2").arg(host).arg(MessageConstants::UI::STATUS_DISCONNECTED);
-                    break;
-                case ConnectionManager::Reconnecting:
-                    title = tr("%1 - %2").arg(host).arg(MessageConstants::UI::STATUS_RECONNECTING);
-                    break;
-                case ConnectionManager::Error:
-                    title = tr("%1 - %2").arg(host).arg(MessageConstants::UI::STATUS_ERROR);
-                    break;
-                default:
-                    title = host;
-                    break;
-            }
-            setWindowTitle(title);
+    // 使用缓存的主机名，避免跨线程调用 SessionManager
+    if ( !m_hostName.isEmpty() ) {
+        // 根据连接状态显示不同的标题格式
+        QString title;
+        switch ( m_connectionState ) {
+            case ConnectionManager::Connecting:
+                title = tr("%1 - %2").arg(m_hostName).arg(MessageConstants::UI::STATUS_CONNECTING);
+                break;
+            case ConnectionManager::Connected:
+                title = tr("%1 - %2").arg(m_hostName).arg(MessageConstants::UI::STATUS_CONNECTED);
+                break;
+            case ConnectionManager::Authenticating:
+                title = tr("%1 - %2").arg(m_hostName).arg(MessageConstants::UI::STATUS_AUTHENTICATING);
+                break;
+            case ConnectionManager::Authenticated:
+                title = tr("%1 - %2").arg(m_hostName).arg(MessageConstants::UI::STATUS_AUTHENTICATED);
+                break;
+            case ConnectionManager::Disconnecting:
+                title = tr("%1 - %2").arg(m_hostName).arg(MessageConstants::UI::STATUS_DISCONNECTING);
+                break;
+            case ConnectionManager::Disconnected:
+                title = tr("%1 - %2").arg(m_hostName).arg(MessageConstants::UI::STATUS_DISCONNECTED);
+                break;
+            case ConnectionManager::Reconnecting:
+                title = tr("%1 - %2").arg(m_hostName).arg(MessageConstants::UI::STATUS_RECONNECTING);
+                break;
+            case ConnectionManager::Error:
+                title = tr("%1 - %2").arg(m_hostName).arg(MessageConstants::UI::STATUS_ERROR);
+                break;
+            default:
+                title = m_hostName;
+                break;
         }
+        setWindowTitle(title);
     }
 }
 
@@ -237,21 +243,34 @@ void ClientRemoteWindow::setupManagerConnections() {
         // Connect input events to session manager for network transmission
         connect(m_inputHandler, &InputHandler::inputEventReady, this, [this](const InputEvent& event) {
             if ( m_sessionManager ) {
+                // 跨线程调用：SessionManager 在独立线程中，使用 QueuedConnection
                 switch ( event.type ) {
                     case InputEventType::MouseMove:
                     case InputEventType::MousePress:
                     case InputEventType::MouseRelease:
-                        m_sessionManager->sendMouseEvent(event.position.x(), event.position.y(),
-                            event.button, event.type == InputEventType::MousePress ? 1 : 0);
+                        QMetaObject::invokeMethod(m_sessionManager, "sendMouseEvent",
+                            Qt::QueuedConnection,
+                            Q_ARG(int, event.position.x()),
+                            Q_ARG(int, event.position.y()),
+                            Q_ARG(int, event.button),
+                            Q_ARG(int, event.type == InputEventType::MousePress ? 1 : 0));
                         break;
                     case InputEventType::MouseWheel:
-                        m_sessionManager->sendWheelEvent(event.position.x(), event.position.y(),
-                            event.wheelDelta, Qt::Vertical);
+                        QMetaObject::invokeMethod(m_sessionManager, "sendWheelEvent",
+                            Qt::QueuedConnection,
+                            Q_ARG(int, event.position.x()),
+                            Q_ARG(int, event.position.y()),
+                            Q_ARG(int, event.wheelDelta),
+                            Q_ARG(int, Qt::Vertical));
                         break;
                     case InputEventType::KeyPress:
                     case InputEventType::KeyRelease:
-                        m_sessionManager->sendKeyboardEvent(event.key, event.modifiers,
-                            event.type == InputEventType::KeyPress, event.text);
+                        QMetaObject::invokeMethod(m_sessionManager, "sendKeyboardEvent",
+                            Qt::QueuedConnection,
+                            Q_ARG(int, event.key),
+                            Q_ARG(int, event.modifiers),
+                            Q_ARG(bool, event.type == InputEventType::KeyPress),
+                            Q_ARG(QString, event.text));
                         break;
                 }
             }
@@ -426,11 +445,16 @@ RenderManager* ClientRemoteWindow::renderManager() const {
 // Performance settings
 void ClientRemoteWindow::setFrameRate(int fps) {
     if ( m_sessionManager ) {
-        m_sessionManager->setFrameRate(fps);
+        // 跨线程调用：SessionManager 在独立线程中
+        QMetaObject::invokeMethod(m_sessionManager, "setFrameRate", 
+            Qt::QueuedConnection, Q_ARG(int, fps));
     }
 }
 
 int ClientRemoteWindow::frameRate() const {
+    // 注意：frameRate() 是只读属性访问，通常是线程安全的
+    // 如果 SessionManager 使用 m_frameRate 且没有互斥锁保护，可能存在竞态
+    // 但这里先保持简单实现，因为 int 的读取在大多数平台是原子的
     return m_sessionManager ? m_sessionManager->frameRate() : 30;
 }
 

@@ -17,7 +17,7 @@
 // ConnectionInstance 方法实现
 
 ConnectionInstance::~ConnectionInstance() {
-    qCDebug(lcClientManager) << "~ConnectionInstance(): begin cleanup for" << connectionId;
+    qCInfo(lcClientManager) << "~ConnectionInstance(): [START] Cleanup for connection:" << connectionId;
 
     // 【优化析构流程】确保线程安全和正确的资源释放顺序
     try {
@@ -25,65 +25,85 @@ ConnectionInstance::~ConnectionInstance() {
         if ( remoteDesktopWindow && !remoteDesktopWindow.isNull() ) {
             // 阻塞关闭窗口，确保窗口完全关闭后再继续
             if ( !remoteDesktopWindow->isClosing() ) {
-                qCDebug(lcClientManager) << "~ConnectionInstance(): closing remote window for" << connectionId;
+                qCDebug(lcClientManager) << "~ConnectionInstance(): [PHASE-1] Closing remote window for" << connectionId;
                 remoteDesktopWindow->close();
+            } else {
+                qCDebug(lcClientManager) << "~ConnectionInstance(): [PHASE-1] Window already closing for" << connectionId;
             }
             // 断开窗口信号，防止关闭过程中触发新的事件
             remoteDesktopWindow->disconnect();
         }
 
         if ( sessionManager && !sessionManager.isNull() ) {
-            // 使用 BlockingQueuedConnection 确保断开操作完成
-            qCDebug(lcClientManager) << "~ConnectionInstance(): disconnecting session for" << connectionId;
-            QMetaObject::invokeMethod(sessionManager, "disconnectFromHost", Qt::BlockingQueuedConnection);
+            // 使用 BlockingQueuedConnection 确保断开操作完成（带超时保护）
+            qCDebug(lcClientManager) << "~ConnectionInstance(): [PHASE-1] Disconnecting session for" << connectionId;
+            bool invoked = QMetaObject::invokeMethod(sessionManager, "disconnectFromHost", 
+                Qt::BlockingQueuedConnection);
+            if (!invoked) {
+                qCWarning(lcClientManager) << "~ConnectionInstance(): [PHASE-1] Failed to invoke disconnectFromHost for" << connectionId;
+            }
         }
 
         // 第二阶段：优雅地停止线程（等待 SessionManager 完成当前操作）
-        if ( sessionThread && sessionThread->isRunning() ) {
-            qCDebug(lcClientManager) << "~ConnectionInstance(): stopping session thread for" << connectionId;
+        if ( instanceThread && instanceThread->isRunning() ) {
+            qCDebug(lcClientManager) << "~ConnectionInstance(): [PHASE-2] Stopping session thread for" << connectionId;
 
             // 先请求线程退出
-            sessionThread->quit();
+            instanceThread->quit();
 
-            // 等待线程正常退出（3秒超时）
-            if ( !sessionThread->wait(3000) ) {
-                qCWarning(lcClientManager) << "~ConnectionInstance(): session thread timeout, force terminating for" << connectionId;
+            // 等待线程正常退出（使用配置的超时时间）
+            if ( !instanceThread->wait(THREAD_QUIT_TIMEOUT_MS) ) {
+                qCWarning(lcClientManager) << "~ConnectionInstance(): [PHASE-2] Thread quit timeout after" 
+                    << THREAD_QUIT_TIMEOUT_MS << "ms, force terminating for" << connectionId;
                 // 强制终止线程
-                sessionThread->terminate();
+                instanceThread->terminate();
                 // 再次等待确保线程已终止
-                sessionThread->wait(1000);
+                if ( !instanceThread->wait(THREAD_TERMINATE_TIMEOUT_MS) ) {
+                    qCCritical(lcClientManager) << "~ConnectionInstance(): [PHASE-2] Thread terminate failed after" 
+                        << THREAD_TERMINATE_TIMEOUT_MS << "ms for" << connectionId;
+                }
             } else {
-                qCDebug(lcClientManager) << "~ConnectionInstance(): session thread stopped gracefully for" << connectionId;
+                qCDebug(lcClientManager) << "~ConnectionInstance(): [PHASE-2] Thread stopped gracefully for" << connectionId;
             }
+        } else if ( instanceThread ) {
+            qCDebug(lcClientManager) << "~ConnectionInstance(): [PHASE-2] Thread already stopped for" << connectionId;
         }
 
         // 第三阶段：删除 SessionManager（线程已停止，安全删除）
         if ( sessionManager && !sessionManager.isNull() ) {
-            qCDebug(lcClientManager) << "~ConnectionInstance(): deleting SessionManager for" << connectionId;
+            qCDebug(lcClientManager) << "~ConnectionInstance(): [PHASE-3] Deleting SessionManager for" << connectionId;
             // 断开所有信号连接
             sessionManager->disconnect();
             // 直接删除而非 deleteLater，因为线程已停止
             delete sessionManager.data();
             // QPointer 会自动清空，无需手动 clear()
+            qCDebug(lcClientManager) << "~ConnectionInstance(): [PHASE-3] SessionManager deleted for" << connectionId;
         }
 
         // 第四阶段：删除窗口对象（在主线程中）
         if ( remoteDesktopWindow && !remoteDesktopWindow.isNull() ) {
-            qCDebug(lcClientManager) << "~ConnectionInstance(): deleting remote window for" << connectionId;
+            qCDebug(lcClientManager) << "~ConnectionInstance(): [PHASE-4] Scheduling window deletion for" << connectionId;
             // 使用 deleteLater 因为窗口必须在主线程的事件循环中删除
             remoteDesktopWindow->deleteLater();
             // QPointer 会自动清空
         }
 
         // 第五阶段：删除线程对象
-        if ( sessionThread ) {
-            qCDebug(lcClientManager) << "~ConnectionInstance(): deleting thread object for" << connectionId;
+        if ( instanceThread ) {
+            // 确保线程已经完全停止
+            if ( instanceThread->isRunning() ) {
+                qCWarning(lcClientManager) << "~ConnectionInstance(): [PHASE-5] Thread still running, waiting again for" << connectionId;
+                instanceThread->quit();
+                instanceThread->wait(THREAD_QUIT_TIMEOUT_MS);
+            }
+            
+            qCDebug(lcClientManager) << "~ConnectionInstance(): [PHASE-5] Deleting thread object for" << connectionId;
             // 线程已停止，可以安全删除
-            delete sessionThread;
-            sessionThread = nullptr;
+            delete instanceThread;
+            instanceThread = nullptr;
         }
 
-        qCDebug(lcClientManager) << "~ConnectionInstance(): cleanup completed for" << connectionId;
+        qCInfo(lcClientManager) << "~ConnectionInstance(): [COMPLETE] Cleanup completed successfully for" << connectionId;
     } catch ( const std::exception& e ) {
         qCWarning(lcClientManager) << "~ConnectionInstance(): exception during cleanup:" << e.what();
     } catch ( ... ) {
@@ -146,36 +166,41 @@ QString ClientManager::connectToHost(const QString& host, int port) {
     qCDebug(lcClientManager) << "connectToHost(): generated connectionId" << connectionId;
 
     // 创建 SessionManager 的独立线程
-    instance->sessionThread = new QThread(this);
-    instance->sessionThread->setObjectName(QString("SessionThread-%1").arg(connectionId));
+    instance->instanceThread = new QThread(this);
+    instance->instanceThread->setObjectName(QString("SessionThread-%1").arg(connectionId));
     qCDebug(lcClientManager) << "connectToHost(): created session thread for" << connectionId;
 
     // 创建 SessionManager（不设置父对象，以便移动到线程）
     instance->sessionManager = new SessionManager(connectionId, nullptr);
 
     // 将 SessionManager 移动到独立线程
-    instance->sessionManager->moveToThread(instance->sessionThread);
+    instance->sessionManager->moveToThread(instance->instanceThread);
     qCDebug(lcClientManager) << "connectToHost(): moved SessionManager to independent thread";
-
-    // 启动线程
-    instance->sessionThread->start();
-    qCDebug(lcClientManager) << "connectToHost(): session thread started";
 
     // 创建远程桌面窗口（必须在主线程中，因为它是 QWidget）
     instance->remoteDesktopWindow = createRemoteDesktopWindow(instance->sessionManager);
     if ( !instance->remoteDesktopWindow ) {
         qCWarning(lcClientManager) << "connectToHost(): failed to create remote desktop window";
         // 清理线程和 SessionManager
-        instance->sessionThread->quit();
-        instance->sessionThread->wait();
+        instance->instanceThread->quit();
+        instance->instanceThread->wait();
         delete instance->sessionManager;
-        delete instance->sessionThread;
+        delete instance->instanceThread;
         delete instance;
         return QString();
     } else {
         qCDebug(lcClientManager) << "connectToHost(): created remote desktop window for" << connectionId;
         instance->remoteDesktopWindow->updateWindowTitle(host);
     }
+
+    // 注意：ClientRemoteWindow 继承自 QWidget（QGraphicsView），
+    // QWidget 及其子类必须在主线程中创建和销毁，不能移动到其他线程。
+    // 因此我们不将 remoteDesktopWindow 移动到 session thread，保持在主线程中运行。
+    qCDebug(lcClientManager) << "connectToHost(): remoteDesktopWindow created and kept in main thread";
+
+    // 启动线程
+    instance->instanceThread->start();
+    qCDebug(lcClientManager) << "connectToHost(): session thread started";
 
     // 注册到连接表
     m_connections.insert(instance->connectionId, instance);
@@ -192,31 +217,47 @@ QString ClientManager::connectToHost(const QString& host, int port) {
 }
 
 void ClientManager::disconnectFromHost(const QString& connectionId) {
-    qCDebug(lcClientManager) << "disconnectFromHost(): begin for" << connectionId;
+    qCInfo(lcClientManager) << "disconnectFromHost(): [START] Disconnecting" << connectionId;
     ConnectionInstance* instance = getConnectionInstance(connectionId);
-    if ( instance ) {
-        if ( instance->sessionManager ) {
-            // 使用 Qt::QueuedConnection 进行跨线程调用
-            QMetaObject::invokeMethod(instance->sessionManager,
-                "disconnectFromHost",
-                Qt::QueuedConnection);
-        }
-        // 关闭远程桌面窗口
-        if ( instance->remoteDesktopWindow ) {
-            if ( !instance->remoteDesktopWindow->isClosing() ) {
-                qCDebug(lcClientManager) << "disconnectFromHost(): request close for" << connectionId;
-                instance->remoteDesktopWindow->close();
-            } else {
-                qCDebug(lcClientManager) << "disconnectFromHost(): window already closing" << connectionId;
-            }
-        }
-        // 清理连接
-        cleanupConnection(instance);
-        m_connections.remove(connectionId);
-        qCDebug(lcClientManager) << "disconnectFromHost(): end for" << connectionId;
-    } else {
-        qCDebug(lcClientManager) << "disconnectFromHost(): no instance for" << connectionId;
+    
+    if ( !instance ) {
+        qCWarning(lcClientManager) << "disconnectFromHost(): No instance found for" << connectionId;
+        return;
     }
+    
+    if ( instance->isBeingDeleted ) {
+        qCDebug(lcClientManager) << "disconnectFromHost(): Instance already being deleted for" << connectionId;
+        return;
+    }
+    
+    // 设置删除标志，防止重复删除
+    instance->isBeingDeleted = true;
+    
+    // 先从连接列表中移除
+    m_connections.remove(connectionId);
+    
+    if ( instance->sessionManager ) {
+        qCDebug(lcClientManager) << "disconnectFromHost(): [STEP-1] Requesting session disconnect for" << connectionId;
+        // 使用 Qt::QueuedConnection 进行跨线程调用
+        QMetaObject::invokeMethod(instance->sessionManager,
+            "disconnectFromHost",
+            Qt::QueuedConnection);
+    }
+    
+    // 关闭远程桌面窗口
+    if ( instance->remoteDesktopWindow ) {
+        if ( !instance->remoteDesktopWindow->isClosing() ) {
+            qCDebug(lcClientManager) << "disconnectFromHost(): [STEP-2] Requesting window close for" << connectionId;
+            instance->remoteDesktopWindow->close();
+        } else {
+            qCDebug(lcClientManager) << "disconnectFromHost(): [STEP-2] Window already closing for" << connectionId;
+        }
+    }
+    
+    // 清理连接
+    qCDebug(lcClientManager) << "disconnectFromHost(): [STEP-3] Cleaning up connection for" << connectionId;
+    cleanupConnection(instance);
+    qCInfo(lcClientManager) << "disconnectFromHost(): [COMPLETE] Disconnected" << connectionId;
 }
 
 void ClientManager::disconnectAll() {
@@ -344,27 +385,44 @@ void ClientManager::onConnectionClosed() {
         qCDebug(lcClientManager) << "onConnectionClosed(): invalid sender";
         return;
     }
-    ConnectionInstance* instance = getConnectionInstance(sessionManager->connectionId());
-    if ( instance && !instance->isBeingDeleted ) {
-        qCDebug(lcClientManager) << "onConnectionClosed(): for" << instance->connectionId;
-
-        // 设置删除标志，防止重复删除
-        instance->isBeingDeleted = true;
-
-        // 关闭远程桌面窗口
-        if ( instance->remoteDesktopWindow ) {
-            if ( !instance->remoteDesktopWindow->isClosing() ) {
-                qCDebug(lcClientManager) << "onConnectionClosed(): request close for" << instance->connectionId;
-                instance->remoteDesktopWindow->close();
-            } else {
-                qCDebug(lcClientManager) << "onConnectionClosed(): window already closing" << instance->connectionId;
-            }
-        }
-        // 清理连接
-        QString connectionId = instance->connectionId;
-        cleanupConnection(instance);
-        m_connections.remove(connectionId);
+    
+    QString connectionId = sessionManager->connectionId();
+    ConnectionInstance* instance = getConnectionInstance(connectionId);
+    
+    // 如果实例不存在或已被标记删除，说明已经在其他地方处理了
+    if ( !instance ) {
+        qCDebug(lcClientManager) << "onConnectionClosed(): Instance already removed for" << connectionId;
+        return;
     }
+    
+    if ( instance->isBeingDeleted ) {
+        qCDebug(lcClientManager) << "onConnectionClosed(): Instance already being deleted for" << connectionId;
+        return;
+    }
+    
+    qCDebug(lcClientManager) << "onConnectionClosed(): [START] Processing for" << connectionId;
+
+    // 设置删除标志，防止重复删除
+    instance->isBeingDeleted = true;
+
+    // 先从连接列表中移除
+    m_connections.remove(connectionId);
+
+    // 关闭远程桌面窗口
+    if ( instance->remoteDesktopWindow ) {
+        if ( !instance->remoteDesktopWindow->isClosing() ) {
+            qCDebug(lcClientManager) << "onConnectionClosed(): [STEP-1] Requesting window close for" << connectionId;
+            instance->remoteDesktopWindow->close();
+        } else {
+            qCDebug(lcClientManager) << "onConnectionClosed(): [STEP-1] Window already closing for" << connectionId;
+        }
+    }
+    
+    // 清理连接
+    qCDebug(lcClientManager) << "onConnectionClosed(): [STEP-2] Cleaning up connection for" << connectionId;
+    cleanupConnection(instance);
+    
+    qCInfo(lcClientManager) << "onConnectionClosed(): [COMPLETE] Processed for" << connectionId;
 }
 
 void ClientManager::onConnectionError(const QString& error) {
@@ -373,22 +431,42 @@ void ClientManager::onConnectionError(const QString& error) {
         qCDebug(lcClientManager) << "onConnectionError(): invalid sender";
         return;
     }
-    ConnectionInstance* instance = getConnectionInstance(sessionManager->connectionId());
-    if ( instance && !instance->isBeingDeleted ) {
-        qCDebug(lcClientManager) << "onConnectionError():" << error;
-
-        // 设置删除标志，防止重复删除
-        instance->isBeingDeleted = true;
-
-        QMessageBox msgBox(instance->remoteDesktopWindow);
-        msgBox.setIcon(QMessageBox::Warning);
-        msgBox.setWindowTitle(tr("服务器错误"));
-        msgBox.setText(tr("连接服务器时发生错误：%1").arg(error));
-        msgBox.setStandardButtons(QMessageBox::Ok);
-        msgBox.exec();
-        cleanupConnection(instance);
-        m_connections.remove(instance->connectionId);
+    
+    QString connectionId = sessionManager->connectionId();
+    ConnectionInstance* instance = getConnectionInstance(connectionId);
+    
+    // 如果实例不存在或已被标记删除，说明已经在其他地方处理了
+    if ( !instance ) {
+        qCDebug(lcClientManager) << "onConnectionError(): Instance already removed for" << connectionId;
+        return;
     }
+    
+    if ( instance->isBeingDeleted ) {
+        qCDebug(lcClientManager) << "onConnectionError(): Instance already being deleted for" << connectionId;
+        return;
+    }
+    
+    qCDebug(lcClientManager) << "onConnectionError(): [START] Processing error:" << error;
+
+    // 设置删除标志，防止重复删除
+    instance->isBeingDeleted = true;
+
+    // 先从连接列表中移除
+    m_connections.remove(connectionId);
+
+    // 显示错误对话框
+    QMessageBox msgBox(instance->remoteDesktopWindow);
+    msgBox.setIcon(QMessageBox::Warning);
+    msgBox.setWindowTitle(tr("服务器错误"));
+    msgBox.setText(tr("连接服务器时发生错误：%1").arg(error));
+    msgBox.setStandardButtons(QMessageBox::Ok);
+    msgBox.exec();
+    
+    // 清理连接
+    qCDebug(lcClientManager) << "onConnectionError(): [STEP-1] Cleaning up connection for" << connectionId;
+    cleanupConnection(instance);
+    
+    qCInfo(lcClientManager) << "onConnectionError(): [COMPLETE] Processed error for" << connectionId;
 }
 
 void ClientManager::onScreenUpdated(const QImage& screen) {
@@ -406,79 +484,98 @@ void ClientManager::onScreenUpdated(const QImage& screen) {
 void ClientManager::onWindowClosed() {
     ClientRemoteWindow* window = qobject_cast<ClientRemoteWindow*>(sender());
     if ( !window ) {
-        qCDebug(lcClientManager) << "onWindowClosed(): invalid sender";
+        qCWarning(lcClientManager) << "onWindowClosed(): invalid sender";
         return;
     }
 
-    ConnectionInstance* instance = getConnectionInstance(window->connectionId());
+    QString connectionId = window->connectionId();
+    ConnectionInstance* instance = getConnectionInstance(connectionId);
     if ( instance && !instance->isBeingDeleted ) {
-        qCDebug(lcClientManager) << "onWindowClosed(): for" << instance->connectionId;
+        qCInfo(lcClientManager) << "onWindowClosed(): [START] Processing window close for" << connectionId;
 
         // 设置删除标志，防止重复删除
         instance->isBeingDeleted = true;
 
-        // 断开连接并清理资源
+        // 先从连接列表中移除，防止其他回调再次访问
+        m_connections.remove(connectionId);
+
+        // 异步断开连接并清理资源（使用 QueuedConnection 确保顺序执行）
         if ( instance->sessionManager ) {
+            qCDebug(lcClientManager) << "onWindowClosed(): [STEP-1] Requesting session termination for" << connectionId;
+            // 先终止会话（停止统计、清理本地数据）
             QMetaObject::invokeMethod(instance->sessionManager,
                 "terminateSession",
                 Qt::QueuedConnection);
+            
+            qCDebug(lcClientManager) << "onWindowClosed(): [STEP-2] Requesting disconnect for" << connectionId;
+            // 再断开网络连接（发送断开请求、关闭套接字）
             QMetaObject::invokeMethod(instance->sessionManager,
                 "disconnectFromHost",
                 Qt::QueuedConnection);
         }
 
+        qCDebug(lcClientManager) << "onWindowClosed(): [STEP-3] Cleaning up connection for" << connectionId;
         cleanupConnection(instance);
-
-        // 从连接列表中移除
-        m_connections.remove(instance->connectionId);
 
         // 检查是否所有连接都已关闭，如果是则发射信号
         if ( m_connections.isEmpty() ) {
-            qCDebug(lcClientManager) << "onWindowClosed(): all connections closed, emitting allConnectionsClosed signal";
+            qCInfo(lcClientManager) << "onWindowClosed(): [COMPLETE] All connections closed, emitting signal";
             emit allConnectionsClosed();
+        } else {
+            qCDebug(lcClientManager) << "onWindowClosed(): [COMPLETE] Remaining connections:" << m_connections.size();
         }
     } else if ( instance && instance->isBeingDeleted ) {
-        qCDebug(lcClientManager) << "onWindowClosed(): instance already being deleted for" << instance->connectionId;
+        qCDebug(lcClientManager) << "onWindowClosed(): instance already being deleted for" << connectionId;
+    } else {
+        qCWarning(lcClientManager) << "onWindowClosed(): no instance found for window" << connectionId;
     }
 }
 
 void ClientManager::cleanupResources() {
-    qCDebug(lcClientManager) << "cleanupResources(): begin, connections" << m_connections.size();
+    qCInfo(lcClientManager) << "cleanupResources(): [START] Cleaning up all connections, count:" << m_connections.size();
 
     // 【修复段错误】安全清理所有连接，防止重复删除
     try {
         // 创建连接实例的副本，避免在迭代过程中修改容器
         QList<ConnectionInstance*> instances;
+        int markedCount = 0;
         for ( auto it = m_connections.begin(); it != m_connections.end(); ++it ) {
             if ( it.value() && !it.value()->isBeingDeleted ) {
                 it.value()->isBeingDeleted = true;  // 设置删除标志
                 instances.append(it.value());
+                markedCount++;
             }
         }
+
+        qCDebug(lcClientManager) << "cleanupResources(): Marked" << markedCount << "connections for deletion";
 
         // 清空连接映射
         m_connections.clear();
 
         // 安全删除所有连接实例
         for ( ConnectionInstance* instance : instances ) {
+            qCDebug(lcClientManager) << "cleanupResources(): Cleaning up connection" << instance->connectionId;
             cleanupConnection(instance);
         }
 
-        qCDebug(lcClientManager) << "cleanupResources(): end, cleaned" << instances.size() << "connections";
+        qCInfo(lcClientManager) << "cleanupResources(): [COMPLETE] Cleaned" << instances.size() << "connections";
     } catch ( const std::exception& e ) {
-        qCWarning(lcClientManager) << "cleanupResources(): exception during cleanup:" << e.what();
+        qCCritical(lcClientManager) << "cleanupResources(): Exception during cleanup:" << e.what();
     } catch ( ... ) {
-        qCWarning(lcClientManager) << "cleanupResources(): unknown exception during cleanup";
+        qCCritical(lcClientManager) << "cleanupResources(): Unknown exception during cleanup";
     }
 }
 
 void ClientManager::cleanupConnection(ConnectionInstance* instance) {
     if ( !instance ) {
+        qCWarning(lcClientManager) << "cleanupConnection(): Null instance provided";
         return;
     }
 
-    // ConnectionInstance的析构函数会自动处理资源清理
+    qCDebug(lcClientManager) << "cleanupConnection(): [START] Cleanup for" << instance->connectionId;
+    // ConnectionInstance的析构函数会自动处理资源清理（五阶段清理）
     delete instance;
+    qCDebug(lcClientManager) << "cleanupConnection(): [COMPLETE] Instance deleted";
 }
 
 QString ClientManager::generateConnectionId() const {
