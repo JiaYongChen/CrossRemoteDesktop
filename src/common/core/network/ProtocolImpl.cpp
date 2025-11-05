@@ -103,7 +103,8 @@ qsizetype Protocol::validateReceivedDataIntegrity(const QByteArray& data, Messag
     }
 
     // 步骤9：验证校验和
-    QByteArray payload = data.mid(static_cast<qsizetype>(SERIALIZED_HEADER_SIZE), totalMessageSize);
+    // 修复：使用 header.length 而不是 totalMessageSize，因为 mid() 的第二个参数是长度
+    QByteArray payload = data.mid(static_cast<qsizetype>(SERIALIZED_HEADER_SIZE), static_cast<qsizetype>(header.length));
     quint32 calculatedChecksum = calculateChecksum(payload);
     if ( calculatedChecksum != header.checksum ) {
         QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcProtocol)

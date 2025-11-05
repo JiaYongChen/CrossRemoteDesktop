@@ -1,11 +1,13 @@
 #include "InputSimulator.h"
 #include "../../common/core/config/Constants.h"
+#include "../../common/core/logging/LoggingCategories.h"
 #include <QtWidgets/QApplication>
 #include <QtCore/QTimer>
 #include <QtCore/QThread>
 #include <QtCore/QMutex>
 #include <QtCore/QMutexLocker>
 #include <QtCore/QDebug>
+#include <QtCore/QLoggingCategory>
 #include <QtGui/QCursor>
 
 #ifdef Q_OS_WIN
@@ -104,13 +106,16 @@ bool InputSimulator::simulateMouseMove(int x, int y)
 #ifdef Q_OS_WIN
     result = simulateMouseWindows(x, y, MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE);
 #elif defined(Q_OS_MACOS)
-    result = simulateMouseMacOS(x, y, kCGEventMouseMoved);
+    // macOS 鼠标移动需要明确指定按钮参数（kCGMouseButtonLeft 用于移动）
+    result = simulateMouseMacOS(x, y, kCGEventMouseMoved, kCGMouseButtonLeft);
 #elif defined(Q_OS_LINUX)
     result = simulateMouseLinux(x, y, 0, false);
 #endif
     
     if (result) {
         emit mouseSimulated(x, y, Qt::NoButton, "move");
+    } else {
+        qCWarning(lcInputSimulator) << "Failed to simulate mouse move to" << x << y;
     }
     
     return result;
@@ -156,6 +161,8 @@ bool InputSimulator::simulateMousePress(int x, int y, Qt::MouseButton button)
     
     if (result) {
         emit mouseSimulated(x, y, button, "press");
+    } else {
+        qCWarning(lcInputSimulator) << "Failed to simulate mouse press at" << x << y << "button:" << button;
     }
     
     return result;
@@ -201,6 +208,8 @@ bool InputSimulator::simulateMouseRelease(int x, int y, Qt::MouseButton button)
     
     if (result) {
         emit mouseSimulated(x, y, button, "release");
+    } else {
+        qCWarning(lcInputSimulator) << "Failed to simulate mouse release at" << x << y << "button:" << button;
     }
     
     return result;
@@ -642,15 +651,24 @@ bool InputSimulator::requestAccessibilityPermission()
 
 bool InputSimulator::simulateMouseMacOS(int x, int y, CGEventType eventType, CGMouseButton button)
 {
+    // 检查辅助功能权限
+    if (!AXIsProcessTrusted()) {
+        qCWarning(lcInputSimulator) << "Accessibility permission not granted, cannot simulate mouse event";
+        setLastError("需要辅助功能权限");
+        return false;
+    }
+    
     CGPoint point = CGPointMake(x, y);
     CGEventRef event = CGEventCreateMouseEvent(nullptr, eventType, point, button);
     
     if (event) {
         CGEventPost(kCGHIDEventTap, event);
         CFRelease(event);
+        qCDebug(lcInputSimulator) << "Mouse event simulated:" << eventType << "at" << x << y << "button:" << button;
         return true;
     }
     
+    qCWarning(lcInputSimulator) << "Failed to create CGEvent for mouse at" << x << y;
     return false;
 }
 

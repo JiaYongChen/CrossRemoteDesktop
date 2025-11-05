@@ -38,12 +38,9 @@ DataProcessingWorker::~DataProcessingWorker() {
     if ( workerThread && workerThread->isRunning() && current != workerThread ) {
         // 所属线程仍在运行，阻塞式投递到所属线程
         QMetaObject::invokeMethod(this, [this]() { cleanup(); }, Qt::BlockingQueuedConnection);
-    } else if ( workerThread && current != workerThread ) {
-        // 所属线程已停止或不一致，先迁移到当前线程再清理
-        this->moveToThread(current);
-        cleanup();
     } else {
-        // 已在所属线程或无效线程，直接清理
+        // 线程已停止或在当前线程，直接清理
+        // 注意：不要在线程停止后尝试 moveToThread，这会导致警告
         cleanup();
     }
 }
