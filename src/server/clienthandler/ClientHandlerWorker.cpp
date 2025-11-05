@@ -1,7 +1,20 @@
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
 #include "ClientHandlerWorker.h"
 #include "../simulator/InputSimulator.h"
 #include "../dataflow/QueueManager.h"
 #include "../dataflow/DataFlowStructures.h"
+
+// 取消Windows SDK定义的事件宏,避免与MessageType冲突
+#ifdef MOUSE_EVENT
+#undef MOUSE_EVENT
+#endif
+#ifdef KEYBOARD_EVENT
+#undef KEYBOARD_EVENT
+#endif
+
 #include "../../common/core/network/Protocol.h"
 #include "../../common/core/crypto/Encryption.h"
 #include "../../common/core/config/NetworkConstants.h"

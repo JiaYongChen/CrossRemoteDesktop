@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 # 设置项目名称
-project(QtRemoteDesktopTests)
+project(QtRemoteDesktopTests LANGUAGES CXX)
 
 # 设置C++标准
 set(CMAKE_CXX_STANDARD 20)
@@ -62,11 +62,46 @@ if(APPLE AND _qtgui_link_opts)
 endif()
 
 
-# 查找OpenSSL
-find_package(OpenSSL REQUIRED)
+# 查找OpenSSL - 使用手动配置（与主CMakeLists.txt一致）
+if(WIN32 AND EXISTS "C:/Program Files/OpenSSL-Win64")
+    set(OPENSSL_ROOT_DIR "C:/Program Files/OpenSSL-Win64")
+    set(OPENSSL_INCLUDE_DIR "C:/Program Files/OpenSSL-Win64/include")
+    set(OPENSSL_CRYPTO_LIBRARY "C:/Program Files/OpenSSL-Win64/lib/VC/x64/MD/libcrypto.lib")
+    set(OPENSSL_SSL_LIBRARY "C:/Program Files/OpenSSL-Win64/lib/VC/x64/MD/libssl.lib")
+    set(OPENSSL_LIBRARIES "${OPENSSL_SSL_LIBRARY}" "${OPENSSL_CRYPTO_LIBRARY}")
+    set(OPENSSL_FOUND TRUE)
+    
+    if(NOT TARGET OpenSSL::SSL)
+        add_library(OpenSSL::SSL UNKNOWN IMPORTED)
+        set_target_properties(OpenSSL::SSL PROPERTIES
+            IMPORTED_LOCATION "${OPENSSL_SSL_LIBRARY}"
+            INTERFACE_INCLUDE_DIRECTORIES "${OPENSSL_INCLUDE_DIR}"
+        )
+    endif()
+    
+    if(NOT TARGET OpenSSL::Crypto)
+        add_library(OpenSSL::Crypto UNKNOWN IMPORTED)
+        set_target_properties(OpenSSL::Crypto PROPERTIES
+            IMPORTED_LOCATION "${OPENSSL_CRYPTO_LIBRARY}"
+            INTERFACE_INCLUDE_DIRECTORIES "${OPENSSL_INCLUDE_DIR}"
+        )
+    endif()
+    
+    message(STATUS "[Tests] Using manually configured OpenSSL")
+else()
+    find_package(OpenSSL REQUIRED)
+endif()
 
-# 查找ZLIB
-find_package(ZLIB REQUIRED)
+# 查找ZLIB - 使用Qt的bundled zlib
+if(TARGET Qt6::ZlibPrivate)
+    message(STATUS "[Tests] Using Qt's bundled zlib")
+    if(NOT TARGET ZLIB::ZLIB)
+        add_library(ZLIB::ZLIB ALIAS Qt6::ZlibPrivate)
+    endif()
+    set(ZLIB_FOUND TRUE)
+else()
+    find_package(ZLIB REQUIRED)
+endif()
 
 # 设置Qt6自动处理
 set(CMAKE_AUTOMOC ON)

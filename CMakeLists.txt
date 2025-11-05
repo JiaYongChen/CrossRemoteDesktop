@@ -1,13 +1,29 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(QtRemoteDesktop VERSION 1.0.0 LANGUAGES CXX)
+project(QtRemoteDesktop VERSION 1.0.0 LANGUAGES CXX C)
 
 # 设置C++标准
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Windows MSVC特定编译器选项
+if(MSVC)
+    # 防止Windows.h定义min/max宏
+    add_compile_definitions(NOMINMAX)
+    add_compile_definitions(WIN32_LEAN_AND_MEAN)
+    # Qt6要求的__cplusplus宏定义
+    add_compile_options(/Zc:__cplusplus)
+    # 忽略文件编码警告(C4819)
+    add_compile_options(/wd4819)
+    # 设置源文件编码为UTF-8
+    add_compile_options(/utf-8)
+    # 警告不视为错误(用于构建阶段)
+    string(REPLACE "/WX" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    string(REPLACE "/WX" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+endif()
+
 # [跨平台Qt6自动检测与配置]
-# 说明：
+# 说明:
 # 1) 自动检测操作系统类型（Windows/Linux/macOS）和处理器架构（x86/x64/ARM）
 # 2) 根据平台特性配置Qt6库路径、OpenSSL路径等依赖项
 # 3) 支持多种Qt6安装方式：官方安装器、包管理器（Homebrew/vcpkg/apt等）、手动编译
@@ -316,8 +332,51 @@ find_package(Qt6 6.9 REQUIRED COMPONENTS
 )
 
 # 新增：查找第三方依赖（用于加解密和PNG编码）
-find_package(OpenSSL REQUIRED)
-find_package(ZLIB REQUIRED)
+# 手动设置OpenSSL路径（Windows特定）
+if(WIN32 AND EXISTS "C:/Program Files/OpenSSL-Win64")
+    set(OPENSSL_ROOT_DIR "C:/Program Files/OpenSSL-Win64")
+    set(OPENSSL_INCLUDE_DIR "C:/Program Files/OpenSSL-Win64/include")
+    set(OPENSSL_CRYPTO_LIBRARY "C:/Program Files/OpenSSL-Win64/lib/VC/x64/MD/libcrypto.lib")
+    set(OPENSSL_SSL_LIBRARY "C:/Program Files/OpenSSL-Win64/lib/VC/x64/MD/libssl.lib")
+    set(OPENSSL_LIBRARIES "${OPENSSL_SSL_LIBRARY}" "${OPENSSL_CRYPTO_LIBRARY}")
+    set(OPENSSL_FOUND TRUE)
+    set(OPENSSL_VERSION "3.6.0")
+    
+    # 创建导入目标
+    if(NOT TARGET OpenSSL::SSL)
+        add_library(OpenSSL::SSL UNKNOWN IMPORTED)
+        set_target_properties(OpenSSL::SSL PROPERTIES
+            IMPORTED_LOCATION "${OPENSSL_SSL_LIBRARY}"
+            INTERFACE_INCLUDE_DIRECTORIES "${OPENSSL_INCLUDE_DIR}"
+        )
+    endif()
+    
+    if(NOT TARGET OpenSSL::Crypto)
+        add_library(OpenSSL::Crypto UNKNOWN IMPORTED)
+        set_target_properties(OpenSSL::Crypto PROPERTIES
+            IMPORTED_LOCATION "${OPENSSL_CRYPTO_LIBRARY}"
+            INTERFACE_INCLUDE_DIRECTORIES "${OPENSSL_INCLUDE_DIR}"
+        )
+    endif()
+    
+    message(STATUS "Using manually configured OpenSSL at: ${OPENSSL_ROOT_DIR}")
+    message(STATUS "OpenSSL include: ${OPENSSL_INCLUDE_DIR}")
+    message(STATUS "OpenSSL libraries: ${OPENSSL_LIBRARIES}")
+else()
+    find_package(OpenSSL REQUIRED)
+endif()
+
+# 使用Qt自带的zlib
+if(TARGET Qt6::ZlibPrivate)
+    message(STATUS "Using Qt's bundled zlib")
+    # 创建ZLIB目标的别名，使其与标准ZLIB兼容
+    if(NOT TARGET ZLIB::ZLIB)
+        add_library(ZLIB::ZLIB ALIAS Qt6::ZlibPrivate)
+    endif()
+    set(ZLIB_FOUND TRUE)
+else()
+    find_package(ZLIB REQUIRED)
+endif()
 
 # 标准Qt项目设置（可用时）
 if(COMMAND qt_standard_project_setup)

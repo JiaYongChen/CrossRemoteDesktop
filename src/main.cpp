@@ -13,7 +13,9 @@
 #include <QtCore/QCommandLineOption>
 #include <QtCore/QMessageLogger>
 #include <signal.h>
+#ifdef Q_OS_UNIX
 #include <unistd.h>
+#endif
 
 #include "common/windows/MainWindow.h"
 #include "common/core/config/Config.h"

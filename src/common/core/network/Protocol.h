@@ -6,6 +6,16 @@
 #include <QtCore/QIODevice>
 #include <QtCore/qglobal.h>
 
+// 取消Windows SDK中的宏定义,避免命名冲突
+#ifdef _WIN32
+#ifdef MOUSE_EVENT
+#undef MOUSE_EVENT
+#endif
+#ifdef KEYBOARD_EVENT
+#undef KEYBOARD_EVENT
+#endif
+#endif
+
 // 协议版本
 #define PROTOCOL_VERSION 1
 
