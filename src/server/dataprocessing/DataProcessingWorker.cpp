@@ -3,6 +3,7 @@
 #include <QtCore/QThread>
 #include <QtCore/QIODevice>
 #include <QtCore/QBuffer>
+#include <QtGui/QImageWriter>
 #include <QtConcurrent/QtConcurrent>
 #include <cstring>
 #include <algorithm>
@@ -334,27 +335,59 @@ ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, qui
     ProcessedData result;
 
     try {
+        // 验证输入图像
+        if ( image.isNull() || image.size().isEmpty() ) {
+            qCWarning(lcDataProcessingWorker) << "输入图像无效，帧ID:" << frameId
+                << "isNull:" << image.isNull() << "size:" << image.size();
+            return result;
+        }
+
         // 确保图像格式为 RGB888，这是 JPEG 格式推荐的格式
+        // 在Windows下，Format_RGB32 更常用且兼容性更好
         QImage convertedImage = image;
-        if ( image.format() != QImage::Format_RGB888 && image.format() != QImage::Format_RGB32 ) {
-            convertedImage = image.convertToFormat(QImage::Format_RGB888);
+        if ( image.format() != QImage::Format_RGB32 && image.format() != QImage::Format_RGB888 ) {
+            qCDebug(lcDataProcessingWorker) << "转换图像格式，原格式:" << image.format() 
+                << "目标格式: RGB32，帧ID:" << frameId;
+            convertedImage = image.convertToFormat(QImage::Format_RGB32);
+            
+            if ( convertedImage.isNull() ) {
+                qCWarning(lcDataProcessingWorker) << "图像格式转换失败，帧ID:" << frameId;
+                return result;
+            }
         }
 
         // 使用 QBuffer 将图像编码为 JPEG 格式
-        QBuffer buffer;
-        buffer.open(QIODevice::WriteOnly);
+        QByteArray jpegData;
+        QBuffer buffer(&jpegData);
+        
+        if ( !buffer.open(QIODevice::WriteOnly) ) {
+            qCWarning(lcDataProcessingWorker) << "无法打开QBuffer，帧ID:" << frameId;
+            return result;
+        }
 
         // 保存为 JPEG 格式，质量设置为 85（推荐值）
         // JPEG 是有损压缩格式，quality 范围 0-100
         // 85 提供良好的压缩率和视觉质量平衡
         int quality = 85;
-        if ( !convertedImage.save(&buffer, "JPEG", quality) ) {
-            qCWarning(lcDataProcessingWorker) << "无法将图像编码为JPEG格式，帧ID:" << frameId;
+        bool saveSuccess = convertedImage.save(&buffer, "JPG", quality);
+        buffer.close();
+        
+        if ( !saveSuccess ) {
+            // 第一次诊断输出，记录更详细的错误信息
+            static bool diagnosticPrinted = false;
+            if ( !diagnosticPrinted ) {
+                qCWarning(lcDataProcessingWorker) << "JPEG编码失败诊断信息:";
+                qCWarning(lcDataProcessingWorker) << "  图像尺寸:" << convertedImage.size();
+                qCWarning(lcDataProcessingWorker) << "  图像格式:" << convertedImage.format();
+                qCWarning(lcDataProcessingWorker) << "  支持的图像格式:" 
+                    << QImageWriter::supportedImageFormats();
+                diagnosticPrinted = true;
+            }
+            
+            qCWarning(lcDataProcessingWorker) << "无法将图像编码为JPEG格式，帧ID:" << frameId
+                << "图像尺寸:" << convertedImage.size() << "格式:" << convertedImage.format();
             return result;
         }
-
-        buffer.close();
-        QByteArray jpegData = buffer.data();
 
         if ( jpegData.isEmpty() ) {
             qCWarning(lcDataProcessingWorker) << "JPEG编码结果为空，帧ID:" << frameId;
