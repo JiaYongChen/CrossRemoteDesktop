@@ -719,8 +719,6 @@ void ClientHandlerWorker::handleMouseEvent(const QByteArray& data) {
         case MouseEventType::WHEEL_DOWN:
             // 处理滚轮事件
             if ( wheelDelta != 0 ) {
-                qCDebug(clientHandlerWorker) << "滚轮事件: delta=" << wheelDelta 
-                    << "eventType=" << static_cast<int>(mouseEventType);
                 m_inputSimulator->simulateMouseWheel(x, y, wheelDelta);
             }
             break;
@@ -741,27 +739,32 @@ void ClientHandlerWorker::handleKeyboardEvent(const QByteArray& data) {
         return;
     }
 
-    if ( data.size() < 9 ) { // 最小键盘事件数据大小
-        qCWarning(clientHandlerWorker, "键盘事件数据不完整");
+    // KeyboardEvent结构: eventType(1) + keyCode(4) + modifiers(4) + text(8) = 17字节
+    if ( data.size() < 17 ) {
+        qCWarning(clientHandlerWorker, "键盘事件数据不完整，期望至少17字节，实际: %lld", data.size());
         return;
     }
 
-    QDataStream stream(data);
-    stream.setByteOrder(QDataStream::LittleEndian);
+    // 使用 KeyboardEvent 的 decode 方法解析
+    KeyboardEvent keyEvent;
+    if ( !keyEvent.decode(data) ) {
+        qCWarning(clientHandlerWorker, "键盘事件数据解析失败");
+        return;
+    }
 
-    quint32 key;
-    quint32 modifiers;
-    quint8 pressed;
+    qCDebug(clientHandlerWorker) << "键盘事件: eventType=" << static_cast<int>(keyEvent.eventType) 
+        << "keyCode=" << keyEvent.keyCode << "modifiers=" << keyEvent.modifiers
+        << "text=" << keyEvent.text;
 
-    stream >> key >> modifiers >> pressed;
+    Qt::Key qtKey = static_cast<Qt::Key>(keyEvent.keyCode);
+    Qt::KeyboardModifiers qtModifiers = static_cast<Qt::KeyboardModifiers>(keyEvent.modifiers);
 
-    Qt::Key qtKey = static_cast<Qt::Key>(key);
-    Qt::KeyboardModifiers qtModifiers = static_cast<Qt::KeyboardModifiers>(modifiers);
-
-    if ( pressed ) {
+    if ( keyEvent.eventType == KeyboardEventType::KEY_PRESS ) {
         m_inputSimulator->simulateKeyPress(qtKey, qtModifiers);
-    } else {
+    } else if ( keyEvent.eventType == KeyboardEventType::KEY_RELEASE ) {
         m_inputSimulator->simulateKeyRelease(qtKey, qtModifiers);
+    } else {
+        qCWarning(clientHandlerWorker, "未知的键盘事件类型: %d", static_cast<int>(keyEvent.eventType));
     }
 }
 
