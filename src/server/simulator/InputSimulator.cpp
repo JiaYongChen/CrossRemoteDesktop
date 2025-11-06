@@ -29,10 +29,6 @@ InputSimulator::InputSimulator(QObject* parent)
     : QObject(parent)
     , m_initialized(false)
     , m_enabled(true)
-    , m_batchMode(false)
-    , m_mouseSpeed(CoreConstants::Input::DEFAULT_MOUSE_SPEED)
-    , m_keyboardDelay(CoreConstants::Input::DEFAULT_KEYBOARD_DELAY)
-    , m_mouseDelay(CoreConstants::Input::DEFAULT_MOUSE_DELAY)
 #ifdef Q_OS_LINUX
     , m_display(nullptr)
 #endif
@@ -108,9 +104,7 @@ bool InputSimulator::simulateMouseMove(int x, int y) {
     result = simulateMouseLinux(x, y, 0, false);
 #endif
 
-    if ( result ) {
-        emit mouseSimulated(x, y, Qt::NoButton, "move");
-    } else {
+    if ( !result ) {
         qCWarning(lcInputSimulator) << "Failed to simulate mouse move to" << x << y;
     }
 
@@ -154,9 +148,7 @@ bool InputSimulator::simulateMousePress(int x, int y, Qt::MouseButton button) {
     result = simulateMouseLinux(x, y, linuxButton, true);
 #endif
 
-    if ( result ) {
-        emit mouseSimulated(x, y, button, "press");
-    } else {
+    if ( !result ) {
         qCWarning(lcInputSimulator) << "Failed to simulate mouse press at" << x << y << "button:" << button;
     }
 
@@ -200,9 +192,7 @@ bool InputSimulator::simulateMouseRelease(int x, int y, Qt::MouseButton button) 
     result = simulateMouseLinux(x, y, linuxButton, false);
 #endif
 
-    if ( result ) {
-        emit mouseSimulated(x, y, button, "release");
-    } else {
+    if ( !result ) {
         qCWarning(lcInputSimulator) << "Failed to simulate mouse release at" << x << y << "button:" << button;
     }
 
@@ -211,7 +201,7 @@ bool InputSimulator::simulateMouseRelease(int x, int y, Qt::MouseButton button) 
 
 bool InputSimulator::simulateMouseClick(int x, int y, Qt::MouseButton button) {
     bool pressResult = simulateMousePress(x, y, button);
-    delay(m_mouseDelay);
+    delay(10); // 固定10ms延迟
     bool releaseResult = simulateMouseRelease(x, y, button);
 
     return pressResult && releaseResult;
@@ -236,6 +226,8 @@ bool InputSimulator::simulateMouseWheel(int x, int y, int delta) {
 #ifdef Q_OS_WIN
     result = simulateMouseWindows(x, y, MOUSEEVENTF_WHEEL, delta);
 #elif defined(Q_OS_MACOS)
+    Q_UNUSED(x);
+    Q_UNUSED(y);
     // Qt 的滚轮 delta 通常是 120 的倍数
     // 转换为滚动行数: delta / 120
     // 使用 kCGScrollEventUnitLine 更符合系统行为
@@ -260,10 +252,6 @@ bool InputSimulator::simulateMouseWheel(int x, int y, int delta) {
     unsigned int button = (delta > 0) ? 4 : 5;
     result = simulateMouseLinux(x, y, button, true) && simulateMouseLinux(x, y, button, false);
 #endif
-
-    if ( result ) {
-        emit mouseSimulated(x, y, Qt::NoButton, "wheel");
-    }
 
     return result;
 }
@@ -295,10 +283,6 @@ bool InputSimulator::simulateKeyPress(int key, Qt::KeyboardModifiers modifiers) 
     result = simulateKeyboardLinux(linuxKey, true, linuxModifiers);
 #endif
 
-    if ( result ) {
-        emit keyboardSimulated(key, modifiers, "press");
-    }
-
     return result;
 }
 
@@ -329,42 +313,7 @@ bool InputSimulator::simulateKeyRelease(int key, Qt::KeyboardModifiers modifiers
     result = simulateKeyboardLinux(linuxKey, false, linuxModifiers);
 #endif
 
-    if ( result ) {
-        emit keyboardSimulated(key, modifiers, "release");
-    }
-
     return result;
-}bool InputSimulator::simulateKeyClick(int key, Qt::KeyboardModifiers modifiers) {
-    bool pressResult = simulateKeyPress(key, modifiers);
-    delay(m_keyboardDelay);
-    bool releaseResult = simulateKeyRelease(key, modifiers);
-
-    return pressResult && releaseResult;
-}
-
-bool InputSimulator::simulateTextInput(const QString& text) {
-    for ( const QChar& ch : text ) {
-        int key = ch.unicode();
-        if ( !simulateKeyClick(key) ) {
-            return false;
-        }
-        delay(m_keyboardDelay);
-    }
-    return true;
-}
-
-bool InputSimulator::simulateKeySequence(const QList<int>& keys, Qt::KeyboardModifiers modifiers) {
-    for ( int key : keys ) {
-        if ( !simulateKeyClick(key, modifiers) ) {
-            return false;
-        }
-        delay(m_keyboardDelay);
-    }
-    return true;
-}
-
-bool InputSimulator::simulateShortcut(Qt::Key key, Qt::KeyboardModifiers modifiers) {
-    return simulateKeyClick(static_cast<int>(key), modifiers);
 }
 
 QSize InputSimulator::getScreenSize() const {
@@ -402,38 +351,10 @@ QPoint InputSimulator::getCursorPosition() const {
         unsigned int mask;
         if ( XQueryPointer(m_display, DefaultRootWindow(m_display), &root, &child, &rootX, &rootY, &winX, &winY, &mask) ) {
             return QPoint(rootX, rootY);
-        }
+    }
     }
 #endif
     return QPoint();
-}
-
-bool InputSimulator::setCursorPosition(const QPoint& position) {
-    return simulateMouseMove(position.x(), position.y());
-}
-
-void InputSimulator::setMouseSpeed(int speed) {
-    m_mouseSpeed = qBound(1, speed, 10);
-}
-
-int InputSimulator::mouseSpeed() const {
-    return m_mouseSpeed;
-}
-
-void InputSimulator::setKeyboardDelay(int msecs) {
-    m_keyboardDelay = qMax(0, msecs);
-}
-
-int InputSimulator::keyboardDelay() const {
-    return m_keyboardDelay;
-}
-
-void InputSimulator::setMouseDelay(int msecs) {
-    m_mouseDelay = qMax(0, msecs);
-}
-
-int InputSimulator::mouseDelay() const {
-    return m_mouseDelay;
 }
 
 void InputSimulator::setEnabled(bool enabled) {
@@ -444,62 +365,12 @@ bool InputSimulator::isEnabled() const {
     return m_enabled;
 }
 
-void InputSimulator::beginBatch() {
-    QMutexLocker locker(&m_mutex);
-    m_batchMode = true;
-}
-
-void InputSimulator::endBatch() {
-    QMutexLocker locker(&m_mutex);
-    m_batchMode = false;
-
-    // 处理批量操作
-    while ( !m_operationQueue.isEmpty() ) {
-        InputOperation op = m_operationQueue.dequeue();
-        // 执行操作
-        switch ( op.type ) {
-            case InputOperation::MouseMove:
-                simulateMouseMove(op.position.x(), op.position.y());
-                break;
-            case InputOperation::MousePress:
-                simulateMousePress(op.position.x(), op.position.y(), op.mouseButton);
-                break;
-            case InputOperation::MouseRelease:
-                simulateMouseRelease(op.position.x(), op.position.y(), op.mouseButton);
-                break;
-            case InputOperation::KeyPress:
-                simulateKeyPress(op.key, op.modifiers);
-                break;
-            case InputOperation::KeyRelease:
-                simulateKeyRelease(op.key, op.modifiers);
-                break;
-            case InputOperation::TextInput:
-                simulateTextInput(op.text);
-                break;
-            case InputOperation::Delay:
-                delay(op.delayMs);
-                break;
-        }
-    }
-}
-
-bool InputSimulator::isBatchMode() const {
-    return m_batchMode;
-}
-
 QString InputSimulator::lastError() const {
     return m_lastError;
 }
 
-void InputSimulator::simulateInput() {
-    // 处理输入队列
-}
-
 void InputSimulator::setLastError(const QString& error) {
     m_lastError = error;
-    if ( !error.isEmpty() ) {
-        emit errorOccurred(error);
-    }
 }
 
 void InputSimulator::delay(int msecs) {
@@ -514,24 +385,6 @@ bool InputSimulator::isValidCoordinate(int x, int y) const {
 
 bool InputSimulator::isValidKey(int key) const {
     return key > 0 && key <= CoreConstants::Input::MAX_KEY_VALUE;
-}
-
-QPoint InputSimulator::transformCoordinates(const QPoint& point) const {
-    // 平台相关的坐标变换
-#ifdef Q_OS_MACOS
-    // CoreGraphics 的坐标系原点在屏幕左下，Qt 的坐标系原点在左上
-    // 需要将 y 翻转为 macOS 全局显示坐标
-    int x = point.x();
-    int y = point.y();
-    int screenH = m_screenSize.height();
-    // 防止越界
-    if ( screenH <= 0 ) return point;
-    int flippedY = screenH - y;
-    return QPoint(x, flippedY);
-#else
-    // 其他平台当前不需要转换
-    return point;
-#endif
 }
 
 #ifdef Q_OS_WIN
@@ -648,7 +501,7 @@ WORD InputSimulator::qtKeyToWindowsKey(int qtKey) {
         case Qt::Key_Y: return 0x59;
         case Qt::Key_Z: return 0x5A;
 
-        // 数字键 0-9 (0x30-0x39)
+            // 数字键 0-9 (0x30-0x39)
         case Qt::Key_0: return 0x30;
         case Qt::Key_1: return 0x31;
         case Qt::Key_2: return 0x32;
@@ -660,7 +513,7 @@ WORD InputSimulator::qtKeyToWindowsKey(int qtKey) {
         case Qt::Key_8: return 0x38;
         case Qt::Key_9: return 0x39;
 
-        // 功能键 F1-F24
+            // 功能键 F1-F24
         case Qt::Key_F1: return VK_F1;
         case Qt::Key_F2: return VK_F2;
         case Qt::Key_F3: return VK_F3;
@@ -686,7 +539,7 @@ WORD InputSimulator::qtKeyToWindowsKey(int qtKey) {
         case Qt::Key_F23: return VK_F23;
         case Qt::Key_F24: return VK_F24;
 
-        // 特殊键
+            // 特殊键
         case Qt::Key_Return: return VK_RETURN;
         case Qt::Key_Enter: return VK_RETURN;
         case Qt::Key_Tab: return VK_TAB;
@@ -701,19 +554,19 @@ WORD InputSimulator::qtKeyToWindowsKey(int qtKey) {
         case Qt::Key_PageUp: return VK_PRIOR;
         case Qt::Key_PageDown: return VK_NEXT;
 
-        // 方向键
+            // 方向键
         case Qt::Key_Left: return VK_LEFT;
         case Qt::Key_Right: return VK_RIGHT;
         case Qt::Key_Up: return VK_UP;
         case Qt::Key_Down: return VK_DOWN;
 
-        // 修饰键
+            // 修饰键
         case Qt::Key_Shift: return VK_SHIFT;
         case Qt::Key_Control: return VK_CONTROL;
         case Qt::Key_Alt: return VK_MENU;
         case Qt::Key_Meta: return VK_LWIN;  // Windows 键
 
-        // 符号键
+            // 符号键
         case Qt::Key_Semicolon: return VK_OEM_1;      // ;:
         case Qt::Key_Plus: return VK_OEM_PLUS;        // =+
         case Qt::Key_Comma: return VK_OEM_COMMA;      // ,<
@@ -730,7 +583,7 @@ WORD InputSimulator::qtKeyToWindowsKey(int qtKey) {
         case Qt::Key_QuoteLeft: return VK_OEM_3;      // `~
         case Qt::Key_Equal: return VK_OEM_PLUS;       // = (same key as plus)
 
-        // 小键盘
+            // 小键盘
         case Qt::Key_0 + Qt::KeypadModifier: return VK_NUMPAD0;
         case Qt::Key_1 + Qt::KeypadModifier: return VK_NUMPAD1;
         case Qt::Key_2 + Qt::KeypadModifier: return VK_NUMPAD2;
@@ -747,11 +600,11 @@ WORD InputSimulator::qtKeyToWindowsKey(int qtKey) {
         case Qt::Key_Period + Qt::KeypadModifier: return VK_DECIMAL;
         case Qt::Key_Slash + Qt::KeypadModifier: return VK_DIVIDE;
 
-        // 锁定键
+            // 锁定键
         case Qt::Key_NumLock: return VK_NUMLOCK;
         case Qt::Key_ScrollLock: return VK_SCROLL;
 
-        // 其他键
+            // 其他键
         case Qt::Key_Pause: return VK_PAUSE;
         case Qt::Key_Print: return VK_SNAPSHOT;
 
@@ -827,10 +680,10 @@ bool InputSimulator::simulateMouseMacOS(int x, int y, CGEventType eventType, CGM
         setLastError("需要辅助功能权限");
         return false;
     }
-    // 使用 transformCoordinates 进行平台相关坐标变换（例如 macOS 需要翻转 Y）
-    QPoint transformed = transformCoordinates(QPoint(x, y));
-    int tx = transformed.x();
-    int ty = transformed.y();
+    // macOS 需要翻转 Y 坐标(屏幕坐标系原点在左上角，但 CoreGraphics 原点在左下角)
+    QSize screenSize = getScreenSize();
+    int tx = x;
+    int ty = screenSize.height() - y - 1;
 
     // 创建事件源以提高事件注入的可靠性
     CGEventSourceRef source = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
@@ -1119,7 +972,7 @@ KeySym InputSimulator::qtKeyToLinuxKey(int qtKey) {
         case Qt::Key_Y: return XK_y;
         case Qt::Key_Z: return XK_z;
 
-        // 数字键
+            // 数字键
         case Qt::Key_0: return XK_0;
         case Qt::Key_1: return XK_1;
         case Qt::Key_2: return XK_2;
@@ -1131,7 +984,7 @@ KeySym InputSimulator::qtKeyToLinuxKey(int qtKey) {
         case Qt::Key_8: return XK_8;
         case Qt::Key_9: return XK_9;
 
-        // 功能键
+            // 功能键
         case Qt::Key_F1: return XK_F1;
         case Qt::Key_F2: return XK_F2;
         case Qt::Key_F3: return XK_F3;
@@ -1157,7 +1010,7 @@ KeySym InputSimulator::qtKeyToLinuxKey(int qtKey) {
         case Qt::Key_F23: return XK_F23;
         case Qt::Key_F24: return XK_F24;
 
-        // 特殊键
+            // 特殊键
         case Qt::Key_Return: return XK_Return;
         case Qt::Key_Enter: return XK_KP_Enter;
         case Qt::Key_Tab: return XK_Tab;
@@ -1172,19 +1025,19 @@ KeySym InputSimulator::qtKeyToLinuxKey(int qtKey) {
         case Qt::Key_PageUp: return XK_Page_Up;
         case Qt::Key_PageDown: return XK_Page_Down;
 
-        // 方向键
+            // 方向键
         case Qt::Key_Left: return XK_Left;
         case Qt::Key_Right: return XK_Right;
         case Qt::Key_Up: return XK_Up;
         case Qt::Key_Down: return XK_Down;
 
-        // 修饰键
+            // 修饰键
         case Qt::Key_Shift: return XK_Shift_L;
         case Qt::Key_Control: return XK_Control_L;
         case Qt::Key_Alt: return XK_Alt_L;
         case Qt::Key_Meta: return XK_Super_L;
 
-        // 符号键
+            // 符号键
         case Qt::Key_Semicolon: return XK_semicolon;
         case Qt::Key_Plus: return XK_plus;
         case Qt::Key_Comma: return XK_comma;
@@ -1201,7 +1054,7 @@ KeySym InputSimulator::qtKeyToLinuxKey(int qtKey) {
         case Qt::Key_QuoteLeft: return XK_grave;
         case Qt::Key_Equal: return XK_equal;
 
-        // 小键盘
+            // 小键盘
         case Qt::Key_0 + Qt::KeypadModifier: return XK_KP_0;
         case Qt::Key_1 + Qt::KeypadModifier: return XK_KP_1;
         case Qt::Key_2 + Qt::KeypadModifier: return XK_KP_2;
@@ -1218,11 +1071,11 @@ KeySym InputSimulator::qtKeyToLinuxKey(int qtKey) {
         case Qt::Key_Period + Qt::KeypadModifier: return XK_KP_Decimal;
         case Qt::Key_Slash + Qt::KeypadModifier: return XK_KP_Divide;
 
-        // 锁定键
+            // 锁定键
         case Qt::Key_NumLock: return XK_Num_Lock;
         case Qt::Key_ScrollLock: return XK_Scroll_Lock;
 
-        // 其他键
+            // 其他键
         case Qt::Key_Pause: return XK_Pause;
         case Qt::Key_Print: return XK_Print;
 
