@@ -482,6 +482,33 @@ void ClientRemoteWindow::mouseMoveEvent(QMouseEvent* event) {
     QGraphicsView::mouseMoveEvent(event);
 }
 
+void ClientRemoteWindow::mouseDoubleClickEvent(QMouseEvent* event) {
+    if ( m_inputEnabled && m_sessionManager ) {
+        QPoint remotePos = mapToRemote(event->pos());
+
+        // 确定鼠标按键类型
+        int mouseEventType = 0;
+        Qt::MouseButton btn = event->button();
+
+        if ( btn == Qt::LeftButton ) {
+            mouseEventType = static_cast<int>(MouseEventType::LEFT_DOUBLE_CLICK);
+        } else if ( btn == Qt::RightButton ) {
+            mouseEventType = static_cast<int>(MouseEventType::RIGHT_DOUBLE_CLICK);
+        } else if ( btn == Qt::MiddleButton ) {
+            mouseEventType = static_cast<int>(MouseEventType::MIDDLE_DOUBLE_CLICK);
+        }
+
+        if ( mouseEventType != 0 ) {
+            QMetaObject::invokeMethod(m_sessionManager, "sendMouseEvent",
+                Qt::QueuedConnection,
+                Q_ARG(int, remotePos.x()),
+                Q_ARG(int, remotePos.y()),
+                Q_ARG(int, mouseEventType));
+        }
+    }
+    QGraphicsView::mouseDoubleClickEvent(event);
+}
+
 void ClientRemoteWindow::wheelEvent(QWheelEvent* event) {
     if ( m_inputEnabled && m_sessionManager ) {
         QPoint remotePos = mapToRemote(event->position().toPoint());

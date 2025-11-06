@@ -136,6 +136,7 @@ protected:
     void focusOutEvent(QFocusEvent* event) override;
     void enterEvent(QEnterEvent* event) override;
     void leaveEvent(QEvent* event) override;
+    void mouseDoubleClickEvent(QMouseEvent* event) override;
 
 private slots:
     void onConnectionClosed();

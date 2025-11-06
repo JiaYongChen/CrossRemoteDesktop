@@ -715,6 +715,15 @@ void ClientHandlerWorker::handleMouseEvent(const QByteArray& data) {
         case MouseEventType::MIDDLE_RELEASE:
             m_inputSimulator->simulateMouseRelease(x, y, Qt::MiddleButton);
             break;
+        case MouseEventType::LEFT_DOUBLE_CLICK:
+            m_inputSimulator->simulateMouseDoubleClick(x, y, Qt::LeftButton);
+            break;
+        case MouseEventType::RIGHT_DOUBLE_CLICK:
+            m_inputSimulator->simulateMouseDoubleClick(x, y, Qt::RightButton);
+            break;
+        case MouseEventType::MIDDLE_DOUBLE_CLICK:
+            m_inputSimulator->simulateMouseDoubleClick(x, y, Qt::MiddleButton);
+            break;
         case MouseEventType::WHEEL_UP:
         case MouseEventType::WHEEL_DOWN:
             // 处理滚轮事件

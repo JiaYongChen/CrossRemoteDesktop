@@ -72,7 +72,10 @@ enum class MouseEventType : quint8 {
     MIDDLE_PRESS = 0x06,
     MIDDLE_RELEASE = 0x07,
     WHEEL_UP = 0x08,
-    WHEEL_DOWN = 0x09
+    WHEEL_DOWN = 0x09,
+    LEFT_DOUBLE_CLICK = 0x0A,
+    RIGHT_DOUBLE_CLICK = 0x0B,
+    MIDDLE_DOUBLE_CLICK = 0x0C
 };
 
 // 键盘事件类型
