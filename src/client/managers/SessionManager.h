@@ -82,6 +82,9 @@ signals:
     void screenRegionUpdated(const QImage& region, const QRect& rect);
     void performanceStatsUpdated(const PerformanceStats& stats);
     void sessionError(const QString& error);
+    
+    // 远程光标位置更新信号
+    void remoteCursorPositionUpdated(const QPoint& position);
 
     // 连接状态变化信号（用于 UI 更新）
     void connectionStateChanged(ConnectionManager::ConnectionState state);
@@ -94,6 +97,7 @@ private:
     void setupConnections();
     void calculateFPS();
     void handleScreenData(const QByteArray& data);
+    void handleCursorPosition(const QByteArray& data);
 
     // 连接信息
     QString m_connectionId;

@@ -59,7 +59,9 @@ ClientRemoteWindow::ClientRemoteWindow(SessionManager* sessionManager, QWidget* 
     , m_fileTransferManager(nullptr)
     , m_renderManager(nullptr)
     , m_lastPanPoint(0, 0)
-    , m_showPerformanceInfo(false) {
+    , m_showPerformanceInfo(false)
+    , m_remoteCursorPos(-1, -1)
+    , m_showRemoteCursor(true) {
     // 确保窗口关闭时自动删除，避免无父对象窗口内存泄漏
     // 使用属性而非手动deleteLater，减少重复释放风险
     setAttribute(Qt::WA_DeleteOnClose, true);
@@ -206,6 +208,10 @@ void ClientRemoteWindow::setupManagerConnections() {
         // 连接状态变化信号,同步更新 UI 显示
         connect(m_sessionManager, &SessionManager::connectionStateChanged,
             this, &ClientRemoteWindow::setConnectionState);
+            
+        // 连接远程光标位置更新信号
+        connect(m_sessionManager, &SessionManager::remoteCursorPositionUpdated,
+            this, &ClientRemoteWindow::updateRemoteCursorPosition);
     }
 
     // Connect file transfer manager signals  
@@ -411,21 +417,25 @@ void ClientRemoteWindow::paintEvent(QPaintEvent* event) {
         drawPerformanceInfo(painter);
     }
 
-    // Draw simple crosshair cursor (simplified from CursorManager)
+    // Draw remote cursor (显示远程服务器端的鼠标位置)
     // Note: Cursor drawing was simplified by removing the over-engineered CursorManager class
-    // The original CursorManager had 10 methods but only 2 were used, 85% redundancy
-    if ( true ) { // Cursor always visible for now (was controlled by m_cursorManager->showCursor())
-        painter.setPen(QPen(Qt::white, 2));
-        painter.setBrush(QBrush(Qt::black));
+    // Now displays the remote server's cursor position instead of local cursor
+    if ( m_showRemoteCursor && m_remoteCursorPos.x() >= 0 && m_remoteCursorPos.y() >= 0 ) {
+        painter.setPen(QPen(Qt::yellow, 2));  // 使用黄色突出显示远程光标
+        painter.setBrush(Qt::NoBrush);
         
-        const int cursorSize = 10;
-        QPoint cursorPos = mapFromGlobal(QCursor::pos());
+        const int cursorSize = 12;
+        // 将远程坐标映射到视图坐标
+        QPoint viewPos = mapFromRemote(m_remoteCursorPos);
         
-        // Draw crosshair cursor
-        painter.drawLine(cursorPos.x(), cursorPos.y() - cursorSize/2,
-                        cursorPos.x(), cursorPos.y() + cursorSize/2);
-        painter.drawLine(cursorPos.x() - cursorSize/2, cursorPos.y(),
-                        cursorPos.x() + cursorSize/2, cursorPos.y());
+        // Draw crosshair cursor for remote position
+        painter.drawLine(viewPos.x(), viewPos.y() - cursorSize/2,
+                        viewPos.x(), viewPos.y() + cursorSize/2);
+        painter.drawLine(viewPos.x() - cursorSize/2, viewPos.y(),
+                        viewPos.x() + cursorSize/2, viewPos.y());
+        
+        // 绘制一个小圆圈使其更明显
+        painter.drawEllipse(viewPos, 3, 3);
     }
 }
 
@@ -713,4 +723,16 @@ void ClientRemoteWindow::onWindowResizeRequested(const QSize& size) {
     qCDebug(lcClientRemoteWindow) << "Window resize requested:"
         << "requested viewport size:" << size
         << "new window size:" << newWindowSize;
+}
+
+// 远程光标控制槽函数
+void ClientRemoteWindow::updateRemoteCursorPosition(const QPoint& position) {
+    m_remoteCursorPos = position;
+    // 触发重绘以显示新的光标位置
+    viewport()->update();
+}
+
+void ClientRemoteWindow::setShowRemoteCursor(bool show) {
+    m_showRemoteCursor = show;
+    viewport()->update();
 }
