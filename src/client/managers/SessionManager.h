@@ -47,7 +47,7 @@ public:
 
 public slots:
     // 输入事件发送（跨线程调用需要使用 slots）
-    void sendMouseEvent(int x, int y, int buttons, int eventType);
+    void sendMouseEvent(int x, int y, int eventType);
     void sendKeyboardEvent(int key, int modifiers, bool pressed, const QString& text);
     void sendWheelEvent(int x, int y, int delta, int orientation);
 

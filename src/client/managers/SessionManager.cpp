@@ -91,7 +91,7 @@ QSize SessionManager::remoteScreenSize() const {
     return m_remoteScreenSize;
 }
 
-void SessionManager::sendMouseEvent(int x, int y, int buttons, int eventType) {
+void SessionManager::sendMouseEvent(int x, int y, int eventType) {
     if ( !isActive() || !m_connectionManager || !m_connectionManager->isAuthenticated() ) {
         return;
     }
@@ -99,7 +99,6 @@ void SessionManager::sendMouseEvent(int x, int y, int buttons, int eventType) {
     MouseEvent mouseEvent;
     mouseEvent.x = x;
     mouseEvent.y = y;
-    mouseEvent.buttons = buttons;
     mouseEvent.eventType = static_cast<MouseEventType>(eventType);
     mouseEvent.wheelDelta = 0;
 
@@ -135,7 +134,6 @@ void SessionManager::sendWheelEvent(int x, int y, int delta, int orientation) {
     MouseEvent wheelEvent;
     wheelEvent.x = x;
     wheelEvent.y = y;
-    wheelEvent.buttons = 0;
     wheelEvent.eventType = delta > 0 ? MouseEventType::WHEEL_UP : MouseEventType::WHEEL_DOWN;
     wheelEvent.wheelDelta = delta;
 

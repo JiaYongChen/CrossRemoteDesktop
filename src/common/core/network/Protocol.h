@@ -197,7 +197,6 @@ struct MouseEvent : public IMessageCodec {
     MouseEventType eventType;
     qint16 x;
     qint16 y;
-    quint8 buttons;
     qint16 wheelDelta;
 
     QByteArray encode() const;

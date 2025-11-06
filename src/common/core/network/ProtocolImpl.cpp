@@ -389,20 +389,19 @@ QByteArray MouseEvent::encode() const {
     ds << static_cast<quint8>(eventType);
     ds << static_cast<qint16>(x);
     ds << static_cast<qint16>(y);
-    ds << static_cast<quint8>(buttons);
     ds << static_cast<qint16>(wheelDelta);
     return bytes;
 }
 
 bool MouseEvent::decode(const QByteArray& bytes) {
-    if ( bytes.size() < (1 + 2 + 2 + 1 + 2) ) return false;
+    if ( bytes.size() < (1 + 2 + 2 + 2) ) return false;
     QDataStream ds(bytes);
     ds.setByteOrder(QDataStream::LittleEndian);
-    quint8 type8 = 0; qint16 x_val = 0, y_val = 0; quint8 btn = 0; qint16 wheel = 0;
-    ds >> type8; ds >> x_val; ds >> y_val; ds >> btn; ds >> wheel;
+    quint8 type8 = 0; qint16 x_val = 0, y_val = 0; qint16 wheel = 0;
+    ds >> type8; ds >> x_val; ds >> y_val; ds >> wheel;
     if ( ds.status() != QDataStream::Ok ) return false;
     eventType = static_cast<MouseEventType>(type8);
-    x = x_val; y = y_val; buttons = btn; wheelDelta = wheel;
+    x = x_val; y = y_val; wheelDelta = wheel;
     return true;
 }
 

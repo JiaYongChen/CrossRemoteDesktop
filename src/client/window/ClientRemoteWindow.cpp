@@ -84,7 +84,7 @@ ClientRemoteWindow::ClientRemoteWindow(SessionManager* sessionManager, QWidget* 
     // Setup UI components
     setupScene();
     setupView();
-    
+
     // 不在构造函数中调用 sessionManager->currentHost()，因为可能已经 moveToThread
     // 窗口标题将在外部通过 updateWindowTitle() 设置
     setWindowTitle(tr("Remote Desktop"));
@@ -238,74 +238,10 @@ void ClientRemoteWindow::setupManagerConnections() {
         // Forward file drop events to external listeners if needed
     }
 
-    // Connect input handler signals
-    if ( m_inputHandler ) {
-        // Connect input events to session manager for network transmission
-        connect(m_inputHandler, &InputHandler::inputEventReady, this, [this](const InputEvent& event) {
-            if ( m_sessionManager ) {
-                // 跨线程调用：SessionManager 在独立线程中，使用 QueuedConnection
-                switch ( event.type ) {
-                    case InputEventType::MouseMove:
-                        QMetaObject::invokeMethod(m_sessionManager, "sendMouseEvent",
-                            Qt::QueuedConnection,
-                            Q_ARG(int, event.position.x()),
-                            Q_ARG(int, event.position.y()),
-                            Q_ARG(int, event.button),
-                            Q_ARG(int, static_cast<int>(MouseEventType::MOVE)));
-                        break;
-                    case InputEventType::MousePress:
-                    case InputEventType::MouseRelease:
-                        {
-                            // 根据按键类型和事件类型确定 MouseEventType
-                            int mouseEventType = 0;
-                            Qt::MouseButton btn = static_cast<Qt::MouseButton>(event.button);
-                            bool isPress = (event.type == InputEventType::MousePress);
-                            
-                            if ( btn == Qt::LeftButton ) {
-                                mouseEventType = isPress ? static_cast<int>(MouseEventType::LEFT_PRESS) 
-                                                        : static_cast<int>(MouseEventType::LEFT_RELEASE);
-                            } else if ( btn == Qt::RightButton ) {
-                                mouseEventType = isPress ? static_cast<int>(MouseEventType::RIGHT_PRESS) 
-                                                        : static_cast<int>(MouseEventType::RIGHT_RELEASE);
-                            } else if ( btn == Qt::MiddleButton ) {
-                                mouseEventType = isPress ? static_cast<int>(MouseEventType::MIDDLE_PRESS) 
-                                                        : static_cast<int>(MouseEventType::MIDDLE_RELEASE);
-                            }
-                            
-                            QMetaObject::invokeMethod(m_sessionManager, "sendMouseEvent",
-                                Qt::QueuedConnection,
-                                Q_ARG(int, event.position.x()),
-                                Q_ARG(int, event.position.y()),
-                                Q_ARG(int, event.button),
-                                Q_ARG(int, mouseEventType));
-                        }
-                        break;
-                    case InputEventType::MouseWheel:
-                        QMetaObject::invokeMethod(m_sessionManager, "sendWheelEvent",
-                            Qt::QueuedConnection,
-                            Q_ARG(int, event.position.x()),
-                            Q_ARG(int, event.position.y()),
-                            Q_ARG(int, event.wheelDelta),
-                            Q_ARG(int, Qt::Vertical));
-                        break;
-                    case InputEventType::KeyPress:
-                    case InputEventType::KeyRelease:
-                        QMetaObject::invokeMethod(m_sessionManager, "sendKeyboardEvent",
-                            Qt::QueuedConnection,
-                            Q_ARG(int, event.key),
-                            Q_ARG(int, event.modifiers),
-                            Q_ARG(bool, event.type == InputEventType::KeyPress),
-                            Q_ARG(QString, event.text));
-                        break;
-                }
-            }
-        });
-
-        // Set screen size and scale factor for coordinate transformation
-        if ( m_renderManager ) {
-            m_inputHandler->setScreenSize(m_renderManager->remoteSize());
-            m_inputHandler->setScaleFactor(m_renderManager->scaleFactor());
-        }
+    // Set screen size and scale factor for coordinate transformation
+    if ( m_inputHandler && m_renderManager ) {
+        m_inputHandler->setScreenSize(m_renderManager->remoteSize());
+        m_inputHandler->setScaleFactor(m_renderManager->scaleFactor());
     }
 
     // Connect render manager signals
@@ -471,7 +407,7 @@ RenderManager* ClientRemoteWindow::renderManager() const {
 void ClientRemoteWindow::setFrameRate(int fps) {
     if ( m_sessionManager ) {
         // 跨线程调用：SessionManager 在独立线程中
-        QMetaObject::invokeMethod(m_sessionManager, "setFrameRate", 
+        QMetaObject::invokeMethod(m_sessionManager, "setFrameRate",
             Qt::QueuedConnection, Q_ARG(int, fps));
     }
 }
@@ -525,48 +461,107 @@ void ClientRemoteWindow::paintEvent(QPaintEvent* event) {
 }
 
 void ClientRemoteWindow::mousePressEvent(QMouseEvent* event) {
-    if ( m_inputEnabled && m_inputHandler ) {
+    if ( m_inputEnabled && m_sessionManager ) {
         QPoint remotePos = mapToRemote(event->pos());
-        m_inputHandler->handleMousePress(remotePos, event->button());
+        
+        // 确定鼠标按键类型
+        int mouseEventType = 0;
+        Qt::MouseButton btn = event->button();
+        
+        if ( btn == Qt::LeftButton ) {
+            mouseEventType = static_cast<int>(MouseEventType::LEFT_PRESS);
+        } else if ( btn == Qt::RightButton ) {
+            mouseEventType = static_cast<int>(MouseEventType::RIGHT_PRESS);
+        } else if ( btn == Qt::MiddleButton ) {
+            mouseEventType = static_cast<int>(MouseEventType::MIDDLE_PRESS);
+        }
+        
+        if ( mouseEventType != 0 ) {
+            QMetaObject::invokeMethod(m_sessionManager, "sendMouseEvent",
+                Qt::QueuedConnection,
+                Q_ARG(int, remotePos.x()),
+                Q_ARG(int, remotePos.y()),
+                Q_ARG(int, mouseEventType));
+        }
     }
     QGraphicsView::mousePressEvent(event);
 }
 
 void ClientRemoteWindow::mouseReleaseEvent(QMouseEvent* event) {
-    if ( m_inputEnabled && m_inputHandler ) {
+    if ( m_inputEnabled && m_sessionManager ) {
         QPoint remotePos = mapToRemote(event->pos());
-        m_inputHandler->handleMouseRelease(remotePos, event->button());
+        
+        // 确定鼠标按键类型
+        int mouseEventType = 0;
+        Qt::MouseButton btn = event->button();
+        
+        if ( btn == Qt::LeftButton ) {
+            mouseEventType = static_cast<int>(MouseEventType::LEFT_RELEASE);
+        } else if ( btn == Qt::RightButton ) {
+            mouseEventType = static_cast<int>(MouseEventType::RIGHT_RELEASE);
+        } else if ( btn == Qt::MiddleButton ) {
+            mouseEventType = static_cast<int>(MouseEventType::MIDDLE_RELEASE);
+        }
+        
+        if ( mouseEventType != 0 ) {
+            QMetaObject::invokeMethod(m_sessionManager, "sendMouseEvent",
+                Qt::QueuedConnection,
+                Q_ARG(int, remotePos.x()),
+                Q_ARG(int, remotePos.y()),
+                Q_ARG(int, mouseEventType));
+        }
     }
     QGraphicsView::mouseReleaseEvent(event);
 }
 
 void ClientRemoteWindow::mouseMoveEvent(QMouseEvent* event) {
-    if ( m_inputEnabled && m_inputHandler ) {
+    if ( m_inputEnabled && m_sessionManager ) {
         QPoint remotePos = mapToRemote(event->pos());
-        m_inputHandler->handleMouseMove(remotePos);
+        
+        QMetaObject::invokeMethod(m_sessionManager, "sendMouseEvent",
+            Qt::QueuedConnection,
+            Q_ARG(int, remotePos.x()),
+            Q_ARG(int, remotePos.y()),
+            Q_ARG(int, static_cast<int>(MouseEventType::MOVE)));
     }
     QGraphicsView::mouseMoveEvent(event);
 }
 
 void ClientRemoteWindow::wheelEvent(QWheelEvent* event) {
-    if ( m_inputEnabled && m_inputHandler ) {
+    if ( m_inputEnabled && m_sessionManager ) {
         QPoint remotePos = mapToRemote(event->position().toPoint());
         int delta = event->angleDelta().y();
-        m_inputHandler->handleMouseWheel(remotePos, delta);
+        
+        QMetaObject::invokeMethod(m_sessionManager, "sendWheelEvent",
+            Qt::QueuedConnection,
+            Q_ARG(int, remotePos.x()),
+            Q_ARG(int, remotePos.y()),
+            Q_ARG(int, delta),
+            Q_ARG(int, Qt::Vertical));
     }
     QGraphicsView::wheelEvent(event);
 }
 
 void ClientRemoteWindow::keyPressEvent(QKeyEvent* event) {
-    if ( m_inputEnabled && m_inputHandler ) {
-        m_inputHandler->handleKeyPress(event->key(), event->modifiers(), event->text());
+    if ( m_inputEnabled && m_sessionManager ) {
+        QMetaObject::invokeMethod(m_sessionManager, "sendKeyboardEvent",
+            Qt::QueuedConnection,
+            Q_ARG(int, event->key()),
+            Q_ARG(int, static_cast<int>(event->modifiers())),
+            Q_ARG(bool, true),
+            Q_ARG(QString, event->text()));
     }
     QGraphicsView::keyPressEvent(event);
 }
 
 void ClientRemoteWindow::keyReleaseEvent(QKeyEvent* event) {
-    if ( m_inputEnabled && m_inputHandler ) {
-        m_inputHandler->handleKeyRelease(event->key(), event->modifiers());
+    if ( m_inputEnabled && m_sessionManager ) {
+        QMetaObject::invokeMethod(m_sessionManager, "sendKeyboardEvent",
+            Qt::QueuedConnection,
+            Q_ARG(int, event->key()),
+            Q_ARG(int, static_cast<int>(event->modifiers())),
+            Q_ARG(bool, false),
+            Q_ARG(QString, QString()));
     }
     QGraphicsView::keyReleaseEvent(event);
 }
