@@ -690,33 +690,50 @@ void ClientHandlerWorker::handleMouseEvent(const QByteArray& data) {
         return;
     }
 
-    // 处理鼠标移动
-    if ( x >= 0 && y >= 0 ) {
-        m_inputSimulator->simulateMouseMove(x, y);
-    }
-
-    // 处理鼠标按键
-    if ( buttons & 0x01 ) { // 左键
-        m_inputSimulator->simulateMousePress(x, y, Qt::LeftButton);
-    } else {
-        m_inputSimulator->simulateMouseRelease(x, y, Qt::LeftButton);
-    }
-
-    if ( buttons & 0x02 ) { // 右键
-        m_inputSimulator->simulateMousePress(x, y, Qt::RightButton);
-    } else {
-        m_inputSimulator->simulateMouseRelease(x, y, Qt::RightButton);
-    }
-
-    if ( buttons & 0x04 ) { // 中键
-        m_inputSimulator->simulateMousePress(x, y, Qt::MiddleButton);
-    } else {
-        m_inputSimulator->simulateMouseRelease(x, y, Qt::MiddleButton);
-    }
-
-    // 处理滚轮
-    if ( wheelDelta != 0 ) {
-        m_inputSimulator->simulateMouseWheel(x, y, wheelDelta);
+    // 根据 eventType 处理不同的鼠标事件
+    MouseEventType mouseEventType = static_cast<MouseEventType>(eventType);
+    
+    switch ( mouseEventType ) {
+        case MouseEventType::MOVE:
+            // 处理鼠标移动
+            m_inputSimulator->simulateMouseMove(x, y);
+            break;
+            
+        case MouseEventType::LEFT_PRESS:
+            m_inputSimulator->simulateMousePress(x, y, Qt::LeftButton);
+            break;
+            
+        case MouseEventType::LEFT_RELEASE:
+            m_inputSimulator->simulateMouseRelease(x, y, Qt::LeftButton);
+            break;
+            
+        case MouseEventType::RIGHT_PRESS:
+            m_inputSimulator->simulateMousePress(x, y, Qt::RightButton);
+            break;
+            
+        case MouseEventType::RIGHT_RELEASE:
+            m_inputSimulator->simulateMouseRelease(x, y, Qt::RightButton);
+            break;
+            
+        case MouseEventType::MIDDLE_PRESS:
+            m_inputSimulator->simulateMousePress(x, y, Qt::MiddleButton);
+            break;
+            
+        case MouseEventType::MIDDLE_RELEASE:
+            m_inputSimulator->simulateMouseRelease(x, y, Qt::MiddleButton);
+            break;
+            
+        case MouseEventType::WHEEL_UP:
+        case MouseEventType::WHEEL_DOWN:
+            // 处理滚轮事件
+            if ( wheelDelta != 0 ) {
+                m_inputSimulator->simulateMouseWheel(x, y, wheelDelta);
+            }
+            break;
+            
+        default:
+            qCWarning(clientHandlerWorker, "未知的鼠标事件类型: %d", static_cast<int>(eventType));
+            break;
     }
 }
 
