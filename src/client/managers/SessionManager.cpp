@@ -186,10 +186,6 @@ void SessionManager::onMessageReceived(MessageType type, const QByteArray& data)
             // 处理屏幕数据
             handleScreenData(data);
             break;
-        case MessageType::CURSOR_POSITION:
-            // 处理远程光标位置
-            handleCursorPosition(data);
-            break;
         default:
             // 其他消息类型忽略
             QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient)
@@ -326,26 +322,4 @@ void SessionManager::disconnectFromHost() {
     if ( m_connectionManager ) {
         m_connectionManager->disconnectFromHost();
     }
-}
-
-void SessionManager::handleCursorPosition(const QByteArray& data) {
-    // 光标位置消息格式: x(2字节) + y(2字节) = 4字节
-    if ( data.size() < 4 ) {
-        qCWarning(lcClient) << "SessionManager: Invalid cursor position data size:" << data.size();
-        return;
-    }
-    
-    QDataStream stream(data);
-    stream.setByteOrder(QDataStream::LittleEndian);
-    
-    qint16 x, y;
-    stream >> x >> y;
-    
-    if ( stream.status() != QDataStream::Ok ) {
-        qCWarning(lcClient) << "SessionManager: Failed to parse cursor position data";
-        return;
-    }
-    
-    QPoint cursorPos(x, y);
-    emit remoteCursorPositionUpdated(cursorPos);
 }

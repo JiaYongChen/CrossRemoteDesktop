@@ -59,15 +59,13 @@ ClientRemoteWindow::ClientRemoteWindow(SessionManager* sessionManager, QWidget* 
     , m_fileTransferManager(nullptr)
     , m_renderManager(nullptr)
     , m_lastPanPoint(0, 0)
-    , m_showPerformanceInfo(false)
-    , m_remoteCursorPos(-1, -1)
-    , m_showRemoteCursor(true) {
-    // 确保窗口关闭时自动删除，避免无父对象窗口内存泄漏
-    // 使用属性而非手动deleteLater，减少重复释放风险
+    , m_showPerformanceInfo(false) {
+    // 确保窗口关闭时自动删除,避免无父对象窗口内存泄漏
+    // 使用属性而非手动deleteLater,减少重复释放风险
     setAttribute(Qt::WA_DeleteOnClose, true);
     qDebug() << "[ClientRemoteWindow] Constructor started for sessionManager:" << sessionManager;
 
-    // 注意：sessionManager 可能已经 moveToThread，所以要避免直接调用其方法
+    // 注意:sessionManager 可能已经 moveToThread,所以要避免直接调用其方法
     // connectionId() 访问的是构造时设置的 m_connectionId，通常是安全的
     m_connectionId = sessionManager ? sessionManager->connectionId() : QString::number(0);
 
@@ -167,6 +165,9 @@ void ClientRemoteWindow::configureWindow() {
 
     // 设置焦点策略，确保输入事件能够被正确接收和处理
     setFocusPolicy(Qt::StrongFocus);
+
+    // 启用鼠标跟踪，确保能够接收到 enterEvent 和 leaveEvent
+    setMouseTracking(true);
 }
 
 void ClientRemoteWindow::enableManagerFeatures() {
@@ -208,10 +209,6 @@ void ClientRemoteWindow::setupManagerConnections() {
         // 连接状态变化信号,同步更新 UI 显示
         connect(m_sessionManager, &SessionManager::connectionStateChanged,
             this, &ClientRemoteWindow::setConnectionState);
-            
-        // 连接远程光标位置更新信号
-        connect(m_sessionManager, &SessionManager::remoteCursorPositionUpdated,
-            this, &ClientRemoteWindow::updateRemoteCursorPosition);
     }
 
     // Connect file transfer manager signals  
@@ -416,37 +413,16 @@ void ClientRemoteWindow::paintEvent(QPaintEvent* event) {
     if ( m_showPerformanceInfo ) {
         drawPerformanceInfo(painter);
     }
-
-    // Draw remote cursor (显示远程服务器端的鼠标位置)
-    // Note: Cursor drawing was simplified by removing the over-engineered CursorManager class
-    // Now displays the remote server's cursor position instead of local cursor
-    if ( m_showRemoteCursor && m_remoteCursorPos.x() >= 0 && m_remoteCursorPos.y() >= 0 ) {
-        painter.setPen(QPen(Qt::yellow, 2));  // 使用黄色突出显示远程光标
-        painter.setBrush(Qt::NoBrush);
-        
-        const int cursorSize = 12;
-        // 将远程坐标映射到视图坐标
-        QPoint viewPos = mapFromRemote(m_remoteCursorPos);
-        
-        // Draw crosshair cursor for remote position
-        painter.drawLine(viewPos.x(), viewPos.y() - cursorSize/2,
-                        viewPos.x(), viewPos.y() + cursorSize/2);
-        painter.drawLine(viewPos.x() - cursorSize/2, viewPos.y(),
-                        viewPos.x() + cursorSize/2, viewPos.y());
-        
-        // 绘制一个小圆圈使其更明显
-        painter.drawEllipse(viewPos, 3, 3);
-    }
 }
 
 void ClientRemoteWindow::mousePressEvent(QMouseEvent* event) {
     if ( m_inputEnabled && m_sessionManager ) {
         QPoint remotePos = mapToRemote(event->pos());
-        
+
         // 确定鼠标按键类型
         int mouseEventType = 0;
         Qt::MouseButton btn = event->button();
-        
+
         if ( btn == Qt::LeftButton ) {
             mouseEventType = static_cast<int>(MouseEventType::LEFT_PRESS);
         } else if ( btn == Qt::RightButton ) {
@@ -454,7 +430,7 @@ void ClientRemoteWindow::mousePressEvent(QMouseEvent* event) {
         } else if ( btn == Qt::MiddleButton ) {
             mouseEventType = static_cast<int>(MouseEventType::MIDDLE_PRESS);
         }
-        
+
         if ( mouseEventType != 0 ) {
             QMetaObject::invokeMethod(m_sessionManager, "sendMouseEvent",
                 Qt::QueuedConnection,
@@ -469,11 +445,11 @@ void ClientRemoteWindow::mousePressEvent(QMouseEvent* event) {
 void ClientRemoteWindow::mouseReleaseEvent(QMouseEvent* event) {
     if ( m_inputEnabled && m_sessionManager ) {
         QPoint remotePos = mapToRemote(event->pos());
-        
+
         // 确定鼠标按键类型
         int mouseEventType = 0;
         Qt::MouseButton btn = event->button();
-        
+
         if ( btn == Qt::LeftButton ) {
             mouseEventType = static_cast<int>(MouseEventType::LEFT_RELEASE);
         } else if ( btn == Qt::RightButton ) {
@@ -481,7 +457,7 @@ void ClientRemoteWindow::mouseReleaseEvent(QMouseEvent* event) {
         } else if ( btn == Qt::MiddleButton ) {
             mouseEventType = static_cast<int>(MouseEventType::MIDDLE_RELEASE);
         }
-        
+
         if ( mouseEventType != 0 ) {
             QMetaObject::invokeMethod(m_sessionManager, "sendMouseEvent",
                 Qt::QueuedConnection,
@@ -496,7 +472,7 @@ void ClientRemoteWindow::mouseReleaseEvent(QMouseEvent* event) {
 void ClientRemoteWindow::mouseMoveEvent(QMouseEvent* event) {
     if ( m_inputEnabled && m_sessionManager ) {
         QPoint remotePos = mapToRemote(event->pos());
-        
+
         QMetaObject::invokeMethod(m_sessionManager, "sendMouseEvent",
             Qt::QueuedConnection,
             Q_ARG(int, remotePos.x()),
@@ -510,7 +486,7 @@ void ClientRemoteWindow::wheelEvent(QWheelEvent* event) {
     if ( m_inputEnabled && m_sessionManager ) {
         QPoint remotePos = mapToRemote(event->position().toPoint());
         int delta = event->angleDelta().y();
-        
+
         QMetaObject::invokeMethod(m_sessionManager, "sendWheelEvent",
             Qt::QueuedConnection,
             Q_ARG(int, remotePos.x()),
@@ -563,6 +539,26 @@ void ClientRemoteWindow::focusInEvent(QFocusEvent* event) {
 
 void ClientRemoteWindow::focusOutEvent(QFocusEvent* event) {
     QGraphicsView::focusOutEvent(event);
+}
+
+void ClientRemoteWindow::enterEvent(QEnterEvent* event) {
+    // 鼠标进入远程控制窗口时，隐藏本地鼠标光标
+    // 只显示远程端的鼠标状态
+    // 需要同时设置窗口和viewport的光标
+    setCursor(Qt::BlankCursor);
+    if ( viewport() ) {
+        viewport()->setCursor(Qt::BlankCursor);
+    }
+    QGraphicsView::enterEvent(event);
+}
+
+void ClientRemoteWindow::leaveEvent(QEvent* event) {
+    // 鼠标离开远程控制窗口时，恢复默认光标
+    unsetCursor();
+    if ( viewport() ) {
+        viewport()->unsetCursor();
+    }
+    QGraphicsView::leaveEvent(event);
 }
 
 void ClientRemoteWindow::closeEvent(QCloseEvent* event) {
@@ -723,16 +719,4 @@ void ClientRemoteWindow::onWindowResizeRequested(const QSize& size) {
     qCDebug(lcClientRemoteWindow) << "Window resize requested:"
         << "requested viewport size:" << size
         << "new window size:" << newWindowSize;
-}
-
-// 远程光标控制槽函数
-void ClientRemoteWindow::updateRemoteCursorPosition(const QPoint& position) {
-    m_remoteCursorPos = position;
-    // 触发重绘以显示新的光标位置
-    viewport()->update();
-}
-
-void ClientRemoteWindow::setShowRemoteCursor(bool show) {
-    m_showRemoteCursor = show;
-    viewport()->update();
 }

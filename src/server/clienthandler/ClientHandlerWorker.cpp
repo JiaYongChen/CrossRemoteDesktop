@@ -49,7 +49,6 @@ ClientHandlerWorker::ClientHandlerWorker(qintptr socketDescriptor, QObject* pare
     , m_lastHeartbeat(QDateTime::currentDateTime())
     , m_heartbeatSendTimer(nullptr)
     , m_heartbeatCheckTimer(nullptr)
-    , m_cursorUpdateTimer(nullptr)
     , m_bytesReceived(0)
     , m_bytesSent(0)
     , m_inputSimulator(nullptr)
@@ -112,11 +111,6 @@ bool ClientHandlerWorker::initialize() {
     m_heartbeatSendTimer = new QTimer(this);
     m_heartbeatSendTimer->setInterval(NetworkConstants::HEARTBEAT_INTERVAL);
     connect(m_heartbeatSendTimer, &QTimer::timeout, this, &ClientHandlerWorker::sendHeartbeat);
-    
-    // 创建光标位置更新定时器 (每100ms发送一次,10 FPS)
-    m_cursorUpdateTimer = new QTimer(this);
-    m_cursorUpdateTimer->setInterval(100);  // 100ms = 10 FPS
-    connect(m_cursorUpdateTimer, &QTimer::timeout, this, &ClientHandlerWorker::sendCursorPosition);
 
     // 创建输入模拟器
     m_inputSimulator = new InputSimulator(this);
@@ -135,9 +129,6 @@ bool ClientHandlerWorker::initialize() {
 
     // 启动心跳发送定时器
     m_heartbeatSendTimer->start();
-    
-    // 启动光标位置更新定时器
-    m_cursorUpdateTimer->start();
 
     qCInfo(clientHandlerWorker, "ClientHandlerWorker 初始化成功，客户端: %s", qPrintable(clientId()));
 
@@ -154,10 +145,6 @@ void ClientHandlerWorker::cleanup() {
 
     if ( m_heartbeatSendTimer ) {
         m_heartbeatSendTimer->stop();
-    }
-    
-    if ( m_cursorUpdateTimer ) {
-        m_cursorUpdateTimer->stop();
     }
 
     // 断开套接字连接
@@ -765,7 +752,7 @@ void ClientHandlerWorker::handleKeyboardEvent(const QByteArray& data) {
         return;
     }
 
-    qCDebug(clientHandlerWorker) << "键盘事件: eventType=" << static_cast<int>(keyEvent.eventType) 
+    qCDebug(clientHandlerWorker) << "键盘事件: eventType=" << static_cast<int>(keyEvent.eventType)
         << "keyCode=" << keyEvent.keyCode << "modifiers=" << keyEvent.modifiers
         << "text=" << keyEvent.text;
 
@@ -840,42 +827,4 @@ QString ClientHandlerWorker::generateSessionId() const {
         .toUtf8();
 
     return QCryptographicHash::hash(data, QCryptographicHash::Sha256).toHex();
-}
-
-void ClientHandlerWorker::sendCursorPosition() {
-    if ( !m_socket || !m_socket->isOpen() ) {
-        return;
-    }
-
-    if ( !isAuthenticated() ) {
-        return;
-    }
-
-    if ( !m_inputSimulator ) {
-        return;
-    }
-
-    // 获取当前光标位置
-    QPoint cursorPos = m_inputSimulator->getCursorPosition();
-    
-    // 构建光标位置数据 (x: 2字节, y: 2字节)
-    QByteArray data;
-    QDataStream stream(&data, QIODevice::WriteOnly);
-    stream.setByteOrder(QDataStream::LittleEndian);
-    
-    stream << static_cast<qint16>(cursorPos.x());
-    stream << static_cast<qint16>(cursorPos.y());
-    
-    // 创建一个临时消息编解码器
-    class CursorPositionMessage : public IMessageCodec {
-    public:
-        CursorPositionMessage(const QByteArray& data) : m_data(data) {}
-        QByteArray encode() const override { return m_data; }
-        bool decode(const QByteArray&) override { return true; }
-    private:
-        QByteArray m_data;
-    };
-    
-    // 发送光标位置消息
-    sendMessage(MessageType::CURSOR_POSITION, CursorPositionMessage(data));
 }

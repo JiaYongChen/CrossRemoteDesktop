@@ -160,11 +160,6 @@ private slots:
      * @brief 发送心跳包
      */
     void sendHeartbeat();
-    
-    /**
-     * @brief 发送光标位置更新
-     */
-    void sendCursorPosition();
 
 private:
     /**
@@ -257,7 +252,6 @@ private:
     QDateTime m_lastHeartbeat;            ///< 最后心跳时间
     QTimer* m_heartbeatSendTimer;         ///< 心跳发送定时器
     QTimer* m_heartbeatCheckTimer;        ///< 心跳检查定时器
-    QTimer* m_cursorUpdateTimer;          ///< 光标位置更新定时器
 
     // 断开连接标志（避免重复发送disconnected信号）
     std::atomic<bool> m_disconnectSignalSent{ false };

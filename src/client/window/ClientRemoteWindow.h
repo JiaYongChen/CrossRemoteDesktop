@@ -121,10 +121,6 @@ public slots:
     void takeScreenshot();
     void showConnectionInfo();
     void showPerformanceStats();
-    
-    // 远程光标控制
-    void updateRemoteCursorPosition(const QPoint& position);
-    void setShowRemoteCursor(bool show);
 
 protected:
     void closeEvent(QCloseEvent* event) override;
@@ -138,6 +134,8 @@ protected:
     void resizeEvent(QResizeEvent* event) override;
     void focusInEvent(QFocusEvent* event) override;
     void focusOutEvent(QFocusEvent* event) override;
+    void enterEvent(QEnterEvent* event) override;
+    void leaveEvent(QEvent* event) override;
 
 private slots:
     void onConnectionClosed();
@@ -193,10 +191,6 @@ private:
     QPoint m_lastPanPoint;
 
     bool m_showPerformanceInfo;
-    
-    // 远程光标位置和显示控制
-    QPoint m_remoteCursorPos;
-    bool m_showRemoteCursor;
 };
 
 #endif // CLIENTREMOTEWINDOW_H
