@@ -130,9 +130,6 @@ Q_DECLARE_LOGGING_CATEGORY(lcSessionManager)
 /// 渲染管理器日志
 Q_DECLARE_LOGGING_CATEGORY(lcRenderManager)
 
-/// 输入处理器日志
-Q_DECLARE_LOGGING_CATEGORY(lcInputHandler)
-
 // ============================================================================
 // 用户界面模块日志分类
 // ============================================================================

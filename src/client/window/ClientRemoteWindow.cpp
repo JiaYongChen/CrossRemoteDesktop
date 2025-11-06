@@ -4,7 +4,6 @@
 #include "../managers/ClipboardManager.h"
 #include "../managers/FileTransferManager.h"
 #include "../managers/CursorManager.h"
-#include "../managers/InputHandler.h"
 #include "../../common/core/config/UiConstants.h"
 #include "../../common/core/config/MessageConstants.h"
 #include "RenderManager.h"
@@ -61,7 +60,6 @@ ClientRemoteWindow::ClientRemoteWindow(SessionManager* sessionManager, QWidget* 
     , m_lastMousePos(-1, -1)
     , m_clipboardManager(nullptr)
     , m_fileTransferManager(nullptr)
-    , m_inputHandler(nullptr)
     , m_cursorManager(nullptr)
     , m_renderManager(nullptr)
     , m_lastPanPoint(0, 0)
@@ -161,9 +159,6 @@ void ClientRemoteWindow::initializeManagers() {
     // File transfer management
     m_fileTransferManager = new FileTransferManager(this, this);
 
-    // Input handling
-    m_inputHandler = new InputHandler(this);
-
     // Cursor management (will be initialized when needed)
     m_cursorManager = nullptr;
 
@@ -236,12 +231,6 @@ void ClientRemoteWindow::setupManagerConnections() {
     // Connect file transfer manager signals  
     if ( m_fileTransferManager ) {
         // Forward file drop events to external listeners if needed
-    }
-
-    // Set screen size and scale factor for coordinate transformation
-    if ( m_inputHandler && m_renderManager ) {
-        m_inputHandler->setScreenSize(m_renderManager->remoteSize());
-        m_inputHandler->setScaleFactor(m_renderManager->scaleFactor());
     }
 
     // Connect render manager signals
@@ -389,10 +378,6 @@ ClipboardManager* ClientRemoteWindow::clipboardManager() const {
 
 FileTransferManager* ClientRemoteWindow::fileTransferManager() const {
     return m_fileTransferManager;
-}
-
-InputHandler* ClientRemoteWindow::inputHandler() const {
-    return m_inputHandler;
 }
 
 CursorManager* ClientRemoteWindow::cursorManager() const {
@@ -678,8 +663,7 @@ void ClientRemoteWindow::drawPerformanceInfo(QPainter& painter) {
     painter.restore();
 }
 
-// Note: Mouse and keyboard input handling is now managed by InputHandler
-// Events are processed through the InputHandler and forwarded to SessionManager
+// Note: Mouse and keyboard input events are directly forwarded to SessionManager
 
 void ClientRemoteWindow::saveScreenshot(const QString& fileName) {
     if ( m_renderManager ) {

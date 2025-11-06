@@ -78,9 +78,6 @@ Q_LOGGING_CATEGORY(lcSessionManager, "client.session", QtDebugMsg)
 /// 渲染管理器日志
 Q_LOGGING_CATEGORY(lcRenderManager, "client.render", QtDebugMsg)
 
-/// 输入处理器日志
-Q_LOGGING_CATEGORY(lcInputHandler, "client.input", QtDebugMsg)
-
 // ============================================================================
 // 用户界面模块日志分类定义
 // ============================================================================

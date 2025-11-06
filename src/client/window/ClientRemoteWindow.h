@@ -34,7 +34,6 @@ class QCloseEvent;
 class SessionManager;
 class ClipboardManager;
 class FileTransferManager;
-class InputHandler;
 class CursorManager;
 class RenderManager;
 
@@ -89,7 +88,6 @@ public:
     // Manager access methods
     ClipboardManager* clipboardManager() const;
     FileTransferManager* fileTransferManager() const;
-    InputHandler* inputHandler() const;
     RenderManager* renderManager() const;
 
     // Performance settings
@@ -192,7 +190,6 @@ private:
 
     ClipboardManager* m_clipboardManager;
     FileTransferManager* m_fileTransferManager;
-    InputHandler* m_inputHandler;
     CursorManager* m_cursorManager;
     RenderManager* m_renderManager;
 
