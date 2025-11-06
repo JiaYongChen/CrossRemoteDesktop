@@ -32,9 +32,7 @@ class QFocusEvent;
 class QCloseEvent;
 
 class SessionManager;
-class ClipboardManager;
 class FileTransferManager;
-class CursorManager;
 class RenderManager;
 
 class ClientRemoteWindow : public QGraphicsView {
@@ -86,7 +84,6 @@ public:
     bool isMouseGrabbed() const;
 
     // Manager access methods
-    ClipboardManager* clipboardManager() const;
     FileTransferManager* fileTransferManager() const;
     RenderManager* renderManager() const;
 
@@ -162,8 +159,6 @@ private:
     QRect mapToRemote(const QRect& viewRect) const;
     QRect mapFromRemote(const QRect& remoteRect) const;
 
-    CursorManager* cursorManager() const;
-
     void setUpdateMode(QGraphicsView::ViewportUpdateMode mode);
     void enableOpenGL(bool enable = true);
 
@@ -179,7 +174,7 @@ private:
 
     // 新增：窗口关闭中的标志位
     bool m_isClosing;
-    
+
     // 缓存主机名，避免跨线程直接调用 SessionManager
     QString m_hostName;
 
@@ -188,9 +183,7 @@ private:
     bool m_mouseGrabbed;
     QPoint m_lastMousePos;
 
-    ClipboardManager* m_clipboardManager;
     FileTransferManager* m_fileTransferManager;
-    CursorManager* m_cursorManager;
     RenderManager* m_renderManager;
 
     QPoint m_lastPanPoint;

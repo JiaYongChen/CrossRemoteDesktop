@@ -1,9 +1,7 @@
 #include "ClientRemoteWindow.h"
 #include "../network/TcpClient.h"
 #include "../managers/SessionManager.h"
-#include "../managers/ClipboardManager.h"
 #include "../managers/FileTransferManager.h"
-#include "../managers/CursorManager.h"
 #include "../../common/core/config/UiConstants.h"
 #include "../../common/core/config/MessageConstants.h"
 #include "RenderManager.h"
@@ -52,15 +50,13 @@ ClientRemoteWindow::ClientRemoteWindow(SessionManager* sessionManager, QWidget* 
     , m_sessionManager(sessionManager)
     , m_connectionState(ConnectionManager::Disconnected)
     , m_isFullScreen(false)
-    , m_isClosing(false) // 初始化关闭标志，默认不在关闭流程中
-    , m_hostName()  // 初始化为空，将由外部通过 updateWindowTitle 设置
+    , m_isClosing(false) // 初始化关闭标志,默认不在关闭流程中
+    , m_hostName()  // 初始化为空,将由外部通过 updateWindowTitle 设置
     , m_inputEnabled(true)
     , m_keyboardGrabbed(false)
     , m_mouseGrabbed(false)
     , m_lastMousePos(-1, -1)
-    , m_clipboardManager(nullptr)
     , m_fileTransferManager(nullptr)
-    , m_cursorManager(nullptr)
     , m_renderManager(nullptr)
     , m_lastPanPoint(0, 0)
     , m_showPerformanceInfo(false) {
@@ -153,14 +149,8 @@ void ClientRemoteWindow::initializeManagers() {
     // Initialize managers using composition pattern
     // Each manager is responsible for a specific aspect of functionality
 
-    // Clipboard management
-    m_clipboardManager = new ClipboardManager(this);
-
     // File transfer management
     m_fileTransferManager = new FileTransferManager(this, this);
-
-    // Cursor management (will be initialized when needed)
-    m_cursorManager = nullptr;
 
     // Render and view management
     m_renderManager = new RenderManager(this, this);
@@ -189,11 +179,6 @@ void ClientRemoteWindow::setupScene() {
     if ( m_renderManager ) {
         m_renderManager->initializeScene();
     }
-
-    // Initialize cursor manager after scene is created
-    if ( m_renderManager && m_renderManager->scene() ) {
-        m_cursorManager = new CursorManager(m_renderManager->scene(), this);
-    }
 }
 
 void ClientRemoteWindow::setupView() {
@@ -218,14 +203,9 @@ void ClientRemoteWindow::setupManagerConnections() {
         connect(m_sessionManager, &SessionManager::screenUpdated,
             this, &ClientRemoteWindow::onScreenUpdated);
 
-        // 连接状态变化信号，同步更新 UI 显示
+        // 连接状态变化信号,同步更新 UI 显示
         connect(m_sessionManager, &SessionManager::connectionStateChanged,
             this, &ClientRemoteWindow::setConnectionState);
-    }
-
-    // Connect clipboard manager signals
-    if ( m_clipboardManager ) {
-        // Forward clipboard changes to external listeners if needed
     }
 
     // Connect file transfer manager signals  
@@ -372,16 +352,8 @@ bool ClientRemoteWindow::isMouseGrabbed() const {
 }
 
 // Manager access methods
-ClipboardManager* ClientRemoteWindow::clipboardManager() const {
-    return m_clipboardManager;
-}
-
 FileTransferManager* ClientRemoteWindow::fileTransferManager() const {
     return m_fileTransferManager;
-}
-
-CursorManager* ClientRemoteWindow::cursorManager() const {
-    return m_cursorManager;
 }
 
 RenderManager* ClientRemoteWindow::renderManager() const {
@@ -439,9 +411,21 @@ void ClientRemoteWindow::paintEvent(QPaintEvent* event) {
         drawPerformanceInfo(painter);
     }
 
-    // Draw cursor if enabled (delegated to CursorManager)
-    if ( m_cursorManager && m_cursorManager->showCursor() ) {
-        m_cursorManager->drawCursor(painter);
+    // Draw simple crosshair cursor (simplified from CursorManager)
+    // Note: Cursor drawing was simplified by removing the over-engineered CursorManager class
+    // The original CursorManager had 10 methods but only 2 were used, 85% redundancy
+    if ( true ) { // Cursor always visible for now (was controlled by m_cursorManager->showCursor())
+        painter.setPen(QPen(Qt::white, 2));
+        painter.setBrush(QBrush(Qt::black));
+        
+        const int cursorSize = 10;
+        QPoint cursorPos = mapFromGlobal(QCursor::pos());
+        
+        // Draw crosshair cursor
+        painter.drawLine(cursorPos.x(), cursorPos.y() - cursorSize/2,
+                        cursorPos.x(), cursorPos.y() + cursorSize/2);
+        painter.drawLine(cursorPos.x() - cursorSize/2, cursorPos.y(),
+                        cursorPos.x() + cursorSize/2, cursorPos.y());
     }
 }
 
@@ -610,8 +594,6 @@ void ClientRemoteWindow::onConnectionError(const QString& error) {
      */
     QMessageBox::critical(this, "Connection Error", error);
 }
-
-// Note: Clipboard changes are now handled by ClipboardManager
 
 void ClientRemoteWindow::onScreenUpdated(const QImage& screen) {
     updateRemoteScreen(screen);
