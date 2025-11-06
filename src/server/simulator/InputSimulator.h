@@ -99,7 +99,7 @@ private:
     bool initializeWindows();
     void cleanupWindows();
     bool simulateMouseWindows(int x, int y, DWORD flags, DWORD data = 0);
-    bool simulateKeyboardWindows(WORD key, DWORD flags);
+    bool simulateKeyboardWindows(WORD key, DWORD flags, DWORD modifiers);
     WORD qtKeyToWindowsKey(int qtKey);
     DWORD qtModifiersToWindowsModifiers(Qt::KeyboardModifiers modifiers);
 #endif
@@ -108,7 +108,6 @@ private:
     bool initializeMacOS();
     void cleanupMacOS();
     bool simulateMouseMacOS(int x, int y, CGEventType eventType, CGMouseButton button = kCGMouseButtonLeft);
-    bool simulateKeyboardMacOS(CGKeyCode key, bool keyDown);
     bool simulateKeyboardMacOS(CGKeyCode key, bool keyDown, CGEventFlags modifiers);
     CGKeyCode qtKeyToMacOSKey(int qtKey);
     CGEventFlags qtModifiersToMacOSModifiers(Qt::KeyboardModifiers modifiers);
@@ -118,7 +117,7 @@ private:
     bool initializeLinux();
     void cleanupLinux();
     bool simulateMouseLinux(int x, int y, unsigned int button, bool press);
-    bool simulateKeyboardLinux(KeySym key, bool press);
+    bool simulateKeyboardLinux(KeySym key, bool press, unsigned int modifiers);
     KeySym qtKeyToLinuxKey(int qtKey);
     unsigned int qtModifiersToLinuxModifiers(Qt::KeyboardModifiers modifiers);
     Display* m_display;

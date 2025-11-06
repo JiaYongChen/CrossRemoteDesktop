@@ -9,6 +9,7 @@
 #include <QtCore/QDebug>
 #include <QtCore/QLoggingCategory>
 #include <QtGui/QCursor>
+#include <vector>
 
 #ifdef Q_OS_WIN
 #include <Windows.h>
@@ -283,14 +284,15 @@ bool InputSimulator::simulateKeyPress(int key, Qt::KeyboardModifiers modifiers) 
 #ifdef Q_OS_WIN
     WORD winKey = qtKeyToWindowsKey(key);
     DWORD winModifiers = qtModifiersToWindowsModifiers(modifiers);
-    result = simulateKeyboardWindows(winKey, 0); // Key down
+    result = simulateKeyboardWindows(winKey, 0, winModifiers); // Key down
 #elif defined(Q_OS_MACOS)
     CGKeyCode macKey = qtKeyToMacOSKey(key);
     CGEventFlags macModifiers = qtModifiersToMacOSModifiers(modifiers);
     result = simulateKeyboardMacOS(macKey, true, macModifiers);
 #elif defined(Q_OS_LINUX)
     KeySym linuxKey = qtKeyToLinuxKey(key);
-    result = simulateKeyboardLinux(linuxKey, true);
+    unsigned int linuxModifiers = qtModifiersToLinuxModifiers(modifiers);
+    result = simulateKeyboardLinux(linuxKey, true, linuxModifiers);
 #endif
 
     if ( result ) {
@@ -315,14 +317,16 @@ bool InputSimulator::simulateKeyRelease(int key, Qt::KeyboardModifiers modifiers
 
 #ifdef Q_OS_WIN
     WORD winKey = qtKeyToWindowsKey(key);
-    result = simulateKeyboardWindows(winKey, KEYEVENTF_KEYUP);
+    DWORD winModifiers = qtModifiersToWindowsModifiers(modifiers);
+    result = simulateKeyboardWindows(winKey, KEYEVENTF_KEYUP, winModifiers);
 #elif defined(Q_OS_MACOS)
     CGKeyCode macKey = qtKeyToMacOSKey(key);
     CGEventFlags macModifiers = qtModifiersToMacOSModifiers(modifiers);
     result = simulateKeyboardMacOS(macKey, false, macModifiers);
 #elif defined(Q_OS_LINUX)
     KeySym linuxKey = qtKeyToLinuxKey(key);
-    result = simulateKeyboardLinux(linuxKey, false);
+    unsigned int linuxModifiers = qtModifiersToLinuxModifiers(modifiers);
+    result = simulateKeyboardLinux(linuxKey, false, linuxModifiers);
 #endif
 
     if ( result ) {
@@ -550,23 +554,207 @@ bool InputSimulator::simulateMouseWindows(int x, int y, DWORD flags, DWORD data)
     return SendInput(1, &input, sizeof(INPUT)) == 1;
 }
 
-bool InputSimulator::simulateKeyboardWindows(WORD key, DWORD flags) {
-    INPUT input = { 0 };
-    input.type = INPUT_KEYBOARD;
-    input.ki.wVk = key;
-    input.ki.dwFlags = flags;
+bool InputSimulator::simulateKeyboardWindows(WORD key, DWORD flags, DWORD modifiers) {
+    std::vector<INPUT> inputs;
 
-    return SendInput(1, &input, sizeof(INPUT)) == 1;
+    // 按下修饰键
+    if ( modifiers & 0x0002 ) {  // Ctrl
+        INPUT input = { 0 };
+        input.type = INPUT_KEYBOARD;
+        input.ki.wVk = VK_CONTROL;
+        input.ki.dwFlags = 0;
+        inputs.push_back(input);
+    }
+    if ( modifiers & 0x0004 ) {  // Shift
+        INPUT input = { 0 };
+        input.type = INPUT_KEYBOARD;
+        input.ki.wVk = VK_SHIFT;
+        input.ki.dwFlags = 0;
+        inputs.push_back(input);
+    }
+    if ( modifiers & 0x0001 ) {  // Alt
+        INPUT input = { 0 };
+        input.type = INPUT_KEYBOARD;
+        input.ki.wVk = VK_MENU;
+        input.ki.dwFlags = 0;
+        inputs.push_back(input);
+    }
+
+    // 主键事件
+    INPUT mainInput = { 0 };
+    mainInput.type = INPUT_KEYBOARD;
+    mainInput.ki.wVk = key;
+    mainInput.ki.dwFlags = flags;
+    inputs.push_back(mainInput);
+
+    // 释放修饰键（仅在按键释放时）
+    if ( flags & KEYEVENTF_KEYUP ) {
+        if ( modifiers & 0x0001 ) {  // Alt
+            INPUT input = { 0 };
+            input.type = INPUT_KEYBOARD;
+            input.ki.wVk = VK_MENU;
+            input.ki.dwFlags = KEYEVENTF_KEYUP;
+            inputs.push_back(input);
+        }
+        if ( modifiers & 0x0004 ) {  // Shift
+            INPUT input = { 0 };
+            input.type = INPUT_KEYBOARD;
+            input.ki.wVk = VK_SHIFT;
+            input.ki.dwFlags = KEYEVENTF_KEYUP;
+            inputs.push_back(input);
+        }
+        if ( modifiers & 0x0002 ) {  // Ctrl
+            INPUT input = { 0 };
+            input.type = INPUT_KEYBOARD;
+            input.ki.wVk = VK_CONTROL;
+            input.ki.dwFlags = KEYEVENTF_KEYUP;
+            inputs.push_back(input);
+        }
+    }
+
+    UINT sent = SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT));
+    return sent == inputs.size();
 }
 
 WORD InputSimulator::qtKeyToWindowsKey(int qtKey) {
-    // 简化的键码转换
+    // Qt Key 到 Windows Virtual-Key Code 的映射
+    // 参考: https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
     switch ( qtKey ) {
-        case Qt::Key_A: return 'A';
-        case Qt::Key_B: return 'B';
-        case Qt::Key_C: return 'C';
-            // ... 更多键码映射
-        default: return static_cast<WORD>(qtKey);
+        // 字母键 A-Z (0x41-0x5A)
+        case Qt::Key_A: return 0x41;
+        case Qt::Key_B: return 0x42;
+        case Qt::Key_C: return 0x43;
+        case Qt::Key_D: return 0x44;
+        case Qt::Key_E: return 0x45;
+        case Qt::Key_F: return 0x46;
+        case Qt::Key_G: return 0x47;
+        case Qt::Key_H: return 0x48;
+        case Qt::Key_I: return 0x49;
+        case Qt::Key_J: return 0x4A;
+        case Qt::Key_K: return 0x4B;
+        case Qt::Key_L: return 0x4C;
+        case Qt::Key_M: return 0x4D;
+        case Qt::Key_N: return 0x4E;
+        case Qt::Key_O: return 0x4F;
+        case Qt::Key_P: return 0x50;
+        case Qt::Key_Q: return 0x51;
+        case Qt::Key_R: return 0x52;
+        case Qt::Key_S: return 0x53;
+        case Qt::Key_T: return 0x54;
+        case Qt::Key_U: return 0x55;
+        case Qt::Key_V: return 0x56;
+        case Qt::Key_W: return 0x57;
+        case Qt::Key_X: return 0x58;
+        case Qt::Key_Y: return 0x59;
+        case Qt::Key_Z: return 0x5A;
+
+        // 数字键 0-9 (0x30-0x39)
+        case Qt::Key_0: return 0x30;
+        case Qt::Key_1: return 0x31;
+        case Qt::Key_2: return 0x32;
+        case Qt::Key_3: return 0x33;
+        case Qt::Key_4: return 0x34;
+        case Qt::Key_5: return 0x35;
+        case Qt::Key_6: return 0x36;
+        case Qt::Key_7: return 0x37;
+        case Qt::Key_8: return 0x38;
+        case Qt::Key_9: return 0x39;
+
+        // 功能键 F1-F24
+        case Qt::Key_F1: return VK_F1;
+        case Qt::Key_F2: return VK_F2;
+        case Qt::Key_F3: return VK_F3;
+        case Qt::Key_F4: return VK_F4;
+        case Qt::Key_F5: return VK_F5;
+        case Qt::Key_F6: return VK_F6;
+        case Qt::Key_F7: return VK_F7;
+        case Qt::Key_F8: return VK_F8;
+        case Qt::Key_F9: return VK_F9;
+        case Qt::Key_F10: return VK_F10;
+        case Qt::Key_F11: return VK_F11;
+        case Qt::Key_F12: return VK_F12;
+        case Qt::Key_F13: return VK_F13;
+        case Qt::Key_F14: return VK_F14;
+        case Qt::Key_F15: return VK_F15;
+        case Qt::Key_F16: return VK_F16;
+        case Qt::Key_F17: return VK_F17;
+        case Qt::Key_F18: return VK_F18;
+        case Qt::Key_F19: return VK_F19;
+        case Qt::Key_F20: return VK_F20;
+        case Qt::Key_F21: return VK_F21;
+        case Qt::Key_F22: return VK_F22;
+        case Qt::Key_F23: return VK_F23;
+        case Qt::Key_F24: return VK_F24;
+
+        // 特殊键
+        case Qt::Key_Return: return VK_RETURN;
+        case Qt::Key_Enter: return VK_RETURN;
+        case Qt::Key_Tab: return VK_TAB;
+        case Qt::Key_Space: return VK_SPACE;
+        case Qt::Key_Backspace: return VK_BACK;
+        case Qt::Key_Delete: return VK_DELETE;
+        case Qt::Key_Escape: return VK_ESCAPE;
+        case Qt::Key_CapsLock: return VK_CAPITAL;
+        case Qt::Key_Insert: return VK_INSERT;
+        case Qt::Key_Home: return VK_HOME;
+        case Qt::Key_End: return VK_END;
+        case Qt::Key_PageUp: return VK_PRIOR;
+        case Qt::Key_PageDown: return VK_NEXT;
+
+        // 方向键
+        case Qt::Key_Left: return VK_LEFT;
+        case Qt::Key_Right: return VK_RIGHT;
+        case Qt::Key_Up: return VK_UP;
+        case Qt::Key_Down: return VK_DOWN;
+
+        // 修饰键
+        case Qt::Key_Shift: return VK_SHIFT;
+        case Qt::Key_Control: return VK_CONTROL;
+        case Qt::Key_Alt: return VK_MENU;
+        case Qt::Key_Meta: return VK_LWIN;  // Windows 键
+
+        // 符号键
+        case Qt::Key_Semicolon: return VK_OEM_1;      // ;:
+        case Qt::Key_Plus: return VK_OEM_PLUS;        // =+
+        case Qt::Key_Comma: return VK_OEM_COMMA;      // ,<
+        case Qt::Key_Minus: return VK_OEM_MINUS;      // -_
+        case Qt::Key_Period: return VK_OEM_PERIOD;    // .>
+        case Qt::Key_Slash: return VK_OEM_2;          // /?
+        case Qt::Key_AsciiTilde: return VK_OEM_3;     // `~
+        case Qt::Key_BracketLeft: return VK_OEM_4;    // [{
+        case Qt::Key_Backslash: return VK_OEM_5;      // \|
+        case Qt::Key_BracketRight: return VK_OEM_6;   // ]}
+        case Qt::Key_Apostrophe: return VK_OEM_7;     // '"
+        case Qt::Key_QuoteLeft: return VK_OEM_3;      // `~
+
+        // 小键盘
+        case Qt::Key_0 + Qt::KeypadModifier: return VK_NUMPAD0;
+        case Qt::Key_1 + Qt::KeypadModifier: return VK_NUMPAD1;
+        case Qt::Key_2 + Qt::KeypadModifier: return VK_NUMPAD2;
+        case Qt::Key_3 + Qt::KeypadModifier: return VK_NUMPAD3;
+        case Qt::Key_4 + Qt::KeypadModifier: return VK_NUMPAD4;
+        case Qt::Key_5 + Qt::KeypadModifier: return VK_NUMPAD5;
+        case Qt::Key_6 + Qt::KeypadModifier: return VK_NUMPAD6;
+        case Qt::Key_7 + Qt::KeypadModifier: return VK_NUMPAD7;
+        case Qt::Key_8 + Qt::KeypadModifier: return VK_NUMPAD8;
+        case Qt::Key_9 + Qt::KeypadModifier: return VK_NUMPAD9;
+        case Qt::Key_Asterisk: return VK_MULTIPLY;
+        case Qt::Key_Plus + Qt::KeypadModifier: return VK_ADD;
+        case Qt::Key_Minus + Qt::KeypadModifier: return VK_SUBTRACT;
+        case Qt::Key_Period + Qt::KeypadModifier: return VK_DECIMAL;
+        case Qt::Key_Slash + Qt::KeypadModifier: return VK_DIVIDE;
+
+        // 锁定键
+        case Qt::Key_NumLock: return VK_NUMLOCK;
+        case Qt::Key_ScrollLock: return VK_SCROLL;
+
+        // 其他键
+        case Qt::Key_Pause: return VK_PAUSE;
+        case Qt::Key_Print: return VK_SNAPSHOT;
+
+        default:
+            qCDebug(lcInputSimulator) << "Unmapped Qt key:" << qtKey << "using default mapping";
+            return static_cast<WORD>(qtKey);
     }
 }
 
@@ -662,10 +850,6 @@ bool InputSimulator::simulateMouseMacOS(int x, int y, CGEventType eventType, CGM
     if ( source ) CFRelease(source);
     qCWarning(lcInputSimulator) << "Failed to create CGEvent for mouse at" << x << y << "(transformed:" << tx << ty << ")";
     return false;
-}
-
-bool InputSimulator::simulateKeyboardMacOS(CGKeyCode key, bool keyDown) {
-    return simulateKeyboardMacOS(key, keyDown, 0);
 }
 
 bool InputSimulator::simulateKeyboardMacOS(CGKeyCode key, bool keyDown, CGEventFlags modifiers) {
@@ -853,23 +1037,191 @@ bool InputSimulator::simulateMouseLinux(int x, int y, unsigned int button, bool 
     }
 }
 
-bool InputSimulator::simulateKeyboardLinux(KeySym key, bool press) {
+bool InputSimulator::simulateKeyboardLinux(KeySym key, bool press, unsigned int modifiers) {
     if ( !m_display ) return false;
 
     KeyCode keycode = XKeysymToKeycode(m_display, key);
     if ( keycode == 0 ) return false;
 
-    return XTestFakeKeyEvent(m_display, keycode, press ? True : False, CurrentTime) == True;
+    // 按下修饰键
+    if ( press ) {
+        if ( modifiers & ControlMask ) {
+            KeyCode ctrlKey = XKeysymToKeycode(m_display, XK_Control_L);
+            XTestFakeKeyEvent(m_display, ctrlKey, True, CurrentTime);
+        }
+        if ( modifiers & ShiftMask ) {
+            KeyCode shiftKey = XKeysymToKeycode(m_display, XK_Shift_L);
+            XTestFakeKeyEvent(m_display, shiftKey, True, CurrentTime);
+        }
+        if ( modifiers & Mod1Mask ) {  // Alt
+            KeyCode altKey = XKeysymToKeycode(m_display, XK_Alt_L);
+            XTestFakeKeyEvent(m_display, altKey, True, CurrentTime);
+        }
+    }
+
+    // 主键事件
+    bool result = XTestFakeKeyEvent(m_display, keycode, press ? True : False, CurrentTime) == True;
+
+    // 释放修饰键
+    if ( !press ) {
+        if ( modifiers & Mod1Mask ) {  // Alt
+            KeyCode altKey = XKeysymToKeycode(m_display, XK_Alt_L);
+            XTestFakeKeyEvent(m_display, altKey, False, CurrentTime);
+        }
+        if ( modifiers & ShiftMask ) {
+            KeyCode shiftKey = XKeysymToKeycode(m_display, XK_Shift_L);
+            XTestFakeKeyEvent(m_display, shiftKey, False, CurrentTime);
+        }
+        if ( modifiers & ControlMask ) {
+            KeyCode ctrlKey = XKeysymToKeycode(m_display, XK_Control_L);
+            XTestFakeKeyEvent(m_display, ctrlKey, False, CurrentTime);
+        }
+    }
+
+    XFlush(m_display);
+    return result;
 }
 
 KeySym InputSimulator::qtKeyToLinuxKey(int qtKey) {
-    // 简化的键码转换
+    // Qt Key 到 X11 KeySym 的映射
+    // 参考: /usr/include/X11/keysymdef.h
     switch ( qtKey ) {
+        // 字母键 (小写)
         case Qt::Key_A: return XK_a;
         case Qt::Key_B: return XK_b;
         case Qt::Key_C: return XK_c;
-            // ... 更多键码映射
-        default: return static_cast<KeySym>(qtKey);
+        case Qt::Key_D: return XK_d;
+        case Qt::Key_E: return XK_e;
+        case Qt::Key_F: return XK_f;
+        case Qt::Key_G: return XK_g;
+        case Qt::Key_H: return XK_h;
+        case Qt::Key_I: return XK_i;
+        case Qt::Key_J: return XK_j;
+        case Qt::Key_K: return XK_k;
+        case Qt::Key_L: return XK_l;
+        case Qt::Key_M: return XK_m;
+        case Qt::Key_N: return XK_n;
+        case Qt::Key_O: return XK_o;
+        case Qt::Key_P: return XK_p;
+        case Qt::Key_Q: return XK_q;
+        case Qt::Key_R: return XK_r;
+        case Qt::Key_S: return XK_s;
+        case Qt::Key_T: return XK_t;
+        case Qt::Key_U: return XK_u;
+        case Qt::Key_V: return XK_v;
+        case Qt::Key_W: return XK_w;
+        case Qt::Key_X: return XK_x;
+        case Qt::Key_Y: return XK_y;
+        case Qt::Key_Z: return XK_z;
+
+        // 数字键
+        case Qt::Key_0: return XK_0;
+        case Qt::Key_1: return XK_1;
+        case Qt::Key_2: return XK_2;
+        case Qt::Key_3: return XK_3;
+        case Qt::Key_4: return XK_4;
+        case Qt::Key_5: return XK_5;
+        case Qt::Key_6: return XK_6;
+        case Qt::Key_7: return XK_7;
+        case Qt::Key_8: return XK_8;
+        case Qt::Key_9: return XK_9;
+
+        // 功能键
+        case Qt::Key_F1: return XK_F1;
+        case Qt::Key_F2: return XK_F2;
+        case Qt::Key_F3: return XK_F3;
+        case Qt::Key_F4: return XK_F4;
+        case Qt::Key_F5: return XK_F5;
+        case Qt::Key_F6: return XK_F6;
+        case Qt::Key_F7: return XK_F7;
+        case Qt::Key_F8: return XK_F8;
+        case Qt::Key_F9: return XK_F9;
+        case Qt::Key_F10: return XK_F10;
+        case Qt::Key_F11: return XK_F11;
+        case Qt::Key_F12: return XK_F12;
+        case Qt::Key_F13: return XK_F13;
+        case Qt::Key_F14: return XK_F14;
+        case Qt::Key_F15: return XK_F15;
+        case Qt::Key_F16: return XK_F16;
+        case Qt::Key_F17: return XK_F17;
+        case Qt::Key_F18: return XK_F18;
+        case Qt::Key_F19: return XK_F19;
+        case Qt::Key_F20: return XK_F20;
+        case Qt::Key_F21: return XK_F21;
+        case Qt::Key_F22: return XK_F22;
+        case Qt::Key_F23: return XK_F23;
+        case Qt::Key_F24: return XK_F24;
+
+        // 特殊键
+        case Qt::Key_Return: return XK_Return;
+        case Qt::Key_Enter: return XK_KP_Enter;
+        case Qt::Key_Tab: return XK_Tab;
+        case Qt::Key_Space: return XK_space;
+        case Qt::Key_Backspace: return XK_BackSpace;
+        case Qt::Key_Delete: return XK_Delete;
+        case Qt::Key_Escape: return XK_Escape;
+        case Qt::Key_CapsLock: return XK_Caps_Lock;
+        case Qt::Key_Insert: return XK_Insert;
+        case Qt::Key_Home: return XK_Home;
+        case Qt::Key_End: return XK_End;
+        case Qt::Key_PageUp: return XK_Page_Up;
+        case Qt::Key_PageDown: return XK_Page_Down;
+
+        // 方向键
+        case Qt::Key_Left: return XK_Left;
+        case Qt::Key_Right: return XK_Right;
+        case Qt::Key_Up: return XK_Up;
+        case Qt::Key_Down: return XK_Down;
+
+        // 修饰键
+        case Qt::Key_Shift: return XK_Shift_L;
+        case Qt::Key_Control: return XK_Control_L;
+        case Qt::Key_Alt: return XK_Alt_L;
+        case Qt::Key_Meta: return XK_Super_L;
+
+        // 符号键
+        case Qt::Key_Semicolon: return XK_semicolon;
+        case Qt::Key_Plus: return XK_plus;
+        case Qt::Key_Comma: return XK_comma;
+        case Qt::Key_Minus: return XK_minus;
+        case Qt::Key_Period: return XK_period;
+        case Qt::Key_Slash: return XK_slash;
+        case Qt::Key_AsciiTilde: return XK_asciitilde;
+        case Qt::Key_BracketLeft: return XK_bracketleft;
+        case Qt::Key_Backslash: return XK_backslash;
+        case Qt::Key_BracketRight: return XK_bracketright;
+        case Qt::Key_Apostrophe: return XK_apostrophe;
+        case Qt::Key_QuoteLeft: return XK_grave;
+        case Qt::Key_Equal: return XK_equal;
+
+        // 小键盘
+        case Qt::Key_0 + Qt::KeypadModifier: return XK_KP_0;
+        case Qt::Key_1 + Qt::KeypadModifier: return XK_KP_1;
+        case Qt::Key_2 + Qt::KeypadModifier: return XK_KP_2;
+        case Qt::Key_3 + Qt::KeypadModifier: return XK_KP_3;
+        case Qt::Key_4 + Qt::KeypadModifier: return XK_KP_4;
+        case Qt::Key_5 + Qt::KeypadModifier: return XK_KP_5;
+        case Qt::Key_6 + Qt::KeypadModifier: return XK_KP_6;
+        case Qt::Key_7 + Qt::KeypadModifier: return XK_KP_7;
+        case Qt::Key_8 + Qt::KeypadModifier: return XK_KP_8;
+        case Qt::Key_9 + Qt::KeypadModifier: return XK_KP_9;
+        case Qt::Key_Asterisk: return XK_KP_Multiply;
+        case Qt::Key_Plus + Qt::KeypadModifier: return XK_KP_Add;
+        case Qt::Key_Minus + Qt::KeypadModifier: return XK_KP_Subtract;
+        case Qt::Key_Period + Qt::KeypadModifier: return XK_KP_Decimal;
+        case Qt::Key_Slash + Qt::KeypadModifier: return XK_KP_Divide;
+
+        // 锁定键
+        case Qt::Key_NumLock: return XK_Num_Lock;
+        case Qt::Key_ScrollLock: return XK_Scroll_Lock;
+
+        // 其他键
+        case Qt::Key_Pause: return XK_Pause;
+        case Qt::Key_Print: return XK_Print;
+
+        default:
+            qCDebug(lcInputSimulator) << "Unmapped Qt key:" << qtKey << "using default mapping";
+            return static_cast<KeySym>(qtKey);
     }
 }
 
