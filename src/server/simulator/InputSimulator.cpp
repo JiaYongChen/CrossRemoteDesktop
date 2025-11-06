@@ -720,12 +720,15 @@ WORD InputSimulator::qtKeyToWindowsKey(int qtKey) {
         case Qt::Key_Minus: return VK_OEM_MINUS;      // -_
         case Qt::Key_Period: return VK_OEM_PERIOD;    // .>
         case Qt::Key_Slash: return VK_OEM_2;          // /?
+        case Qt::Key_Less: return VK_OEM_COMMA;       // < (same as comma with shift)
+        case Qt::Key_Greater: return VK_OEM_PERIOD;   // > (same as period with shift)
         case Qt::Key_AsciiTilde: return VK_OEM_3;     // `~
         case Qt::Key_BracketLeft: return VK_OEM_4;    // [{
         case Qt::Key_Backslash: return VK_OEM_5;      // \|
         case Qt::Key_BracketRight: return VK_OEM_6;   // ]}
         case Qt::Key_Apostrophe: return VK_OEM_7;     // '"
         case Qt::Key_QuoteLeft: return VK_OEM_3;      // `~
+        case Qt::Key_Equal: return VK_OEM_PLUS;       // = (same key as plus)
 
         // 小键盘
         case Qt::Key_0 + Qt::KeypadModifier: return VK_NUMPAD0;
@@ -934,6 +937,8 @@ CGKeyCode InputSimulator::qtKeyToMacOSKey(int qtKey) {
         case Qt::Key_Slash: return 0x2C;        // /
         case Qt::Key_Period: return 0x2F;       // .
         case Qt::Key_QuoteLeft: return 0x32;    // `
+        case Qt::Key_Less: return 0x2B;         // < (same as comma with shift)
+        case Qt::Key_Greater: return 0x2F;      // > (same as period with shift)
 
             // 功能键
         case Qt::Key_Return: return 0x24;
@@ -1186,6 +1191,8 @@ KeySym InputSimulator::qtKeyToLinuxKey(int qtKey) {
         case Qt::Key_Minus: return XK_minus;
         case Qt::Key_Period: return XK_period;
         case Qt::Key_Slash: return XK_slash;
+        case Qt::Key_Less: return XK_less;
+        case Qt::Key_Greater: return XK_greater;
         case Qt::Key_AsciiTilde: return XK_asciitilde;
         case Qt::Key_BracketLeft: return XK_bracketleft;
         case Qt::Key_Backslash: return XK_backslash;
