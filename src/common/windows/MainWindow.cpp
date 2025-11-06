@@ -871,6 +871,8 @@ void MainWindow::addConnectionToHistory(const QString& host, int port) {
             // 保存到历史记录
             saveConnectionHistory();
         }
+
+        m_connectionList->setCurrentRow(0);
     }
 }
 
@@ -928,6 +930,10 @@ void MainWindow::showConnectionContextMenu(const QPoint& pos) {
 
     // 显示菜单
     contextMenu.exec(m_connectionList->mapToGlobal(pos));
+
+    if ( m_connectionList->count() > 0 ) {
+        m_connectionList->setCurrentRow(0);
+    }
 }
 
 void MainWindow::updateServerStatus(const QString& message) {

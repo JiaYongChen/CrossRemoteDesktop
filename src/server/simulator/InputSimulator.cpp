@@ -245,7 +245,21 @@ bool InputSimulator::simulateMouseWheel(int x, int y, int delta)
 #ifdef Q_OS_WIN
     result = simulateMouseWindows(x, y, MOUSEEVENTF_WHEEL, delta);
 #elif defined(Q_OS_MACOS)
-    CGEventRef event = CGEventCreateScrollWheelEvent(nullptr, kCGScrollEventUnitPixel, 1, delta);
+    // Qt 的滚轮 delta 通常是 120 的倍数
+    // 转换为滚动行数: delta / 120
+    // 使用 kCGScrollEventUnitLine 更符合系统行为
+    int scrollLines = delta / 120;
+    if (scrollLines == 0 && delta != 0) {
+        scrollLines = (delta > 0) ? 1 : -1;
+    }
+    
+    CGEventRef event = CGEventCreateScrollWheelEvent(
+        nullptr, 
+        kCGScrollEventUnitLine,  // 使用行单位而不是像素
+        1,                       // 滚动轴数量(垂直滚动)
+        scrollLines              // 滚动量
+    );
+    
     if (event) {
         CGEventPost(kCGHIDEventTap, event);
         CFRelease(event);

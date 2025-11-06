@@ -246,14 +246,39 @@ void ClientRemoteWindow::setupManagerConnections() {
                 // 跨线程调用：SessionManager 在独立线程中，使用 QueuedConnection
                 switch ( event.type ) {
                     case InputEventType::MouseMove:
-                    case InputEventType::MousePress:
-                    case InputEventType::MouseRelease:
                         QMetaObject::invokeMethod(m_sessionManager, "sendMouseEvent",
                             Qt::QueuedConnection,
                             Q_ARG(int, event.position.x()),
                             Q_ARG(int, event.position.y()),
                             Q_ARG(int, event.button),
-                            Q_ARG(int, event.type == InputEventType::MousePress ? 1 : 0));
+                            Q_ARG(int, static_cast<int>(MouseEventType::MOVE)));
+                        break;
+                    case InputEventType::MousePress:
+                    case InputEventType::MouseRelease:
+                        {
+                            // 根据按键类型和事件类型确定 MouseEventType
+                            int mouseEventType = 0;
+                            Qt::MouseButton btn = static_cast<Qt::MouseButton>(event.button);
+                            bool isPress = (event.type == InputEventType::MousePress);
+                            
+                            if ( btn == Qt::LeftButton ) {
+                                mouseEventType = isPress ? static_cast<int>(MouseEventType::LEFT_PRESS) 
+                                                        : static_cast<int>(MouseEventType::LEFT_RELEASE);
+                            } else if ( btn == Qt::RightButton ) {
+                                mouseEventType = isPress ? static_cast<int>(MouseEventType::RIGHT_PRESS) 
+                                                        : static_cast<int>(MouseEventType::RIGHT_RELEASE);
+                            } else if ( btn == Qt::MiddleButton ) {
+                                mouseEventType = isPress ? static_cast<int>(MouseEventType::MIDDLE_PRESS) 
+                                                        : static_cast<int>(MouseEventType::MIDDLE_RELEASE);
+                            }
+                            
+                            QMetaObject::invokeMethod(m_sessionManager, "sendMouseEvent",
+                                Qt::QueuedConnection,
+                                Q_ARG(int, event.position.x()),
+                                Q_ARG(int, event.position.y()),
+                                Q_ARG(int, event.button),
+                                Q_ARG(int, mouseEventType));
+                        }
                         break;
                     case InputEventType::MouseWheel:
                         QMetaObject::invokeMethod(m_sessionManager, "sendWheelEvent",

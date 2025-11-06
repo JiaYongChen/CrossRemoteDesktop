@@ -692,45 +692,39 @@ void ClientHandlerWorker::handleMouseEvent(const QByteArray& data) {
 
     // 根据 eventType 处理不同的鼠标事件
     MouseEventType mouseEventType = static_cast<MouseEventType>(eventType);
-    
+
     switch ( mouseEventType ) {
         case MouseEventType::MOVE:
             // 处理鼠标移动
             m_inputSimulator->simulateMouseMove(x, y);
             break;
-            
         case MouseEventType::LEFT_PRESS:
             m_inputSimulator->simulateMousePress(x, y, Qt::LeftButton);
             break;
-            
         case MouseEventType::LEFT_RELEASE:
             m_inputSimulator->simulateMouseRelease(x, y, Qt::LeftButton);
             break;
-            
         case MouseEventType::RIGHT_PRESS:
             m_inputSimulator->simulateMousePress(x, y, Qt::RightButton);
             break;
-            
         case MouseEventType::RIGHT_RELEASE:
             m_inputSimulator->simulateMouseRelease(x, y, Qt::RightButton);
             break;
-            
         case MouseEventType::MIDDLE_PRESS:
             m_inputSimulator->simulateMousePress(x, y, Qt::MiddleButton);
             break;
-            
         case MouseEventType::MIDDLE_RELEASE:
             m_inputSimulator->simulateMouseRelease(x, y, Qt::MiddleButton);
             break;
-            
         case MouseEventType::WHEEL_UP:
         case MouseEventType::WHEEL_DOWN:
             // 处理滚轮事件
             if ( wheelDelta != 0 ) {
+                qCDebug(clientHandlerWorker) << "滚轮事件: delta=" << wheelDelta 
+                    << "eventType=" << static_cast<int>(mouseEventType);
                 m_inputSimulator->simulateMouseWheel(x, y, wheelDelta);
             }
             break;
-            
         default:
             qCWarning(clientHandlerWorker, "未知的鼠标事件类型: %d", static_cast<int>(eventType));
             break;
