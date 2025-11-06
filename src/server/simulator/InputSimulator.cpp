@@ -286,7 +286,8 @@ bool InputSimulator::simulateKeyPress(int key, Qt::KeyboardModifiers modifiers) 
     result = simulateKeyboardWindows(winKey, 0); // Key down
 #elif defined(Q_OS_MACOS)
     CGKeyCode macKey = qtKeyToMacOSKey(key);
-    result = simulateKeyboardMacOS(macKey, true);
+    CGEventFlags macModifiers = qtModifiersToMacOSModifiers(modifiers);
+    result = simulateKeyboardMacOS(macKey, true, macModifiers);
 #elif defined(Q_OS_LINUX)
     KeySym linuxKey = qtKeyToLinuxKey(key);
     result = simulateKeyboardLinux(linuxKey, true);
@@ -317,7 +318,8 @@ bool InputSimulator::simulateKeyRelease(int key, Qt::KeyboardModifiers modifiers
     result = simulateKeyboardWindows(winKey, KEYEVENTF_KEYUP);
 #elif defined(Q_OS_MACOS)
     CGKeyCode macKey = qtKeyToMacOSKey(key);
-    result = simulateKeyboardMacOS(macKey, false);
+    CGEventFlags macModifiers = qtModifiersToMacOSModifiers(modifiers);
+    result = simulateKeyboardMacOS(macKey, false, macModifiers);
 #elif defined(Q_OS_LINUX)
     KeySym linuxKey = qtKeyToLinuxKey(key);
     result = simulateKeyboardLinux(linuxKey, false);
@@ -328,9 +330,7 @@ bool InputSimulator::simulateKeyRelease(int key, Qt::KeyboardModifiers modifiers
     }
 
     return result;
-}
-
-bool InputSimulator::simulateKeyClick(int key, Qt::KeyboardModifiers modifiers) {
+}bool InputSimulator::simulateKeyClick(int key, Qt::KeyboardModifiers modifiers) {
     bool pressResult = simulateKeyPress(key, modifiers);
     delay(m_keyboardDelay);
     bool releaseResult = simulateKeyRelease(key, modifiers);
@@ -373,7 +373,7 @@ QSize InputSimulator::getScreenSize() const {
     if ( m_display ) {
         Screen* screen = DefaultScreenOfDisplay(m_display);
         return QSize(WidthOfScreen(screen), HeightOfScreen(screen));
-    }
+}
 #endif
     return QSize(1920, 1080); // 默认分辨率
 }
@@ -383,7 +383,7 @@ QPoint InputSimulator::getCursorPosition() const {
     POINT point;
     if ( GetCursorPos(&point) ) {
         return QPoint(point.x, point.y);
-    }
+}
 #elif defined(Q_OS_MACOS)
     CGEventRef event = CGEventCreate(nullptr);
     if ( event ) {
@@ -665,6 +665,10 @@ bool InputSimulator::simulateMouseMacOS(int x, int y, CGEventType eventType, CGM
 }
 
 bool InputSimulator::simulateKeyboardMacOS(CGKeyCode key, bool keyDown) {
+    return simulateKeyboardMacOS(key, keyDown, 0);
+}
+
+bool InputSimulator::simulateKeyboardMacOS(CGKeyCode key, bool keyDown, CGEventFlags modifiers) {
     // 检查辅助功能权限
     if ( !AXIsProcessTrusted() ) {
         qCWarning(lcInputSimulator) << "Accessibility permission not granted, cannot simulate keyboard event";
@@ -675,9 +679,14 @@ bool InputSimulator::simulateKeyboardMacOS(CGKeyCode key, bool keyDown) {
     CGEventRef event = CGEventCreateKeyboardEvent(nullptr, key, keyDown);
 
     if ( event ) {
+        // 设置修饰键标志（如果有）
+        if ( modifiers != 0 ) {
+            CGEventSetFlags(event, modifiers);
+        }
         CGEventPost(kCGHIDEventTap, event);
         CFRelease(event);
-        qCDebug(lcInputSimulator) << "Keyboard event simulated: key=" << key << "keyDown=" << keyDown;
+        qCDebug(lcInputSimulator) << "Keyboard event simulated: key=" << key
+            << "keyDown=" << keyDown << "modifiers=" << modifiers;
         return true;
     }
 
