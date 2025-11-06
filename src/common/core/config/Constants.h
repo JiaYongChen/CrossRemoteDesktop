@@ -65,7 +65,7 @@ public:
         static constexpr int DEFAULT_MOUSE_SPEED = 5;                   ///< 默认鼠标速度 px/step
         static constexpr int DEFAULT_KEYBOARD_DELAY = 50;               ///< 默认键盘延迟 ms
         static constexpr int DEFAULT_MOUSE_DELAY = 10;                  ///< 默认鼠标延迟 ms
-        static constexpr int MAX_KEY_VALUE = 255;                       ///< 最大按键值
+        static constexpr int MAX_KEY_VALUE = 0x01FFFFFF;                ///< 最大按键值 (Qt::Key 最大值)
     };
 
     /**
