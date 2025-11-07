@@ -314,6 +314,7 @@ void KeyboardSimulatorWindows::initializeKeyMappings() {
     m_standardKeyMap[Qt::Key_Equal] = VK_OEM_PLUS;       // = (同 Plus 键)
     m_standardKeyMap[Qt::Key_Less] = VK_OEM_COMMA;       // < (Shift + Comma)
     m_standardKeyMap[Qt::Key_Greater] = VK_OEM_PERIOD;   // > (Shift + Period)
+    m_standardKeyMap[Qt::Key_Asterisk] = 0x38;           // * (Shift + 8, 映射到数字8键)
 
     // 系统键
     m_standardKeyMap[Qt::Key_Pause] = VK_PAUSE;
