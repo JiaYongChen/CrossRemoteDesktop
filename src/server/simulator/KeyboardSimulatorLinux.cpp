@@ -82,8 +82,19 @@ bool KeyboardSimulatorLinux::simulateKeyboardEvent(KeySym key, bool press, unsig
         return false;
     }
 
-    // 按下修饰键
-    if (press) {
+    // 检测主键是否是修饰键本身,避免重复处理
+    bool isMainKeyModifier = (key == XK_Control_L || key == XK_Control_R ||
+                              key == XK_Shift_L || key == XK_Shift_R ||
+                              key == XK_Alt_L || key == XK_Alt_R ||
+                              key == XK_Meta_L || key == XK_Meta_R ||
+                              key == XK_Super_L || key == XK_Super_R);
+
+    if (isMainKeyModifier) {
+        qCDebug(lcKeyboardSimulatorLinux) << "Main key is a modifier key, skipping modifier handling";
+    }
+
+    // 按下修饰键(仅当主键不是修饰键本身时)
+    if (!isMainKeyModifier && press) {
         if (modifiers & ControlMask) {
             KeyCode ctrlKey = XKeysymToKeycode(m_display, XK_Control_L);
             XTestFakeKeyEvent(m_display, ctrlKey, True, CurrentTime);
@@ -101,8 +112,8 @@ bool KeyboardSimulatorLinux::simulateKeyboardEvent(KeySym key, bool press, unsig
     // 主键事件
     bool result = XTestFakeKeyEvent(m_display, keycode, press ? True : False, CurrentTime) == True;
 
-    // 释放修饰键
-    if (!press) {
+    // 释放修饰键(仅当主键不是修饰键本身时)
+    if (!isMainKeyModifier && !press) {
         if (modifiers & Mod1Mask) {  // Alt
             KeyCode altKey = XKeysymToKeycode(m_display, XK_Alt_L);
             XTestFakeKeyEvent(m_display, altKey, False, CurrentTime);

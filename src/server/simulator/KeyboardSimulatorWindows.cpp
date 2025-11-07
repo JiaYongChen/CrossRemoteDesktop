@@ -65,22 +65,30 @@ bool KeyboardSimulatorWindows::simulateKeyRelease(int qtKey, Qt::KeyboardModifie
 bool KeyboardSimulatorWindows::simulateKeyboardEvent(WORD key, DWORD flags, DWORD modifiers) {
     std::vector<INPUT> inputs;
 
-    // 按下修饰键
-    if (modifiers & 0x0002) {  // Ctrl
+    // 检测主键是否是修饰键本身,避免重复处理
+    bool isMainKeyModifier = (key == VK_CONTROL || key == VK_SHIFT || key == VK_MENU || 
+                              key == VK_LWIN || key == VK_RWIN);
+
+    if (isMainKeyModifier) {
+        qCDebug(lcKeyboardSimulatorWindows) << "Main key is a modifier key, skipping modifier handling";
+    }
+
+    // 按下修饰键(仅当主键不是修饰键本身时)
+    if (!isMainKeyModifier && modifiers & 0x0002) {  // Ctrl
         INPUT input = {0};
         input.type = INPUT_KEYBOARD;
         input.ki.wVk = VK_CONTROL;
         input.ki.dwFlags = 0;
         inputs.push_back(input);
     }
-    if (modifiers & 0x0004) {  // Shift
+    if (!isMainKeyModifier && modifiers & 0x0004) {  // Shift
         INPUT input = {0};
         input.type = INPUT_KEYBOARD;
         input.ki.wVk = VK_SHIFT;
         input.ki.dwFlags = 0;
         inputs.push_back(input);
     }
-    if (modifiers & 0x0001) {  // Alt
+    if (!isMainKeyModifier && modifiers & 0x0001) {  // Alt
         INPUT input = {0};
         input.type = INPUT_KEYBOARD;
         input.ki.wVk = VK_MENU;
@@ -95,8 +103,8 @@ bool KeyboardSimulatorWindows::simulateKeyboardEvent(WORD key, DWORD flags, DWOR
     mainInput.ki.dwFlags = flags;
     inputs.push_back(mainInput);
 
-    // 释放修饰键（仅在按键释放时）
-    if (flags & KEYEVENTF_KEYUP) {
+    // 释放修饰键(仅在按键释放时且主键不是修饰键本身时)
+    if (!isMainKeyModifier && (flags & KEYEVENTF_KEYUP)) {
         if (modifiers & 0x0001) {  // Alt
             INPUT input = {0};
             input.type = INPUT_KEYBOARD;
