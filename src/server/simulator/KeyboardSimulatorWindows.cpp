@@ -40,8 +40,14 @@ bool KeyboardSimulatorWindows::simulateKeyPress(int qtKey, Qt::KeyboardModifiers
         return false;
     }
 
+    qCDebug(lcKeyboardSimulatorWindows) << "simulateKeyPress: qtKey=" << Qt::hex << qtKey 
+        << "(" << Qt::dec << qtKey << "), modifiers=" << modifiers;
+
     WORD winKey = qtKeyToWindowsKey(qtKey);
     DWORD winModifiers = qtModifiersToWindowsModifiers(modifiers);
+    
+    qCDebug(lcKeyboardSimulatorWindows) << "Mapped to winKey=" << Qt::hex << winKey 
+        << "(" << Qt::dec << winKey << ")";
     
     return simulateKeyboardEvent(winKey, 0, winModifiers); // 0 表示按下
 }
@@ -142,6 +148,39 @@ bool KeyboardSimulatorWindows::simulateKeyboardEvent(WORD key, DWORD flags, DWOR
 WORD KeyboardSimulatorWindows::qtKeyToWindowsKey(int qtKey) const {
     // Qt Key 到 Windows Virtual-Key Code 的映射
     // 参考: https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
+    
+    // 检测是否是小键盘按键 (Qt::KeypadModifier = 0x20000000)
+    bool isKeypad = (qtKey & 0x20000000) != 0;
+    int baseKey = qtKey & ~0x20000000;  // 移除 KeypadModifier 标志
+    
+    if (isKeypad) {
+        qCDebug(lcKeyboardSimulatorWindows) << "Keypad key detected: qtKey=" << Qt::hex << qtKey 
+            << ", baseKey=" << baseKey;
+        
+        // 小键盘特殊映射
+        switch (baseKey) {
+            case Qt::Key_0: return VK_NUMPAD0;
+            case Qt::Key_1: return VK_NUMPAD1;
+            case Qt::Key_2: return VK_NUMPAD2;
+            case Qt::Key_3: return VK_NUMPAD3;
+            case Qt::Key_4: return VK_NUMPAD4;
+            case Qt::Key_5: return VK_NUMPAD5;
+            case Qt::Key_6: return VK_NUMPAD6;
+            case Qt::Key_7: return VK_NUMPAD7;
+            case Qt::Key_8: return VK_NUMPAD8;
+            case Qt::Key_9: return VK_NUMPAD9;
+            case Qt::Key_Asterisk: return VK_MULTIPLY;
+            case Qt::Key_Plus: return VK_ADD;
+            case Qt::Key_Minus: return VK_SUBTRACT;
+            case Qt::Key_Period: return VK_DECIMAL;
+            case Qt::Key_Slash: return VK_DIVIDE;
+            case Qt::Key_Enter: return VK_RETURN;  // 小键盘 Enter
+            default:
+                qCWarning(lcKeyboardSimulatorWindows) << "Unmapped keypad key:" << baseKey;
+                break;
+        }
+    }
+    
     switch (qtKey) {
         // 字母键 A-Z (0x41-0x5A)
         case Qt::Key_A: return 0x41;
@@ -252,23 +291,6 @@ WORD KeyboardSimulatorWindows::qtKeyToWindowsKey(int qtKey) const {
         case Qt::Key_Apostrophe: return VK_OEM_7;     // '"
         case Qt::Key_QuoteLeft: return VK_OEM_3;      // `~
         case Qt::Key_Equal: return VK_OEM_PLUS;       // = (same key as plus)
-
-        // 小键盘
-        case Qt::Key_0 + Qt::KeypadModifier: return VK_NUMPAD0;
-        case Qt::Key_1 + Qt::KeypadModifier: return VK_NUMPAD1;
-        case Qt::Key_2 + Qt::KeypadModifier: return VK_NUMPAD2;
-        case Qt::Key_3 + Qt::KeypadModifier: return VK_NUMPAD3;
-        case Qt::Key_4 + Qt::KeypadModifier: return VK_NUMPAD4;
-        case Qt::Key_5 + Qt::KeypadModifier: return VK_NUMPAD5;
-        case Qt::Key_6 + Qt::KeypadModifier: return VK_NUMPAD6;
-        case Qt::Key_7 + Qt::KeypadModifier: return VK_NUMPAD7;
-        case Qt::Key_8 + Qt::KeypadModifier: return VK_NUMPAD8;
-        case Qt::Key_9 + Qt::KeypadModifier: return VK_NUMPAD9;
-        case Qt::Key_Asterisk: return VK_MULTIPLY;
-        case Qt::Key_Plus + Qt::KeypadModifier: return VK_ADD;
-        case Qt::Key_Minus + Qt::KeypadModifier: return VK_SUBTRACT;
-        case Qt::Key_Period + Qt::KeypadModifier: return VK_DECIMAL;
-        case Qt::Key_Slash + Qt::KeypadModifier: return VK_DIVIDE;
 
         // 锁定键
         case Qt::Key_NumLock: return VK_NUMLOCK;
