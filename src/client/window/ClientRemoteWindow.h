@@ -135,6 +135,9 @@ private:
     void enableOpenGL(bool enable = true);
 
     void drawPerformanceInfo(QPainter& painter);
+    
+    // 显示断开连接对话框
+    void showDisconnectionDialog();
 
 private:
     QString m_connectionId;

@@ -224,9 +224,28 @@ void ClientRemoteWindow::setupManagerConnections() {
 // Connection state management
 void ClientRemoteWindow::setConnectionState(ConnectionManager::ConnectionState state) {
     if ( m_connectionState != state ) {
+        ConnectionManager::ConnectionState oldState = m_connectionState;
         m_connectionState = state;
         // 状态变化时自动更新窗口标题
         updateWindowTitle();
+        
+        // 如果从已连接状态变为断开连接,且不是用户主动关闭窗口
+        if (state == ConnectionManager::Disconnected && !m_isClosing) {
+            // 检查之前是否处于已连接状态
+            if (oldState == ConnectionManager::Connected || 
+                oldState == ConnectionManager::Authenticated ||
+                oldState == ConnectionManager::Authenticating) {
+                
+                qCInfo(lcClientRemoteWindow) << "连接已断开,准备显示提示并关闭窗口";
+                
+                // 使用 QTimer::singleShot 延迟执行,确保在事件循环中执行
+                QTimer::singleShot(100, this, [this]() {
+                    if (!m_isClosing) {  // 再次检查,避免重复处理
+                        showDisconnectionDialog();
+                    }
+                });
+            }
+        }
     }
 }
 
@@ -566,6 +585,30 @@ void ClientRemoteWindow::onConnectionError(const QString& error) {
      * - 仅负责展示错误信息
      */
     QMessageBox::critical(this, "Connection Error", error);
+}
+
+void ClientRemoteWindow::showDisconnectionDialog() {
+    qCInfo(lcClientRemoteWindow) << "显示断开连接对话框";
+    
+    // 标记为正在关闭,避免重复处理
+    m_isClosing = true;
+    
+    // 显示提示对话框
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle(tr("连接已断开"));
+    msgBox.setText(tr("与远程主机 %1 的连接已断开。").arg(m_hostName.isEmpty() ? "服务器" : m_hostName));
+    msgBox.setInformativeText(tr("窗口将关闭。"));
+    msgBox.setIcon(QMessageBox::Information);
+    msgBox.setStandardButtons(QMessageBox::Ok);
+    msgBox.setDefaultButton(QMessageBox::Ok);
+    
+    // 显示对话框(阻塞)
+    msgBox.exec();
+    
+    qCInfo(lcClientRemoteWindow) << "用户确认断开连接提示,准备关闭窗口";
+    
+    // 关闭窗口
+    close();
 }
 
 void ClientRemoteWindow::onScreenUpdated(const QImage& screen) {
