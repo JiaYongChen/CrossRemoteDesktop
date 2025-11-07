@@ -82,56 +82,70 @@ bool KeyboardSimulatorLinux::simulateKeyboardEvent(KeySym key, bool press, unsig
         return false;
     }
 
-    // 检测主键是否是修饰键本身,避免重复处理
+    // 检测主键是否是修饰键本身
     bool isMainKeyModifier = (key == XK_Control_L || key == XK_Control_R ||
                               key == XK_Shift_L || key == XK_Shift_R ||
                               key == XK_Alt_L || key == XK_Alt_R ||
                               key == XK_Meta_L || key == XK_Meta_R ||
                               key == XK_Super_L || key == XK_Super_R);
 
+    qCDebug(lcKeyboardSimulatorLinux) << "simulateKeyboardEvent: key=" << key 
+        << "press=" << press << "modifiers=" << modifiers 
+        << "isMainKeyModifier=" << isMainKeyModifier;
+
+    // 对于修饰键本身，直接发送
     if (isMainKeyModifier) {
-        qCDebug(lcKeyboardSimulatorLinux) << "Main key is a modifier key, skipping modifier handling";
+        bool result = XTestFakeKeyEvent(m_display, keycode, press ? True : False, CurrentTime) == True;
+        XFlush(m_display);
+        qCDebug(lcKeyboardSimulatorLinux) << "Modifier key event sent: key=" << key;
+        return result;
     }
 
-    // 按下修饰键(仅当主键不是修饰键本身时)
-    if (!isMainKeyModifier && press) {
+    // 对于普通键，根据 modifiers 参数完整处理修饰键
+    // 按下修饰键（仅在按键按下时）
+    if (press) {
         if (modifiers & ControlMask) {
             KeyCode ctrlKey = XKeysymToKeycode(m_display, XK_Control_L);
             XTestFakeKeyEvent(m_display, ctrlKey, True, CurrentTime);
+            qCDebug(lcKeyboardSimulatorLinux) << "Pressing Control";
         }
         if (modifiers & ShiftMask) {
             KeyCode shiftKey = XKeysymToKeycode(m_display, XK_Shift_L);
             XTestFakeKeyEvent(m_display, shiftKey, True, CurrentTime);
+            qCDebug(lcKeyboardSimulatorLinux) << "Pressing Shift";
         }
         if (modifiers & Mod1Mask) {  // Alt
             KeyCode altKey = XKeysymToKeycode(m_display, XK_Alt_L);
             XTestFakeKeyEvent(m_display, altKey, True, CurrentTime);
+            qCDebug(lcKeyboardSimulatorLinux) << "Pressing Alt";
         }
     }
 
     // 主键事件
     bool result = XTestFakeKeyEvent(m_display, keycode, press ? True : False, CurrentTime) == True;
 
-    // 释放修饰键(仅当主键不是修饰键本身时)
-    if (!isMainKeyModifier && !press) {
+    // 释放修饰键（仅在按键释放时）
+    if (!press) {
         if (modifiers & Mod1Mask) {  // Alt
             KeyCode altKey = XKeysymToKeycode(m_display, XK_Alt_L);
             XTestFakeKeyEvent(m_display, altKey, False, CurrentTime);
+            qCDebug(lcKeyboardSimulatorLinux) << "Releasing Alt";
         }
         if (modifiers & ShiftMask) {
             KeyCode shiftKey = XKeysymToKeycode(m_display, XK_Shift_L);
             XTestFakeKeyEvent(m_display, shiftKey, False, CurrentTime);
+            qCDebug(lcKeyboardSimulatorLinux) << "Releasing Shift";
         }
         if (modifiers & ControlMask) {
             KeyCode ctrlKey = XKeysymToKeycode(m_display, XK_Control_L);
             XTestFakeKeyEvent(m_display, ctrlKey, False, CurrentTime);
+            qCDebug(lcKeyboardSimulatorLinux) << "Releasing Control";
         }
     }
 
     XFlush(m_display);
     
-    qCDebug(lcKeyboardSimulatorLinux) << "Keyboard event simulated: key=" << key 
-        << "press=" << press << "modifiers=" << modifiers;
+    qCDebug(lcKeyboardSimulatorLinux) << "Keyboard event simulated successfully";
     return result;
 }
 
@@ -232,15 +246,13 @@ KeySym KeyboardSimulatorLinux::qtKeyToLinuxKey(int qtKey) const {
         case Qt::Key_Alt: return XK_Alt_L;
         case Qt::Key_Meta: return XK_Super_L;
 
-        // 符号键
+        // 符号键（基础键）
         case Qt::Key_Semicolon: return XK_semicolon;
         case Qt::Key_Plus: return XK_plus;
         case Qt::Key_Comma: return XK_comma;
         case Qt::Key_Minus: return XK_minus;
         case Qt::Key_Period: return XK_period;
         case Qt::Key_Slash: return XK_slash;
-        case Qt::Key_Less: return XK_less;
-        case Qt::Key_Greater: return XK_greater;
         case Qt::Key_AsciiTilde: return XK_asciitilde;
         case Qt::Key_BracketLeft: return XK_bracketleft;
         case Qt::Key_Backslash: return XK_backslash;
@@ -248,6 +260,29 @@ KeySym KeyboardSimulatorLinux::qtKeyToLinuxKey(int qtKey) const {
         case Qt::Key_Apostrophe: return XK_apostrophe;
         case Qt::Key_QuoteLeft: return XK_grave;
         case Qt::Key_Equal: return XK_equal;
+        
+        // Shift 组合的符号键（物理键相同）
+        case Qt::Key_Less: return XK_less;
+        case Qt::Key_Greater: return XK_greater;
+        case Qt::Key_Question: return XK_question;
+        case Qt::Key_Colon: return XK_colon;
+        case Qt::Key_QuoteDbl: return XK_quotedbl;
+        case Qt::Key_BraceLeft: return XK_braceleft;
+        case Qt::Key_BraceRight: return XK_braceright;
+        case Qt::Key_Bar: return XK_bar;
+        case Qt::Key_Underscore: return XK_underscore;
+        
+        // Shift + 数字键的符号
+        case Qt::Key_Exclam: return XK_exclam;        // ! (Shift + 1)
+        case Qt::Key_At: return XK_at;                // @ (Shift + 2)
+        case Qt::Key_NumberSign: return XK_numbersign;// # (Shift + 3)
+        case Qt::Key_Dollar: return XK_dollar;        // $ (Shift + 4)
+        case Qt::Key_Percent: return XK_percent;      // % (Shift + 5)
+        case Qt::Key_AsciiCircum: return XK_asciicircum;// ^ (Shift + 6)
+        case Qt::Key_Ampersand: return XK_ampersand;  // & (Shift + 7)
+        case Qt::Key_Asterisk: return XK_asterisk;    // * (Shift + 8, 主键盘)
+        case Qt::Key_ParenLeft: return XK_parenleft;  // ( (Shift + 9)
+        case Qt::Key_ParenRight: return XK_parenright;// ) (Shift + 0)
 
         // 小键盘
         case Qt::Key_0 + Qt::KeypadModifier: return XK_KP_0;

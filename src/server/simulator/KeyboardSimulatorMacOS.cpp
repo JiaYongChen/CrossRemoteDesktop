@@ -106,22 +106,112 @@ bool KeyboardSimulatorMacOS::simulateKeyboardEvent(CGKeyCode key, bool keyDown, 
         return false;
     }
 
-    CGEventRef event = CGEventCreateKeyboardEvent(nullptr, key, keyDown);
+    // 检测主键是否是修饰键本身
+    bool isMainKeyModifier = (key == 0x3B || key == 0x3E ||  // Control L/R
+                              key == 0x38 || key == 0x3C ||  // Shift L/R
+                              key == 0x3A || key == 0x3D ||  // Option L/R
+                              key == 0x37 || key == 0x36);   // Command L/R
 
-    if (event) {
-        // 设置修饰键标志（如果有）
-        if (modifiers != 0) {
-            CGEventSetFlags(event, modifiers);
+    qCDebug(lcKeyboardSimulatorMacOS) << "simulateKeyboardEvent: key=" << key 
+        << "keyDown=" << keyDown << "modifiers=" << modifiers 
+        << "isMainKeyModifier=" << isMainKeyModifier;
+
+    // 对于修饰键本身，直接发送
+    if (isMainKeyModifier) {
+        CGEventRef event = CGEventCreateKeyboardEvent(nullptr, key, keyDown);
+        if (event) {
+            CGEventPost(kCGHIDEventTap, event);
+            CFRelease(event);
+            qCDebug(lcKeyboardSimulatorMacOS) << "Modifier key event sent: key=" << key;
+            return true;
         }
-        CGEventPost(kCGHIDEventTap, event);
-        CFRelease(event);
-        qCDebug(lcKeyboardSimulatorMacOS) << "Keyboard event simulated: key=" << key
-            << "keyDown=" << keyDown << "modifiers=" << modifiers;
-        return true;
+        return false;
     }
 
-    qCWarning(lcKeyboardSimulatorMacOS) << "Failed to create CGEvent for keyboard key:" << key;
-    return false;
+    // 对于普通键，根据 modifiers 参数完整处理修饰键
+    // 按下修饰键（仅在按键按下时）
+    if (keyDown) {
+        if (modifiers & kCGEventFlagMaskControl) {
+            CGEventRef ctrlEvent = CGEventCreateKeyboardEvent(nullptr, 0x3B, true);  // Left Control
+            if (ctrlEvent) {
+                CGEventPost(kCGHIDEventTap, ctrlEvent);
+                CFRelease(ctrlEvent);
+                qCDebug(lcKeyboardSimulatorMacOS) << "Pressing Control";
+            }
+        }
+        if (modifiers & kCGEventFlagMaskShift) {
+            CGEventRef shiftEvent = CGEventCreateKeyboardEvent(nullptr, 0x38, true);  // Left Shift
+            if (shiftEvent) {
+                CGEventPost(kCGHIDEventTap, shiftEvent);
+                CFRelease(shiftEvent);
+                qCDebug(lcKeyboardSimulatorMacOS) << "Pressing Shift";
+            }
+        }
+        if (modifiers & kCGEventFlagMaskAlternate) {
+            CGEventRef altEvent = CGEventCreateKeyboardEvent(nullptr, 0x3A, true);  // Left Option
+            if (altEvent) {
+                CGEventPost(kCGHIDEventTap, altEvent);
+                CFRelease(altEvent);
+                qCDebug(lcKeyboardSimulatorMacOS) << "Pressing Option";
+            }
+        }
+        if (modifiers & kCGEventFlagMaskCommand) {
+            CGEventRef cmdEvent = CGEventCreateKeyboardEvent(nullptr, 0x37, true);  // Left Command
+            if (cmdEvent) {
+                CGEventPost(kCGHIDEventTap, cmdEvent);
+                CFRelease(cmdEvent);
+                qCDebug(lcKeyboardSimulatorMacOS) << "Pressing Command";
+            }
+        }
+    }
+
+    // 主键事件
+    CGEventRef event = CGEventCreateKeyboardEvent(nullptr, key, keyDown);
+    if (!event) {
+        qCWarning(lcKeyboardSimulatorMacOS) << "Failed to create CGEvent for keyboard key:" << key;
+        return false;
+    }
+    CGEventPost(kCGHIDEventTap, event);
+    CFRelease(event);
+
+    // 释放修饰键（仅在按键释放时）
+    if (!keyDown) {
+        if (modifiers & kCGEventFlagMaskCommand) {
+            CGEventRef cmdEvent = CGEventCreateKeyboardEvent(nullptr, 0x37, false);  // Left Command
+            if (cmdEvent) {
+                CGEventPost(kCGHIDEventTap, cmdEvent);
+                CFRelease(cmdEvent);
+                qCDebug(lcKeyboardSimulatorMacOS) << "Releasing Command";
+            }
+        }
+        if (modifiers & kCGEventFlagMaskAlternate) {
+            CGEventRef altEvent = CGEventCreateKeyboardEvent(nullptr, 0x3A, false);  // Left Option
+            if (altEvent) {
+                CGEventPost(kCGHIDEventTap, altEvent);
+                CFRelease(altEvent);
+                qCDebug(lcKeyboardSimulatorMacOS) << "Releasing Option";
+            }
+        }
+        if (modifiers & kCGEventFlagMaskShift) {
+            CGEventRef shiftEvent = CGEventCreateKeyboardEvent(nullptr, 0x38, false);  // Left Shift
+            if (shiftEvent) {
+                CGEventPost(kCGHIDEventTap, shiftEvent);
+                CFRelease(shiftEvent);
+                qCDebug(lcKeyboardSimulatorMacOS) << "Releasing Shift";
+            }
+        }
+        if (modifiers & kCGEventFlagMaskControl) {
+            CGEventRef ctrlEvent = CGEventCreateKeyboardEvent(nullptr, 0x3B, false);  // Left Control
+            if (ctrlEvent) {
+                CGEventPost(kCGHIDEventTap, ctrlEvent);
+                CFRelease(ctrlEvent);
+                qCDebug(lcKeyboardSimulatorMacOS) << "Releasing Control";
+            }
+        }
+    }
+
+    qCDebug(lcKeyboardSimulatorMacOS) << "Keyboard event simulated successfully";
+    return true;
 }
 
 CGKeyCode KeyboardSimulatorMacOS::qtKeyToMacOSKey(int qtKey) const {
@@ -168,7 +258,7 @@ CGKeyCode KeyboardSimulatorMacOS::qtKeyToMacOSKey(int qtKey) const {
         case Qt::Key_9: return 0x19;
         case Qt::Key_0: return 0x1D;
 
-        // 符号键
+        // 符号键（基础键）
         case Qt::Key_Equal: return 0x18;        // =
         case Qt::Key_Minus: return 0x1B;        // -
         case Qt::Key_BracketRight: return 0x1E; // ]
@@ -180,8 +270,31 @@ CGKeyCode KeyboardSimulatorMacOS::qtKeyToMacOSKey(int qtKey) const {
         case Qt::Key_Slash: return 0x2C;        // /
         case Qt::Key_Period: return 0x2F;       // .
         case Qt::Key_QuoteLeft: return 0x32;    // `
-        case Qt::Key_Less: return 0x2B;         // < (same as comma with shift)
-        case Qt::Key_Greater: return 0x2F;      // > (same as period with shift)
+        
+        // Shift 组合的符号键（物理键相同）
+        case Qt::Key_Plus: return 0x18;         // + (Shift + =)
+        case Qt::Key_Underscore: return 0x1B;   // _ (Shift + -)
+        case Qt::Key_BraceRight: return 0x1E;   // } (Shift + ])
+        case Qt::Key_BraceLeft: return 0x21;    // { (Shift + [)
+        case Qt::Key_QuoteDbl: return 0x27;     // " (Shift + ')
+        case Qt::Key_Colon: return 0x29;        // : (Shift + ;)
+        case Qt::Key_Bar: return 0x2A;          // | (Shift + \)
+        case Qt::Key_Less: return 0x2B;         // < (Shift + ,)
+        case Qt::Key_Question: return 0x2C;     // ? (Shift + /)
+        case Qt::Key_Greater: return 0x2F;      // > (Shift + .)
+        case Qt::Key_AsciiTilde: return 0x32;   // ~ (Shift + `)
+        
+        // Shift + 数字键的符号
+        case Qt::Key_Exclam: return 0x12;       // ! (Shift + 1)
+        case Qt::Key_At: return 0x13;           // @ (Shift + 2)
+        case Qt::Key_NumberSign: return 0x14;   // # (Shift + 3)
+        case Qt::Key_Dollar: return 0x15;       // $ (Shift + 4)
+        case Qt::Key_Percent: return 0x17;      // % (Shift + 5)
+        case Qt::Key_AsciiCircum: return 0x16;  // ^ (Shift + 6)
+        case Qt::Key_Ampersand: return 0x1A;    // & (Shift + 7)
+        case Qt::Key_Asterisk: return 0x1C;     // * (Shift + 8)
+        case Qt::Key_ParenLeft: return 0x19;    // ( (Shift + 9)
+        case Qt::Key_ParenRight: return 0x1D;   // ) (Shift + 0)
 
         // 功能键
         case Qt::Key_Return: return 0x24;
