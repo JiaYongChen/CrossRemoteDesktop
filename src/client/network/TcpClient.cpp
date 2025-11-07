@@ -7,11 +7,15 @@
 #include "../common/core/logging/LoggingCategories.h"
 #include <QtCore/QDataStream>
 #include <QtCore/QMessageLogger>
+#include <QtNetwork/QNetworkProxy>
 
 TcpClient::TcpClient(QObject* parent)
     : QObject(parent)
     , m_socket(new QTcpSocket(this))
     , m_heartbeatCheckTimer(new QTimer(this)) {
+
+    m_socket->setProxy(QNetworkProxy::NoProxy);
+
     // 连接 socket 信号到本类槽函数
     connect(m_socket, &QTcpSocket::connected, this, &TcpClient::onConnected);
     connect(m_socket, &QTcpSocket::disconnected, this, &TcpClient::onDisconnected);
