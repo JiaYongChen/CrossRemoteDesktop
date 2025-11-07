@@ -228,19 +228,20 @@ void ClientRemoteWindow::setConnectionState(ConnectionManager::ConnectionState s
         m_connectionState = state;
         // 状态变化时自动更新窗口标题
         updateWindowTitle();
-        
+
         // 如果从已连接状态变为断开连接,且不是用户主动关闭窗口
-        if (state == ConnectionManager::Disconnected && !m_isClosing) {
+        if ( state == ConnectionManager::Disconnected && !m_isClosing ) {
             // 检查之前是否处于已连接状态
-            if (oldState == ConnectionManager::Connected || 
+            if ( oldState == ConnectionManager::Connected ||
                 oldState == ConnectionManager::Authenticated ||
-                oldState == ConnectionManager::Authenticating) {
-                
+                oldState == ConnectionManager::Authenticating ||
+                oldState == ConnectionManager::Error ) {
+
                 qCInfo(lcClientRemoteWindow) << "连接已断开,准备显示提示并关闭窗口";
-                
+
                 // 使用 QTimer::singleShot 延迟执行,确保在事件循环中执行
                 QTimer::singleShot(100, this, [this]() {
-                    if (!m_isClosing) {  // 再次检查,避免重复处理
+                    if ( !m_isClosing ) {  // 再次检查,避免重复处理
                         showDisconnectionDialog();
                     }
                 });
@@ -589,10 +590,10 @@ void ClientRemoteWindow::onConnectionError(const QString& error) {
 
 void ClientRemoteWindow::showDisconnectionDialog() {
     qCInfo(lcClientRemoteWindow) << "显示断开连接对话框";
-    
+
     // 标记为正在关闭,避免重复处理
     m_isClosing = true;
-    
+
     // 显示提示对话框
     QMessageBox msgBox(this);
     msgBox.setWindowTitle(tr("连接已断开"));
@@ -601,12 +602,12 @@ void ClientRemoteWindow::showDisconnectionDialog() {
     msgBox.setIcon(QMessageBox::Information);
     msgBox.setStandardButtons(QMessageBox::Ok);
     msgBox.setDefaultButton(QMessageBox::Ok);
-    
+
     // 显示对话框(阻塞)
     msgBox.exec();
-    
+
     qCInfo(lcClientRemoteWindow) << "用户确认断开连接提示,准备关闭窗口";
-    
+
     // 关闭窗口
     close();
 }
