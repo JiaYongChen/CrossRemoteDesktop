@@ -1,0 +1,39 @@
+#ifndef KEYBOARDSIMULATORWINDOWS_H
+#define KEYBOARDSIMULATORWINDOWS_H
+
+#include "KeyboardSimulator.h"
+#include <QLoggingCategory>
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <vector>
+
+Q_DECLARE_LOGGING_CATEGORY(lcKeyboardSimulatorWindows)
+
+class KeyboardSimulatorWindows : public KeyboardSimulator {
+public:
+    KeyboardSimulatorWindows();
+    ~KeyboardSimulatorWindows() override;
+
+    // 初始化和清理
+    bool initialize() override;
+    void cleanup() override;
+
+    // 键盘操作
+    bool simulateKeyPress(int qtKey, Qt::KeyboardModifiers modifiers) override;
+    bool simulateKeyRelease(int qtKey, Qt::KeyboardModifiers modifiers) override;
+
+private:
+    // 键盘事件模拟
+    bool simulateKeyboardEvent(WORD key, DWORD flags, DWORD modifiers);
+    
+    // Qt 按键转 Windows 虚拟键码
+    WORD qtKeyToWindowsKey(int qtKey) const;
+    
+    // Qt 修饰键转 Windows 修饰键
+    DWORD qtModifiersToWindowsModifiers(Qt::KeyboardModifiers modifiers) const;
+};
+
+#endif // Q_OS_WIN
+
+#endif // KEYBOARDSIMULATORWINDOWS_H

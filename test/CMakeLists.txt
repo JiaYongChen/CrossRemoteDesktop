@@ -668,6 +668,29 @@ set(PRODUCER_CONSUMER_INTEGRATION_TEST_SOURCES
     ../src/server/clienthandler/ClientHandlerWorker.cpp
     ../src/server/service/TcpServer.cpp
     ../src/server/simulator/InputSimulator.cpp
+    ../src/server/simulator/MouseSimulator.cpp
+    ../src/server/simulator/KeyboardSimulator.cpp
+)
+
+# 添加平台特定的模拟器源文件
+if(APPLE)
+    list(APPEND PRODUCER_CONSUMER_INTEGRATION_TEST_SOURCES
+        ../src/server/simulator/MouseSimulatorMacOS.cpp
+        ../src/server/simulator/KeyboardSimulatorMacOS.cpp
+    )
+elseif(WIN32)
+    list(APPEND PRODUCER_CONSUMER_INTEGRATION_TEST_SOURCES
+        ../src/server/simulator/MouseSimulatorWindows.cpp
+        ../src/server/simulator/KeyboardSimulatorWindows.cpp
+    )
+elseif(UNIX)
+    list(APPEND PRODUCER_CONSUMER_INTEGRATION_TEST_SOURCES
+        ../src/server/simulator/MouseSimulatorLinux.cpp
+        ../src/server/simulator/KeyboardSimulatorLinux.cpp
+    )
+endif()
+
+list(APPEND PRODUCER_CONSUMER_INTEGRATION_TEST_SOURCES
     
     # 公共核心源文件
     ../src/common/core/threading/Worker.cpp

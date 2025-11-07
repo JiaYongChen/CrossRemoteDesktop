@@ -1108,13 +1108,33 @@ void MainWindow::onAllConnectionsClosed() {
 }
 
 #ifdef Q_OS_MACOS
+#include "../server/simulator/MouseSimulatorMacOS.h"
+#include <ApplicationServices/ApplicationServices.h>
+
 bool MainWindow::checkMacOSAccessibilityPermission() {
-    // 使用 InputSimulator 的静态方法检查权限
-    return InputSimulator::checkAccessibilityPermission();
+    // 检查辅助功能权限
+    return AXIsProcessTrusted();
 }
 
 bool MainWindow::requestMacOSAccessibilityPermission() {
-    // 使用 InputSimulator 的静态方法请求权限
-    return InputSimulator::requestAccessibilityPermission();
+    // 创建带提示的选项字典，会弹出系统对话框引导用户授权
+    const void* keys[] = { kAXTrustedCheckOptionPrompt };
+    const void* values[] = { kCFBooleanTrue };
+
+    CFDictionaryRef options = CFDictionaryCreate(
+        kCFAllocatorDefault,
+        keys,
+        values,
+        1,
+        &kCFTypeDictionaryKeyCallBacks,
+        &kCFTypeDictionaryValueCallBacks);
+
+    Boolean trusted = AXIsProcessTrustedWithOptions(options);
+
+    if ( options ) {
+        CFRelease(options);
+    }
+
+    return trusted;
 }
 #endif
