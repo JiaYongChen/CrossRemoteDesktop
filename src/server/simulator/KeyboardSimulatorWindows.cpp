@@ -80,36 +80,94 @@ bool KeyboardSimulatorWindows::simulateKeyboardEvent(WORD key, DWORD flags, DWOR
     bool isMainKeyModifier = (key == VK_CONTROL || key == VK_SHIFT || key == VK_MENU || 
                               key == VK_LWIN || key == VK_RWIN);
 
+    qCDebug(lcKeyboardSimulatorWindows) << "simulateKeyboardEvent: key=" << key 
+        << "flags=" << flags << "modifiers=" << modifiers 
+        << "isMainKeyModifier=" << isMainKeyModifier;
+
+    // 对于修饰键本身，直接发送，不做额外处理
     if (isMainKeyModifier) {
-        qCDebug(lcKeyboardSimulatorWindows) << "Main key is a modifier key, will send it directly";
+        INPUT mainInput = {0};
+        mainInput.type = INPUT_KEYBOARD;
+        mainInput.ki.wVk = key;
+        mainInput.ki.dwFlags = flags;
+        inputs.push_back(mainInput);
+        
+        UINT sent = SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT));
+        if (sent == inputs.size()) {
+            qCDebug(lcKeyboardSimulatorWindows) << "Modifier key event sent: key=" << key << "flags=" << flags;
+            return true;
+        }
+        return false;
     }
 
-    // 重要说明：
-    // Qt 会为每个按键（包括修饰键）发送独立的 keyPress/keyRelease 事件
-    // 例如按下 Ctrl+C 的完整序列：
-    //   1. keyPress(Ctrl) -> modifiers=ControlModifier
-    //   2. keyPress(C) -> modifiers=ControlModifier
-    //   3. keyRelease(C) -> modifiers=ControlModifier
-    //   4. keyRelease(Ctrl) -> modifiers=NoModifier
-    //
-    // 因此，我们不应该在普通键的事件中自动添加/移除修饰键
-    // 修饰键应该完全通过它们自己的独立事件来处理
-    //
-    // 这里的 modifiers 参数仅用于调试和日志记录，
-    // 实际的修饰键状态由操作系统根据之前收到的修饰键事件来维护
+    // 对于普通键的按下事件，根据 modifiers 参数同步修饰键状态
+    if (!(flags & KEYEVENTF_KEYUP)) {
+        // 按键按下时：确保需要的修饰键都处于按下状态
+        if (modifiers & 0x0002) {  // Ctrl
+            INPUT input = {0};
+            input.type = INPUT_KEYBOARD;
+            input.ki.wVk = VK_CONTROL;
+            input.ki.dwFlags = 0;
+            inputs.push_back(input);
+            qCDebug(lcKeyboardSimulatorWindows) << "Pressing Ctrl";
+        }
+        if (modifiers & 0x0004) {  // Shift
+            INPUT input = {0};
+            input.type = INPUT_KEYBOARD;
+            input.ki.wVk = VK_SHIFT;
+            input.ki.dwFlags = 0;
+            inputs.push_back(input);
+            qCDebug(lcKeyboardSimulatorWindows) << "Pressing Shift";
+        }
+        if (modifiers & 0x0001) {  // Alt
+            INPUT input = {0};
+            input.type = INPUT_KEYBOARD;
+            input.ki.wVk = VK_MENU;
+            input.ki.dwFlags = 0;
+            inputs.push_back(input);
+            qCDebug(lcKeyboardSimulatorWindows) << "Pressing Alt";
+        }
+    }
 
-    // 只发送主键事件，不自动处理修饰键
+    // 主键事件
     INPUT mainInput = {0};
     mainInput.type = INPUT_KEYBOARD;
     mainInput.ki.wVk = key;
     mainInput.ki.dwFlags = flags;
     inputs.push_back(mainInput);
 
+    // 对于普通键的释放事件，释放之前按下的修饰键
+    if (flags & KEYEVENTF_KEYUP) {
+        // 按键释放时：按相反顺序释放修饰键
+        if (modifiers & 0x0001) {  // Alt
+            INPUT input = {0};
+            input.type = INPUT_KEYBOARD;
+            input.ki.wVk = VK_MENU;
+            input.ki.dwFlags = KEYEVENTF_KEYUP;
+            inputs.push_back(input);
+            qCDebug(lcKeyboardSimulatorWindows) << "Releasing Alt";
+        }
+        if (modifiers & 0x0004) {  // Shift
+            INPUT input = {0};
+            input.type = INPUT_KEYBOARD;
+            input.ki.wVk = VK_SHIFT;
+            input.ki.dwFlags = KEYEVENTF_KEYUP;
+            inputs.push_back(input);
+            qCDebug(lcKeyboardSimulatorWindows) << "Releasing Shift";
+        }
+        if (modifiers & 0x0002) {  // Ctrl
+            INPUT input = {0};
+            input.type = INPUT_KEYBOARD;
+            input.ki.wVk = VK_CONTROL;
+            input.ki.dwFlags = KEYEVENTF_KEYUP;
+            inputs.push_back(input);
+            qCDebug(lcKeyboardSimulatorWindows) << "Releasing Ctrl";
+        }
+    }
+
     UINT sent = SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT));
     if (sent == inputs.size()) {
-        qCDebug(lcKeyboardSimulatorWindows) << "Keyboard event simulated: key=" << key 
-            << "flags=" << flags << "modifiers=" << modifiers 
-            << "(modifiers are for reference only)";
+        qCDebug(lcKeyboardSimulatorWindows) << "Keyboard event simulated: sent" << inputs.size() << "inputs";
         return true;
     }
 
@@ -320,6 +378,7 @@ void KeyboardSimulatorWindows::initializeKeyMappings() {
     //   2. 小键盘的 '+' → Qt::Key_Plus(有KeypadModifier) → VK_ADD
     //   3. 两个映射表中可以有相同的 Qt::Key，通过 KeypadModifier 区分
     
+    // 基础符号键
     m_standardKeyMap[Qt::Key_Semicolon] = VK_OEM_1;      // ;:
     m_standardKeyMap[Qt::Key_Plus] = VK_OEM_PLUS;        // =+ (主键盘)
     m_standardKeyMap[Qt::Key_Comma] = VK_OEM_COMMA;      // ,<
@@ -333,11 +392,30 @@ void KeyboardSimulatorWindows::initializeKeyMappings() {
     m_standardKeyMap[Qt::Key_Apostrophe] = VK_OEM_7;     // '"
     m_standardKeyMap[Qt::Key_QuoteLeft] = VK_OEM_3;      // ` (同 AsciiTilde)
     m_standardKeyMap[Qt::Key_Equal] = VK_OEM_PLUS;       // = (物理上与 + 是同一个键)
-    m_standardKeyMap[Qt::Key_Underscore] = VK_OEM_MINUS; // _ (物理上与 - 是同一个键)
-    m_standardKeyMap[Qt::Key_Less] = VK_OEM_COMMA;       // < (物理上与 , 是同一个键)
-    m_standardKeyMap[Qt::Key_Greater] = VK_OEM_PERIOD;   // > (物理上与 . 是同一个键)
-    m_standardKeyMap[Qt::Key_Question] = VK_OEM_2;       // ? (物理上与 / 是同一个键)
-    m_standardKeyMap[Qt::Key_Colon] = VK_OEM_1;          // : (物理上与 ; 是同一个键)
+    
+    // Shift 组合的符号键（物理上与基础键相同）
+    m_standardKeyMap[Qt::Key_Underscore] = VK_OEM_MINUS; // _ (Shift + -)
+    m_standardKeyMap[Qt::Key_Less] = VK_OEM_COMMA;       // < (Shift + ,)
+    m_standardKeyMap[Qt::Key_Greater] = VK_OEM_PERIOD;   // > (Shift + .)
+    m_standardKeyMap[Qt::Key_Question] = VK_OEM_2;       // ? (Shift + /)
+    m_standardKeyMap[Qt::Key_Colon] = VK_OEM_1;          // : (Shift + ;)
+    m_standardKeyMap[Qt::Key_AsciiTilde] = VK_OEM_3;     // ~ (Shift + `)
+    m_standardKeyMap[Qt::Key_BraceLeft] = VK_OEM_4;      // { (Shift + [)
+    m_standardKeyMap[Qt::Key_BraceRight] = VK_OEM_6;     // } (Shift + ])
+    m_standardKeyMap[Qt::Key_Bar] = VK_OEM_5;            // | (Shift + \)
+    m_standardKeyMap[Qt::Key_QuoteDbl] = VK_OEM_7;       // " (Shift + ')
+    
+    // Shift + 数字键的符号
+    m_standardKeyMap[Qt::Key_Exclam] = 0x31;             // ! (Shift + 1)
+    m_standardKeyMap[Qt::Key_At] = 0x32;                 // @ (Shift + 2)
+    m_standardKeyMap[Qt::Key_NumberSign] = 0x33;         // # (Shift + 3)
+    m_standardKeyMap[Qt::Key_Dollar] = 0x34;             // $ (Shift + 4)
+    m_standardKeyMap[Qt::Key_Percent] = 0x35;            // % (Shift + 5)
+    m_standardKeyMap[Qt::Key_AsciiCircum] = 0x36;        // ^ (Shift + 6)
+    m_standardKeyMap[Qt::Key_Ampersand] = 0x37;          // & (Shift + 7)
+    m_standardKeyMap[Qt::Key_Asterisk] = 0x38;           // * (Shift + 8, 主键盘)
+    m_standardKeyMap[Qt::Key_ParenLeft] = 0x39;          // ( (Shift + 9)
+    m_standardKeyMap[Qt::Key_ParenRight] = 0x30;         // ) (Shift + 0)
 
     // 系统键
     m_standardKeyMap[Qt::Key_Pause] = VK_PAUSE;
