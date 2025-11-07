@@ -31,6 +31,12 @@ private:
     // Qt 按键转 Windows 虚拟键码
     WORD qtKeyToWindowsKey(int qtKey) const;
     
+    // 小键盘按键处理（专用函数）
+    WORD handleNumpadKey(int baseKey, int originalKey) const;
+    
+    // 标准键盘按键处理（专用函数）
+    WORD handleStandardKey(int qtKey) const;
+    
     // Qt 修饰键转 Windows 修饰键
     DWORD qtModifiersToWindowsModifiers(Qt::KeyboardModifiers modifiers) const;
     
