@@ -765,8 +765,19 @@ void ClientHandlerWorker::handleKeyboardEvent(const QByteArray& data) {
         << "keyCode=" << keyEvent.keyCode << "modifiers=" << keyEvent.modifiers
         << "text=" << keyEvent.text;
 
-    Qt::Key qtKey = static_cast<Qt::Key>(keyEvent.keyCode);
+    // Qt 键盘事件的 key() 和 modifiers() 是分离的
+    // key() 返回纯键码（不包含 KeypadModifier）
+    // modifiers() 返回修饰符标志（包含 KeypadModifier: 0x20000000）
+    // 我们需要组合它们以便正确识别小键盘按键
+    
+    int qtKey = static_cast<int>(keyEvent.keyCode);
     Qt::KeyboardModifiers qtModifiers = static_cast<Qt::KeyboardModifiers>(keyEvent.modifiers);
+    
+    // 如果 modifiers 包含 KeypadModifier，将其添加到 key 值中
+    if (qtModifiers & Qt::KeypadModifier) {
+        qtKey |= 0x20000000;  // 添加 KeypadModifier 标志
+        qCDebug(clientHandlerWorker) << "Keypad modifier detected, combined key:" << Qt::hex << qtKey;
+    }
 
     if ( keyEvent.eventType == KeyboardEventType::KEY_PRESS ) {
         m_inputSimulator->simulateKeyPress(qtKey, qtModifiers);

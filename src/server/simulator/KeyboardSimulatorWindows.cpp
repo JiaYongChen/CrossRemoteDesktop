@@ -169,14 +169,27 @@ WORD KeyboardSimulatorWindows::qtKeyToWindowsKey(int qtKey) const {
             return it->second;
         }
         
-        qCDebug(lcKeyboardSimulatorWindows) << "Not found in numpad map, trying standard map";
+        qCDebug(lcKeyboardSimulatorWindows) << "Not found in numpad map, checking standard map for navigation keys";
+        
+        // 对于小键盘导航键（NumLock关闭时），允许回退到标准映射表
+        // 例如：小键盘的Insert/Delete/Home/End等键
+        auto stdIt = m_standardKeyMap.find(baseKey);
+        if (stdIt != m_standardKeyMap.end()) {
+            qCDebug(lcKeyboardSimulatorWindows) << "Found in standard map: baseKey=" << Qt::hex << baseKey
+                << "-> VK=" << Qt::hex << stdIt->second;
+            return stdIt->second;
+        }
+        
+        // 仍未找到映射
+        qCWarning(lcKeyboardSimulatorWindows) << "Unmapped numpad key:" << Qt::hex << qtKey 
+            << "baseKey=" << baseKey << ", using as-is";
+        return static_cast<WORD>(qtKey & 0xFFFF);
     }
     
-    // 查找标准按键映射表
-    int lookupKey = isKeypad ? baseKey : qtKey;
-    auto it = m_standardKeyMap.find(lookupKey);
+    // 查找标准按键映射表（仅用于非小键盘按键）
+    auto it = m_standardKeyMap.find(qtKey);
     if (it != m_standardKeyMap.end()) {
-        qCDebug(lcKeyboardSimulatorWindows) << "Found in standard map: qtKey=" << Qt::hex << lookupKey 
+        qCDebug(lcKeyboardSimulatorWindows) << "Found in standard map: qtKey=" << Qt::hex << qtKey 
             << "-> VK=" << Qt::hex << it->second << "(" << Qt::dec << it->second << ")";
         return it->second;
     }
@@ -314,7 +327,6 @@ void KeyboardSimulatorWindows::initializeKeyMappings() {
     m_standardKeyMap[Qt::Key_Equal] = VK_OEM_PLUS;       // = (同 Plus 键)
     m_standardKeyMap[Qt::Key_Less] = VK_OEM_COMMA;       // < (Shift + Comma)
     m_standardKeyMap[Qt::Key_Greater] = VK_OEM_PERIOD;   // > (Shift + Period)
-    m_standardKeyMap[Qt::Key_Asterisk] = 0x38;           // * (Shift + 8, 映射到数字8键)
 
     // 系统键
     m_standardKeyMap[Qt::Key_Pause] = VK_PAUSE;
@@ -351,6 +363,8 @@ void KeyboardSimulatorWindows::initializeKeyMappings() {
     // ===========================================
     
     // 小键盘数字键 (VK: VK_NUMPAD0-VK_NUMPAD9)
+    // 注意：这些映射仅在 NumLock 开启时生效
+    // NumLock 关闭时，Qt 会发送 Insert/End/Down 等键码，它们会在标准映射表中查找
     m_numpadKeyMap[Qt::Key_0] = VK_NUMPAD0;
     m_numpadKeyMap[Qt::Key_1] = VK_NUMPAD1;
     m_numpadKeyMap[Qt::Key_2] = VK_NUMPAD2;
@@ -362,26 +376,13 @@ void KeyboardSimulatorWindows::initializeKeyMappings() {
     m_numpadKeyMap[Qt::Key_8] = VK_NUMPAD8;
     m_numpadKeyMap[Qt::Key_9] = VK_NUMPAD9;
 
-    // 小键盘运算符
+    // 小键盘运算符（这些键不受 NumLock 影响）
     m_numpadKeyMap[Qt::Key_Asterisk] = VK_MULTIPLY;  // *
     m_numpadKeyMap[Qt::Key_Plus] = VK_ADD;           // +
     m_numpadKeyMap[Qt::Key_Minus] = VK_SUBTRACT;     // -
     m_numpadKeyMap[Qt::Key_Period] = VK_DECIMAL;     // .
     m_numpadKeyMap[Qt::Key_Slash] = VK_DIVIDE;       // /
-    m_numpadKeyMap[Qt::Key_Enter] = VK_RETURN;       // Enter (小键盘使用标准 Return)
-    
-    // 小键盘导航键 (映射到标准导航键的 VK 码)
-    m_numpadKeyMap[Qt::Key_Home] = VK_HOME;          // 7 (Numlock off)
-    m_numpadKeyMap[Qt::Key_Up] = VK_UP;              // 8 (Numlock off)
-    m_numpadKeyMap[Qt::Key_PageUp] = VK_PRIOR;       // 9 (Numlock off)
-    m_numpadKeyMap[Qt::Key_Left] = VK_LEFT;          // 4 (Numlock off)
-    m_numpadKeyMap[Qt::Key_Clear] = VK_CLEAR;        // 5 (Numlock off)
-    m_numpadKeyMap[Qt::Key_Right] = VK_RIGHT;        // 6 (Numlock off)
-    m_numpadKeyMap[Qt::Key_End] = VK_END;            // 1 (Numlock off)
-    m_numpadKeyMap[Qt::Key_Down] = VK_DOWN;          // 2 (Numlock off)
-    m_numpadKeyMap[Qt::Key_PageDown] = VK_NEXT;      // 3 (Numlock off)
-    m_numpadKeyMap[Qt::Key_Insert] = VK_INSERT;      // 0 (Numlock off)
-    m_numpadKeyMap[Qt::Key_Delete] = VK_DELETE;      // . (Numlock off)
+    m_numpadKeyMap[Qt::Key_Enter] = VK_RETURN;       // Enter
     
     qCDebug(lcKeyboardSimulatorWindows) << "Key mappings initialized:"
         << "Standard keys:" << m_standardKeyMap.size()
