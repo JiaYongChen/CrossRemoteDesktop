@@ -8,6 +8,7 @@
 Q_LOGGING_CATEGORY(lcKeyboardSimulatorWindows, "simulator.keyboard.windows")
 
 KeyboardSimulatorWindows::KeyboardSimulatorWindows() : KeyboardSimulator() {
+    initializeKeyMappings();
 }
 
 KeyboardSimulatorWindows::~KeyboardSimulatorWindows() {
@@ -22,6 +23,8 @@ bool KeyboardSimulatorWindows::initialize() {
     // Windows API 不需要特殊初始化
     m_initialized = true;
     qDebug() << "KeyboardSimulatorWindows: Initialized successfully";
+    qDebug() << "Standard key mappings:" << m_standardKeyMap.size();
+    qDebug() << "Numpad key mappings:" << m_numpadKeyMap.size();
     return true;
 }
 
@@ -32,6 +35,7 @@ void KeyboardSimulatorWindows::cleanup() {
 
 bool KeyboardSimulatorWindows::simulateKeyPress(int qtKey, Qt::KeyboardModifiers modifiers) {
     if (!m_initialized || !m_enabled) {
+        qCDebug(lcKeyboardSimulatorWindows) << "simulateKeyPress: Not initialized or enabled";
         return false;
     }
 
@@ -54,6 +58,7 @@ bool KeyboardSimulatorWindows::simulateKeyPress(int qtKey, Qt::KeyboardModifiers
 
 bool KeyboardSimulatorWindows::simulateKeyRelease(int qtKey, Qt::KeyboardModifiers modifiers) {
     if (!m_initialized || !m_enabled) {
+        qCDebug(lcKeyboardSimulatorWindows) << "simulateKeyRelease: Not initialized or enabled";
         return false;
     }
 
@@ -146,164 +151,40 @@ bool KeyboardSimulatorWindows::simulateKeyboardEvent(WORD key, DWORD flags, DWOR
 }
 
 WORD KeyboardSimulatorWindows::qtKeyToWindowsKey(int qtKey) const {
-    // Qt Key 到 Windows Virtual-Key Code 的映射
-    // 参考: https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
-    
     // 检测是否是小键盘按键 (Qt::KeypadModifier = 0x20000000)
     bool isKeypad = (qtKey & 0x20000000) != 0;
     int baseKey = qtKey & ~0x20000000;  // 移除 KeypadModifier 标志
+    
+    qCDebug(lcKeyboardSimulatorWindows) << "qtKeyToWindowsKey: qtKey=" << Qt::hex << qtKey 
+        << "(" << Qt::dec << qtKey << "), isKeypad=" << isKeypad << ", baseKey=" << Qt::hex << baseKey;
     
     if (isKeypad) {
         qCDebug(lcKeyboardSimulatorWindows) << "Keypad key detected: qtKey=" << Qt::hex << qtKey 
             << ", baseKey=" << baseKey;
         
-        // 小键盘特殊映射
-        switch (baseKey) {
-            case Qt::Key_0: return VK_NUMPAD0;
-            case Qt::Key_1: return VK_NUMPAD1;
-            case Qt::Key_2: return VK_NUMPAD2;
-            case Qt::Key_3: return VK_NUMPAD3;
-            case Qt::Key_4: return VK_NUMPAD4;
-            case Qt::Key_5: return VK_NUMPAD5;
-            case Qt::Key_6: return VK_NUMPAD6;
-            case Qt::Key_7: return VK_NUMPAD7;
-            case Qt::Key_8: return VK_NUMPAD8;
-            case Qt::Key_9: return VK_NUMPAD9;
-            case Qt::Key_Asterisk: return VK_MULTIPLY;
-            case Qt::Key_Plus: return VK_ADD;
-            case Qt::Key_Minus: return VK_SUBTRACT;
-            case Qt::Key_Period: return VK_DECIMAL;
-            case Qt::Key_Slash: return VK_DIVIDE;
-            case Qt::Key_Enter: return VK_RETURN;  // 小键盘 Enter
-            default:
-                qCWarning(lcKeyboardSimulatorWindows) << "Unmapped keypad key:" << baseKey;
-                break;
+        // 优先查找小键盘映射表
+        auto it = m_numpadKeyMap.find(baseKey);
+        if (it != m_numpadKeyMap.end()) {
+            qCDebug(lcKeyboardSimulatorWindows) << "Found in numpad map: VK =" << Qt::hex << it->second;
+            return it->second;
         }
+        
+        qCDebug(lcKeyboardSimulatorWindows) << "Not found in numpad map, trying standard map";
     }
     
-    switch (qtKey) {
-        // 字母键 A-Z (0x41-0x5A)
-        case Qt::Key_A: return 0x41;
-        case Qt::Key_B: return 0x42;
-        case Qt::Key_C: return 0x43;
-        case Qt::Key_D: return 0x44;
-        case Qt::Key_E: return 0x45;
-        case Qt::Key_F: return 0x46;
-        case Qt::Key_G: return 0x47;
-        case Qt::Key_H: return 0x48;
-        case Qt::Key_I: return 0x49;
-        case Qt::Key_J: return 0x4A;
-        case Qt::Key_K: return 0x4B;
-        case Qt::Key_L: return 0x4C;
-        case Qt::Key_M: return 0x4D;
-        case Qt::Key_N: return 0x4E;
-        case Qt::Key_O: return 0x4F;
-        case Qt::Key_P: return 0x50;
-        case Qt::Key_Q: return 0x51;
-        case Qt::Key_R: return 0x52;
-        case Qt::Key_S: return 0x53;
-        case Qt::Key_T: return 0x54;
-        case Qt::Key_U: return 0x55;
-        case Qt::Key_V: return 0x56;
-        case Qt::Key_W: return 0x57;
-        case Qt::Key_X: return 0x58;
-        case Qt::Key_Y: return 0x59;
-        case Qt::Key_Z: return 0x5A;
-
-        // 数字键 0-9 (0x30-0x39)
-        case Qt::Key_0: return 0x30;
-        case Qt::Key_1: return 0x31;
-        case Qt::Key_2: return 0x32;
-        case Qt::Key_3: return 0x33;
-        case Qt::Key_4: return 0x34;
-        case Qt::Key_5: return 0x35;
-        case Qt::Key_6: return 0x36;
-        case Qt::Key_7: return 0x37;
-        case Qt::Key_8: return 0x38;
-        case Qt::Key_9: return 0x39;
-
-        // 功能键 F1-F24
-        case Qt::Key_F1: return VK_F1;
-        case Qt::Key_F2: return VK_F2;
-        case Qt::Key_F3: return VK_F3;
-        case Qt::Key_F4: return VK_F4;
-        case Qt::Key_F5: return VK_F5;
-        case Qt::Key_F6: return VK_F6;
-        case Qt::Key_F7: return VK_F7;
-        case Qt::Key_F8: return VK_F8;
-        case Qt::Key_F9: return VK_F9;
-        case Qt::Key_F10: return VK_F10;
-        case Qt::Key_F11: return VK_F11;
-        case Qt::Key_F12: return VK_F12;
-        case Qt::Key_F13: return VK_F13;
-        case Qt::Key_F14: return VK_F14;
-        case Qt::Key_F15: return VK_F15;
-        case Qt::Key_F16: return VK_F16;
-        case Qt::Key_F17: return VK_F17;
-        case Qt::Key_F18: return VK_F18;
-        case Qt::Key_F19: return VK_F19;
-        case Qt::Key_F20: return VK_F20;
-        case Qt::Key_F21: return VK_F21;
-        case Qt::Key_F22: return VK_F22;
-        case Qt::Key_F23: return VK_F23;
-        case Qt::Key_F24: return VK_F24;
-
-        // 特殊键
-        case Qt::Key_Return: return VK_RETURN;
-        case Qt::Key_Enter: return VK_RETURN;
-        case Qt::Key_Tab: return VK_TAB;
-        case Qt::Key_Space: return VK_SPACE;
-        case Qt::Key_Backspace: return VK_BACK;
-        case Qt::Key_Delete: return VK_DELETE;
-        case Qt::Key_Escape: return VK_ESCAPE;
-        case Qt::Key_CapsLock: return VK_CAPITAL;
-        case Qt::Key_Insert: return VK_INSERT;
-        case Qt::Key_Home: return VK_HOME;
-        case Qt::Key_End: return VK_END;
-        case Qt::Key_PageUp: return VK_PRIOR;
-        case Qt::Key_PageDown: return VK_NEXT;
-
-        // 方向键
-        case Qt::Key_Left: return VK_LEFT;
-        case Qt::Key_Right: return VK_RIGHT;
-        case Qt::Key_Up: return VK_UP;
-        case Qt::Key_Down: return VK_DOWN;
-
-        // 修饰键
-        case Qt::Key_Shift: return VK_SHIFT;
-        case Qt::Key_Control: return VK_CONTROL;
-        case Qt::Key_Alt: return VK_MENU;
-        case Qt::Key_Meta: return VK_LWIN;  // Windows 键
-
-        // 符号键
-        case Qt::Key_Semicolon: return VK_OEM_1;      // ;:
-        case Qt::Key_Plus: return VK_OEM_PLUS;        // =+
-        case Qt::Key_Comma: return VK_OEM_COMMA;      // ,<
-        case Qt::Key_Minus: return VK_OEM_MINUS;      // -_
-        case Qt::Key_Period: return VK_OEM_PERIOD;    // .>
-        case Qt::Key_Slash: return VK_OEM_2;          // /?
-        case Qt::Key_Less: return VK_OEM_COMMA;       // < (same as comma with shift)
-        case Qt::Key_Greater: return VK_OEM_PERIOD;   // > (same as period with shift)
-        case Qt::Key_AsciiTilde: return VK_OEM_3;     // `~
-        case Qt::Key_BracketLeft: return VK_OEM_4;    // [{
-        case Qt::Key_Backslash: return VK_OEM_5;      // \|
-        case Qt::Key_BracketRight: return VK_OEM_6;   // ]}
-        case Qt::Key_Apostrophe: return VK_OEM_7;     // '"
-        case Qt::Key_QuoteLeft: return VK_OEM_3;      // `~
-        case Qt::Key_Equal: return VK_OEM_PLUS;       // = (same key as plus)
-
-        // 锁定键
-        case Qt::Key_NumLock: return VK_NUMLOCK;
-        case Qt::Key_ScrollLock: return VK_SCROLL;
-
-        // 其他键
-        case Qt::Key_Pause: return VK_PAUSE;
-        case Qt::Key_Print: return VK_SNAPSHOT;
-
-        default:
-            qCDebug(lcKeyboardSimulatorWindows) << "Unmapped Qt key:" << qtKey << "using default mapping";
-            return static_cast<WORD>(qtKey);
+    // 查找标准按键映射表
+    int lookupKey = isKeypad ? baseKey : qtKey;
+    auto it = m_standardKeyMap.find(lookupKey);
+    if (it != m_standardKeyMap.end()) {
+        qCDebug(lcKeyboardSimulatorWindows) << "Found in standard map: qtKey=" << Qt::hex << lookupKey 
+            << "-> VK=" << Qt::hex << it->second << "(" << Qt::dec << it->second << ")";
+        return it->second;
     }
+    
+    // 未找到映射,使用默认处理
+    qCWarning(lcKeyboardSimulatorWindows) << "Unmapped Qt key:" << Qt::hex << qtKey 
+        << "(" << Qt::dec << qtKey << "), using as-is, will return VK=" << (qtKey & 0xFFFF);
+    return static_cast<WORD>(qtKey & 0xFFFF);
 }
 
 DWORD KeyboardSimulatorWindows::qtModifiersToWindowsModifiers(Qt::KeyboardModifiers modifiers) const {
@@ -312,6 +193,206 @@ DWORD KeyboardSimulatorWindows::qtModifiersToWindowsModifiers(Qt::KeyboardModifi
     if (modifiers & Qt::ShiftModifier) result |= 0x0004;
     if (modifiers & Qt::AltModifier) result |= 0x0001;
     return result;
+}
+
+void KeyboardSimulatorWindows::initializeKeyMappings() {
+    // ===========================================
+    // 标准按键映射 (Standard Key Mappings)
+    // ===========================================
+    
+    // 字母键 A-Z (VK: 0x41-0x5A)
+    m_standardKeyMap[Qt::Key_A] = 0x41;
+    m_standardKeyMap[Qt::Key_B] = 0x42;
+    m_standardKeyMap[Qt::Key_C] = 0x43;
+    m_standardKeyMap[Qt::Key_D] = 0x44;
+    m_standardKeyMap[Qt::Key_E] = 0x45;
+    m_standardKeyMap[Qt::Key_F] = 0x46;
+    m_standardKeyMap[Qt::Key_G] = 0x47;
+    m_standardKeyMap[Qt::Key_H] = 0x48;
+    m_standardKeyMap[Qt::Key_I] = 0x49;
+    m_standardKeyMap[Qt::Key_J] = 0x4A;
+    m_standardKeyMap[Qt::Key_K] = 0x4B;
+    m_standardKeyMap[Qt::Key_L] = 0x4C;
+    m_standardKeyMap[Qt::Key_M] = 0x4D;
+    m_standardKeyMap[Qt::Key_N] = 0x4E;
+    m_standardKeyMap[Qt::Key_O] = 0x4F;
+    m_standardKeyMap[Qt::Key_P] = 0x50;
+    m_standardKeyMap[Qt::Key_Q] = 0x51;
+    m_standardKeyMap[Qt::Key_R] = 0x52;
+    m_standardKeyMap[Qt::Key_S] = 0x53;
+    m_standardKeyMap[Qt::Key_T] = 0x54;
+    m_standardKeyMap[Qt::Key_U] = 0x55;
+    m_standardKeyMap[Qt::Key_V] = 0x56;
+    m_standardKeyMap[Qt::Key_W] = 0x57;
+    m_standardKeyMap[Qt::Key_X] = 0x58;
+    m_standardKeyMap[Qt::Key_Y] = 0x59;
+    m_standardKeyMap[Qt::Key_Z] = 0x5A;
+
+    // 主键盘数字键 0-9 (VK: 0x30-0x39)
+    m_standardKeyMap[Qt::Key_0] = 0x30;
+    m_standardKeyMap[Qt::Key_1] = 0x31;
+    m_standardKeyMap[Qt::Key_2] = 0x32;
+    m_standardKeyMap[Qt::Key_3] = 0x33;
+    m_standardKeyMap[Qt::Key_4] = 0x34;
+    m_standardKeyMap[Qt::Key_5] = 0x35;
+    m_standardKeyMap[Qt::Key_6] = 0x36;
+    m_standardKeyMap[Qt::Key_7] = 0x37;
+    m_standardKeyMap[Qt::Key_8] = 0x38;
+    m_standardKeyMap[Qt::Key_9] = 0x39;
+
+    // 功能键 F1-F24 (VK: VK_F1-VK_F24)
+    m_standardKeyMap[Qt::Key_F1] = VK_F1;
+    m_standardKeyMap[Qt::Key_F2] = VK_F2;
+    m_standardKeyMap[Qt::Key_F3] = VK_F3;
+    m_standardKeyMap[Qt::Key_F4] = VK_F4;
+    m_standardKeyMap[Qt::Key_F5] = VK_F5;
+    m_standardKeyMap[Qt::Key_F6] = VK_F6;
+    m_standardKeyMap[Qt::Key_F7] = VK_F7;
+    m_standardKeyMap[Qt::Key_F8] = VK_F8;
+    m_standardKeyMap[Qt::Key_F9] = VK_F9;
+    m_standardKeyMap[Qt::Key_F10] = VK_F10;
+    m_standardKeyMap[Qt::Key_F11] = VK_F11;
+    m_standardKeyMap[Qt::Key_F12] = VK_F12;
+    m_standardKeyMap[Qt::Key_F13] = VK_F13;
+    m_standardKeyMap[Qt::Key_F14] = VK_F14;
+    m_standardKeyMap[Qt::Key_F15] = VK_F15;
+    m_standardKeyMap[Qt::Key_F16] = VK_F16;
+    m_standardKeyMap[Qt::Key_F17] = VK_F17;
+    m_standardKeyMap[Qt::Key_F18] = VK_F18;
+    m_standardKeyMap[Qt::Key_F19] = VK_F19;
+    m_standardKeyMap[Qt::Key_F20] = VK_F20;
+    m_standardKeyMap[Qt::Key_F21] = VK_F21;
+    m_standardKeyMap[Qt::Key_F22] = VK_F22;
+    m_standardKeyMap[Qt::Key_F23] = VK_F23;
+    m_standardKeyMap[Qt::Key_F24] = VK_F24;
+
+    // 控制键
+    m_standardKeyMap[Qt::Key_Return] = VK_RETURN;
+    m_standardKeyMap[Qt::Key_Enter] = VK_RETURN;
+    m_standardKeyMap[Qt::Key_Tab] = VK_TAB;
+    m_standardKeyMap[Qt::Key_Space] = VK_SPACE;
+    m_standardKeyMap[Qt::Key_Backspace] = VK_BACK;
+    m_standardKeyMap[Qt::Key_Delete] = VK_DELETE;
+    m_standardKeyMap[Qt::Key_Escape] = VK_ESCAPE;
+    m_standardKeyMap[Qt::Key_Insert] = VK_INSERT;
+    m_standardKeyMap[Qt::Key_Home] = VK_HOME;
+    m_standardKeyMap[Qt::Key_End] = VK_END;
+    m_standardKeyMap[Qt::Key_PageUp] = VK_PRIOR;
+    m_standardKeyMap[Qt::Key_PageDown] = VK_NEXT;
+
+    // 方向键
+    m_standardKeyMap[Qt::Key_Left] = VK_LEFT;
+    m_standardKeyMap[Qt::Key_Right] = VK_RIGHT;
+    m_standardKeyMap[Qt::Key_Up] = VK_UP;
+    m_standardKeyMap[Qt::Key_Down] = VK_DOWN;
+
+    // 修饰键
+    m_standardKeyMap[Qt::Key_Shift] = VK_SHIFT;
+    m_standardKeyMap[Qt::Key_Control] = VK_CONTROL;
+    m_standardKeyMap[Qt::Key_Alt] = VK_MENU;
+    m_standardKeyMap[Qt::Key_Meta] = VK_LWIN;      // Windows 键
+    m_standardKeyMap[Qt::Key_AltGr] = VK_RMENU;    // Right Alt
+
+    // 锁定键
+    m_standardKeyMap[Qt::Key_CapsLock] = VK_CAPITAL;
+    m_standardKeyMap[Qt::Key_NumLock] = VK_NUMLOCK;
+    m_standardKeyMap[Qt::Key_ScrollLock] = VK_SCROLL;
+
+    // 符号键 (OEM Keys)
+    m_standardKeyMap[Qt::Key_Semicolon] = VK_OEM_1;      // ;:
+    m_standardKeyMap[Qt::Key_Plus] = VK_OEM_PLUS;        // =+
+    m_standardKeyMap[Qt::Key_Comma] = VK_OEM_COMMA;      // ,<
+    m_standardKeyMap[Qt::Key_Minus] = VK_OEM_MINUS;      // -_
+    m_standardKeyMap[Qt::Key_Period] = VK_OEM_PERIOD;    // .>
+    m_standardKeyMap[Qt::Key_Slash] = VK_OEM_2;          // /?
+    m_standardKeyMap[Qt::Key_AsciiTilde] = VK_OEM_3;     // `~
+    m_standardKeyMap[Qt::Key_BracketLeft] = VK_OEM_4;    // [{
+    m_standardKeyMap[Qt::Key_Backslash] = VK_OEM_5;      // \|
+    m_standardKeyMap[Qt::Key_BracketRight] = VK_OEM_6;   // ]}
+    m_standardKeyMap[Qt::Key_Apostrophe] = VK_OEM_7;     // '"
+    m_standardKeyMap[Qt::Key_QuoteLeft] = VK_OEM_3;      // `~ (同 AsciiTilde)
+    m_standardKeyMap[Qt::Key_Equal] = VK_OEM_PLUS;       // = (同 Plus 键)
+    m_standardKeyMap[Qt::Key_Less] = VK_OEM_COMMA;       // < (Shift + Comma)
+    m_standardKeyMap[Qt::Key_Greater] = VK_OEM_PERIOD;   // > (Shift + Period)
+
+    // 系统键
+    m_standardKeyMap[Qt::Key_Pause] = VK_PAUSE;
+    m_standardKeyMap[Qt::Key_Print] = VK_SNAPSHOT;
+    m_standardKeyMap[Qt::Key_Help] = VK_HELP;
+    m_standardKeyMap[Qt::Key_Clear] = VK_CLEAR;
+    m_standardKeyMap[Qt::Key_Select] = VK_SELECT;
+    m_standardKeyMap[Qt::Key_Execute] = VK_EXECUTE;
+
+    // 媒体键
+    m_standardKeyMap[Qt::Key_VolumeUp] = VK_VOLUME_UP;
+    m_standardKeyMap[Qt::Key_VolumeDown] = VK_VOLUME_DOWN;
+    m_standardKeyMap[Qt::Key_VolumeMute] = VK_VOLUME_MUTE;
+    m_standardKeyMap[Qt::Key_MediaPlay] = VK_MEDIA_PLAY_PAUSE;
+    m_standardKeyMap[Qt::Key_MediaStop] = VK_MEDIA_STOP;
+    m_standardKeyMap[Qt::Key_MediaPrevious] = VK_MEDIA_PREV_TRACK;
+    m_standardKeyMap[Qt::Key_MediaNext] = VK_MEDIA_NEXT_TRACK;
+
+    // 浏览器键
+    m_standardKeyMap[Qt::Key_Back] = VK_BROWSER_BACK;
+    m_standardKeyMap[Qt::Key_Forward] = VK_BROWSER_FORWARD;
+    m_standardKeyMap[Qt::Key_Refresh] = VK_BROWSER_REFRESH;
+    m_standardKeyMap[Qt::Key_Stop] = VK_BROWSER_STOP;
+    m_standardKeyMap[Qt::Key_Search] = VK_BROWSER_SEARCH;
+    m_standardKeyMap[Qt::Key_Favorites] = VK_BROWSER_FAVORITES;
+    m_standardKeyMap[Qt::Key_HomePage] = VK_BROWSER_HOME;
+
+    // 应用程序键
+    m_standardKeyMap[Qt::Key_LaunchMail] = VK_LAUNCH_MAIL;
+    m_standardKeyMap[Qt::Key_LaunchMedia] = VK_LAUNCH_MEDIA_SELECT;
+    
+    // ===========================================
+    // 小键盘映射 (Numpad Key Mappings)
+    // ===========================================
+    
+    // 小键盘数字键 (VK: VK_NUMPAD0-VK_NUMPAD9)
+    m_numpadKeyMap[Qt::Key_0] = VK_NUMPAD0;
+    m_numpadKeyMap[Qt::Key_1] = VK_NUMPAD1;
+    m_numpadKeyMap[Qt::Key_2] = VK_NUMPAD2;
+    m_numpadKeyMap[Qt::Key_3] = VK_NUMPAD3;
+    m_numpadKeyMap[Qt::Key_4] = VK_NUMPAD4;
+    m_numpadKeyMap[Qt::Key_5] = VK_NUMPAD5;
+    m_numpadKeyMap[Qt::Key_6] = VK_NUMPAD6;
+    m_numpadKeyMap[Qt::Key_7] = VK_NUMPAD7;
+    m_numpadKeyMap[Qt::Key_8] = VK_NUMPAD8;
+    m_numpadKeyMap[Qt::Key_9] = VK_NUMPAD9;
+
+    // 小键盘运算符
+    m_numpadKeyMap[Qt::Key_Asterisk] = VK_MULTIPLY;  // *
+    m_numpadKeyMap[Qt::Key_Plus] = VK_ADD;           // +
+    m_numpadKeyMap[Qt::Key_Minus] = VK_SUBTRACT;     // -
+    m_numpadKeyMap[Qt::Key_Period] = VK_DECIMAL;     // .
+    m_numpadKeyMap[Qt::Key_Slash] = VK_DIVIDE;       // /
+    m_numpadKeyMap[Qt::Key_Enter] = VK_RETURN;       // Enter (小键盘使用标准 Return)
+    
+    // 小键盘导航键 (映射到标准导航键的 VK 码)
+    m_numpadKeyMap[Qt::Key_Home] = VK_HOME;          // 7 (Numlock off)
+    m_numpadKeyMap[Qt::Key_Up] = VK_UP;              // 8 (Numlock off)
+    m_numpadKeyMap[Qt::Key_PageUp] = VK_PRIOR;       // 9 (Numlock off)
+    m_numpadKeyMap[Qt::Key_Left] = VK_LEFT;          // 4 (Numlock off)
+    m_numpadKeyMap[Qt::Key_Clear] = VK_CLEAR;        // 5 (Numlock off)
+    m_numpadKeyMap[Qt::Key_Right] = VK_RIGHT;        // 6 (Numlock off)
+    m_numpadKeyMap[Qt::Key_End] = VK_END;            // 1 (Numlock off)
+    m_numpadKeyMap[Qt::Key_Down] = VK_DOWN;          // 2 (Numlock off)
+    m_numpadKeyMap[Qt::Key_PageDown] = VK_NEXT;      // 3 (Numlock off)
+    m_numpadKeyMap[Qt::Key_Insert] = VK_INSERT;      // 0 (Numlock off)
+    m_numpadKeyMap[Qt::Key_Delete] = VK_DELETE;      // . (Numlock off)
+    
+    qCDebug(lcKeyboardSimulatorWindows) << "Key mappings initialized:"
+        << "Standard keys:" << m_standardKeyMap.size()
+        << ", Numpad keys:" << m_numpadKeyMap.size();
+    
+    // 调试输出:检查关键按键的映射
+    qCDebug(lcKeyboardSimulatorWindows) << "Backspace mapping: Qt::Key_Backspace (" << Qt::Key_Backspace 
+        << ") -> VK" << Qt::hex << m_standardKeyMap[Qt::Key_Backspace];
+    qCDebug(lcKeyboardSimulatorWindows) << "Delete mapping: Qt::Key_Delete (" << Qt::Key_Delete 
+        << ") -> VK" << Qt::hex << m_standardKeyMap[Qt::Key_Delete];
+    qCDebug(lcKeyboardSimulatorWindows) << "Return mapping: Qt::Key_Return (" << Qt::Key_Return 
+        << ") -> VK" << Qt::hex << m_standardKeyMap[Qt::Key_Return];
 }
 
 #endif // Q_OS_WIN

@@ -7,6 +7,7 @@
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <vector>
+#include <unordered_map>
 
 Q_DECLARE_LOGGING_CATEGORY(lcKeyboardSimulatorWindows)
 
@@ -32,6 +33,13 @@ private:
     
     // Qt 修饰键转 Windows 修饰键
     DWORD qtModifiersToWindowsModifiers(Qt::KeyboardModifiers modifiers) const;
+    
+    // 初始化按键映射表
+    void initializeKeyMappings();
+    
+    // 按键映射表
+    std::unordered_map<int, WORD> m_standardKeyMap;    // 标准按键映射
+    std::unordered_map<int, WORD> m_numpadKeyMap;      // 小键盘按键映射
 };
 
 #endif // Q_OS_WIN
