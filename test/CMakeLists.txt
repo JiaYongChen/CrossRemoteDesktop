@@ -397,7 +397,6 @@ set(DATAPROCESSING_TEST_SOURCES
 
     # 数据处理模块源文件
     ../src/server/dataprocessing/DataProcessing.cpp
-    ../src/common/data/DataRecord.h
 
     # 公共核心源文件（日志分类）
     ../src/common/core/logging/LoggingCategories.cpp

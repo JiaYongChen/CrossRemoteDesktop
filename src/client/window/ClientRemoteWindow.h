@@ -77,22 +77,9 @@ public:
     void setInputEnabled(bool enabled);
     bool isInputEnabled() const;
 
-    void setKeyboardGrabbed(bool grabbed);
-    bool isKeyboardGrabbed() const;
-
-    void setMouseGrabbed(bool grabbed);
-    bool isMouseGrabbed() const;
-
     // Manager access methods
     FileTransferManager* fileTransferManager() const;
     RenderManager* renderManager() const;
-
-    // Performance settings
-    void setFrameRate(int fps);
-    int frameRate() const;
-
-    // Performance monitoring
-    double currentFPS() const;
 
     // 新增：查询窗口是否处于关闭流程中
     // 说明：
@@ -101,26 +88,8 @@ public:
     bool isClosing() const;
 
 signals:
-    // Mouse movement and wheel events used for network transmission or UI updates
-    void mouseMoved(const QPoint& remotePos, Qt::MouseButtons buttons);
-    void wheelScrolled(const QPoint& remotePos, int delta, Qt::Orientation orientation);
-
-    // Input events for network transmission
-    void mouseEvent(int x, int y, int buttons, int eventType);
-    void keyboardEvent(int key, int modifiers, bool pressed, const QString& text);
-
-    // View events
-
-    void scaleFactorChanged(double factor);
-
     // Lifecycle events
     void windowClosed();
-
-public slots:
-    void toggleFullScreen();
-    void takeScreenshot();
-    void showConnectionInfo();
-    void showPerformanceStats();
 
 protected:
     void closeEvent(QCloseEvent* event) override;
@@ -167,8 +136,6 @@ private:
 
     void drawPerformanceInfo(QPainter& painter);
 
-    void saveScreenshot(const QString& fileName = QString());
-
 private:
     QString m_connectionId;
     SessionManager* m_sessionManager;
@@ -182,14 +149,10 @@ private:
     QString m_hostName;
 
     bool m_inputEnabled;
-    bool m_keyboardGrabbed;
-    bool m_mouseGrabbed;
     QPoint m_lastMousePos;
 
     FileTransferManager* m_fileTransferManager;
     RenderManager* m_renderManager;
-
-    QPoint m_lastPanPoint;
 
     bool m_showPerformanceInfo;
 };

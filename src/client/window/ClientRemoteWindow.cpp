@@ -53,12 +53,9 @@ ClientRemoteWindow::ClientRemoteWindow(SessionManager* sessionManager, QWidget* 
     , m_isClosing(false) // 初始化关闭标志,默认不在关闭流程中
     , m_hostName()  // 初始化为空,将由外部通过 updateWindowTitle 设置
     , m_inputEnabled(true)
-    , m_keyboardGrabbed(false)
-    , m_mouseGrabbed(false)
     , m_lastMousePos(-1, -1)
     , m_fileTransferManager(nullptr)
     , m_renderManager(nullptr)
-    , m_lastPanPoint(0, 0)
     , m_showPerformanceInfo(false) {
     // 确保窗口关闭时自动删除,避免无父对象窗口内存泄漏
     // 使用属性而非手动deleteLater,减少重复释放风险
@@ -218,9 +215,6 @@ void ClientRemoteWindow::setupManagerConnections() {
 
     // Connect render manager signals
     if ( m_renderManager ) {
-        connect(m_renderManager, &RenderManager::scaleFactorChanged,
-            this, &ClientRemoteWindow::scaleFactorChanged);
-
         // 连接窗口大小调整请求信号
         connect(m_renderManager, &RenderManager::windowResizeRequested,
             this, &ClientRemoteWindow::onWindowResizeRequested);
@@ -338,22 +332,6 @@ bool ClientRemoteWindow::isInputEnabled() const {
     return m_inputEnabled;
 }
 
-void ClientRemoteWindow::setKeyboardGrabbed(bool grabbed) {
-    m_keyboardGrabbed = grabbed;
-}
-
-bool ClientRemoteWindow::isKeyboardGrabbed() const {
-    return m_keyboardGrabbed;
-}
-
-void ClientRemoteWindow::setMouseGrabbed(bool grabbed) {
-    m_mouseGrabbed = grabbed;
-}
-
-bool ClientRemoteWindow::isMouseGrabbed() const {
-    return m_mouseGrabbed;
-}
-
 // Manager access methods
 FileTransferManager* ClientRemoteWindow::fileTransferManager() const {
     return m_fileTransferManager;
@@ -363,45 +341,7 @@ RenderManager* ClientRemoteWindow::renderManager() const {
     return m_renderManager;
 }
 
-// Performance settings
-void ClientRemoteWindow::setFrameRate(int fps) {
-    if ( m_sessionManager ) {
-        // 跨线程调用：SessionManager 在独立线程中
-        QMetaObject::invokeMethod(m_sessionManager, "setFrameRate",
-            Qt::QueuedConnection, Q_ARG(int, fps));
-    }
-}
-
-int ClientRemoteWindow::frameRate() const {
-    // 注意：frameRate() 是只读属性访问，通常是线程安全的
-    // 如果 SessionManager 使用 m_frameRate 且没有互斥锁保护，可能存在竞态
-    // 但这里先保持简单实现，因为 int 的读取在大多数平台是原子的
-    return m_sessionManager ? m_sessionManager->frameRate() : 30;
-}
-
-// Performance monitoring
-double ClientRemoteWindow::currentFPS() const {
-    // 若存在 SessionManager，则直接返回其统计的 FPS，否则返回 0
-    return m_sessionManager ? m_sessionManager->performanceStats().currentFPS : 0.0;
-}
-
 // Public slots
-void ClientRemoteWindow::toggleFullScreen() {
-    setFullScreen(!m_isFullScreen);
-}
-
-void ClientRemoteWindow::takeScreenshot() {
-    saveScreenshot();
-}
-
-void ClientRemoteWindow::showConnectionInfo() {
-    // Show connection information dialog
-}
-
-void ClientRemoteWindow::showPerformanceStats() {
-    m_showPerformanceInfo = !m_showPerformanceInfo;
-    update();
-}
 
 // Event handlers
 void ClientRemoteWindow::paintEvent(QPaintEvent* event) {
@@ -679,18 +619,6 @@ void ClientRemoteWindow::drawPerformanceInfo(QPainter& painter) {
 }
 
 // Note: Mouse and keyboard input events are directly forwarded to SessionManager
-
-void ClientRemoteWindow::saveScreenshot(const QString& fileName) {
-    if ( m_renderManager ) {
-        QPixmap screenshot = m_renderManager->getRemoteScreen();
-        if ( !screenshot.isNull() ) {
-            QString file = fileName.isEmpty() ? QString("screenshot_%1.png").arg(QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss")) : fileName;
-            screenshot.save(file);
-        }
-    }
-}
-
-// onSceneChanged, updateViewTransform and enableOpenGL are now handled by RenderManager
 
 bool ClientRemoteWindow::isClosing() const {
     return m_isClosing;
