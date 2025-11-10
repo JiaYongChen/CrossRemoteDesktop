@@ -19,15 +19,15 @@ bool MouseSimulator::simulateMouseDoubleClick(int x, int y, Qt::MouseButton butt
     }
 
     // 第一次点击：按下 -> 释放
-    if ( !simulateMousePress(x, y, button) ) {
+    /*if ( !simulateMousePress(x, y, button) ) {
         return false;
     }
     if ( !simulateMouseRelease(x, y, button) ) {
         return false;
-    }
+    }*/
 
     // 双击间隔延迟（约10ms，在系统双击时间范围内）
-    QThread::msleep(10);
+    //QThread::msleep(10);
 
     // 第二次点击：按下 -> 释放
     if ( !simulateMousePress(x, y, button) ) {
