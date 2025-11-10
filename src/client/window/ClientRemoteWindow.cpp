@@ -42,6 +42,7 @@
 #include <QtWidgets/QMenuBar>
 #include <QtGui/QKeySequence>
 #include <QtGui/QIcon>
+#include <QtCore/QThread>
 #include <cmath>
 
 Q_LOGGING_CATEGORY(lcClientRemoteWindow, "client.remote.window")
@@ -151,12 +152,18 @@ void ClientRemoteWindow::initializeManagers() {
 
     // File transfer management
     m_fileTransferManager = new FileTransferManager(this, this);
+    QThread* fileTransferThread = new QThread();
+    m_fileTransferManager->moveToThread(fileTransferThread);
 
     // Render and view management
     m_renderManager = new RenderManager(this, this);
+    QThread* renderThread = new QThread();
+    m_renderManager->moveToThread(renderThread);
 
     // Cursor management
     m_cursorManager = new CursorManager(viewport(), this);
+    QThread* cursorThread = new QThread();
+    m_cursorManager->moveToThread(cursorThread);
 }
 
 void ClientRemoteWindow::configureWindow() {
