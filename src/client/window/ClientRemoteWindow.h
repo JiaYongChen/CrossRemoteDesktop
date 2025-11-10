@@ -35,6 +35,7 @@ class SessionManager;
 class FileTransferManager;
 class RenderManager;
 class CursorManager;
+class ClipboardManager;
 
 class ClientRemoteWindow : public QGraphicsView {
     Q_OBJECT
@@ -159,6 +160,7 @@ private:
     FileTransferManager* m_fileTransferManager;
     RenderManager* m_renderManager;
     CursorManager* m_cursorManager;
+    ClipboardManager* m_clipboardManager;
 
     bool m_showPerformanceInfo;
 };

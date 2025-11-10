@@ -514,31 +514,6 @@ bool FileData::decode(const QByteArray& bytes) {
     return true;
 }
 
-// ClipboardData 序列化和反序列化实现
-QByteArray ClipboardData::encode() const {
-    QByteArray bytes;
-    QDataStream ds(&bytes, QIODevice::WriteOnly);
-    ds.setByteOrder(QDataStream::LittleEndian);
-    ds << static_cast<quint8>(dataType);
-    ds << static_cast<quint32>(dataSize);
-    // if (!payload.isEmpty()) ds.writeRawData(payload.constData(), payload.size());
-    return bytes;
-}
-
-bool ClipboardData::decode(const QByteArray& bytes) {
-    if ( bytes.size() < (1 + 4) ) return false;
-    QDataStream ds(bytes);
-    ds.setByteOrder(QDataStream::LittleEndian);
-    quint8 t = 0; quint32 len = 0;
-    ds >> t; ds >> len;
-    if ( ds.status() != QDataStream::Ok ) return false;
-    qsizetype need = qsizetype(1 + 4) + qsizetype(len);
-    if ( bytes.size() < need ) return false;
-    dataType = t; dataSize = len;
-    // payloadOut = bytes.mid(qsizetype(1 + 4), len);
-    return true;
-}
-
 // ScreenData 序列化和反序列化实现
 QByteArray ScreenData::encode() const {
     QByteArray bytes;
@@ -720,4 +695,146 @@ bool AuthChallenge::decode(const QByteArray& bytes) {
     }
 
     return true;
+}
+
+// CursorPositionMessage 实现
+CursorPositionMessage::CursorPositionMessage()
+    : cursorType(Qt::ArrowCursor) {
+}
+
+CursorPositionMessage::CursorPositionMessage(Qt::CursorShape type)
+    : cursorType(type) {
+}
+
+QByteArray CursorPositionMessage::encode() const {
+    QByteArray data;
+    QDataStream stream(&data, QIODevice::WriteOnly);
+    stream.setByteOrder(QDataStream::LittleEndian);
+    stream << static_cast<quint8>(cursorType);
+    return data;
+}
+
+bool CursorPositionMessage::decode(const QByteArray& dataBuffer) {
+    if ( dataBuffer.isEmpty() ) {
+        return false;
+    }
+
+    QDataStream stream(dataBuffer);
+    stream.setByteOrder(QDataStream::LittleEndian);
+
+    quint8 type;
+    stream >> type;
+    cursorType = static_cast<Qt::CursorShape>(type);
+
+    return stream.status() == QDataStream::Ok;
+}
+
+// ClipboardMessage 实现
+ClipboardMessage::ClipboardMessage()
+    : dataType(ClipboardDataType::TEXT), width(0), height(0) {
+}
+
+ClipboardMessage::ClipboardMessage(const QString& text)
+    : dataType(ClipboardDataType::TEXT), data(text.toUtf8()), width(0), height(0) {
+}
+
+ClipboardMessage::ClipboardMessage(const QByteArray& imageData, quint32 w, quint32 h)
+    : dataType(ClipboardDataType::IMAGE), data(imageData), width(w), height(h) {
+}
+
+bool ClipboardMessage::isText() const {
+    return dataType == ClipboardDataType::TEXT;
+}
+
+bool ClipboardMessage::isImage() const {
+    return dataType == ClipboardDataType::IMAGE;
+}
+
+QString ClipboardMessage::text() const {
+    return isText() ? QString::fromUtf8(data) : QString();
+}
+
+QByteArray ClipboardMessage::imageData() const {
+    return isImage() ? data : QByteArray();
+}
+
+QByteArray ClipboardMessage::encode() const {
+    QByteArray buffer;
+    QDataStream stream(&buffer, QIODevice::WriteOnly);
+    stream.setByteOrder(QDataStream::LittleEndian);
+
+    // 写入数据类型
+    stream << static_cast<quint8>(dataType);
+
+    if ( dataType == ClipboardDataType::TEXT ) {
+        // 编码文本数据
+        stream << static_cast<quint32>(data.size());
+        stream.writeRawData(data.constData(), data.size());
+    } else if ( dataType == ClipboardDataType::IMAGE ) {
+        // 编码图片数据
+        stream << width;
+        stream << height;
+        stream << static_cast<quint32>(data.size());
+        stream.writeRawData(data.constData(), data.size());
+    }
+
+    return buffer;
+}
+
+bool ClipboardMessage::decode(const QByteArray& dataBuffer) {
+    if ( dataBuffer.size() < static_cast<int>(sizeof(quint8)) ) {
+        return false;
+    }
+
+    QDataStream stream(dataBuffer);
+    stream.setByteOrder(QDataStream::LittleEndian);
+
+    // 读取数据类型
+    quint8 type;
+    stream >> type;
+    dataType = static_cast<ClipboardDataType>(type);
+
+    if ( dataType == ClipboardDataType::TEXT ) {
+        // 解码文本数据
+        if ( dataBuffer.size() < static_cast<int>(sizeof(quint8) + sizeof(quint32)) ) {
+            return false;
+        }
+
+        quint32 dataSize;
+        stream >> dataSize;
+
+        if ( dataBuffer.size() < static_cast<int>(sizeof(quint8) + sizeof(quint32) + dataSize) ) {
+            return false;
+        }
+
+        data.resize(dataSize);
+        stream.readRawData(data.data(), dataSize);
+
+        // 清空图片相关字段
+        width = 0;
+        height = 0;
+
+    } else if ( dataType == ClipboardDataType::IMAGE ) {
+        // 解码图片数据
+        if ( dataBuffer.size() < static_cast<int>(sizeof(quint8) + 3 * sizeof(quint32)) ) {
+            return false;
+        }
+
+        stream >> width;
+        stream >> height;
+
+        quint32 dataSize;
+        stream >> dataSize;
+
+        if ( dataBuffer.size() < static_cast<int>(sizeof(quint8) + 3 * sizeof(quint32) + dataSize) ) {
+            return false;
+        }
+
+        data.resize(dataSize);
+        stream.readRawData(data.data(), dataSize);
+    } else {
+        return false;
+    }
+
+    return stream.status() == QDataStream::Ok;
 }

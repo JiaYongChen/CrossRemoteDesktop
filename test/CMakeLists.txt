@@ -510,6 +510,7 @@ set(CLIENTREMOTEWINDOW_TEST_SOURCES
     ../src/common/core/config/Config.cpp
     ../src/common/core/network/ProtocolImpl.cpp
     ../src/common/core/crypto/Encryption.cpp
+    ../src/common/clipboard/ClipboardManager.cpp
 )
 
 # 创建ClientRemoteWindow测试可执行文件

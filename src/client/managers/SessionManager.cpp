@@ -190,6 +190,10 @@ void SessionManager::onMessageReceived(MessageType type, const QByteArray& data)
             // 处理光标位置数据
             handleCursorPosition(data);
             break;
+        case MessageType::CLIPBOARD_DATA:
+            // 处理剪贴板数据（文本或图片）
+            handleClipboardData(data);
+            break;
         default:
             // 其他消息类型忽略
             QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient)
@@ -337,5 +341,47 @@ void SessionManager::connectToHost(const QString& host, int port) {
 void SessionManager::disconnectFromHost() {
     if ( m_connectionManager ) {
         m_connectionManager->disconnectFromHost();
+    }
+}
+
+// ==================== 剪贴板同步实现 ====================
+
+void SessionManager::sendClipboardText(const QString& text) {
+    if ( !m_connectionManager || !isConnected() ) {
+        return;
+    }
+
+    ClipboardMessage message(text);
+    m_connectionManager->sendMessage(MessageType::CLIPBOARD_DATA, message);
+    
+    qDebug() << "SessionManager: Sent clipboard text, length:" << text.length();
+}
+
+void SessionManager::sendClipboardImage(const QByteArray& imageData, quint32 width, quint32 height) {
+    if ( !m_connectionManager || !isConnected() ) {
+        return;
+    }
+
+    ClipboardMessage message(imageData, width, height);
+    m_connectionManager->sendMessage(MessageType::CLIPBOARD_DATA, message);
+    
+    qDebug() << "SessionManager: Sent clipboard image, size:" << width << "x" << height
+             << "data size:" << imageData.size();
+}
+
+void SessionManager::handleClipboardData(const QByteArray& data) {
+    ClipboardMessage message;
+    if ( !message.decode(data) ) {
+        qWarning() << "SessionManager: Failed to decode clipboard message";
+        return;
+    }
+
+    if (message.isText()) {
+        qDebug() << "SessionManager: Received clipboard text, length:" << message.text().length();
+        emit clipboardTextReceived(message.text());
+    } else if (message.isImage()) {
+        qDebug() << "SessionManager: Received clipboard image, size:" << message.width << "x" << message.height
+                 << "data size:" << message.imageData().size();
+        emit clipboardImageReceived(message.imageData());
     }
 }

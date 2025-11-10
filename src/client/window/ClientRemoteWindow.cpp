@@ -6,6 +6,7 @@
 #include "../../common/core/config/MessageConstants.h"
 #include "RenderManager.h"
 #include "CursorManager.h"
+#include "../../common/clipboard/ClipboardManager.h"
 
 #include <QtWidgets/QGraphicsScene>
 #include <QtWidgets/QGraphicsPixmapItem>
@@ -164,6 +165,12 @@ void ClientRemoteWindow::initializeManagers() {
     m_cursorManager = new CursorManager(viewport(), this);
     QThread* cursorThread = new QThread();
     m_cursorManager->moveToThread(cursorThread);
+
+    // Clipboard management
+    m_clipboardManager = new ClipboardManager(this);
+    QThread* clipboardThread = new QThread();
+    m_clipboardManager->moveToThread(clipboardThread);
+    m_clipboardManager->setEnabled(true);  // 默认启用剪贴板同步
 }
 
 void ClientRemoteWindow::configureWindow() {
@@ -238,6 +245,33 @@ void ClientRemoteWindow::setupManagerConnections() {
         // 连接窗口大小调整请求信号
         connect(m_renderManager, &RenderManager::windowResizeRequested,
             this, &ClientRemoteWindow::onWindowResizeRequested);
+    }
+
+    // Connect clipboard manager signals
+    if ( m_clipboardManager && m_sessionManager ) {
+        // 本地剪贴板文本变化时，发送到服务器
+        connect(m_clipboardManager, &ClipboardManager::clipboardTextChanged,
+            this, [this](const QString& text) {
+            if ( m_sessionManager && m_connectionState == ConnectionManager::Connected ) {
+                m_sessionManager->sendClipboardText(text);
+            }
+        });
+
+        // 本地剪贴板图片变化时，发送到服务器
+        connect(m_clipboardManager, &ClipboardManager::clipboardImageChanged,
+            this, [this](const QByteArray& imageData, quint32 width, quint32 height) {
+            if ( m_sessionManager && m_connectionState == ConnectionManager::Connected ) {
+                m_sessionManager->sendClipboardImage(imageData, width, height);
+            }
+        });
+
+        // 接收服务器端的剪贴板文本更新
+        connect(m_sessionManager, &SessionManager::clipboardTextReceived,
+            m_clipboardManager, &ClipboardManager::setText);
+
+        // 接收服务器端的剪贴板图片更新
+        connect(m_sessionManager, &SessionManager::clipboardImageReceived,
+            m_clipboardManager, &ClipboardManager::setImageFromPng);
     }
 }
 

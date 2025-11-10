@@ -112,7 +112,7 @@ bool ClientHandlerWorker::initialize() {
     m_heartbeatSendTimer = new QTimer(this);
     m_heartbeatSendTimer->setInterval(NetworkConstants::HEARTBEAT_INTERVAL);
     connect(m_heartbeatSendTimer, &QTimer::timeout, this, &ClientHandlerWorker::sendHeartbeat);
-    
+
     // 创建光标类型更新定时器 (100ms = 10 FPS)
     m_cursorUpdateTimer = new QTimer(this);
     m_cursorUpdateTimer->setInterval(100);
@@ -152,7 +152,7 @@ void ClientHandlerWorker::cleanup() {
     if ( m_heartbeatSendTimer ) {
         m_heartbeatSendTimer->stop();
     }
-    
+
     if ( m_cursorUpdateTimer ) {
         m_cursorUpdateTimer->stop();
     }
@@ -234,21 +234,21 @@ void ClientHandlerWorker::sendCursorType() {
     if ( !m_socket || !m_socket->isOpen() ) {
         return;
     }
-    
+
     if ( !isAuthenticated() ) {
         return;
     }
-    
+
     if ( !m_inputSimulator ) {
         return;
     }
-    
+
     // 获取当前光标类型
     int cursorType = m_inputSimulator->getCurrentCursorType();
-    
+
     // 创建光标类型消息（仅包含类型）
     CursorPositionMessage message(static_cast<Qt::CursorShape>(cursorType));
-    
+
     // 发送光标类型消息
     QByteArray messageData = Protocol::createMessage(MessageType::CURSOR_POSITION, message);
     if ( !messageData.isEmpty() ) {
@@ -588,6 +588,9 @@ void ClientHandlerWorker::processMessage(const MessageHeader& header, const QByt
         case MessageType::KEYBOARD_EVENT:
             handleKeyboardEvent(payload);
             break;
+        case MessageType::CLIPBOARD_DATA:
+            handleClipboardData(payload);
+            break;
         default:
             qCWarning(clientHandlerWorker, "未知消息类型: %d", static_cast<int>(header.type));
             break;
@@ -629,12 +632,12 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
 
         QString sessionId = generateSessionId();
         sendAuthenticationResponse(AuthResult::SUCCESS, sessionId);
-        
+
         // 启动光标位置更新定时器
         if ( m_cursorUpdateTimer ) {
             m_cursorUpdateTimer->start();
         }
-        
+
         emit authenticated();
         qCInfo(clientHandlerWorker, "客户端认证成功: %s", qPrintable(clientId()));
         return;
@@ -658,12 +661,12 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
 
                 QString sessionId = generateSessionId();
                 sendAuthenticationResponse(AuthResult::SUCCESS, sessionId);
-                
+
                 // 启动光标位置更新定时器
                 if ( m_cursorUpdateTimer ) {
                     m_cursorUpdateTimer->start();
                 }
-                
+
                 emit authenticated();
                 qCInfo(clientHandlerWorker, "客户端认证成功: %s", qPrintable(clientId()));
             } else {
@@ -818,12 +821,12 @@ void ClientHandlerWorker::handleKeyboardEvent(const QByteArray& data) {
     // key() 返回纯键码（不包含 KeypadModifier）
     // modifiers() 返回修饰符标志（包含 KeypadModifier: 0x20000000）
     // 我们需要组合它们以便正确识别小键盘按键
-    
+
     int qtKey = static_cast<int>(keyEvent.keyCode);
     Qt::KeyboardModifiers qtModifiers = static_cast<Qt::KeyboardModifiers>(keyEvent.modifiers);
-    
+
     // 如果 modifiers 包含 KeypadModifier，将其添加到 key 值中
-    if (qtModifiers & Qt::KeypadModifier) {
+    if ( qtModifiers & Qt::KeypadModifier ) {
         qtKey |= 0x20000000;  // 添加 KeypadModifier 标志
         qCDebug(clientHandlerWorker) << "Keypad modifier detected, combined key:" << Qt::hex << qtKey;
     }
@@ -896,4 +899,33 @@ QString ClientHandlerWorker::generateSessionId() const {
         .toUtf8();
 
     return QCryptographicHash::hash(data, QCryptographicHash::Sha256).toHex();
+}
+
+// ==================== 剪贴板消息处理 ====================
+
+void ClientHandlerWorker::handleClipboardData(const QByteArray& data) {
+    ClipboardMessage message;
+    if ( !message.decode(data) ) {
+        qCWarning(clientHandlerWorker, "剪贴板消息解析失败");
+        return;
+    }
+
+    if (message.isText()) {
+        qCDebug(clientHandlerWorker, "接收到剪贴板文本，长度: %lld", message.text().length());
+        
+        // 更新服务器端剪贴板
+        emit clipboardTextReceived(message.text());
+        
+        // 广播到其他客户端（通过 ServerManager）
+        emit broadcastClipboardText(message.text());
+    } else if (message.isImage()) {
+        qCDebug(clientHandlerWorker, "接收到剪贴板图片，尺寸: %ux%u, 数据大小: %lld",
+                message.width, message.height, message.imageData().size());
+        
+        // 更新服务器端剪贴板
+        emit clipboardImageReceived(message.imageData());
+        
+        // 广播到其他客户端（通过 ServerManager）
+        emit broadcastClipboardImage(message.imageData(), message.width, message.height);
+    }
 }

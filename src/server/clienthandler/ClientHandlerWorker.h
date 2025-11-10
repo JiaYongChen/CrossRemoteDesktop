@@ -117,6 +117,32 @@ signals:
      */
     void errorOccurred(const QString& error);
 
+    /**
+     * @brief 接收到剪贴板文本信号（更新服务器端剪贴板）
+     * @param text 文本内容
+     */
+    void clipboardTextReceived(const QString& text);
+
+    /**
+     * @brief 接收到剪贴板图片信号（更新服务器端剪贴板）
+     * @param imageData PNG 格式的图片数据
+     */
+    void clipboardImageReceived(const QByteArray& imageData);
+
+    /**
+     * @brief 广播剪贴板文本到其他客户端
+     * @param text 文本内容
+     */
+    void broadcastClipboardText(const QString& text);
+
+    /**
+     * @brief 广播剪贴板图片到其他客户端
+     * @param imageData PNG 格式的图片数据
+     * @param width 图片宽度
+     * @param height 图片高度
+     */
+    void broadcastClipboardImage(const QByteArray& imageData, quint32 width, quint32 height);
+
 protected:
     /**
      * @brief 初始化工作线程
@@ -197,6 +223,12 @@ private:
      * @param data 键盘事件数据
      */
     void handleKeyboardEvent(const QByteArray& data);
+
+    /**
+     * @brief 处理剪贴板消息
+     * @param data 剪贴板数据
+     */
+    void handleClipboardData(const QByteArray& data);
 
     /**
      * @brief 发送握手响应

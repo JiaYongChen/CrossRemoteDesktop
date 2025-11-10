@@ -51,6 +51,10 @@ public slots:
     void sendKeyboardEvent(int key, int modifiers, bool pressed, const QString& text);
     void sendWheelEvent(int x, int y, int delta, int orientation);
 
+    // 剪贴板同步（跨线程调用需要使用 slots）
+    void sendClipboardText(const QString& text);
+    void sendClipboardImage(const QByteArray& imageData, quint32 width, quint32 height);
+
     // 配置（跨线程调用需要使用 slots）
     void setFrameRate(int fps);
 
@@ -89,6 +93,10 @@ signals:
     // 远程光标类型更新信号
     void remoteCursorTypeUpdated(Qt::CursorShape type);
 
+    // 剪贴板数据接收信号
+    void clipboardTextReceived(const QString& text);
+    void clipboardImageReceived(const QByteArray& imageData);
+
 private slots:
     void onMessageReceived(MessageType type, const QByteArray& data);
     void updatePerformanceStats();
@@ -98,6 +106,7 @@ private:
     void calculateFPS();
     void handleScreenData(const QByteArray& data);
     void handleCursorPosition(const QByteArray& data);
+    void handleClipboardData(const QByteArray& data);
 
     // 连接信息
     QString m_connectionId;

@@ -247,36 +247,11 @@ struct AudioData : public IMessageCodec {
 struct CursorPositionMessage : public IMessageCodec {
     Qt::CursorShape cursorType;        // 光标类型
 
-    CursorPositionMessage()
-        : cursorType(Qt::ArrowCursor) {
-    }
+    CursorPositionMessage();
+    explicit CursorPositionMessage(Qt::CursorShape type);
 
-    explicit CursorPositionMessage(Qt::CursorShape type)
-        : cursorType(type) {
-    }
-
-    QByteArray encode() const override {
-        QByteArray data;
-        QDataStream stream(&data, QIODevice::WriteOnly);
-        stream.setByteOrder(QDataStream::LittleEndian);
-        stream << static_cast<quint8>(cursorType);
-        return data;
-    }
-
-    bool decode(const QByteArray& dataBuffer) override {
-        if ( dataBuffer.isEmpty() ) {
-            return false;
-        }
-
-        QDataStream stream(dataBuffer);
-        stream.setByteOrder(QDataStream::LittleEndian);
-
-        quint8 type;
-        stream >> type;
-        cursorType = static_cast<Qt::CursorShape>(type);
-
-        return stream.status() == QDataStream::Ok;
-    }
+    QByteArray encode() const override;
+    bool decode(const QByteArray& dataBuffer) override;
 };
 
 // 文件传输请求
@@ -311,14 +286,30 @@ struct FileData : public IMessageCodec {
     bool decode(const QByteArray& dataBuffer);
 };
 
-// 剪贴板数据
-struct ClipboardData : public IMessageCodec {
-    quint8 dataType;
-    quint32 dataSize;
-    // 实际剪贴板数据跟在后面
+// 剪贴板数据类型
+enum class ClipboardDataType : quint8 {
+    TEXT = 0x01,    // 文本数据
+    IMAGE = 0x02    // 图片数据（PNG格式）
+};
 
-    QByteArray encode() const;
-    bool decode(const QByteArray& dataBuffer);
+// 统一的剪贴板消息
+struct ClipboardMessage : public IMessageCodec {
+    ClipboardDataType dataType;
+    QByteArray data;           // 统一的数据存储（文本使用UTF-8编码，图片使用PNG格式）
+    quint32 width;             // 图片宽度（仅图片类型时有效）
+    quint32 height;            // 图片高度（仅图片类型时有效）
+
+    ClipboardMessage();
+    explicit ClipboardMessage(const QString& text);
+    ClipboardMessage(const QByteArray& imageData, quint32 w, quint32 h);
+
+    bool isText() const;
+    bool isImage() const;
+    QString text() const;
+    QByteArray imageData() const;
+
+    QByteArray encode() const override;
+    bool decode(const QByteArray& dataBuffer) override;
 };
 
 // 协议工具类
@@ -335,6 +326,7 @@ public:
 
     // 解密数据
     static QByteArray decryptData(const QByteArray& data, const QByteArray& key);
+
 
 private:
     // 验证接收数据的完整性（检查数据长度是否完整）
