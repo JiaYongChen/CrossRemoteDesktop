@@ -697,16 +697,16 @@ bool AuthChallenge::decode(const QByteArray& bytes) {
     return true;
 }
 
-// CursorPositionMessage 实现
-CursorPositionMessage::CursorPositionMessage()
+// CursorMessage 实现
+CursorMessage::CursorMessage()
     : cursorType(Qt::ArrowCursor) {
 }
 
-CursorPositionMessage::CursorPositionMessage(Qt::CursorShape type)
+CursorMessage::CursorMessage(Qt::CursorShape type)
     : cursorType(type) {
 }
 
-QByteArray CursorPositionMessage::encode() const {
+QByteArray CursorMessage::encode() const {
     QByteArray data;
     QDataStream stream(&data, QIODevice::WriteOnly);
     stream.setByteOrder(QDataStream::LittleEndian);
@@ -714,7 +714,7 @@ QByteArray CursorPositionMessage::encode() const {
     return data;
 }
 
-bool CursorPositionMessage::decode(const QByteArray& dataBuffer) {
+bool CursorMessage::decode(const QByteArray& dataBuffer) {
     if ( dataBuffer.isEmpty() ) {
         return false;
     }

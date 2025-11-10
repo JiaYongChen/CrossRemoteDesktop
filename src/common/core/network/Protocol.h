@@ -244,11 +244,11 @@ struct AudioData : public IMessageCodec {
 };
 
 // 光标类型消息（仅包含光标类型信息）
-struct CursorPositionMessage : public IMessageCodec {
+struct CursorMessage : public IMessageCodec {
     Qt::CursorShape cursorType;        // 光标类型
 
-    CursorPositionMessage();
-    explicit CursorPositionMessage(Qt::CursorShape type);
+    CursorMessage();
+    explicit CursorMessage(Qt::CursorShape type);
 
     QByteArray encode() const override;
     bool decode(const QByteArray& dataBuffer) override;

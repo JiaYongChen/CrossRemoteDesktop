@@ -24,6 +24,7 @@ public:
     bool simulateMousePress(int x, int y, Qt::MouseButton button) override;
     bool simulateMouseRelease(int x, int y, Qt::MouseButton button) override;
     bool simulateMouseWheel(int x, int y, int deltaX, int deltaY) override;
+    bool simulateMouseDoubleClick(int x, int y, Qt::MouseButton button) override;
 
     // 屏幕信息
     QSize getScreenSize() const override;

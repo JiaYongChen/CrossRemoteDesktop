@@ -305,8 +305,8 @@ void SessionManager::handleScreenData(const QByteArray& data) {
 }
 
 void SessionManager::handleCursorPosition(const QByteArray& data) {
-    // 使用 CursorPositionMessage 解析光标类型数据
-    CursorPositionMessage message;
+    // 使用 CursorMessage 解析光标类型数据
+    CursorMessage message;
     if ( !message.decode(data) ) {
         qCWarning(lcClient) << "Failed to decode cursor type message";
         return;

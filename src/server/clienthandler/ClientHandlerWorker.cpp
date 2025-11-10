@@ -113,9 +113,9 @@ bool ClientHandlerWorker::initialize() {
     m_heartbeatSendTimer->setInterval(NetworkConstants::HEARTBEAT_INTERVAL);
     connect(m_heartbeatSendTimer, &QTimer::timeout, this, &ClientHandlerWorker::sendHeartbeat);
 
-    // 创建光标类型更新定时器 (100ms = 10 FPS)
+    // 创建光标类型更新定时器 (60 FPS)
     m_cursorUpdateTimer = new QTimer(this);
-    m_cursorUpdateTimer->setInterval(100);
+    m_cursorUpdateTimer->setInterval(10);
     connect(m_cursorUpdateTimer, &QTimer::timeout, this, &ClientHandlerWorker::sendCursorType);
 
     // 创建输入模拟器
@@ -247,7 +247,7 @@ void ClientHandlerWorker::sendCursorType() {
     int cursorType = m_inputSimulator->getCurrentCursorType();
 
     // 创建光标类型消息（仅包含类型）
-    CursorPositionMessage message(static_cast<Qt::CursorShape>(cursorType));
+    CursorMessage message(static_cast<Qt::CursorShape>(cursorType));
 
     // 发送光标类型消息
     QByteArray messageData = Protocol::createMessage(MessageType::CURSOR_POSITION, message);
@@ -910,21 +910,21 @@ void ClientHandlerWorker::handleClipboardData(const QByteArray& data) {
         return;
     }
 
-    if (message.isText()) {
+    if ( message.isText() ) {
         qCDebug(clientHandlerWorker, "接收到剪贴板文本，长度: %lld", message.text().length());
-        
+
         // 更新服务器端剪贴板
         emit clipboardTextReceived(message.text());
-        
+
         // 广播到其他客户端（通过 ServerManager）
         emit broadcastClipboardText(message.text());
-    } else if (message.isImage()) {
+    } else if ( message.isImage() ) {
         qCDebug(clientHandlerWorker, "接收到剪贴板图片，尺寸: %ux%u, 数据大小: %lld",
-                message.width, message.height, message.imageData().size());
-        
+            message.width, message.height, message.imageData().size());
+
         // 更新服务器端剪贴板
         emit clipboardImageReceived(message.imageData());
-        
+
         // 广播到其他客户端（通过 ServerManager）
         emit broadcastClipboardImage(message.imageData(), message.width, message.height);
     }

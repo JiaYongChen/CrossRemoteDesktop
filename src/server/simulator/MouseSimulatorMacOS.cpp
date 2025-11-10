@@ -127,6 +127,87 @@ bool MouseSimulatorMacOS::simulateMouseRelease(int x, int y, Qt::MouseButton but
     return simulateMouseEvent(x, y, eventType, cgButton);
 }
 
+bool MouseSimulatorMacOS::simulateMouseDoubleClick(int x, int y, Qt::MouseButton button) {
+    if (!m_initialized || !m_enabled) {
+        setLastError("MouseSimulator not initialized or disabled");
+        return false;
+    }
+
+    // 检查辅助功能权限
+    if (!AXIsProcessTrusted()) {
+        qCWarning(lcMouseSimulatorMacOS) << "Accessibility permission not granted";
+        setLastError("需要辅助功能权限");
+        return false;
+    }
+
+    CGMouseButton cgButton = qtButtonToMacOSButton(button);
+    CGEventType downType, upType;
+    
+    switch (cgButton) {
+        case kCGMouseButtonLeft:
+            downType = kCGEventLeftMouseDown;
+            upType = kCGEventLeftMouseUp;
+            break;
+        case kCGMouseButtonRight:
+            downType = kCGEventRightMouseDown;
+            upType = kCGEventRightMouseUp;
+            break;
+        case kCGMouseButtonCenter:
+            downType = kCGEventOtherMouseDown;
+            upType = kCGEventOtherMouseUp;
+            break;
+        default:
+            return false;
+    }
+
+    // macOS 坐标转换
+    QSize screenSize = getScreenSize();
+    int tx = x;
+    int ty = screenSize.height() - y - 1;
+    CGPoint point = CGPointMake(static_cast<CGFloat>(tx), static_cast<CGFloat>(ty));
+
+    // 创建事件源
+    CGEventSourceRef source = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
+    if (!source) {
+        qCWarning(lcMouseSimulatorMacOS) << "Failed to create CGEventSource";
+        return false;
+    }
+
+    // 第一次点击（clickCount = 1）
+    CGEventRef downEvent1 = CGEventCreateMouseEvent(source, downType, point, cgButton);
+    CGEventRef upEvent1 = CGEventCreateMouseEvent(source, upType, point, cgButton);
+    if (downEvent1 && upEvent1) {
+        CGEventSetIntegerValueField(downEvent1, kCGMouseEventClickState, 1);
+        CGEventSetIntegerValueField(upEvent1, kCGMouseEventClickState, 1);
+        CGEventPost(kCGHIDEventTap, downEvent1);
+        CGEventPost(kCGHIDEventTap, upEvent1);
+        CFRelease(downEvent1);
+        CFRelease(upEvent1);
+    } else {
+        if (source) CFRelease(source);
+        return false;
+    }
+
+    // 第二次点击（clickCount = 2）- 这标识为双击
+    CGEventRef downEvent2 = CGEventCreateMouseEvent(source, downType, point, cgButton);
+    CGEventRef upEvent2 = CGEventCreateMouseEvent(source, upType, point, cgButton);
+    if (downEvent2 && upEvent2) {
+        CGEventSetIntegerValueField(downEvent2, kCGMouseEventClickState, 2);
+        CGEventSetIntegerValueField(upEvent2, kCGMouseEventClickState, 2);
+        CGEventPost(kCGHIDEventTap, downEvent2);
+        CGEventPost(kCGHIDEventTap, upEvent2);
+        CFRelease(downEvent2);
+        CFRelease(upEvent2);
+    } else {
+        if (source) CFRelease(source);
+        return false;
+    }
+
+    CFRelease(source);
+    qCDebug(lcMouseSimulatorMacOS) << "Double click simulated at" << x << y << "button:" << button;
+    return true;
+}
+
 bool MouseSimulatorMacOS::simulateMouseWheel(int x, int y, int deltaX, int deltaY) {
     Q_UNUSED(x);  // macOS 滚轮事件不需要坐标,在当前鼠标位置生效
     Q_UNUSED(y);
