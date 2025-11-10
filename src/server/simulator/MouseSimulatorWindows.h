@@ -28,6 +28,9 @@ public:
     QSize getScreenSize() const override;
     QPoint getCursorPosition() const override;
 
+    // 光标信息
+    int getCurrentCursorType() const override;
+
 private:
     // 鼠标事件模拟
     bool simulateMouseEvent(int x, int y, DWORD flags, DWORD data = 0);

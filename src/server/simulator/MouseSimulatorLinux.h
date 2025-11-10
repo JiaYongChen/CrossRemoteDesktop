@@ -29,6 +29,9 @@ public:
     QSize getScreenSize() const override;
     QPoint getCursorPosition() const override;
 
+    // 光标信息
+    int getCurrentCursorType() const override;
+
 private:
     Display* m_display;
     

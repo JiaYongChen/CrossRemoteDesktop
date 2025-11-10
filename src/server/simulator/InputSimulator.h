@@ -39,6 +39,9 @@ public:
     QSize getScreenSize() const;
     QPoint getCursorPosition() const;
 
+    // 光标信息
+    int getCurrentCursorType() const;
+
     // 配置
     void setEnabled(bool enabled);
     bool isEnabled() const;

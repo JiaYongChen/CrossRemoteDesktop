@@ -226,6 +226,11 @@ private:
      * 认证成功后在processTask中异步调用，自动拉取并发送屏幕数据
      */
     Q_INVOKABLE void sendScreenDataFromQueue();
+    
+    /**
+     * @brief 发送光标类型到客户端
+     */
+    Q_INVOKABLE void sendCursorType();
 
 private:
     // 网络相关
@@ -252,6 +257,9 @@ private:
     QDateTime m_lastHeartbeat;            ///< 最后心跳时间
     QTimer* m_heartbeatSendTimer;         ///< 心跳发送定时器
     QTimer* m_heartbeatCheckTimer;        ///< 心跳检查定时器
+    
+    // 光标位置发送
+    QTimer* m_cursorUpdateTimer;          ///< 光标位置更新定时器
 
     // 断开连接标志（避免重复发送disconnected信号）
     std::atomic<bool> m_disconnectSignalSent{ false };

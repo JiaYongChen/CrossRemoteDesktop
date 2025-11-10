@@ -97,6 +97,34 @@ QPoint MouseSimulatorWindows::getCursorPosition() const {
     return QPoint();
 }
 
+int MouseSimulatorWindows::getCurrentCursorType() const {
+    // Windows 实现：获取当前光标类型
+    // 使用 GetCursorInfo 获取光标句柄，然后判断类型
+    CURSORINFO cursorInfo;
+    cursorInfo.cbSize = sizeof(CURSORINFO);
+    
+    if (GetCursorInfo(&cursorInfo)) {
+        HCURSOR hCursor = cursorInfo.hCursor;
+        
+        // 通过比较系统标准光标句柄来判断类型
+        if (hCursor == LoadCursor(NULL, IDC_ARROW)) return 0; // ARROW
+        if (hCursor == LoadCursor(NULL, IDC_IBEAM)) return 1; // IBEAM
+        if (hCursor == LoadCursor(NULL, IDC_WAIT)) return 2;  // WAIT
+        if (hCursor == LoadCursor(NULL, IDC_CROSS)) return 3; // CROSS
+        if (hCursor == LoadCursor(NULL, IDC_HAND)) return 4;  // HAND
+        if (hCursor == LoadCursor(NULL, IDC_SIZEALL)) return 5; // SIZE_ALL
+        if (hCursor == LoadCursor(NULL, IDC_SIZENESW)) return 6; // SIZE_NESW
+        if (hCursor == LoadCursor(NULL, IDC_SIZENS)) return 7; // SIZE_NS
+        if (hCursor == LoadCursor(NULL, IDC_SIZENWSE)) return 8; // SIZE_NWSE
+        if (hCursor == LoadCursor(NULL, IDC_SIZEWE)) return 9; // SIZE_WE
+        if (hCursor == LoadCursor(NULL, IDC_NO)) return 10;   // NO
+        if (hCursor == LoadCursor(NULL, IDC_HELP)) return 11; // HELP
+        if (hCursor == LoadCursor(NULL, IDC_APPSTARTING)) return 12; // BUSY
+    }
+    
+    return 0; // 默认返回 ARROW
+}
+
 bool MouseSimulatorWindows::simulateMouseEvent(int x, int y, DWORD flags, DWORD data) {
     INPUT input = {0};
     input.type = INPUT_MOUSE;

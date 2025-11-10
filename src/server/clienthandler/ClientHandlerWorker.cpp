@@ -49,6 +49,7 @@ ClientHandlerWorker::ClientHandlerWorker(qintptr socketDescriptor, QObject* pare
     , m_lastHeartbeat(QDateTime::currentDateTime())
     , m_heartbeatSendTimer(nullptr)
     , m_heartbeatCheckTimer(nullptr)
+    , m_cursorUpdateTimer(nullptr)
     , m_bytesReceived(0)
     , m_bytesSent(0)
     , m_inputSimulator(nullptr)
@@ -111,6 +112,11 @@ bool ClientHandlerWorker::initialize() {
     m_heartbeatSendTimer = new QTimer(this);
     m_heartbeatSendTimer->setInterval(NetworkConstants::HEARTBEAT_INTERVAL);
     connect(m_heartbeatSendTimer, &QTimer::timeout, this, &ClientHandlerWorker::sendHeartbeat);
+    
+    // 创建光标类型更新定时器 (100ms = 10 FPS)
+    m_cursorUpdateTimer = new QTimer(this);
+    m_cursorUpdateTimer->setInterval(100);
+    connect(m_cursorUpdateTimer, &QTimer::timeout, this, &ClientHandlerWorker::sendCursorType);
 
     // 创建输入模拟器
     m_inputSimulator = new InputSimulator(this);
@@ -145,6 +151,10 @@ void ClientHandlerWorker::cleanup() {
 
     if ( m_heartbeatSendTimer ) {
         m_heartbeatSendTimer->stop();
+    }
+    
+    if ( m_cursorUpdateTimer ) {
+        m_cursorUpdateTimer->stop();
     }
 
     // 断开套接字连接
@@ -217,6 +227,33 @@ void ClientHandlerWorker::sendScreenDataFromQueue() {
 
     // 直接调用sendEncodedMessage(同步发送,在当前线程)
     sendEncodedMessage(messageData);
+}
+
+void ClientHandlerWorker::sendCursorType() {
+    // 检查连接和认证状态
+    if ( !m_socket || !m_socket->isOpen() ) {
+        return;
+    }
+    
+    if ( !isAuthenticated() ) {
+        return;
+    }
+    
+    if ( !m_inputSimulator ) {
+        return;
+    }
+    
+    // 获取当前光标类型
+    int cursorType = m_inputSimulator->getCurrentCursorType();
+    
+    // 创建光标类型消息（仅包含类型）
+    CursorPositionMessage message(static_cast<Qt::CursorShape>(cursorType));
+    
+    // 发送光标类型消息
+    QByteArray messageData = Protocol::createMessage(MessageType::CURSOR_POSITION, message);
+    if ( !messageData.isEmpty() ) {
+        sendEncodedMessage(messageData);
+    }
 }
 
 QString ClientHandlerWorker::clientAddress() const {
@@ -592,6 +629,12 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
 
         QString sessionId = generateSessionId();
         sendAuthenticationResponse(AuthResult::SUCCESS, sessionId);
+        
+        // 启动光标位置更新定时器
+        if ( m_cursorUpdateTimer ) {
+            m_cursorUpdateTimer->start();
+        }
+        
         emit authenticated();
         qCInfo(clientHandlerWorker, "客户端认证成功: %s", qPrintable(clientId()));
         return;
@@ -615,6 +658,12 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
 
                 QString sessionId = generateSessionId();
                 sendAuthenticationResponse(AuthResult::SUCCESS, sessionId);
+                
+                // 启动光标位置更新定时器
+                if ( m_cursorUpdateTimer ) {
+                    m_cursorUpdateTimer->start();
+                }
+                
                 emit authenticated();
                 qCInfo(clientHandlerWorker, "客户端认证成功: %s", qPrintable(clientId()));
             } else {

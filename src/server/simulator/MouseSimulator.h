@@ -34,6 +34,9 @@ public:
     virtual QSize getScreenSize() const = 0;
     virtual QPoint getCursorPosition() const = 0;
 
+    // 光标信息
+    virtual int getCurrentCursorType() const = 0;
+
     // 配置
     void setEnabled(bool enabled) { m_enabled = enabled; }
     bool isEnabled() const { return m_enabled; }

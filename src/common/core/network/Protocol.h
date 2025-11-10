@@ -5,6 +5,7 @@
 #include <QtCore/QDataStream>
 #include <QtCore/QIODevice>
 #include <QtCore/qglobal.h>
+#include <QtCore/Qt>
 
 // 取消Windows SDK中的宏定义,避免命名冲突
 #ifdef _WIN32
@@ -240,6 +241,42 @@ struct AudioData : public IMessageCodec {
 
     QByteArray encode() const;
     bool decode(const QByteArray& dataBuffer);
+};
+
+// 光标类型消息（仅包含光标类型信息）
+struct CursorPositionMessage : public IMessageCodec {
+    Qt::CursorShape cursorType;        // 光标类型
+
+    CursorPositionMessage()
+        : cursorType(Qt::ArrowCursor) {
+    }
+
+    explicit CursorPositionMessage(Qt::CursorShape type)
+        : cursorType(type) {
+    }
+
+    QByteArray encode() const override {
+        QByteArray data;
+        QDataStream stream(&data, QIODevice::WriteOnly);
+        stream.setByteOrder(QDataStream::LittleEndian);
+        stream << static_cast<quint8>(cursorType);
+        return data;
+    }
+
+    bool decode(const QByteArray& dataBuffer) override {
+        if ( dataBuffer.isEmpty() ) {
+            return false;
+        }
+
+        QDataStream stream(dataBuffer);
+        stream.setByteOrder(QDataStream::LittleEndian);
+
+        quint8 type;
+        stream >> type;
+        cursorType = static_cast<Qt::CursorShape>(type);
+
+        return stream.status() == QDataStream::Ok;
+    }
 };
 
 // 文件传输请求

@@ -85,6 +85,9 @@ signals:
 
     // 连接状态变化信号（用于 UI 更新）
     void connectionStateChanged(ConnectionManager::ConnectionState state);
+    
+    // 远程光标类型更新信号
+    void remoteCursorTypeUpdated(Qt::CursorShape type);
 
 private slots:
     void onMessageReceived(MessageType type, const QByteArray& data);

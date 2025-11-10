@@ -29,6 +29,9 @@ public:
     QSize getScreenSize() const override;
     QPoint getCursorPosition() const override;
 
+    // 光标信息
+    int getCurrentCursorType() const override;
+
 private:
     // 辅助功能权限检查
     bool checkAccessibilityPermission();

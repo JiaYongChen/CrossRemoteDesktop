@@ -186,6 +186,10 @@ void SessionManager::onMessageReceived(MessageType type, const QByteArray& data)
             // 处理屏幕数据
             handleScreenData(data);
             break;
+        case MessageType::CURSOR_POSITION:
+            // 处理光标位置数据
+            handleCursorPosition(data);
+            break;
         default:
             // 其他消息类型忽略
             QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient)
@@ -294,6 +298,18 @@ void SessionManager::handleScreenData(const QByteArray& data) {
             << "Failed to load JPEG image from frame data, size:" << frameData.size()
             << "first 16 bytes:" << frameData.left(16).toHex();
     }
+}
+
+void SessionManager::handleCursorPosition(const QByteArray& data) {
+    // 使用 CursorPositionMessage 解析光标类型数据
+    CursorPositionMessage message;
+    if ( !message.decode(data) ) {
+        qCWarning(lcClient) << "Failed to decode cursor type message";
+        return;
+    }
+
+    // 仅发射光标类型更新信号
+    emit remoteCursorTypeUpdated(message.cursorType);
 }
 
 QString SessionManager::currentHost() const {

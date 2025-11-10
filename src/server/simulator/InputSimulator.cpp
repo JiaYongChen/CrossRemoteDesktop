@@ -223,6 +223,14 @@ QPoint InputSimulator::getCursorPosition() const {
     return m_mouseSimulator->getCursorPosition();
 }
 
+int InputSimulator::getCurrentCursorType() const {
+    if ( !m_mouseSimulator ) {
+        return 0; // 默认返回 ARROW
+    }
+
+    return m_mouseSimulator->getCurrentCursorType();
+}
+
 void InputSimulator::setEnabled(bool enabled) {
     QMutexLocker locker(&m_mutex);
 

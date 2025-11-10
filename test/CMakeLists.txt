@@ -497,6 +497,7 @@ set(CLIENTREMOTEWINDOW_TEST_SOURCES
     
     # ClientRemoteWindow相关源文件
     ../src/client/window/ClientRemoteWindow.cpp
+    ../src/client/window/CursorManager.cpp
     ../src/client/managers/FileTransferManager.cpp
     ../src/client/window/RenderManager.cpp
     ../src/client/managers/SessionManager.cpp

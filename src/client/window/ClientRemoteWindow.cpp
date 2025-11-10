@@ -5,10 +5,12 @@
 #include "../../common/core/config/UiConstants.h"
 #include "../../common/core/config/MessageConstants.h"
 #include "RenderManager.h"
+#include "CursorManager.h"
 
 #include <QtWidgets/QGraphicsScene>
 #include <QtWidgets/QGraphicsPixmapItem>
 #include <QtWidgets/QGraphicsRectItem>
+#include <QtGui/QCursor>
 #ifndef QT_NO_OPENGL
 #include <QtOpenGLWidgets/QOpenGLWidget>
 #endif
@@ -56,6 +58,7 @@ ClientRemoteWindow::ClientRemoteWindow(SessionManager* sessionManager, QWidget* 
     , m_lastMousePos(-1, -1)
     , m_fileTransferManager(nullptr)
     , m_renderManager(nullptr)
+    , m_cursorManager(nullptr)
     , m_showPerformanceInfo(false) {
     // 确保窗口关闭时自动删除,避免无父对象窗口内存泄漏
     // 使用属性而非手动deleteLater,减少重复释放风险
@@ -151,6 +154,9 @@ void ClientRemoteWindow::initializeManagers() {
 
     // Render and view management
     m_renderManager = new RenderManager(this, this);
+
+    // Cursor management
+    m_cursorManager = new CursorManager(viewport(), this);
 }
 
 void ClientRemoteWindow::configureWindow() {
@@ -206,6 +212,13 @@ void ClientRemoteWindow::setupManagerConnections() {
         // 连接状态变化信号,同步更新 UI 显示
         connect(m_sessionManager, &SessionManager::connectionStateChanged,
             this, &ClientRemoteWindow::setConnectionState);
+    }
+
+    // Connect cursor manager signals
+    if ( m_cursorManager && m_sessionManager ) {
+        // 连接远程光标类型更新信号
+        connect(m_sessionManager, &SessionManager::remoteCursorTypeUpdated,
+            m_cursorManager, &CursorManager::setRemoteCursorType);
     }
 
     // Connect file transfer manager signals  
@@ -361,6 +374,10 @@ RenderManager* ClientRemoteWindow::renderManager() const {
     return m_renderManager;
 }
 
+CursorManager* ClientRemoteWindow::cursorManager() const {
+    return m_cursorManager;
+}
+
 // Public slots
 
 // Event handlers
@@ -400,6 +417,11 @@ void ClientRemoteWindow::mousePressEvent(QMouseEvent* event) {
         }
     }
     QGraphicsView::mousePressEvent(event);
+
+    // 刷新光标状态
+    if ( m_cursorManager ) {
+        m_cursorManager->refreshLocalCursor();
+    }
 }
 
 void ClientRemoteWindow::mouseReleaseEvent(QMouseEvent* event) {
@@ -427,6 +449,11 @@ void ClientRemoteWindow::mouseReleaseEvent(QMouseEvent* event) {
         }
     }
     QGraphicsView::mouseReleaseEvent(event);
+
+    // 刷新光标状态
+    if ( m_cursorManager ) {
+        m_cursorManager->refreshLocalCursor();
+    }
 }
 
 void ClientRemoteWindow::mouseMoveEvent(QMouseEvent* event) {
@@ -440,6 +467,11 @@ void ClientRemoteWindow::mouseMoveEvent(QMouseEvent* event) {
             Q_ARG(int, static_cast<int>(MouseEventType::MOVE)));
     }
     QGraphicsView::mouseMoveEvent(event);
+
+    // 刷新本地光标状态
+    if ( m_cursorManager ) {
+        m_cursorManager->refreshLocalCursor();
+    }
 }
 
 void ClientRemoteWindow::mouseDoubleClickEvent(QMouseEvent* event) {
@@ -467,6 +499,11 @@ void ClientRemoteWindow::mouseDoubleClickEvent(QMouseEvent* event) {
         }
     }
     QGraphicsView::mouseDoubleClickEvent(event);
+
+    // 刷新光标状态
+    if ( m_cursorManager ) {
+        m_cursorManager->refreshLocalCursor();
+    }
 }
 
 void ClientRemoteWindow::wheelEvent(QWheelEvent* event) {
@@ -529,23 +566,23 @@ void ClientRemoteWindow::focusOutEvent(QFocusEvent* event) {
 }
 
 void ClientRemoteWindow::enterEvent(QEnterEvent* event) {
-    // 鼠标进入远程控制窗口时，隐藏本地鼠标光标
-    // 只显示远程端的鼠标状态
-    // 需要同时设置窗口和viewport的光标
-    setCursor(Qt::BlankCursor);
-    if ( viewport() ) {
-        viewport()->setCursor(Qt::BlankCursor);
-    }
+    // 鼠标进入远程控制窗口时的处理
     QGraphicsView::enterEvent(event);
+
+    // 应用本地光标状态（隐藏或显示）
+    if ( m_cursorManager ) {
+        m_cursorManager->applyLocalCursorState();
+    }
 }
 
 void ClientRemoteWindow::leaveEvent(QEvent* event) {
-    // 鼠标离开远程控制窗口时，恢复默认光标
-    unsetCursor();
-    if ( viewport() ) {
-        viewport()->unsetCursor();
-    }
+    // 鼠标离开远程控制窗口时的处理
     QGraphicsView::leaveEvent(event);
+
+    // 恢复本地光标
+    if ( m_cursorManager ) {
+        m_cursorManager->restoreLocalCursor();
+    }
 }
 
 void ClientRemoteWindow::closeEvent(QCloseEvent* event) {

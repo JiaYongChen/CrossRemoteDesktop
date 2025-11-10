@@ -34,6 +34,7 @@ class QCloseEvent;
 class SessionManager;
 class FileTransferManager;
 class RenderManager;
+class CursorManager;
 
 class ClientRemoteWindow : public QGraphicsView {
     Q_OBJECT
@@ -80,6 +81,7 @@ public:
     // Manager access methods
     FileTransferManager* fileTransferManager() const;
     RenderManager* renderManager() const;
+    CursorManager* cursorManager() const;
 
     // 新增：查询窗口是否处于关闭流程中
     // 说明：
@@ -135,7 +137,7 @@ private:
     void enableOpenGL(bool enable = true);
 
     void drawPerformanceInfo(QPainter& painter);
-    
+
     // 显示断开连接对话框
     void showDisconnectionDialog();
 
@@ -156,6 +158,7 @@ private:
 
     FileTransferManager* m_fileTransferManager;
     RenderManager* m_renderManager;
+    CursorManager* m_cursorManager;
 
     bool m_showPerformanceInfo;
 };
