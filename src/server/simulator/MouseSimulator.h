@@ -47,7 +47,6 @@ public:
 protected:
     void setLastError(const QString& error);
     bool isValidCoordinate(int x, int y) const;
-    bool simulateMouseClick(int x, int y, Qt::MouseButton button);
 
     bool m_initialized;
     bool m_enabled;
