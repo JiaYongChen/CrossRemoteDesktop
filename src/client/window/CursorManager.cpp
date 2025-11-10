@@ -11,6 +11,7 @@ CursorManager::CursorManager(QWidget* targetWidget, QObject* parent)
 }
 
 CursorManager::~CursorManager() {
+    m_targetWidget = nullptr;
     // 恢复光标状态
     if ( m_targetWidget ) {
         restoreLocalCursor();
@@ -40,7 +41,8 @@ void CursorManager::restoreLocalCursor() {
     }
 
     // 恢复默认光标
-    m_targetWidget->unsetCursor();
+    if ( m_targetWidget )
+        m_targetWidget->unsetCursor();
 
     // 如果有viewport，也恢复它的光标
     QWidget* viewport = m_targetWidget->findChild<QWidget*>("qt_scrollarea_viewport");
