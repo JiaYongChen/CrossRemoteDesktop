@@ -129,10 +129,10 @@ QPoint MouseSimulatorLinux::getCursorPosition() const {
 }
 
 int MouseSimulatorLinux::getCurrentCursorType() const {
-    // Linux X11 实现：获取当前光标类型
-    // 这需要 XFixes 扩展来获取光标信息
+    // Linux X11 实现：获取当前光标类型并映射到 Qt::CursorShape
+    // 这需要 XFixes 扩展来获取光标信息，然后映射到对应的 Qt::CursorShape 枚举值
     // 暂时返回默认值，完整实现需要额外的 X11 扩展
-    return 0; // Qt::ArrowCursor
+    return Qt::ArrowCursor; // 默认返回 Qt::ArrowCursor (0)
 }
 
 bool MouseSimulatorLinux::simulateMouseEvent(int x, int y, unsigned int button, bool press) {
