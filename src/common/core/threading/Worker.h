@@ -10,13 +10,12 @@
 
 /**
  * @brief 工作线程基类
- * 
+ *
  * 定义所有工作线程的通用接口和行为模式。
  * 支持启动、停止、暂停、恢复等操作，并提供性能监控功能。
  * 所有具体的Worker类都应该继承此基类。
  */
-class Worker : public QObject
-{
+class Worker : public QObject {
     Q_OBJECT
 
 public:
@@ -35,7 +34,7 @@ public:
      * @brief 构造函数
      * @param parent 父对象
      */
-    explicit Worker(QObject *parent = nullptr);
+    explicit Worker(QObject* parent = nullptr);
 
     /**
      * @brief 虚析构函数
@@ -111,42 +110,37 @@ public:
 public slots:
     /**
      * @brief 启动工作线程
-     * 
+     *
      * 异步启动工作线程，启动完成后会发出started信号。
      */
     virtual void start();
 
     /**
      * @brief 停止工作线程
-     * 
+     *
      * 异步停止工作线程，停止完成后会发出stopped信号。
-     * 
+     *
      * @param waitForFinish 是否等待当前任务完成
      */
     virtual void stop(bool waitForFinish = true);
 
     /**
      * @brief 暂停工作线程
-     * 
+     *
      * 暂停当前工作线程的处理，但不停止线程。
      */
     virtual void pause();
 
     /**
      * @brief 恢复工作线程
-     * 
+     *
      * 恢复已暂停的工作线程。
      */
     virtual void resume();
 
-    // 兼容旧版Qt：提供一个可通过QMetaObject::invokeMethod调用的包装槽，内部调用受保护的cleanup()
-    // 说明：部分平台/旧版Qt不支持以lambda作为invokeMethod目标，为保证跨线程阻塞清理的可靠性
-    // ThreadManager会改为调用该槽函数。
-    void callCleanup();
-
     /**
      * @brief 线程安全的请求暂停（仅设置原子标志，不直接发射信号）
-     * 
+     *
      * 说明：当workLoop占用当前线程事件循环时，QueuedConnection的pause槽可能无法及时执行。
      * 通过该接口直接设置原子标志，workLoop中的waitIfPaused会在检测到标志后主动切换状态并发射paused信号。
      */
@@ -154,14 +148,14 @@ public slots:
 
     /**
      * @brief 线程安全的请求恢复（仅清除原子标志，并唤醒条件变量）
-     * 
+     *
      * 说明：对应requestPause，恢复由workLoop在退出暂停等待时切换状态并发射resumed信号。
      */
     void requestResume();
 
     /**
      * @brief 请求处理单个任务
-     * 
+     *
      * 子类应该重写此方法来实现具体的处理逻辑。
      * 此方法在工作线程中被调用。
      */
@@ -222,21 +216,21 @@ protected:
 
     /**
      * @brief 等待暂停状态结束
-     * 
+     *
      * 如果当前处于暂停状态，此方法会阻塞直到恢复或停止。
      */
     void waitIfPaused();
 
     /**
      * @brief 开始性能计时
-     * 
+     *
      * 在处理任务前调用此方法开始计时。
      */
     void startPerformanceTiming();
 
     /**
      * @brief 结束性能计时
-     * 
+     *
      * 在处理任务后调用此方法结束计时并更新统计。
      */
     void endPerformanceTiming();
@@ -249,25 +243,25 @@ protected:
 
     /**
      * @brief 初始化工作线程
-     * 
+     *
      * 子类可以重写此方法来执行初始化操作。
      * 此方法在工作线程启动时被调用。
-     * 
+     *
      * @return true 初始化成功，false 初始化失败
      */
     virtual bool initialize();
 
     /**
      * @brief 清理工作线程
-     * 
+     *
      * 子类可以重写此方法来执行清理操作。
      * 此方法在工作线程停止时被调用。
      */
-    virtual void cleanup();
+    virtual Q_INVOKABLE void cleanup();
 
     /**
      * @brief 主工作循环
-     * 
+     *
      * 子类可以重写此方法来实现自定义的工作循环。
      * 默认实现会持续调用processTask()直到停止。
      */
@@ -292,18 +286,18 @@ private:
     std::atomic<State> m_state;         ///< 当前状态
     std::atomic<bool> m_stopRequested;  ///< 停止请求标志
     std::atomic<bool> m_pauseRequested; ///< 暂停请求标志
-    
+
     QMutex m_pauseMutex;                ///< 暂停互斥锁
     QWaitCondition m_pauseCondition;    ///< 暂停条件变量
-    
+
     QString m_name;                     ///< 线程名称
-    
+
     // 性能统计相关
     mutable QMutex m_statsMutex;        ///< 统计互斥锁
     PerformanceStats m_stats;           ///< 性能统计数据
     QElapsedTimer m_processingTimer;    ///< 处理计时器
     QElapsedTimer m_uptimeTimer;        ///< 运行时间计时器
-    
+
     bool m_waitForFinish;               ///< 是否等待完成
 };
 

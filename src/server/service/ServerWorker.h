@@ -77,7 +77,7 @@ protected:
     /**
      * @brief 清理工作线程资源
      */
-    void cleanup() override;
+    Q_INVOKABLE void cleanup() override;
 
     /**
      * @brief 处理任务

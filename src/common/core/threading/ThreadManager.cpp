@@ -211,7 +211,7 @@ bool ThreadManager::stopThread(const QString& name, bool waitForFinish) {
 
     // 在删除对象前，异步请求 Worker 线程执行一次 cleanup（停止定时器/断开连接），
     // 避免在无事件循环或已停止时使用 BlockingQueuedConnection 导致潜在阻塞。
-    QMetaObject::invokeMethod(worker, "callCleanup", Qt::QueuedConnection);
+    QMetaObject::invokeMethod(worker, "cleanup", Qt::QueuedConnection);
 
     // 3) 请求事件循环退出，并等待线程结束
     if ( thread->isRunning() ) {
@@ -344,7 +344,7 @@ bool ThreadManager::destroyThread(const QString& name) {
         if ( info->worker ) {
             disconnectWorkerSignals(info->worker);
             // 再次尝试在 Worker 线程中异步触发清理与停止，避免跨线程停止定时器
-            QMetaObject::invokeMethod(info->worker, "callCleanup", Qt::QueuedConnection);
+            QMetaObject::invokeMethod(info->worker, "cleanup", Qt::QueuedConnection);
             QMetaObject::invokeMethod(info->worker, "stop",
                 Qt::QueuedConnection,
                 Q_ARG(bool, false));
@@ -751,27 +751,13 @@ void ThreadManager::connectWorkerSignals(Worker* worker) {
     qCDebug(lcThreading) << "ThreadManager::connectWorkerSignals() - Current thread:" << QThread::currentThread();
 
     // 尝试使用Qt::AutoConnection让Qt自动选择连接类型
-    bool result1 = connect(worker, &Worker::started, this, &ThreadManager::onWorkerStarted, Qt::AutoConnection);
-    bool result2 = connect(worker, &Worker::stopped, this, &ThreadManager::onWorkerStopped, Qt::AutoConnection);
-    bool result3 = connect(worker, &Worker::paused, this, &ThreadManager::onWorkerPaused, Qt::AutoConnection);
-    bool result4 = connect(worker, &Worker::resumed, this, &ThreadManager::onWorkerResumed, Qt::AutoConnection);
-    bool result5 = connect(worker, &Worker::errorOccurred, this, &ThreadManager::onWorkerError, Qt::AutoConnection);
+    connect(worker, &Worker::started, this, &ThreadManager::onWorkerStarted, Qt::AutoConnection);
+    connect(worker, &Worker::stopped, this, &ThreadManager::onWorkerStopped, Qt::AutoConnection);
+    connect(worker, &Worker::paused, this, &ThreadManager::onWorkerPaused, Qt::AutoConnection);
+    connect(worker, &Worker::resumed, this, &ThreadManager::onWorkerResumed, Qt::AutoConnection);
+    connect(worker, &Worker::errorOccurred, this, &ThreadManager::onWorkerError, Qt::AutoConnection);
 
     qCDebug(lcThreading) << "ThreadManager::connectWorkerSignals() - Connected signals for worker:" << worker->name();
-    qCDebug(lcThreading) << "ThreadManager::connectWorkerSignals() - Connection results:" << result1 << result2 << result3 << result4 << result5;
-
-    if ( !result2 ) {
-        qCDebug(lcThreading) << "ThreadManager::connectWorkerSignals() - FAILED to connect stopped signal for worker:" << worker->name();
-    }
-
-    // 验证连接是否真的建立
-    // 注意：避免捕获裸指针，防止对象已删除时的悬空访问。使用QPointer进行弱引用保护。
-    QPointer<Worker> workerGuard(worker);
-    QMetaObject::Connection conn = connect(worker, &Worker::stopped, this, [workerGuard]() {
-        const QString n = workerGuard ? workerGuard->name() : QStringLiteral("<deleted>");
-        qCDebug(lcThreading) << "Lambda slot received stopped signal from:" << n;
-    }, Qt::AutoConnection);
-    qCDebug(lcThreading) << "ThreadManager::connectWorkerSignals() - Lambda connection valid:" << (bool)conn;
 }
 
 void ThreadManager::disconnectWorkerSignals(Worker* worker) {
