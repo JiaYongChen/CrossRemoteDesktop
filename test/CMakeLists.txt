@@ -133,7 +133,6 @@ set(THREADMANAGER_TEST_SOURCES
     # ThreadManager相关源文件
     ../src/common/core/threading/ThreadManager.cpp
     ../src/common/core/threading/Worker.cpp
-    ../src/common/core/threading/PerformanceOptimizer.cpp
     
     # 公共核心源文件
     ../src/common/core/logging/LoggingCategories.cpp
@@ -183,7 +182,6 @@ set(SCREENCAPTUREWORKER_TEST_SOURCES
 
     ../src/common/core/threading/Worker.cpp
     ../src/common/core/threading/ThreadManager.cpp
-    ../src/common/core/threading/PerformanceOptimizer.cpp
     
     # 公共核心源文件
     ../src/common/core/logging/LoggingCategories.cpp
@@ -274,7 +272,6 @@ set(SCREENCAPTURE_TEST_SOURCES
 
     ../src/common/core/threading/Worker.cpp
     ../src/common/core/threading/ThreadManager.cpp
-    ../src/common/core/threading/PerformanceOptimizer.cpp
     
     # 公共核心源文件
     ../src/common/core/logging/LoggingCategories.cpp
@@ -345,7 +342,6 @@ set(SCREEN_CAPTURE_INTEGRATION_TEST_SOURCES
     # ThreadManager相关源文件
     ../src/common/core/threading/ThreadManager.cpp
     ../src/common/core/threading/Worker.cpp
-    ../src/common/core/threading/ThreadCommunication.cpp
     
     # 公共核心源文件
     ../src/common/core/logging/LoggingCategories.cpp
@@ -381,7 +377,7 @@ set_tests_properties(ScreenCaptureIntegrationTest PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
-message(STATUS "  Tests: Memory Optimization, ThreadManager, ScreenCaptureWorker, PerformanceOptimizer, ScreenCaptureIntegration")
+message(STATUS "  Tests: Memory Optimization, ThreadManager, ScreenCaptureWorker, ScreenCaptureIntegration")
 message(STATUS "  Test targets:")
 message(STATUS "    - run_all_tests: 运行所有测试")
 message(STATUS "    - run_quick_tests: 运行快速测试")
