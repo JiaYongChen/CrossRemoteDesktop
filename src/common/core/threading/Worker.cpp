@@ -136,36 +136,30 @@ void Worker::stop(bool waitForFinish) {
 }
 
 void Worker::pause() {
-    State currentState = m_state.load();
-    if ( currentState != State::Running ) {
-        qCDebug(lcThreading) << "Worker::pause() - Worker is not running:" << static_cast<int>(currentState);
+    if ( m_stopRequested.load() ) {
+        qCDebug(lcThreading) << "Worker::pause() - stop already requested for" << m_name;
         return;
     }
 
-    // 仅设置标志，不直接改变状态与发信号，交由waitIfPaused统一处理，避免状态竞争
-    m_pauseRequested.store(true);
+    bool alreadyRequested = m_pauseRequested.exchange(true);
+    if ( alreadyRequested ) {
+        qCDebug(lcThreading) << "Worker::pause() - pause already pending for" << m_name;
+        return;
+    }
+
+    qCDebug(lcThreading) << "Worker::pause() - pause requested, state:"
+        << static_cast<int>(m_state.load());
 }
 
 void Worker::resume() {
-    State currentState = m_state.load();
-    if ( currentState != State::Paused && !m_pauseRequested.load() ) {
-        qCDebug(lcThreading) << "Worker::resume() - Worker is not paused:" << static_cast<int>(currentState);
+    bool hadRequest = m_pauseRequested.exchange(false);
+    if ( !hadRequest && m_state.load() != State::Paused ) {
+        qCDebug(lcThreading) << "Worker::resume() - nothing to resume for" << m_name;
         return;
     }
 
-    // 清除暂停请求并唤醒
-    m_pauseRequested.store(false);
     m_pauseCondition.wakeAll();
-}
-
-void Worker::requestPause() {
-    // 无条件设置请求，线程安全，供外部在任意线程调用
-    m_pauseRequested.store(true);
-}
-
-void Worker::requestResume() {
-    m_pauseRequested.store(false);
-    m_pauseCondition.wakeAll();
+    qCDebug(lcThreading) << "Worker::resume() - wake issued for" << m_name;
 }
 
 void Worker::setState(State newState) {

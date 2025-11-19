@@ -125,33 +125,18 @@ public slots:
     virtual void stop(bool waitForFinish = true);
 
     /**
-     * @brief 暂停工作线程
+     * @brief 暂停工作线程（线程安全）
      *
-     * 暂停当前工作线程的处理，但不停止线程。
+     * 可在任意线程调用，仅设置暂停请求标志，由工作线程在安全点切换状态。
      */
     virtual void pause();
 
     /**
-     * @brief 恢复工作线程
+     * @brief 恢复工作线程（线程安全）
      *
-     * 恢复已暂停的工作线程。
+     * 清除暂停请求并唤醒等待的工作线程。
      */
     virtual void resume();
-
-    /**
-     * @brief 线程安全的请求暂停（仅设置原子标志，不直接发射信号）
-     *
-     * 说明：当workLoop占用当前线程事件循环时，QueuedConnection的pause槽可能无法及时执行。
-     * 通过该接口直接设置原子标志，workLoop中的waitIfPaused会在检测到标志后主动切换状态并发射paused信号。
-     */
-    void requestPause();
-
-    /**
-     * @brief 线程安全的请求恢复（仅清除原子标志，并唤醒条件变量）
-     *
-     * 说明：对应requestPause，恢复由workLoop在退出暂停等待时切换状态并发射resumed信号。
-     */
-    void requestResume();
 
     /**
      * @brief 请求处理单个任务

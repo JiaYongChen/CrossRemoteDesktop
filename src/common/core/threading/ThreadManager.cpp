@@ -257,7 +257,7 @@ bool ThreadManager::pauseThread(const QString& name) {
 
     if ( worker ) {
         // 直接调用线程安全的请求接口，避免事件循环阻塞导致 QueuedConnection 无法触发
-        worker->requestPause();
+        worker->pause();
     } else {
         qCDebug(lcThreading) << "ThreadManager::pauseThread() - Worker is null for:" << name; // 使用分类debug日志
         return false;
@@ -288,7 +288,7 @@ bool ThreadManager::resumeThread(const QString& name) {
 
     if ( worker ) {
         // 直接调用线程安全的请求接口进行恢复
-        worker->requestResume();
+        worker->resume();
     } else {
         qCDebug(lcThreading) << "ThreadManager::resumeThread() - Worker is null for:" << name; // 统一为debug
         return false;
