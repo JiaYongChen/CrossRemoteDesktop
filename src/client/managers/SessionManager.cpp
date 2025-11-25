@@ -13,6 +13,7 @@ SessionManager::SessionManager(const QString& connectionId, QObject* parent)
     , m_connectionId(connectionId)
     , m_connectionManager(new ConnectionManager(this))
     , m_frameDataMutex(new QMutex())
+    , m_screenImageQueueMutex(new QMutex())
     , m_statsTimer(new QTimer(this))
     , m_frameRate(30) {
 
@@ -32,6 +33,7 @@ SessionManager::~SessionManager() {
 
     // ConnectionManager 由 Qt 父对象机制自动删除
     delete m_frameDataMutex;
+    delete m_screenImageQueueMutex;
 }
 
 QString SessionManager::connectionId() const {
@@ -294,9 +296,19 @@ void SessionManager::handleScreenData(const QByteArray& data) {
         m_stats.frameCount++;
         calculateFPS();
 
-        // 发出屏幕更新信号 - 直接发送 QImage 而不是 QPixmap
-        // QImage 设计用于跨线程传输，QPixmap 应该只在主线程使用
-        emit screenUpdated(image);
+        // 将图片放入队列，替代信号槽机制
+        {
+            QMutexLocker locker(m_screenImageQueueMutex);
+            // 如果队列已满，移除最旧的图片
+            while ( m_screenImageQueue.size() >= MAX_QUEUE_SIZE ) {
+                m_screenImageQueue.dequeue();
+                qCDebug(lcClient) << "SessionManager: Queue full, dropped oldest frame";
+            }
+            m_screenImageQueue.enqueue(image);
+        }
+
+        // 注意：不再发射screenUpdated信号，改用ClientManager定时拉取
+        // emit screenUpdated(image);
     } else {
         QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient)
             << "Failed to load JPEG image from frame data, size:" << frameData.size()
@@ -384,4 +396,21 @@ void SessionManager::handleClipboardData(const QByteArray& data) {
                  << "data size:" << message.imageData().size();
         emit clipboardImageReceived(message.imageData());
     }
+}
+
+// ==================== 图片队列操作实现 ====================
+
+bool SessionManager::hasScreenImage() const {
+    QMutexLocker locker(m_screenImageQueueMutex);
+    return !m_screenImageQueue.isEmpty();
+}
+
+QImage SessionManager::dequeueScreenImage() {
+    QMutexLocker locker(m_screenImageQueueMutex);
+    if ( m_screenImageQueue.isEmpty() ) {
+        return QImage();
+    }
+    QImage image = m_screenImageQueue.dequeue();
+    qCDebug(lcClient) << "SessionManager: Image dequeued, remaining:" << m_screenImageQueue.size();
+    return image;
 }

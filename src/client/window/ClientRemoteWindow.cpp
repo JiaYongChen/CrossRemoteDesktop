@@ -220,8 +220,9 @@ void ClientRemoteWindow::setupManagerConnections() {
     if ( m_sessionManager ) {
         connect(m_sessionManager, &SessionManager::performanceStatsUpdated,
             this, &ClientRemoteWindow::onPerformanceStatsUpdated);
-        connect(m_sessionManager, &SessionManager::screenUpdated,
-            this, &ClientRemoteWindow::onScreenUpdated);
+        // 注意：不再连接screenUpdated信号，改用ClientManager定时器拉取
+        // connect(m_sessionManager, &SessionManager::screenUpdated,
+        //     this, &ClientRemoteWindow::onScreenUpdated);
 
         // 连接状态变化信号,同步更新 UI 显示
         connect(m_sessionManager, &SessionManager::connectionStateChanged,

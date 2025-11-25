@@ -75,6 +75,10 @@ public:
     bool isConnected() const;
     bool isAuthenticated() const;
 
+    // 图片队列操作（线程安全）
+    bool hasScreenImage() const;
+    QImage dequeueScreenImage();
+
 public slots:
     // 连接控制（声明为 slot 以支持跨线程调用）
     void connectToHost(const QString& host, int port);
@@ -119,6 +123,11 @@ private:
     // 帧数据缓存和线程安全
     QByteArray m_previousFrameData;
     mutable QMutex* m_frameDataMutex;
+
+    // 图片队列（用于替代信号槽机制）
+    QQueue<QImage> m_screenImageQueue;
+    mutable QMutex* m_screenImageQueueMutex;
+    static constexpr int MAX_QUEUE_SIZE = 3;  // 队列最大长度,防止积压
 
     // 性能统计
     QTimer* m_statsTimer;

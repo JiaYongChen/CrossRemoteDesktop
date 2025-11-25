@@ -14,6 +14,7 @@
 class SessionManager;
 class QSettings;
 class ThreadManager;
+class QTimer;
 
 /**
  * @brief 连接实例结构体 - 管理单个远程桌面连接的所有组件
@@ -124,8 +125,8 @@ private slots:
     void onAuthenticated();
     void onConnectionClosed();
     void onConnectionError(const QString& error);
-    void onScreenUpdated(const QImage& screen);
     void onWindowClosed();
+    void updateScreens();  // 定时器触发，从队列中拉取图片并刷新
 
 private:
     ConnectionInstance* getConnectionInstance(const QString& connectionId) const;
@@ -135,6 +136,7 @@ private:
 
 private:
     QHash<QString, ConnectionInstance*> m_connections;
+    QTimer* m_screenUpdateTimer;  // 定时器，用于定期从队列拉取图片
 };
 
 #endif // CLIENTMANAGER_H

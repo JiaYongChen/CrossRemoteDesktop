@@ -149,11 +149,18 @@ bool ConnectionInstance::isAuthenticated() const {
 // ClientManager 方法实现
 
 ClientManager::ClientManager(QObject* parent)
-    : QObject(parent) {
+    : QObject(parent)
+    , m_screenUpdateTimer(new QTimer(this)) {
+    // 设置定时器，每30ms更新一次屏幕（约33fps）
+    m_screenUpdateTimer->setInterval(30);
+    connect(m_screenUpdateTimer, &QTimer::timeout, this, &ClientManager::updateScreens);
 }
 
 ClientManager::~ClientManager() {
     qCDebug(lcClientManager) << "~ClientManager(): cleanupResources begin";
+    if ( m_screenUpdateTimer ) {
+        m_screenUpdateTimer->stop();
+    }
     cleanupResources();
     qCDebug(lcClientManager) << "~ClientManager(): cleanupResources end";
 }
@@ -205,6 +212,12 @@ QString ClientManager::connectToHost(const QString& host, int port) {
     // 注册到连接表
     m_connections.insert(instance->connectionId, instance);
 
+    // 启动定时器（如果还未启动）
+    if ( !m_screenUpdateTimer->isActive() ) {
+        qCDebug(lcClientManager) << "connectToHost(): Starting screen update timer";
+        m_screenUpdateTimer->start();
+    }
+
     // 连接到 SessionManager 的连接状态变化信号，监听认证成功和连接建立事件
     connect(instance->sessionManager, &SessionManager::connectionStateChanged,
         this, [this, sessionManager = instance->sessionManager](ConnectionManager::ConnectionState state) {
@@ -219,9 +232,6 @@ QString ClientManager::connectToHost(const QString& host, int port) {
                     qCDebug(lcClientManager) << "Authentication successful for" << sessionManager->connectionId();
                     // 认证成功后启动会话 (跨线程调用，使用QueuedConnection)
                     QMetaObject::invokeMethod(sessionManager, "startSession", Qt::QueuedConnection);
-                    // 连接屏幕更新信号
-                    connect(sessionManager, &SessionManager::screenUpdated,
-                        this, &ClientManager::onScreenUpdated);
                     break;
                 default:
                     break;
@@ -281,6 +291,13 @@ void ClientManager::disconnectFromHost(const QString& connectionId) {
     // 清理连接
     qCDebug(lcClientManager) << "disconnectFromHost(): [STEP-3] Cleaning up connection for" << connectionId;
     cleanupConnection(instance);
+    
+    // 如果没有活动连接了，停止定时器
+    if ( m_connections.isEmpty() && m_screenUpdateTimer->isActive() ) {
+        qCDebug(lcClientManager) << "disconnectFromHost(): No more connections, stopping screen update timer";
+        m_screenUpdateTimer->stop();
+    }
+    
     qCInfo(lcClientManager) << "disconnectFromHost(): [COMPLETE] Disconnected" << connectionId;
 }
 
@@ -398,9 +415,7 @@ void ClientManager::onAuthenticated() {
     qCDebug(lcClientManager) << "onAuthenticated(): start session for" << sessionManager->connectionId();
     // 认证成功后启动会话
     sessionManager->startSession();
-    // 连接屏幕更新信号
-    connect(sessionManager, &SessionManager::screenUpdated,
-        this, &ClientManager::onScreenUpdated);
+    m_screenUpdateTimer->start();
 }
 
 void ClientManager::onConnectionClosed() {
@@ -446,6 +461,12 @@ void ClientManager::onConnectionClosed() {
     qCDebug(lcClientManager) << "onConnectionClosed(): [STEP-2] Cleaning up connection for" << connectionId;
     cleanupConnection(instance);
     
+    // 如果没有活动连接了，停止定时器
+    if ( m_connections.isEmpty() && m_screenUpdateTimer->isActive() ) {
+        qCDebug(lcClientManager) << "onConnectionClosed(): No more connections, stopping screen update timer";
+        m_screenUpdateTimer->stop();
+    }
+    
     qCInfo(lcClientManager) << "onConnectionClosed(): [COMPLETE] Processed for" << connectionId;
 }
 
@@ -490,19 +511,13 @@ void ClientManager::onConnectionError(const QString& error) {
     qCDebug(lcClientManager) << "onConnectionError(): [STEP-1] Cleaning up connection for" << connectionId;
     cleanupConnection(instance);
     
+    // 如果没有活动连接了，停止定时器
+    if ( m_connections.isEmpty() && m_screenUpdateTimer->isActive() ) {
+        qCDebug(lcClientManager) << "onConnectionError(): No more connections, stopping screen update timer";
+        m_screenUpdateTimer->stop();
+    }
+    
     qCInfo(lcClientManager) << "onConnectionError(): [COMPLETE] Processed error for" << connectionId;
-}
-
-void ClientManager::onScreenUpdated(const QImage& screen) {
-    SessionManager* sessionManager = qobject_cast<SessionManager*>(sender());
-    if ( !sessionManager ) {
-        return;
-    }
-
-    ConnectionInstance* instance = getConnectionInstance(sessionManager->connectionId());
-    if ( instance && instance->remoteDesktopWindow ) {
-        instance->remoteDesktopWindow->updateRemoteScreen(screen);
-    }
 }
 
 void ClientManager::onWindowClosed() {
@@ -541,8 +556,13 @@ void ClientManager::onWindowClosed() {
         qCDebug(lcClientManager) << "onWindowClosed(): [STEP-3] Cleaning up connection for" << connectionId;
         cleanupConnection(instance);
 
-        // 检查是否所有连接都已关闭，如果是则发射信号
+        // 检查是否所有连接都已关闭
         if ( m_connections.isEmpty() ) {
+            // 停止定时器
+            if ( m_screenUpdateTimer->isActive() ) {
+                qCDebug(lcClientManager) << "onWindowClosed(): No more connections, stopping screen update timer";
+                m_screenUpdateTimer->stop();
+            }
             qCInfo(lcClientManager) << "onWindowClosed(): [COMPLETE] All connections closed, emitting signal";
             emit allConnectionsClosed();
         } else {
@@ -608,4 +628,23 @@ QString ClientManager::generateConnectionId() const {
 
 ConnectionInstance* ClientManager::getConnectionInstance(const QString& connectionId) const {
     return m_connections.value(connectionId, nullptr);
+}
+
+void ClientManager::updateScreens() {
+    // 遍历所有连接，从各自的SessionManager中获取图片
+    for ( auto it = m_connections.begin(); it != m_connections.end(); ++it ) {
+        ConnectionInstance* instance = it.value();
+        if ( !instance || !instance->sessionManager || !instance->remoteDesktopWindow ) {
+            continue;
+        }
+
+        // 检查SessionManager是否有新图片
+        if ( instance->sessionManager->hasScreenImage() ) {
+            // 获取图片并更新窗口
+            QImage image = instance->sessionManager->dequeueScreenImage();
+            if ( !image.isNull() ) {
+                instance->remoteDesktopWindow->updateRemoteScreen(image);
+            }
+        }
+    }
 }
