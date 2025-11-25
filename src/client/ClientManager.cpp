@@ -151,8 +151,8 @@ bool ConnectionInstance::isAuthenticated() const {
 ClientManager::ClientManager(QObject* parent)
     : QObject(parent)
     , m_screenUpdateTimer(new QTimer(this)) {
-    // 设置定时器，每30ms更新一次屏幕（约33fps）
-    m_screenUpdateTimer->setInterval(30);
+    // 设置定时器，每8ms更新一次屏幕（约120fps）
+    m_screenUpdateTimer->setInterval(8);
     connect(m_screenUpdateTimer, &QTimer::timeout, this, &ClientManager::updateScreens);
 }
 
