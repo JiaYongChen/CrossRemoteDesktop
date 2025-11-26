@@ -125,10 +125,8 @@ QtRemoteDesktop/
 │   │   │   │   └── UiConstants.h  # UI 常量
 │   │   │   ├── network/           # 网络协议
 │   │   │   │   └── Protocol.h     # 协议定义
-│   │   │   ├── crypto/            # 加密模块
-│   │   │   │   └── Encryption.*   # 加密实现
-│   │   │   └── memory/            # 内存管理
-│   │   │       └── ZeroCopyData.h # 零拷贝数据
+│   │   │   └── crypto/            # 加密模块
+│   │   │       └── Encryption.*   # 加密实现
 │   │   ├── data/                  # 数据结构
 │   │   │   └── DataRecord.h       # 数据记录
 │   │   ├── types/                 # 类型定义
