@@ -1,6 +1,6 @@
 # Qt Remote Desktop
 
-一个基于 Qt 6.9.3 的高性能跨平台远程桌面应用程序，支持 macOS 与 Windows 之间的远程连接与控制。
+一个基于 Qt 6.9.3 的高性能跨平台远程桌面应用程序，支持 macOS、Windows 与 Linux 之间的远程连接与控制。
 
 ## 项目概述
 
@@ -12,6 +12,7 @@
 -   **核心功能**
     -   实时屏幕共享（基于队列的高性能数据流）
     -   远程控制（鼠标 + 键盘：点击、滚轮、组合键）
+    -   **光标管理**：支持本地光标自动隐藏与远程光标渲染，提供流畅的操作体验
     -   多线程 Worker 架构（ScreenCaptureWorker、DataProcessingWorker、ClientHandlerWorker）
     -   TCP 连接、心跳与智能重连逻辑
     
@@ -20,16 +21,19 @@
     -   队列管理系统（QueueManager 统一管理捕获队列和处理队列）
     -   分布式拉取架构（客户端按需从队列拉取数据，避免集中式推送瓶颈）
     -   异步数据处理（所有 I/O 操作非阻塞，性能提升 30-3000 倍）
+    -   **渲染优化**：独立的 `RenderManager` 处理图像绘制，支持 QImage 优化与脏矩形渲染（规划中）
     
 -   **系统功能**
     -   多语言资源（zh_CN / en_US），基础样式与图标资源
-    -   完善的日志系统（按文件大小滚动，支持多级别日志）
+    -   完善的日志系统（按文件大小滚动，支持多级别日志，LoggingCategories 分类管理）
     -   灵活的配置系统（支持运行时配置更新）
-    -   全面的单元测试（36+ 测试用例，100% 通过率）
+    -   全面的单元测试（21+ 测试文件，覆盖核心功能）
+    -   **输入模拟**：模块化的输入模拟器，支持 Windows/macOS/Linux 的键盘鼠标事件注入
+    -   **加密支持**：内置 `Encryption` 模块，为安全传输做准备
 
 ### 规划中 ⏳
--   文件传输（双向、断点续传）
--   剪贴板同步（文本/图片）
+-   文件传输（双向、断点续传）- FileTransferManager 已预置
+-   剪贴板同步（文本/图片）- ClipboardManager 已预置
 -   音频传输（捕获/播放，编解码）
 -   UDP 渠道与更低延迟的视频编码（H.264 等）
 -   多显示器支持
@@ -38,8 +42,9 @@
 ## 系统要求
 
 -   操作系统：
-    -   macOS 10.15+（Catalina 及以上）
+    -   macOS 10.15+（Catalina 及以上，支持 Apple Silicon 和 Intel）
     -   Windows 10 及以上
+    -   Linux（实验性支持）
 -   内存：4GB 及以上（推荐 8GB）
 -   存储：100MB 可用空间
 -   网络：TCP/IP 网络环境
@@ -48,81 +53,135 @@
 
 -   **框架**: Qt 6.9.3（Core / Widgets / Network / Multimedia / Gui / OpenGL / OpenGLWidgets / Test）
 -   **语言**: C++20
--   **构建**: CMake 3.16+
+-   **构建**: CMake 3.16+（支持跨平台自动检测）
 -   **架构模式**: 
-    -   多线程 Worker 模式
-    -   生产者-消费者模式
-    -   适配器模式（ClientHandlerWorkerAdapter）
+    -   多线程 Worker 模式（Worker 基类 + ThreadManager）
+    -   生产者-消费者模式（ThreadSafeQueue）
     -   单例模式（QueueManager）
 -   **第三方依赖**: OpenSSL、zlib（用于 PNG 图像编码）
--   **测试框架**: Qt Test（36+ 单元测试和集成测试）
+-   **测试框架**: Qt Test（21+ 测试文件）
 
 ## 代码结构
 
 ```
 QtRemoteDesktop/
-├── CMakeLists.txt                  # 主构建配置
+├── CMakeLists.txt                  # 主构建配置（跨平台自动检测）
 ├── resources/                      # 资源文件
-│   ├── Info.plist.in
-│   ├── icons/
-│   ├── resources.qrc
-│   └── translations/
+│   ├── Info.plist.in              # macOS 应用信息模板
+│   ├── icons/                     # 应用图标
+│   ├── styles/                    # 样式文件
+│   ├── resources.qrc              # Qt 资源配置
+│   └── translations/              # 多语言翻译文件
 ├── src/                           # 源代码
-│   ├── main.cpp
+│   ├── main.cpp                   # 程序入口
 │   ├── client/                    # 客户端模块
-│   │   ├── clientmanager.*        # 客户端管理器
-│   │   ├── clientremotewindow.*   # 远程窗口显示
-│   │   ├── inputhandler.*         # 输入处理
-│   │   └── managers/              # 连接和会话管理
+│   │   ├── ClientManager.*        # 客户端总控
+│   │   ├── managers/              # 业务逻辑管理
+│   │   │   ├── SessionManager.*   # 会话管理
+│   │   │   └── FileTransferManager.* # 文件传输（预置）
+│   │   ├── network/               # 网络通信
+│   │   │   ├── ConnectionManager.* # 连接管理
+│   │   │   └── TcpClient.*        # TCP 客户端实现
+│   │   └── window/                # 界面与渲染
+│   │       ├── ClientRemoteWindow.* # 远程桌面显示窗口
+│   │       ├── RenderManager.*    # 渲染管理器
+│   │       └── CursorManager.*    # 光标管理器
 │   ├── server/                    # 服务器模块
 │   │   ├── ServerManager.*        # 服务器总管理器
 │   │   ├── capture/               # 屏幕捕获
-│   │   │   ├── ScreenCapture.*
-│   │   │   ├── ScreenCaptureWorker.*
-│   │   │   └── CaptureConfig.h
+│   │   │   ├── ScreenCapture.*    # 屏幕捕获管理
+│   │   │   ├── ScreenCaptureWorker.* # 捕获工作线程
+│   │   │   └── CaptureConfig.h    # 捕获配置
 │   │   ├── clienthandler/         # 客户端连接处理
-│   │   │   ├── ClientHandlerWorker.*
-│   │   │   └── ClientHandlerWorkerAdapter.*
+│   │   │   └── ClientHandlerWorker.* # 客户端处理 Worker
 │   │   ├── dataflow/              # 数据流管理（核心架构）
 │   │   │   ├── QueueManager.*     # 队列管理器（单例）
-│   │   │   ├── DataFlowStructures.* # 数据结构定义
-│   │   │   └── ThreadSafeQueue.h
+│   │   │   └── DataFlowStructures.* # 数据结构定义
 │   │   ├── dataprocessing/        # 数据处理
-│   │   │   ├── DataProcessing.*
-│   │   │   ├── DataProcessingWorker.*
-│   │   │   └── DataProcessingConfig.h
+│   │   │   ├── DataProcessing.*   # 数据处理逻辑
+│   │   │   ├── DataProcessingWorker.* # 处理工作线程
+│   │   │   └── DataProcessingConfig.* # 处理配置
 │   │   ├── service/               # 服务层
-│   │   │   └── ServerWorker.*
-│   │   └── simulator/             # 输入模拟
+│   │   │   ├── ServerWorker.*     # 服务器工作线程
+│   │   │   └── TcpServer.*        # TCP 服务器
+│   │   └── simulator/             # 输入模拟（跨平台）
+│   │       ├── InputSimulator.*   # 输入模拟基类
+│   │       ├── KeyboardSimulator*.* # 键盘模拟（Windows/macOS/Linux）
+│   │       └── MouseSimulator*.*  # 鼠标模拟（Windows/macOS/Linux）
 │   ├── common/                    # 公共模块
 │   │   ├── core/                  # 核心功能
-│   │   │   ├── threading/         # 线程管理（Worker、ThreadManager）
+│   │   │   ├── threading/         # 线程管理
+│   │   │   │   ├── Worker.*       # Worker 基类
+│   │   │   │   ├── ThreadManager.* # 线程管理器
+│   │   │   │   └── ThreadSafeQueue.h # 线程安全队列
 │   │   │   ├── logging/           # 日志系统
+│   │   │   │   ├── DebugLogger.*  # 调试日志器
+│   │   │   │   └── LoggingCategories.* # 日志分类
 │   │   │   ├── config/            # 配置管理
-│   │   │   ├── protocol/          # 通信协议
-│   │   │   └── encryption/        # 加密（规划中）
+│   │   │   │   ├── Config.*       # 配置管理器
+│   │   │   │   ├── Constants.*    # 常量定义
+│   │   │   │   ├── NetworkConstants.h # 网络常量
+│   │   │   │   ├── MessageConstants.h # 消息常量
+│   │   │   │   └── UiConstants.h  # UI 常量
+│   │   │   ├── network/           # 网络协议
+│   │   │   │   └── Protocol.h     # 协议定义
+│   │   │   ├── crypto/            # 加密模块
+│   │   │   │   └── Encryption.*   # 加密实现
+│   │   │   └── memory/            # 内存管理
+│   │   │       └── ZeroCopyData.h # 零拷贝数据
 │   │   ├── data/                  # 数据结构
+│   │   │   └── DataRecord.h       # 数据记录
 │   │   ├── types/                 # 类型定义
+│   │   │   ├── CommonTypes.h      # 通用类型
+│   │   │   └── NetworkTypes.h     # 网络类型
+│   │   ├── clipboard/             # 剪贴板相关
+│   │   │   └── ClipboardManager.* # 剪贴板管理（预置）
 │   │   └── windows/               # 窗口类实现
-│   └── ui/                        # UI 定义文件
+│   │       ├── MainWindow.*       # 主窗口
+│   │       ├── ConnectionDialog.* # 连接对话框
+│   │       └── SettingsDialog.*   # 设置对话框
+│   └── ui/                        # UI 界面文件 (*.ui)
 │       ├── mainwindow.ui
 │       ├── connectiondialog.ui
 │       └── settingsdialog.ui
-├── test/                          # 测试套件
+├── test/                          # 测试套件（21 个测试文件）
 │   ├── CMakeLists.txt
 │   ├── test_screencaptureworker.cpp       # 屏幕捕获 Worker 测试
 │   ├── test_screencapture.cpp             # 屏幕捕获集成测试
+│   ├── test_screencapture_config.cpp      # 捕获配置测试
+│   ├── test_screencapture_optimization.cpp # 捕获优化测试
 │   ├── test_dataprocessing.cpp            # 数据处理测试
 │   ├── test_clienthandlerworker.cpp       # 客户端处理 Worker 测试
+│   ├── test_clientremotewindow.cpp        # 远程窗口测试
 │   ├── test_producer_consumer_integration.cpp  # 生产者-消费者集成测试
 │   ├── test_screen_data_flow.cpp          # 屏幕数据流测试
+│   ├── test_screen_data_transmission.cpp  # 数据传输测试
 │   ├── test_threadmanager.cpp             # 线程管理器测试
-│   └── ... (更多测试文件)
-└── docs/                          # 技术文档
-    ├── ServerManager_Phase2_Implementation_Summary.md
-    ├── screen_data_pull_architecture.md
-    ├── async_screen_data_sending.md
-    └── ... (架构设计文档)
+│   ├── test_communication.cpp             # 通信测试
+│   ├── test_data_consistency.cpp          # 数据一致性测试
+│   ├── test_datacleaning_integration.cpp  # 数据清理集成测试
+│   ├── test_frame_transmission_latency.cpp # 帧传输延迟测试
+│   ├── test_image_display.cpp             # 图像显示测试
+│   ├── test_image_transmission_integration.cpp # 图像传输集成测试
+│   ├── test_image_type_specification.cpp  # 图像类型测试
+│   ├── test_large_message_chunked.cpp     # 大消息分块测试
+│   ├── test_screen_capture_integration.cpp # 屏幕捕获集成测试
+│   └── test_close_event.cpp               # 关闭事件测试
+└── docs/                          # 技术文档（14 个文档）
+    ├── architecture_improvement_recommendations.md # 架构改进建议
+    ├── threading_architecture.md          # 线程架构文档
+    ├── threading_implementation_summary.md # 线程实现总结
+    ├── threading_limitations.md           # 线程限制说明
+    ├── local_cursor_hiding_feature.md     # 本地光标隐藏特性
+    ├── remote_cursor_display_feature.md   # 远程光标显示特性
+    ├── qimage_optimization.md             # QImage 优化文档
+    ├── input_simulator_refactoring.md     # 输入模拟重构文档
+    ├── keyboard_mapping_analysis.md       # 键盘映射分析
+    ├── keyboard_modifier_fix.md           # 键盘修饰键修复
+    ├── keypad_backspace_fix.md            # 小键盘退格修复
+    ├── redundancy_analysis.md             # 冗余分析
+    ├── redundancy_cleanup_summary.md      # 冗余清理总结
+    └── ConnectionInstance_destruction_optimization.md # 连接实例销毁优化
 ```
 
 ### 核心架构说明
@@ -266,24 +325,36 @@ cmake -DQt6_DIR=/path/to/qt6/lib/cmake/Qt6 ..
 
 项目包含完善的测试套件，位于 `test/` 目录，通过主工程 CMake `add_subdirectory(test)` 自动构建。
 
-### 测试覆盖
+### 测试覆盖（21 个测试文件）
 
 **核心组件测试**:
-- `test_screencaptureworker`: 屏幕捕获 Worker 测试（14 个测试，100% 通过）
-- `test_screencapture`: 屏幕捕获管理测试（22 个测试，100% 通过）
+- `test_screencaptureworker`: 屏幕捕获 Worker 测试
+- `test_screencapture`: 屏幕捕获管理测试
+- `test_screencapture_config`: 捕获配置测试
+- `test_screencapture_optimization`: 捕获优化测试
 - `test_dataprocessing`: 数据处理测试
 - `test_clienthandlerworker`: 客户端处理 Worker 测试
+- `test_clientremotewindow`: 远程窗口测试
 - `test_threadmanager`: 线程管理器测试
 
 **集成测试**:
 - `test_producer_consumer_integration`: 生产者-消费者模式集成测试
 - `test_screen_data_flow`: 完整屏幕数据流测试
+- `test_screen_data_transmission`: 数据传输测试
 - `test_screen_capture_integration`: 屏幕捕获集成测试
 - `test_image_transmission_integration`: 图像传输集成测试
+- `test_datacleaning_integration`: 数据清理集成测试
+
+**功能测试**:
+- `test_communication`: 通信功能测试
+- `test_data_consistency`: 数据一致性测试
+- `test_image_display`: 图像显示测试
+- `test_image_type_specification`: 图像类型规范测试
+- `test_large_message_chunked`: 大消息分块测试
+- `test_close_event`: 关闭事件测试
 
 **性能测试**:
 - `test_frame_transmission_latency`: 帧传输延迟测试
-- `test_performance`: 整体性能基准测试
 
 ### 运行测试
 
@@ -357,25 +428,27 @@ Totals: 14 passed, 0 failed, 0 skipped, 0 blacklisted, 838ms
 
 ## 技术文档
 
-项目包含详细的架构设计和实施文档，位于 `docs/` 目录：
+项目包含详细的架构设计和实施文档，位于 `docs/` 目录（共 14 个文档）：
 
 ### 架构文档
--   **`ServerManager_Phase1_Implementation_Summary.md`**: ServerManager 第一阶段实施总结
--   **`ServerManager_Phase2_Implementation_Summary.md`**: Worker 线程统一管理重构
--   **`ServerManager_Worker_Threads_Refactor_Design.md`**: 工作线程重构设计
--   **`screen_data_pull_architecture.md`**: 分布式拉取架构设计
--   **`async_screen_data_sending.md`**: 异步数据发送优化
+-   **`architecture_improvement_recommendations.md`**: 架构改进建议
+-   **`threading_architecture.md`**: 线程架构文档
+-   **`threading_implementation_summary.md`**: 线程实现总结
+-   **`threading_limitations.md`**: 线程限制说明
+-   **`redundancy_analysis.md`**: 冗余分析文档
+-   **`redundancy_cleanup_summary.md`**: 冗余清理总结
 
 ### 实施文档
--   **`ClientHandlerWorker_Migration_to_ServerManager.md`**: ClientHandlerWorker 迁移文档
--   **`DataProcessingWorker_AutoProcessing_Modification.md`**: 数据处理自动化修改
--   **`Interface_Unification_Summary.md`**: 接口统一总结
--   **`onFrameReady_removal.md`**: 信号移除与队列重构
+-   **`local_cursor_hiding_feature.md`**: 本地光标隐藏特性
+-   **`remote_cursor_display_feature.md`**: 远程光标显示特性
+-   **`qimage_optimization.md`**: QImage 优化文档
+-   **`input_simulator_refactoring.md`**: 输入模拟重构文档
+-   **`ConnectionInstance_destruction_optimization.md`**: 连接实例销毁优化
 
-### 测试报告
--   **`queue_statistics_test_report.md`**: 队列统计测试报告
--   **`screen_data_flow_test_results.md`**: 屏幕数据流测试结果
--   **`segmentation_fault_fixes.md`**: 崩溃问题修复记录
+### 键盘输入文档
+-   **`keyboard_mapping_analysis.md`**: 键盘映射分析
+-   **`keyboard_modifier_fix.md`**: 键盘修饰键修复
+-   **`keypad_backspace_fix.md`**: 小键盘退格修复
 
 ## 贡献指南
 
@@ -428,14 +501,16 @@ Totals: 14 passed, 0 failed, 0 skipped, 0 blacklisted, 838ms
 ### v1.0.0 (当前版本)
 -   ✅ 完整的屏幕捕获和远程控制功能
 -   ✅ 基于队列的高性能数据流架构
--   ✅ 多线程 Worker 模式
+-   ✅ 多线程 Worker 模式（Worker 基类 + ThreadManager）
 -   ✅ 完善的日志和配置系统
--   ✅ 36+ 单元测试和集成测试
+-   ✅ 跨平台输入模拟（Windows/macOS/Linux）
+-   ✅ 21+ 测试文件，覆盖核心功能
+-   ✅ 14 个技术文档，详细记录架构设计
 
 ### 计划中的版本
--   **v1.1.0**: 文件传输和剪贴板同步
+-   **v1.1.0**: 文件传输（FileTransferManager 已预置）和剪贴板同步（ClipboardManager 已预置）
 -   **v1.2.0**: 音频传输支持
--   **v2.0.0**: H.264 视频编码、UDP 传输、TLS 加密
+-   **v2.0.0**: H.264 视频编码、UDP 传输、TLS 加密（Encryption 模块已预置）
 
 ---
 
