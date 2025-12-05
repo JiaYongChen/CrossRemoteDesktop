@@ -92,15 +92,25 @@ else()
     find_package(OpenSSL REQUIRED)
 endif()
 
-# 查找ZLIB - 使用Qt的bundled zlib
-if(TARGET Qt6::ZlibPrivate)
-    message(STATUS "[Tests] Using Qt's bundled zlib")
-    if(NOT TARGET ZLIB::ZLIB)
-        add_library(ZLIB::ZLIB ALIAS Qt6::ZlibPrivate)
+# 查找zstd库（从父项目继承配置）
+if(APPLE)
+    if(PLATFORM_ARCH STREQUAL "ARM64")
+        set(ZSTD_ROOT "/opt/homebrew/opt/zstd")
+    else()
+        set(ZSTD_ROOT "/usr/local/opt/zstd")
     endif()
-    set(ZLIB_FOUND TRUE)
+    
+    if(EXISTS "${ZSTD_ROOT}")
+        set(ZSTD_INCLUDE_DIR "${ZSTD_ROOT}/include")
+        set(ZSTD_LIBRARY "${ZSTD_ROOT}/lib/libzstd.dylib")
+        message(STATUS "[Tests] Found zstd at: ${ZSTD_ROOT}")
+    endif()
+elseif(WIN32)
+    find_path(ZSTD_INCLUDE_DIR zstd.h)
+    find_library(ZSTD_LIBRARY NAMES zstd zstd_static)
 else()
-    find_package(ZLIB REQUIRED)
+    find_path(ZSTD_INCLUDE_DIR zstd.h)
+    find_library(ZSTD_LIBRARY NAMES zstd)
 endif()
 
 # 设置Qt6自动处理
@@ -118,6 +128,7 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/common/core/adaptive
     ${CMAKE_CURRENT_SOURCE_DIR}/../include
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${ZSTD_INCLUDE_DIR}
 )
 
 # 创建构建目录
@@ -524,7 +535,7 @@ target_link_libraries(test_clientremotewindow PRIVATE
     Qt6::Network
     OpenSSL::SSL
     OpenSSL::Crypto
-    ZLIB::ZLIB
+    ${ZSTD_LIBRARY}
 )
 
 target_compile_definitions(test_clientremotewindow PRIVATE QT_NO_OPENGL)
@@ -576,7 +587,7 @@ target_link_libraries(test_screen_data_flow PRIVATE
     Qt6::Concurrent
     OpenSSL::SSL
     OpenSSL::Crypto
-    ZLIB::ZLIB
+    ${ZSTD_LIBRARY}
 )
 
 target_compile_definitions(test_screen_data_flow PRIVATE QT_NO_OPENGL)
@@ -714,7 +725,7 @@ target_link_libraries(test_producer_consumer_integration PRIVATE
     Qt6::Concurrent
     OpenSSL::SSL
     OpenSSL::Crypto
-    z  # zlib库
+    ${ZSTD_LIBRARY}
 )
 
 target_compile_definitions(test_producer_consumer_integration PRIVATE QT_NO_OPENGL)

@@ -212,10 +212,23 @@ void ClientHandlerWorker::sendScreenDataFromQueue() {
     ScreenData screenData;
     screenData.x = 0;  // 全屏捕获，从坐标(0,0)开始
     screenData.y = 0;
-    screenData.imageData = processedData.compressedData; // 存储JPG压缩数据
+    screenData.imageData = processedData.compressedData; // 存储压缩数据
     screenData.width = processedData.imageSize.width();
     screenData.height = processedData.imageSize.height();
+    // 设置原始图像尺寸（用于客户端缩放恢复）
+    screenData.originalWidth = processedData.originalImageSize.width();
+    screenData.originalHeight = processedData.originalImageSize.height();
     screenData.dataSize = processedData.compressedData.size();
+    
+    // 设置压缩标志位（组合多个标志）
+    quint8 flags = static_cast<quint8>(ScreenDataFlags::NONE);
+    if ( processedData.isZstdCompressed ) {
+        flags |= static_cast<quint8>(ScreenDataFlags::ZSTD_COMPRESSED);
+    }
+    if ( processedData.isScaled ) {
+        flags |= static_cast<quint8>(ScreenDataFlags::SCALED);
+    }
+    screenData.flags = flags;
 
     // 预先编码消息,然后发送
     QByteArray messageData = Protocol::createMessage(MessageType::SCREEN_DATA, screenData);

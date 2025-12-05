@@ -1,4 +1,5 @@
 #include "DataProcessingWorker.h"
+#include "../../common/core/config/Constants.h"
 #include <QtCore/QMutexLocker>
 #include <QtCore/QThread>
 #include <QtCore/QIODevice>
@@ -7,6 +8,7 @@
 #include <QtConcurrent/QtConcurrent>
 #include <cstring>
 #include <algorithm>
+#include <zstd.h>
 
 Q_LOGGING_CATEGORY(lcDataProcessingWorker, "dataprocessingworker", QtDebugMsg)
 
@@ -26,7 +28,9 @@ DataProcessingWorker::DataProcessingWorker(QObject* parent)
     , m_maxQueueSize(100)
     , m_statsUpdateInterval(DEFAULT_STATS_INTERVAL)
     , m_maxParallelTasks(QThread::idealThreadCount())
-    , m_activeParallelTasks(0) {
+    , m_activeParallelTasks(0)
+    , m_currentQuality(CoreConstants::Compression::DEFAULT_JPEG_QUALITY)
+    , m_currentScale(CoreConstants::Compression::SCALE_FACTOR_HIGH) {
     qCDebug(lcDataProcessingWorker) << "DataProcessingWorker 构造函数";
     qCInfo(lcDataProcessingWorker) << "并行处理线程数:" << m_maxParallelTasks;
 }
@@ -266,30 +270,53 @@ int DataProcessingWorker::processBatchParallel(const std::vector<CapturedFrame>&
     int successCount = 0;
     int droppedCount = 0;
 
-    // 使用 QtConcurrent 并行处理所有帧
-    QList<CapturedFrame> frameList;
-    for ( const auto& frame : frames ) {
-        frameList.append(frame);
+    // 调整编码质量基于队列状态
+    if ( CoreConstants::Compression::ENABLE_ADAPTIVE_QUALITY ) {
+        adjustQualityBasedOnQueueState();
     }
 
-    // 并行编码所有图像
-    QFuture<ProcessedData> future = QtConcurrent::mapped(frameList,
-        [](const CapturedFrame& frame) -> ProcessedData {
+    // 获取当前质量和缩放参数
+    int currentQuality = m_currentQuality.load();
+    double currentScale = m_currentScale.load();
+
+    // 过滤无效帧
+    std::vector<const CapturedFrame*> framesToProcess;
+    framesToProcess.reserve(frames.size());
+    
+    for ( size_t i = 0; i < frames.size(); ++i ) {
+        const auto& frame = frames[i];
+        
         // 验证帧数据
         if ( !frame.isValid() ) {
-            qCWarning(lcDataProcessingWorker) << "帧数据无效，ID:" << frame.frameId;
-            return ProcessedData(); // 返回无效数据
+            droppedCount++;
+            continue;
         }
 
         // 检查帧延迟
         qint64 latency = frame.getLatency();
         if ( latency > 5000 ) { // 5秒超时
-            qCWarning(lcDataProcessingWorker) << "帧延迟过高:" << latency << "ms，ID:" << frame.frameId;
-            return ProcessedData();
+            droppedCount++;
+            continue;
         }
+        
+        framesToProcess.push_back(&frame);
+    }
 
-        // 并行编码图像
-        return DataProcessingWorker::encodeImageParallel(frame.image, frame.frameId);
+    if ( framesToProcess.empty() ) {
+        return 0;
+    }
+
+    // 使用 QtConcurrent 并行处理需要编码的帧
+    QList<const CapturedFrame*> frameList;
+    for ( const auto* frame : framesToProcess ) {
+        frameList.append(frame);
+    }
+
+    // 并行编码所有图像，传入当前质量和缩放参数
+    QFuture<ProcessedData> future = QtConcurrent::mapped(frameList,
+        [currentQuality, currentScale](const CapturedFrame* frame) -> ProcessedData {
+        return DataProcessingWorker::encodeImageParallel(frame->image, frame->frameId, 
+                                                         currentQuality, currentScale);
     });
 
     // 等待所有编码完成
@@ -322,16 +349,17 @@ int DataProcessingWorker::processBatchParallel(const std::vector<CapturedFrame>&
 
     // 记录批处理统计信息
     if ( droppedCount > 0 ) {
-        // qCWarning(lcDataProcessingWorker) << "批处理完成: 成功" << successCount
-        //     << "丢弃" << droppedCount << "耗时" << elapsed << "ms";
-    } else if ( successCount > 0 ) {
-        // qCDebug(lcDataProcessingWorker) << "批处理完成: 成功" << successCount << "耗时" << elapsed << "ms";
+        qCDebug(lcDataProcessingWorker) << "批处理完成: 成功" << successCount
+            << "丢弃" << droppedCount
+            << "质量" << currentQuality << "缩放" << currentScale
+            << "耗时" << elapsed << "ms";
     }
 
     return successCount;
 }
 
-ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, quint64 frameId) {
+ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, quint64 frameId,
+                                                        int quality, double scaleFactor) {
     ProcessedData result;
 
     try {
@@ -342,13 +370,26 @@ ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, qui
             return result;
         }
 
+        // 应用缩放（如果缩放因子不为1.0）
+        QImage workingImage = image;
+        if ( scaleFactor < 1.0 && scaleFactor > 0.1 ) {
+            int newWidth = static_cast<int>(image.width() * scaleFactor);
+            int newHeight = static_cast<int>(image.height() * scaleFactor);
+            workingImage = image.scaled(newWidth, newHeight, Qt::KeepAspectRatio, 
+                                        Qt::FastTransformation);
+            if ( workingImage.isNull() ) {
+                qCWarning(lcDataProcessingWorker) << "图像缩放失败，帧ID:" << frameId;
+                workingImage = image; // 回退到原始图像
+            }
+        }
+
         // 确保图像格式为 RGB888，这是 JPEG 格式推荐的格式
         // 在Windows下，Format_RGB32 更常用且兼容性更好
-        QImage convertedImage = image;
-        if ( image.format() != QImage::Format_RGB32 && image.format() != QImage::Format_RGB888 ) {
-            qCDebug(lcDataProcessingWorker) << "转换图像格式，原格式:" << image.format() 
+        QImage convertedImage = workingImage;
+        if ( workingImage.format() != QImage::Format_RGB32 && workingImage.format() != QImage::Format_RGB888 ) {
+            qCDebug(lcDataProcessingWorker) << "转换图像格式，原格式:" << workingImage.format() 
                 << "目标格式: RGB32，帧ID:" << frameId;
-            convertedImage = image.convertToFormat(QImage::Format_RGB32);
+            convertedImage = workingImage.convertToFormat(QImage::Format_RGB32);
             
             if ( convertedImage.isNull() ) {
                 qCWarning(lcDataProcessingWorker) << "图像格式转换失败，帧ID:" << frameId;
@@ -365,10 +406,14 @@ ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, qui
             return result;
         }
 
-        // 保存为 JPEG 格式，质量设置为 85（推荐值）
-        // JPEG 是有损压缩格式，quality 范围 0-100
-        // 85 提供良好的压缩率和视觉质量平衡
-        int quality = 85;
+        //输出原始图像信息和缩放后的信息
+        qCDebug(lcDataProcessingWorker) << "编码JPEG，帧ID:" << frameId
+            << "原始尺寸:" << image.size()
+            << "处理后尺寸:" << convertedImage.size()
+            << "缩放因子:" << scaleFactor
+            << "质量:" << quality;
+
+        // 使用传入的JPEG质量参数
         bool saveSuccess = convertedImage.save(&buffer, "JPG", quality);
         buffer.close();
         
@@ -394,13 +439,58 @@ ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, qui
             return result;
         }
 
+        // 对JPEG数据进行zstd压缩（如果启用且数据足够大）
+        // 使用zstd进行二次压缩，提供更高的压缩率和更快的解压速度
+        QByteArray finalData = jpegData;
+        bool zstdCompressed = false;
+        
+        if ( CoreConstants::Compression::ENABLE_ZSTD_COMPRESSION && 
+             jpegData.size() >= CoreConstants::Compression::MIN_SIZE_FOR_ZSTD ) {
+            
+            // 计算压缩后的最大可能大小
+            size_t compressedBound = ZSTD_compressBound(static_cast<size_t>(jpegData.size()));
+            QByteArray compressedData(static_cast<int>(compressedBound), '\0');
+            
+            // 使用zstd压缩，级别3提供良好的压缩率/速度平衡
+            size_t compressedSize = ZSTD_compress(
+                compressedData.data(),
+                compressedBound,
+                jpegData.constData(),
+                static_cast<size_t>(jpegData.size()),
+                CoreConstants::Compression::ZSTD_COMPRESSION_LEVEL
+            );
+            
+            if ( !ZSTD_isError(compressedSize) && compressedSize < static_cast<size_t>(jpegData.size()) ) {
+                // 压缩成功且压缩后更小，使用压缩数据
+                compressedData.resize(static_cast<int>(compressedSize));
+                finalData = compressedData;
+                zstdCompressed = true;
+            }
+            // 如果压缩失败或压缩后更大，保持原JPEG数据
+        }
+
+        // 判断是否进行了缩放
+        bool wasScaled = (scaleFactor < 1.0 && scaleFactor > 0.1);
+
+        //输出原始数据大小和压缩后数据大小的对比日志
+        qCDebug(lcDataProcessingWorker) << "帧ID:" << frameId
+            << "原始图像尺寸:" << image.size() 
+            << "处理后尺寸:" << convertedImage.size()
+            << "缩放:" << (wasScaled ? QString::number(scaleFactor) : "无")
+            << "质量:" << quality
+            << "原始JPEG大小:" << jpegData.size() << "字节,"
+            << (zstdCompressed ? "zstd压缩后:" : "最终:") << finalData.size() << "字节";
+
         // 构造ProcessedData
         result.originalFrameId = frameId;
-        result.compressedData = jpegData;
-        result.imageSize = convertedImage.size();
+        result.compressedData = finalData;
+        result.imageSize = convertedImage.size();         // 当前图像尺寸（可能是缩放后的）
+        result.originalImageSize = image.size();          // 原始图像尺寸
         result.processedTime = QDateTime::currentDateTime();
-        result.originalDataSize = convertedImage.sizeInBytes();
-        result.compressedDataSize = jpegData.size();
+        result.originalDataSize = image.sizeInBytes();    // 原始图像数据大小
+        result.compressedDataSize = finalData.size();
+        result.isZstdCompressed = zstdCompressed;         // 标记是否使用了zstd压缩
+        result.isScaled = wasScaled;                      // 标记是否进行了缩放
     } catch ( const std::exception& e ) {
         qCCritical(lcDataProcessingWorker) << "图像处理异常:" << e.what() << "帧ID:" << frameId;
     } catch ( ... ) {
@@ -555,4 +645,49 @@ void DataProcessingWorker::resumeProcessing() {
     }
 
     qCDebug(lcDataProcessingWorker) << "恢复数据处理完成";
+}
+
+void DataProcessingWorker::adjustQualityBasedOnQueueState() {
+    if ( !m_queueManager ) {
+        return;
+    }
+
+    // 获取当前队列大小
+    QueueStats stats = m_queueManager->getQueueStats(QueueManager::ProcessedQueue);
+    int queueSize = stats.currentSize;
+    
+    int newQuality = m_currentQuality.load();
+    double newScale = m_currentScale.load();
+
+    // 根据队列高低水位调整质量
+    if ( queueSize > CoreConstants::Compression::QUEUE_HIGH_WATERMARK ) {
+        // 队列积压，降低质量以加快处理
+        if ( newQuality > CoreConstants::Compression::JPEG_QUALITY_MIN ) {
+            newQuality = std::max(newQuality - 10, CoreConstants::Compression::JPEG_QUALITY_MIN);
+        }
+        // 如果质量已经很低，考虑降低分辨率
+        if ( newQuality <= CoreConstants::Compression::JPEG_QUALITY_LOW && 
+             newScale > CoreConstants::Compression::SCALE_FACTOR_LOW ) {
+            newScale = std::max(newScale - 0.1, CoreConstants::Compression::SCALE_FACTOR_LOW);
+        }
+        
+        qCDebug(lcDataProcessingWorker) << "队列积压(" << queueSize << ")，降低质量:" 
+            << newQuality << "缩放:" << newScale;
+            
+    } else if ( queueSize < CoreConstants::Compression::QUEUE_LOW_WATERMARK ) {
+        // 队列空闲，可以提高质量
+        if ( newScale < CoreConstants::Compression::SCALE_FACTOR_HIGH ) {
+            // 先恢复分辨率
+            newScale = std::min(newScale + 0.1, CoreConstants::Compression::SCALE_FACTOR_HIGH);
+        } else if ( newQuality < CoreConstants::Compression::DEFAULT_JPEG_QUALITY ) {
+            // 再恢复质量
+            newQuality = std::min(newQuality + 5, CoreConstants::Compression::DEFAULT_JPEG_QUALITY);
+        }
+    }
+
+    // 更新参数
+    if ( newQuality != m_currentQuality.load() || newScale != m_currentScale.load() ) {
+        m_currentQuality.store(newQuality);
+        m_currentScale.store(newScale);
+    }
 }

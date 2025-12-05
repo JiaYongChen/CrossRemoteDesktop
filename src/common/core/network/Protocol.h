@@ -218,14 +218,26 @@ struct KeyboardEvent : public IMessageCodec {
     bool decode(const QByteArray& dataBuffer);
 };
 
+// 屏幕数据压缩类型标志
+enum class ScreenDataFlags : quint8 {
+    NONE = 0x00,           ///< 无特殊标志（仅JPEG压缩）
+    ZSTD_COMPRESSED = 0x01,///< 数据经过zstd二次压缩
+    SCALED = 0x02          ///< 图像已缩放（需要客户端放大显示）
+};
+
 // 屏幕数据
 struct ScreenData : public IMessageCodec {
     quint16 x;
     quint16 y;
-    quint16 width;
-    quint16 height;
+    quint16 width;             ///< 当前图像宽度（可能是缩放后的）
+    quint16 height;            ///< 当前图像高度（可能是缩放后的）
+    quint16 originalWidth;     ///< 原始图像宽度（缩放前）
+    quint16 originalHeight;    ///< 原始图像高度（缩放前）
     quint32 dataSize;
+    quint8 flags;              ///< 压缩标志 (ScreenDataFlags)
     QByteArray imageData;
+
+    ScreenData() : x(0), y(0), width(0), height(0), originalWidth(0), originalHeight(0), dataSize(0), flags(0) {}
 
     QByteArray encode() const; // 附带数据体
     bool decode(const QByteArray& dataBuffer);

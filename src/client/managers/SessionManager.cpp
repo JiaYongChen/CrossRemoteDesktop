@@ -2,11 +2,13 @@
 #include "../network/ConnectionManager.h"
 #include <QtCore/QDebug>
 #include "../../common/core/logging/LoggingCategories.h"
+#include "../../common/core/network/Protocol.h"
 #include <QtCore/QMessageLogger>
 #include <QtCore/QBuffer>
 #include <QtCore/QDataStream>
 #include <QtCore/QTimer>
 #include <QtCore/QMutexLocker>
+#include <zstd.h>
 
 SessionManager::SessionManager(const QString& connectionId, QObject* parent)
     : QObject(parent)
@@ -259,10 +261,51 @@ void SessionManager::handleScreenData(const QByteArray& data) {
         return;
     }
 
+    // 检查是否需要zstd解压
+    QByteArray jpegData;
+    if ( screenData.flags & static_cast<quint8>(ScreenDataFlags::ZSTD_COMPRESSED) ) {
+        // 数据经过zstd压缩，需要解压
+        // 获取原始大小（zstd在压缩帧中存储了原始大小）
+        unsigned long long decompressedSize = ZSTD_getFrameContentSize(
+            screenData.imageData.constData(),
+            static_cast<size_t>(screenData.imageData.size())
+        );
+        
+        if ( decompressedSize == ZSTD_CONTENTSIZE_UNKNOWN ) {
+            // 无法确定大小，使用估算值
+            decompressedSize = static_cast<unsigned long long>(screenData.dataSize * 10);
+        } else if ( decompressedSize == ZSTD_CONTENTSIZE_ERROR ) {
+            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient)
+                << "Invalid zstd compressed data";
+            return;
+        }
+        
+        QByteArray uncompressedData(static_cast<int>(decompressedSize), '\0');
+        
+        size_t result = ZSTD_decompress(
+            uncompressedData.data(),
+            static_cast<size_t>(decompressedSize),
+            screenData.imageData.constData(),
+            static_cast<size_t>(screenData.imageData.size())
+        );
+        
+        if ( ZSTD_isError(result) ) {
+            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient)
+                << "Failed to decompress zstd data, error:" << ZSTD_getErrorName(result);
+            return;
+        }
+        
+        uncompressedData.resize(static_cast<int>(result));
+        jpegData = uncompressedData;
+    } else {
+        // 数据未经zstd压缩，直接使用
+        jpegData = screenData.imageData;
+    }
+
     // 验证JPEG格式头部（JPEG文件以0xFF 0xD8开头）
-    if ( screenData.imageData.size() >= 2 ) {
-        unsigned char byte0 = static_cast<unsigned char>(screenData.imageData[0]);
-        unsigned char byte1 = static_cast<unsigned char>(screenData.imageData[1]);
+    if ( jpegData.size() >= 2 ) {
+        unsigned char byte0 = static_cast<unsigned char>(jpegData[0]);
+        unsigned char byte1 = static_cast<unsigned char>(jpegData[1]);
         if ( byte0 != 0xFF || byte1 != 0xD8 ) {
             qCWarning(lcClient) << "接收到的数据不是有效的JPEG格式，前2字节:"
                 << QString("0x%1 0x%2")
@@ -274,9 +317,9 @@ void SessionManager::handleScreenData(const QByteArray& data) {
     QByteArray frameData;
     {
         QMutexLocker locker(m_frameDataMutex);
-        // 直接使用接收到的JPEG数据
-        frameData = screenData.imageData;
-        m_previousFrameData = screenData.imageData;
+        // 使用解压后的JPEG数据
+        frameData = jpegData;
+        m_previousFrameData = jpegData;
     }
 
     // 从JPEG格式数据加载QImage
@@ -284,6 +327,18 @@ void SessionManager::handleScreenData(const QByteArray& data) {
     bool loaded = image.loadFromData(frameData, "JPEG");
 
     if ( loaded && !image.isNull() ) {
+        // 检查是否需要将缩放后的图像恢复到原始尺寸
+        if ( screenData.flags & static_cast<quint8>(ScreenDataFlags::SCALED) ) {
+            // 图像被缩放过，需要恢复到原始尺寸
+            if ( screenData.originalWidth > 0 && screenData.originalHeight > 0 ) {
+                QSize originalSize(screenData.originalWidth, screenData.originalHeight);
+                if ( image.size() != originalSize ) {
+                    // 使用平滑缩放恢复到原始尺寸
+                    image = image.scaled(originalSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+                }
+            }
+        }
+        
         // 成功加载图像，转换为QPixmap并更新（仅用于内部缓存）
         m_currentScreen = QPixmap::fromImage(image);
         m_remoteScreenSize = image.size();

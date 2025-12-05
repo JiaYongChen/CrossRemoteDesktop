@@ -2,6 +2,7 @@
 #define DATAPROCESSINGWORKER_H
 
 #include "../../common/core/threading/Worker.h"
+#include "../../common/core/config/Constants.h"
 #include "../dataflow/DataFlowStructures.h"
 #include "../dataflow/QueueManager.h"
 #include "DataProcessing.h"
@@ -215,9 +216,18 @@ private:
      * @brief 并行编码单帧图像（线程安全的静态方法）
      * @param image 图像数据
      * @param frameId 帧ID
+     * @param quality JPEG质量 (0-100)
+     * @param scaleFactor 缩放因子 (0.1-1.0)
      * @return 处理后的数据
      */
-    static ProcessedData encodeImageParallel(const QImage& image, quint64 frameId);
+    static ProcessedData encodeImageParallel(const QImage& image, quint64 frameId, 
+                                             int quality = CoreConstants::Compression::DEFAULT_JPEG_QUALITY,
+                                             double scaleFactor = 1.0);
+
+    /**
+     * @brief 根据队列状态调整编码质量
+     */
+    void adjustQualityBasedOnQueueState();
 
     /**
      * @brief 验证帧数据
@@ -266,6 +276,10 @@ private:
     int m_maxParallelTasks;                                             ///< 最大并行任务数
     std::atomic<int> m_activeParallelTasks;                             ///< 当前活跃的并行任务数
     mutable QMutex m_batchMutex;                                        ///< 批处理互斥锁
+
+    // 自适应质量相关
+    std::atomic<int> m_currentQuality;                                  ///< 当前JPEG质量
+    std::atomic<double> m_currentScale;                                 ///< 当前缩放因子
 
     // 性能监控阈值
     static constexpr double MAX_PROCESSING_LATENCY = 100.0;             ///< 最大处理延迟阈值（毫秒）

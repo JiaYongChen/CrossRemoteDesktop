@@ -366,17 +366,40 @@ else()
     find_package(OpenSSL REQUIRED)
 endif()
 
-# 使用Qt自带的zlib
-if(TARGET Qt6::ZlibPrivate)
-    message(STATUS "Using Qt's bundled zlib")
-    # 创建ZLIB目标的别名，使其与标准ZLIB兼容
-    if(NOT TARGET ZLIB::ZLIB)
-        add_library(ZLIB::ZLIB ALIAS Qt6::ZlibPrivate)
+# 查找zstd库（用于高压缩比的二次压缩）
+if(APPLE)
+    # macOS: 使用Homebrew安装的zstd
+    if(PLATFORM_ARCH STREQUAL "ARM64")
+        set(ZSTD_ROOT "/opt/homebrew/opt/zstd")
+    else()
+        set(ZSTD_ROOT "/usr/local/opt/zstd")
     endif()
-    set(ZLIB_FOUND TRUE)
+    
+    if(EXISTS "${ZSTD_ROOT}")
+        set(ZSTD_INCLUDE_DIR "${ZSTD_ROOT}/include")
+        set(ZSTD_LIBRARY "${ZSTD_ROOT}/lib/libzstd.dylib")
+        message(STATUS "Found zstd at: ${ZSTD_ROOT}")
+    else()
+        message(FATAL_ERROR "zstd not found. Please install with: brew install zstd")
+    endif()
+elseif(WIN32)
+    # Windows: 使用vcpkg或手动安装的zstd
+    find_path(ZSTD_INCLUDE_DIR zstd.h)
+    find_library(ZSTD_LIBRARY NAMES zstd zstd_static)
+    if(NOT ZSTD_INCLUDE_DIR OR NOT ZSTD_LIBRARY)
+        message(FATAL_ERROR "zstd not found. Please install zstd.")
+    endif()
 else()
-    find_package(ZLIB REQUIRED)
+    # Linux: 使用系统包管理器安装的zstd
+    find_path(ZSTD_INCLUDE_DIR zstd.h)
+    find_library(ZSTD_LIBRARY NAMES zstd)
+    if(NOT ZSTD_INCLUDE_DIR OR NOT ZSTD_LIBRARY)
+        message(FATAL_ERROR "zstd not found. Please install with: sudo apt install libzstd-dev")
+    endif()
 endif()
+
+message(STATUS "ZSTD include: ${ZSTD_INCLUDE_DIR}")
+message(STATUS "ZSTD library: ${ZSTD_LIBRARY}")
 
 # 标准Qt项目设置（可用时）
 if(COMMAND qt_standard_project_setup)
@@ -687,6 +710,9 @@ if(APPLE AND _qtgui_link_opts)
     endif()
 endif()
 
+# 添加zstd头文件路径
+target_include_directories(QtRemoteDesktop PRIVATE ${ZSTD_INCLUDE_DIR})
+
 # 链接库
 target_link_libraries(QtRemoteDesktop PRIVATE
     Qt6::Core
@@ -700,7 +726,7 @@ target_link_libraries(QtRemoteDesktop PRIVATE
     Qt6::Concurrent
     OpenSSL::SSL
     OpenSSL::Crypto
-    ZLIB::ZLIB
+    ${ZSTD_LIBRARY}
 )
 
 # 定义宏与编译选项（debug 日志开关、平台宏等）
