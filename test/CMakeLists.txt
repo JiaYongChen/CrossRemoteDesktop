@@ -106,8 +106,36 @@ if(APPLE)
         message(STATUS "[Tests] Found zstd at: ${ZSTD_ROOT}")
     endif()
 elseif(WIN32)
+    # 优先使用父项目通过 FetchContent 或 vcpkg 配置好的 zstd（CACHE 变量已传递）
     find_path(ZSTD_INCLUDE_DIR zstd.h)
     find_library(ZSTD_LIBRARY NAMES zstd zstd_static)
+    if(NOT ZSTD_INCLUDE_DIR OR NOT ZSTD_LIBRARY)
+        if(TARGET libzstd_static)
+            # 父项目已通过 FetchContent 构建了 libzstd_static，直接复用
+            set(ZSTD_INCLUDE_DIR "${zstd_SOURCE_DIR}/lib")
+            set(ZSTD_LIBRARY libzstd_static)
+        else()
+            message(STATUS "[Tests] zstd not found on Windows, downloading via FetchContent...")
+            include(FetchContent)
+            set(ZSTD_BUILD_PROGRAMS OFF CACHE BOOL "" FORCE)
+            set(ZSTD_BUILD_SHARED   OFF CACHE BOOL "" FORCE)
+            set(ZSTD_BUILD_STATIC   ON  CACHE BOOL "" FORCE)
+            set(ZSTD_BUILD_TESTS    OFF CACHE BOOL "" FORCE)
+            FetchContent_Declare(
+                zstd
+                GIT_REPOSITORY https://github.com/facebook/zstd.git
+                GIT_TAG        v1.5.6
+                GIT_SHALLOW    TRUE
+                SOURCE_SUBDIR  build/cmake
+            )
+            FetchContent_MakeAvailable(zstd)
+            if(TARGET libzstd_static AND MSVC)
+                target_compile_options(libzstd_static PRIVATE /WX-)
+            endif()
+            set(ZSTD_INCLUDE_DIR "${zstd_SOURCE_DIR}/lib")
+            set(ZSTD_LIBRARY libzstd_static)
+        endif()
+    endif()
 else()
     find_path(ZSTD_INCLUDE_DIR zstd.h)
     find_library(ZSTD_LIBRARY NAMES zstd)

@@ -383,11 +383,32 @@ if(APPLE)
         message(FATAL_ERROR "zstd not found. Please install with: brew install zstd")
     endif()
 elseif(WIN32)
-    # Windows: 使用vcpkg或手动安装的zstd
+    # Windows: 先尝试查找已安装的 zstd（vcpkg / 手动安装），找不到则通过 FetchContent 自动下载构建
     find_path(ZSTD_INCLUDE_DIR zstd.h)
     find_library(ZSTD_LIBRARY NAMES zstd zstd_static)
     if(NOT ZSTD_INCLUDE_DIR OR NOT ZSTD_LIBRARY)
-        message(FATAL_ERROR "zstd not found. Please install zstd.")
+        message(STATUS "zstd not found on Windows, downloading via FetchContent...")
+        include(FetchContent)
+        set(ZSTD_BUILD_PROGRAMS OFF CACHE BOOL "Build zstd programs" FORCE)
+        set(ZSTD_BUILD_SHARED   OFF CACHE BOOL "Build zstd shared library" FORCE)
+        set(ZSTD_BUILD_STATIC   ON  CACHE BOOL "Build zstd static library" FORCE)
+        set(ZSTD_BUILD_TESTS    OFF CACHE BOOL "Build zstd tests" FORCE)
+        FetchContent_Declare(
+            zstd
+            GIT_REPOSITORY https://github.com/facebook/zstd.git
+            GIT_TAG        v1.5.6
+            GIT_SHALLOW    TRUE
+            SOURCE_SUBDIR  build/cmake
+        )
+        FetchContent_MakeAvailable(zstd)
+        # 禁用第三方目标的"警告即错误"，避免 zstd 自身的警告中止构建
+        if(TARGET libzstd_static)
+            if(MSVC)
+                target_compile_options(libzstd_static PRIVATE /WX-)
+            endif()
+        endif()
+        set(ZSTD_INCLUDE_DIR "${zstd_SOURCE_DIR}/lib" CACHE PATH   "ZSTD include directory" FORCE)
+        set(ZSTD_LIBRARY     libzstd_static           CACHE STRING "ZSTD library target"    FORCE)
     endif()
 else()
     # Linux: 使用系统包管理器安装的zstd
