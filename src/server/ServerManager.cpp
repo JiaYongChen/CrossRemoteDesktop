@@ -276,8 +276,8 @@ void ServerManager::onWorkerServerStopped() {
         m_currentPort = 0;
         m_captureStarted = false;
     }
-    qCDebug(lcServerManager) << “ServerManager::onWorkerServerStopped() - Server stopped”;
-    qCInfo(lcServerManager) << “ServerManager::onWorkerServerStopped() - Server stopped”;
+    qCDebug(lcServerManager) << "ServerManager::onWorkerServerStopped() - Server stopped";
+    qCInfo(lcServerManager) << "ServerManager::onWorkerServerStopped() - Server stopped";
     emit serverStopped();
 }
 

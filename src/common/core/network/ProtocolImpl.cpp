@@ -220,16 +220,16 @@ bool MessageHeader::decode(const QByteArray& data) {
 }
 
 QByteArray BaseMessage::encode() const {
-    QByteArray data;
-    QDataStream ds(&data, QIODevice::WriteOnly);
+    QByteArray rawData;
+    QDataStream ds(&rawData, QIODevice::WriteOnly);
     ds.setByteOrder(QDataStream::LittleEndian);
     if ( !this->data.isEmpty() ) ds.writeRawData(this->data.constData(), this->data.size());
 
-    return data;
+    return rawData;
 }
 
-bool BaseMessage::decode(const QByteArray& data) {
-    this->data = data.mid(qsizetype(0), data.size());
+bool BaseMessage::decode(const QByteArray& rawData) {
+    this->data = rawData.mid(qsizetype(0), rawData.size());
     return true;
 }
 

@@ -853,8 +853,10 @@ void ClientHandlerWorker::sendHandshakeResponse() {
     response.screenHeight = 1080; // 默认屏幕高度
     response.colorDepth = 32; // 32位色深
     response.supportedFeatures = 0; // 可以根据需要设置服务器特性
-    strcpy(response.serverName, "QtRemoteDesktop Server");
-    strcpy(response.serverOS, "macOS");
+    strncpy(response.serverName, "QtRemoteDesktop Server", sizeof(response.serverName) - 1);
+    response.serverName[sizeof(response.serverName) - 1] = '\0';
+    strncpy(response.serverOS, "macOS", sizeof(response.serverOS) - 1);
+    response.serverOS[sizeof(response.serverOS) - 1] = '\0';
 
     sendMessage(MessageType::HANDSHAKE_RESPONSE, response);
     qCDebug(clientHandlerWorker) << "发送握手响应";

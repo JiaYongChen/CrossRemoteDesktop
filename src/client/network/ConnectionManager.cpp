@@ -377,8 +377,10 @@ void ConnectionManager::sendHandshakeRequest() {
     request.screenWidth = 1920;
     request.screenHeight = 1080;
     request.colorDepth = 32;
-    strcpy(request.clientName, "QtRemoteDesktop Client");
-    strcpy(request.clientOS, getClientOS().toUtf8().constData());
+    strncpy(request.clientName, "QtRemoteDesktop Client", sizeof(request.clientName) - 1);
+    request.clientName[sizeof(request.clientName) - 1] = '\0';
+    strncpy(request.clientOS, getClientOS().toUtf8().constData(), sizeof(request.clientOS) - 1);
+    request.clientOS[sizeof(request.clientOS) - 1] = '\0';
 
     m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST, request);
 
