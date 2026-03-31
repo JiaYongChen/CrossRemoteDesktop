@@ -10,7 +10,6 @@
 #include "dataflow/QueueManager.h"
 #include "../common/core/config/Constants.h"
 #include <QtCore/QMutexLocker>
-#include <QtCore/QLoggingCategory>
 #include <QtCore/QTimer>
 #include <memory>
 // 新增：引入日志分类声明头，使用统一的日志分类（lcServerManager）
@@ -26,7 +25,7 @@ ServerManager::ServerManager(QObject* parent)
     , m_queueManager(nullptr)
     , m_currentClient(nullptr)
     , m_currentClientThreadName() {
-    qCDebug(lcServerManager) << "初始化 ServerManager";
+    qCDebug(lcServerManager) << "ServerManager::ServerManager() - Initializing ServerManager";
 
     // 创建队列管理器
     m_queueManager = QueueManager::instance();
@@ -38,12 +37,12 @@ ServerManager::ServerManager(QObject* parent)
     // 设置与ServerWorker的信号连接
     setupWorkerConnections();
 
-    qCDebug(lcServerManager) << "ServerManager 初始化完成";
+    qCDebug(lcServerManager) << "ServerManager::ServerManager() - Initialization complete";
 }
 
 ServerManager::~ServerManager() {
     // 使用分类日志，便于按模块过滤与定位
-    qCDebug(lcServerManager) << "ServerManager析构函数";
+    qCDebug(lcServerManager) << "ServerManager::~ServerManager() - Destructor called";
 
     // 停止屏幕捕获和数据处理
     stopWorkerThreads();
@@ -53,10 +52,10 @@ ServerManager::~ServerManager() {
 
     // 只有在没有进行优雅关闭的情况下才调用gracefulShutdown
     if ( !m_gracefulShuttingDown.load() ) {
-        qCDebug(lcServerManager) << "析构函数中执行优雅关闭";
+        qCDebug(lcServerManager) << "ServerManager::~ServerManager() - Executing graceful shutdown";
         gracefulShutdown();
     } else {
-        qCDebug(lcServerManager) << "已在优雅关闭过程中，跳过析构函数中的关闭操作";
+        qCDebug(lcServerManager) << "ServerManager::~ServerManager() - Already in graceful shutdown, skipping";
     }
 
     // 断开与ServerWorker的信号连接
@@ -71,7 +70,7 @@ ServerManager::~ServerManager() {
     m_dataWorker = nullptr; // 由ThreadManager管理生命周期
     m_queueManager = nullptr; // 单例，不需要删除
 
-    qCDebug(lcServerManager) << "ServerManager 析构完成";
+    qCDebug(lcServerManager) << "ServerManager::~ServerManager() - Destructor complete";
 }
 
 bool ServerManager::startServer(quint16 port, const QString& password) {
@@ -111,7 +110,7 @@ bool ServerManager::startServer(quint16 port, const QString& password) {
     // 3. 获取worker并启动服务器（不持有其他锁，避免死锁）
     ServerWorker* worker = getServerWorker();
     if ( !worker ) {
-        qWarning() << "Failed to get ServerWorker instance";
+        qCWarning(lcServerManager) << "ServerManager::startServer() - Failed to get ServerWorker instance";
         // 清理线程
         {
             QMutexLocker workerLock(&m_workerMutex);
@@ -145,9 +144,9 @@ bool ServerManager::startServer(quint16 port, const QString& password) {
 }
 
 void ServerManager::stopServer() {
-    qCDebug(lcServerManager) << "停止服务器...";
+    qCDebug(lcServerManager) << "ServerManager::stopServer() - Stopping server";
     if ( m_shuttingDown.exchange(true) ) {
-        qCDebug(lcServerManager) << "服务器已在关闭过程中";
+        qCDebug(lcServerManager) << "ServerManager::stopServer() - Server is already shutting down";
         return;
     }
 
@@ -165,11 +164,11 @@ void ServerManager::stopServer() {
 
     // 在没有锁的情况下停止线程（不销毁，让程序退出时自动清理）
     if ( m_threadManager ) {
-        qCDebug(lcServerManager) << "开始停止ServerWorker线程...";
+        qCDebug(lcServerManager) << "ServerManager::stopServer() - Stopping ServerWorker thread";
         m_threadManager->stopThread("ServerWorker", false); // 异步停止，不等待完成
-        qCDebug(lcServerManager) << "ServerWorker线程停止请求已发送";
+        qCDebug(lcServerManager) << "ServerManager::stopServer() - ServerWorker thread stop request sent";
     }
-    qCDebug(lcServerManager) << "服务器已停止";
+    qCDebug(lcServerManager) << "ServerManager::stopServer() - Server stopped";
 }
 
 bool ServerManager::isServerRunning() const {
@@ -277,12 +276,8 @@ void ServerManager::onWorkerServerStopped() {
         m_currentPort = 0;
         m_captureStarted = false;
     }
-    qCDebug(lcServerManager) << "onWorkerServerStopped(): server stopped";
-    // 同步输出一个非分类的信息日志，确保无论日志分类配置如何，最终态都能被捕获
-    qInfo().noquote() << "服务器已停止";
-    // 统一输出最终态日志，确保无论通过哪种关闭路径，都会有明确的“服务器已停止”信号
-    // 使用信息级别日志以提高在不同环境下的可见性
-    qCInfo(lcServerManager) << "服务器已停止";
+    qCDebug(lcServerManager) << “ServerManager::onWorkerServerStopped() - Server stopped”;
+    qCInfo(lcServerManager) << “ServerManager::onWorkerServerStopped() - Server stopped”;
     emit serverStopped();
 }
 
@@ -399,25 +394,25 @@ void ServerManager::disconnectClient(const QString& clientAddress) {
 }
 
 void ServerManager::gracefulShutdown() {
-    qCDebug(lcServerManager) << "开始优雅关闭ServerManager...";
+    qCDebug(lcServerManager) << "ServerManager::gracefulShutdown() - Starting graceful shutdown";
 
     bool wasAlreadyShuttingDown = m_gracefulShuttingDown.exchange(true);
-    qCDebug(lcServerManager) << "gracefulShutdown标志检查 - 之前的值:" << wasAlreadyShuttingDown << "当前值:" << m_gracefulShuttingDown.load();
+    qCDebug(lcServerManager) << "ServerManager::gracefulShutdown() - Flag check, previous value:" << wasAlreadyShuttingDown << "current value:" << m_gracefulShuttingDown.load();
 
     if ( wasAlreadyShuttingDown ) {
-        qCDebug(lcServerManager) << "ServerManager已在优雅关闭过程中，退出";
+        qCDebug(lcServerManager) << "ServerManager::gracefulShutdown() - Already in graceful shutdown, exiting";
         return;
     }
 
-    qCDebug(lcServerManager) << "继续执行优雅关闭逻辑...";
+    qCDebug(lcServerManager) << "ServerManager::gracefulShutdown() - Continuing graceful shutdown";
 
     // 不持有锁的情况下获取worker指针
-    qCDebug(lcServerManager) << "准备获取ServerWorker指针...";
+    qCDebug(lcServerManager) << "ServerManager::gracefulShutdown() - Getting ServerWorker pointer";
     ServerWorker* worker = nullptr;
     {
-        qCDebug(lcServerManager) << "获取互斥锁...";
+        qCDebug(lcServerManager) << "ServerManager::gracefulShutdown() - Acquiring mutex";
         QMutexLocker locker(&m_workerMutex);
-        qCDebug(lcServerManager) << "直接访问ThreadManager，避免调用getServerWorker()造成死锁...";
+        qCDebug(lcServerManager) << "ServerManager::gracefulShutdown() - Accessing ThreadManager directly to avoid deadlock";
 
         // 直接访问ThreadManager，避免调用getServerWorker()造成死锁
         const ThreadManager::ThreadInfo* threadInfo = m_threadManager->getThreadInfo("ServerWorker");
@@ -425,27 +420,27 @@ void ServerManager::gracefulShutdown() {
             worker = qobject_cast<ServerWorker*>(threadInfo->worker);
         }
 
-        qCDebug(lcServerManager) << "ThreadManager访问完成，释放互斥锁...";
+        qCDebug(lcServerManager) << "ServerManager::gracefulShutdown() - ThreadManager access complete, releasing mutex";
     }
-    qCDebug(lcServerManager) << "互斥锁已释放，worker指针获取完成";
+    qCDebug(lcServerManager) << "ServerManager::gracefulShutdown() - Mutex released, worker pointer acquired";
 
-    qCDebug(lcServerManager) << "获取到的ServerWorker指针:" << worker;
+    qCDebug(lcServerManager) << "ServerManager::gracefulShutdown() - ServerWorker pointer:" << worker;
 
     if ( worker ) {
         // 发送同步停止信号
-        qCDebug(lcServerManager) << "停止ServerWorker...";
+        qCDebug(lcServerManager) << "ServerManager::gracefulShutdown() - Stopping ServerWorker";
         bool invokeResult = QMetaObject::invokeMethod(worker, "stopServer", Qt::BlockingQueuedConnection, Q_ARG(bool, true));
-        qCDebug(lcServerManager) << "ServerWorker停止调用结果:" << invokeResult;
-        qCDebug(lcServerManager) << "ServerWorker已停止";
+        qCDebug(lcServerManager) << "ServerManager::gracefulShutdown() - ServerWorker stop result:" << invokeResult;
+        qCDebug(lcServerManager) << "ServerManager::gracefulShutdown() - ServerWorker stopped";
     } else {
-        qCWarning(lcServerManager) << "无法获取ServerWorker实例，跳过停止操作";
+        qCWarning(lcServerManager) << "ServerManager::gracefulShutdown() - Unable to get ServerWorker instance, skipping stop";
     }
 
     // 同步停止ServerWorker线程（ServerWorker::cleanup 会统一停止并销毁相关工作线程）
     if ( m_threadManager ) {
-        qCDebug(lcServerManager) << "停止ServerWorker线程...";
+        qCDebug(lcServerManager) << "ServerManager::gracefulShutdown() - Stopping ServerWorker thread";
         m_threadManager->stopThread("ServerWorker", true); // 同步停止，等待完成
-        qCDebug(lcServerManager) << "ServerWorker线程已停止";
+        qCDebug(lcServerManager) << "ServerManager::gracefulShutdown() - ServerWorker thread stopped";
     }
 
     // 到此为止：ServerWorker 与相关工作线程均已同步停止
@@ -456,21 +451,17 @@ void ServerManager::gracefulShutdown() {
         m_currentPort = 0;
     }
     // 统一输出最终态，供测试与运维脚本稳定识别（尽量提前打印，避免进程退出导致丢失）
-    // 同步输出一个非分类的信息日志，确保无论日志分类配置如何，最终态都能被捕获
-    qInfo().noquote() << "服务器已停止";
-    qCInfo(lcServerManager) << "服务器已停止";
-    // 同步输出debug级别日志，结合默认规则"*.debug=true"确保在所有配置下也能看到
-    qCDebug(lcServerManager) << "服务器已停止";
-    qCDebug(lcServerManager) << "ServerManager优雅关闭完成";
+    qCInfo(lcServerManager) << "ServerManager::gracefulShutdown() - Server stopped";
+    qCDebug(lcServerManager) << "ServerManager::gracefulShutdown() - Graceful shutdown complete";
 }
 
 void ServerManager::stopWorkerThreads() {
-    qCDebug(lcServerManager) << "停止工作线程（屏幕捕获与数据处理）";
+    qCDebug(lcServerManager) << "ServerManager::stopWorkerThreads() - Stopping worker threads (screen capture and data processing)";
 
     // 停止并销毁数据处理线程
     const QString dataWorkerName = QStringLiteral("DataProcessingWorker");
     if ( m_threadManager && m_threadManager->hasThread(dataWorkerName) ) {
-        qCDebug(lcServerManager) << "停止 DataProcessingWorker 线程...";
+        qCDebug(lcServerManager) << "ServerManager::stopWorkerThreads() - Stopping DataProcessingWorker thread";
 
         // 先请求工作器清空队列
         if ( m_dataWorker ) {
@@ -480,17 +471,17 @@ void ServerManager::stopWorkerThreads() {
         // 同步停止线程
         bool stopSuccess = m_threadManager->stopThread(dataWorkerName, true);
         if ( stopSuccess ) {
-            qCDebug(lcServerManager) << "DataProcessingWorker 线程已停止";
+            qCDebug(lcServerManager) << "ServerManager::stopWorkerThreads() - DataProcessingWorker thread stopped";
         } else {
-            qCWarning(lcServerManager) << "停止 DataProcessingWorker 线程失败";
+            qCWarning(lcServerManager) << "ServerManager::stopWorkerThreads() - Failed to stop DataProcessingWorker thread";
         }
 
         // 销毁线程
         bool destroySuccess = m_threadManager->destroyThread(dataWorkerName);
         if ( destroySuccess ) {
-            qCDebug(lcServerManager) << "DataProcessingWorker 线程已销毁";
+            qCDebug(lcServerManager) << "ServerManager::stopWorkerThreads() - DataProcessingWorker thread destroyed";
         } else {
-            qCWarning(lcServerManager) << "销毁 DataProcessingWorker 线程失败";
+            qCWarning(lcServerManager) << "ServerManager::stopWorkerThreads() - Failed to destroy DataProcessingWorker thread";
         }
 
         m_dataWorker = nullptr;
@@ -498,9 +489,9 @@ void ServerManager::stopWorkerThreads() {
 
     // 停止屏幕捕获
     if ( m_screenCapture && m_screenCapture->isCapturing() ) {
-        qCDebug(lcServerManager) << "停止屏幕捕获...";
+        qCDebug(lcServerManager) << "ServerManager::stopWorkerThreads() - Stopping screen capture";
         m_screenCapture->stopCapture();
-        qCDebug(lcServerManager) << "屏幕捕获已停止";
+        qCDebug(lcServerManager) << "ServerManager::stopWorkerThreads() - Screen capture stopped";
     }
 
     // 更新状态标志
@@ -509,14 +500,14 @@ void ServerManager::stopWorkerThreads() {
         m_captureStarted = false;
     }
 
-    qCDebug(lcServerManager) << "工作线程停止完成";
+    qCDebug(lcServerManager) << "ServerManager::stopWorkerThreads() - Worker threads stopped";
 }
 
 void ServerManager::startWorkerThreads() {
-    qCDebug(lcServerManager) << "启动工作线程（数据处理与屏幕捕获）";
+    qCDebug(lcServerManager) << "ServerManager::startWorkerThreads() - Starting worker threads (data processing and screen capture)";
 
     if ( !m_threadManager ) {
-        qCWarning(lcServerManager) << "ThreadManager不存在，无法启动工作线程";
+        qCWarning(lcServerManager) << "ServerManager::startWorkerThreads() - ThreadManager does not exist, cannot start worker threads";
         return;
     }
 
@@ -524,22 +515,22 @@ void ServerManager::startWorkerThreads() {
     {
         QMutexLocker lock(&m_stateMutex);
         if ( m_captureStarted ) {
-            qCDebug(lcServerManager) << "检测到工作线程已启动，跳过重复启动";
+            qCDebug(lcServerManager) << "ServerManager::startWorkerThreads() - Worker threads already started, skipping";
             return;
         }
     }
 
     // 1. 启动屏幕捕获
     if ( m_screenCapture ) {
-        qCDebug(lcServerManager) << "启动屏幕捕获";
+        qCDebug(lcServerManager) << "ServerManager::startWorkerThreads() - Starting screen capture";
         m_screenCapture->startCapture();
-        qCDebug(lcServerManager) << "屏幕捕获已启动";
+        qCDebug(lcServerManager) << "ServerManager::startWorkerThreads() - Screen capture started";
     }
 
     // 2. 创建和启动 DataProcessingWorker 线程
     const QString dataWorkerName = QStringLiteral("DataProcessingWorker");
     if ( !m_threadManager->hasThread(dataWorkerName) ) {
-        qCDebug(lcServerManager) << "创建 DataProcessingWorker 线程";
+        qCDebug(lcServerManager) << "ServerManager::startWorkerThreads() - Creating DataProcessingWorker thread";
 
         // 创建数据处理配置
         auto processingConfig = std::make_shared<DataProcessingConfig>();
@@ -552,20 +543,20 @@ void ServerManager::startWorkerThreads() {
         dataWorkerPtr->setProcessingTimeout(2000);
 
         if ( !m_threadManager->createThread(dataWorkerName, std::move(dataWorker), false, true, 3) ) {
-            qCCritical(lcServerManager) << "创建 DataProcessingWorker 线程失败";
+            qCCritical(lcServerManager) << "ServerManager::startWorkerThreads() - Failed to create DataProcessingWorker thread";
             m_dataWorker = nullptr;
             return;
         }
 
         if ( !m_threadManager->startThread(dataWorkerName) ) {
-            qCCritical(lcServerManager) << "启动 DataProcessingWorker 线程失败";
+            qCCritical(lcServerManager) << "ServerManager::startWorkerThreads() - Failed to start DataProcessingWorker thread";
             m_threadManager->destroyThread(dataWorkerName);
             m_dataWorker = nullptr;
             return;
         }
 
         m_dataWorker = dataWorkerPtr;
-        qCDebug(lcServerManager) << "DataProcessingWorker 线程已创建并启动";
+        qCDebug(lcServerManager) << "ServerManager::startWorkerThreads() - DataProcessingWorker thread created and started";
 
         // 恢复数据处理
         QMetaObject::invokeMethod(m_dataWorker, "resumeProcessing", Qt::QueuedConnection);
@@ -577,16 +568,16 @@ void ServerManager::startWorkerThreads() {
         }
 
         if ( !m_threadManager->isThreadRunning(dataWorkerName) ) {
-            qCDebug(lcServerManager) << "启动已存在的 DataProcessingWorker 线程";
+            qCDebug(lcServerManager) << "ServerManager::startWorkerThreads() - Starting existing DataProcessingWorker thread";
             if ( m_threadManager->startThread(dataWorkerName) ) {
-                qCDebug(lcServerManager) << "DataProcessingWorker 线程已启动";
+                qCDebug(lcServerManager) << "ServerManager::startWorkerThreads() - DataProcessingWorker thread started";
             } else {
-                qCWarning(lcServerManager) << "启动已存在的 DataProcessingWorker 线程失败";
+                qCWarning(lcServerManager) << "ServerManager::startWorkerThreads() - Failed to start existing DataProcessingWorker thread";
             }
         }
 
         if ( m_dataWorker ) {
-            qCDebug(lcServerManager) << "恢复 DataProcessingWorker 数据处理";
+            qCDebug(lcServerManager) << "ServerManager::startWorkerThreads() - Resuming DataProcessingWorker data processing";
             QMetaObject::invokeMethod(m_dataWorker, "resumeProcessing", Qt::QueuedConnection);
         }
     }
@@ -597,17 +588,17 @@ void ServerManager::startWorkerThreads() {
         m_captureStarted = true;
     }
 
-    qCDebug(lcServerManager) << "工作线程启动完成";
+    qCDebug(lcServerManager) << "ServerManager::startWorkerThreads() - Worker threads started";
 }
 
 void ServerManager::onNewClientConnection(qintptr socketDescriptor) {
-    qCDebug(lcServerManager) << "新客户端连接:" << socketDescriptor;
+    qCDebug(lcServerManager) << "ServerManager::onNewClientConnection() - New client connection:" << socketDescriptor;
 
     QMutexLocker locker(&m_clientMutex);
 
     // 单连接模式：如果已有客户端连接，拒绝新连接
     if ( m_currentClient ) {
-        qCDebug(lcServerManager) << "已有客户端连接，拒绝新连接";
+        qCDebug(lcServerManager) << "ServerManager::onNewClientConnection() - Existing client connected, rejecting new connection";
         // 发送拒绝消息的逻辑可以在这里实现
         
         return;
@@ -624,7 +615,7 @@ void ServerManager::onNewClientConnection(qintptr socketDescriptor) {
 
     // 使用ThreadManager创建并启动Worker线程
     if ( !m_threadManager->createThread(m_currentClientThreadName, std::move(worker), true) ) {
-        qCCritical(lcServerManager) << "创建 ClientHandlerWorker 线程失败";
+        qCCritical(lcServerManager) << "ServerManager::onNewClientConnection() - Failed to create ClientHandlerWorker thread";
         m_currentClient = nullptr;
         m_currentClientThreadName.clear();
         return;
@@ -643,7 +634,7 @@ void ServerManager::onNewClientConnection(qintptr socketDescriptor) {
     connect(m_currentClient, &ClientHandlerWorker::messageReceived,
         this, &ServerManager::onClientHandlerMessageReceived, Qt::QueuedConnection);
 
-    qCDebug(lcServerManager) << "ClientHandlerWorker已启动在线程中";
+    qCDebug(lcServerManager) << "ServerManager::onNewClientConnection() - ClientHandlerWorker started in thread";
 }
 
 void ServerManager::onClientHandlerDisconnected() {
@@ -652,7 +643,7 @@ void ServerManager::onClientHandlerDisconnected() {
         clientAddress = m_currentClient->clientAddress();
     }
 
-    qCDebug(lcServerManager) << "客户端已断开:" << clientAddress;
+    qCDebug(lcServerManager) << "ServerManager::onClientHandlerDisconnected() - Client disconnected:" << clientAddress;
 
     // 清理客户端
     cleanupDisconnectedClient();
@@ -667,7 +658,7 @@ void ServerManager::onClientHandlerAuthenticated() {
     if ( !m_currentClient ) return;
 
     QString clientAddress = m_currentClient->clientAddress();
-    qCDebug(lcServerManager) << "客户端已认证:" << clientAddress;
+    qCDebug(lcServerManager) << "ServerManager::onClientHandlerAuthenticated() - Client authenticated:" << clientAddress;
 
     // 检查是否已启动工作线程
     bool alreadyStarted = false;
@@ -677,22 +668,22 @@ void ServerManager::onClientHandlerAuthenticated() {
     }
 
     if ( !alreadyStarted ) {
-        qCDebug(lcServerManager) << "首个客户端认证成功，启动DataProcessingWorker与ScreenCapture";
+        qCDebug(lcServerManager) << "ServerManager::onClientHandlerAuthenticated() - First client authenticated, starting DataProcessingWorker and ScreenCapture";
         startWorkerThreads();
     } else {
-        qCDebug(lcServerManager) << "工作线程已处于运行状态，跳过重复启动";
+        qCDebug(lcServerManager) << "ServerManager::onClientHandlerAuthenticated() - Worker threads already running, skipping start";
     }
 
     emit clientAuthenticated(clientAddress);
 }
 
 void ServerManager::onClientHandlerError(const QString& error) {
-    qCCritical(lcServerManager) << "客户端错误:" << error;
+    qCCritical(lcServerManager) << "ServerManager::onClientHandlerError() - Client error:" << error;
     emit serverError(error);
 }
 
 void ServerManager::onClientHandlerMessageReceived(MessageType type, const QByteArray& data) {
-    qCDebug(lcServerManager) << "收到客户端消息，类型:" << static_cast<int>(type);
+    qCDebug(lcServerManager) << "ServerManager::onClientHandlerMessageReceived() - Received client message, type:" << static_cast<int>(type);
 
     // 这里可以处理客户端消息，例如输入事件等
     // 暂时不需要转发给 ServerWorker

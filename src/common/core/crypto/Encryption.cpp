@@ -2,7 +2,6 @@
 #include "config/MessageConstants.h"
 #include <QtCore/QCryptographicHash>
 #include <QtCore/QDateTime>
-#include <QtCore/QDebug>
 #include "logging/LoggingCategories.h"
 #include <openssl/evp.h>
 #include <openssl/aes.h>
@@ -12,7 +11,6 @@
 #include <openssl/err.h>
 #include <openssl/sha.h>
 #include <openssl/hmac.h>
-#include <QtCore/QMessageLogger>
 
 // AESEncryption 实现
 AESEncryption::AESEncryption(QObject *parent)
@@ -29,7 +27,7 @@ AESEncryption::~AESEncryption()
 bool AESEncryption::setKey(const QByteArray &key)
 {
     if (key.size() != m_keySize / 8) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::invalidKeySize(m_keySize / 8, key.size());
+    qCWarning(lcEncryption) << MessageConstants::Encryption::invalidKeySize(m_keySize / 8, key.size());
         return false;
     }
     
@@ -47,7 +45,7 @@ void AESEncryption::setKeySize(int size)
     if (size == 128 || size == 192 || size == 256) {
         m_keySize = size;
     } else {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::UNSUPPORTED_KEY_SIZE;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::UNSUPPORTED_KEY_SIZE;
     }
 }
 
@@ -71,7 +69,7 @@ QByteArray AESEncryption::generateKey()
     QByteArray key(m_keySize / 8, 0);
     
     if (RAND_bytes(reinterpret_cast<unsigned char*>(key.data()), key.size()) != 1) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_GENERATE_KEY;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_GENERATE_KEY;
         return QByteArray();
     }
     
@@ -83,7 +81,7 @@ QByteArray AESEncryption::generateIV()
     QByteArray iv(AES_BLOCK_SIZE, 0);
     
     if (RAND_bytes(reinterpret_cast<unsigned char*>(iv.data()), iv.size()) != 1) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_GENERATE_IV;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_GENERATE_IV;
         return QByteArray();
     }
     
@@ -93,7 +91,7 @@ QByteArray AESEncryption::generateIV()
 QByteArray AESEncryption::encrypt(const QByteArray &data, const QByteArray &iv)
 {
     if (m_key.isEmpty()) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::NO_KEY_SET_ENCRYPTION;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::NO_KEY_SET_ENCRYPTION;
         return QByteArray();
     }
     
@@ -104,7 +102,7 @@ QByteArray AESEncryption::encrypt(const QByteArray &data, const QByteArray &iv)
     
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     if (!ctx) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_CREATE_CONTEXT;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_CREATE_CONTEXT;
         return QByteArray();
     }
     
@@ -117,7 +115,7 @@ QByteArray AESEncryption::encrypt(const QByteArray &data, const QByteArray &iv)
     if (EVP_EncryptInit_ex(ctx, cipher, nullptr,
                           reinterpret_cast<const unsigned char*>(m_key.data()),
                           reinterpret_cast<const unsigned char*>(actualIV.data())) != 1) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_INIT_ENCRYPTION;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_INIT_ENCRYPTION;
         EVP_CIPHER_CTX_free(ctx);
         return QByteArray();
     }
@@ -133,7 +131,7 @@ QByteArray AESEncryption::encrypt(const QByteArray &data, const QByteArray &iv)
                          &len,
                          reinterpret_cast<const unsigned char*>(data.data()),
                          data.size()) != 1) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_ENCRYPT_DATA;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_ENCRYPT_DATA;
         EVP_CIPHER_CTX_free(ctx);
         return QByteArray();
     }
@@ -142,7 +140,7 @@ QByteArray AESEncryption::encrypt(const QByteArray &data, const QByteArray &iv)
     if (EVP_EncryptFinal_ex(ctx,
                            reinterpret_cast<unsigned char*>(encrypted.data()) + len,
                            &len) != 1) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_FINALIZE_ENCRYPTION;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_FINALIZE_ENCRYPTION;
         EVP_CIPHER_CTX_free(ctx);
         return QByteArray();
     }
@@ -163,7 +161,7 @@ QByteArray AESEncryption::encrypt(const QByteArray &data, const QByteArray &iv)
 QByteArray AESEncryption::decrypt(const QByteArray &encryptedData, const QByteArray &iv)
 {
     if (m_key.isEmpty()) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::NO_KEY_SET_DECRYPTION;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::NO_KEY_SET_DECRYPTION;
         return QByteArray();
     }
     
@@ -173,7 +171,7 @@ QByteArray AESEncryption::decrypt(const QByteArray &encryptedData, const QByteAr
     // 如果没有提供IV，从加密数据中提取
     if (actualIV.isEmpty()) {
         if (encryptedData.size() < AES_BLOCK_SIZE) {
-            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::DATA_TOO_SMALL;
+            qCWarning(lcEncryption) << MessageConstants::Encryption::DATA_TOO_SMALL;
             return QByteArray();
         }
         actualIV = encryptedData.left(AES_BLOCK_SIZE);
@@ -182,7 +180,7 @@ QByteArray AESEncryption::decrypt(const QByteArray &encryptedData, const QByteAr
     
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     if (!ctx) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_CREATE_CONTEXT;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_CREATE_CONTEXT;
         return QByteArray();
     }
     
@@ -195,7 +193,7 @@ QByteArray AESEncryption::decrypt(const QByteArray &encryptedData, const QByteAr
     if (EVP_DecryptInit_ex(ctx, cipher, nullptr,
                           reinterpret_cast<const unsigned char*>(m_key.data()),
                           reinterpret_cast<const unsigned char*>(actualIV.data())) != 1) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_INIT_DECRYPTION;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_INIT_DECRYPTION;
         EVP_CIPHER_CTX_free(ctx);
         return QByteArray();
     }
@@ -211,7 +209,7 @@ QByteArray AESEncryption::decrypt(const QByteArray &encryptedData, const QByteAr
                          &len,
                          reinterpret_cast<const unsigned char*>(dataToDecrypt.data()),
                          dataToDecrypt.size()) != 1) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_DECRYPT_DATA;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_DECRYPT_DATA;
         EVP_CIPHER_CTX_free(ctx);
         return QByteArray();
     }
@@ -220,7 +218,7 @@ QByteArray AESEncryption::decrypt(const QByteArray &encryptedData, const QByteAr
     if (EVP_DecryptFinal_ex(ctx,
                            reinterpret_cast<unsigned char*>(decrypted.data()) + len,
                            &len) != 1) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_FINALIZE_DECRYPTION;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_FINALIZE_DECRYPTION;
         EVP_CIPHER_CTX_free(ctx);
         return QByteArray();
     }
@@ -267,7 +265,7 @@ const EVP_CIPHER* AESEncryption::getCipher() const
         break;
     }
     
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::UNSUPPORTED_KEY_SIZE_OR_MODE;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::UNSUPPORTED_KEY_SIZE_OR_MODE;
     return nullptr;
 }
 
@@ -295,25 +293,25 @@ bool RSAEncryption::generateKeyPair()
 {
     EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr);
     if (!ctx) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_CREATE_KEY_CONTEXT;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_CREATE_KEY_CONTEXT;
         return false;
     }
     
     if (EVP_PKEY_keygen_init(ctx) <= 0) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_INIT_KEY_GENERATION;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_INIT_KEY_GENERATION;
         EVP_PKEY_CTX_free(ctx);
         return false;
     }
     
     if (EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, m_keySize) <= 0) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_SET_KEY_SIZE;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_SET_KEY_SIZE;
         EVP_PKEY_CTX_free(ctx);
         return false;
     }
     
     EVP_PKEY *keyPair = nullptr;
     if (EVP_PKEY_keygen(ctx, &keyPair) <= 0) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_GENERATE_KEY_PAIR;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_GENERATE_KEY_PAIR;
         EVP_PKEY_CTX_free(ctx);
         return false;
     }
@@ -339,7 +337,7 @@ bool RSAEncryption::setPublicKey(const QByteArray &keyData)
 {
     BIO *bio = BIO_new_mem_buf(keyData.data(), keyData.size());
     if (!bio) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_CREATE_BIO_PUBLIC;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_CREATE_BIO_PUBLIC;
         return false;
     }
     
@@ -347,7 +345,7 @@ bool RSAEncryption::setPublicKey(const QByteArray &keyData)
     BIO_free(bio);
     
     if (!key) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_PARSE_PUBLIC_KEY;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_PARSE_PUBLIC_KEY;
         return false;
     }
     
@@ -363,7 +361,7 @@ bool RSAEncryption::setPrivateKey(const QByteArray &keyData, const QString &pass
 {
     BIO *bio = BIO_new_mem_buf(keyData.data(), keyData.size());
     if (!bio) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_CREATE_BIO_PRIVATE;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_CREATE_BIO_PRIVATE;
         return false;
     }
     
@@ -372,7 +370,7 @@ bool RSAEncryption::setPrivateKey(const QByteArray &keyData, const QString &pass
     BIO_free(bio);
     
     if (!key) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_PARSE_PRIVATE_KEY;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_PARSE_PRIVATE_KEY;
         return false;
     }
     
@@ -439,18 +437,18 @@ QByteArray RSAEncryption::getPrivateKey(const QString &password) const
 QByteArray RSAEncryption::encrypt(const QByteArray &data) const
 {
     if (!m_publicKey) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::NO_PUBLIC_KEY_ENCRYPTION;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::NO_PUBLIC_KEY_ENCRYPTION;
         return QByteArray();
     }
     
     EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(m_publicKey, nullptr);
     if (!ctx) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_CREATE_ENCRYPT_CONTEXT;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_CREATE_ENCRYPT_CONTEXT;
         return QByteArray();
     }
     
     if (EVP_PKEY_encrypt_init(ctx) <= 0) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_INIT_RSA_ENCRYPTION;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_INIT_RSA_ENCRYPTION;
         EVP_PKEY_CTX_free(ctx);
         return QByteArray();
     }
@@ -458,7 +456,7 @@ QByteArray RSAEncryption::encrypt(const QByteArray &data) const
     // 设置填充模式
     int padding = getPaddingMode();
     if (EVP_PKEY_CTX_set_rsa_padding(ctx, padding) <= 0) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_SET_PADDING;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_SET_PADDING;
         EVP_PKEY_CTX_free(ctx);
         return QByteArray();
     }
@@ -467,7 +465,7 @@ QByteArray RSAEncryption::encrypt(const QByteArray &data) const
     if (EVP_PKEY_encrypt(ctx, nullptr, &outLen,
                         reinterpret_cast<const unsigned char*>(data.data()),
                         data.size()) <= 0) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_DETERMINE_OUTPUT_LENGTH;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_DETERMINE_OUTPUT_LENGTH;
         EVP_PKEY_CTX_free(ctx);
         return QByteArray();
     }
@@ -478,7 +476,7 @@ QByteArray RSAEncryption::encrypt(const QByteArray &data) const
                         &outLen,
                         reinterpret_cast<const unsigned char*>(data.data()),
                         data.size()) <= 0) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_RSA_ENCRYPT_DATA;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_RSA_ENCRYPT_DATA;
         EVP_PKEY_CTX_free(ctx);
         return QByteArray();
     }
@@ -491,18 +489,18 @@ QByteArray RSAEncryption::encrypt(const QByteArray &data) const
 QByteArray RSAEncryption::decrypt(const QByteArray &encryptedData) const
 {
     if (!m_privateKey) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::NO_PRIVATE_KEY_DECRYPTION;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::NO_PRIVATE_KEY_DECRYPTION;
         return QByteArray();
     }
     
     EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(m_privateKey, nullptr);
     if (!ctx) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_CREATE_DECRYPT_CONTEXT;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_CREATE_DECRYPT_CONTEXT;
         return QByteArray();
     }
     
     if (EVP_PKEY_decrypt_init(ctx) <= 0) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_INIT_RSA_DECRYPTION;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_INIT_RSA_DECRYPTION;
         EVP_PKEY_CTX_free(ctx);
         return QByteArray();
     }
@@ -510,7 +508,7 @@ QByteArray RSAEncryption::decrypt(const QByteArray &encryptedData) const
     // 设置填充模式
     int padding = getPaddingMode();
     if (EVP_PKEY_CTX_set_rsa_padding(ctx, padding) <= 0) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << "Failed to set padding mode";
+    qCWarning(lcEncryption) << "Failed to set padding mode";
         EVP_PKEY_CTX_free(ctx);
         return QByteArray();
     }
@@ -519,7 +517,7 @@ QByteArray RSAEncryption::decrypt(const QByteArray &encryptedData) const
     if (EVP_PKEY_decrypt(ctx, nullptr, &outLen,
                         reinterpret_cast<const unsigned char*>(encryptedData.data()),
                         encryptedData.size()) <= 0) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << "Failed to determine output length";
+    qCWarning(lcEncryption) << "Failed to determine output length";
         EVP_PKEY_CTX_free(ctx);
         return QByteArray();
     }
@@ -530,7 +528,7 @@ QByteArray RSAEncryption::decrypt(const QByteArray &encryptedData) const
                         &outLen,
                         reinterpret_cast<const unsigned char*>(encryptedData.data()),
                         encryptedData.size()) <= 0) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_RSA_DECRYPT_DATA;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_RSA_DECRYPT_DATA;
         EVP_PKEY_CTX_free(ctx);
         return QByteArray();
     }
@@ -543,31 +541,31 @@ QByteArray RSAEncryption::decrypt(const QByteArray &encryptedData) const
 QByteArray RSAEncryption::sign(const QByteArray &data) const
 {
     if (!m_privateKey) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::NO_PRIVATE_KEY_SIGNING;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::NO_PRIVATE_KEY_SIGNING;
         return QByteArray();
     }
     
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();
     if (!ctx) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_CREATE_SIGN_CONTEXT;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_CREATE_SIGN_CONTEXT;
         return QByteArray();
     }
     
     if (EVP_DigestSignInit(ctx, nullptr, EVP_sha256(), nullptr, m_privateKey) <= 0) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_INIT_SIGNING;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_INIT_SIGNING;
         EVP_MD_CTX_free(ctx);
         return QByteArray();
     }
     
     if (EVP_DigestSignUpdate(ctx, data.data(), data.size()) <= 0) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_UPDATE_SIGNING;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_UPDATE_SIGNING;
         EVP_MD_CTX_free(ctx);
         return QByteArray();
     }
     
     size_t sigLen;
     if (EVP_DigestSignFinal(ctx, nullptr, &sigLen) <= 0) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_DETERMINE_SIGNATURE_LENGTH;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_DETERMINE_SIGNATURE_LENGTH;
         EVP_MD_CTX_free(ctx);
         return QByteArray();
     }
@@ -576,7 +574,7 @@ QByteArray RSAEncryption::sign(const QByteArray &data) const
     if (EVP_DigestSignFinal(ctx,
                            reinterpret_cast<unsigned char*>(signature.data()),
                            &sigLen) <= 0) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_CREATE_SIGNATURE;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_CREATE_SIGNATURE;
         EVP_MD_CTX_free(ctx);
         return QByteArray();
     }
@@ -589,24 +587,24 @@ QByteArray RSAEncryption::sign(const QByteArray &data) const
 bool RSAEncryption::verify(const QByteArray &data, const QByteArray &signature) const
 {
     if (!m_publicKey) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::NO_PUBLIC_KEY_VERIFICATION;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::NO_PUBLIC_KEY_VERIFICATION;
         return false;
     }
     
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();
     if (!ctx) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_CREATE_VERIFY_CONTEXT;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_CREATE_VERIFY_CONTEXT;
         return false;
     }
     
     if (EVP_DigestVerifyInit(ctx, nullptr, EVP_sha256(), nullptr, m_publicKey) <= 0) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_INIT_VERIFICATION;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_INIT_VERIFICATION;
         EVP_MD_CTX_free(ctx);
         return false;
     }
     
     if (EVP_DigestVerifyUpdate(ctx, data.data(), data.size()) <= 0) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_UPDATE_VERIFICATION;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_UPDATE_VERIFICATION;
         EVP_MD_CTX_free(ctx);
         return false;
     }
@@ -671,7 +669,7 @@ QByteArray HashGenerator::pbkdf2(const QByteArray &password, const QByteArray &s
                          reinterpret_cast<const unsigned char*>(salt.data()), salt.size(),
                          iterations, EVP_sha256(),
                          keyLength, reinterpret_cast<unsigned char*>(key.data())) != 1) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::PBKDF2_DERIVATION_FAILED;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::PBKDF2_DERIVATION_FAILED;
         return QByteArray();
     }
     
@@ -684,7 +682,7 @@ QByteArray RandomGenerator::generateBytes(int size)
     QByteArray data(size, 0);
     
     if (RAND_bytes(reinterpret_cast<unsigned char*>(data.data()), size) != 1) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcEncryption) << MessageConstants::Encryption::FAILED_GENERATE_RANDOM_BYTES;
+    qCWarning(lcEncryption) << MessageConstants::Encryption::FAILED_GENERATE_RANDOM_BYTES;
         return QByteArray();
     }
     

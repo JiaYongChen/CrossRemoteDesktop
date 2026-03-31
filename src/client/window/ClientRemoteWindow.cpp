@@ -38,15 +38,13 @@
 #include <QtWidgets/QToolBar>
 #include <QtGui/QActionGroup>
 #include <QtCore/QSettings>
-#include <QtCore/QDebug>
-#include <QtCore/QLoggingCategory>
+#include "../../common/core/logging/LoggingCategories.h"
 #include <QtWidgets/QMenuBar>
 #include <QtGui/QKeySequence>
 #include <QtGui/QIcon>
 #include <QtCore/QThread>
 #include <cmath>
 
-Q_LOGGING_CATEGORY(lcClientRemoteWindow, "client.remote.window")
 
 ClientRemoteWindow::ClientRemoteWindow(SessionManager* sessionManager, QWidget* parent)
     : QGraphicsView(parent)
@@ -65,7 +63,7 @@ ClientRemoteWindow::ClientRemoteWindow(SessionManager* sessionManager, QWidget* 
     // 确保窗口关闭时自动删除,避免无父对象窗口内存泄漏
     // 使用属性而非手动deleteLater,减少重复释放风险
     setAttribute(Qt::WA_DeleteOnClose, true);
-    qDebug() << "[ClientRemoteWindow] Constructor started for sessionManager:" << sessionManager;
+    qCDebug(lcClientRemoteWindow) << "ClientRemoteWindow::ClientRemoteWindow() - Constructor started for sessionManager:" << sessionManager;
 
     // 注意:sessionManager 可能已经 moveToThread,所以要避免直接调用其方法
     // connectionId() 访问的是构造时设置的 m_connectionId，通常是安全的
@@ -292,7 +290,7 @@ void ClientRemoteWindow::setConnectionState(ConnectionManager::ConnectionState s
                 oldState == ConnectionManager::Authenticating ||
                 oldState == ConnectionManager::Error ) {
 
-                qCInfo(lcClientRemoteWindow) << "连接已断开,准备显示提示并关闭窗口";
+                qCInfo(lcClientRemoteWindow) << "ClientRemoteWindow::setConnectionState() - Connection lost, preparing to show notification and close window";
 
                 // 使用 QTimer::singleShot 延迟执行,确保在事件循环中执行
                 QTimer::singleShot(100, this, [this]() {
@@ -668,7 +666,7 @@ void ClientRemoteWindow::onConnectionError(const QString& error) {
 }
 
 void ClientRemoteWindow::showDisconnectionDialog() {
-    qCInfo(lcClientRemoteWindow) << "显示断开连接对话框";
+    qCInfo(lcClientRemoteWindow) << "ClientRemoteWindow::showDisconnectionDialog() - Showing disconnection dialog";
 
     // 标记为正在关闭,避免重复处理
     m_isClosing = true;
@@ -685,7 +683,7 @@ void ClientRemoteWindow::showDisconnectionDialog() {
     // 显示对话框(阻塞)
     msgBox.exec();
 
-    qCInfo(lcClientRemoteWindow) << "用户确认断开连接提示,准备关闭窗口";
+    qCInfo(lcClientRemoteWindow) << "ClientRemoteWindow::showDisconnectionDialog() - User confirmed disconnect, closing window";
 
     // 关闭窗口
     close();

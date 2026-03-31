@@ -1,11 +1,9 @@
 #include "MouseSimulatorWindows.h"
+#include "../../common/core/logging/LoggingCategories.h"
 
 #ifdef Q_OS_WIN
 
-#include <QDebug>
-#include <QLoggingCategory>
 
-Q_LOGGING_CATEGORY(lcMouseSimulatorWindows, "simulator.mouse.windows")
 
 MouseSimulatorWindows::MouseSimulatorWindows() : MouseSimulator() {
 }
@@ -22,7 +20,7 @@ bool MouseSimulatorWindows::initialize() {
     // Windows API 不需要特殊初始化
     m_screenSize = getScreenSize();
     m_initialized = true;
-    qDebug() << "MouseSimulatorWindows: Initialized successfully";
+    qCDebug(lcInputSimulator) << "MouseSimulatorWindows: Initialized successfully";
     return true;
 }
 

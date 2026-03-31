@@ -1,7 +1,5 @@
 #include "ConnectionManager.h"
-#include <QtCore/QDebug>
 #include "../../common/core/logging/LoggingCategories.h"
-#include <QtCore/QMessageLogger>
 #include <QtCore/QTimer>
 #include "TcpClient.h"
 #include "../common/core/config/MessageConstants.h"
@@ -37,7 +35,7 @@ ConnectionManager::~ConnectionManager() {
 
 void ConnectionManager::connectToHost(const QString& host, int port) {
     if ( m_connectionState != Disconnected ) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "ConnectionManager: Already connecting or connected, disconnecting first";
+        qCDebug(lcClient) << "ConnectionManager: Already connecting or connected, disconnecting first";
         disconnectFromHost();
     }
 
@@ -103,7 +101,7 @@ int ConnectionManager::currentPort() const {
 // 业务逻辑接口实现
 void ConnectionManager::authenticate(const QString& username, const QString& password) {
     if ( !isConnected() ) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << MessageConstants::Network::NOT_CONNECTED;
+        qCWarning(lcClient) << MessageConstants::Network::NOT_CONNECTED;
         return;
     }
 
@@ -210,7 +208,7 @@ void ConnectionManager::onTcpError(const QString& error) {
 }
 
 void ConnectionManager::onConnectionTimeout() {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "ConnectionManager: Connection timeout";
+    qCWarning(lcClient) << "ConnectionManager: Connection timeout";
     setConnectionState(Error);
 
     if ( m_tcpClient ) {
@@ -228,7 +226,7 @@ void ConnectionManager::onConnectionTimeout() {
 
 void ConnectionManager::setConnectionState(ConnectionState state) {
     if ( m_connectionState != state ) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << "ConnectionManager: State changed from" << m_connectionState << "to" << state;
+        qCInfo(lcClient) << "ConnectionManager: State changed from" << m_connectionState << "to" << state;
         m_connectionState = state;
 
         // 发射状态变化信号，供 UI 层使用
@@ -290,18 +288,18 @@ void ConnectionManager::onTcpMessageReceived(MessageType type, const QByteArray&
 void ConnectionManager::handleHandshakeResponse(const QByteArray& data) {
     HandshakeResponse response;
     if ( response.decode(data) ) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient)
+        qCInfo(lcClient)
             << MessageConstants::Network::HANDSHAKE_RESPONSE_RECEIVED;
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient)
+        qCDebug(lcClient)
             << "Server version:" << response.serverVersion;
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient)
+        qCDebug(lcClient)
             << "Screen resolution:" << response.screenWidth << "x" << response.screenHeight;
 
         // 发送认证请求
         sendAuthenticationRequest(m_username.isEmpty() ? "guest" : m_username,
             m_password.isEmpty() ? "" : m_password);
     } else {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient)
+        qCWarning(lcClient)
             << "Failed to parse handshake response";
     }
 }
@@ -309,13 +307,13 @@ void ConnectionManager::handleHandshakeResponse(const QByteArray& data) {
 void ConnectionManager::handleAuthenticationResponse(const QByteArray& data) {
     AuthenticationResponse response;
     if ( response.decode(data) ) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient)
+        qCInfo(lcClient)
             << MessageConstants::Network::AUTH_RESPONSE_RECEIVED;
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient)
+        qCDebug(lcClient)
             << "Auth result:" << static_cast<int>(response.result);
 
         if ( response.result == AuthResult::SUCCESS ) {
-            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient)
+            qCInfo(lcClient)
                 << MessageConstants::Network::AUTH_SUCCESSFUL.arg(QString::fromUtf8(response.sessionId));
 
             stopAutoReconnect();
@@ -340,7 +338,7 @@ void ConnectionManager::handleAuthenticationResponse(const QByteArray& data) {
             setConnectionState(Error);
         }
     } else {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient)
+        qCWarning(lcClient)
             << "Failed to parse authentication response";
     }
 }
@@ -384,7 +382,7 @@ void ConnectionManager::sendHandshakeRequest() {
 
     m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST, request);
 
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient)
+    qCInfo(lcClient)
         << MessageConstants::Network::HANDSHAKE_REQUEST_SENT;
 }
 
@@ -401,7 +399,7 @@ void ConnectionManager::sendAuthenticationRequest(const QString& username, const
 
     m_tcpClient->sendMessage(MessageType::AUTHENTICATION_REQUEST, ar);
 
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient)
+    qCInfo(lcClient)
         << MessageConstants::Network::AUTH_REQUEST_SENT.arg(username);
 }
 

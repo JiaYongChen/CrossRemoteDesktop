@@ -4,7 +4,6 @@
 #include <QtCore/QTimer>
 #include <QtCore/QThread>
 #include <QtCore/QCoreApplication>
-#include <QtCore/QDebug>
 #include <QtCore/QMutexLocker>
 
 ServerWorker::ServerWorker(QObject* parent)
@@ -15,11 +14,11 @@ ServerWorker::ServerWorker(QObject* parent)
     , m_isServerRunning(false)
     , m_currentPort(0) {
     setName("ServerWorker");
-    qCDebug(lcServer, "初始化服务器工作线程（简化版-仅TcpServer）");
+    qCDebug(lcServer) << "初始化服务器工作线程（简化版-仅TcpServer）";
 }
 
 ServerWorker::~ServerWorker() {
-    qCDebug(lcServer, "销毁服务器工作线程");
+    qCDebug(lcServer) << "销毁服务器工作线程";
 
     // 确保服务器已停止
     if ( m_isServerRunning ) {
@@ -28,7 +27,7 @@ ServerWorker::~ServerWorker() {
 }
 
 bool ServerWorker::initialize() {
-    qCDebug(lcServer, "初始化服务器工作线程组件（简化版-仅TcpServer）");
+    qCDebug(lcServer) << "初始化服务器工作线程组件（简化版-仅TcpServer）";
 
     // 创建TCP服务器（必须在工作线程中创建）
     m_tcpServer = new TcpServer(this);
@@ -42,12 +41,12 @@ bool ServerWorker::initialize() {
     // 设置服务器连接
     setupServerConnections();
 
-    qCDebug(lcServer, "服务器工作线程初始化完成");
+    qCDebug(lcServer) << "服务器工作线程初始化完成";
     return true;
 }
 
 void ServerWorker::cleanup() {
-    qCDebug(lcServer, "清理服务器工作线程资源（简化版）");
+    qCDebug(lcServer) << "清理服务器工作线程资源（简化版）";
 
     // 停止定时器
     if ( m_stopTimeoutTimer ) {
@@ -64,7 +63,7 @@ void ServerWorker::cleanup() {
         m_tcpServer = nullptr;
     }
 
-    qCDebug(lcServer, "服务器工作线程资源清理完成");
+    qCDebug(lcServer) << "服务器工作线程资源清理完成";
 }
 
 void ServerWorker::processTask() {
@@ -78,7 +77,7 @@ bool ServerWorker::startServer(quint16 port) {
     QMutexLocker locker(&m_serverMutex);
 
     if ( m_isServerRunning ) {
-        qCDebug(lcServer, "服务器已在运行中");
+        qCDebug(lcServer) << "服务器已在运行中";
         return true;
     }
 
@@ -94,7 +93,7 @@ bool ServerWorker::startServer(quint16 port) {
     // 直接在当前线程中执行，避免死锁
     bool result = false;
     if ( !m_tcpServer ) {
-        qCDebug(lcServer, "TCP服务器未初始化");
+        qCDebug(lcServer) << "TCP服务器未初始化";
         return false;
     }
 
@@ -105,10 +104,10 @@ bool ServerWorker::startServer(quint16 port) {
 
         emit serverStarted(m_currentPort);
 
-        qCDebug(lcServer, "服务器启动成功，端口: %d", m_currentPort);
+        qCDebug(lcServer) << "服务器启动成功，端口:" << m_currentPort;
     } else {
         emit serverError(tr("服务器启动失败"));
-        qCDebug(lcServer, "服务器启动失败");
+        qCDebug(lcServer) << "服务器启动失败";
     }
 
     return result;
@@ -118,11 +117,11 @@ void ServerWorker::stopServer(bool synchronous) {
     QMutexLocker locker(&m_serverMutex);
 
     if ( !m_isServerRunning ) {
-        qCDebug(lcServer, "服务器未运行，无需停止");
+        qCDebug(lcServer) << "服务器未运行，无需停止";
         return;
     }
 
-    qCDebug(lcServer, "停止服务器，同步模式: %s", synchronous ? "true" : "false");
+    qCDebug(lcServer) << "停止服务器，同步模式:" << (synchronous ? "true" : "false");
 
     // 简化版本：仅停止TcpServer
     if ( m_tcpServer ) {
@@ -133,7 +132,7 @@ void ServerWorker::stopServer(bool synchronous) {
     m_currentPort = 0;
 
     emit serverStopped();
-    qCDebug(lcServer, "服务器停止完成");
+    qCDebug(lcServer) << "服务器停止完成";
 }
 
 bool ServerWorker::isServerRunning() const {
@@ -171,14 +170,14 @@ void ServerWorker::disconnectServerSignals() {
 // ============================================================================
 
 void ServerWorker::onNewConnection(qintptr socketDescriptor) {
-    qCDebug(lcServer, "新客户端连接: %lld", static_cast<long long>(socketDescriptor));
+    qCDebug(lcServer) << "新客户端连接:" << socketDescriptor;
 
     // 转发socketDescriptor到ServerManager
     emit newClientConnection(socketDescriptor);
 }
 
 void ServerWorker::onServerStopped() {
-    qCDebug(lcServer, "TCP服务器已停止");
+    qCDebug(lcServer) << "TCP服务器已停止";
 
     QMutexLocker locker(&m_serverMutex);
     m_isServerRunning = false;
@@ -188,10 +187,10 @@ void ServerWorker::onServerStopped() {
 }
 
 void ServerWorker::onServerError(const QString& error) {
-    qCDebug(lcServer, "TCP服务器错误: %s", error.toUtf8().constData());
+    qCDebug(lcServer) << "TCP服务器错误:" << error;
     emit serverError(error);
 }
 
 void ServerWorker::onStopTimeout() {
-    qCWarning(lcServer, "停止服务器超时，强制停止");
+    qCWarning(lcServer) << "停止服务器超时，强制停止";
 }

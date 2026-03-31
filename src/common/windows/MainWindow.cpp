@@ -41,7 +41,7 @@
 #include <QtCore/QEvent>
 #include <QtGui/QContextMenuEvent>
 #include <QtWidgets/QListWidgetItem>
-#include <QtCore/QMessageLogger>
+
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -85,7 +85,7 @@ MainWindow::MainWindow(QWidget* parent)
 }
 
 MainWindow::~MainWindow() {
-    qCInfo(lcUI, "MainWindow::~MainWindow() - 开始析构");
+    qCInfo(lcUI) << "MainWindow::~MainWindow() - Destructor started";
 
     // 在析构函数中进行最后的资源清理
     // 注意：此时不应该再调用可能触发信号的方法
@@ -113,7 +113,7 @@ MainWindow::~MainWindow() {
         m_settingsDialog->close();
     }
 
-    qCInfo(lcUI, "MainWindow::~MainWindow() - 析构完成");
+    qCInfo(lcUI) << "MainWindow::~MainWindow() - Destructor complete";
 }
 
 void MainWindow::createActions() {
@@ -438,15 +438,15 @@ void MainWindow::saveSettings() {
     saveConnectionHistory();
 
     // 统一输出保存设置日志，便于测试用例判断
-    qCInfo(lcUI, "设置已保存");
+    qCInfo(lcUI) << "MainWindow::saveSettings() - Settings saved";
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {
-    qCInfo(lcUI, "MainWindow::closeEvent() - 开始关闭窗口");
+    qCInfo(lcUI) << "MainWindow::closeEvent() - Close event started";
 
     // 防止重复关闭
     if ( m_isShuttingDown ) {
-        qCInfo(lcUI, "MainWindow::closeEvent() - 已在关闭流程中，忽略重复关闭");
+        qCInfo(lcUI) << "MainWindow::closeEvent() - Already shutting down, ignoring duplicate close";
         event->accept();
         return;
     }
@@ -458,7 +458,7 @@ void MainWindow::closeEvent(QCloseEvent* event) {
 
     // 在客户端模式下，直接退出应用程序
     if ( m_clientMode ) {
-        qCInfo(lcUI, "MainWindow::closeEvent() - 客户端模式下关闭主窗口，直接退出应用程序");
+        qCInfo(lcUI) << "MainWindow::closeEvent() - Client mode, closing main window and exiting application";
 
         // 断开所有客户端连接
         if ( m_clientManager ) {
@@ -476,16 +476,12 @@ void MainWindow::closeEvent(QCloseEvent* event) {
     // 服务器模式下执行优雅停止序列
     gracefulShutdown();
 
-    // 统一输出最终态日志，确保测试能够稳定捕获到"服务器已停止"
-    // 注意：ServerManager::gracefulShutdown()内部已具备最终态日志输出；
-    // 这里在UI层再次输出同样的最终态，保证在某些日志过滤或异步退出情况下也不会丢失该关键日志。
-    qInfo().noquote() << "服务器已停止";
-    qCInfo(lcUI) << "服务器已停止";
+    qCInfo(lcUI) << "MainWindow::closeEvent() - Server stopped";
 
     // 接受关闭事件
     event->accept();
 
-    qCInfo(lcUI, "MainWindow::closeEvent() - 窗口关闭完成");
+    qCInfo(lcUI) << "MainWindow::closeEvent() - Close event complete";
 }
 
 void MainWindow::changeEvent(QEvent* event) {
@@ -627,27 +623,22 @@ void MainWindow::exitApplication() {
 }
 
 void MainWindow::gracefulShutdown() {
-    qCInfo(lcUI, "MainWindow::gracefulShutdown() - 开始优雅关闭");
+    qCInfo(lcUI) << "MainWindow::gracefulShutdown() - Starting graceful shutdown";
 
     // 断开所有客户端连接
     if ( m_clientManager ) {
-        qCInfo(lcUI, "MainWindow::gracefulShutdown() - 断开所有客户端连接");
+        qCInfo(lcUI) << "MainWindow::gracefulShutdown() - Disconnecting all clients";
         m_clientManager->disconnectAll();
     }
 
     // 停止服务器（无论当前标记是否显示正在运行，均调用优雅关闭以保证最终态日志输出与资源释放的幂等性）
     if ( m_serverManager ) {
-        qCInfo(lcUI, "MainWindow::gracefulShutdown() - 停止服务器");
+        qCInfo(lcUI) << "MainWindow::gracefulShutdown() - Stopping server";
 
         // 使用gracefulShutdown方法进行同步停止（内部具备幂等保护与最终态日志输出）
         m_serverManager->gracefulShutdown();
 
-        qCInfo(lcUI, "MainWindow::gracefulShutdown() - 服务器已正常停止");
-        // 统一输出最终态日志，确保测试能够稳定捕获到“服务器已停止”
-        // 使用非分类信息日志以避免分类过滤导致的遗漏
-        qInfo().noquote() << "服务器已停止";
-        // 同时输出分类信息日志，便于按模块检索
-        qCInfo(lcUI) << "服务器已停止";
+        qCInfo(lcUI) << "MainWindow::gracefulShutdown() - Server stopped";
     }
 
     // 断开所有信号连接，防止在退出过程中触发回调
@@ -658,7 +649,7 @@ void MainWindow::gracefulShutdown() {
         disconnect(m_clientManager, nullptr, this, nullptr);
     }
 
-    qCInfo(lcUI, "MainWindow::gracefulShutdown() - 优雅关闭完成");
+    qCInfo(lcUI) << "MainWindow::gracefulShutdown() - Graceful shutdown complete";
 
     // 正常退出应用程序
     QCoreApplication::quit();
@@ -699,7 +690,7 @@ void MainWindow::connectToHostDirectly(const QString& host, int port) {
 }
 
 void MainWindow::onConnectionEstablished(const QString& connectionId) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcApp) << "MainWindow::onConnectionEstablished - Connection established for:" << connectionId;
+    qCInfo(lcApp) << "MainWindow::onConnectionEstablished - Connection established for:" << connectionId;
 
     // 获取连接信息并添加到历史
     if ( m_clientManager ) {
@@ -712,7 +703,7 @@ void MainWindow::onConnectionEstablished(const QString& connectionId) {
 }
 
 void MainWindow::onServerStarted(quint16 port) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcApp) << "MainWindow::onServerStarted() called with port:" << port;
+    qCInfo(lcApp) << "MainWindow::onServerStarted() called with port:" << port;
     updateServerStatus(tr("服务器启动成功，端口: %1").arg(port));
 
     // 更新服务器按钮状态
@@ -734,7 +725,7 @@ void MainWindow::onServerStarted(quint16 port) {
 }
 
 void MainWindow::onServerStopped() {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcApp) << "MainWindow::onServerStopped() called";
+    qCInfo(lcApp) << "MainWindow::onServerStopped() called";
     updateServerStatus(tr("服务器已停止"));
 
     // 更新服务器按钮状态
@@ -749,7 +740,7 @@ void MainWindow::onServerStopped() {
 }
 
 void MainWindow::onServerError(const QString& error) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcApp) << "MainWindow::onServerError() called with error:" << error;
+    qCWarning(lcApp) << "MainWindow::onServerError() called with error:" << error;
     // QMessageBox msgBox(this);
     // msgBox.setIcon(QMessageBox::Warning);
     // msgBox.setWindowTitle(tr("服务器错误"));
@@ -759,17 +750,17 @@ void MainWindow::onServerError(const QString& error) {
 }
 
 void MainWindow::onClientConnected(const QString& clientId) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcApp) << "MainWindow::onClientConnected() called with clientId:" << clientId;
+    qCInfo(lcApp) << "MainWindow::onClientConnected() called with clientId:" << clientId;
     updateConnectionStatus(tr("客户端已连接: %1").arg(clientId));
 }
 
 void MainWindow::onClientDisconnected(const QString& clientId) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcApp) << "MainWindow::onClientDisconnected() called with clientId:" << clientId;
+    qCInfo(lcApp) << "MainWindow::onClientDisconnected() called with clientId:" << clientId;
     updateConnectionStatus(tr("客户端已断开: %1").arg(clientId));
 }
 
 void MainWindow::onClientAuthenticated(const QString& clientId) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcApp) << "MainWindow::onClientAuthenticated() called with clientId:" << clientId;
+    qCInfo(lcApp) << "MainWindow::onClientAuthenticated() called with clientId:" << clientId;
     updateConnectionStatus(tr("客户端已认证: %1").arg(clientId));
 }
 
@@ -791,7 +782,7 @@ void MainWindow::iconActivated(QSystemTrayIcon::ActivationReason reason) {
 }
 
 void MainWindow::cleanupConnection(const QString& connectionId) {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcApp) << "MainWindow::cleanupConnection for:" << connectionId;
+    qCDebug(lcApp) << "MainWindow::cleanupConnection for:" << connectionId;
 }
 
 void MainWindow::onConnectionItemDoubleClicked() {
@@ -1031,11 +1022,11 @@ void MainWindow::setClientMode(bool clientMode) {
             m_serverManager->stopServer();
         }
 
-        qCInfo(lcUI, "Application set to client mode");
+        qCInfo(lcUI) << "Application set to client mode";
     } else {
         // 服务器模式：正常启动服务器
         setWindowTitle(tr("Qt远程桌面"));
-        qCInfo(lcUI, "Application set to server mode");
+        qCInfo(lcUI) << "Application set to server mode";
 
         // 延迟启动服务器
         QTimer::singleShot(500, this, &MainWindow::startServer);
@@ -1095,12 +1086,12 @@ void MainWindow::updateConnectionListItem(QListWidgetItem* item, const QString& 
 }
 
 void MainWindow::onAllConnectionsClosed() {
-    qCDebug(lcMainWindow) << "所有客户端连接已关闭";
+    qCDebug(lcMainWindow) << "MainWindow::onAllConnectionsClosed() - All client connections closed";
 
     // 只有在客户端模式下才退出应用程序
     // 服务器模式下应该保持运行，等待新的客户端连接
     if ( m_clientMode ) {
-        qCDebug(lcMainWindow) << "客户端模式下所有连接已关闭，退出应用程序";
+        qCDebug(lcMainWindow) << "MainWindow::onAllConnectionsClosed() - Client mode, all connections closed, exiting application";
         QApplication::quit();
     } else {
         qCDebug(lcMainWindow) << "服务器模式下所有连接已关闭，保持运行状态";

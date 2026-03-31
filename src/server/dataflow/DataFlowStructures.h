@@ -5,10 +5,8 @@
 #include <QtCore/QDateTime>
 #include <QtCore/QByteArray>
 #include <QtGui/QImage>
-#include <QtCore/QLoggingCategory>
 #include <memory>
 
-Q_DECLARE_LOGGING_CATEGORY(lcDataFlow)
 ;;
 
 /**

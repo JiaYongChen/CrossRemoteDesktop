@@ -2,7 +2,6 @@
 #include <QtWidgets/QWidget>
 #include <QtGui/QPainter>
 #include <QtGui/QPen>
-#include <QtCore/QDebug>
 
 CursorManager::CursorManager(QWidget* targetWidget, QObject* parent)
     : QObject(parent)

@@ -9,7 +9,6 @@
 
 #include <QtCore/QSettings>
 #include <QtCore/QDateTime>
-#include <QtCore/QDebug>
 #include <QtCore/QUuid>
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QApplication>

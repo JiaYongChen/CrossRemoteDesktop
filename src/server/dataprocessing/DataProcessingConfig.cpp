@@ -4,7 +4,6 @@
 #include <QtCore/QStandardPaths>
 #include <QtCore/QCoreApplication>
 
-Q_LOGGING_CATEGORY(lcDataProcessingConfig, "server.dataprocessing.config")
 
 DataProcessingConfig::DataProcessingConfig(QObject* parent)
     : QObject(parent) {

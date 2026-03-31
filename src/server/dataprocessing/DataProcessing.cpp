@@ -4,11 +4,10 @@
 #include <QtCore/QBuffer>
 #include <QtGui/QImageReader>   // 修正：QImageReader 属于 QtGui 模块
 #include <QtCore/QCoreApplication>
-#include <QtCore/QLoggingCategory>
+#include "../../common/core/logging/LoggingCategories.h"
 #include <QtCore/QDateTime>
 #include <cstring>
 
-Q_LOGGING_CATEGORY(DataProcessingLog, "server.dataprocessing")
 
 // ========== DataValidator 实现 ==========
 DataValidator::DataValidator(QObject* parent) : QObject(parent) {}

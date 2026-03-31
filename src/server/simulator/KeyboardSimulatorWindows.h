@@ -2,14 +2,12 @@
 #define KEYBOARDSIMULATORWINDOWS_H
 
 #include "KeyboardSimulator.h"
-#include <QLoggingCategory>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <vector>
 #include <unordered_map>
 
-Q_DECLARE_LOGGING_CATEGORY(lcKeyboardSimulatorWindows)
 
 class KeyboardSimulatorWindows : public KeyboardSimulator {
 public:

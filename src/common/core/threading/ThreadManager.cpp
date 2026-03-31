@@ -2,7 +2,6 @@
 #include "Worker.h"
 #include <QtCore/QMutexLocker>
 #include <QtCore/QPointer>
-#include <QtCore/QDebug>
 #include <QtCore/QCoreApplication>
 #include <QtCore/QLoggingCategory> // 引入QLoggingCategory以使用分类日志
 #include "../logging/LoggingCategories.h" // 引入日志分类声明，使用lcThreading进行分类日志输出

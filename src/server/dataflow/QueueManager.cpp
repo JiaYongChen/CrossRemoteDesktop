@@ -1,7 +1,7 @@
 #include "QueueManager.h"
+#include "../../common/core/logging/LoggingCategories.h"
 #include <QtCore/QMutexLocker>
 
-Q_LOGGING_CATEGORY(lcQueueManager, "queuemanager", QtDebugMsg)
 
 // 静态成员初始化
 QueueManager* QueueManager::s_instance = nullptr;

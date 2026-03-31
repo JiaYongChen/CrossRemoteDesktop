@@ -2,10 +2,8 @@
 
 #ifdef Q_OS_LINUX
 
-#include <QDebug>
-#include <QLoggingCategory>
+#include "../../common/core/logging/LoggingCategories.h"
 
-Q_LOGGING_CATEGORY(lcMouseSimulatorLinux, "simulator.mouse.linux")
 
 MouseSimulatorLinux::MouseSimulatorLinux() : MouseSimulator(), m_display(nullptr) {
 }
@@ -22,13 +20,13 @@ bool MouseSimulatorLinux::initialize() {
     m_display = XOpenDisplay(nullptr);
     if (!m_display) {
         setLastError("Failed to open X11 display");
-        qWarning() << "MouseSimulatorLinux: Failed to open X11 display";
+        qCWarning(lcInputSimulator) << "MouseSimulatorLinux: Failed to open X11 display";
         return false;
     }
 
     m_screenSize = getScreenSize();
     m_initialized = true;
-    qDebug() << "MouseSimulatorLinux: Initialized successfully";
+    qCDebug(lcInputSimulator) << "MouseSimulatorLinux: Initialized successfully";
     return true;
 }
 

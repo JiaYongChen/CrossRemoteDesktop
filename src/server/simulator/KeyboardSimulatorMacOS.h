@@ -2,14 +2,12 @@
 #define KEYBOARDSIMULATORMAC_H
 
 #include "KeyboardSimulator.h"
-#include <QtCore/QLoggingCategory>
 
 #ifdef Q_OS_MACOS
 #include <CoreGraphics/CoreGraphics.h>
 #include <ApplicationServices/ApplicationServices.h>
 #include <unordered_map>
 
-Q_DECLARE_LOGGING_CATEGORY(lcKeyboardSimulatorMacOS)
 
 class KeyboardSimulatorMacOS : public KeyboardSimulator {
 public:

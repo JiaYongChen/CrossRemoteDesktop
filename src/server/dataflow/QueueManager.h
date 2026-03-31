@@ -6,10 +6,8 @@
 #include <QtCore/QObject>
 #include <QtCore/QTimer>
 #include <QtCore/QMutex>
-#include <QtCore/QLoggingCategory>
 #include <memory>
 
-Q_DECLARE_LOGGING_CATEGORY(lcQueueManager)
 ;;
 
 /**

@@ -3,10 +3,8 @@
 #include <QtCore/QTimer>
 #include "../common/core/config/MessageConstants.h"
 #include <QtNetwork/QHostAddress>
-#include <QtCore/QDebug>
 #include "../common/core/logging/LoggingCategories.h"
 #include <QtCore/QDataStream>
-#include <QtCore/QMessageLogger>
 #include <QtNetwork/QNetworkProxy>
 
 TcpClient::TcpClient(QObject* parent)
@@ -34,7 +32,7 @@ TcpClient::~TcpClient() {
 
 void TcpClient::connectToHost(const QString& hostName, quint16 port) {
     if ( m_socket->state() != QAbstractSocket::UnconnectedState ) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << MessageConstants::Network::ALREADY_CONNECTED;
+        qCDebug(lcClient) << MessageConstants::Network::ALREADY_CONNECTED;
         return;
     }
 
@@ -94,7 +92,7 @@ quint16 TcpClient::serverPort() const {
 
 void TcpClient::sendMessage(MessageType type, const IMessageCodec& message) {
     if ( !isConnected() ) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << MessageConstants::Network::NOT_CONNECTED;
+        qCWarning(lcClient) << MessageConstants::Network::NOT_CONNECTED;
         return;
     }
 
@@ -105,7 +103,7 @@ void TcpClient::sendMessage(MessageType type, const IMessageCodec& message) {
 }
 
 void TcpClient::onConnected() {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << "TcpClient::onConnected - TCP connection established";
+    qCInfo(lcClient) << "TcpClient::onConnected - TCP connection established";
 
     // 设置TCP优化选项
     m_socket->setSocketOption(QAbstractSocket::KeepAliveOption, NetworkConstants::KEEP_ALIVE_ENABLED);
@@ -117,12 +115,12 @@ void TcpClient::onConnected() {
     m_lastHeartbeat = QDateTime::currentDateTime();
     m_heartbeatCheckTimer->start();
 
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "TcpClient::onConnected - Emitting connected signal";
+    qCDebug(lcClient) << "TcpClient::onConnected - Emitting connected signal";
     emit connected();
 }
 
 void TcpClient::onDisconnected() {
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).info(lcClient) << "TcpClient::onDisconnected - TCP connection closed";
+    qCInfo(lcClient) << "TcpClient::onDisconnected - TCP connection closed";
 
     // 停止心跳检查定时器
     m_heartbeatCheckTimer->stop();
@@ -131,7 +129,7 @@ void TcpClient::onDisconnected() {
     m_receiveBuffer.clear();
 
     // 发出断开连接信号，通知上层应用
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient) << "TcpClient::onDisconnected - Emitting disconnected signal";
+    qCDebug(lcClient) << "TcpClient::onDisconnected - Emitting disconnected signal";
     emit disconnected();
 }
 
@@ -162,7 +160,7 @@ void TcpClient::onError(QAbstractSocket::SocketError error) {
     }
 
     // 详细的错误日志记录
-    QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient)
+    qCWarning(lcClient)
         << "TcpClient::onError - Socket error occurred:"
         << "Error code:" << static_cast<int>(error)
         << "Original message:" << originalError

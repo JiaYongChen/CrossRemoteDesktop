@@ -3,7 +3,6 @@
 
 #include <QtCore/QObject>
 #include <QtCore/QString>
-#include <QtCore/QLoggingCategory>
 #include <memory>
 
 /**

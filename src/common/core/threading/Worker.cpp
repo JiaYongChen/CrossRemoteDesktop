@@ -2,7 +2,6 @@
 #include "../logging/LoggingCategories.h"
 #include <QtCore/QThread>
 #include <QtCore/QMutexLocker>
-#include <QtCore/QDebug>
 #include <QtCore/QTimer>
 #include <QtCore/QCoreApplication>
 

@@ -2,10 +2,8 @@
 
 #ifdef Q_OS_LINUX
 
-#include <QDebug>
-#include <QLoggingCategory>
+#include "../../common/core/logging/LoggingCategories.h"
 
-Q_LOGGING_CATEGORY(lcKeyboardSimulatorLinux, "simulator.keyboard.linux")
 
 KeyboardSimulatorLinux::KeyboardSimulatorLinux() : KeyboardSimulator(), m_display(nullptr) {
     initializeKeyMappings();
@@ -23,14 +21,14 @@ bool KeyboardSimulatorLinux::initialize() {
     m_display = XOpenDisplay(nullptr);
     if (!m_display) {
         setLastError("Failed to open X11 display");
-        qWarning() << "KeyboardSimulatorLinux: Failed to open X11 display";
+        qCWarning(lcInputSimulator) << "KeyboardSimulatorLinux: Failed to open X11 display";
         return false;
     }
 
     m_initialized = true;
-    qDebug() << "KeyboardSimulatorLinux: Initialized successfully";
-    qDebug() << "Standard key mappings:" << m_standardKeyMap.size();
-    qDebug() << "Numpad key mappings:" << m_numpadKeyMap.size();
+    qCDebug(lcInputSimulator) << "KeyboardSimulatorLinux: Initialized successfully";
+    qCDebug(lcInputSimulator) << "Standard key mappings:" << m_standardKeyMap.size();
+    qCDebug(lcInputSimulator) << "Numpad key mappings:" << m_numpadKeyMap.size();
     return true;
 }
 

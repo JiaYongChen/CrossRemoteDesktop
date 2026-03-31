@@ -24,19 +24,15 @@
 #include <QtCore/QThread>
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDateTime>
-#include <QtCore/QDebug>
 #include <QtCore/QDataStream>
 #include <QtCore/QBuffer>
 #include <QtCore/QCryptographicHash>
-#include <QtCore/QMessageLogger>
 #include <QtCore/QMutex>
 #include <QtCore/QMutexLocker>
 #include <QtCore/QRandomGenerator>
 #include <QtConcurrent/QtConcurrent>
 #include <cstring>
 
-// 日志分类
-Q_LOGGING_CATEGORY(clientHandlerWorker, "clienthandler.worker")
 
 ClientHandlerWorker::ClientHandlerWorker(qintptr socketDescriptor, QObject* parent)
     : Worker(parent)
@@ -70,7 +66,7 @@ ClientHandlerWorker::~ClientHandlerWorker() {
 }
 
 bool ClientHandlerWorker::initialize() {
-    qCInfo(clientHandlerWorker, "初始化 ClientHandlerWorker");
+    qCInfo(clientHandlerWorker) << "初始化 ClientHandlerWorker";
 
     // 在Worker线程中创建socket
     m_socket = new QTcpSocket(this);
@@ -121,13 +117,13 @@ bool ClientHandlerWorker::initialize() {
     // 创建输入模拟器
     m_inputSimulator = new InputSimulator(this);
     if ( !m_inputSimulator->initialize() ) {
-        qCWarning(clientHandlerWorker, "输入模拟器初始化失败，客户端: %s", qPrintable(clientId()));
+        qCWarning(clientHandlerWorker) << "输入模拟器初始化失败，客户端:" << clientId();
     }
 
     // 获取队列管理器
     m_queueManager = QueueManager::instance();
     if ( !m_queueManager ) {
-        qCWarning(clientHandlerWorker, "无法获取队列管理器实例");
+        qCWarning(clientHandlerWorker) << "无法获取队列管理器实例";
     }
 
     // 启动心跳检查定时器
@@ -136,13 +132,13 @@ bool ClientHandlerWorker::initialize() {
     // 启动心跳发送定时器
     m_heartbeatSendTimer->start();
 
-    qCInfo(clientHandlerWorker, "ClientHandlerWorker 初始化成功，客户端: %s", qPrintable(clientId()));
+    qCInfo(clientHandlerWorker) << "ClientHandlerWorker 初始化成功，客户端:" << clientId();
 
     return true;
 }
 
 void ClientHandlerWorker::cleanup() {
-    qCInfo(clientHandlerWorker, "清理 ClientHandlerWorker 资源");
+    qCInfo(clientHandlerWorker) << "清理 ClientHandlerWorker 资源";
 
     // 停止定时器
     if ( m_heartbeatCheckTimer ) {
@@ -165,7 +161,7 @@ void ClientHandlerWorker::cleanup() {
         }
     }
 
-    qCInfo(clientHandlerWorker, "ClientHandlerWorker 资源清理完成");
+    qCInfo(clientHandlerWorker) << "ClientHandlerWorker 资源清理完成";
 }
 
 void ClientHandlerWorker::processTask() {
@@ -323,7 +319,7 @@ void ClientHandlerWorker::sendMessage(MessageType type, const IMessageCodec& mes
         QByteArray messageData = Protocol::createMessage(type, message);
 
         if ( messageData.isEmpty() ) {
-            qCWarning(clientHandlerWorker, "消息数据为空，跳过发送");
+            qCWarning(clientHandlerWorker) << "消息数据为空，跳过发送";
             return;
         }
 
@@ -337,20 +333,20 @@ void ClientHandlerWorker::sendMessage(MessageType type, const IMessageCodec& mes
         }
 
     } catch ( const std::exception& e ) {
-        qCWarning(clientHandlerWorker, "发送消息时发生异常: %s", e.what());
+        qCWarning(clientHandlerWorker) << "发送消息时发生异常:" << e.what();
     } catch ( ... ) {
-        qCWarning(clientHandlerWorker, "发送消息时发生未知异常");
+        qCWarning(clientHandlerWorker) << "发送消息时发生未知异常";
     }
 }
 
 void ClientHandlerWorker::sendEncodedMessage(const QByteArray& messageData) {
     if ( !m_socket || m_socket->state() != QAbstractSocket::ConnectedState ) {
-        qCWarning(clientHandlerWorker, "套接字未连接，无法发送消息");
+        qCWarning(clientHandlerWorker) << "套接字未连接，无法发送消息";
         return;
     }
 
     if ( messageData.isEmpty() ) {
-        qCWarning(clientHandlerWorker, "消息数据为空，跳过发送");
+        qCWarning(clientHandlerWorker) << "消息数据为空，跳过发送";
         return;
     }
 
@@ -380,14 +376,14 @@ void ClientHandlerWorker::sendEncodedMessage(const QByteArray& messageData) {
         // qCDebug(clientHandlerWorker) << "数据大小:" << totalSize << "bytes" << "发送数据大小:" << bytesWritten << "bytes";
 
     } catch ( const std::exception& e ) {
-        qCWarning(clientHandlerWorker, "发送消息时发生异常: %s", e.what());
+        qCWarning(clientHandlerWorker) << "发送消息时发生异常:" << e.what();
     } catch ( ... ) {
-        qCWarning(clientHandlerWorker, "发送消息时发生未知异常");
+        qCWarning(clientHandlerWorker) << "发送消息时发生未知异常";
     }
 }
 
 void ClientHandlerWorker::disconnectClient() {
-    qCInfo(clientHandlerWorker, "断开客户端连接: %s", qPrintable(clientId()));
+    qCInfo(clientHandlerWorker) << "断开客户端连接:" << clientId();
 
     if ( m_socket ) {
         qCDebug(clientHandlerWorker) << "Socket state before disconnect:" << m_socket->state();
@@ -397,7 +393,7 @@ void ClientHandlerWorker::disconnectClient() {
         if ( m_socket->state() != QAbstractSocket::UnconnectedState ) {
             qCDebug(clientHandlerWorker) << "Waiting for disconnection...";
             if ( !m_socket->waitForDisconnected(5000) ) {
-                qCWarning(clientHandlerWorker, "等待断开连接超时，强制关闭");
+                qCWarning(clientHandlerWorker) << "等待断开连接超时，强制关闭";
                 m_socket->abort();
             }
         }
@@ -408,7 +404,7 @@ void ClientHandlerWorker::disconnectClient() {
 }
 
 void ClientHandlerWorker::forceDisconnect() {
-    qCWarning(clientHandlerWorker, "强制断开客户端连接: %s", qPrintable(clientId()));
+    qCWarning(clientHandlerWorker) << "强制断开客户端连接:" << clientId();
 
     m_receiveBuffer.clear();
 
@@ -485,9 +481,8 @@ void ClientHandlerWorker::onReadyRead() {
 }
 
 void ClientHandlerWorker::onDisconnected() {
-    qCInfo(clientHandlerWorker, "客户端断开连接: %s (连接时长: %lld 秒)",
-        qPrintable(clientId()),
-        m_connectionTime.secsTo(QDateTime::currentDateTime()));
+    qCInfo(clientHandlerWorker) << "客户端断开连接:" << clientId()
+        << "(连接时长:" << m_connectionTime.secsTo(QDateTime::currentDateTime()) << "秒)";
 
     // 停止定时器
     if ( m_heartbeatCheckTimer ) {
@@ -529,8 +524,8 @@ void ClientHandlerWorker::onError(QAbstractSocket::SocketError error) {
     QString errorString = m_socket ? m_socket->errorString() : "未知错误";
 
     // 详细的错误日志记录
-    qCWarning(clientHandlerWorker, "套接字错误 [%d]: %s (客户端: %s)",
-        static_cast<int>(error), qPrintable(errorString), qPrintable(clientId()));
+    qCWarning(clientHandlerWorker) << "套接字错误 [" << static_cast<int>(error) << "]:"
+        << errorString << "(客户端:" << clientId() << ")";
 
     // 根据错误类型进行分类处理
     bool shouldForceDisconnect = false;
@@ -563,15 +558,15 @@ void ClientHandlerWorker::onError(QAbstractSocket::SocketError error) {
             break;
     }
 
-    qCInfo(clientHandlerWorker, "错误分类: %s, 是否强制断开: %s",
-        qPrintable(errorCategory), shouldForceDisconnect ? "是" : "否");
+    qCInfo(clientHandlerWorker) << "错误分类:" << errorCategory
+        << ", 是否强制断开:" << (shouldForceDisconnect ? "是" : "否");
 
     // 发出错误信号
     emit errorOccurred(errorString);
 
     // 对于严重错误，强制断开连接
     if ( shouldForceDisconnect ) {
-        qCWarning(clientHandlerWorker, "严重错误，强制断开客户端连接: %s", qPrintable(clientId()));
+        qCWarning(clientHandlerWorker) << "严重错误，强制断开客户端连接:" << clientId();
         forceDisconnect();
     }
 }
@@ -579,7 +574,7 @@ void ClientHandlerWorker::onError(QAbstractSocket::SocketError error) {
 void ClientHandlerWorker::checkHeartbeat() {
     QDateTime now = QDateTime::currentDateTime();
     if ( m_lastHeartbeat.msecsTo(now) > NetworkConstants::HEARTBEAT_TIMEOUT ) {
-        qCWarning(clientHandlerWorker, "客户端心跳超时: %s", qPrintable(clientId()));
+        qCWarning(clientHandlerWorker) << "客户端心跳超时:" << clientId();
         forceDisconnect();
     }
 }
@@ -605,7 +600,7 @@ void ClientHandlerWorker::processMessage(const MessageHeader& header, const QByt
             handleClipboardData(payload);
             break;
         default:
-            qCWarning(clientHandlerWorker, "未知消息类型: %d", static_cast<int>(header.type));
+            qCWarning(clientHandlerWorker) << "未知消息类型:" << static_cast<int>(header.type);
             break;
     }
 }
@@ -622,7 +617,7 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
     // 解析AuthenticationRequest结构体
     AuthenticationRequest authRequest;
     if ( !authRequest.decode(data) ) {
-        qCWarning(clientHandlerWorker, "认证请求数据解析失败");
+        qCWarning(clientHandlerWorker) << "认证请求数据解析失败";
         sendAuthenticationResponse(AuthResult::INVALID_PASSWORD);
         return;
     }
@@ -631,8 +626,7 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
     QString passwordHash = QString::fromUtf8(authRequest.passwordHash);
     quint32 authMethod = authRequest.authMethod;
 
-    qCDebug(clientHandlerWorker, "认证请求 - 用户名: %s, 认证方法: %u",
-        qPrintable(username), authMethod);
+    qCDebug(clientHandlerWorker) << "认证请求 - 用户名:" << username << ", 认证方法:" << authMethod;
 
     // 检查服务器是否设置了密码
     if ( m_expectedDigest.isEmpty() ) {
@@ -652,7 +646,7 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
         }
 
         emit authenticated();
-        qCInfo(clientHandlerWorker, "客户端认证成功: %s", qPrintable(clientId()));
+        qCInfo(clientHandlerWorker) << "客户端认证成功: " << clientId();
         return;
     }
 
@@ -660,7 +654,7 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
     if ( authMethod == 1 ) { // PBKDF2认证
         if ( passwordHash.isEmpty() ) {
             // 客户端请求挑战参数，发送AuthChallenge
-            qCDebug(clientHandlerWorker, "发送PBKDF2挑战参数");
+            qCDebug(clientHandlerWorker) << "发送PBKDF2挑战参数";
             sendAuthChallenge();
             return;
         } else {
@@ -681,21 +675,20 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
                 }
 
                 emit authenticated();
-                qCInfo(clientHandlerWorker, "客户端认证成功: %s", qPrintable(clientId()));
+                qCInfo(clientHandlerWorker) << "客户端认证成功: " << clientId();
             } else {
                 m_failedAuthCount++;
                 sendAuthenticationResponse(AuthResult::INVALID_PASSWORD);
-                qCWarning(clientHandlerWorker, "客户端认证失败: %s (失败次数: %d)",
-                    qPrintable(clientId()), m_failedAuthCount);
+                qCWarning(clientHandlerWorker) << "客户端认证失败:" << clientId() << "(失败次数:" << m_failedAuthCount << ")";
 
                 if ( m_failedAuthCount >= 3 ) {
-                    qCWarning(clientHandlerWorker, "认证失败次数过多，断开连接");
+                    qCWarning(clientHandlerWorker) << "认证失败次数过多，断开连接";
                     forceDisconnect();
                 }
             }
         }
     } else {
-        qCWarning(clientHandlerWorker, "不支持的认证方法: %u", authMethod);
+        qCWarning(clientHandlerWorker) << "不支持的认证方法: " << authMethod;
         sendAuthenticationResponse(AuthResult::INVALID_PASSWORD);
     }
 }
@@ -724,18 +717,18 @@ void ClientHandlerWorker::sendHeartbeat() {
 
 void ClientHandlerWorker::handleMouseEvent(const QByteArray& data) {
     if ( !isAuthenticated() ) {
-        qCWarning(clientHandlerWorker, "未认证客户端尝试发送鼠标事件");
+        qCWarning(clientHandlerWorker) << "未认证客户端尝试发送鼠标事件";
         return;
     }
 
     if ( !m_inputSimulator ) {
-        qCWarning(clientHandlerWorker, "输入模拟器未初始化");
+        qCWarning(clientHandlerWorker) << "输入模拟器未初始化";
         return;
     }
 
     // MouseEvent结构: eventType(1) + x(2) + y(2) + wheelDelta(2) = 7字节
     if ( data.size() < 7 ) {
-        qCWarning(clientHandlerWorker, "鼠标事件数据不完整，期望至少7字节，实际: %lld", data.size());
+        qCWarning(clientHandlerWorker) << "鼠标事件数据不完整，期望至少7字节，实际: " << data.size();
         return;
     }
 
@@ -750,7 +743,7 @@ void ClientHandlerWorker::handleMouseEvent(const QByteArray& data) {
 
     // 检查数据流状态
     if ( stream.status() != QDataStream::Ok ) {
-        qCWarning(clientHandlerWorker, "鼠标事件数据解析失败");
+        qCWarning(clientHandlerWorker) << "鼠标事件数据解析失败";
         return;
     }
 
@@ -797,32 +790,32 @@ void ClientHandlerWorker::handleMouseEvent(const QByteArray& data) {
             }
             break;
         default:
-            qCWarning(clientHandlerWorker, "未知的鼠标事件类型: %d", static_cast<int>(eventType));
+            qCWarning(clientHandlerWorker) << "未知的鼠标事件类型: " << static_cast<int>(eventType);
             break;
     }
 }
 
 void ClientHandlerWorker::handleKeyboardEvent(const QByteArray& data) {
     if ( !isAuthenticated() ) {
-        qCWarning(clientHandlerWorker, "未认证客户端尝试发送键盘事件");
+        qCWarning(clientHandlerWorker) << "未认证客户端尝试发送键盘事件";
         return;
     }
 
     if ( !m_inputSimulator ) {
-        qCWarning(clientHandlerWorker, "输入模拟器未初始化");
+        qCWarning(clientHandlerWorker) << "输入模拟器未初始化";
         return;
     }
 
     // KeyboardEvent结构: eventType(1) + keyCode(4) + modifiers(4) + text(8) = 17字节
     if ( data.size() < 17 ) {
-        qCWarning(clientHandlerWorker, "键盘事件数据不完整，期望至少17字节，实际: %lld", data.size());
+        qCWarning(clientHandlerWorker) << "键盘事件数据不完整，期望至少17字节，实际: " << data.size();
         return;
     }
 
     // 使用 KeyboardEvent 的 decode 方法解析
     KeyboardEvent keyEvent;
     if ( !keyEvent.decode(data) ) {
-        qCWarning(clientHandlerWorker, "键盘事件数据解析失败");
+        qCWarning(clientHandlerWorker) << "键盘事件数据解析失败";
         return;
     }
 
@@ -849,7 +842,7 @@ void ClientHandlerWorker::handleKeyboardEvent(const QByteArray& data) {
     } else if ( keyEvent.eventType == KeyboardEventType::KEY_RELEASE ) {
         m_inputSimulator->simulateKeyRelease(qtKey, qtModifiers);
     } else {
-        qCWarning(clientHandlerWorker, "未知的键盘事件类型: %d", static_cast<int>(keyEvent.eventType));
+        qCWarning(clientHandlerWorker) << "未知的键盘事件类型: " << static_cast<int>(keyEvent.eventType);
     }
 }
 
@@ -900,8 +893,9 @@ void ClientHandlerWorker::sendAuthChallenge() {
     challenge.saltHex[sizeof(challenge.saltHex) - 1] = '\0';
 
     sendMessage(MessageType::AUTH_CHALLENGE, challenge);
-    qCDebug(clientHandlerWorker, "发送认证挑战，方法: %u, 迭代次数: %u, 密钥长度: %u, 盐值: %s",
-        challenge.method, challenge.iterations, challenge.keyLength, qPrintable(saltHex));
+    qCDebug(clientHandlerWorker) << "发送认证挑战，方法:" << challenge.method
+        << ", 迭代次数:" << challenge.iterations << ", 密钥长度:" << challenge.keyLength
+        << ", 盐值:" << saltHex;
 }
 
 QString ClientHandlerWorker::generateSessionId() const {
@@ -919,12 +913,12 @@ QString ClientHandlerWorker::generateSessionId() const {
 void ClientHandlerWorker::handleClipboardData(const QByteArray& data) {
     ClipboardMessage message;
     if ( !message.decode(data) ) {
-        qCWarning(clientHandlerWorker, "剪贴板消息解析失败");
+        qCWarning(clientHandlerWorker) << "剪贴板消息解析失败";
         return;
     }
 
     if ( message.isText() ) {
-        qCDebug(clientHandlerWorker, "接收到剪贴板文本，长度: %lld", message.text().length());
+        qCDebug(clientHandlerWorker) << "接收到剪贴板文本，长度: " << message.text().length();
 
         // 更新服务器端剪贴板
         emit clipboardTextReceived(message.text());
@@ -932,8 +926,8 @@ void ClientHandlerWorker::handleClipboardData(const QByteArray& data) {
         // 广播到其他客户端（通过 ServerManager）
         emit broadcastClipboardText(message.text());
     } else if ( message.isImage() ) {
-        qCDebug(clientHandlerWorker, "接收到剪贴板图片，尺寸: %ux%u, 数据大小: %lld",
-            message.width, message.height, message.imageData().size());
+        qCDebug(clientHandlerWorker) << "接收到剪贴板图片，尺寸:" << message.width << "x" << message.height
+            << ", 数据大小:" << message.imageData().size();
 
         // 更新服务器端剪贴板
         emit clipboardImageReceived(message.imageData());

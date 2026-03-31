@@ -9,6 +9,7 @@
 #include <QtCore/QDateTime>
 #include <memory>
 #include "Worker.h"
+#include "../logging/LoggingCategories.h"
 
 /**
  * @brief 线程管理器类
@@ -48,7 +49,7 @@ public:
                 }
                 // 若仍在运行，避免直接delete导致崩溃，改为延迟删除
                 if (thread->isRunning()) {
-                    qWarning() << "ThreadInfo destructor: QThread is still running; deferring deletion for thread" << name;
+                    qCWarning(lcThreading) << "ThreadInfo destructor: QThread is still running; deferring deletion for thread" << name;
                     // Worker同样延迟删除，防止跨线程析构
                     if (worker) {
                         QObject::connect(thread, &QThread::finished, worker, &QObject::deleteLater);

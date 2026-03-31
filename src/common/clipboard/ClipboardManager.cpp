@@ -4,7 +4,7 @@
 #include <QtGui/QImage>
 #include <QtCore/QMimeData>
 #include <QtCore/QBuffer>
-#include <QtCore/QDebug>
+#include "../core/logging/LoggingCategories.h"
 
 ClipboardManager::ClipboardManager(QObject* parent)
     : QObject(parent)
@@ -44,12 +44,12 @@ void ClipboardManager::setEnabled(bool enabled) {
                 }
             }
         }
-        qDebug() << "ClipboardManager: Enabled";
+        qCDebug(lcClient) << "ClipboardManager::setEnabled() - Clipboard enabled";
     } else {
         // 禁用时清空状态
         m_lastText.clear();
         m_lastImageData.clear();
-        qDebug() << "ClipboardManager: Disabled";
+        qCDebug(lcClient) << "ClipboardManager::setEnabled() - Clipboard disabled";
     }
 }
 
@@ -64,7 +64,7 @@ void ClipboardManager::setText(const QString& text) {
     
     m_clipboard->setText(text);
     
-    qDebug() << "ClipboardManager: Set text to clipboard, length:" << text.length();
+    qCDebug(lcClient) << "ClipboardManager::setText() - Set text to clipboard, length:" << text.length();
 }
 
 void ClipboardManager::setImage(const QImage& image) {
@@ -88,7 +88,7 @@ void ClipboardManager::setImage(const QImage& image) {
     
     m_clipboard->setImage(image);
     
-    qDebug() << "ClipboardManager: Set image to clipboard, size:" << image.size();
+    qCDebug(lcClient) << "ClipboardManager::setImage() - Set image to clipboard, size:" << image.size();
 }
 
 void ClipboardManager::setImageFromPng(const QByteArray& pngData) {
@@ -98,7 +98,7 @@ void ClipboardManager::setImageFromPng(const QByteArray& pngData) {
     
     QImage image;
     if (!image.loadFromData(pngData, "PNG")) {
-        qWarning() << "ClipboardManager: Failed to load image from PNG data";
+        qCWarning(lcClient) << "ClipboardManager::setImageFromPng() - Failed to load image from PNG data";
         return;
     }
     
@@ -142,7 +142,7 @@ void ClipboardManager::onClipboardChanged(QClipboard::Mode mode) {
                 m_lastImageData = imageData;
                 m_lastText.clear();  // 清空文本状态
                 
-                qDebug() << "ClipboardManager: Image changed, size:" << image.size();
+                qCDebug(lcClient) << "ClipboardManager::onClipboardChanged() - Image changed, size:" << image.size();
                 emit clipboardImageChanged(imageData, image.width(), image.height());
             }
         }
@@ -156,7 +156,7 @@ void ClipboardManager::onClipboardChanged(QClipboard::Mode mode) {
             m_lastText = text;
             m_lastImageData.clear();  // 清空图片状态
             
-            qDebug() << "ClipboardManager: Text changed, length:" << text.length();
+            qCDebug(lcClient) << "ClipboardManager::onClipboardChanged() - Text changed, length:" << text.length();
             emit clipboardTextChanged(text);
         }
     }

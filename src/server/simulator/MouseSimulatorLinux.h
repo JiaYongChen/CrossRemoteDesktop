@@ -2,13 +2,11 @@
 #define MOUSESIMULATORLINUX_H
 
 #include "MouseSimulator.h"
-#include <QLoggingCategory>
 
 #ifdef Q_OS_LINUX
 #include <X11/Xlib.h>
 #include <X11/extensions/XTest.h>
 
-Q_DECLARE_LOGGING_CATEGORY(lcMouseSimulatorLinux)
 
 class MouseSimulatorLinux : public MouseSimulator {
 public:

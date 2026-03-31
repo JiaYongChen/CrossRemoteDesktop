@@ -1,11 +1,9 @@
 #include "KeyboardSimulatorWindows.h"
+#include "../../common/core/logging/LoggingCategories.h"
 
 #ifdef Q_OS_WIN
 
-#include <QDebug>
-#include <QLoggingCategory>
 
-Q_LOGGING_CATEGORY(lcKeyboardSimulatorWindows, "simulator.keyboard.windows")
 
 KeyboardSimulatorWindows::KeyboardSimulatorWindows() : KeyboardSimulator() {
     initializeKeyMappings();
@@ -22,9 +20,9 @@ bool KeyboardSimulatorWindows::initialize() {
 
     // Windows API 不需要特殊初始化
     m_initialized = true;
-    qDebug() << "KeyboardSimulatorWindows: Initialized successfully";
-    qDebug() << "Standard key mappings:" << m_standardKeyMap.size();
-    qDebug() << "Numpad key mappings:" << m_numpadKeyMap.size();
+    qCDebug(lcInputSimulator) << "KeyboardSimulatorWindows: Initialized successfully";
+    qCDebug(lcInputSimulator) << "Standard key mappings:" << m_standardKeyMap.size();
+    qCDebug(lcInputSimulator) << "Numpad key mappings:" << m_numpadKeyMap.size();
     return true;
 }
 

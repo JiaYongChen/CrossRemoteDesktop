@@ -2,11 +2,9 @@
 #include <QtCore/QDataStream>
 #include <QtCore/QIODevice>
 #include <QtCore/QString>
-#include <QtCore/QDebug>
 #include <QtCore/QCryptographicHash>
 #include <QtCore/QDateTime>
 #include <QtCore/QtEndian>
-#include <QtCore/QMessageLogger>
 #include "../logging/LoggingCategories.h"
 #include "../config/NetworkConstants.h"
 #include <cstring>
@@ -65,29 +63,29 @@ qsizetype Protocol::validateReceivedDataIntegrity(const QByteArray& data, Messag
     // 步骤3：反序列化消息头
     if ( !header.decode(decryptedHeader) ) {
         // 消息头解析失败，数据无效
-        qWarning(lcProtocol) << "消息头解析失败";
+        qCWarning(lcProtocol) << "Protocol::validateReceivedDataIntegrity() - Failed to parse message header";
         return 0;
     }
 
     // 步骤4：验证魔数
     if ( header.magic != PROTOCOL_MAGIC ) {
-        qWarning(lcProtocol) << "无效的魔数:" << Qt::hex << header.magic
-            << "期望:" << Qt::hex << PROTOCOL_MAGIC;
+        qCWarning(lcProtocol) << "Protocol::validateReceivedDataIntegrity() - Invalid magic number:" << Qt::hex << header.magic
+            << "expected:" << Qt::hex << PROTOCOL_MAGIC;
         return 0;
     }
 
     // 步骤5：验证协议版本
     if ( header.version != PROTOCOL_VERSION ) {
-        qWarning(lcProtocol) << "不支持的协议版本:" << header.version
-            << "期望:" << PROTOCOL_VERSION;
+        qCWarning(lcProtocol) << "Protocol::validateReceivedDataIntegrity() - Unsupported protocol version:" << header.version
+            << "expected:" << PROTOCOL_VERSION;
         return 0;
     }
 
     // 步骤6：检查payload长度是否合理（防止恶意超大消息）
     const quint32 MAX_PAYLOAD_SIZE = NetworkConstants::MAX_PACKET_SIZE - SERIALIZED_HEADER_SIZE;
     if ( header.length > MAX_PAYLOAD_SIZE ) {
-        qWarning(lcProtocol) << "Payload长度过大:" << header.length
-            << "最大允许:" << MAX_PAYLOAD_SIZE;
+        qCWarning(lcProtocol) << "Protocol::validateReceivedDataIntegrity() - Payload size too large:" << header.length
+            << "max allowed:" << MAX_PAYLOAD_SIZE;
         return 0;
     }
 
@@ -106,7 +104,7 @@ qsizetype Protocol::validateReceivedDataIntegrity(const QByteArray& data, Messag
     QByteArray payload = data.mid(static_cast<qsizetype>(SERIALIZED_HEADER_SIZE), static_cast<qsizetype>(header.length));
     quint32 calculatedChecksum = calculateChecksum(payload);
     if ( calculatedChecksum != header.checksum ) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcProtocol)
+        qCWarning(lcProtocol)
             << "Checksum mismatch. Expected:" << Qt::hex << header.checksum
             << "Calculated:" << Qt::hex << calculatedChecksum;
         return 0;
@@ -528,7 +526,7 @@ QByteArray ScreenData::encode() const {
     // 验证数据大小一致性，防止缓冲区溢出
     quint32 actualDataSize = static_cast<quint32>(imageData.size());
     if ( dataSize != actualDataSize ) {
-        qCWarning(lcProtocol, "ScreenData数据大小不一致: dataSize=%u, actual=%u", dataSize, actualDataSize);
+        qCWarning(lcProtocol) << "ScreenData::encode() - Data size mismatch: dataSize=" << dataSize << ", actual=" << actualDataSize;
         // 使用实际大小以确保数据一致性
         ds << actualDataSize;
     } else {
@@ -541,7 +539,7 @@ QByteArray ScreenData::encode() const {
     // 检查数据大小限制，防止内存问题
     const quint32 MAX_SCREEN_DATA_SIZE = 50 * 1024 * 1024; // 50MB限制
     if ( actualDataSize > MAX_SCREEN_DATA_SIZE ) {
-        qCWarning(lcProtocol, "ScreenData数据过大: %u bytes，超过限制 %u bytes", actualDataSize, MAX_SCREEN_DATA_SIZE);
+        qCWarning(lcProtocol) << "ScreenData::encode() - Data too large: " << actualDataSize << " bytes, exceeds limit " << MAX_SCREEN_DATA_SIZE << " bytes";
         return QByteArray(); // 返回空数据，避免崩溃
     }
 
@@ -555,7 +553,7 @@ bool ScreenData::decode(const QByteArray& bytes) {
     // 检查最小头部大小：x(2) + y(2) + width(2) + height(2) + originalWidth(2) + originalHeight(2) + dataSize(4) + flags(1) = 17字节
     const qsizetype headerSize = 2 + 2 + 2 + 2 + 2 + 2 + 4 + 1;
     if ( bytes.size() < headerSize ) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcProtocol)
+        qCWarning(lcProtocol)
             << "ScreenData decode failed: insufficient header size"
             << "- received:" << bytes.size() << "bytes, required:" << headerSize << "bytes";
         return false;
@@ -579,7 +577,7 @@ bool ScreenData::decode(const QByteArray& bytes) {
     ds >> flagsVal;
 
     if ( ds.status() != QDataStream::Ok ) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcProtocol)
+        qCWarning(lcProtocol)
             << "ScreenData decode failed: QDataStream error during header parsing"
             << "- stream status:" << ds.status();
         return false;
@@ -587,14 +585,14 @@ bool ScreenData::decode(const QByteArray& bytes) {
 
     // 验证字段合理性
     if ( w == 0 || h == 0 ) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcProtocol)
+        qCWarning(lcProtocol)
             << "ScreenData decode failed: invalid dimensions"
             << "- width:" << w << "height:" << h;
         return false;
     }
 
     if ( size > 50 * 1024 * 1024 ) { // 50MB 限制
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcProtocol)
+        qCWarning(lcProtocol)
             << "ScreenData decode failed: image data size too large"
             << "- size:" << size << "bytes (max: 50MB)";
         return false;
@@ -603,7 +601,7 @@ bool ScreenData::decode(const QByteArray& bytes) {
     // 检查总大小是否足够包含头部和图像数据
     qsizetype totalNeeded = headerSize + qsizetype(size);
     if ( bytes.size() < totalNeeded ) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcProtocol)
+        qCWarning(lcProtocol)
             << "ScreenData decode failed: insufficient total size"
             << "- received:" << bytes.size() << "bytes, required:" << totalNeeded << "bytes"
             << "- header size:" << headerSize << "image data size:" << size;
@@ -624,7 +622,7 @@ bool ScreenData::decode(const QByteArray& bytes) {
     if ( size > 0 ) {
         imageData = bytes.mid(headerSize, size);
         if ( imageData.size() != static_cast<qsizetype>(size) ) {
-            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcProtocol)
+            qCWarning(lcProtocol)
                 << "ScreenData decode warning: extracted image data size mismatch"
                 << "- expected:" << size << "actual:" << imageData.size();
 

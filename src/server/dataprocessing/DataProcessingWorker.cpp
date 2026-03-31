@@ -1,4 +1,5 @@
 #include "DataProcessingWorker.h"
+#include "../../common/core/logging/LoggingCategories.h"
 #include "../../common/core/config/Constants.h"
 #include <QtCore/QMutexLocker>
 #include <QtCore/QThread>
@@ -10,7 +11,6 @@
 #include <algorithm>
 #include <zstd.h>
 
-Q_LOGGING_CATEGORY(lcDataProcessingWorker, "dataprocessingworker", QtDebugMsg)
 
 DataProcessingWorker::DataProcessingWorker(QObject* parent)
     : Worker(parent)

@@ -14,8 +14,9 @@
 #include "KeyboardSimulatorLinux.h"
 #endif
 
+#include "../../common/core/logging/LoggingCategories.h"
+
 #include <QtCore/QMutexLocker>
-#include <QtCore/QDebug>
 
 InputSimulator::InputSimulator(QObject* parent)
     : QObject(parent)
@@ -31,7 +32,7 @@ InputSimulator::InputSimulator(QObject* parent)
     m_mouseSimulator = std::make_unique<MouseSimulatorLinux>();
     m_keyboardSimulator = std::make_unique<KeyboardSimulatorLinux>();
 #else
-    qWarning() << "InputSimulator: Unsupported platform";
+    qCWarning(lcInputSimulator) << "InputSimulator: Unsupported platform";
 #endif
 
     initialize();
@@ -68,9 +69,9 @@ bool InputSimulator::initialize() {
     m_initialized = mouseInit && keyboardInit;
 
     if ( m_initialized ) {
-        qDebug() << "InputSimulator: Initialized successfully";
+        qCDebug(lcInputSimulator) << "InputSimulator: Initialized successfully";
     } else {
-        qWarning() << "InputSimulator: Initialization failed:" << m_lastError;
+        qCWarning(lcInputSimulator) << "InputSimulator: Initialization failed:" << m_lastError;
     }
 
     return m_initialized;

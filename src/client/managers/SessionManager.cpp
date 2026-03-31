@@ -1,9 +1,7 @@
 #include "SessionManager.h"
 #include "../network/ConnectionManager.h"
-#include <QtCore/QDebug>
 #include "../../common/core/logging/LoggingCategories.h"
 #include "../../common/core/network/Protocol.h"
-#include <QtCore/QMessageLogger>
 #include <QtCore/QBuffer>
 #include <QtCore/QDataStream>
 #include <QtCore/QTimer>
@@ -44,7 +42,7 @@ QString SessionManager::connectionId() const {
 
 void SessionManager::startSession() {
     if ( !m_connectionManager || !m_connectionManager->isAuthenticated() ) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient) << "SessionManager: Cannot start session - not authenticated";
+        qCWarning(lcClient) << "SessionManager::startSession() - Cannot start session, not authenticated";
         emit sessionError(tr("无法启动会话 - 未认证"));
         return;
     }
@@ -200,8 +198,7 @@ void SessionManager::onMessageReceived(MessageType type, const QByteArray& data)
             break;
         default:
             // 其他消息类型忽略
-            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).debug(lcClient)
-                << "SessionManager: Unhandled message type:" << static_cast<quint32>(type);
+            qCDebug(lcClient) << "SessionManager::onMessageReceived() - Unhandled message type:" << static_cast<quint32>(type);
             break;
     }
 }
@@ -242,22 +239,18 @@ void SessionManager::handleScreenData(const QByteArray& data) {
     // 使用正确的ScreenData结构体解码数据
     ScreenData screenData{};
     if ( !screenData.decode(data) ) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient)
-            << "Failed to decode ScreenData from received data, size:" << data.size();
+        qCWarning(lcClient) << "SessionManager::handleScreenData() - Failed to decode ScreenData from received data, size:" << data.size();
         return;
     }
 
     // 验证数据完整性
     if ( screenData.imageData.isEmpty() || screenData.dataSize == 0 ) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient)
-            << "ScreenData contains empty image data";
+        qCWarning(lcClient) << "SessionManager::handleScreenData() - ScreenData contains empty image data";
         return;
     }
 
     if ( static_cast<quint32>(screenData.imageData.size()) != screenData.dataSize ) {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient)
-            << "ScreenData size mismatch - expected:" << screenData.dataSize
-            << "actual:" << screenData.imageData.size();
+        qCWarning(lcClient) << "SessionManager::handleScreenData() - ScreenData size mismatch, expected:" << screenData.dataSize << "actual:" << screenData.imageData.size();
         return;
     }
 
@@ -275,8 +268,7 @@ void SessionManager::handleScreenData(const QByteArray& data) {
             // 无法确定大小，使用估算值
             decompressedSize = static_cast<unsigned long long>(screenData.dataSize * 10);
         } else if ( decompressedSize == ZSTD_CONTENTSIZE_ERROR ) {
-            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient)
-                << "Invalid zstd compressed data";
+            qCWarning(lcClient) << "SessionManager::handleScreenData() - Invalid zstd compressed data";
             return;
         }
         
@@ -290,8 +282,7 @@ void SessionManager::handleScreenData(const QByteArray& data) {
         );
         
         if ( ZSTD_isError(result) ) {
-            QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient)
-                << "Failed to decompress zstd data, error:" << ZSTD_getErrorName(result);
+            qCWarning(lcClient) << "SessionManager::handleScreenData() - Failed to decompress zstd data, error:" << ZSTD_getErrorName(result);
             return;
         }
         
@@ -307,7 +298,7 @@ void SessionManager::handleScreenData(const QByteArray& data) {
         unsigned char byte0 = static_cast<unsigned char>(jpegData[0]);
         unsigned char byte1 = static_cast<unsigned char>(jpegData[1]);
         if ( byte0 != 0xFF || byte1 != 0xD8 ) {
-            qCWarning(lcClient) << "接收到的数据不是有效的JPEG格式，前2字节:"
+            qCWarning(lcClient) << "SessionManager::handleScreenData() - Invalid JPEG header, first 2 bytes:"
                 << QString("0x%1 0x%2")
                 .arg(byte0, 2, 16, QChar('0'))
                 .arg(byte1, 2, 16, QChar('0'));
@@ -365,8 +356,7 @@ void SessionManager::handleScreenData(const QByteArray& data) {
         // 注意：不再发射screenUpdated信号，改用ClientManager定时拉取
         // emit screenUpdated(image);
     } else {
-        QMessageLogger(__FILE__, __LINE__, Q_FUNC_INFO).warning(lcClient)
-            << "Failed to load JPEG image from frame data, size:" << frameData.size()
+        qCWarning(lcClient) << "SessionManager::handleScreenData() - Failed to load JPEG image from frame data, size:" << frameData.size()
             << "first 16 bytes:" << frameData.left(16).toHex();
     }
 }
@@ -421,7 +411,7 @@ void SessionManager::sendClipboardText(const QString& text) {
     ClipboardMessage message(text);
     m_connectionManager->sendMessage(MessageType::CLIPBOARD_DATA, message);
     
-    qDebug() << "SessionManager: Sent clipboard text, length:" << text.length();
+    qCDebug(lcClient) << "SessionManager::sendClipboardText() - Sent clipboard text, length:" << text.length();
 }
 
 void SessionManager::sendClipboardImage(const QByteArray& imageData, quint32 width, quint32 height) {
@@ -432,23 +422,21 @@ void SessionManager::sendClipboardImage(const QByteArray& imageData, quint32 wid
     ClipboardMessage message(imageData, width, height);
     m_connectionManager->sendMessage(MessageType::CLIPBOARD_DATA, message);
     
-    qDebug() << "SessionManager: Sent clipboard image, size:" << width << "x" << height
-             << "data size:" << imageData.size();
+    qCDebug(lcClient) << "SessionManager::sendClipboardImage() - Sent clipboard image, size:" << width << "x" << height << "data size:" << imageData.size();
 }
 
 void SessionManager::handleClipboardData(const QByteArray& data) {
     ClipboardMessage message;
     if ( !message.decode(data) ) {
-        qWarning() << "SessionManager: Failed to decode clipboard message";
+        qCWarning(lcClient) << "SessionManager::handleClipboardData() - Failed to decode clipboard message";
         return;
     }
 
     if (message.isText()) {
-        qDebug() << "SessionManager: Received clipboard text, length:" << message.text().length();
+        qCDebug(lcClient) << "SessionManager::handleClipboardData() - Received clipboard text, length:" << message.text().length();
         emit clipboardTextReceived(message.text());
     } else if (message.isImage()) {
-        qDebug() << "SessionManager: Received clipboard image, size:" << message.width << "x" << message.height
-                 << "data size:" << message.imageData().size();
+        qCDebug(lcClient) << "SessionManager::handleClipboardData() - Received clipboard image, size:" << message.width << "x" << message.height << "data size:" << message.imageData().size();
         emit clipboardImageReceived(message.imageData());
     }
 }

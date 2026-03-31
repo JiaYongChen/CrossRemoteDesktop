@@ -2,7 +2,6 @@
 #define KEYBOARDSIMULATORLINUX_H
 
 #include "KeyboardSimulator.h"
-#include <QLoggingCategory>
 
 #ifdef Q_OS_LINUX
 #include <X11/Xlib.h>
@@ -10,7 +9,6 @@
 #include <X11/extensions/XTest.h>
 #include <unordered_map>
 
-Q_DECLARE_LOGGING_CATEGORY(lcKeyboardSimulatorLinux)
 
 class KeyboardSimulatorLinux : public KeyboardSimulator {
 public:

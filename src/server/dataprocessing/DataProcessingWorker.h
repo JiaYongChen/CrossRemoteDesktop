@@ -11,7 +11,6 @@
 #include <QtCore/QObject>
 #include <QtCore/QTimer>
 #include <QtCore/QMutex>
-#include <QtCore/QLoggingCategory>
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QThreadPool>
 #include <QtConcurrent/QtConcurrent>
@@ -19,7 +18,6 @@
 #include <atomic>
 #include <vector>
 
-Q_DECLARE_LOGGING_CATEGORY(lcDataProcessingWorker)
 ;;
 
 /**

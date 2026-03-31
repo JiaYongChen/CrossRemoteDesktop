@@ -4,7 +4,6 @@
 #include <QtCore/QByteArray>
 #include <QtCore/QString>
 #include <QtGui/QImage>            // 修正：QImage 属于 QtGui 模块
-#include <QtCore/QLoggingCategory>
 #include <QtCore/QMutex>
 #include <QtCore/QMutexLocker>
 #include <QtCore/QHash>            // 新增：使用QHash需包含此头
@@ -12,7 +11,6 @@
 
 #include "../../common/data/DataRecord.h"
 
-Q_DECLARE_LOGGING_CATEGORY(DataProcessingLog)
 
 // 数据验证器：负责对接收到的捕获数据进行基本校验
 // 责任边界：

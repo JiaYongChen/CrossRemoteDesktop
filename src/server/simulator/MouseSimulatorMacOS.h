@@ -2,13 +2,11 @@
 #define MOUSESIMULATORMAC_H
 
 #include "MouseSimulator.h"
-#include <QtCore/QLoggingCategory>
 
 #ifdef Q_OS_MACOS
 #include <CoreGraphics/CoreGraphics.h>
 #include <ApplicationServices/ApplicationServices.h>
 
-Q_DECLARE_LOGGING_CATEGORY(lcMouseSimulatorMacOS)
 
 class MouseSimulatorMacOS : public MouseSimulator {
 public:

@@ -2,12 +2,10 @@
 #define MOUSESIMULATORWINDOWS_H
 
 #include "MouseSimulator.h"
-#include <QLoggingCategory>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
 
-Q_DECLARE_LOGGING_CATEGORY(lcMouseSimulatorWindows)
 
 class MouseSimulatorWindows : public MouseSimulator {
 public:
