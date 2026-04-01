@@ -161,10 +161,10 @@ void TestDataConsistency::test_checksumVerification() {
         buffer.open(QIODevice::WriteOnly);
         image.save(&buffer, "PNG");
 
-        QByteArray checksum1 = calculateChecksum(imageData);
-        QByteArray checksum2 = calculateChecksum(imageData);
+        QByteArray imgChecksum1 = calculateChecksum(imageData);
+        QByteArray imgChecksum2 = calculateChecksum(imageData);
 
-        QCOMPARE(checksum1, checksum2);
+        QCOMPARE(imgChecksum1, imgChecksum2);
         m_checksums.append(QString::fromUtf8(checksum1.toHex()));
     }
 

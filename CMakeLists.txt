@@ -405,6 +405,8 @@ elseif(WIN32)
         if(TARGET libzstd_static)
             if(MSVC)
                 target_compile_options(libzstd_static PRIVATE /WX-)
+                # 修复 VS 生成器下 OUTPUT_NAME(zstd_static) 与 target 名(libzstd_static) 不匹配导致链接失败
+                set_target_properties(libzstd_static PROPERTIES OUTPUT_NAME libzstd_static)
             endif()
         endif()
         set(ZSTD_INCLUDE_DIR "${zstd_SOURCE_DIR}/lib" CACHE PATH   "ZSTD include directory" FORCE)
@@ -749,6 +751,10 @@ target_link_libraries(QtRemoteDesktop PRIVATE
     OpenSSL::Crypto
     ${ZSTD_LIBRARY}
 )
+# 确保 zstd 先于主项目编译
+if(TARGET libzstd_static)
+    add_dependencies(QtRemoteDesktop libzstd_static)
+endif()
 
 # 定义宏与编译选项（debug 日志开关、平台宏等）
 # 说明：日志输出使用 QLoggingCategory，默认级别为 debug（通过运行时环境变量控制过滤）。

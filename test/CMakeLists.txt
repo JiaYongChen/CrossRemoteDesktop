@@ -816,3 +816,12 @@ set_tests_properties(CloseEventTest PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;AUTO_RUN=1;RD_MAIN_APP_PATH=${CMAKE_SOURCE_DIR}/Debug/QtRemoteDesktop.app/Contents/MacOS/QtRemoteDesktop"
 )
 
+# 确保 zstd 先于依赖它的测试目标编译
+if(TARGET libzstd_static)
+    foreach(_test_target test_clientremotewindow test_screen_data_flow test_producer_consumer_integration)
+        if(TARGET ${_test_target})
+            add_dependencies(${_test_target} libzstd_static)
+        endif()
+    endforeach()
+endif()
+

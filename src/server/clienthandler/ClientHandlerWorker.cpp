@@ -853,10 +853,8 @@ void ClientHandlerWorker::sendHandshakeResponse() {
     response.screenHeight = 1080; // 默认屏幕高度
     response.colorDepth = 32; // 32位色深
     response.supportedFeatures = 0; // 可以根据需要设置服务器特性
-    strncpy(response.serverName, "QtRemoteDesktop Server", sizeof(response.serverName) - 1);
-    response.serverName[sizeof(response.serverName) - 1] = '\0';
-    strncpy(response.serverOS, "macOS", sizeof(response.serverOS) - 1);
-    response.serverOS[sizeof(response.serverOS) - 1] = '\0';
+    strncpy_s(response.serverName, sizeof(response.serverName), "QtRemoteDesktop Server", _TRUNCATE);
+    strncpy_s(response.serverOS, sizeof(response.serverOS), "macOS", _TRUNCATE);
 
     sendMessage(MessageType::HANDSHAKE_RESPONSE, response);
     qCDebug(clientHandlerWorker) << "发送握手响应";
@@ -865,8 +863,7 @@ void ClientHandlerWorker::sendHandshakeResponse() {
 void ClientHandlerWorker::sendAuthenticationResponse(AuthResult result, const QString& sessionId) {
     AuthenticationResponse response;
     response.result = result;
-    strncpy(response.sessionId, sessionId.toUtf8().constData(), sizeof(response.sessionId) - 1);
-    response.sessionId[sizeof(response.sessionId) - 1] = '\0'; // 确保字符串结束
+    strncpy_s(response.sessionId, sizeof(response.sessionId), sessionId.toUtf8().constData(), _TRUNCATE);
     response.permissions = 0; // 默认权限
 
     sendMessage(MessageType::AUTHENTICATION_RESPONSE, response);
@@ -891,8 +888,7 @@ void ClientHandlerWorker::sendAuthChallenge() {
 
     // 将盐值转换为十六进制字符串
     QString saltHex = salt.toHex();
-    strncpy(challenge.saltHex, saltHex.toUtf8().constData(), sizeof(challenge.saltHex) - 1);
-    challenge.saltHex[sizeof(challenge.saltHex) - 1] = '\0';
+    strncpy_s(challenge.saltHex, sizeof(challenge.saltHex), saltHex.toUtf8().constData(), _TRUNCATE);
 
     sendMessage(MessageType::AUTH_CHALLENGE, challenge);
     qCDebug(clientHandlerWorker) << "发送认证挑战，方法:" << challenge.method
