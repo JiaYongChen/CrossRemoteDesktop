@@ -8,8 +8,6 @@
 #include <QtCore/QMutex>
 #include <memory>
 
-;;
-
 /**
  * @brief 队列管理器类
  *

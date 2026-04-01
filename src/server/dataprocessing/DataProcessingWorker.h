@@ -18,8 +18,6 @@
 #include <atomic>
 #include <vector>
 
-;;
-
 /**
  * @brief 数据处理工作线程类
  *

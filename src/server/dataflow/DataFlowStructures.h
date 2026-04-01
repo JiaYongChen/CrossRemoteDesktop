@@ -7,8 +7,6 @@
 #include <QtGui/QImage>
 #include <memory>
 
-;;
-
 /**
  * @brief 捕获帧数据结构
  *
