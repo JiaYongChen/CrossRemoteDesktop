@@ -145,6 +145,20 @@ quint16 ServerWorker::getCurrentPort() const {
     return m_currentPort;
 }
 
+QSslCertificate ServerWorker::sslCertificate() const {
+    if ( m_tcpServer ) {
+        return m_tcpServer->sslCertificate();
+    }
+    return QSslCertificate();
+}
+
+QSslKey ServerWorker::sslPrivateKey() const {
+    if ( m_tcpServer ) {
+        return m_tcpServer->sslPrivateKey();
+    }
+    return QSslKey();
+}
+
 void ServerWorker::setupServerConnections() {
     if ( !m_tcpServer ) {
         return;

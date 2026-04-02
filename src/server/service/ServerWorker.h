@@ -6,6 +6,8 @@
 
 #include <QtCore/QObject>
 #include <QtCore/QMutex>
+#include <QtNetwork/QSslCertificate>
+#include <QtNetwork/QSslKey>
 
 class TcpServer;
 class QTimer;
@@ -43,6 +45,12 @@ public:
      * @return 当前监听端口号，如果服务器未运行返回0
      */
     quint16 getCurrentPort() const;
+
+    /**
+     * @brief 获取TLS证书（供ClientHandlerWorker使用）
+     */
+    QSslCertificate sslCertificate() const;
+    QSslKey sslPrivateKey() const;
 
 signals:
     // 服务器状态信号

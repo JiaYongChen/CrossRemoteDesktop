@@ -34,6 +34,7 @@
 *.log
 
 #path
+third_party/
 .claude/
 .codacy/
 .trae/
@@ -46,5 +47,6 @@ logs/
 scripts/
 
 #files
+CLAUDE.md
 需求文档.md
 REQUIREMENTS.md

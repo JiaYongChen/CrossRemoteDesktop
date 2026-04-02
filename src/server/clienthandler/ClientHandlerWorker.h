@@ -8,7 +8,9 @@
 #include <QtCore/QMutex>
 #include <QtCore/QTimer>
 #include <QtNetwork/QAbstractSocket>
-#include <QtNetwork/QTcpSocket>
+#include <QtNetwork/QSslSocket>
+#include <QtNetwork/QSslCertificate>
+#include <QtNetwork/QSslKey>
 
 class InputSimulator;
 class IMessageCodec;
@@ -31,7 +33,10 @@ public:
      * @param socketDescriptor 套接字描述符
      * @param parent 父对象
      */
-    explicit ClientHandlerWorker(qintptr socketDescriptor, QObject* parent = nullptr);
+    explicit ClientHandlerWorker(qintptr socketDescriptor,
+                                const QSslCertificate& certificate = QSslCertificate(),
+                                const QSslKey& privateKey = QSslKey(),
+                                QObject* parent = nullptr);
 
     /**
      * @brief 析构函数
@@ -267,7 +272,11 @@ private:
 private:
     // 网络相关
     qintptr m_socketDescriptor;           ///< 套接字描述符
-    QTcpSocket* m_socket;                 ///< TCP套接字
+    QSslSocket* m_socket;                 ///< TLS套接字
+
+    // TLS证书和密钥
+    QSslCertificate m_sslCertificate;     ///< TLS证书
+    QSslKey m_sslPrivateKey;              ///< TLS私钥
     QByteArray m_receiveBuffer;           ///< 接收缓冲区
 
     // 客户端信息（线程安全访问需要互斥锁）

@@ -10,9 +10,6 @@ Q_LOGGING_CATEGORY(lcApp, "app", QtDebugMsg)
 /// 协议处理模块日志
 Q_LOGGING_CATEGORY(lcProtocol, "core.protocol", QtDebugMsg)
 
-/// 加密模块日志
-Q_LOGGING_CATEGORY(lcEncryption, "core.encryption", QtDebugMsg)
-
 // ============================================================================
 // 服务端模块日志分类定义
 // ============================================================================

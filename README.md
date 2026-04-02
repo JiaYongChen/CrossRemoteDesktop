@@ -115,7 +115,6 @@ QtRemoteDesktop/
 │   │   │   │   ├── ThreadManager.* # 线程管理器
 │   │   │   │   └── ThreadSafeQueue.h # 线程安全队列
 │   │   │   ├── logging/           # 日志系统
-│   │   │   │   ├── DebugLogger.*  # 调试日志器
 │   │   │   │   └── LoggingCategories.* # 日志分类
 │   │   │   ├── config/            # 配置管理
 │   │   │   │   ├── Config.*       # 配置管理器

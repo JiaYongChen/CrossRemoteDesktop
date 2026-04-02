@@ -4,10 +4,11 @@
 #include <QtCore/QObject>
 #include <QtCore/QDateTime>
 #include <QtNetwork/QAbstractSocket>
+#include <QtNetwork/QSslError>
 #include "../common/core/network/Protocol.h"
 #include "../common/core/config/NetworkConstants.h"
 
-class QTcpSocket;
+class QSslSocket;
 class QTimer;
 
 /**
@@ -55,14 +56,17 @@ private slots:
     void onDisconnected();
     void onReadyRead();
     void onError(QAbstractSocket::SocketError error);
+    void onSslErrors(const QList<QSslError>& errors);
+    void onEncrypted();
 
 private:
     void processMessage(const MessageHeader& header, const QByteArray& payload);
     void handleHeartbeat();
     void checkHeartbeat();
+    void configureSsl();
 
     // 网络
-    QTcpSocket* m_socket;
+    QSslSocket* m_socket;
     QByteArray m_receiveBuffer;
 
     // 连接信息

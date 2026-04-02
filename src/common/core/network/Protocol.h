@@ -142,8 +142,8 @@ struct HandshakeRequest : public IMessageCodec {
     quint16 screenWidth;
     quint16 screenHeight;
     quint8 colorDepth;
-    char clientName[64];
-    char clientOS[32];
+    QString clientName;
+    QString clientOS;
 
     // 将当前结构体序列化为QByteArray（小端）
     QByteArray encode() const;
@@ -158,8 +158,8 @@ struct HandshakeResponse : public IMessageCodec {
     quint16 screenHeight;
     quint8 colorDepth;
     quint8 supportedFeatures;
-    char serverName[64];
-    char serverOS[32];
+    QString serverName;
+    QString serverOS;
 
     QByteArray encode() const;
     bool decode(const QByteArray& dataBuffer);
@@ -167,8 +167,8 @@ struct HandshakeResponse : public IMessageCodec {
 
 // 认证请求数据
 struct AuthenticationRequest : public IMessageCodec {
-    char username[64];
-    char passwordHash[64];
+    QString username;
+    QString passwordHash;
     quint32 authMethod;
 
     QByteArray encode() const;
@@ -178,7 +178,7 @@ struct AuthenticationRequest : public IMessageCodec {
 // 认证响应数据
 struct AuthenticationResponse : public IMessageCodec {
     AuthResult result;
-    char sessionId[32];
+    QString sessionId;
     quint32 permissions;
 
     QByteArray encode() const;
@@ -190,7 +190,7 @@ struct AuthChallenge : public IMessageCodec {
     quint32 method;      // 1=PBKDF2_SHA256（约定）
     quint32 iterations;  // 推荐 100000
     quint32 keyLength;   // 派生长度（字节），如 32
-    char    saltHex[64]; // 盐（hex字符串，最多32字节盐=64字符）
+    QString saltHex;     // 盐（hex字符串）
 
     QByteArray encode() const;
     bool decode(const QByteArray& dataBuffer);
@@ -212,7 +212,7 @@ struct KeyboardEvent : public IMessageCodec {
     KeyboardEventType eventType;
     quint32 keyCode;
     quint32 modifiers;
-    char text[8];
+    QString text;
 
     QByteArray encode() const;
     bool decode(const QByteArray& dataBuffer);
@@ -268,7 +268,7 @@ struct CursorMessage : public IMessageCodec {
 
 // 文件传输请求
 struct FileTransferRequest : public IMessageCodec {
-    char fileName[256];
+    QString fileName;
     quint64 fileSize;
     quint32 transferId;
     quint8 direction;
@@ -281,7 +281,7 @@ struct FileTransferRequest : public IMessageCodec {
 struct FileTransferResponse : public IMessageCodec {
     quint32 transferId;
     FileTransferStatus status;
-    char errorMessage[256];
+    QString errorMessage;
 
     QByteArray encode() const;
     bool decode(const QByteArray& dataBuffer);
@@ -324,7 +324,7 @@ struct ClipboardMessage : public IMessageCodec {
     bool decode(const QByteArray& dataBuffer) override;
 };
 
-// 协议工具类
+// 协议工具类（TLS负责传输层加密，协议层不再加密）
 class Protocol {
 public:
     // 创建消息
@@ -332,13 +332,6 @@ public:
 
     // 解析消息
     static qsizetype parseMessage(const QByteArray& data, MessageHeader& header, QByteArray& payload);
-
-    // 加密数据
-    static QByteArray encryptData(const QByteArray& data, const QByteArray& key);
-
-    // 解密数据
-    static QByteArray decryptData(const QByteArray& data, const QByteArray& key);
-
 
 private:
     // 验证接收数据的完整性（检查数据长度是否完整）
@@ -348,9 +341,6 @@ private:
 
     // 计算校验和
     static quint32 calculateChecksum(const QByteArray& data);
-
-private:
-    static const QByteArray XORkey;
 };
 
 #endif // PROTOCOL_H

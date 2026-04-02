@@ -16,10 +16,10 @@
 #endif
 
 #include "../../common/core/network/Protocol.h"
-#include "../../common/core/crypto/Encryption.h"
 #include "../../common/core/config/NetworkConstants.h"
 #include "../../common/core/logging/LoggingCategories.h"
-#include <QtNetwork/QTcpSocket>
+#include <QtNetwork/QSslSocket>
+#include <QtNetwork/QSslConfiguration>
 #include <QtCore/QTimer>
 #include <QtCore/QThread>
 #include <QtCore/QCoreApplication>
@@ -34,10 +34,15 @@
 #include <cstring>
 
 
-ClientHandlerWorker::ClientHandlerWorker(qintptr socketDescriptor, QObject* parent)
+ClientHandlerWorker::ClientHandlerWorker(qintptr socketDescriptor,
+                                         const QSslCertificate& certificate,
+                                         const QSslKey& privateKey,
+                                         QObject* parent)
     : Worker(parent)
     , m_socketDescriptor(socketDescriptor)
     , m_socket(nullptr)
+    , m_sslCertificate(certificate)
+    , m_sslPrivateKey(privateKey)
     , m_clientPort(0)
     , m_isAuthenticated(false)
     , m_failedAuthCount(0)
@@ -68,8 +73,8 @@ ClientHandlerWorker::~ClientHandlerWorker() {
 bool ClientHandlerWorker::initialize() {
     qCInfo(clientHandlerWorker) << "初始化 ClientHandlerWorker";
 
-    // 在Worker线程中创建socket
-    m_socket = new QTcpSocket(this);
+    // 在Worker线程中创建SSL socket
+    m_socket = new QSslSocket(this);
 
     // 使用套接字描述符初始化socket
     if ( !m_socket->setSocketDescriptor(m_socketDescriptor) ) {
@@ -77,6 +82,16 @@ bool ClientHandlerWorker::initialize() {
         delete m_socket;
         m_socket = nullptr;
         return false;
+    }
+
+    // 配置TLS证书和密钥
+    if ( !m_sslCertificate.isNull() && !m_sslPrivateKey.isNull() ) {
+        m_socket->setLocalCertificate(m_sslCertificate);
+        m_socket->setPrivateKey(m_sslPrivateKey);
+        QSslConfiguration sslConfig = m_socket->sslConfiguration();
+        sslConfig.setProtocol(QSsl::TlsV1_2OrLater);
+        sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
+        m_socket->setSslConfiguration(sslConfig);
     }
 
     // 设置TCP优化选项
@@ -94,10 +109,20 @@ bool ClientHandlerWorker::initialize() {
     }
 
     // 连接套接字信号
-    connect(m_socket, &QTcpSocket::readyRead, this, &ClientHandlerWorker::onReadyRead);
-    connect(m_socket, &QTcpSocket::disconnected, this, &ClientHandlerWorker::onDisconnected);
+    connect(m_socket, &QSslSocket::readyRead, this, &ClientHandlerWorker::onReadyRead);
+    connect(m_socket, &QSslSocket::disconnected, this, &ClientHandlerWorker::onDisconnected);
     connect(m_socket, QOverload<QAbstractSocket::SocketError>::of(&QAbstractSocket::errorOccurred),
         this, &ClientHandlerWorker::onError);
+    connect(m_socket, QOverload<const QList<QSslError>&>::of(&QSslSocket::sslErrors),
+        this, [this](const QList<QSslError>& errors) {
+        for ( const QSslError& error : errors ) {
+            qCWarning(clientHandlerWorker) << "SSL error:" << error.errorString();
+        }
+        m_socket->ignoreSslErrors();
+    });
+
+    // 启动服务端TLS握手
+    m_socket->startServerEncryption();
 
     // 创建心跳检查定时器
     m_heartbeatCheckTimer = new QTimer(this);
@@ -622,8 +647,8 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
         return;
     }
 
-    QString username = QString::fromUtf8(authRequest.username);
-    QString passwordHash = QString::fromUtf8(authRequest.passwordHash);
+    QString username = authRequest.username;
+    QString passwordHash = authRequest.passwordHash;
     quint32 authMethod = authRequest.authMethod;
 
     qCDebug(clientHandlerWorker) << "认证请求 - 用户名:" << username << ", 认证方法:" << authMethod;
@@ -853,8 +878,14 @@ void ClientHandlerWorker::sendHandshakeResponse() {
     response.screenHeight = 1080; // 默认屏幕高度
     response.colorDepth = 32; // 32位色深
     response.supportedFeatures = 0; // 可以根据需要设置服务器特性
-    strncpy_s(response.serverName, sizeof(response.serverName), "QtRemoteDesktop Server", _TRUNCATE);
-    strncpy_s(response.serverOS, sizeof(response.serverOS), "macOS", _TRUNCATE);
+    response.serverName = QStringLiteral("QtRemoteDesktop Server");
+#ifdef Q_OS_WIN
+    response.serverOS = QStringLiteral("Windows");
+#elif defined(Q_OS_MACOS)
+    response.serverOS = QStringLiteral("macOS");
+#else
+    response.serverOS = QStringLiteral("Linux");
+#endif
 
     sendMessage(MessageType::HANDSHAKE_RESPONSE, response);
     qCDebug(clientHandlerWorker) << "发送握手响应";
@@ -863,7 +894,7 @@ void ClientHandlerWorker::sendHandshakeResponse() {
 void ClientHandlerWorker::sendAuthenticationResponse(AuthResult result, const QString& sessionId) {
     AuthenticationResponse response;
     response.result = result;
-    strncpy_s(response.sessionId, sizeof(response.sessionId), sessionId.toUtf8().constData(), _TRUNCATE);
+    response.sessionId = sessionId;
     response.permissions = 0; // 默认权限
 
     sendMessage(MessageType::AUTHENTICATION_RESPONSE, response);
@@ -887,13 +918,12 @@ void ClientHandlerWorker::sendAuthChallenge() {
     }
 
     // 将盐值转换为十六进制字符串
-    QString saltHex = salt.toHex();
-    strncpy_s(challenge.saltHex, sizeof(challenge.saltHex), saltHex.toUtf8().constData(), _TRUNCATE);
+    challenge.saltHex = QString::fromLatin1(salt.toHex());
 
     sendMessage(MessageType::AUTH_CHALLENGE, challenge);
     qCDebug(clientHandlerWorker) << "发送认证挑战，方法:" << challenge.method
         << ", 迭代次数:" << challenge.iterations << ", 密钥长度:" << challenge.keyLength
-        << ", 盐值:" << saltHex;
+        << ", 盐值:" << challenge.saltHex;
 }
 
 QString ClientHandlerWorker::generateSessionId() const {

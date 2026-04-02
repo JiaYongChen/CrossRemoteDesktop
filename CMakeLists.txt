@@ -323,11 +323,9 @@ find_package(Qt6 6.9 REQUIRED COMPONENTS
     Core
     Widgets
     Network
-    Multimedia
     Gui
     OpenGL
     OpenGLWidgets
-    Test
     Concurrent
 )
 
@@ -383,34 +381,34 @@ if(APPLE)
         message(FATAL_ERROR "zstd not found. Please install with: brew install zstd")
     endif()
 elseif(WIN32)
-    # Windows: 先尝试查找已安装的 zstd（vcpkg / 手动安装），找不到则通过 FetchContent 自动下载构建
-    find_path(ZSTD_INCLUDE_DIR zstd.h)
-    find_library(ZSTD_LIBRARY NAMES zstd zstd_static)
-    if(NOT ZSTD_INCLUDE_DIR OR NOT ZSTD_LIBRARY)
-        message(STATUS "zstd not found on Windows, downloading via FetchContent...")
-        include(FetchContent)
+    # Windows: 先尝试查找已安装的 zstd（vcpkg / 手动安装），找不到则使用 third_party/zstd 本地源码构建
+    find_path(ZSTD_INCLUDE_DIR_SYSTEM zstd.h)
+    find_library(ZSTD_LIBRARY_SYSTEM NAMES zstd zstd_static)
+    if(ZSTD_INCLUDE_DIR_SYSTEM AND ZSTD_LIBRARY_SYSTEM)
+        # 使用系统已安装的 zstd
+        set(ZSTD_INCLUDE_DIR "${ZSTD_INCLUDE_DIR_SYSTEM}")
+        set(ZSTD_LIBRARY "${ZSTD_LIBRARY_SYSTEM}")
+    else()
+        # 使用本地源码构建 zstd（每次配置都需要 add_subdirectory 以注册目标）
+        set(ZSTD_LOCAL_DIR "${CMAKE_SOURCE_DIR}/third_party/zstd")
+        if(NOT EXISTS "${ZSTD_LOCAL_DIR}/build/cmake/CMakeLists.txt")
+            message(FATAL_ERROR "zstd 本地源码未找到，请执行: git clone --depth 1 --branch v1.5.6 https://github.com/facebook/zstd.git third_party/zstd")
+        endif()
+        message(STATUS "Using local zstd source from: ${ZSTD_LOCAL_DIR}")
         set(ZSTD_BUILD_PROGRAMS OFF CACHE BOOL "Build zstd programs" FORCE)
         set(ZSTD_BUILD_SHARED   OFF CACHE BOOL "Build zstd shared library" FORCE)
         set(ZSTD_BUILD_STATIC   ON  CACHE BOOL "Build zstd static library" FORCE)
         set(ZSTD_BUILD_TESTS    OFF CACHE BOOL "Build zstd tests" FORCE)
-        FetchContent_Declare(
-            zstd
-            GIT_REPOSITORY https://github.com/facebook/zstd.git
-            GIT_TAG        v1.5.6
-            GIT_SHALLOW    TRUE
-            SOURCE_SUBDIR  build/cmake
-        )
-        FetchContent_MakeAvailable(zstd)
+        add_subdirectory("${ZSTD_LOCAL_DIR}/build/cmake" "${CMAKE_BINARY_DIR}/_deps/zstd-build")
         # 禁用第三方目标的"警告即错误"，避免 zstd 自身的警告中止构建
         if(TARGET libzstd_static)
             if(MSVC)
                 target_compile_options(libzstd_static PRIVATE /WX-)
-                # 修复 VS 生成器下 OUTPUT_NAME(zstd_static) 与 target 名(libzstd_static) 不匹配导致链接失败
                 set_target_properties(libzstd_static PROPERTIES OUTPUT_NAME libzstd_static)
             endif()
         endif()
-        set(ZSTD_INCLUDE_DIR "${zstd_SOURCE_DIR}/lib" CACHE PATH   "ZSTD include directory" FORCE)
-        set(ZSTD_LIBRARY     libzstd_static           CACHE STRING "ZSTD library target"    FORCE)
+        set(ZSTD_INCLUDE_DIR "${ZSTD_LOCAL_DIR}/lib")
+        set(ZSTD_LIBRARY libzstd_static)
     endif()
 else()
     # Linux: 使用系统包管理器安装的zstd
@@ -741,11 +739,9 @@ target_link_libraries(QtRemoteDesktop PRIVATE
     Qt6::Core
     Qt6::Widgets
     Qt6::Network
-    Qt6::Multimedia
     Qt6::Gui
     Qt6::OpenGL
     Qt6::OpenGLWidgets
-    Qt6::Test
     Qt6::Concurrent
     OpenSSL::SSL
     OpenSSL::Crypto
@@ -754,6 +750,30 @@ target_link_libraries(QtRemoteDesktop PRIVATE
 # 确保 zstd 先于主项目编译
 if(TARGET libzstd_static)
     add_dependencies(QtRemoteDesktop libzstd_static)
+endif()
+
+# Windows下自动拷贝OpenSSL运行时DLL到输出目录（TLS所需）
+if(WIN32 AND EXISTS "${OPENSSL_ROOT_DIR}/bin/libssl-3-x64.dll")
+    add_custom_command(TARGET QtRemoteDesktop POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${OPENSSL_ROOT_DIR}/bin/libssl-3-x64.dll"
+            "$<TARGET_FILE_DIR:QtRemoteDesktop>"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${OPENSSL_ROOT_DIR}/bin/libcrypto-3-x64.dll"
+            "$<TARGET_FILE_DIR:QtRemoteDesktop>"
+        COMMENT "Copying OpenSSL DLLs to output directory"
+    )
+    # 拷贝 Qt TLS 插件到输出目录，确保 Qt 能找到 OpenSSL 后端
+    set(QT_TLS_PLUGIN_DIR "${QT6_ROOT_DIR}/plugins/tls")
+    if(EXISTS "${QT_TLS_PLUGIN_DIR}")
+        add_custom_command(TARGET QtRemoteDesktop POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:QtRemoteDesktop>/tls"
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+                "${QT_TLS_PLUGIN_DIR}"
+                "$<TARGET_FILE_DIR:QtRemoteDesktop>/tls"
+            COMMENT "Copying Qt TLS plugins to output directory"
+        )
+    endif()
 endif()
 
 # 定义宏与编译选项（debug 日志开关、平台宏等）

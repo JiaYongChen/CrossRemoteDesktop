@@ -27,6 +27,11 @@ if(NOT TARGET Qt6::Core)
     find_package(Qt6 6.9 REQUIRED COMPONENTS Core Network Test Gui Concurrent)
 endif()
 
+# Test 组件仅测试目录需要，父项目可能未查找，确保此处补充查找
+if(NOT TARGET Qt6::Test)
+    find_package(Qt6 6.9 REQUIRED COMPONENTS Test)
+endif()
+
 # 在Apple平台上，部分Qt发行版的QtGui会通过INTERFACE_LINK_LIBRARIES传递AGL/OpenGL框架，
 # 这在Apple Silicon上会导致“framework 'AGL' not found”的链接错误。
 # 这里对Qt6::Gui的INTERFACE_LINK_LIBRARIES进行过滤，去除AGL与OpenGL相关依赖。
@@ -544,7 +549,6 @@ set(CLIENTREMOTEWINDOW_TEST_SOURCES
     ../src/common/core/config/Constants.cpp
     ../src/common/core/config/Config.cpp
     ../src/common/core/network/ProtocolImpl.cpp
-    ../src/common/core/crypto/Encryption.cpp
     ../src/common/clipboard/ClipboardManager.cpp
 )
 
@@ -734,7 +738,6 @@ list(APPEND PRODUCER_CONSUMER_INTEGRATION_TEST_SOURCES
     ../src/common/core/threading/ThreadManager.cpp
     ../src/server/dataflow/QueueManager.cpp
     ../src/common/core/network/ProtocolImpl.cpp
-    ../src/common/core/crypto/Encryption.cpp
     ../src/common/core/logging/LoggingCategories.cpp
     ../src/common/core/config/Constants.cpp
 )

@@ -26,8 +26,6 @@ Config::Config(QObject *parent)
     , m_isLoaded(false)
     , m_isModified(false)
     , m_lastModified()
-    , m_encrypted(false)
-    , m_encryptionPassword()
     , m_fileWatcher(nullptr)
     , m_watchFileChanges(true)
     , m_groupStack()
@@ -122,15 +120,6 @@ bool Config::load()
     
     QByteArray data = file.readAll();
     file.close();
-    
-    // 解密数据（如果启用）
-    if (m_encrypted) {
-        data = decrypt(data);
-        if (data.isEmpty()) {
-            qCWarning(lcApp) << "Failed to decrypt config file";
-            return false;
-        }
-    }
     
     // 解压功能已简化
     
@@ -367,13 +356,6 @@ bool Config::exportToFile(const QString &filePath, ConfigFormat format) const
 
 // addMigrationHandler function removed - not declared in header
 
-void Config::setEncryption(bool enabled, const QString &key)
-{
-    QMutexLocker locker(&m_mutex);
-    m_encrypted = enabled;
-    m_encryptionPassword = key;
-}
-
 // setCompression function removed - not declared in header
 
 // setAutoSave function removed - not declared in header
@@ -424,29 +406,6 @@ qint64 Config::fileSize() const
 // saveToJson function removed - not declared in header
 
 // saveToXml function removed - not declared in header
-
-QByteArray Config::encrypt(const QByteArray &data) const
-{
-    if (m_encryptionPassword.isEmpty()) {
-        return QByteArray();
-    }
-    
-    // 简单的XOR加密（实际应用中应使用更强的加密算法）
-    QByteArray key = m_encryptionPassword.toUtf8();
-    QByteArray encrypted = data;
-    
-    for (int i = 0; i < encrypted.size(); ++i) {
-        encrypted[i] = encrypted[i] ^ key[i % key.size()];
-    }
-    
-    return encrypted;
-}
-
-QByteArray Config::decrypt(const QByteArray &data) const
-{
-    // XOR加密的解密与加密相同
-    return encrypt(data);
-}
 
 bool Config::saveIni() const
 {

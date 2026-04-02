@@ -14,9 +14,6 @@ Q_DECLARE_LOGGING_CATEGORY(lcApp)
 /// 协议处理模块日志
 Q_DECLARE_LOGGING_CATEGORY(lcProtocol)
 
-/// 加密模块日志
-Q_DECLARE_LOGGING_CATEGORY(lcEncryption)
-
 // ============================================================================
 // 服务端模块日志分类
 // ============================================================================

@@ -1,5 +1,6 @@
 #include "TcpClient.h"
-#include <QtNetwork/QTcpSocket>
+#include <QtNetwork/QSslSocket>
+#include <QtNetwork/QSslConfiguration>
 #include <QtCore/QTimer>
 #include "../common/core/config/MessageConstants.h"
 #include <QtNetwork/QHostAddress>
@@ -9,17 +10,22 @@
 
 TcpClient::TcpClient(QObject* parent)
     : QObject(parent)
-    , m_socket(new QTcpSocket(this))
+    , m_socket(new QSslSocket(this))
     , m_heartbeatCheckTimer(new QTimer(this)) {
 
     m_socket->setProxy(QNetworkProxy::NoProxy);
 
+    // 配置TLS
+    configureSsl();
+
     // 连接 socket 信号到本类槽函数
-    connect(m_socket, &QTcpSocket::connected, this, &TcpClient::onConnected);
-    connect(m_socket, &QTcpSocket::disconnected, this, &TcpClient::onDisconnected);
-    connect(m_socket, &QTcpSocket::readyRead, this, &TcpClient::onReadyRead);
-    connect(m_socket, QOverload<QAbstractSocket::SocketError>::of(&QTcpSocket::errorOccurred),
+    connect(m_socket, &QSslSocket::disconnected, this, &TcpClient::onDisconnected);
+    connect(m_socket, &QSslSocket::readyRead, this, &TcpClient::onReadyRead);
+    connect(m_socket, QOverload<QAbstractSocket::SocketError>::of(&QSslSocket::errorOccurred),
         this, &TcpClient::onError);
+    connect(m_socket, &QSslSocket::encrypted, this, &TcpClient::onEncrypted);
+    connect(m_socket, QOverload<const QList<QSslError>&>::of(&QSslSocket::sslErrors),
+        this, &TcpClient::onSslErrors);
 
     // 心跳超时检查定时器设置 - 用于检测服务端心跳超时
     m_heartbeatCheckTimer->setInterval(NetworkConstants::HEARTBEAT_TIMEOUT);
@@ -39,7 +45,8 @@ void TcpClient::connectToHost(const QString& hostName, quint16 port) {
     m_hostName = hostName;
     m_port = port;
 
-    m_socket->connectToHost(hostName, port);
+    // 使用TLS加密连接
+    m_socket->connectToHostEncrypted(hostName, port);
 }
 
 void TcpClient::disconnectFromHost() {
@@ -103,7 +110,12 @@ void TcpClient::sendMessage(MessageType type, const IMessageCodec& message) {
 }
 
 void TcpClient::onConnected() {
-    qCInfo(lcClient) << "TcpClient::onConnected - TCP connection established";
+    // TCP连接建立，TLS握手将自动开始
+    qCInfo(lcClient) << "TcpClient::onConnected - TCP connection established, TLS handshake starting...";
+}
+
+void TcpClient::onEncrypted() {
+    qCInfo(lcClient) << "TcpClient::onEncrypted - TLS handshake completed successfully";
 
     // 设置TCP优化选项
     m_socket->setSocketOption(QAbstractSocket::KeepAliveOption, NetworkConstants::KEEP_ALIVE_ENABLED);
@@ -115,8 +127,24 @@ void TcpClient::onConnected() {
     m_lastHeartbeat = QDateTime::currentDateTime();
     m_heartbeatCheckTimer->start();
 
-    qCDebug(lcClient) << "TcpClient::onConnected - Emitting connected signal";
+    qCDebug(lcClient) << "TcpClient::onEncrypted - Emitting connected signal";
     emit connected();
+}
+
+void TcpClient::configureSsl() {
+    QSslConfiguration sslConfig = QSslConfiguration::defaultConfiguration();
+    sslConfig.setProtocol(QSsl::TlsV1_2OrLater);
+    // 允许自签名证书（远程桌面场景下服务端通常使用自签名证书）
+    sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
+    m_socket->setSslConfiguration(sslConfig);
+}
+
+void TcpClient::onSslErrors(const QList<QSslError>& errors) {
+    // 忽略自签名证书错误（远程桌面内网场景）
+    for ( const QSslError& error : errors ) {
+        qCWarning(lcClient) << "TcpClient::onSslErrors - SSL error:" << error.errorString();
+    }
+    m_socket->ignoreSslErrors();
 }
 
 void TcpClient::onDisconnected() {

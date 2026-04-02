@@ -117,11 +117,7 @@ void SessionManager::sendKeyboardEvent(int key, int modifiers, bool pressed, con
     keyEvent.modifiers = modifiers;
     keyEvent.eventType = pressed ? KeyboardEventType::KEY_PRESS : KeyboardEventType::KEY_RELEASE;
 
-    // 复制文本，确保不超过缓冲区大小
-    QByteArray textBytes = text.toUtf8();
-    int copySize = qMin(textBytes.size(), static_cast<int>(sizeof(keyEvent.text) - 1));
-    memcpy(keyEvent.text, textBytes.constData(), copySize);
-    keyEvent.text[copySize] = '\0';
+    keyEvent.text = text;
 
     m_connectionManager->sendMessage(MessageType::KEYBOARD_EVENT, keyEvent);
 }

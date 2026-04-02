@@ -604,8 +604,15 @@ void ServerManager::onNewClientConnection(qintptr socketDescriptor) {
         return;
     }
 
-    // 创建ClientHandlerWorker实例
-    auto worker = std::make_unique<ClientHandlerWorker>(socketDescriptor);
+    // 创建ClientHandlerWorker实例（传递TLS证书）
+    QSslCertificate cert;
+    QSslKey key;
+    ServerWorker* sw = getServerWorker();
+    if ( sw ) {
+        cert = sw->sslCertificate();
+        key = sw->sslPrivateKey();
+    }
+    auto worker = std::make_unique<ClientHandlerWorker>(socketDescriptor, cert, key);
 
     // 保存Worker裸指针（在move之前）
     m_currentClient = worker.get();

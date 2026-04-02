@@ -3,7 +3,8 @@
 #include <QtCore/QTimer>
 #include "TcpClient.h"
 #include "../common/core/config/MessageConstants.h"
-#include "../common/core/crypto/Encryption.h"
+#include <QtNetwork/QPasswordDigestor>
+#include <QtCore/QCryptographicHash>
 
 ConnectionManager::ConnectionManager(QObject* parent)
     : QObject(parent)
@@ -314,7 +315,7 @@ void ConnectionManager::handleAuthenticationResponse(const QByteArray& data) {
 
         if ( response.result == AuthResult::SUCCESS ) {
             qCInfo(lcClient)
-                << MessageConstants::Network::AUTH_SUCCESSFUL.arg(QString::fromUtf8(response.sessionId));
+                << MessageConstants::Network::AUTH_SUCCESSFUL.arg(response.sessionId);
 
             stopAutoReconnect();
             m_currentReconnectAttempts = 0;
@@ -346,24 +347,17 @@ void ConnectionManager::handleAuthenticationResponse(const QByteArray& data) {
 void ConnectionManager::handleAuthChallenge(const QByteArray& data) {
     AuthChallenge ch{};
     if ( ch.decode(data) ) {
-        QByteArray salt = QByteArray::fromHex(QByteArray(ch.saltHex));
+        QByteArray salt = QByteArray::fromHex(ch.saltHex.toUtf8());
         if ( !salt.isEmpty() ) {
             // 本地派生 PBKDF2-SHA256
-            QByteArray derived = HashGenerator::pbkdf2(m_password.toUtf8(), salt,
-                int(ch.iterations), int(ch.keyLength));
-            QString hex = derived.toHex();
+            QByteArray derived = QPasswordDigestor::deriveKeyPbkdf2(
+                QCryptographicHash::Sha256, m_password.toUtf8(), salt,
+                int(ch.iterations), quint64(ch.keyLength));
 
             // 构造 AuthenticationRequest 并序列化发送
             AuthenticationRequest ar{};
-            QByteArray uname = (m_username.isEmpty() ? QString("guest") : m_username).toUtf8();
-            int uc = qMin(uname.size(), static_cast<int>(sizeof(ar.username) - 1));
-            memcpy(ar.username, uname.constData(), uc);
-            ar.username[uc] = '\0';
-
-            QByteArray hexBytes = hex.toUtf8();
-            int hc = qMin(hexBytes.size(), static_cast<int>(sizeof(ar.passwordHash) - 1));
-            memcpy(ar.passwordHash, hexBytes.constData(), hc);
-            ar.passwordHash[hc] = '\0';
+            ar.username = m_username.isEmpty() ? QStringLiteral("guest") : m_username;
+            ar.passwordHash = QString::fromLatin1(derived.toHex());
             ar.authMethod = 1u;
 
             m_tcpClient->sendMessage(MessageType::AUTHENTICATION_REQUEST, ar);
@@ -377,8 +371,8 @@ void ConnectionManager::sendHandshakeRequest() {
     request.screenWidth = 1920;
     request.screenHeight = 1080;
     request.colorDepth = 32;
-    strncpy_s(request.clientName, sizeof(request.clientName), "QtRemoteDesktop Client", _TRUNCATE);
-    strncpy_s(request.clientOS, sizeof(request.clientOS), getClientOS().toUtf8().constData(), _TRUNCATE);
+    request.clientName = QStringLiteral("QtRemoteDesktop Client");
+    request.clientOS = getClientOS();
 
     m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST, request);
 
@@ -390,11 +384,7 @@ void ConnectionManager::sendAuthenticationRequest(const QString& username, const
     Q_UNUSED(password);
     // 第一次发送不带hash，触发服务端下发挑战
     AuthenticationRequest ar{};
-    QByteArray uname = username.toUtf8();
-    int uc = qMin(uname.size(), static_cast<int>(sizeof(ar.username) - 1));
-    memcpy(ar.username, uname.constData(), uc);
-    ar.username[uc] = '\0';
-    ar.passwordHash[0] = '\0';
+    ar.username = username;
     ar.authMethod = 1u; // 请求PBKDF2
 
     m_tcpClient->sendMessage(MessageType::AUTHENTICATION_REQUEST, ar);

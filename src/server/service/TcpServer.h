@@ -3,6 +3,8 @@
 
 #include <QtNetwork/QTcpServer>
 #include <QtNetwork/QHostAddress>
+#include <QtNetwork/QSslCertificate>
+#include <QtNetwork/QSslKey>
 #include "../../common/core/network/Protocol.h"
 #include "../../common/core/config/NetworkConstants.h"
 
@@ -26,6 +28,10 @@ public:
     quint16 serverPort() const;
     QHostAddress serverAddress() const;
 
+    // TLS证书访问（供ClientHandlerWorker使用）
+    QSslCertificate sslCertificate() const { return m_sslCertificate; }
+    QSslKey sslPrivateKey() const { return m_sslPrivateKey; }
+
 signals:
     void serverStopped();
     void newClientConnection(qintptr socketDescriptor);
@@ -36,11 +42,16 @@ protected:
 
 private:
     void cleanup();
+    bool generateSelfSignedCertificate();
 
     // 服务器状态
     bool m_isRunning;
     quint16 m_serverPort;
     QHostAddress m_serverAddress;
+
+    // TLS证书和密钥
+    QSslCertificate m_sslCertificate;
+    QSslKey m_sslPrivateKey;
 };
 
 #endif // TCPSERVER_H

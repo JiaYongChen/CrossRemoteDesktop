@@ -151,10 +151,6 @@ public:
     bool needsMigration() const;
     bool migrate();
     
-    // 加密支持
-    void setEncryption(bool enabled, const QString &password = QString());
-    bool isEncrypted() const;
-    
     // 监控
     void setWatchFileChanges(bool enabled);
     bool watchFileChanges() const;
@@ -211,10 +207,6 @@ private:
     bool loadBinary();
     bool saveBinary() const;
     
-    // 加密/解密
-    QByteArray encrypt(const QByteArray &data) const;
-    QByteArray decrypt(const QByteArray &data) const;
-    
     // 路径处理
     QString getGroupKey(const QString &key, ConfigGroup group) const;
     QString getFullKey(const QString &key) const;
@@ -245,10 +237,6 @@ private:
     bool m_isLoaded;
     bool m_isModified;
     QDateTime m_lastModified;
-    
-    // 加密
-    bool m_encrypted;
-    QString m_encryptionPassword;
     
     // 监控
     QFileSystemWatcher *m_fileWatcher;
