@@ -6,6 +6,7 @@
 #include <QtCore/QTimer>
 #include <QtCore/QMutex>
 #include <QtCore/QHash>
+#include <QtCore/QPointer>
 #include <QtCore/QDateTime>
 #include <memory>
 #include "Worker.h"

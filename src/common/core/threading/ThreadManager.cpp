@@ -180,58 +180,38 @@ bool ThreadManager::stopThread(const QString& name, bool waitForFinish) {
     info->stopRequested = true;
     qCDebug(lcThreading) << "Stopping thread:" << name << "waitForFinish:" << waitForFinish;
 
-    Worker* worker = info->worker;
+    // 使用 QPointer 防止在解锁后 worker 被删除导致的 use-after-free
+    QPointer<Worker> worker = info->worker;
     QThread* thread = info->thread;
     locker.unlock();
 
-    // 1) 请求 Worker 停止：先直接在当前线程设置停止标志与强制定时器，再异步排队到工作线程（第二次调用会立即返回）
-    // 说明：Worker::stop 内部只设置原子标志并使用 singleShot 定时器触发 doStop，不进行跨线程的 QObject 操作，直接调用是安全的。
-    // 直接调用可以确保在目标线程事件循环繁忙或被占用时也能及时改变状态，避免 isStopped() 长时间为 false 导致等待超时。
-    worker->stop(waitForFinish);
-    // 请求线程中断以加快workLoop中止（shouldStop也会检查isInterruptionRequested）
-    if ( thread ) thread->requestInterruption();
-    QMetaObject::invokeMethod(worker, "stop", Qt::QueuedConnection, Q_ARG(bool, waitForFinish));
-
-    // 2) 轮询等待 Worker 发出 stopped 或线程退出，期间处理事件以推动跨线程信号投递
-    const int maxWaitMs = waitForFinish ? 3500 : 1500;
-    QElapsedTimer timer; timer.start();
-    bool workerStopped = false;
-    while ( timer.elapsed() < maxWaitMs ) {
-        // 主动处理所有线程的事件，确保QueuedConnection可以被执行
-        QCoreApplication::processEvents();
-        // 检查 Worker 状态
-        workerStopped = worker->isStopped();
-        if ( workerStopped ) break;
-        QThread::msleep(10);
+    // 1) 请求 Worker 停止：设置原子停止标志，wakAll 唤醒暂停等待中的工作线程
+    if ( worker ) {
+        worker->stop(waitForFinish);
     }
-    if ( !workerStopped ) {
-        qCWarning(lcThreading) << "Worker did not report stopped within" << maxWaitMs << "ms:" << name;
-    }
-
-    // 在删除对象前，异步请求 Worker 线程执行一次 cleanup（停止定时器/断开连接），
-    // 避免在无事件循环或已停止时使用 BlockingQueuedConnection 导致潜在阻塞。
-    QMetaObject::invokeMethod(worker, "cleanup", Qt::QueuedConnection);
-
-    // 3) 请求事件循环退出，并等待线程结束
-    if ( thread->isRunning() ) {
-        // 直接请求退出事件循环（跨线程安全）
+    if ( thread ) {
+        thread->requestInterruption();
+        // 通知线程事件循环退出（与 Worker::doStop 内部的 quit 互补，保证即使
+        // workLoop 在 processEvents 中消费了退出事件，事件循环仍能正确退出）
         thread->quit();
-        if ( !thread->wait(2000) ) {
-            qCWarning(lcThreading) << "Thread did not quit within" << 2000 << "ms:" << name;
+    }
+
+    // 2) 使用 QThread::wait() 阻塞等待线程退出，不再轮询 processEvents
+    // Worker::doStop() 会调用 thread->quit() 并 emit stopped()，
+    // 之后线程事件循环退出，thread->wait() 随即返回。
+    const int maxWaitMs = waitForFinish ? 3500 : 1500;
+    if ( thread && thread->isRunning() ) {
+        if ( !thread->wait(maxWaitMs) ) {
+            qCWarning(lcThreading) << "Thread did not stop within" << maxWaitMs << "ms:" << name;
             if ( !thread->wait(500) ) {
                 qCWarning(lcThreading) << "Thread still running after grace period:" << name;
+                return false;
             }
         }
     }
 
-    if ( !thread->isRunning() ) {
-        qCDebug(lcThreading) << "Thread stopped:" << name;
-        return true;
-    } else {
-        qCWarning(lcThreading) << "ThreadManager::stopThread() - Thread still running when returning:" << name;
-        // 明确返回失败，表明线程尚未停止，调用方应避免继续销毁对象
-        return false;
-    }
+    qCDebug(lcThreading) << "Thread stopped:" << name;
+    return true;
 }
 
 bool ThreadManager::pauseThread(const QString& name) {
@@ -251,14 +231,15 @@ bool ThreadManager::pauseThread(const QString& name) {
     // 关键点：在调用 Worker 的请求接口前释放管理器互斥锁，
     // 避免 Worker 立即发射的 paused 信号在 onWorkerPaused 内部再次获取 m_mutex 时发生竞争，
     // 造成不必要的等待甚至超时（影响测试稳定性）。
-    Worker* worker = info->worker; // 记录指针以便在解锁后使用
+    // 使用 QPointer 防止在解锁后 worker 被删除导致的 use-after-free
+    QPointer<Worker> worker = info->worker;
     locker.unlock();
 
     if ( worker ) {
         // 直接调用线程安全的请求接口，避免事件循环阻塞导致 QueuedConnection 无法触发
         worker->pause();
     } else {
-        qCDebug(lcThreading) << "ThreadManager::pauseThread() - Worker is null for:" << name; // 使用分类debug日志
+        qCDebug(lcThreading) << "ThreadManager::pauseThread() - Worker is null for:" << name;
         return false;
     }
 
@@ -282,14 +263,15 @@ bool ThreadManager::resumeThread(const QString& name) {
 
     // 同上：释放互斥锁，避免 Worker 发射 resumed 信号后，ThreadManager 槽函数 getThreadNameByWorker()
     // 试图获取同一把 m_mutex 而造成的竞争与延迟（测试中对 200ms 的时序较为敏感）。
-    Worker* worker = info->worker;
+    // 使用 QPointer 防止在解锁后 worker 被删除导致的 use-after-free
+    QPointer<Worker> worker = info->worker;
     locker.unlock();
 
     if ( worker ) {
         // 直接调用线程安全的请求接口进行恢复
         worker->resume();
     } else {
-        qCDebug(lcThreading) << "ThreadManager::resumeThread() - Worker is null for:" << name; // 统一为debug
+        qCDebug(lcThreading) << "ThreadManager::resumeThread() - Worker is null for:" << name;
         return false;
     }
 
