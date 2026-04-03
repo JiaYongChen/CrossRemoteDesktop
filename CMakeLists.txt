@@ -17,6 +17,8 @@ if(MSVC)
     add_compile_options(/wd4819)
     # 设置源文件编码为UTF-8
     add_compile_options(/utf-8)
+    # 强制同步PDB写入，避免并行编译时PDB文件锁冲突(C1041)
+    add_compile_options(/FS)
     # 警告不视为错误(用于构建阶段)
     string(REPLACE "/WX" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
     string(REPLACE "/WX" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
@@ -327,6 +329,7 @@ find_package(Qt6 6.9 REQUIRED COMPONENTS
     OpenGL
     OpenGLWidgets
     Concurrent
+    Svg
 )
 
 # 新增：查找第三方依赖（用于加解密和PNG编码）
@@ -743,6 +746,7 @@ target_link_libraries(QtRemoteDesktop PRIVATE
     Qt6::OpenGL
     Qt6::OpenGLWidgets
     Qt6::Concurrent
+    Qt6::Svg
     OpenSSL::SSL
     OpenSSL::Crypto
     ${ZSTD_LIBRARY}
@@ -772,6 +776,35 @@ if(WIN32 AND EXISTS "${OPENSSL_ROOT_DIR}/bin/libssl-3-x64.dll")
                 "${QT_TLS_PLUGIN_DIR}"
                 "$<TARGET_FILE_DIR:QtRemoteDesktop>/tls"
             COMMENT "Copying Qt TLS plugins to output directory"
+        )
+    endif()
+    # 拷贝 Qt6Svg 运行时 DLL 到输出目录（SVG 插件的核心依赖）
+    set(QT_BIN_DIR "${QT6_ROOT_DIR}/bin")
+    add_custom_command(TARGET QtRemoteDesktop POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${QT_BIN_DIR}/$<IF:$<CONFIG:Debug>,Qt6Svgd.dll,Qt6Svg.dll>"
+            "$<TARGET_FILE_DIR:QtRemoteDesktop>/"
+        COMMENT "Copying Qt6Svg runtime DLL to output directory"
+    )
+    # 拷贝 Qt SVG 插件到输出目录，确保 QIcon 能正确渲染 SVG 图标
+    set(QT_IMAGEFORMATS_DIR "${QT6_ROOT_DIR}/plugins/imageformats")
+    set(QT_ICONENGINES_DIR "${QT6_ROOT_DIR}/plugins/iconengines")
+    if(EXISTS "${QT_IMAGEFORMATS_DIR}")
+        add_custom_command(TARGET QtRemoteDesktop POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:QtRemoteDesktop>/imageformats"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${QT_IMAGEFORMATS_DIR}/$<IF:$<CONFIG:Debug>,qsvgd.dll,qsvg.dll>"
+                "$<TARGET_FILE_DIR:QtRemoteDesktop>/imageformats/"
+            COMMENT "Copying Qt SVG imageformat plugin to output directory"
+        )
+    endif()
+    if(EXISTS "${QT_ICONENGINES_DIR}")
+        add_custom_command(TARGET QtRemoteDesktop POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:QtRemoteDesktop>/iconengines"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${QT_ICONENGINES_DIR}/$<IF:$<CONFIG:Debug>,qsvgicond.dll,qsvgicon.dll>"
+                "$<TARGET_FILE_DIR:QtRemoteDesktop>/iconengines/"
+            COMMENT "Copying Qt SVG icon engine plugin to output directory"
         )
     endif()
 endif()
