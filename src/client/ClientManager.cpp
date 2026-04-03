@@ -36,10 +36,20 @@ ConnectionInstance::~ConnectionInstance() {
         if ( sessionManager && !sessionManager.isNull() ) {
             // 使用 BlockingQueuedConnection 确保断开操作完成（带超时保护）
             qCDebug(lcClientManager) << "~ConnectionInstance(): [PHASE-1] Disconnecting session for" << connectionId;
-            bool invoked = QMetaObject::invokeMethod(sessionManager, "disconnectFromHost", 
+            bool invoked = QMetaObject::invokeMethod(sessionManager, "disconnectFromHost",
                 Qt::BlockingQueuedConnection);
             if (!invoked) {
                 qCWarning(lcClientManager) << "~ConnectionInstance(): [PHASE-1] Failed to invoke disconnectFromHost for" << connectionId;
+            }
+
+            // 将 SessionManager 及其子对象（ConnectionManager/TcpClient/QSslSocket）移回主线程，
+            // 避免后续在主线程中 delete 时触发 "Cannot send events to objects owned by a different thread" 断言
+            if ( instanceThread && instanceThread->isRunning() ) {
+                qCDebug(lcClientManager) << "~ConnectionInstance(): [PHASE-1] Moving SessionManager back to main thread for" << connectionId;
+                QThread* mainThread = QThread::currentThread();
+                QMetaObject::invokeMethod(sessionManager.data(), [sm = sessionManager.data(), mainThread]() {
+                    sm->moveToThread(mainThread);
+                }, Qt::BlockingQueuedConnection);
             }
         }
 
@@ -537,22 +547,9 @@ void ClientManager::onWindowClosed() {
         // 先从连接列表中移除，防止其他回调再次访问
         m_connections.remove(connectionId);
 
-        // 异步断开连接并清理资源（使用 QueuedConnection 确保顺序执行）
-        if ( instance->sessionManager ) {
-            qCDebug(lcClientManager) << "onWindowClosed(): [STEP-1] Requesting session termination for" << connectionId;
-            // 先终止会话（停止统计、清理本地数据）
-            QMetaObject::invokeMethod(instance->sessionManager,
-                "terminateSession",
-                Qt::QueuedConnection);
-            
-            qCDebug(lcClientManager) << "onWindowClosed(): [STEP-2] Requesting disconnect for" << connectionId;
-            // 再断开网络连接（发送断开请求、关闭套接字）
-            QMetaObject::invokeMethod(instance->sessionManager,
-                "disconnectFromHost",
-                Qt::QueuedConnection);
-        }
-
-        qCDebug(lcClientManager) << "onWindowClosed(): [STEP-3] Cleaning up connection for" << connectionId;
+        // 直接清理连接实例，~ConnectionInstance() 内部会通过 BlockingQueuedConnection
+        // 在 session 线程中同步执行 disconnectFromHost，然后将对象移回主线程后安全删除
+        qCDebug(lcClientManager) << "onWindowClosed(): [STEP-1] Cleaning up connection for" << connectionId;
         cleanupConnection(instance);
 
         // 检查是否所有连接都已关闭
