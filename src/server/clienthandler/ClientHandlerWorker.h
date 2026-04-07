@@ -292,6 +292,12 @@ private:
     quint32 m_pbkdf2Iterations{ 100000 }; ///< PBKDF2迭代次数
     quint32 m_pbkdf2KeyLength{ 32 };      ///< PBKDF2密钥长度
     int m_failedAuthCount;                ///< 认证失败次数
+    QDateTime m_lastFailedAuthTime;       ///< 最后一次认证失败时间（用于速率限制）
+
+    // Authentication rate limiting constants
+    static constexpr int MAX_AUTH_FAILURES = 5;           ///< 最大认证失败次数，超过后断开
+    static constexpr int AUTH_BASE_DELAY_MS = 1000;       ///< 认证失败基础延迟（毫秒）
+    static constexpr int AUTH_MAX_DELAY_MS = 30000;       ///< 认证失败最大延迟（毫秒）
 
     // 时间和心跳
     QDateTime m_connectionTime;           ///< 连接时间

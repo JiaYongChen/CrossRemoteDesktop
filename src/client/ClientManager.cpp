@@ -76,14 +76,20 @@ ConnectionInstance::~ConnectionInstance() {
 
             // 等待线程正常退出（使用配置的超时时间）
             if ( !instanceThread->wait(THREAD_QUIT_TIMEOUT_MS) ) {
-                qCWarning(lcClientManager) << "~ConnectionInstance(): [PHASE-2] Thread quit timeout after" 
-                    << THREAD_QUIT_TIMEOUT_MS << "ms, force terminating for" << connectionId;
-                // 强制终止线程
-                instanceThread->terminate();
-                // 再次等待确保线程已终止
+                // Thread::terminate() is extremely dangerous (no stack unwinding, no mutex release,
+                // no destructor calls). Instead, request cooperative interruption and wait again.
+                qCWarning(lcClientManager) << "~ConnectionInstance(): [PHASE-2] Thread quit timeout after"
+                    << THREAD_QUIT_TIMEOUT_MS << "ms, requesting interruption for" << connectionId;
+                instanceThread->requestInterruption();
+                instanceThread->quit();
                 if ( !instanceThread->wait(THREAD_TERMINATE_TIMEOUT_MS) ) {
-                    qCCritical(lcClientManager) << "~ConnectionInstance(): [PHASE-2] Thread terminate failed after" 
-                        << THREAD_TERMINATE_TIMEOUT_MS << "ms for" << connectionId;
+                    // Last resort: leak the thread rather than force-terminate.
+                    // A leaked thread is far safer than undefined behavior from terminate().
+                    qCCritical(lcClientManager) << "~ConnectionInstance(): [PHASE-2] Thread still running after"
+                        << THREAD_TERMINATE_TIMEOUT_MS << "ms, leaking thread to avoid undefined behavior for" << connectionId;
+                    // Prevent double-delete: schedule cleanup when thread eventually finishes
+                    QObject::connect(instanceThread, &QThread::finished, instanceThread, &QObject::deleteLater);
+                    instanceThread = nullptr;
                 }
             } else {
                 qCDebug(lcClientManager) << "~ConnectionInstance(): [PHASE-2] Thread stopped gracefully for" << connectionId;

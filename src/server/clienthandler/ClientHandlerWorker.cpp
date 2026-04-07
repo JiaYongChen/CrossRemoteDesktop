@@ -110,10 +110,26 @@ bool ClientHandlerWorker::initialize() {
         this, &ClientHandlerWorker::onError);
     connect(m_socket, QOverload<const QList<QSslError>&>::of(&QSslSocket::sslErrors),
         this, [this](const QList<QSslError>& errors) {
+        // Build list of acceptable self-signed certificate errors.
+        // Only these specific errors are tolerated; all others are treated as fatal.
+        QList<QSslError> expectedErrors;
         for ( const QSslError& error : errors ) {
-            qCWarning(clientHandlerWorker) << "SSL error:" << error.errorString();
+            switch ( error.error() ) {
+                case QSslError::SelfSignedCertificate:
+                case QSslError::SelfSignedCertificateInChain:
+                case QSslError::HostNameMismatch:
+                    // Tolerable for self-signed server certificates
+                    qCDebug(clientHandlerWorker) << "Ignoring expected SSL error:" << error.errorString();
+                    expectedErrors.append(error);
+                    break;
+                default:
+                    qCWarning(clientHandlerWorker) << "SSL error:" << error.errorString();
+                    break;
+            }
         }
-        m_socket->ignoreSslErrors();
+        if ( !expectedErrors.isEmpty() ) {
+            m_socket->ignoreSslErrors(expectedErrors);
+        }
     });
 
     // 启动服务端TLS握手
@@ -346,11 +362,15 @@ QDateTime ClientHandlerWorker::connectionTime() const {
 }
 
 void ClientHandlerWorker::setExpectedPasswordDigest(const QByteArray& salt, const QByteArray& digest) {
+    // Guard with mutex: this Q_INVOKABLE may be called from the main thread
+    // while the worker thread reads these fields during authentication.
+    QMutexLocker locker(&m_clientInfoMutex);
     m_expectedSalt = salt;
     m_expectedDigest = digest;
 }
 
 void ClientHandlerWorker::setPbkdf2Params(quint32 iterations, quint32 keyLength) {
+    QMutexLocker locker(&m_clientInfoMutex);
     m_pbkdf2Iterations = iterations;
     m_pbkdf2KeyLength = keyLength;
 }
@@ -656,6 +676,20 @@ void ClientHandlerWorker::handleHandshakeRequest(const QByteArray& data) {
 void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
     qCDebug(clientHandlerWorker) << "处理认证请求";
 
+    // Rate limiting: if within backoff period from last failure, reject immediately
+    if ( m_failedAuthCount > 0 && m_lastFailedAuthTime.isValid() ) {
+        int requiredDelayMs = std::min(
+            AUTH_BASE_DELAY_MS * (1 << (m_failedAuthCount - 1)),
+            AUTH_MAX_DELAY_MS);
+        qint64 elapsedMs = m_lastFailedAuthTime.msecsTo(QDateTime::currentDateTime());
+        if ( elapsedMs < requiredDelayMs ) {
+            qCWarning(clientHandlerWorker) << "认证速率限制: 距上次失败仅" << elapsedMs
+                << "ms (需等待" << requiredDelayMs << "ms), 拒绝请求:" << clientId();
+            // Don't send response during backoff — silent drop to slow down brute force
+            return;
+        }
+    }
+
     // 解析AuthenticationRequest结构体
     AuthenticationRequest authRequest;
     if ( !authRequest.decode(data) ) {
@@ -671,7 +705,13 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
     qCDebug(clientHandlerWorker) << "认证请求 - 用户名:" << username << ", 认证方法:" << authMethod;
 
     // 检查服务器是否设置了密码
-    if ( m_expectedDigest.isEmpty() ) {
+    // Take a snapshot under lock to avoid data race with setExpectedPasswordDigest()
+    QByteArray expectedDigest;
+    {
+        QMutexLocker locker(&m_clientInfoMutex);
+        expectedDigest = m_expectedDigest;
+    }
+    if ( expectedDigest.isEmpty() ) {
         // 服务器没有设置密码，允许任何用户直接认证成功
         qCDebug(clientHandlerWorker) << "服务器未设置密码，允许用户" << username << "直接认证成功";
         {
@@ -702,7 +742,7 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
         } else {
             // 客户端发送了计算好的hash，验证它
             QByteArray clientDigest = QByteArray::fromHex(passwordHash.toUtf8());
-            if ( clientDigest == m_expectedDigest ) {
+            if ( clientDigest == expectedDigest ) {
                 {
                     QMutexLocker locker(&m_clientInfoMutex);
                     m_isAuthenticated = true;
@@ -720,12 +760,23 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
                 qCInfo(clientHandlerWorker) << "客户端认证成功: " << clientId();
             } else {
                 m_failedAuthCount++;
-                sendAuthenticationResponse(AuthResult::INVALID_PASSWORD);
-                qCWarning(clientHandlerWorker) << "客户端认证失败:" << clientId() << "(失败次数:" << m_failedAuthCount << ")";
+                m_lastFailedAuthTime = QDateTime::currentDateTime();
+                qCWarning(clientHandlerWorker) << "客户端认证失败:" << clientId()
+                    << "(失败次数:" << m_failedAuthCount << "/" << MAX_AUTH_FAILURES << ")";
 
-                if ( m_failedAuthCount >= 3 ) {
-                    qCWarning(clientHandlerWorker) << "认证失败次数过多，断开连接";
+                if ( m_failedAuthCount >= MAX_AUTH_FAILURES ) {
+                    qCWarning(clientHandlerWorker) << "认证失败次数达到上限，断开连接:" << clientId();
+                    sendAuthenticationResponse(AuthResult::ACCESS_DENIED);
                     forceDisconnect();
+                } else {
+                    // Exponential backoff: delay = base * 2^(failures-1), capped at max
+                    int delayMs = std::min(
+                        AUTH_BASE_DELAY_MS * (1 << (m_failedAuthCount - 1)),
+                        AUTH_MAX_DELAY_MS);
+                    qCInfo(clientHandlerWorker) << "认证速率限制: 延迟" << delayMs << "ms 后发送响应";
+                    QTimer::singleShot(delayMs, this, [this]() {
+                        sendAuthenticationResponse(AuthResult::INVALID_PASSWORD);
+                    });
                 }
             }
         }
@@ -921,16 +972,23 @@ void ClientHandlerWorker::sendAuthenticationResponse(AuthResult result, const QS
 void ClientHandlerWorker::sendAuthChallenge() {
     AuthChallenge challenge;
     challenge.method = 1; // PBKDF2_SHA256
-    challenge.iterations = 10000; // 与ServerWorker中的迭代次数保持一致
-    challenge.keyLength = 32; // 与ServerWorker中的密钥长度保持一致
+
+    // Read PBKDF2 params and salt under lock (may be set from main thread)
+    QByteArray salt;
+    {
+        QMutexLocker locker(&m_clientInfoMutex);
+        challenge.iterations = m_pbkdf2Iterations;
+        challenge.keyLength = m_pbkdf2KeyLength;
+        salt = m_expectedSalt;
+    }
 
     // 使用服务器预设的盐值，如果没有则生成新的
-    QByteArray salt = m_expectedSalt;
     if ( salt.isEmpty() ) {
         salt = QByteArray(16, 0); // 16字节盐值
         for ( int i = 0; i < salt.size(); ++i ) {
             salt[i] = static_cast<char>(QRandomGenerator::global()->bounded(256));
         }
+        QMutexLocker locker(&m_clientInfoMutex);
         m_expectedSalt = salt;
     }
 
