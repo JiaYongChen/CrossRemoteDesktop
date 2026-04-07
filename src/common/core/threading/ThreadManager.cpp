@@ -2,8 +2,7 @@
 #include "Worker.h"
 #include <QtCore/QMutexLocker>
 #include <QtCore/QPointer>
-#include <QtCore/QCoreApplication>
-#include <QtCore/QLoggingCategory> // 引入QLoggingCategory以使用分类日志
+#include <QtCore/QLoggingCategory>
 #include "../logging/LoggingCategories.h" // 引入日志分类声明，使用lcThreading进行分类日志输出
 
 // 静态成员初始化
@@ -360,9 +359,7 @@ bool ThreadManager::destroyThread(const QString& name) {
     // Worker 与 Thread 的删除统一由 ThreadInfo 析构处理，确保在确认线程停止后安全删除。
 
     ThreadInfo* infoToDelete = m_threads.take(name);
-    // 处理任何待处理的事件
     locker.unlock();
-    QCoreApplication::processEvents();
     if ( infoToDelete ) {
         delete infoToDelete; // 析构中会清理 worker 和 thread
     }

@@ -76,6 +76,11 @@ private:
     // 心跳相关 - 仅接收服务端心跳请求并响应
     QTimer* m_heartbeatCheckTimer;
     QDateTime m_lastHeartbeat;
+
+    // Disconnect timeout timer (replaces anonymous QTimer::singleShot to ensure
+    // safe cleanup during moveToThread and object destruction)
+    QTimer* m_disconnectTimeoutTimer;
+    bool m_destroying = false;
 };
 
 #endif // TCPCLIENT_H

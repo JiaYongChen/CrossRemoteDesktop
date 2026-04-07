@@ -31,6 +31,18 @@ ConnectionManager::ConnectionManager(QObject* parent)
 }
 
 ConnectionManager::~ConnectionManager() {
+    // Stop all timers to prevent callbacks during destruction
+    m_connectionTimer->stop();
+    m_reconnectTimer->stop();
+
+    // Disconnect all TcpClient signals BEFORE cleanup to prevent signal
+    // cascade during parent-child auto-destruction (TcpClient::~TcpClient
+    // calls socket->abort() which triggers disconnected/error signals that
+    // chain back to this partially-destroyed object)
+    if ( m_tcpClient ) {
+        m_tcpClient->disconnect();
+    }
+
     cleanupConnection();
 }
 

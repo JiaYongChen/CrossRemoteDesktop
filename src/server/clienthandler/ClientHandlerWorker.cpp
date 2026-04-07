@@ -62,11 +62,6 @@ ClientHandlerWorker::ClientHandlerWorker(qintptr socketDescriptor,
 ClientHandlerWorker::~ClientHandlerWorker() {
     qCDebug(clientHandlerWorker) << "ClientHandlerWorker 析构函数";
 
-    // 确保Worker已停止
-    if ( isRunning() ) {
-        stop(true);
-    }
-
     qCDebug(clientHandlerWorker) << "ClientHandlerWorker 析构完成";
 }
 
@@ -165,25 +160,47 @@ bool ClientHandlerWorker::initialize() {
 void ClientHandlerWorker::cleanup() {
     qCInfo(clientHandlerWorker) << "清理 ClientHandlerWorker 资源";
 
-    // 停止定时器
+    // 在工作线程中停止并显式删除定时器子对象。
+    // 根本原因修复：这些子 QObject 是在工作线程的 initialize() 中以 this 为 parent 创建的，
+    // 其线程亲缘性属于工作线程。若只停止不删除，Worker 析构时 QObject::~QObject() 会从
+    // 主线程调用 deleteChildren()，触发跨线程的 QSocketNotifier/QTimer 清理，
+    // 进而导致 QCoreApplication::sendEvent 的跨线程致命断言。
+    // 在此（doStop() 调用链，仍在工作线程内）显式删除，确保主线程析构 Worker 时
+    // children 列表已为空，彻底消除跨线程删除子 QObject 的问题。
     if ( m_heartbeatCheckTimer ) {
         m_heartbeatCheckTimer->stop();
+        delete m_heartbeatCheckTimer;
+        m_heartbeatCheckTimer = nullptr;
     }
 
     if ( m_heartbeatSendTimer ) {
         m_heartbeatSendTimer->stop();
+        delete m_heartbeatSendTimer;
+        m_heartbeatSendTimer = nullptr;
     }
 
     if ( m_cursorUpdateTimer ) {
         m_cursorUpdateTimer->stop();
+        delete m_cursorUpdateTimer;
+        m_cursorUpdateTimer = nullptr;
     }
 
-    // 断开套接字连接
+    // 在工作线程中显式删除输入模拟器
+    if ( m_inputSimulator ) {
+        delete m_inputSimulator;
+        m_inputSimulator = nullptr;
+    }
+
+    // 在工作线程中断开并显式删除套接字。
+    // QSslSocket 内部的 QSocketNotifier 清理（unregisterSocketNotifier）在错误线程中
+    // 会调用 sendEvent，必须在工作线程内完成删除。
     if ( m_socket ) {
         m_socket->disconnectFromHost();
         if ( m_socket->state() != QAbstractSocket::UnconnectedState ) {
             m_socket->waitForDisconnected(3000);
         }
+        delete m_socket;
+        m_socket = nullptr;
     }
 
     qCInfo(clientHandlerWorker) << "ClientHandlerWorker 资源清理完成";

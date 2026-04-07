@@ -128,9 +128,13 @@ bool ServerManager::startServer(quint16 port, const QString& password) {
     }
 
     // 使用定时器延迟启动服务器，避免在Worker启动过程中调用
-    QTimer::singleShot(100, [worker, port]() {
-        QMetaObject::invokeMethod(worker, "startServer", Qt::QueuedConnection,
-            Q_ARG(quint16, port));
+    // 使用 QPointer 防止 worker 在定时器触发前被销毁导致悬空指针崩溃
+    QPointer<ServerWorker> safeWorker(worker);
+    QTimer::singleShot(100, [safeWorker, port]() {
+        if ( safeWorker ) {
+            QMetaObject::invokeMethod(safeWorker.data(), "startServer", Qt::QueuedConnection,
+                Q_ARG(quint16, port));
+        }
     });
 
     // 5. 更新状态（最后更新，确保服务器启动成功）
@@ -699,19 +703,21 @@ void ServerManager::onClientHandlerMessageReceived(MessageType type, const QByte
 }
 
 void ServerManager::cleanupDisconnectedClient() {
-    QMutexLocker locker(&m_clientMutex);
-
-    if ( m_currentClient ) {
-        // 断开Worker信号连接
-        m_currentClient->disconnect(this);
-
-        // 停止并销毁ClientHandlerWorker线程
-        if ( !m_currentClientThreadName.isEmpty() && m_threadManager ) {
-            m_threadManager->stopThread(m_currentClientThreadName, false);
-            m_threadManager->destroyThread(m_currentClientThreadName);
+    QString threadNameToDestroy;
+    {
+        QMutexLocker locker(&m_clientMutex);
+        if ( m_currentClient ) {
+            // 断开Worker信号连接
+            m_currentClient->disconnect(this);
+            // 在锁内保存线程名称并清空状态，避免持锁时调用 destroyThread 进入事件循环导致死锁
+            threadNameToDestroy = m_currentClientThreadName;
+            m_currentClient = nullptr;
+            m_currentClientThreadName.clear();
         }
-
-        m_currentClient = nullptr;
-        m_currentClientThreadName.clear();
+    }
+    // 在锁外调用 destroyThread，避免持锁时重入事件循环
+    if ( !threadNameToDestroy.isEmpty() && m_threadManager ) {
+        m_threadManager->stopThread(threadNameToDestroy, false);
+        m_threadManager->destroyThread(threadNameToDestroy);
     }
 }

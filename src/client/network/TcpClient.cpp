@@ -11,7 +11,8 @@
 TcpClient::TcpClient(QObject* parent)
     : QObject(parent)
     , m_socket(new QSslSocket(this))
-    , m_heartbeatCheckTimer(new QTimer(this)) {
+    , m_heartbeatCheckTimer(new QTimer(this))
+    , m_disconnectTimeoutTimer(new QTimer(this)) {
 
     m_socket->setProxy(QNetworkProxy::NoProxy);
 
@@ -30,10 +31,37 @@ TcpClient::TcpClient(QObject* parent)
     // 心跳超时检查定时器设置 - 用于检测服务端心跳超时
     m_heartbeatCheckTimer->setInterval(NetworkConstants::HEARTBEAT_TIMEOUT);
     connect(m_heartbeatCheckTimer, &QTimer::timeout, this, &TcpClient::checkHeartbeat);
+
+    // Disconnect timeout timer: fallback abort if graceful disconnect takes too long.
+    // Using a named QTimer instead of QTimer::singleShot ensures the timer
+    // moves with the object during moveToThread() and is safely destroyed with it.
+    m_disconnectTimeoutTimer->setSingleShot(true);
+    m_disconnectTimeoutTimer->setInterval(1000);
+    connect(m_disconnectTimeoutTimer, &QTimer::timeout, this, [this]() {
+        if ( m_socket && m_socket->state() != QAbstractSocket::UnconnectedState ) {
+            m_socket->abort();
+        }
+    });
 }
 
 TcpClient::~TcpClient() {
-    disconnectFromHost();
+    m_destroying = true;
+
+    // Stop all timers first to prevent any callbacks during destruction
+    m_disconnectTimeoutTimer->stop();
+    m_heartbeatCheckTimer->stop();
+
+    // Disconnect ALL socket signals BEFORE abort() to prevent signal cascade
+    // during destruction (abort triggers disconnected/error signals which chain
+    // back to partially-destroyed parent objects → abort() crash)
+    if ( m_socket ) {
+        m_socket->disconnect();
+    }
+
+    // Force-close the socket synchronously (no event loop dependency)
+    if ( m_socket && m_socket->state() != QAbstractSocket::UnconnectedState ) {
+        m_socket->abort();
+    }
 }
 
 void TcpClient::connectToHost(const QString& hostName, quint16 port) {
@@ -64,12 +92,11 @@ void TcpClient::disconnectFromHost() {
         // 使用非阻塞的优雅断开
         m_socket->disconnectFromHost();
 
-        // 兜底：若短时间内未能断开，使用abort强制关闭，避免长时间悬挂
-        QTimer::singleShot(1000, this, [this]() {
-            if ( m_socket && m_socket->state() != QAbstractSocket::UnconnectedState ) {
-                m_socket->abort();
-            }
-        });
+        // Fallback: if disconnect takes too long, abort after 1s.
+        // Guarded by m_destroying to prevent starting timers during destruction.
+        if ( !m_destroying ) {
+            m_disconnectTimeoutTimer->start();
+        }
     } else if ( m_socket->state() != QAbstractSocket::UnconnectedState ) {
         // 非连接状态（例如正在连接/正在关闭），直接强制断开
         m_socket->abort();
@@ -156,6 +183,13 @@ void TcpClient::onDisconnected() {
     // 清理接收缓冲区
     m_receiveBuffer.clear();
 
+    // Guard: do not emit signals during destruction — parent objects may
+    // already be partially destroyed, causing use-after-free / abort()
+    if ( m_destroying ) {
+        qCDebug(lcClient) << "TcpClient::onDisconnected - Skipping signal emission (destroying)";
+        return;
+    }
+
     // 发出断开连接信号，通知上层应用
     qCDebug(lcClient) << "TcpClient::onDisconnected - Emitting disconnected signal";
     emit disconnected();
@@ -164,7 +198,13 @@ void TcpClient::onDisconnected() {
 void TcpClient::onError(QAbstractSocket::SocketError error) {
     Q_UNUSED(error)
 
-        QString errorMsg;
+    // Guard: do not emit signals during destruction
+    if ( m_destroying ) {
+        qCDebug(lcClient) << "TcpClient::onError - Skipping signal emission (destroying)";
+        return;
+    }
+
+    QString errorMsg;
     QString originalError;
     if ( m_socket ) {
         // 将常见的英文错误信息翻译为中文
@@ -198,7 +238,7 @@ void TcpClient::onError(QAbstractSocket::SocketError error) {
 }
 
 void TcpClient::onReadyRead() {
-    if ( !m_socket ) {
+    if ( !m_socket || m_destroying ) {
         return;
     }
 

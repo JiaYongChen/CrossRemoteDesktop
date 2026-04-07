@@ -148,26 +148,21 @@ void ClientRemoteWindow::updateWindowTitle() {
 void ClientRemoteWindow::initializeManagers() {
     // Initialize managers using composition pattern
     // Each manager is responsible for a specific aspect of functionality
+    // Note: managers are created as children of this widget and run in the main thread.
+    // moveToThread() would silently fail here because QObjects with a parent cannot be
+    // moved to a different thread; the previously created orphan QThread* objects were leaked.
 
     // File transfer management
     m_fileTransferManager = new FileTransferManager(this, this);
-    QThread* fileTransferThread = new QThread();
-    m_fileTransferManager->moveToThread(fileTransferThread);
 
     // Render and view management
     m_renderManager = new RenderManager(this, this);
-    QThread* renderThread = new QThread();
-    m_renderManager->moveToThread(renderThread);
 
     // Cursor management
     m_cursorManager = new CursorManager(viewport(), this);
-    QThread* cursorThread = new QThread();
-    m_cursorManager->moveToThread(cursorThread);
 
     // Clipboard management
     m_clipboardManager = new ClipboardManager(this);
-    QThread* clipboardThread = new QThread();
-    m_clipboardManager->moveToThread(clipboardThread);
     m_clipboardManager->setEnabled(true);  // 默认启用剪贴板同步
 }
 

@@ -34,12 +34,26 @@ ConnectionInstance::~ConnectionInstance() {
         }
 
         if ( sessionManager && !sessionManager.isNull() ) {
-            // 使用 BlockingQueuedConnection 确保断开操作完成（带超时保护）
             qCDebug(lcClientManager) << "~ConnectionInstance(): [PHASE-1] Disconnecting session for" << connectionId;
-            bool invoked = QMetaObject::invokeMethod(sessionManager, "disconnectFromHost",
-                Qt::BlockingQueuedConnection);
+            // 仅在线程运行时使用 BlockingQueuedConnection，否则直接调用，避免线程已停止时永久阻塞
+            Qt::ConnectionType connType = (instanceThread && instanceThread->isRunning())
+                ? Qt::BlockingQueuedConnection
+                : Qt::DirectConnection;
+            bool invoked = QMetaObject::invokeMethod(sessionManager, "disconnectFromHost", connType);
             if (!invoked) {
                 qCWarning(lcClientManager) << "~ConnectionInstance(): [PHASE-1] Failed to invoke disconnectFromHost for" << connectionId;
+            }
+
+            // 在 moveToThread 前，停止 session 线程中所有子 QTimer，
+            // 防止挂起的定时器事件在线程归属变更后投递到错误的线程
+            if ( instanceThread && instanceThread->isRunning() ) {
+                qCDebug(lcClientManager) << "~ConnectionInstance(): [PHASE-1] Stopping all timers in session thread for" << connectionId;
+                QMetaObject::invokeMethod(sessionManager.data(), [sm = sessionManager.data()]() {
+                    const auto timers = sm->findChildren<QTimer*>();
+                    for ( QTimer* timer : timers ) {
+                        timer->stop();
+                    }
+                }, Qt::BlockingQueuedConnection);
             }
 
             // 将 SessionManager 及其子对象（ConnectionManager/TcpClient/QSslSocket）移回主线程，
@@ -81,8 +95,24 @@ ConnectionInstance::~ConnectionInstance() {
         // 第三阶段：删除 SessionManager（线程已停止，安全删除）
         if ( sessionManager && !sessionManager.isNull() ) {
             qCDebug(lcClientManager) << "~ConnectionInstance(): [PHASE-3] Deleting SessionManager for" << connectionId;
-            // 断开所有信号连接
+
+            // 深度断开整个对象树的所有信号连接，防止 Qt 父子机制级联删除
+            // 子对象时触发信号回传到已半销毁的父对象（这是 abort() 崩溃的根因）：
+            //   delete SessionManager → auto-delete ConnectionManager
+            //     → auto-delete TcpClient → ~TcpClient() calls socket->abort()
+            //       → socket emits disconnected() → signal cascades back up → crash
             sessionManager->disconnect();
+            // Retrieve ConnectionManager (child of SessionManager) and disconnect its tree
+            const auto connectionManagers = sessionManager->findChildren<QObject*>(Qt::FindDirectChildrenOnly);
+            for ( QObject* child : connectionManagers ) {
+                child->disconnect();
+                // Also disconnect grandchildren (TcpClient, QSslSocket, QTimers)
+                const auto grandchildren = child->findChildren<QObject*>();
+                for ( QObject* gc : grandchildren ) {
+                    gc->disconnect();
+                }
+            }
+
             // 直接删除而非 deleteLater，因为线程已停止
             delete sessionManager.data();
             // QPointer 会自动清空，无需手动 clear()
