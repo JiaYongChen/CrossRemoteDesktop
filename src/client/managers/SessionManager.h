@@ -122,11 +122,11 @@ private:
 
     // 帧数据缓存和线程安全
     QByteArray m_previousFrameData;
-    mutable QMutex* m_frameDataMutex;
+    mutable QMutex m_frameDataMutex;
 
     // 图片队列（用于替代信号槽机制）
     QQueue<QImage> m_screenImageQueue;
-    mutable QMutex* m_screenImageQueueMutex;
+    mutable QMutex m_screenImageQueueMutex;
     static constexpr int MAX_QUEUE_SIZE = 3;  // 队列最大长度,防止积压
 
     // 性能统计

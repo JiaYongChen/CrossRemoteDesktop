@@ -308,6 +308,9 @@ private:
     // 光标位置发送
     QTimer* m_cursorUpdateTimer;          ///< 光标位置更新定时器
 
+    // 连接状态（线程安全，用于跨线程查询替代直接访问 QSslSocket::state()）
+    std::atomic<bool> m_isConnectedAtomic{ false };
+
     // 断开连接标志（避免重复发送disconnected信号）
     std::atomic<bool> m_disconnectSignalSent{ false };
 

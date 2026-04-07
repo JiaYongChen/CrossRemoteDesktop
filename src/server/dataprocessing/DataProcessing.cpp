@@ -16,11 +16,11 @@ DataValidator::~DataValidator() {}
 bool DataValidator::validate(const QByteArray& raw, const QString& mimeType, DataRecord& recordOut) {
     // 基本非空校验
     if ( raw.isEmpty() ) {
-        qCWarning(DataProcessingLog) << "验证失败：原始数据为空";
+        qCWarning(lcDataProcessing) << "验证失败：原始数据为空";
         return false;
     }
     if ( mimeType.isEmpty() ) {
-        qCWarning(DataProcessingLog) << "验证失败：MIME类型为空";
+        qCWarning(lcDataProcessing) << "验证失败：MIME类型为空";
         return false;
     }
 
@@ -46,7 +46,7 @@ bool DataValidator::validate(const QByteArray& raw, const QString& mimeType, Dat
         QImageReader reader(&buffer, mimeType.section('/', 1).toUtf8());
         const QImage img = reader.read();
         if ( img.isNull() ) {
-            qCWarning(DataProcessingLog) << "验证失败：图像解码失败" << reader.errorString();
+            qCWarning(lcDataProcessing) << "验证失败：图像解码失败" << reader.errorString();
             return false;
         }
         recordOut.size = img.size();
@@ -82,7 +82,7 @@ bool DataCleanerFormatter::cleanAndFormat(const DataRecord& in, DataRecord& out,
         QImage img = reader.read();
         if ( img.isNull() ) {
             errorOut = QStringLiteral("清洗失败：图像解码失败：%1").arg(reader.errorString());
-            qCWarning(DataProcessingLog) << errorOut;
+            qCWarning(lcDataProcessing) << errorOut;
             return false;
         }
         // 统一为ARGB32格式
@@ -107,26 +107,26 @@ InMemoryDataStore::~InMemoryDataStore() {}
 bool InMemoryDataStore::save(const DataRecord& record, QString& errorOut) {
     if ( record.id.isEmpty() ) {
         errorOut = QStringLiteral("存储失败：记录ID为空");
-        qCWarning(DataProcessingLog) << errorOut;
+        qCWarning(lcDataProcessing) << errorOut;
         return false;
     }
     QMutexLocker locker(&m_mutex);
     m_storage.insert(record.id, record);
-    qCDebug(DataProcessingLog) << "已保存记录" << record.id << "当前总数:" << m_storage.size();
+    qCDebug(lcDataProcessing) << "已保存记录" << record.id << "当前总数:" << m_storage.size();
     return true;
 }
 
 bool InMemoryDataStore::get(const QString& id, DataRecord& out, QString& errorOut) const {
     if ( id.isEmpty() ) {
         errorOut = QStringLiteral("检索失败：ID为空");
-        qCWarning(DataProcessingLog) << errorOut;
+        qCWarning(lcDataProcessing) << errorOut;
         return false;
     }
     QMutexLocker locker(&m_mutex);
     auto it = m_storage.constFind(id);
     if ( it == m_storage.constEnd() ) {
         errorOut = QStringLiteral("检索失败：未找到ID=%1").arg(id);
-        qCWarning(DataProcessingLog) << errorOut;
+        qCWarning(lcDataProcessing) << errorOut;
         return false;
     }
     out = it.value();
@@ -136,17 +136,17 @@ bool InMemoryDataStore::get(const QString& id, DataRecord& out, QString& errorOu
 bool InMemoryDataStore::remove(const QString& id, QString& errorOut) {
     if ( id.isEmpty() ) {
         errorOut = QStringLiteral("删除失败：ID为空");
-        qCWarning(DataProcessingLog) << errorOut;
+        qCWarning(lcDataProcessing) << errorOut;
         return false;
     }
     QMutexLocker locker(&m_mutex);
     const int removed = m_storage.remove(id);
     if ( removed == 0 ) {
         errorOut = QStringLiteral("删除失败：未找到ID=%1").arg(id);
-        qCWarning(DataProcessingLog) << errorOut;
+        qCWarning(lcDataProcessing) << errorOut;
         return false;
     }
-    qCDebug(DataProcessingLog) << "已删除记录" << id << "当前总数:" << m_storage.size();
+    qCDebug(lcDataProcessing) << "已删除记录" << id << "当前总数:" << m_storage.size();
     return true;
 }
 

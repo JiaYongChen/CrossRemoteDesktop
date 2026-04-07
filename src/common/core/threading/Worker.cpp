@@ -41,12 +41,12 @@ bool Worker::isStopped() const {
 }
 
 QString Worker::name() const {
-    QMutexLocker locker(&m_stateMutex);
+    QMutexLocker locker(&m_nameMutex);
     return m_name;
 }
 
 void Worker::setName(const QString& name) {
-    QMutexLocker locker(&m_stateMutex);
+    QMutexLocker locker(&m_nameMutex);
     m_name = name;
 }
 

@@ -30,13 +30,13 @@ Q_LOGGING_CATEGORY(lcDataProcessor, "server.dataprocessor", QtDebugMsg)
 Q_LOGGING_CATEGORY(lcInputSimulator, "server.inputsimulator", QtDebugMsg)
 
 /// 客户端处理器Worker日志
-Q_LOGGING_CATEGORY(clientHandlerWorker, "clienthandler.worker", QtDebugMsg)
+Q_LOGGING_CATEGORY(lcClientHandlerWorker, "server.clienthandler", QtDebugMsg)
 
 /// 屏幕捕获管理器日志
-Q_LOGGING_CATEGORY(screenCaptureManager, "screencapture.manager", QtDebugMsg)
+Q_LOGGING_CATEGORY(lcScreenCaptureManager, "server.capture.manager", QtDebugMsg)
 
 /// 屏幕捕获Worker日志
-Q_LOGGING_CATEGORY(screenCaptureWorker, "screencapture.worker", QtDebugMsg)
+Q_LOGGING_CATEGORY(lcScreenCaptureWorker, "server.capture.worker", QtDebugMsg)
 
 /// 数据流日志
 Q_LOGGING_CATEGORY(lcDataFlow, "dataflow", QtDebugMsg)
@@ -45,7 +45,7 @@ Q_LOGGING_CATEGORY(lcDataFlow, "dataflow", QtDebugMsg)
 Q_LOGGING_CATEGORY(lcQueueManager, "queuemanager", QtDebugMsg)
 
 /// 数据处理日志
-Q_LOGGING_CATEGORY(DataProcessingLog, "server.dataprocessing", QtDebugMsg)
+Q_LOGGING_CATEGORY(lcDataProcessing, "server.dataprocessing", QtDebugMsg)
 
 /// 数据处理配置日志
 Q_LOGGING_CATEGORY(lcDataProcessingConfig, "server.dataprocessing.config", QtDebugMsg)

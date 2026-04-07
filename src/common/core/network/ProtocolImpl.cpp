@@ -119,11 +119,23 @@ static void writePrefixedString(QDataStream& ds, const QString& s) {
     }
 }
 
+// Per-field string length limits to prevent memory exhaustion from malicious input.
+// Each field gets a reasonable maximum instead of the previous blanket 10MB limit.
+static constexpr quint32 MAX_USERNAME_LENGTH = 256;
+static constexpr quint32 MAX_PASSWORD_HASH_LENGTH = 512;
+static constexpr quint32 MAX_SESSION_ID_LENGTH = 512;
+static constexpr quint32 MAX_HOSTNAME_LENGTH = 1024;
+static constexpr quint32 MAX_FILENAME_LENGTH = 4096;
+static constexpr quint32 MAX_TEXT_LENGTH = 64 * 1024;            // 64KB for keyboard text
+static constexpr quint32 MAX_ERROR_MESSAGE_LENGTH = 4096;
+static constexpr quint32 MAX_GENERIC_STRING_LENGTH = 4096;
+
 // 辅助函数：读取长度前缀字符串（quint32长度 + UTF-8数据）
-static QString readPrefixedString(QDataStream& ds) {
+// maxLen: per-field maximum allowed length in bytes
+static QString readPrefixedString(QDataStream& ds, quint32 maxLen = MAX_GENERIC_STRING_LENGTH) {
     quint32 len = 0;
     ds >> len;
-    if ( ds.status() != QDataStream::Ok || len > 10 * 1024 * 1024 ) return QString();
+    if ( ds.status() != QDataStream::Ok || len > maxLen ) return QString();
     if ( len == 0 ) return QString();
     QByteArray buf(static_cast<qsizetype>(len), 0);
     int bytesRead = ds.readRawData(buf.data(), static_cast<int>(len));
@@ -205,8 +217,8 @@ bool HandshakeRequest::decode(const QByteArray& bytes) {
     ds >> screenWidth;
     ds >> screenHeight;
     ds >> colorDepth;
-    clientName = readPrefixedString(ds);
-    clientOS = readPrefixedString(ds);
+    clientName = readPrefixedString(ds, MAX_HOSTNAME_LENGTH);
+    clientOS = readPrefixedString(ds, MAX_HOSTNAME_LENGTH);
     return ds.status() == QDataStream::Ok;
 }
 
@@ -233,8 +245,8 @@ bool HandshakeResponse::decode(const QByteArray& bytes) {
     ds >> screenHeight;
     ds >> colorDepth;
     ds >> supportedFeatures;
-    serverName = readPrefixedString(ds);
-    serverOS = readPrefixedString(ds);
+    serverName = readPrefixedString(ds, MAX_HOSTNAME_LENGTH);
+    serverOS = readPrefixedString(ds, MAX_HOSTNAME_LENGTH);
     return ds.status() == QDataStream::Ok;
 }
 
@@ -252,8 +264,8 @@ QByteArray AuthenticationRequest::encode() const {
 bool AuthenticationRequest::decode(const QByteArray& bytes) {
     QDataStream ds(bytes);
     ds.setByteOrder(QDataStream::LittleEndian);
-    username = readPrefixedString(ds);
-    passwordHash = readPrefixedString(ds);
+    username = readPrefixedString(ds, MAX_USERNAME_LENGTH);
+    passwordHash = readPrefixedString(ds, MAX_PASSWORD_HASH_LENGTH);
     quint32 method = 0;
     ds >> method;
     if ( ds.status() != QDataStream::Ok ) return false;
@@ -277,7 +289,7 @@ bool AuthenticationResponse::decode(const QByteArray& bytes) {
     ds.setByteOrder(QDataStream::LittleEndian);
     quint8 res8 = 0;
     ds >> res8;
-    sessionId = readPrefixedString(ds);
+    sessionId = readPrefixedString(ds, MAX_SESSION_ID_LENGTH);
     quint32 perms = 0;
     ds >> perms;
     if ( ds.status() != QDataStream::Ok ) return false;
@@ -327,7 +339,7 @@ bool KeyboardEvent::decode(const QByteArray& bytes) {
     ds.setByteOrder(QDataStream::LittleEndian);
     quint8 type8 = 0; quint32 key = 0, mods = 0;
     ds >> type8; ds >> key; ds >> mods;
-    text = readPrefixedString(ds);
+    text = readPrefixedString(ds, MAX_TEXT_LENGTH);
     if ( ds.status() != QDataStream::Ok ) return false;
     eventType = static_cast<KeyboardEventType>(type8);
     keyCode = key; modifiers = mods;
@@ -349,7 +361,7 @@ QByteArray FileTransferRequest::encode() const {
 bool FileTransferRequest::decode(const QByteArray& bytes) {
     QDataStream ds(bytes);
     ds.setByteOrder(QDataStream::LittleEndian);
-    fileName = readPrefixedString(ds);
+    fileName = readPrefixedString(ds, MAX_FILENAME_LENGTH);
     quint64 size = 0; quint32 tid = 0; quint8 dir = 0;
     ds >> size; ds >> tid; ds >> dir;
     if ( ds.status() != QDataStream::Ok ) return false;
@@ -373,7 +385,7 @@ bool FileTransferResponse::decode(const QByteArray& bytes) {
     ds.setByteOrder(QDataStream::LittleEndian);
     quint32 tid = 0; quint8 st = 0;
     ds >> tid; ds >> st;
-    errorMessage = readPrefixedString(ds);
+    errorMessage = readPrefixedString(ds, MAX_ERROR_MESSAGE_LENGTH);
     if ( ds.status() != QDataStream::Ok ) return false;
     transferId = tid; status = static_cast<FileTransferStatus>(st);
     return true;
@@ -575,7 +587,7 @@ bool AuthChallenge::decode(const QByteArray& bytes) {
     ds >> method;
     ds >> iterations;
     ds >> keyLength;
-    saltHex = readPrefixedString(ds);
+    saltHex = readPrefixedString(ds, MAX_PASSWORD_HASH_LENGTH);
     return ds.status() == QDataStream::Ok;
 }
 

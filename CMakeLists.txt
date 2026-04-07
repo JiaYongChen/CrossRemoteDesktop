@@ -19,9 +19,8 @@ if(MSVC)
     add_compile_options(/utf-8)
     # 强制同步PDB写入，避免并行编译时PDB文件锁冲突(C1041)
     add_compile_options(/FS)
-    # 警告不视为错误(用于构建阶段)
-    string(REPLACE "/WX" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-    string(REPLACE "/WX" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+    # Note: /WX (warnings-as-errors) is set globally later via add_compile_options(/WX)
+    # for all project targets. See the "警告即错误" section below.
 endif()
 
 # [跨平台Qt6自动检测与配置]

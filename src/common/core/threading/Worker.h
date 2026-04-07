@@ -267,7 +267,7 @@ private:
     void updatePerformanceStats(quint64 processingTime);
 
 private:
-    mutable QMutex m_stateMutex;        ///< 状态互斥锁
+    mutable QMutex m_nameMutex;         ///< 线程名称互斥锁（仅保护 m_name）
     std::atomic<State> m_state;         ///< 当前状态
     std::atomic<bool> m_stopRequested;  ///< 停止请求标志
     std::atomic<bool> m_pauseRequested; ///< 暂停请求标志

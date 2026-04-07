@@ -12,8 +12,6 @@ SessionManager::SessionManager(const QString& connectionId, QObject* parent)
     : QObject(parent)
     , m_connectionId(connectionId)
     , m_connectionManager(new ConnectionManager(this))
-    , m_frameDataMutex(new QMutex())
-    , m_screenImageQueueMutex(new QMutex())
     , m_statsTimer(new QTimer(this))
     , m_frameRate(30) {
 
@@ -32,8 +30,7 @@ SessionManager::~SessionManager() {
     terminateSession();
 
     // ConnectionManager 由 Qt 父对象机制自动删除
-    delete m_frameDataMutex;
-    delete m_screenImageQueueMutex;
+    // QMutex 是栈上值类型，自动析构，无需 delete
 }
 
 QString SessionManager::connectionId() const {
@@ -303,7 +300,7 @@ void SessionManager::handleScreenData(const QByteArray& data) {
 
     QByteArray frameData;
     {
-        QMutexLocker locker(m_frameDataMutex);
+        QMutexLocker locker(&m_frameDataMutex);
         // 使用解压后的JPEG数据
         frameData = jpegData;
         m_previousFrameData = jpegData;
@@ -340,7 +337,7 @@ void SessionManager::handleScreenData(const QByteArray& data) {
 
         // 将图片放入队列，替代信号槽机制
         {
-            QMutexLocker locker(m_screenImageQueueMutex);
+            QMutexLocker locker(&m_screenImageQueueMutex);
             // 如果队列已满，移除最旧的图片
             while ( m_screenImageQueue.size() >= MAX_QUEUE_SIZE ) {
                 m_screenImageQueue.dequeue();
@@ -440,12 +437,12 @@ void SessionManager::handleClipboardData(const QByteArray& data) {
 // ==================== 图片队列操作实现 ====================
 
 bool SessionManager::hasScreenImage() const {
-    QMutexLocker locker(m_screenImageQueueMutex);
+    QMutexLocker locker(&m_screenImageQueueMutex);
     return !m_screenImageQueue.isEmpty();
 }
 
 QImage SessionManager::dequeueScreenImage() {
-    QMutexLocker locker(m_screenImageQueueMutex);
+    QMutexLocker locker(&m_screenImageQueueMutex);
     if ( m_screenImageQueue.isEmpty() ) {
         return QImage();
     }

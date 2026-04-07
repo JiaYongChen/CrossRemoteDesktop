@@ -34,13 +34,13 @@ Q_DECLARE_LOGGING_CATEGORY(lcDataProcessor)
 Q_DECLARE_LOGGING_CATEGORY(lcInputSimulator)
 
 /// 客户端处理器Worker日志
-Q_DECLARE_LOGGING_CATEGORY(clientHandlerWorker)
+Q_DECLARE_LOGGING_CATEGORY(lcClientHandlerWorker)
 
 /// 屏幕捕获管理器日志
-Q_DECLARE_LOGGING_CATEGORY(screenCaptureManager)
+Q_DECLARE_LOGGING_CATEGORY(lcScreenCaptureManager)
 
 /// 屏幕捕获Worker日志
-Q_DECLARE_LOGGING_CATEGORY(screenCaptureWorker)
+Q_DECLARE_LOGGING_CATEGORY(lcScreenCaptureWorker)
 
 /// 数据流日志
 Q_DECLARE_LOGGING_CATEGORY(lcDataFlow)
@@ -49,7 +49,7 @@ Q_DECLARE_LOGGING_CATEGORY(lcDataFlow)
 Q_DECLARE_LOGGING_CATEGORY(lcQueueManager)
 
 /// 数据处理日志
-Q_DECLARE_LOGGING_CATEGORY(DataProcessingLog)
+Q_DECLARE_LOGGING_CATEGORY(lcDataProcessing)
 
 /// 数据处理配置日志
 Q_DECLARE_LOGGING_CATEGORY(lcDataProcessingConfig)
