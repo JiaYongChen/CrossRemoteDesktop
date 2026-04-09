@@ -130,15 +130,18 @@ void ScreenCapture::startCapture() {
 }
 
 void ScreenCapture::stopCapture() {
-    if ( !m_isCapturing.load() ) {
-        qCDebug(lcScreenCaptureManager) << "已停止捕获，忽略停止请求";
+    const bool wasCapturing = m_isCapturing.exchange(false);
+    const QString threadName = QStringLiteral("ScreenCaptureWorker");
+    const bool threadExists = m_threadManager && m_threadManager->hasThread(threadName);
+
+    // 若既未在捕获，线程也不存在，则无事可做
+    if ( !wasCapturing && !threadExists ) {
+        qCDebug(lcScreenCaptureManager) << "已停止捕获且线程不存在，忽略停止请求";
         return;
     }
 
-    qCInfo(lcScreenCaptureManager) << "停止多线程屏幕捕获";
-
-    // 设置停止标志
-    m_isCapturing.store(false);
+    qCInfo(lcScreenCaptureManager) << "停止多线程屏幕捕获 (wasCapturing=" << wasCapturing
+        << ", threadExists=" << threadExists << ")";
 
     // 停止统计定时器
     m_statsTimer->stop();
@@ -148,9 +151,10 @@ void ScreenCapture::stopCapture() {
         QueueManager::instance()->stopAllQueues();
     }
 
-    // 通知Worker停止捕获 - 使用同步调用确保立即停止
-    if ( m_captureWorker ) {
-        // 使用BlockingQueuedConnection确保stopCapturing立即执行完成
+    // 通知Worker停止捕获
+    // 安全前提：Worker 存在且其线程仍在运行时才使用 BlockingQueuedConnection，
+    // 否则目标线程事件循环已退出，BlockingQueuedConnection 会永久阻塞。
+    if ( m_captureWorker && m_threadManager && m_threadManager->isThreadRunning(threadName) ) {
         bool invokeSuccess = QMetaObject::invokeMethod(m_captureWorker, "stopCapturing",
             Qt::BlockingQueuedConnection);
         if ( invokeSuccess ) {
@@ -158,12 +162,15 @@ void ScreenCapture::stopCapture() {
         } else {
             qCWarning(lcScreenCaptureManager) << "Worker停止捕获调用失败";
         }
+    } else if ( m_captureWorker ) {
+        // 线程已停止但 Worker 仍存在，直接设置原子标志
+        qCDebug(lcScreenCaptureManager) << "Worker线程未运行，直接通知停止";
+        m_captureWorker->stopCapturing();
     }
 
     // 使用ThreadManager停止Worker线程
-    const QString threadName = "ScreenCaptureWorker";
-    if ( m_threadManager->hasThread(threadName) ) {
-        bool stopSuccess = m_threadManager->stopThread(threadName, true); // 等待当前任务完成
+    if ( threadExists ) {
+        bool stopSuccess = m_threadManager->stopThread(threadName, true);
         if ( stopSuccess ) {
             qCInfo(lcScreenCaptureManager) << "使用ThreadManager停止ScreenCaptureWorker线程成功";
         } else {
@@ -171,7 +178,7 @@ void ScreenCapture::stopCapture() {
         }
     }
 
-    // 清理线程资源
+    // 清理线程资源（销毁线程对象，防止 auto-restart 重新启动）
     cleanupThreads();
 
     qCInfo(lcScreenCaptureManager) << "多线程屏幕捕获停止完成";
@@ -270,8 +277,10 @@ void ScreenCapture::onThreadStopped(const QString& name) {
             m_isCapturing.store(false);
             qCWarning(lcScreenCaptureManager) << "ScreenCaptureWorker线程意外停止，捕获状态已重置";
         }
-        // 线程停止后将指针置空，避免悬挂
-        m_captureWorker = nullptr;
+        // 注意：不在此处置空 m_captureWorker。
+        // 原因：stopCapture() 可能在此信号处理之后运行，仍需要通过
+        // m_captureWorker 调用 stopCapturing()。指针在 cleanupThreads() 中统一置空。
+        // QPointer 在对象销毁时会自动变为 nullptr，不会产生悬挂指针。
     }
 }
 

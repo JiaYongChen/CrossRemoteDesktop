@@ -1,5 +1,4 @@
-#ifndef MESSAGECONSTANTS_H
-#define MESSAGECONSTANTS_H
+#pragma once
 
 #include <QtCore/QString>
 
@@ -37,4 +36,3 @@ namespace MessageConstants {
     }
 }
 
-#endif // MESSAGECONSTANTS_H

@@ -1,5 +1,4 @@
-#ifndef CLIENTREMOTEWINDOW_H
-#define CLIENTREMOTEWINDOW_H
+#pragma once
 
 #include <QtWidgets/QGraphicsView>
 #include <QtCore/Qt>
@@ -165,4 +164,3 @@ private:
     bool m_showPerformanceInfo;
 };
 
-#endif // CLIENTREMOTEWINDOW_H

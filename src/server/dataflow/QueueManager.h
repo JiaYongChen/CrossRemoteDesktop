@@ -1,5 +1,4 @@
-#ifndef QUEUEMANAGER_H
-#define QUEUEMANAGER_H
+#pragma once
 
 #include "DataFlowStructures.h"
 #include "../../common/core/threading/ThreadSafeQueue.h"
@@ -44,7 +43,7 @@ public:
      * @brief 获取单例实例
      * @return 队列管理器单例
      */
-    static QueueManager* instance();
+    [[nodiscard]] static QueueManager* instance();
 
     /**
      * @brief 初始化队列管理器
@@ -64,7 +63,7 @@ public:
      * @param type 队列类型
      * @return 队列统计信息
      */
-    QueueStats getQueueStats(QueueType type) const;
+    [[nodiscard]] QueueStats getQueueStats(QueueType type) const;
 
     /**
      * @brief 设置队列最大大小
@@ -94,7 +93,7 @@ public:
      * @param type 队列类型
      * @return true 队列健康，false 队列异常
      */
-    bool isQueueHealthy(QueueType type) const;
+    [[nodiscard]] bool isQueueHealthy(QueueType type) const;
 
     /**
      * @brief 启用/禁用统计监控
@@ -218,4 +217,3 @@ private:
     static constexpr int MAX_LATENCY_WARNING = 1000;                    ///< 最大延迟警告阈值（毫秒）
 };
 
-#endif // QUEUEMANAGER_H

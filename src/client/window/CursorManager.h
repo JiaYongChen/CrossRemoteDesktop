@@ -1,5 +1,4 @@
-#ifndef CURSORMANAGER_H
-#define CURSORMANAGER_H
+#pragma once
 
 #include <QtCore/QObject>
 #include <QtCore/QPoint>
@@ -75,4 +74,3 @@ private:
     Qt::CursorShape m_remoteCursorType; ///< 远程光标类型
 };
 
-#endif // CURSORMANAGER_H

@@ -178,8 +178,13 @@ int SessionManager::frameRate() const {
 void SessionManager::onMessageReceived(MessageType type, const QByteArray& data) {
     switch ( type ) {
         case MessageType::SCREEN_DATA:
-            // 处理屏幕数据
-            handleScreenData(data);
+            // Fix 3: 仅在连接处于已连接状态时才处理屏幕数据。
+            // ConnectionManager::isConnected() 已改为基于 socket 实际状态，
+            // TCP 半关闭（ClosingState）期间会正确返回 false。
+            if ( m_connectionManager && m_connectionManager->isConnected() ) {
+                // 处理屏幕数据
+                handleScreenData(data);
+            }
             break;
         case MessageType::CURSOR_POSITION:
             // 处理光标位置数据

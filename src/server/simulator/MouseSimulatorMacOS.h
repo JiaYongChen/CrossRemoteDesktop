@@ -1,5 +1,4 @@
-#ifndef MOUSESIMULATORMAC_H
-#define MOUSESIMULATORMAC_H
+#pragma once
 
 #include "MouseSimulator.h"
 
@@ -45,4 +44,3 @@ private:
 
 #endif // Q_OS_MACOS
 
-#endif // MOUSESIMULATORMAC_H

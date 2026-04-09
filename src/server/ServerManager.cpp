@@ -15,9 +15,9 @@
 // 新增：引入日志分类声明头，使用统一的日志分类（lcServerManager）
 #include "../common/core/logging/LoggingCategories.h"
 
-ServerManager::ServerManager(QObject* parent)
+ServerManager::ServerManager(QObject* parent, ThreadManager* threadMgr, QueueManager* queueMgr)
     : QObject(parent)
-    , m_threadManager(ThreadManager::instance())
+    , m_threadManager(threadMgr ? threadMgr : ThreadManager::instance())
     , m_isServerRunning(false)
     , m_currentPort(0)
     , m_screenCapture(nullptr)
@@ -27,8 +27,8 @@ ServerManager::ServerManager(QObject* parent)
     , m_currentClientThreadName() {
     qCDebug(lcServerManager) << "ServerManager::ServerManager() - Initializing ServerManager";
 
-    // 创建队列管理器
-    m_queueManager = QueueManager::instance();
+    // Use injected QueueManager or fall back to singleton
+    m_queueManager = queueMgr ? queueMgr : QueueManager::instance();
     m_queueManager->initialize(120, 120); // 捕获队列120, 处理队列120
 
     // 创建屏幕捕获管理器（在主线程创建）
@@ -491,9 +491,12 @@ void ServerManager::stopWorkerThreads() {
         m_dataWorker = nullptr;
     }
 
-    // 停止屏幕捕获
-    if ( m_screenCapture && m_screenCapture->isCapturing() ) {
-        qCDebug(lcServerManager) << "ServerManager::stopWorkerThreads() - Stopping screen capture";
+    // 停止屏幕捕获 — 无论 isCapturing() 返回什么，都必须尝试停止。
+    // 原因：ScreenCapture::onThreadStopped() 可能因 auto-restart 等原因已将 m_isCapturing
+    // 置为 false，但线程可能仍在 ThreadManager 中（待重启或已重启完成仍在运行）。
+    if ( m_screenCapture ) {
+        qCDebug(lcServerManager) << "ServerManager::stopWorkerThreads() - Stopping screen capture"
+            << "(isCapturing=" << m_screenCapture->isCapturing() << ")";
         m_screenCapture->stopCapture();
         qCDebug(lcServerManager) << "ServerManager::stopWorkerThreads() - Screen capture stopped";
     }

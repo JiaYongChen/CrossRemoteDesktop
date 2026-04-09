@@ -1,5 +1,4 @@
-#ifndef SCREENCAPTUREWORKER_H
-#define SCREENCAPTUREWORKER_H
+#pragma once
 
 #include "../../common/core/threading/Worker.h"
 #include "../../common/core/threading/ThreadSafeQueue.h"
@@ -168,4 +167,3 @@ private:
     static constexpr int MAX_FRAME_RATE = 120;            ///< 最大帧率
 };
 
-#endif // SCREENCAPTUREWORKER_H

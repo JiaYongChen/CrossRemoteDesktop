@@ -67,33 +67,12 @@ if(APPLE AND _qtgui_link_opts)
 endif()
 
 
-# 查找OpenSSL - 使用手动配置（与主CMakeLists.txt一致）
-if(WIN32 AND EXISTS "C:/Program Files/OpenSSL-Win64")
-    set(OPENSSL_ROOT_DIR "C:/Program Files/OpenSSL-Win64")
-    set(OPENSSL_INCLUDE_DIR "C:/Program Files/OpenSSL-Win64/include")
-    set(OPENSSL_CRYPTO_LIBRARY "C:/Program Files/OpenSSL-Win64/lib/VC/x64/MD/libcrypto.lib")
-    set(OPENSSL_SSL_LIBRARY "C:/Program Files/OpenSSL-Win64/lib/VC/x64/MD/libssl.lib")
-    set(OPENSSL_LIBRARIES "${OPENSSL_SSL_LIBRARY}" "${OPENSSL_CRYPTO_LIBRARY}")
-    set(OPENSSL_FOUND TRUE)
-    
-    if(NOT TARGET OpenSSL::SSL)
-        add_library(OpenSSL::SSL UNKNOWN IMPORTED)
-        set_target_properties(OpenSSL::SSL PROPERTIES
-            IMPORTED_LOCATION "${OPENSSL_SSL_LIBRARY}"
-            INTERFACE_INCLUDE_DIRECTORIES "${OPENSSL_INCLUDE_DIR}"
-        )
-    endif()
-    
-    if(NOT TARGET OpenSSL::Crypto)
-        add_library(OpenSSL::Crypto UNKNOWN IMPORTED)
-        set_target_properties(OpenSSL::Crypto PROPERTIES
-            IMPORTED_LOCATION "${OPENSSL_CRYPTO_LIBRARY}"
-            INTERFACE_INCLUDE_DIRECTORIES "${OPENSSL_INCLUDE_DIR}"
-        )
-    endif()
-    
-    message(STATUS "[Tests] Using manually configured OpenSSL")
+# 查找OpenSSL - 优先复用父项目已创建的导入目标，避免硬编码路径
+if(TARGET OpenSSL::SSL AND TARGET OpenSSL::Crypto)
+    message(STATUS "[Tests] Reusing OpenSSL targets from parent project")
 else()
+    # 父项目未提供目标时，使用 find_package 自动查找
+    # OPENSSL_ROOT_DIR 等 CACHE 变量已由父项目设置，find_package 会自动使用
     find_package(OpenSSL REQUIRED)
 endif()
 
@@ -170,18 +149,37 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../build/test)
 # 启用测试
 enable_testing()
 
-# ThreadManager测试用例
-set(THREADMANAGER_TEST_SOURCES
-    test_threadmanager.cpp
-    
-    # ThreadManager相关源文件
-    ../src/common/core/threading/ThreadManager.cpp
-    ../src/common/core/threading/Worker.cpp
-    
-    # 公共核心源文件
+# ============================================================================
+# Shared STATIC libraries to avoid compiling common sources multiple times
+# ============================================================================
+
+# common_test_core: logging + config (needed by almost every test)
+qt_add_library(common_test_core STATIC
     ../src/common/core/logging/LoggingCategories.cpp
     ../src/common/core/config/Config.cpp
     ../src/common/core/config/Constants.cpp
+)
+target_link_libraries(common_test_core PUBLIC Qt6::Core)
+
+# threading_test_core: Worker + ThreadManager (needed by threading/capture tests)
+qt_add_library(threading_test_core STATIC
+    ../src/common/core/threading/Worker.cpp
+    ../src/common/core/threading/ThreadManager.cpp
+)
+target_link_libraries(threading_test_core PUBLIC Qt6::Core common_test_core)
+
+# capture_test_core: screen capture + data processing + queue (needed by capture tests)
+qt_add_library(capture_test_core STATIC
+    ../src/server/capture/ScreenCaptureWorker.cpp
+    ../src/server/dataprocessing/DataProcessing.cpp
+    ../src/server/dataflow/QueueManager.cpp
+    ../src/server/dataflow/DataFlowStructures.cpp
+)
+target_link_libraries(capture_test_core PUBLIC Qt6::Core Qt6::Gui threading_test_core)
+
+# ThreadManager测试用例
+set(THREADMANAGER_TEST_SOURCES
+    test_threadmanager.cpp
 )
 
 # 创建ThreadManager测试可执行文件
@@ -196,6 +194,7 @@ target_link_libraries(test_threadmanager PRIVATE
     Qt6::Test
     Qt6::Network
     Qt6::Concurrent
+    threading_test_core
 )
 
 # 添加ThreadManager测试
@@ -215,22 +214,6 @@ set_tests_properties(ThreadManagerTest PROPERTIES
 # ScreenCaptureWorker测试用例
 set(SCREENCAPTUREWORKER_TEST_SOURCES
     test_screencaptureworker.cpp
-    
-    # ScreenCaptureWorker相关源文件
-    ../src/server/capture/ScreenCaptureWorker.cpp
-    ../src/server/dataprocessing/DataProcessing.cpp
-
-    # 数据流相关源文件
-    ../src/server/dataflow/QueueManager.cpp
-    ../src/server/dataflow/DataFlowStructures.cpp
-
-    ../src/common/core/threading/Worker.cpp
-    ../src/common/core/threading/ThreadManager.cpp
-    
-    # 公共核心源文件
-    ../src/common/core/logging/LoggingCategories.cpp
-    ../src/common/core/config/Config.cpp
-    ../src/common/core/config/Constants.cpp
 )
 
 # 创建ScreenCaptureWorker测试可执行文件
@@ -247,6 +230,7 @@ target_link_libraries(test_screencaptureworker PRIVATE
     Qt6::Gui
     Qt6::Network
     Qt6::Concurrent
+    capture_test_core
 )
 target_compile_definitions(test_screencaptureworker PRIVATE QT_NO_OPENGL)
 
@@ -304,23 +288,7 @@ add_custom_target(run_performance_tests
 # ScreenCapture主类测试用例
 set(SCREENCAPTURE_TEST_SOURCES
     test_screencapture.cpp
-    
-    # ScreenCapture相关源文件
     ../src/server/capture/ScreenCapture.cpp
-    ../src/server/capture/ScreenCaptureWorker.cpp
-    ../src/server/dataprocessing/DataProcessing.cpp
-
-    # 数据流相关源文件
-    ../src/server/dataflow/QueueManager.cpp
-    ../src/server/dataflow/DataFlowStructures.cpp
-
-    ../src/common/core/threading/Worker.cpp
-    ../src/common/core/threading/ThreadManager.cpp
-    
-    # 公共核心源文件
-    ../src/common/core/logging/LoggingCategories.cpp
-    ../src/common/core/config/Config.cpp
-    ../src/common/core/config/Constants.cpp
 )
 
 # 创建ScreenCapture测试可执行文件
@@ -335,6 +303,7 @@ target_link_libraries(test_screencapture PRIVATE
     Qt6::Gui
     Qt6::Network
     Qt6::Concurrent
+    capture_test_core
 )
 target_compile_definitions(test_screencapture PRIVATE QT_NO_OPENGL)
 
@@ -373,24 +342,7 @@ endif()
 # ScreenCapture集成测试用例
 set(SCREEN_CAPTURE_INTEGRATION_TEST_SOURCES
     test_screen_capture_integration.cpp
-    
-    # ScreenCapture相关源文件
     ../src/server/capture/ScreenCapture.cpp
-    ../src/server/capture/ScreenCaptureWorker.cpp
-    ../src/server/dataprocessing/DataProcessing.cpp
-
-    # 数据流相关源文件
-    ../src/server/dataflow/QueueManager.cpp
-    ../src/server/dataflow/DataFlowStructures.cpp
-    
-    # ThreadManager相关源文件
-    ../src/common/core/threading/ThreadManager.cpp
-    ../src/common/core/threading/Worker.cpp
-    
-    # 公共核心源文件
-    ../src/common/core/logging/LoggingCategories.cpp
-    ../src/common/core/config/Config.cpp
-    ../src/common/core/config/Constants.cpp
 )
 
 # 创建ScreenCapture集成测试可执行文件
@@ -405,6 +357,7 @@ target_link_libraries(test_screen_capture_integration PRIVATE
     Qt6::Gui
     Qt6::Network
     Qt6::Concurrent
+    capture_test_core
 )
 
 # 添加ScreenCapture集成测试
@@ -434,12 +387,7 @@ message(STATUS "    - run_worker_tests: 运行工作线程测试")
 # 数据处理模块测试用例
 set(DATAPROCESSING_TEST_SOURCES
     test_dataprocessing.cpp
-
-    # 数据处理模块源文件
     ../src/server/dataprocessing/DataProcessing.cpp
-
-    # 公共核心源文件（日志分类）
-    ../src/common/core/logging/LoggingCategories.cpp
 )
 
 # 创建数据处理模块测试可执行文件
@@ -455,6 +403,7 @@ target_link_libraries(test_dataprocessing PRIVATE
     Qt6::Core
     Qt6::Test
     Qt6::Gui
+    common_test_core
 )
 
 target_compile_definitions(test_dataprocessing PRIVATE QT_NO_OPENGL)
@@ -470,11 +419,7 @@ set(DATA_CONSISTENCY_TEST_SOURCES
     test_data_consistency.cpp
     ../src/server/dataprocessing/DataProcessing.cpp
     ../src/server/dataprocessing/DataProcessingConfig.cpp
-
-    ../src/common/core/logging/LoggingCategories.cpp
     ../src/common/core/network/ProtocolImpl.cpp
-    ../src/common/core/threading/Worker.cpp
-    ../src/common/core/threading/ThreadManager.cpp
 )
 
 qt_add_executable(test_data_consistency
@@ -486,6 +431,7 @@ target_link_libraries(test_data_consistency PRIVATE
     Qt6::Test
     Qt6::Gui
     Qt6::Network
+    threading_test_core
 )
 
 target_compile_definitions(test_data_consistency PRIVATE QT_NO_OPENGL)
@@ -499,11 +445,7 @@ set(FRAME_TRANSMISSION_LATENCY_TEST_SOURCES
     test_frame_transmission_latency.cpp
     ../src/server/dataprocessing/DataProcessing.cpp
     ../src/server/dataprocessing/DataProcessingConfig.cpp
-
-    ../src/common/core/logging/LoggingCategories.cpp
     ../src/common/core/network/ProtocolImpl.cpp
-    ../src/common/core/threading/Worker.cpp
-    ../src/common/core/threading/ThreadManager.cpp
 )
 
 qt_add_executable(test_frame_transmission_latency
@@ -515,6 +457,7 @@ target_link_libraries(test_frame_transmission_latency PRIVATE
     Qt6::Test
     Qt6::Gui
     Qt6::Network
+    threading_test_core
 )
 
 target_compile_definitions(test_frame_transmission_latency PRIVATE QT_NO_OPENGL)
@@ -534,8 +477,8 @@ endif()
 # ClientRemoteWindow测试用例
 set(CLIENTREMOTEWINDOW_TEST_SOURCES
     test_clientremotewindow.cpp
-    
-    # ClientRemoteWindow相关源文件
+
+    # Client-specific sources
     ../src/client/window/ClientRemoteWindow.cpp
     ../src/client/window/CursorManager.cpp
     ../src/client/managers/FileTransferManager.cpp
@@ -543,11 +486,6 @@ set(CLIENTREMOTEWINDOW_TEST_SOURCES
     ../src/client/managers/SessionManager.cpp
     ../src/client/network/ConnectionManager.cpp
     ../src/client/network/TcpClient.cpp
-    
-    # 公共核心源文件
-    ../src/common/core/logging/LoggingCategories.cpp
-    ../src/common/core/config/Constants.cpp
-    ../src/common/core/config/Config.cpp
     ../src/common/core/network/ProtocolImpl.cpp
     ../src/common/clipboard/ClipboardManager.cpp
 )
@@ -568,6 +506,7 @@ target_link_libraries(test_clientremotewindow PRIVATE
     OpenSSL::SSL
     OpenSSL::Crypto
     ${ZSTD_LIBRARY}
+    common_test_core
 )
 
 target_compile_definitions(test_clientremotewindow PRIVATE QT_NO_OPENGL)
@@ -597,9 +536,6 @@ endif()
 # 屏幕数据流程测试用例
 set(SCREEN_DATA_FLOW_TEST_SOURCES
     test_screen_data_flow.cpp
-    
-    # 只包含必要的核心源文件
-    ../src/common/core/logging/LoggingCategories.cpp
     ../src/common/core/network/ProtocolImpl.cpp
 )
 
@@ -620,6 +556,7 @@ target_link_libraries(test_screen_data_flow PRIVATE
     OpenSSL::SSL
     OpenSSL::Crypto
     ${ZSTD_LIBRARY}
+    common_test_core
 )
 
 target_compile_definitions(test_screen_data_flow PRIVATE QT_NO_OPENGL)
@@ -649,11 +586,6 @@ endif()
 # ClientHandlerWorker测试用例
 set(CLIENTHANDLERWORKER_TEST_SOURCES
     test_clienthandlerworker.cpp
-    
-    # 基本核心源文件
-    ../src/common/core/logging/LoggingCategories.cpp
-    ../src/common/core/config/Config.cpp
-    ../src/common/core/config/Constants.cpp
 )
 
 # 创建ClientHandlerWorker测试可执行文件
@@ -665,6 +597,7 @@ qt_add_executable(test_clienthandlerworker
 target_link_libraries(test_clienthandlerworker PRIVATE
     Qt6::Core
     Qt6::Test
+    common_test_core
 )
 
 target_compile_definitions(test_clienthandlerworker PRIVATE QT_NO_OPENGL)
@@ -698,14 +631,12 @@ endif()
 # 生产者-消费者集成测试源文件
 set(PRODUCER_CONSUMER_INTEGRATION_TEST_SOURCES
     test_producer_consumer_integration.cpp
-    
-    # 服务器相关源文件
+
+    # Server-specific sources not in shared object libraries
     ../src/server/service/ServerWorker.cpp
     ../src/server/dataprocessing/DataProcessingWorker.cpp
-    ../src/server/dataprocessing/DataProcessing.cpp
     ../src/server/dataprocessing/DataProcessingConfig.cpp
     ../src/server/capture/ScreenCapture.cpp
-    ../src/server/capture/ScreenCaptureWorker.cpp
     ../src/server/clienthandler/ClientHandlerWorker.cpp
     ../src/server/service/TcpServer.cpp
     ../src/server/simulator/InputSimulator.cpp
@@ -732,14 +663,7 @@ elseif(UNIX)
 endif()
 
 list(APPEND PRODUCER_CONSUMER_INTEGRATION_TEST_SOURCES
-    
-    # 公共核心源文件
-    ../src/common/core/threading/Worker.cpp
-    ../src/common/core/threading/ThreadManager.cpp
-    ../src/server/dataflow/QueueManager.cpp
     ../src/common/core/network/ProtocolImpl.cpp
-    ../src/common/core/logging/LoggingCategories.cpp
-    ../src/common/core/config/Constants.cpp
 )
 
 # 创建生产者-消费者集成测试可执行文件
@@ -757,6 +681,7 @@ target_link_libraries(test_producer_consumer_integration PRIVATE
     OpenSSL::SSL
     OpenSSL::Crypto
     ${ZSTD_LIBRARY}
+    capture_test_core
 )
 
 target_compile_definitions(test_producer_consumer_integration PRIVATE QT_NO_OPENGL)
@@ -818,6 +743,47 @@ set_tests_properties(CloseEventTest PROPERTIES
     # 对于非Debug配置，路径可根据需要扩展；当前测试默认在Debug下运行
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;AUTO_RUN=1;RD_MAIN_APP_PATH=${CMAKE_SOURCE_DIR}/Debug/QtRemoteDesktop.app/Contents/MacOS/QtRemoteDesktop"
 )
+
+# ============================================================================
+# QueueManager 单元测试
+# ============================================================================
+set(QUEUEMANAGER_TEST_SOURCES
+    test_queuemanager.cpp
+)
+
+qt_add_executable(test_queuemanager
+    ${QUEUEMANAGER_TEST_SOURCES}
+)
+
+target_link_libraries(test_queuemanager PRIVATE
+    Qt6::Core
+    Qt6::Test
+    Qt6::Gui
+    Qt6::Widgets
+    Qt6::Network
+    capture_test_core
+)
+
+target_compile_definitions(test_queuemanager PRIVATE QT_NO_OPENGL)
+
+add_test(
+    NAME QueueManagerTest
+    COMMAND test_queuemanager
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+)
+
+set_tests_properties(QueueManagerTest PROPERTIES
+    TIMEOUT 30
+    LABELS "unit;server;queue"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
+if(TARGET run_all_tests)
+    add_dependencies(run_all_tests test_queuemanager)
+endif()
+if(TARGET run_core_tests)
+    add_dependencies(run_core_tests test_queuemanager)
+endif()
 
 # 确保 zstd 先于依赖它的测试目标编译
 if(TARGET libzstd_static)

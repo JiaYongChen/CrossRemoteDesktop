@@ -1,5 +1,4 @@
-#ifndef NETWORKCONSTANTS_H
-#define NETWORKCONSTANTS_H
+#pragma once
 
 /**
  * @file NetworkConstants.h
@@ -51,4 +50,3 @@ namespace NetworkConstants {
     const int MAX_CONNECTIONS = 100;               // 最大同时连接数
 }
 
-#endif // NETWORKCONSTANTS_H

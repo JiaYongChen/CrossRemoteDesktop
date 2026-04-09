@@ -1,5 +1,4 @@
-#ifndef FILETRANSFERMANAGER_H
-#define FILETRANSFERMANAGER_H
+#pragma once
 
 #include <QtCore/QObject>
 #include <QtCore/QStringList>
@@ -104,4 +103,3 @@ private:
     QWidget *m_targetWidget;     ///< 接收拖拽事件的目标控件
 };
 
-#endif // FILETRANSFERMANAGER_H

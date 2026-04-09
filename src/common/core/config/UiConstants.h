@@ -1,5 +1,4 @@
-#ifndef UICONSTANTS_H
-#define UICONSTANTS_H
+#pragma once
 
 #include <QtGui/QColor>
 
@@ -68,4 +67,3 @@ inline const double UIConstants::PULSE_DIVISOR = 30.0;
 inline const int UIConstants::PULSE_BASE_ALPHA = 100;
 inline const int UIConstants::PULSE_AMPLITUDE = 100;
 
-#endif // UICONSTANTS_H

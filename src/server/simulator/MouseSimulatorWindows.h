@@ -1,5 +1,4 @@
-#ifndef MOUSESIMULATORWINDOWS_H
-#define MOUSESIMULATORWINDOWS_H
+#pragma once
 
 #include "MouseSimulator.h"
 
@@ -39,4 +38,3 @@ private:
 
 #endif // Q_OS_WIN
 
-#endif // MOUSESIMULATORWINDOWS_H

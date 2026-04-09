@@ -1,5 +1,4 @@
-#ifndef TCPSERVER_H
-#define TCPSERVER_H
+#pragma once
 
 #include <QtNetwork/QTcpServer>
 #include <QtNetwork/QHostAddress>
@@ -54,4 +53,3 @@ private:
     QSslKey m_sslPrivateKey;
 };
 
-#endif // TCPSERVER_H

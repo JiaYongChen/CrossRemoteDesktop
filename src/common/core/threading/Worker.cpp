@@ -240,9 +240,8 @@ void Worker::workLoop() {
 
     try {
         while ( !shouldStop() ) {
-            // 关键改动：在循环顶部处理事件，确保QueuedConnection/计时器能够在工作线程被占用时仍然得到投递与执行
-            // 这样可以保证例如 ScreenCaptureWorker::startCapturing 通过 QMetaObject::invokeMethod(Qt::QueuedConnection)
-            // 能够被及时调度执行，避免因workLoop长时间占用而导致事件队列饿死，进而引发测试超时（如test_syncCapture）
+            // Process pending events once per iteration so that QueuedConnection
+            // invocations (e.g. startCapturing) and timers are delivered promptly.
             QCoreApplication::processEvents();
 
             waitIfPaused();
@@ -252,33 +251,10 @@ void Worker::workLoop() {
             }
 
             startPerformanceTiming();
-
-            // 在processTask前再次处理事件，尽量降低事件投递的延迟
-            QCoreApplication::processEvents();
-
-            // 在processTask前检查停止状态
-            if ( shouldStop() ) {
-                break;
-            }
-
             processTask();
-
-            // 在processTask后立即检查停止状态
-            if ( shouldStop() ) {
-                break;
-            }
-
             endPerformanceTiming();
 
-            // 再次处理事件，确保刚刚在processTask过程中产生的Queued信号能够被及时投递
-            QCoreApplication::processEvents();
-
-            // 最后检查停止状态
-            if ( shouldStop() ) {
-                break;
-            }
-
-            // 短暂休眠以避免紧密循环，但保持对停止请求的响应性
+            // Brief yield to avoid tight-looping while staying responsive
             QThread::msleep(1);
         }
     } catch ( const std::exception& e ) {

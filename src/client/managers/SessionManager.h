@@ -1,5 +1,4 @@
-#ifndef SESSIONMANAGER_H
-#define SESSIONMANAGER_H
+#pragma once
 
 #include <QtCore/QObject>
 #include <QtCore/QMutex>
@@ -138,4 +137,3 @@ private:
     int m_frameRate;
 };
 
-#endif // SESSIONMANAGER_H

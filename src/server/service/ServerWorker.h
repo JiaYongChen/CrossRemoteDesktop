@@ -1,5 +1,4 @@
-#ifndef SERVERWORKER_H
-#define SERVERWORKER_H
+#pragma once
 
 #include "../../common/core/threading/Worker.h"
 #include "../../common/core/network/Protocol.h"
@@ -117,4 +116,3 @@ private:
     quint16 m_currentPort;            ///< 当前监听端口
 };
 
-#endif // SERVERWORKER_H

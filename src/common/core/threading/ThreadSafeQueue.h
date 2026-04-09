@@ -1,5 +1,4 @@
-#ifndef THREADSAFEQUEUE_H
-#define THREADSAFEQUEUE_H
+#pragma once
 
 #include <QtCore/QMutex>
 #include <QtCore/QWaitCondition>
@@ -349,4 +348,3 @@ private:
     quint64 m_totalDequeued;          ///< 总出队数量
 };
 
-#endif // THREADSAFEQUEUE_H

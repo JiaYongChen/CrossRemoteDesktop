@@ -1,5 +1,4 @@
-#ifndef CLIENTHANDLERWORKER_H
-#define CLIENTHANDLERWORKER_H
+#pragma once
 
 #include "../../common/core/threading/Worker.h"
 #include "../../common/core/network/Protocol.h"
@@ -324,6 +323,10 @@ private:
 
     // 屏幕数据发送相关
     QueueManager* m_queueManager;         ///< 队列管理器
+
+    // Guard flag to prevent event queue accumulation:
+    // processTask posts sendScreenDataFromQueue via QueuedConnection on each tick;
+    // without this flag, pending invocations pile up if the event loop is slow.
+    std::atomic<bool> m_sendScreenDataPending{ false };
 };
 
-#endif // CLIENTHANDLERWORKER_H

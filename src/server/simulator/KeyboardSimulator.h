@@ -1,5 +1,4 @@
-#ifndef KEYBOARDSIMULATOR_H
-#define KEYBOARDSIMULATOR_H
+#pragma once
 
 #include <QtCore/QObject>
 #include <QtCore/QString>
@@ -41,4 +40,3 @@ protected:
     QString m_lastError;
 };
 
-#endif // KEYBOARDSIMULATOR_H

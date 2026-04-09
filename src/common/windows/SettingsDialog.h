@@ -1,5 +1,4 @@
-#ifndef SETTINGSDIALOG_H
-#define SETTINGSDIALOG_H
+#pragma once
 
 #include <QtWidgets/QDialog>
 #include <QtCore/QString>
@@ -246,4 +245,3 @@ private:
     bool m_settingsChanged;
 };
 
-#endif // SETTINGSDIALOG_H

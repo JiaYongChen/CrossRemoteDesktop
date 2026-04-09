@@ -1,5 +1,4 @@
-#ifndef PROTOCOL_H
-#define PROTOCOL_H
+#pragma once
 
 #include <QtCore/QByteArray>
 #include <QtCore/QDataStream>
@@ -17,14 +16,11 @@
 #endif
 #endif
 
-// 协议版本
-#define PROTOCOL_VERSION 1
-
-// 魔数用于验证数据包
-#define PROTOCOL_MAGIC 0x52444350  // "RDCP" in hex
-
-// 序列化后的消息头大小：5个quint32字段 + 1个quint64字段 = 28字节
-#define SERIALIZED_HEADER_SIZE (5 * sizeof(quint32) + sizeof(quint64))
+// Protocol constants
+inline constexpr quint32 PROTOCOL_VERSION = 1;
+inline constexpr quint32 PROTOCOL_MAGIC = 0x52444350;  // "RDCP" in hex
+// Serialized header size: 5 × quint32 + 1 × quint64 = 28 bytes
+inline constexpr quint32 SERIALIZED_HEADER_SIZE = 5 * sizeof(quint32) + sizeof(quint64);
 
 // 消息类型枚举
 enum class MessageType : quint32 {
@@ -109,10 +105,10 @@ public:
     virtual ~IMessageCodec() = default;
 
     // 将类型与载荷编码为可发送的数据帧
-    virtual QByteArray encode() const = 0;
+    [[nodiscard]] virtual QByteArray encode() const = 0;
 
     // 从接收缓冲区尝试解析一帧，成功则填充header与payload，并从buffer移除已消费字节
-    virtual bool decode(const QByteArray& dataBuffer) = 0;
+    [[nodiscard]] virtual bool decode(const QByteArray& dataBuffer) = 0;
 };
 
 // 消息头结构
@@ -328,10 +324,10 @@ struct ClipboardMessage : public IMessageCodec {
 class Protocol {
 public:
     // 创建消息
-    static QByteArray createMessage(MessageType type, const IMessageCodec& message);
+    [[nodiscard]] static QByteArray createMessage(MessageType type, const IMessageCodec& message);
 
     // 解析消息
-    static qsizetype parseMessage(const QByteArray& data, MessageHeader& header, QByteArray& payload);
+    [[nodiscard]] static qsizetype parseMessage(const QByteArray& data, MessageHeader& header, QByteArray& payload);
 
 private:
     // 验证接收数据的完整性（检查数据长度是否完整）
@@ -343,4 +339,3 @@ private:
     static quint32 calculateChecksum(const QByteArray& data);
 };
 
-#endif // PROTOCOL_H

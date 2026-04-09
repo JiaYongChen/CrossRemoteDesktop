@@ -1,5 +1,4 @@
-#ifndef CONNECTIONDIALOG_H
-#define CONNECTIONDIALOG_H
+#pragma once
 
 #include <QtWidgets/QDialog>
 #include <QtCore/QSettings>
@@ -132,4 +131,3 @@ private:
 // 注册ConnectionInfo类型到Qt元类型系统
 Q_DECLARE_METATYPE(ConnectionDialog::ConnectionInfo)
 
-#endif // CONNECTIONDIALOG_H

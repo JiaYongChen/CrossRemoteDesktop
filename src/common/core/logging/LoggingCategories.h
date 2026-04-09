@@ -1,6 +1,5 @@
 
-#ifndef LOGGING_CATEGORIES_H
-#define LOGGING_CATEGORIES_H
+#pragma once
 
 #include <QtCore/QLoggingCategory>
 
@@ -130,4 +129,3 @@ Q_DECLARE_LOGGING_CATEGORY(lcIntegrationTest)
 /// 性能测试日志
 Q_DECLARE_LOGGING_CATEGORY(lcPerformanceTest)
 
-#endif // LOGGING_CATEGORIES_H

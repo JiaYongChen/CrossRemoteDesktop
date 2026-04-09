@@ -16,144 +16,165 @@
 // ConnectionInstance 方法实现
 
 ConnectionInstance::~ConnectionInstance() {
-    qCInfo(lcClientManager) << "~ConnectionInstance(): [START] Cleanup for connection:" << connectionId;
+    shutdown();
+}
 
-    // 【优化析构流程】确保线程安全和正确的资源释放顺序
+void ConnectionInstance::shutdown() {
+    // Idempotent guard: prevent double-cleanup (uses dedicated flag, NOT isBeingDeleted).
+    // isBeingDeleted is set by ClientManager callers (onWindowClosed, disconnectFromHost, etc.)
+    // as a re-entry guard BEFORE calling cleanupConnection() → delete → ~ConnectionInstance().
+    // If we checked isBeingDeleted here, shutdown would skip all 5 phases and never disconnect.
+    if ( m_shutdownDone ) {
+        return;
+    }
+    m_shutdownDone = true;
+    isBeingDeleted = true;
+
+    qCInfo(lcClientManager) << "ConnectionInstance::shutdown(): [START] Cleanup for connection:" << connectionId;
+
     try {
-        // 第一阶段：关闭窗口和断开连接（保持信号连接以便正常清理）
-        if ( remoteDesktopWindow && !remoteDesktopWindow.isNull() ) {
-            // 阻塞关闭窗口，确保窗口完全关闭后再继续
-            if ( !remoteDesktopWindow->isClosing() ) {
-                qCDebug(lcClientManager) << "~ConnectionInstance(): [PHASE-1] Closing remote window for" << connectionId;
-                remoteDesktopWindow->close();
-            } else {
-                qCDebug(lcClientManager) << "~ConnectionInstance(): [PHASE-1] Window already closing for" << connectionId;
-            }
-            // 断开窗口信号，防止关闭过程中触发新的事件
-            remoteDesktopWindow->disconnect();
+        // Phase 1: Close window and disconnect session
+        shutdownPhase1_CloseWindowAndDisconnect();
+
+        // Phase 2: Stop the worker thread gracefully
+        shutdownPhase2_StopThread();
+
+        // Phase 3: Delete SessionManager (thread already stopped)
+        shutdownPhase3_DeleteSessionManager();
+
+        // Phase 4: Schedule window deletion on main thread
+        shutdownPhase4_DeleteWindow();
+
+        // Phase 5: Delete thread object
+        shutdownPhase5_DeleteThread();
+
+        qCInfo(lcClientManager) << "ConnectionInstance::shutdown(): [COMPLETE] Cleanup completed successfully for" << connectionId;
+    } catch ( const std::exception& e ) {
+        qCWarning(lcClientManager) << "ConnectionInstance::shutdown(): exception during cleanup:" << e.what();
+    } catch ( ... ) {
+        qCWarning(lcClientManager) << "ConnectionInstance::shutdown(): unknown exception during cleanup";
+    }
+}
+
+void ConnectionInstance::shutdownPhase1_CloseWindowAndDisconnect() {
+    if ( remoteDesktopWindow && !remoteDesktopWindow.isNull() ) {
+        if ( !remoteDesktopWindow->isClosing() ) {
+            qCDebug(lcClientManager) << "shutdown [PHASE-1] Closing remote window for" << connectionId;
+            remoteDesktopWindow->close();
+        }
+        remoteDesktopWindow->disconnect();
+    }
+
+    if ( sessionManager && !sessionManager.isNull() ) {
+        qCDebug(lcClientManager) << "shutdown [PHASE-1] Disconnecting session for" << connectionId;
+        Qt::ConnectionType connType = (instanceThread && instanceThread->isRunning())
+            ? Qt::BlockingQueuedConnection
+            : Qt::DirectConnection;
+        bool invoked = QMetaObject::invokeMethod(sessionManager, "disconnectFromHost", connType);
+        if ( !invoked ) {
+            qCWarning(lcClientManager) << "shutdown [PHASE-1] Failed to invoke disconnectFromHost for" << connectionId;
         }
 
-        if ( sessionManager && !sessionManager.isNull() ) {
-            qCDebug(lcClientManager) << "~ConnectionInstance(): [PHASE-1] Disconnecting session for" << connectionId;
-            // 仅在线程运行时使用 BlockingQueuedConnection，否则直接调用，避免线程已停止时永久阻塞
-            Qt::ConnectionType connType = (instanceThread && instanceThread->isRunning())
-                ? Qt::BlockingQueuedConnection
-                : Qt::DirectConnection;
-            bool invoked = QMetaObject::invokeMethod(sessionManager, "disconnectFromHost", connType);
-            if (!invoked) {
-                qCWarning(lcClientManager) << "~ConnectionInstance(): [PHASE-1] Failed to invoke disconnectFromHost for" << connectionId;
-            }
-
-            // 在 moveToThread 前，停止 session 线程中所有子 QTimer，
-            // 防止挂起的定时器事件在线程归属变更后投递到错误的线程
-            if ( instanceThread && instanceThread->isRunning() ) {
-                qCDebug(lcClientManager) << "~ConnectionInstance(): [PHASE-1] Stopping all timers in session thread for" << connectionId;
-                QMetaObject::invokeMethod(sessionManager.data(), [sm = sessionManager.data()]() {
-                    const auto timers = sm->findChildren<QTimer*>();
-                    for ( QTimer* timer : timers ) {
-                        timer->stop();
-                    }
-                }, Qt::BlockingQueuedConnection);
-            }
-
-            // 将 SessionManager 及其子对象（ConnectionManager/TcpClient/QSslSocket）移回主线程，
-            // 避免后续在主线程中 delete 时触发 "Cannot send events to objects owned by a different thread" 断言
-            if ( instanceThread && instanceThread->isRunning() ) {
-                qCDebug(lcClientManager) << "~ConnectionInstance(): [PHASE-1] Moving SessionManager back to main thread for" << connectionId;
-                QThread* mainThread = QThread::currentThread();
-                QMetaObject::invokeMethod(sessionManager.data(), [sm = sessionManager.data(), mainThread]() {
-                    sm->moveToThread(mainThread);
-                }, Qt::BlockingQueuedConnection);
-            }
-        }
-
-        // 第二阶段：优雅地停止线程（等待 SessionManager 完成当前操作）
+        // Stop all child timers before moveToThread to prevent cross-thread timer delivery
         if ( instanceThread && instanceThread->isRunning() ) {
-            qCDebug(lcClientManager) << "~ConnectionInstance(): [PHASE-2] Stopping session thread for" << connectionId;
-
-            // 先请求线程退出
-            instanceThread->quit();
-
-            // 等待线程正常退出（使用配置的超时时间）
-            if ( !instanceThread->wait(THREAD_QUIT_TIMEOUT_MS) ) {
-                // Thread::terminate() is extremely dangerous (no stack unwinding, no mutex release,
-                // no destructor calls). Instead, request cooperative interruption and wait again.
-                qCWarning(lcClientManager) << "~ConnectionInstance(): [PHASE-2] Thread quit timeout after"
-                    << THREAD_QUIT_TIMEOUT_MS << "ms, requesting interruption for" << connectionId;
-                instanceThread->requestInterruption();
-                instanceThread->quit();
-                if ( !instanceThread->wait(THREAD_TERMINATE_TIMEOUT_MS) ) {
-                    // Last resort: leak the thread rather than force-terminate.
-                    // A leaked thread is far safer than undefined behavior from terminate().
-                    qCCritical(lcClientManager) << "~ConnectionInstance(): [PHASE-2] Thread still running after"
-                        << THREAD_TERMINATE_TIMEOUT_MS << "ms, leaking thread to avoid undefined behavior for" << connectionId;
-                    // Prevent double-delete: schedule cleanup when thread eventually finishes
-                    QObject::connect(instanceThread, &QThread::finished, instanceThread, &QObject::deleteLater);
-                    instanceThread = nullptr;
+            QMetaObject::invokeMethod(sessionManager.data(), [sm = sessionManager.data()]() {
+                const auto timers = sm->findChildren<QTimer*>();
+                for ( QTimer* timer : timers ) {
+                    // Fix 2b: 跳过断开超时计时器，保留其继续运行。
+                    // 该计时器在 1s 后会调用 abort()，向服务端发送 TCP RST，
+                    // 确保服务端能立即感知连接断开并停止屏幕捕获。
+                    if ( timer->objectName() == "disconnectTimeoutTimer" ) {
+                        continue;
+                    }
+                    timer->stop();
                 }
-            } else {
-                qCDebug(lcClientManager) << "~ConnectionInstance(): [PHASE-2] Thread stopped gracefully for" << connectionId;
-            }
-        } else if ( instanceThread ) {
-            qCDebug(lcClientManager) << "~ConnectionInstance(): [PHASE-2] Thread already stopped for" << connectionId;
+            }, Qt::BlockingQueuedConnection);
         }
 
-        // 第三阶段：删除 SessionManager（线程已停止，安全删除）
-        if ( sessionManager && !sessionManager.isNull() ) {
-            qCDebug(lcClientManager) << "~ConnectionInstance(): [PHASE-3] Deleting SessionManager for" << connectionId;
-
-            // 深度断开整个对象树的所有信号连接，防止 Qt 父子机制级联删除
-            // 子对象时触发信号回传到已半销毁的父对象（这是 abort() 崩溃的根因）：
-            //   delete SessionManager → auto-delete ConnectionManager
-            //     → auto-delete TcpClient → ~TcpClient() calls socket->abort()
-            //       → socket emits disconnected() → signal cascades back up → crash
-            sessionManager->disconnect();
-            // Retrieve ConnectionManager (child of SessionManager) and disconnect its tree
-            const auto connectionManagers = sessionManager->findChildren<QObject*>(Qt::FindDirectChildrenOnly);
-            for ( QObject* child : connectionManagers ) {
-                child->disconnect();
-                // Also disconnect grandchildren (TcpClient, QSslSocket, QTimers)
-                const auto grandchildren = child->findChildren<QObject*>();
-                for ( QObject* gc : grandchildren ) {
-                    gc->disconnect();
-                }
-            }
-
-            // 直接删除而非 deleteLater，因为线程已停止
-            delete sessionManager.data();
-            // QPointer 会自动清空，无需手动 clear()
-            qCDebug(lcClientManager) << "~ConnectionInstance(): [PHASE-3] SessionManager deleted for" << connectionId;
+        // Move SessionManager back to main thread to avoid cross-thread delete assertion
+        if ( instanceThread && instanceThread->isRunning() ) {
+            QThread* mainThread = QThread::currentThread();
+            QMetaObject::invokeMethod(sessionManager.data(), [sm = sessionManager.data(), mainThread]() {
+                sm->moveToThread(mainThread);
+            }, Qt::BlockingQueuedConnection);
         }
+    }
+}
 
-        // 第四阶段：删除窗口对象（在主线程中）
-        if ( remoteDesktopWindow && !remoteDesktopWindow.isNull() ) {
-            qCDebug(lcClientManager) << "~ConnectionInstance(): [PHASE-4] Scheduling window deletion for" << connectionId;
-            // 使用 deleteLater 因为窗口必须在主线程的事件循环中删除
-            remoteDesktopWindow->deleteLater();
-            // QPointer 会自动清空
-        }
+void ConnectionInstance::shutdownPhase2_StopThread() {
+    if ( !instanceThread || !instanceThread->isRunning() ) {
+        return;
+    }
 
-        // 第五阶段：删除线程对象
-        if ( instanceThread ) {
-            // 确保线程已经完全停止
-            if ( instanceThread->isRunning() ) {
-                qCWarning(lcClientManager) << "~ConnectionInstance(): [PHASE-5] Thread still running, waiting again for" << connectionId;
-                instanceThread->quit();
-                instanceThread->wait(THREAD_QUIT_TIMEOUT_MS);
-            }
-            
-            qCDebug(lcClientManager) << "~ConnectionInstance(): [PHASE-5] Deleting thread object for" << connectionId;
-            // 线程已停止，可以安全删除
-            delete instanceThread;
+    qCDebug(lcClientManager) << "shutdown [PHASE-2] Stopping session thread for" << connectionId;
+    instanceThread->quit();
+
+    if ( !instanceThread->wait(THREAD_QUIT_TIMEOUT_MS) ) {
+        qCWarning(lcClientManager) << "shutdown [PHASE-2] Thread quit timeout after"
+            << THREAD_QUIT_TIMEOUT_MS << "ms, requesting interruption for" << connectionId;
+        instanceThread->requestInterruption();
+        instanceThread->quit();
+        if ( !instanceThread->wait(THREAD_TERMINATE_TIMEOUT_MS) ) {
+            // Last resort: leak the thread rather than force-terminate (UB).
+            qCCritical(lcClientManager) << "shutdown [PHASE-2] Thread still running after"
+                << THREAD_TERMINATE_TIMEOUT_MS << "ms, leaking thread to avoid undefined behavior for" << connectionId;
+            QObject::connect(instanceThread, &QThread::finished, instanceThread, &QObject::deleteLater);
+            // Issue 1 Fix: 将父对象设为 nullptr，防止 ClientManager 析构时
+            // QObject::~QObject() 删除仍在运行的线程，导致 qFatal/abort。
+            instanceThread->setParent(nullptr);
             instanceThread = nullptr;
         }
-
-        qCInfo(lcClientManager) << "~ConnectionInstance(): [COMPLETE] Cleanup completed successfully for" << connectionId;
-    } catch ( const std::exception& e ) {
-        qCWarning(lcClientManager) << "~ConnectionInstance(): exception during cleanup:" << e.what();
-    } catch ( ... ) {
-        qCWarning(lcClientManager) << "~ConnectionInstance(): unknown exception during cleanup";
+    } else {
+        qCDebug(lcClientManager) << "shutdown [PHASE-2] Thread stopped gracefully for" << connectionId;
     }
+}
+
+void ConnectionInstance::shutdownPhase3_DeleteSessionManager() {
+    if ( !sessionManager || sessionManager.isNull() ) {
+        return;
+    }
+
+    qCDebug(lcClientManager) << "shutdown [PHASE-3] Deleting SessionManager for" << connectionId;
+
+    // Deep-disconnect the entire object tree to prevent signal cascades during deletion:
+    //   delete SessionManager → auto-delete ConnectionManager
+    //     → auto-delete TcpClient → ~TcpClient() calls socket->abort()
+    //       → socket emits disconnected() → crash
+    sessionManager->disconnect();
+    const auto children = sessionManager->findChildren<QObject*>(Qt::FindDirectChildrenOnly);
+    for ( QObject* child : children ) {
+        child->disconnect();
+        const auto grandchildren = child->findChildren<QObject*>();
+        for ( QObject* gc : grandchildren ) {
+            gc->disconnect();
+        }
+    }
+
+    delete sessionManager.data();
+    qCDebug(lcClientManager) << "shutdown [PHASE-3] SessionManager deleted for" << connectionId;
+}
+
+void ConnectionInstance::shutdownPhase4_DeleteWindow() {
+    if ( remoteDesktopWindow && !remoteDesktopWindow.isNull() ) {
+        qCDebug(lcClientManager) << "shutdown [PHASE-4] Scheduling window deletion for" << connectionId;
+        remoteDesktopWindow->deleteLater();
+    }
+}
+
+void ConnectionInstance::shutdownPhase5_DeleteThread() {
+    if ( !instanceThread ) {
+        return;
+    }
+
+    if ( instanceThread->isRunning() ) {
+        qCWarning(lcClientManager) << "shutdown [PHASE-5] Thread still running, waiting again for" << connectionId;
+        instanceThread->quit();
+        instanceThread->wait(THREAD_QUIT_TIMEOUT_MS);
+    }
+
+    qCDebug(lcClientManager) << "shutdown [PHASE-5] Deleting thread object for" << connectionId;
+    delete instanceThread;
+    instanceThread = nullptr;
 }
 
 bool ConnectionInstance::isValid() const {
@@ -403,14 +424,14 @@ ClientRemoteWindow* ClientManager::remoteDesktopWindow(const QString& connection
     return instance ? instance->remoteDesktopWindow : nullptr;
 }
 
-ClientRemoteWindow* ClientManager::createRemoteDesktopWindow(const SessionManager* sessionManager) {
+ClientRemoteWindow* ClientManager::createRemoteDesktopWindow(SessionManager* sessionManager) {
     if ( !sessionManager ) {
         qCDebug(lcClientManager) << "createRemoteDesktopWindow(): invalid sessionManager";
         return nullptr;
     }
 
     // 直接传入 SessionManager，构造函数会自动设置
-    ClientRemoteWindow* remoteDesktopWindow = new ClientRemoteWindow(const_cast<SessionManager*>(sessionManager), nullptr);
+    ClientRemoteWindow* remoteDesktopWindow = new ClientRemoteWindow(sessionManager, nullptr);
 
     remoteDesktopWindow->show();
     remoteDesktopWindow->raise();

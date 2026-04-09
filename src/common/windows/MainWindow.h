@@ -1,5 +1,4 @@
-#ifndef MAINWINDOW_H
-#define MAINWINDOW_H
+#pragma once
 
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QSystemTrayIcon>
@@ -161,4 +160,3 @@ private:
     bool m_isShuttingDown;
 };
 
-#endif // MAINWINDOW_H

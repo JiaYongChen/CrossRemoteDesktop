@@ -1,5 +1,4 @@
-#ifndef TCPCLIENT_H
-#define TCPCLIENT_H
+#pragma once
 
 #include <QtCore/QObject>
 #include <QtCore/QDateTime>
@@ -83,4 +82,3 @@ private:
     bool m_destroying = false;
 };
 
-#endif // TCPCLIENT_H

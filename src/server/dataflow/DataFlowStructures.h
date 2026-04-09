@@ -1,5 +1,4 @@
-#ifndef DATAFLOWSTRUCTURES_H
-#define DATAFLOWSTRUCTURES_H
+#pragma once
 
 #include <QtCore/QObject>
 #include <QtCore/QDateTime>
@@ -217,4 +216,3 @@ struct QueueStats {
     }
 };
 
-#endif // DATAFLOWSTRUCTURES_H

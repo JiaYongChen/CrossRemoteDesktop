@@ -1,5 +1,4 @@
-#ifndef CORE_CONSTANTS_H
-#define CORE_CONSTANTS_H
+#pragma once
 
 #include <QtCore/QObject>
 #include <QtCore/QString>
@@ -148,4 +147,3 @@ private:
     CoreConstants() = delete;
 };
 
-#endif // CORE_CONSTANTS_H

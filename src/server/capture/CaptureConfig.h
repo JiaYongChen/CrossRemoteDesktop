@@ -1,5 +1,4 @@
-#ifndef CAPTURECONFIG_H
-#define CAPTURECONFIG_H
+#pragma once
 
 #include <QtCore/QRect>
 #include <chrono>
@@ -93,4 +92,3 @@ struct CaptureStats {
     }
 };
 
-#endif // CAPTURECONFIG_H

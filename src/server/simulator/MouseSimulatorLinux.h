@@ -1,5 +1,4 @@
-#ifndef MOUSESIMULATORLINUX_H
-#define MOUSESIMULATORLINUX_H
+#pragma once
 
 #include "MouseSimulator.h"
 
@@ -42,4 +41,3 @@ private:
 
 #endif // Q_OS_LINUX
 
-#endif // MOUSESIMULATORLINUX_H

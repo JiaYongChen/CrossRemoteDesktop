@@ -64,7 +64,7 @@ bool ThreadManager::createThread(const QString& name,
     }
 
     // 创建线程信息
-    ThreadInfo* threadInfo = new ThreadInfo();
+    auto threadInfo = std::make_shared<ThreadInfo>();
     threadInfo->name = name;
     threadInfo->thread = new QThread();
     threadInfo->worker = worker.release();
@@ -93,8 +93,8 @@ bool ThreadManager::createThread(const QString& name,
 
     qCDebug(lcThreading) << "ThreadManager::createThread() - Worker signals connected for:" << name;
 
-    // 存储线程信息
-    m_threads[name] = threadInfo;
+    // 存储线程信息（转移所有权到哈希表）
+    m_threads[name] = std::move(threadInfo);
 
     qCDebug(lcThreading) << "Thread created:" << name;
     emit threadCreated(name);
@@ -358,11 +358,10 @@ bool ThreadManager::destroyThread(const QString& name) {
     // 清理已通过 stopThread 中的 QueuedConnection 调度执行，此处不再跨线程调用或移动对象，避免 QObject::moveToThread 警告。
     // Worker 与 Thread 的删除统一由 ThreadInfo 析构处理，确保在确认线程停止后安全删除。
 
-    ThreadInfo* infoToDelete = m_threads.take(name);
+    auto infoToDelete = m_threads.take(name);
     locker.unlock();
-    if ( infoToDelete ) {
-        delete infoToDelete; // 析构中会清理 worker 和 thread
-    }
+    // unique_ptr 析构时自动清理 ThreadInfo（含 worker 和 thread）
+    infoToDelete.reset();
 
     qCDebug(lcThreading) << "Thread destroyed:" << name;
     emit threadDestroyed(name);
@@ -511,7 +510,7 @@ ThreadManager::ThreadStats ThreadManager::getThreadStats() const {
     int runningSamples = 0;
 
     for ( auto it = m_threads.begin(); it != m_threads.end(); ++it ) {
-        const ThreadInfo* info = it.value();
+        const ThreadInfo* info = it.value().get();
 
         if ( info->thread->isRunning() ) {
             Worker::State state = info->worker->state();
@@ -623,7 +622,7 @@ void ThreadManager::onWorkerStopped() {
     for ( auto it = m_threads.begin(); it != m_threads.end(); ++it ) {
         if ( it.value()->worker == worker ) {
             threadName = it.key();
-            infoPtr = it.value();
+            infoPtr = it.value().get();
             found = true;
             break;
         }
@@ -703,19 +702,19 @@ void ThreadManager::onMonitoringTimer() {
 
 ThreadManager::ThreadInfo* ThreadManager::findThreadInfo(const QString& name) {
     auto it = m_threads.find(name);
-    return (it != m_threads.end()) ? it.value() : nullptr;
+    return (it != m_threads.end()) ? it.value().get() : nullptr;
 }
 
 const ThreadManager::ThreadInfo* ThreadManager::findThreadInfo(const QString& name) const {
     auto it = m_threads.find(name);
-    return (it != m_threads.end()) ? it.value() : nullptr;
+    return (it != m_threads.end()) ? it.value().get() : nullptr;
 }
 
 QString ThreadManager::getThreadNameByWorker(Worker* worker) const {
     QMutexLocker locker(&m_mutex);
 
     for ( auto it = m_threads.begin(); it != m_threads.end(); ++it ) {
-        if ( it.value()->worker == worker ) {
+        if ( it.value() && it.value()->worker == worker ) {
             return it.key();
         }
     }

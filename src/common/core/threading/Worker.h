@@ -1,5 +1,4 @@
-#ifndef WORKER_H
-#define WORKER_H
+#pragma once
 
 #include <QtCore/QObject>
 #include <QtCore/QMutex>
@@ -51,31 +50,31 @@ public:
      * @brief 获取当前状态
      * @return 当前工作线程状态
      */
-    State state() const;
+    [[nodiscard]] State state() const;
 
     /**
      * @brief 检查是否正在运行
      * @return true 正在运行，false 未运行
      */
-    bool isRunning() const;
+    [[nodiscard]] bool isRunning() const;
 
     /**
      * @brief 检查是否已暂停
      * @return true 已暂停，false 未暂停
      */
-    bool isPaused() const;
+    [[nodiscard]] bool isPaused() const;
 
     /**
      * @brief 检查是否已停止
      * @return true 已停止，false 未停止
      */
-    bool isStopped() const;
+    [[nodiscard]] bool isStopped() const;
 
     /**
      * @brief 获取工作线程名称
      * @return 线程名称
      */
-    QString name() const;
+    [[nodiscard]] QString name() const;
 
     /**
      * @brief 设置工作线程名称
@@ -97,7 +96,7 @@ public:
         quint64 uptime = 0;                 ///< 运行时间（毫秒）
     };
 
-    PerformanceStats getPerformanceStats() const;
+    [[nodiscard]] PerformanceStats getPerformanceStats() const;
 
     /**
      * @brief 重置性能统计
@@ -197,7 +196,7 @@ protected:
      * @brief 检查是否应该停止处理
      * @return true 应该停止，false 继续处理
      */
-    bool shouldStop() const;
+    [[nodiscard]] bool shouldStop() const;
 
     /**
      * @brief 等待暂停状态结束
@@ -285,5 +284,3 @@ private:
 
     bool m_waitForFinish;               ///< 是否等待完成
 };
-
-#endif // WORKER_H

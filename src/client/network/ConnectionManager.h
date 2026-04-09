@@ -1,5 +1,4 @@
-#ifndef CONNECTIONMANAGER_H
-#define CONNECTIONMANAGER_H
+#pragma once
 
 #include <QtCore/QObject>
 #include <QtCore/QString>
@@ -134,4 +133,3 @@ private:
     static const int DEFAULT_MAX_RECONNECT_ATTEMPTS = 5;
 };
 
-#endif // CONNECTIONMANAGER_H

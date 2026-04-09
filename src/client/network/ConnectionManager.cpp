@@ -95,8 +95,15 @@ void ConnectionManager::abort() {
     setConnectionState(Disconnected);
 }
 
-bool ConnectionManager::isConnected() const {
-    return m_connectionState == Connected || m_connectionState == Authenticated;
+bool ConnectionManager::isConnected() const
+{
+    // 改用 socket 的实际状态，而非状态机标志
+    // ConnectedState 是唯一允许双向通信的状态；
+    // ClosingState（TCP 半关闭）期间服务端仍可发数据，应视为"未连接"
+    if ( !m_tcpClient ) {
+        return false;
+    }
+    return m_tcpClient->isConnected();
 }
 
 bool ConnectionManager::isAuthenticated() const {

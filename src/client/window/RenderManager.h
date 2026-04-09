@@ -1,5 +1,4 @@
-#ifndef RENDERMANAGER_H
-#define RENDERMANAGER_H
+#pragma once
 
 #include <QtCore/QObject>
 #include <QtCore/QSize>
@@ -287,4 +286,3 @@ private:
     int m_currentCacheSize;                 ///< 当前缓存大小（字节）
 };
 
-#endif // RENDERMANAGER_H

@@ -1,5 +1,4 @@
-#ifndef CLIPBOARDMANAGER_H
-#define CLIPBOARDMANAGER_H
+#pragma once
 
 #include <QtCore/QObject>
 #include <QtCore/QString>
@@ -89,4 +88,3 @@ private:
     QByteArray m_lastImageData;        ///< 上次的图片数据
 };
 
-#endif // CLIPBOARDMANAGER_H

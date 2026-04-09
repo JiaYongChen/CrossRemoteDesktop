@@ -1,5 +1,4 @@
-#ifndef INPUTSIMULATOR_H
-#define INPUTSIMULATOR_H
+#pragma once
 
 #include <QtCore/QObject>
 #include <QtCore/QPoint>
@@ -65,4 +64,3 @@ private:
     QMutex m_mutex;
 };
 
-#endif // INPUTSIMULATOR_H

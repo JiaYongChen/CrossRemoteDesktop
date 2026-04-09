@@ -37,6 +37,9 @@ TcpClient::TcpClient(QObject* parent)
     // moves with the object during moveToThread() and is safely destroyed with it.
     m_disconnectTimeoutTimer->setSingleShot(true);
     m_disconnectTimeoutTimer->setInterval(1000);
+    // Fix 2a: 命名此计时器，以便 shutdownPhase1 在批量停止子计时器时
+    // 可以通过名称识别并跳过它，确保断开超时回退逻辑（abort）仍能触发。
+    m_disconnectTimeoutTimer->setObjectName("disconnectTimeoutTimer");
     connect(m_disconnectTimeoutTimer, &QTimer::timeout, this, [this]() {
         if ( m_socket && m_socket->state() != QAbstractSocket::UnconnectedState ) {
             m_socket->abort();

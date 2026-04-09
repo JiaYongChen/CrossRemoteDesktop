@@ -1,5 +1,4 @@
-#ifndef CLIENTMANAGER_H
-#define CLIENTMANAGER_H
+#pragma once
 
 #include <QtCore/QObject>
 #include <QtCore/QString>
@@ -28,11 +27,21 @@ struct ConnectionInstance {
     static constexpr int THREAD_TERMINATE_TIMEOUT_MS = 1000; ///< 线程强制终止后等待超时（毫秒）
     static constexpr int DISCONNECT_TIMEOUT_MS = 5000;       ///< 断开连接超时（毫秒）
     
+private:
+    // Shutdown phase helpers (called by shutdown())
+    void shutdownPhase1_CloseWindowAndDisconnect();
+    void shutdownPhase2_StopThread();
+    void shutdownPhase3_DeleteSessionManager();
+    void shutdownPhase4_DeleteWindow();
+    void shutdownPhase5_DeleteThread();
+
+public:
     QString connectionId;                           ///< 连接的唯一标识符
     QPointer<SessionManager> sessionManager;       ///< 会话和远程桌面数据管理器
     QPointer<ClientRemoteWindow> remoteDesktopWindow; ///< 远程桌面窗口
     QThread* instanceThread = nullptr;               ///< SessionManager 所在的独立线程
-    bool isBeingDeleted = false;                    ///< 标志位：防止双重删除
+    bool isBeingDeleted = false;                    ///< 标志位：防止 ClientManager 回调重复处理同一连接
+    bool m_shutdownDone = false;                   ///< shutdown() 幂等保护：确保五阶段清理只执行一次
 
     /**
      * @brief 默认构造函数
@@ -49,6 +58,15 @@ struct ConnectionInstance {
      * @brief 析构函数 - 确保资源正确清理
      */
     ~ConnectionInstance();
+
+    /**
+     * @brief 执行完整的资源清理流程
+     *
+     * 将析构函数中的多阶段清理逻辑提取为独立方法，
+     * 允许在析构前显式调用以便更好地控制资源释放顺序。
+     * 析构函数自动调用此方法（幂等，多次调用安全）。
+     */
+    void shutdown();
 
     /**
      * @brief 检查连接实例是否有效
@@ -113,7 +131,7 @@ public:
     ClientRemoteWindow* remoteDesktopWindow(const QString& connectionId) const;
 
     // 窗口管理
-    ClientRemoteWindow* createRemoteDesktopWindow(const SessionManager* sessionManager);
+    ClientRemoteWindow* createRemoteDesktopWindow(SessionManager* sessionManager);
     void closeAllRemoteDesktopWindows();
 
 signals:
@@ -139,4 +157,3 @@ private:
     QTimer* m_screenUpdateTimer;  // 定时器，用于定期从队列拉取图片
 };
 
-#endif // CLIENTMANAGER_H

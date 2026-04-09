@@ -2,12 +2,12 @@
 #include <QtCore/QDataStream>
 #include <QtCore/QIODevice>
 #include <QtCore/QString>
-#include <QtCore/QCryptographicHash>
 #include <QtCore/QDateTime>
 #include <QtCore/QtEndian>
 #include "../logging/LoggingCategories.h"
 #include "../config/NetworkConstants.h"
 #include <cstring>
+#include <array>
 
 // Protocol 类的静态函数实现（TLS负责传输层加密，协议层不再加密）
 QByteArray Protocol::createMessage(MessageType type, const IMessageCodec& message) {
@@ -97,17 +97,32 @@ qsizetype Protocol::validateReceivedDataIntegrity(const QByteArray& data, Messag
     return totalMessageSize;
 }
 
-quint32 Protocol::calculateChecksum(const QByteArray& data) {
-    QCryptographicHash hash(QCryptographicHash::Md5);
-    hash.addData(data);
-    QByteArray result = hash.result();
-
-    quint32 checksum = 0;
-    if ( result.size() >= 4 ) {
-        checksum = qFromLittleEndian<quint32>(result.constData());
+// CRC-32 lookup table (ISO 3309 / ITU-T V.42, polynomial 0xEDB88320)
+// Generated at compile time for zero runtime cost.
+static constexpr std::array<quint32, 256> generateCrc32Table() {
+    std::array<quint32, 256> table{};
+    for ( quint32 i = 0; i < 256; ++i ) {
+        quint32 crc = i;
+        for ( int j = 0; j < 8; ++j ) {
+            crc = (crc >> 1) ^ ((crc & 1) ? 0xEDB88320u : 0u);
+        }
+        table[i] = crc;
     }
+    return table;
+}
 
-    return checksum;
+static constexpr auto kCrc32Table = generateCrc32Table();
+
+quint32 Protocol::calculateChecksum(const QByteArray& data) {
+    // CRC-32: purpose-appropriate for integrity checks, ~10x faster than MD5.
+    // Note: this is NOT a security hash — TLS handles authentication.
+    quint32 crc = 0xFFFFFFFFu;
+    const auto* bytes = reinterpret_cast<const quint8*>(data.constData());
+    const auto len = static_cast<qsizetype>(data.size());
+    for ( qsizetype i = 0; i < len; ++i ) {
+        crc = kCrc32Table[(crc ^ bytes[i]) & 0xFF] ^ (crc >> 8);
+    }
+    return crc ^ 0xFFFFFFFFu;
 }
 
 // 辅助函数：写入长度前缀字符串（quint32长度 + UTF-8数据）

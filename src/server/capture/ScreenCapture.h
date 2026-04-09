@@ -1,5 +1,4 @@
-#ifndef SCREENCAPTURE_H
-#define SCREENCAPTURE_H
+#pragma once
 
 #include <QtCore/QObject>
 #include <QtCore/QTimer>
@@ -143,4 +142,3 @@ private:
     static constexpr int STATS_UPDATE_INTERVAL = 1000;                 ///< 统计更新间隔（毫秒）
 };
 
-#endif // SCREENCAPTURE_H

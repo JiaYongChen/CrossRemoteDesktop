@@ -1,5 +1,4 @@
-#ifndef SERVERMANAGER_H
-#define SERVERMANAGER_H
+#pragma once
 
 #include <QtCore/QObject>
 #include <QtCore/QHash>
@@ -28,7 +27,19 @@ class ServerManager : public QObject {
     Q_OBJECT
 
 public:
-    explicit ServerManager(QObject* parent = nullptr);
+    /**
+     * @brief 构造函数
+     *
+     * 支持依赖注入：可传入自定义的 ThreadManager 和 QueueManager 实例。
+     * 若传入 nullptr，则使用全局单例（向后兼容）。
+     *
+     * @param parent 父对象
+     * @param threadMgr 线程管理器（nullptr 使用单例）
+     * @param queueMgr 队列管理器（nullptr 使用单例）
+     */
+    explicit ServerManager(QObject* parent = nullptr,
+                           ThreadManager* threadMgr = nullptr,
+                           QueueManager* queueMgr = nullptr);
     ~ServerManager();
 
     // 服务器控制
@@ -151,4 +162,3 @@ private:
     mutable QMutex m_clientMutex;           ///< 客户端互斥锁
 };
 
-#endif // SERVERMANAGER_H

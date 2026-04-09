@@ -6,6 +6,33 @@ project(QtRemoteDesktop VERSION 1.0.0 LANGUAGES CXX C)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Sanitizer support (opt-in via -DENABLE_SANITIZERS=address|thread|undefined|memory)
+# Usage:  cmake -B build -DENABLE_SANITIZERS=address
+#         cmake -B build -DENABLE_SANITIZERS=address,undefined  (comma-separated)
+# MSVC supports /fsanitize=address only; GCC/Clang support all four.
+option(ENABLE_SANITIZERS "Comma-separated list of sanitizers to enable (address,thread,undefined,memory)" "")
+if(ENABLE_SANITIZERS)
+    if(MSVC)
+        # MSVC only supports AddressSanitizer
+        if(ENABLE_SANITIZERS MATCHES "address")
+            add_compile_options(/fsanitize=address)
+            message(STATUS "[Sanitizers] Enabled: AddressSanitizer (MSVC)")
+        else()
+            message(WARNING "[Sanitizers] MSVC only supports 'address'; ignoring: ${ENABLE_SANITIZERS}")
+        endif()
+    else()
+        # GCC / Clang
+        string(REPLACE "," ";" _sanitizer_list "${ENABLE_SANITIZERS}")
+        foreach(_san IN LISTS _sanitizer_list)
+            add_compile_options(-fsanitize=${_san})
+            add_link_options(-fsanitize=${_san})
+            message(STATUS "[Sanitizers] Enabled: ${_san}")
+        endforeach()
+        # Produce useful stack traces
+        add_compile_options(-fno-omit-frame-pointer -g)
+    endif()
+endif()
+
 # Windows MSVC特定编译器选项
 if(MSVC)
     # 防止Windows.h定义min/max宏
@@ -83,147 +110,80 @@ if(APPLE)
         endif()
     endif()
     
-    # Qt6路径检测优先级（按常见安装位置排序）
-    set(QT6_SEARCH_PATHS "")
-    
+    # macOS: Homebrew prefix varies by architecture
     if(PLATFORM_ARCH STREQUAL "ARM64")
-        # Apple Silicon Mac优先路径
-        list(APPEND QT6_SEARCH_PATHS
-            "/opt/homebrew/opt/qt@6/lib/cmake/Qt6"
-            "/opt/homebrew/opt/qt/lib/cmake/Qt6"
-            "/opt/homebrew/lib/cmake/Qt6"
-            "/usr/local/opt/qt@6/lib/cmake/Qt6"  # 备用路径
-            "/usr/local/opt/qt/lib/cmake/Qt6"
-            "/Applications/Qt/*/macos/lib/cmake/Qt6"
-            "~/Qt/*/macos/lib/cmake/Qt6"
-        )
         set(HOMEBREW_PREFIX "/opt/homebrew")
-        set(OPENSSL_SEARCH_PATH "/opt/homebrew/opt/openssl@3")
     else()
-        # Intel Mac优先路径
-        list(APPEND QT6_SEARCH_PATHS
-            "/usr/local/opt/qt@6/lib/cmake/Qt6"
-            "/usr/local/opt/qt/lib/cmake/Qt6"
-            "/usr/local/lib/cmake/Qt6"
-            "/opt/homebrew/opt/qt@6/lib/cmake/Qt6"  # 备用路径
-            "/opt/homebrew/opt/qt/lib/cmake/Qt6"
-            "/Applications/Qt/*/macos/lib/cmake/Qt6"
-            "~/Qt/*/macos/lib/cmake/Qt6"
-        )
         set(HOMEBREW_PREFIX "/usr/local")
-        set(OPENSSL_SEARCH_PATH "/usr/local/opt/openssl@3")
     endif()
-    
+    set(OPENSSL_SEARCH_PATH "${HOMEBREW_PREFIX}/opt/openssl@3")
+
+    # Hint paths for Qt6 (Homebrew, Qt Online Installer)
+    list(APPEND CMAKE_PREFIX_PATH
+        "${HOMEBREW_PREFIX}/opt/qt@6"
+        "${HOMEBREW_PREFIX}/opt/qt"
+        "${HOMEBREW_PREFIX}"
+    )
+    # Glob for Qt Online Installer paths (e.g. ~/Qt/6.9.3/macos)
+    file(GLOB _qt_installer_paths "$ENV{HOME}/Qt/*/macos" "/Applications/Qt/*/macos")
+    list(APPEND CMAKE_PREFIX_PATH ${_qt_installer_paths})
+
 elseif(WIN32)
-    # Windows平台配置
-    set(QT6_SEARCH_PATHS "")
-    
-    # 检测常见的Qt6安装路径
-    if(PLATFORM_ARCH STREQUAL "x64")
-        list(APPEND QT6_SEARCH_PATHS
-            "C:/Qt/*/msvc*/lib/cmake/Qt6"
-            "C:/Qt/*/msvc*_64/lib/cmake/Qt6"
-            "C:/Program Files/Qt/*/lib/cmake/Qt6"
-            "$ENV{QTDIR}/lib/cmake/Qt6"
-            "$ENV{Qt6_DIR}"
-        )
-    elseif(PLATFORM_ARCH STREQUAL "ARM64")
-        list(APPEND QT6_SEARCH_PATHS
-            "C:/Qt/*/msvc*_arm64/lib/cmake/Qt6"
-            "C:/Program Files/Qt/*/lib/cmake/Qt6"
-            "$ENV{QTDIR}/lib/cmake/Qt6"
-            "$ENV{Qt6_DIR}"
-        )
+    # Hint paths for Qt6 on Windows
+    # Environment variables take highest priority
+    if(DEFINED ENV{Qt6_DIR})
+        list(APPEND CMAKE_PREFIX_PATH "$ENV{Qt6_DIR}")
+    endif()
+    if(DEFINED ENV{QTDIR})
+        list(APPEND CMAKE_PREFIX_PATH "$ENV{QTDIR}")
+    endif()
+    # Glob for standard Qt Online Installer paths
+    if(PLATFORM_ARCH STREQUAL "ARM64")
+        file(GLOB _qt_win_paths "C:/Qt/*/msvc*_arm64")
+    elseif(PLATFORM_ARCH STREQUAL "x64")
+        file(GLOB _qt_win_paths "C:/Qt/*/msvc*_64" "C:/Qt/*/msvc2022_64")
     else()
-        list(APPEND QT6_SEARCH_PATHS
-            "C:/Qt/*/msvc*/lib/cmake/Qt6"
-            "C:/Qt/*/msvc*_32/lib/cmake/Qt6"
-            "C:/Program Files (x86)/Qt/*/lib/cmake/Qt6"
-            "$ENV{QTDIR}/lib/cmake/Qt6"
-            "$ENV{Qt6_DIR}"
-        )
+        file(GLOB _qt_win_paths "C:/Qt/*/msvc*_32" "C:/Qt/*/msvc*")
     endif()
-    
-    # vcpkg支持
+    list(APPEND CMAKE_PREFIX_PATH ${_qt_win_paths})
+    # vcpkg support
     if(DEFINED ENV{VCPKG_ROOT})
-        if(PLATFORM_ARCH STREQUAL "x64")
-            list(APPEND QT6_SEARCH_PATHS "$ENV{VCPKG_ROOT}/installed/x64-windows/share/qt6")
-        elseif(PLATFORM_ARCH STREQUAL "ARM64")
-            list(APPEND QT6_SEARCH_PATHS "$ENV{VCPKG_ROOT}/installed/arm64-windows/share/qt6")
-        else()
-            list(APPEND QT6_SEARCH_PATHS "$ENV{VCPKG_ROOT}/installed/x86-windows/share/qt6")
-        endif()
+        list(APPEND CMAKE_PREFIX_PATH "$ENV{VCPKG_ROOT}/installed/${PLATFORM_ARCH}-windows")
     endif()
-    
+
 elseif(UNIX)
-    # Linux平台配置
-    set(QT6_SEARCH_PATHS "")
-    
-    # 检测常见的Qt6安装路径
-    list(APPEND QT6_SEARCH_PATHS
+    # Hint paths for Qt6 on Linux (system packages + Qt Online Installer)
+    list(APPEND CMAKE_PREFIX_PATH
         "/usr/lib/cmake/Qt6"
         "/usr/lib64/cmake/Qt6"
         "/usr/local/lib/cmake/Qt6"
-        "/usr/local/lib64/cmake/Qt6"
-        "/opt/qt*/lib/cmake/Qt6"
-        "~/Qt/*/gcc_64/lib/cmake/Qt6"
-        "$ENV{QTDIR}/lib/cmake/Qt6"
-        "$ENV{Qt6_DIR}"
     )
-    
-    # 架构特定路径
     if(PLATFORM_ARCH STREQUAL "ARM64")
-        list(APPEND QT6_SEARCH_PATHS
-            "/usr/lib/aarch64-linux-gnu/cmake/Qt6"
-            "~/Qt/*/gcc_arm64/lib/cmake/Qt6"
-        )
-    elseif(PLATFORM_ARCH STREQUAL "ARM32")
-        list(APPEND QT6_SEARCH_PATHS
-            "/usr/lib/arm-linux-gnueabihf/cmake/Qt6"
-            "~/Qt/*/gcc_armhf/lib/cmake/Qt6"
-        )
-    else()
-        list(APPEND QT6_SEARCH_PATHS
-            "/usr/lib/x86_64-linux-gnu/cmake/Qt6"
-        )
+        list(APPEND CMAKE_PREFIX_PATH "/usr/lib/aarch64-linux-gnu/cmake/Qt6")
+    elseif(PLATFORM_ARCH STREQUAL "x64")
+        list(APPEND CMAKE_PREFIX_PATH "/usr/lib/x86_64-linux-gnu/cmake/Qt6")
+    endif()
+    file(GLOB _qt_linux_paths "$ENV{HOME}/Qt/*/gcc_64")
+    list(APPEND CMAKE_PREFIX_PATH ${_qt_linux_paths})
+    if(DEFINED ENV{QTDIR})
+        list(APPEND CMAKE_PREFIX_PATH "$ENV{QTDIR}")
     endif()
 endif()
 
-# 自动检测Qt6安装路径
-set(QT6_FOUND_PATH "")
-foreach(QT6_PATH ${QT6_SEARCH_PATHS})
-    # 展开通配符路径
-    file(GLOB QT6_EXPANDED_PATHS "${QT6_PATH}")
-    foreach(QT6_EXPANDED_PATH ${QT6_EXPANDED_PATHS})
-        if(EXISTS "${QT6_EXPANDED_PATH}/Qt6Config.cmake")
-            set(QT6_FOUND_PATH "${QT6_EXPANDED_PATH}")
-            break()
-        endif()
-    endforeach()
-    if(QT6_FOUND_PATH)
-        break()
-    endif()
-endforeach()
-
-# 配置Qt6路径
-if(QT6_FOUND_PATH)
-    set(Qt6_DIR "${QT6_FOUND_PATH}" CACHE PATH "Qt6 Config path (Auto-detected)" FORCE)
-    get_filename_component(QT6_ROOT_DIR "${QT6_FOUND_PATH}/../../.." ABSOLUTE)
-    
-    # 设置CMAKE_PREFIX_PATH
-    if(APPLE AND HOMEBREW_PREFIX)
-        set(CMAKE_PREFIX_PATH "${HOMEBREW_PREFIX};${QT6_ROOT_DIR};${HOMEBREW_PREFIX}/opt/qt" CACHE STRING "Auto-detected prefixes" FORCE)
-    else()
-        set(CMAKE_PREFIX_PATH "${QT6_ROOT_DIR}" CACHE STRING "Auto-detected Qt6 prefix" FORCE)
-    endif()
-    
-    message(STATUS "[Qt6 Auto-Detection] Found Qt6 at: ${QT6_FOUND_PATH}")
+# Let CMake's find_package locate Qt6 via CMAKE_PREFIX_PATH (set above).
+# If Qt6_DIR is already set (e.g. via -DQt6_DIR=...), it takes precedence.
+# Use QUIET to probe; the definitive REQUIRED find_package with all components comes later.
+find_package(Qt6 6.9 QUIET COMPONENTS Core CONFIG)
+if(Qt6_FOUND)
+    set(QT6_FOUND_PATH "${Qt6_DIR}")
+    get_filename_component(QT6_ROOT_DIR "${Qt6_DIR}/../../.." ABSOLUTE)
+    message(STATUS "[Qt6 Auto-Detection] Found Qt6 ${Qt6_VERSION} at: ${Qt6_DIR}")
     message(STATUS "[Qt6 Auto-Detection] Qt6 Root: ${QT6_ROOT_DIR}")
 else()
-    message(WARNING "[Qt6 Auto-Detection] Qt6 not found in standard locations. Please set Qt6_DIR manually.")
+    message(WARNING "[Qt6 Auto-Detection] Qt6 >= 6.9 not found. Please set Qt6_DIR or CMAKE_PREFIX_PATH.")
 endif()
 
-# OpenSSL路径配置（平台特定）
+# OpenSSL path configuration (platform-specific)
 if(APPLE AND OPENSSL_SEARCH_PATH AND EXISTS "${OPENSSL_SEARCH_PATH}")
     set(OPENSSL_ROOT_DIR "${OPENSSL_SEARCH_PATH}" CACHE PATH "OpenSSL root (Auto-detected)" FORCE)
     set(OPENSSL_INCLUDE_DIR "${OPENSSL_SEARCH_PATH}/include" CACHE PATH "OpenSSL include (Auto-detected)" FORCE)
@@ -231,15 +191,8 @@ if(APPLE AND OPENSSL_SEARCH_PATH AND EXISTS "${OPENSSL_SEARCH_PATH}")
     set(OPENSSL_SSL_LIBRARY "${OPENSSL_SEARCH_PATH}/lib/libssl.dylib" CACHE FILEPATH "OpenSSL ssl lib (Auto-detected)" FORCE)
     message(STATUS "[OpenSSL Auto-Detection] Found OpenSSL at: ${OPENSSL_SEARCH_PATH}")
 elseif(WIN32)
-    # Windows OpenSSL检测
     if(DEFINED ENV{VCPKG_ROOT})
-        if(PLATFORM_ARCH STREQUAL "x64")
-            set(OPENSSL_ROOT_DIR "$ENV{VCPKG_ROOT}/installed/x64-windows" CACHE PATH "OpenSSL root (vcpkg)" FORCE)
-        elseif(PLATFORM_ARCH STREQUAL "ARM64")
-            set(OPENSSL_ROOT_DIR "$ENV{VCPKG_ROOT}/installed/arm64-windows" CACHE PATH "OpenSSL root (vcpkg)" FORCE)
-        else()
-            set(OPENSSL_ROOT_DIR "$ENV{VCPKG_ROOT}/installed/x86-windows" CACHE PATH "OpenSSL root (vcpkg)" FORCE)
-        endif()
+        set(OPENSSL_ROOT_DIR "$ENV{VCPKG_ROOT}/installed/${PLATFORM_ARCH}-windows" CACHE PATH "OpenSSL root (vcpkg)" FORCE)
     endif()
 endif()
 

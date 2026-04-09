@@ -1,5 +1,4 @@
-#ifndef THREADMANAGER_H
-#define THREADMANAGER_H
+#pragma once
 
 #include <QtCore/QObject>
 #include <QtCore/QThread>
@@ -89,7 +88,7 @@ public:
      * @brief 获取单例实例
      * @return ThreadManager单例实例
      */
-    static ThreadManager* instance();
+    [[nodiscard]] static ThreadManager* instance();
 
     /**
      * @brief 析构函数
@@ -112,7 +111,7 @@ public:
      * @param maxRestarts 最大重启次数（-1表示无限制）
      * @return true 创建成功，false 创建失败（名称重复等）
      */
-    bool createThread(const QString& name, 
+    [[nodiscard]] bool createThread(const QString& name,
                      std::unique_ptr<Worker> worker,
                      bool autoStart = false,
                      bool autoRestart = false,
@@ -192,40 +191,40 @@ public:
      * @param name 线程名称
      * @return true 存在，false 不存在
      */
-    bool hasThread(const QString& name) const;
+    [[nodiscard]] bool hasThread(const QString& name) const;
 
     /**
      * @brief 检查指定线程是否处于运行状态
      * @param name 线程名称
      * @return true 线程正在运行，false 不在运行或不存在
      */
-    bool isThreadRunning(const QString& name) const;
+    [[nodiscard]] bool isThreadRunning(const QString& name) const;
 
     /**
      * @brief 获取线程信息
      * @param name 线程名称
      * @return 线程信息，如果线程不存在则返回nullptr
      */
-    const ThreadInfo* getThreadInfo(const QString& name) const;
+    [[nodiscard]] const ThreadInfo* getThreadInfo(const QString& name) const;
 
     /**
      * @brief 获取所有线程名称
      * @return 线程名称列表
      */
-    QStringList getThreadNames() const;
+    [[nodiscard]] QStringList getThreadNames() const;
 
     /**
      * @brief 获取线程统计信息
      * @return 线程统计数据
      */
-    ThreadStats getThreadStats() const;
+    [[nodiscard]] ThreadStats getThreadStats() const;
 
     /**
      * @brief 获取指定线程的Worker对象
      * @param name 线程名称
      * @return Worker对象指针，如果线程不存在则返回nullptr
      */
-    Worker* getWorker(const QString& name) const;
+    [[nodiscard]] Worker* getWorker(const QString& name) const;
 
     /**
      * @brief 设置性能监控间隔
@@ -237,7 +236,7 @@ public:
      * @brief 获取性能监控间隔
      * @return 监控间隔（毫秒）
      */
-    int monitoringInterval() const;
+    [[nodiscard]] int monitoringInterval() const;
 
     /**
      * @brief 启用或禁用性能监控
@@ -249,7 +248,7 @@ public:
      * @brief 检查性能监控是否启用
      * @return true 已启用，false 未启用
      */
-    bool isMonitoringEnabled() const;
+    [[nodiscard]] bool isMonitoringEnabled() const;
 
 signals:
     /**
@@ -340,11 +339,19 @@ private slots:
      */
     void onMonitoringTimer();
 
-private:
+public:
     /**
-     * @brief 私有构造函数（单例模式）
+     * @brief 构造函数
+     *
+     * 支持两种使用模式：
+     * 1. 单例模式：通过 instance() 获取全局实例（向后兼容）
+     * 2. 依赖注入：直接构造实例并注入到需要的组件中（推荐新代码使用）
+     *
+     * @param parent 父对象
      */
     explicit ThreadManager(QObject *parent = nullptr);
+
+private:
 
     /**
      * @brief 查找线程信息
@@ -389,7 +396,7 @@ private:
     static ThreadManager* s_instance;       ///< 单例实例
     
     mutable QMutex m_mutex;                 ///< 互斥锁
-    QHash<QString, ThreadInfo*> m_threads; ///< 线程信息映射
+    QHash<QString, std::shared_ptr<ThreadInfo>> m_threads; ///< 线程信息映射
     
     // 性能监控
     QTimer* m_monitoringTimer;              ///< 监控定时器
@@ -397,4 +404,3 @@ private:
     bool m_monitoringEnabled;               ///< 是否启用监控
 };
 
-#endif // THREADMANAGER_H

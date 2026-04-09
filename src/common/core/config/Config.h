@@ -1,5 +1,4 @@
-#ifndef CONFIG_H
-#define CONFIG_H
+#pragma once
 
 #include <QtCore/QObject>
 #include <QtCore/QSettings>
@@ -306,4 +305,3 @@ private:
 #define CONFIG_BIND(type, key, variable, defaultValue, group) \
     static ConfigBinding<type> _binding_##variable(key, &variable, defaultValue, group)
 
-#endif // CONFIG_H

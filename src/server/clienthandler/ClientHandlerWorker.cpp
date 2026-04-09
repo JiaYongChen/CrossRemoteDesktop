@@ -241,14 +241,24 @@ void ClientHandlerWorker::processTask() {
     }
 
     // 认证成功后，异步从处理队列获取并发送屏幕数据
-    // 使用QMetaObject::invokeMethod异步调用，避免阻塞processTask
-    if ( isAuthenticated() && m_queueManager ) {
+    // Guard flag prevents event queue accumulation: only post if no pending invocation
+    if ( isAuthenticated() && m_queueManager && !m_sendScreenDataPending.exchange(true) ) {
         QMetaObject::invokeMethod(this, "sendScreenDataFromQueue", Qt::QueuedConnection);
     }
 }
 
 void ClientHandlerWorker::sendScreenDataFromQueue() {
-    if ( !m_queueManager ) {
+    // Reset the guard flag so processTask can post the next invocation
+    m_sendScreenDataPending.store(false);
+
+    // Fix 1: 在出队之前先检查 socket 连接状态和认证状态。
+    // 若 socket 已断开，dequeueProcessedData() 会静默消耗队列数据却无法发送，
+    // 造成数据丢失并给调用方留下"仍在传输"的假象。
+    if ( !m_socket || m_socket->state() != QAbstractSocket::ConnectedState ) {
+        return;
+    }
+
+    if ( !m_queueManager || !isAuthenticated() ) {
         return;
     }
 

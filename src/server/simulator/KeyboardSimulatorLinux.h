@@ -1,5 +1,4 @@
-#ifndef KEYBOARDSIMULATORLINUX_H
-#define KEYBOARDSIMULATORLINUX_H
+#pragma once
 
 #include "KeyboardSimulator.h"
 
@@ -51,4 +50,3 @@ private:
 
 #endif // Q_OS_LINUX
 
-#endif // KEYBOARDSIMULATORLINUX_H

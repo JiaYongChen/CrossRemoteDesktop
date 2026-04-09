@@ -1,5 +1,4 @@
-#ifndef DATAPROCESSINGWORKER_H
-#define DATAPROCESSINGWORKER_H
+#pragma once
 
 #include "../../common/core/threading/Worker.h"
 #include "../../common/core/config/Constants.h"
@@ -285,4 +284,3 @@ private:
     static constexpr int DEFAULT_STATS_INTERVAL = 1000;                 ///< 默认统计更新间隔（毫秒）
 };
 
-#endif // DATAPROCESSINGWORKER_H

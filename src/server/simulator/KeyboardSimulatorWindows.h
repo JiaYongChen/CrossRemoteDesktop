@@ -1,5 +1,4 @@
-#ifndef KEYBOARDSIMULATORWINDOWS_H
-#define KEYBOARDSIMULATORWINDOWS_H
+#pragma once
 
 #include "KeyboardSimulator.h"
 
@@ -48,4 +47,3 @@ private:
 
 #endif // Q_OS_WIN
 
-#endif // KEYBOARDSIMULATORWINDOWS_H

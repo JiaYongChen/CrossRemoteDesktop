@@ -1,5 +1,4 @@
-#ifndef MOUSESIMULATOR_H
-#define MOUSESIMULATOR_H
+#pragma once
 
 #include <QtCore/QObject>
 #include <QtCore/QPoint>
@@ -54,4 +53,3 @@ protected:
     QSize m_screenSize;
 };
 
-#endif // MOUSESIMULATOR_H

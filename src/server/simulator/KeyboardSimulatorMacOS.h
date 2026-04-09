@@ -1,5 +1,4 @@
-#ifndef KEYBOARDSIMULATORMAC_H
-#define KEYBOARDSIMULATORMAC_H
+#pragma once
 
 #include "KeyboardSimulator.h"
 
@@ -52,4 +51,3 @@ private:
 
 #endif // Q_OS_MACOS
 
-#endif // KEYBOARDSIMULATORMAC_H
