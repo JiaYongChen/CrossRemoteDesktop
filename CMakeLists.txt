@@ -53,7 +53,7 @@ endif()
 # [跨平台Qt6自动检测与配置]
 # 说明:
 # 1) 自动检测操作系统类型（Windows/Linux/macOS）和处理器架构（x86/x64/ARM）
-# 2) 根据平台特性配置Qt6库路径、OpenSSL路径等依赖项
+# 2) 根据平台特性配置Qt6库路径
 # 3) 支持多种Qt6安装方式：官方安装器、包管理器（Homebrew/vcpkg/apt等）、手动编译
 # 4) 确保架构一致性，避免混合不同架构的库文件
 
@@ -284,98 +284,13 @@ find_package(Qt6 6.9 REQUIRED COMPONENTS
     Svg
 )
 
-# 新增：查找第三方依赖（用于加解密和PNG编码）
-# 手动设置OpenSSL路径（Windows特定）
-if(WIN32 AND EXISTS "C:/Program Files/OpenSSL-Win64")
-    set(OPENSSL_ROOT_DIR "C:/Program Files/OpenSSL-Win64")
-    set(OPENSSL_INCLUDE_DIR "C:/Program Files/OpenSSL-Win64/include")
-    set(OPENSSL_CRYPTO_LIBRARY "C:/Program Files/OpenSSL-Win64/lib/VC/x64/MD/libcrypto.lib")
-    set(OPENSSL_SSL_LIBRARY "C:/Program Files/OpenSSL-Win64/lib/VC/x64/MD/libssl.lib")
-    set(OPENSSL_LIBRARIES "${OPENSSL_SSL_LIBRARY}" "${OPENSSL_CRYPTO_LIBRARY}")
-    set(OPENSSL_FOUND TRUE)
-    set(OPENSSL_VERSION "3.6.0")
-    
-    # 创建导入目标
-    if(NOT TARGET OpenSSL::SSL)
-        add_library(OpenSSL::SSL UNKNOWN IMPORTED)
-        set_target_properties(OpenSSL::SSL PROPERTIES
-            IMPORTED_LOCATION "${OPENSSL_SSL_LIBRARY}"
-            INTERFACE_INCLUDE_DIRECTORIES "${OPENSSL_INCLUDE_DIR}"
-        )
-    endif()
-    
-    if(NOT TARGET OpenSSL::Crypto)
-        add_library(OpenSSL::Crypto UNKNOWN IMPORTED)
-        set_target_properties(OpenSSL::Crypto PROPERTIES
-            IMPORTED_LOCATION "${OPENSSL_CRYPTO_LIBRARY}"
-            INTERFACE_INCLUDE_DIRECTORIES "${OPENSSL_INCLUDE_DIR}"
-        )
-    endif()
-    
-    message(STATUS "Using manually configured OpenSSL at: ${OPENSSL_ROOT_DIR}")
-    message(STATUS "OpenSSL include: ${OPENSSL_INCLUDE_DIR}")
-    message(STATUS "OpenSSL libraries: ${OPENSSL_LIBRARIES}")
-else()
-    find_package(OpenSSL REQUIRED)
-endif()
-
-# 查找zstd库（用于高压缩比的二次压缩）
-if(APPLE)
-    # macOS: 使用Homebrew安装的zstd
-    if(PLATFORM_ARCH STREQUAL "ARM64")
-        set(ZSTD_ROOT "/opt/homebrew/opt/zstd")
-    else()
-        set(ZSTD_ROOT "/usr/local/opt/zstd")
-    endif()
-    
-    if(EXISTS "${ZSTD_ROOT}")
-        set(ZSTD_INCLUDE_DIR "${ZSTD_ROOT}/include")
-        set(ZSTD_LIBRARY "${ZSTD_ROOT}/lib/libzstd.dylib")
-        message(STATUS "Found zstd at: ${ZSTD_ROOT}")
-    else()
-        message(FATAL_ERROR "zstd not found. Please install with: brew install zstd")
-    endif()
-elseif(WIN32)
-    # Windows: 先尝试查找已安装的 zstd（vcpkg / 手动安装），找不到则使用 third_party/zstd 本地源码构建
-    find_path(ZSTD_INCLUDE_DIR_SYSTEM zstd.h)
-    find_library(ZSTD_LIBRARY_SYSTEM NAMES zstd zstd_static)
-    if(ZSTD_INCLUDE_DIR_SYSTEM AND ZSTD_LIBRARY_SYSTEM)
-        # 使用系统已安装的 zstd
-        set(ZSTD_INCLUDE_DIR "${ZSTD_INCLUDE_DIR_SYSTEM}")
-        set(ZSTD_LIBRARY "${ZSTD_LIBRARY_SYSTEM}")
-    else()
-        # 使用本地源码构建 zstd（每次配置都需要 add_subdirectory 以注册目标）
-        set(ZSTD_LOCAL_DIR "${CMAKE_SOURCE_DIR}/third_party/zstd")
-        if(NOT EXISTS "${ZSTD_LOCAL_DIR}/build/cmake/CMakeLists.txt")
-            message(FATAL_ERROR "zstd 本地源码未找到，请执行: git clone --depth 1 --branch v1.5.6 https://github.com/facebook/zstd.git third_party/zstd")
-        endif()
-        message(STATUS "Using local zstd source from: ${ZSTD_LOCAL_DIR}")
-        set(ZSTD_BUILD_PROGRAMS OFF CACHE BOOL "Build zstd programs" FORCE)
-        set(ZSTD_BUILD_SHARED   OFF CACHE BOOL "Build zstd shared library" FORCE)
-        set(ZSTD_BUILD_STATIC   ON  CACHE BOOL "Build zstd static library" FORCE)
-        set(ZSTD_BUILD_TESTS    OFF CACHE BOOL "Build zstd tests" FORCE)
-        add_subdirectory("${ZSTD_LOCAL_DIR}/build/cmake" "${CMAKE_BINARY_DIR}/_deps/zstd-build")
-        # 禁用第三方目标的"警告即错误"，避免 zstd 自身的警告中止构建
-        if(TARGET libzstd_static)
-            if(MSVC)
-                target_compile_options(libzstd_static PRIVATE /WX-)
-                set_target_properties(libzstd_static PROPERTIES OUTPUT_NAME libzstd_static)
-            endif()
-        endif()
-        set(ZSTD_INCLUDE_DIR "${ZSTD_LOCAL_DIR}/lib")
-        set(ZSTD_LIBRARY libzstd_static)
-    endif()
-else()
-    # Linux: 使用系统包管理器安装的zstd
-    find_path(ZSTD_INCLUDE_DIR zstd.h)
-    find_library(ZSTD_LIBRARY NAMES zstd)
-    if(NOT ZSTD_INCLUDE_DIR OR NOT ZSTD_LIBRARY)
-        message(FATAL_ERROR "zstd not found. Please install with: sudo apt install libzstd-dev")
-    endif()
-endif()
-
-message(STATUS "ZSTD include: ${ZSTD_INCLUDE_DIR}")
-message(STATUS "ZSTD library: ${ZSTD_LIBRARY}")
+# ==============================================================================
+# Third-party dependencies (modular setup from cmake/ directory)
+# Strategy: check third_party/<lib>/ first, auto-download/build if absent.
+# See cmake/SetupOpenSSL.cmake and cmake/SetupZstd.cmake for details.
+# ==============================================================================
+include(cmake/SetupOpenSSL.cmake)
+include(cmake/SetupZstd.cmake)
 
 # 标准Qt项目设置（可用时）
 if(COMMAND qt_standard_project_setup)
@@ -703,19 +618,18 @@ target_link_libraries(QtRemoteDesktop PRIVATE
     OpenSSL::Crypto
     ${ZSTD_LIBRARY}
 )
-# 确保 zstd 先于主项目编译
-if(TARGET libzstd_static)
-    add_dependencies(QtRemoteDesktop libzstd_static)
-endif()
+# zstd is pre-built during configure (see cmake/SetupZstd.cmake), no build-time dependency needed
 
 # Windows下自动拷贝OpenSSL运行时DLL到输出目录（TLS所需）
-if(WIN32 AND EXISTS "${OPENSSL_ROOT_DIR}/bin/libssl-3-x64.dll")
+# DLL 位于 third_party/openssl/bin/ (由 cmake/SetupOpenSSL.cmake 安装)
+set(_OPENSSL_BIN_DIR "${CMAKE_SOURCE_DIR}/third_party/openssl/bin")
+if(WIN32 AND EXISTS "${_OPENSSL_BIN_DIR}/libssl-3-x64.dll")
     add_custom_command(TARGET QtRemoteDesktop POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${OPENSSL_ROOT_DIR}/bin/libssl-3-x64.dll"
+            "${_OPENSSL_BIN_DIR}/libssl-3-x64.dll"
             "$<TARGET_FILE_DIR:QtRemoteDesktop>"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${OPENSSL_ROOT_DIR}/bin/libcrypto-3-x64.dll"
+            "${_OPENSSL_BIN_DIR}/libcrypto-3-x64.dll"
             "$<TARGET_FILE_DIR:QtRemoteDesktop>"
         COMMENT "Copying OpenSSL DLLs to output directory"
     )

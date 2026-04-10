@@ -67,63 +67,19 @@ if(APPLE AND _qtgui_link_opts)
 endif()
 
 
-# 查找OpenSSL - 优先复用父项目已创建的导入目标，避免硬编码路径
+# 查找OpenSSL - 复用父项目已创建的导入目标（由 cmake/SetupOpenSSL.cmake 提供）
 if(TARGET OpenSSL::SSL AND TARGET OpenSSL::Crypto)
     message(STATUS "[Tests] Reusing OpenSSL targets from parent project")
 else()
-    # 父项目未提供目标时，使用 find_package 自动查找
-    # OPENSSL_ROOT_DIR 等 CACHE 变量已由父项目设置，find_package 会自动使用
     find_package(OpenSSL REQUIRED)
 endif()
 
-# 查找zstd库（从父项目继承配置）
-if(APPLE)
-    if(PLATFORM_ARCH STREQUAL "ARM64")
-        set(ZSTD_ROOT "/opt/homebrew/opt/zstd")
-    else()
-        set(ZSTD_ROOT "/usr/local/opt/zstd")
-    endif()
-    
-    if(EXISTS "${ZSTD_ROOT}")
-        set(ZSTD_INCLUDE_DIR "${ZSTD_ROOT}/include")
-        set(ZSTD_LIBRARY "${ZSTD_ROOT}/lib/libzstd.dylib")
-        message(STATUS "[Tests] Found zstd at: ${ZSTD_ROOT}")
-    endif()
-elseif(WIN32)
-    # 优先使用父项目通过 FetchContent 或 vcpkg 配置好的 zstd（CACHE 变量已传递）
-    find_path(ZSTD_INCLUDE_DIR zstd.h)
-    find_library(ZSTD_LIBRARY NAMES zstd zstd_static)
-    if(NOT ZSTD_INCLUDE_DIR OR NOT ZSTD_LIBRARY)
-        if(TARGET libzstd_static)
-            # 父项目已通过 FetchContent 构建了 libzstd_static，直接复用
-            set(ZSTD_INCLUDE_DIR "${zstd_SOURCE_DIR}/lib")
-            set(ZSTD_LIBRARY libzstd_static)
-        else()
-            message(STATUS "[Tests] zstd not found on Windows, downloading via FetchContent...")
-            include(FetchContent)
-            set(ZSTD_BUILD_PROGRAMS OFF CACHE BOOL "" FORCE)
-            set(ZSTD_BUILD_SHARED   OFF CACHE BOOL "" FORCE)
-            set(ZSTD_BUILD_STATIC   ON  CACHE BOOL "" FORCE)
-            set(ZSTD_BUILD_TESTS    OFF CACHE BOOL "" FORCE)
-            FetchContent_Declare(
-                zstd
-                GIT_REPOSITORY https://github.com/facebook/zstd.git
-                GIT_TAG        v1.5.6
-                GIT_SHALLOW    TRUE
-                SOURCE_SUBDIR  build/cmake
-            )
-            FetchContent_MakeAvailable(zstd)
-            if(TARGET libzstd_static AND MSVC)
-                target_compile_options(libzstd_static PRIVATE /WX-)
-            endif()
-            set(ZSTD_INCLUDE_DIR "${zstd_SOURCE_DIR}/lib")
-            set(ZSTD_LIBRARY libzstd_static)
-        endif()
-    endif()
-else()
-    find_path(ZSTD_INCLUDE_DIR zstd.h)
-    find_library(ZSTD_LIBRARY NAMES zstd)
+# 查找zstd - 复用父项目配置（由 cmake/SetupZstd.cmake 设置 ZSTD_INCLUDE_DIR / ZSTD_LIBRARY）
+# 父项目的变量在子目录中自动可见，无需重复查找
+if(NOT ZSTD_INCLUDE_DIR OR NOT ZSTD_LIBRARY)
+    message(FATAL_ERROR "[Tests] ZSTD_INCLUDE_DIR or ZSTD_LIBRARY not set by parent project")
 endif()
+message(STATUS "[Tests] Reusing zstd from parent: ${ZSTD_INCLUDE_DIR}")
 
 # 设置Qt6自动处理
 set(CMAKE_AUTOMOC ON)
@@ -785,12 +741,5 @@ if(TARGET run_core_tests)
     add_dependencies(run_core_tests test_queuemanager)
 endif()
 
-# 确保 zstd 先于依赖它的测试目标编译
-if(TARGET libzstd_static)
-    foreach(_test_target test_clientremotewindow test_screen_data_flow test_producer_consumer_integration)
-        if(TARGET ${_test_target})
-            add_dependencies(${_test_target} libzstd_static)
-        endif()
-    endforeach()
-endif()
+# zstd is pre-built during configure (see cmake/SetupZstd.cmake), no build-time dependency needed
 
