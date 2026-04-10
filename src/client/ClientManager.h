@@ -144,7 +144,8 @@ private slots:
     void onConnectionClosed();
     void onConnectionError(const QString& error);
     void onWindowClosed();
-    void updateScreens();  // 定时器触发，从队列中拉取图片并刷新
+    void onFrameAvailable();   // Event-driven: triggered by SessionManager::frameAvailable()
+    void updateScreens();      // Fallback timer: drains any frames missed by signal path
 
 private:
     ConnectionInstance* getConnectionInstance(const QString& connectionId) const;

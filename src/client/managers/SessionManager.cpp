@@ -351,8 +351,13 @@ void SessionManager::handleScreenData(const QByteArray& data) {
             m_screenImageQueue.enqueue(image);
         }
 
-        // 注意：不再发射screenUpdated信号，改用ClientManager定时拉取
-        // emit screenUpdated(image);
+        // Notify consumer via coalesced signal: only emit when the flag
+        // transitions false→true, so rapid enqueues produce at most one
+        // pending signal in the consumer's event queue.
+        bool expected = false;
+        if ( m_frameNotificationPending.compare_exchange_strong(expected, true) ) {
+            emit frameAvailable();
+        }
     } else {
         qCWarning(lcClient) << "SessionManager::handleScreenData() - Failed to load JPEG image from frame data, size:" << frameData.size()
             << "first 16 bytes:" << frameData.left(16).toHex();
@@ -454,4 +459,8 @@ QImage SessionManager::dequeueScreenImage() {
     QImage image = m_screenImageQueue.dequeue();
     qCDebug(lcClient) << "SessionManager: Image dequeued, remaining:" << m_screenImageQueue.size();
     return image;
+}
+
+void SessionManager::resetFrameNotification() {
+    m_frameNotificationPending.store(false);
 }

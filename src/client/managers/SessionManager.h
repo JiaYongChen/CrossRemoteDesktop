@@ -10,6 +10,7 @@
 #include "../../common/core/network/Protocol.h"
 #include "../../common/core/config/UiConstants.h"
 #include "../network/ConnectionManager.h"
+#include <atomic>
 
 class QTimer;
 
@@ -78,6 +79,15 @@ public:
     bool hasScreenImage() const;
     QImage dequeueScreenImage();
 
+    /**
+     * @brief Reset the frame notification coalescing flag.
+     *
+     * Must be called by the consumer (ClientManager) after it has drained
+     * or attempted to drain the queue, so that the next enqueue can
+     * re-emit frameAvailable().
+     */
+    void resetFrameNotification();
+
 public slots:
     // 连接控制（声明为 slot 以支持跨线程调用）
     void connectToHost(const QString& host, int port);
@@ -92,13 +102,22 @@ signals:
 
     // 连接状态变化信号（用于 UI 更新）
     void connectionStateChanged(ConnectionManager::ConnectionState state);
-    
+
     // 远程光标类型更新信号
     void remoteCursorTypeUpdated(Qt::CursorShape type);
 
     // 剪贴板数据接收信号
     void clipboardTextReceived(const QString& text);
     void clipboardImageReceived(const QByteArray& imageData);
+
+    /**
+     * @brief Lightweight notification that a new frame is available in the queue.
+     *
+     * Uses atomic flag coalescing: only emitted when the flag transitions
+     * from false to true, preventing signal storms under high frame rates.
+     * The consumer must call resetFrameNotification() after draining the queue.
+     */
+    void frameAvailable();
 
 private slots:
     void onMessageReceived(MessageType type, const QByteArray& data);
@@ -126,7 +145,11 @@ private:
     // 图片队列（用于替代信号槽机制）
     QQueue<QImage> m_screenImageQueue;
     mutable QMutex m_screenImageQueueMutex;
-    static constexpr int MAX_QUEUE_SIZE = 3;  // 队列最大长度,防止积压
+    static constexpr int MAX_QUEUE_SIZE = 5;  // Queue capacity (absorb network jitter)
+
+    // Coalescing flag for frameAvailable() signal: prevents signal storms
+    // when frames arrive faster than the consumer can process them.
+    std::atomic<bool> m_frameNotificationPending{false};
 
     // 性能统计
     QTimer* m_statsTimer;

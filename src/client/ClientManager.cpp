@@ -217,8 +217,11 @@ bool ConnectionInstance::isAuthenticated() const {
 ClientManager::ClientManager(QObject* parent)
     : QObject(parent)
     , m_screenUpdateTimer(new QTimer(this)) {
-    // 设置定时器，每8ms更新一次屏幕（约120fps）
-    m_screenUpdateTimer->setInterval(8);
+    // Fallback timer at low frequency — primary path is event-driven
+    // via SessionManager::frameAvailable() → onFrameAvailable().
+    // This timer only catches frames that slip through (e.g. during
+    // connection setup before signals are wired).
+    m_screenUpdateTimer->setInterval(100);
     connect(m_screenUpdateTimer, &QTimer::timeout, this, &ClientManager::updateScreens);
 }
 
@@ -283,6 +286,11 @@ QString ClientManager::connectToHost(const QString& host, int port) {
         qCDebug(lcClientManager) << "connectToHost(): Starting screen update timer";
         m_screenUpdateTimer->start();
     }
+
+    // Event-driven screen update: SessionManager emits frameAvailable()
+    // from its worker thread; QueuedConnection delivers to main thread.
+    connect(instance->sessionManager, &SessionManager::frameAvailable,
+        this, &ClientManager::onFrameAvailable, Qt::QueuedConnection);
 
     // 连接到 SessionManager 的连接状态变化信号，监听认证成功和连接建立事件
     connect(instance->sessionManager, &SessionManager::connectionStateChanged,
@@ -683,21 +691,46 @@ ConnectionInstance* ClientManager::getConnectionInstance(const QString& connecti
     return m_connections.value(connectionId, nullptr);
 }
 
+void ClientManager::onFrameAvailable() {
+    SessionManager* session = qobject_cast<SessionManager*>(sender());
+    if ( !session ) {
+        return;
+    }
+
+    ConnectionInstance* instance = getConnectionInstance(session->connectionId());
+    if ( !instance || !instance->remoteDesktopWindow ) {
+        return;
+    }
+
+    // Drain all available frames from this session (typically 1, occasionally 2-3).
+    while ( instance->sessionManager && instance->sessionManager->hasScreenImage() ) {
+        QImage image = instance->sessionManager->dequeueScreenImage();
+        if ( !image.isNull() ) {
+            instance->remoteDesktopWindow->updateRemoteScreen(image);
+        }
+    }
+
+    // Reset the coalescing flag so the next enqueue can re-emit frameAvailable().
+    if ( instance->sessionManager ) {
+        instance->sessionManager->resetFrameNotification();
+    }
+}
+
 void ClientManager::updateScreens() {
-    // 遍历所有连接，从各自的SessionManager中获取图片
+    // Fallback path: drain any frames that the event-driven path may have missed.
     for ( auto it = m_connections.begin(); it != m_connections.end(); ++it ) {
         ConnectionInstance* instance = it.value();
         if ( !instance || !instance->sessionManager || !instance->remoteDesktopWindow ) {
             continue;
         }
 
-        // 检查SessionManager是否有新图片
         if ( instance->sessionManager->hasScreenImage() ) {
-            // 获取图片并更新窗口
             QImage image = instance->sessionManager->dequeueScreenImage();
             if ( !image.isNull() ) {
                 instance->remoteDesktopWindow->updateRemoteScreen(image);
             }
+            // Reset notification flag in case it was stuck
+            instance->sessionManager->resetFrameNotification();
         }
     }
 }
