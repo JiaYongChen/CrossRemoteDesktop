@@ -226,6 +226,11 @@ void Worker::emitError(const QString& error) {
     emit errorOccurred(error);
 }
 
+void Worker::setDidWork(bool didWork) {
+    m_adaptiveSleepEnabled.store(true);
+    m_lastDidWork.store(didWork);
+}
+
 bool Worker::initialize() {
     // 默认实现：什么都不做，返回成功
     return true;
@@ -254,8 +259,20 @@ void Worker::workLoop() {
             processTask();
             endPerformanceTiming();
 
-            // Brief yield to avoid tight-looping while staying responsive
-            QThread::msleep(1);
+            // Adaptive sleep: subclasses that call setDidWork() opt into
+            // skipping the idle sleep when they actually processed data.
+            // This eliminates the 1ms overhead in hot paths (e.g. screen
+            // data sending) while still yielding CPU when idle.
+            if ( m_adaptiveSleepEnabled.load() ) {
+                if ( !m_lastDidWork.load() ) {
+                    QThread::msleep(1);  // Idle — yield CPU
+                }
+                // Reset for next iteration (default to idle if subclass doesn't call setDidWork)
+                m_lastDidWork.store(false);
+            } else {
+                // Legacy behavior: always sleep 1ms (backward compatible)
+                QThread::msleep(1);
+            }
         }
     } catch ( const std::exception& e ) {
         emitError(QString("Exception in work loop: %1").arg(e.what()));

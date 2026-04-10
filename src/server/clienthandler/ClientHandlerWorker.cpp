@@ -245,6 +245,9 @@ void ClientHandlerWorker::processTask() {
     if ( isAuthenticated() && m_queueManager && !m_sendScreenDataPending.exchange(true) ) {
         QMetaObject::invokeMethod(this, "sendScreenDataFromQueue", Qt::QueuedConnection);
     }
+
+    // Hint to workLoop: if we posted a send, there's likely work to do — skip idle sleep.
+    setDidWork(isAuthenticated() && m_queueManager != nullptr);
 }
 
 void ClientHandlerWorker::sendScreenDataFromQueue() {
@@ -262,51 +265,61 @@ void ClientHandlerWorker::sendScreenDataFromQueue() {
         return;
     }
 
-    // 每次只发送一条数据，取消批处理
-    ProcessedData processedData;
-    // 使用 QueueManager 统一接口出队
-    if ( !m_queueManager->dequeueProcessedData(processedData) ) {
-        return; // 队列为空
-    }
+    // Batch send: dequeue and send up to MAX_SEND_BATCH frames per invocation.
+    // This reduces the overhead of workLoop's per-iteration msleep and
+    // QMetaObject::invokeMethod round-trip when frames are queued up.
+    static constexpr int MAX_SEND_BATCH = 3;
+    int sent = 0;
 
-    // 验证数据有效性
-    if ( !processedData.isValid() ) {
-        qCWarning(lcClientHandlerWorker) << "ProcessedData无效，跳过发送，帧ID:" << processedData.originalFrameId;
-        return;
-    }
+    while ( sent < MAX_SEND_BATCH ) {
+        // Re-check connection before each send in the batch
+        if ( !m_socket || m_socket->state() != QAbstractSocket::ConnectedState ) {
+            break;
+        }
 
-    // 创建ScreenData消息
-    ScreenData screenData;
-    screenData.x = 0;  // 全屏捕获，从坐标(0,0)开始
-    screenData.y = 0;
-    screenData.imageData = processedData.compressedData; // 存储压缩数据
-    screenData.width = processedData.imageSize.width();
-    screenData.height = processedData.imageSize.height();
-    // 设置原始图像尺寸（用于客户端缩放恢复）
-    screenData.originalWidth = processedData.originalImageSize.width();
-    screenData.originalHeight = processedData.originalImageSize.height();
-    screenData.dataSize = processedData.compressedData.size();
-    
-    // 设置压缩标志位（组合多个标志）
-    quint8 flags = static_cast<quint8>(ScreenDataFlags::NONE);
-    if ( processedData.isZstdCompressed ) {
-        flags |= static_cast<quint8>(ScreenDataFlags::ZSTD_COMPRESSED);
-    }
-    if ( processedData.isScaled ) {
-        flags |= static_cast<quint8>(ScreenDataFlags::SCALED);
-    }
-    screenData.flags = flags;
+        ProcessedData processedData;
+        if ( !m_queueManager->dequeueProcessedData(processedData) ) {
+            break; // Queue empty
+        }
 
-    // 预先编码消息,然后发送
-    QByteArray messageData = Protocol::createMessage(MessageType::SCREEN_DATA, screenData);
+        // 验证数据有效性
+        if ( !processedData.isValid() ) {
+            qCWarning(lcClientHandlerWorker) << "ProcessedData无效，跳过发送，帧ID:" << processedData.originalFrameId;
+            continue;
+        }
 
-    if ( messageData.isEmpty() ) {
-        qCWarning(lcClientHandlerWorker) << "消息编码失败，messageData为空";
-        return;
+        // 创建ScreenData消息
+        ScreenData screenData;
+        screenData.x = 0;
+        screenData.y = 0;
+        screenData.imageData = processedData.compressedData;
+        screenData.width = processedData.imageSize.width();
+        screenData.height = processedData.imageSize.height();
+        screenData.originalWidth = processedData.originalImageSize.width();
+        screenData.originalHeight = processedData.originalImageSize.height();
+        screenData.dataSize = processedData.compressedData.size();
+
+        // 设置压缩标志位
+        quint8 flags = static_cast<quint8>(ScreenDataFlags::NONE);
+        if ( processedData.isZstdCompressed ) {
+            flags |= static_cast<quint8>(ScreenDataFlags::ZSTD_COMPRESSED);
+        }
+        if ( processedData.isScaled ) {
+            flags |= static_cast<quint8>(ScreenDataFlags::SCALED);
+        }
+        screenData.flags = flags;
+
+        // 预先编码消息,然后发送
+        QByteArray messageData = Protocol::createMessage(MessageType::SCREEN_DATA, screenData);
+
+        if ( messageData.isEmpty() ) {
+            qCWarning(lcClientHandlerWorker) << "消息编码失败，messageData为空";
+            continue;
+        }
+
+        sendEncodedMessage(messageData);
+        ++sent;
     }
-
-    // 直接调用sendEncodedMessage(同步发送,在当前线程)
-    sendEncodedMessage(messageData);
 }
 
 void ClientHandlerWorker::sendCursorType() {

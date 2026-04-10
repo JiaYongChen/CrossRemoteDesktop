@@ -226,6 +226,21 @@ protected:
     void emitError(const QString& error);
 
     /**
+     * @brief Hint to workLoop whether processTask() performed useful work.
+     *
+     * Call setDidWork(true) when processTask() actually processed data;
+     * call setDidWork(false) when it found nothing to do (empty queue, etc.).
+     * workLoop uses this hint: if didWork==true, it skips the idle sleep
+     * and immediately re-enters processTask() for maximum throughput.
+     *
+     * Subclasses that never call this method get the default behavior
+     * (always sleep 1ms between iterations — backward compatible).
+     *
+     * @param didWork true if processTask() processed data, false if idle
+     */
+    void setDidWork(bool didWork);
+
+    /**
      * @brief 初始化工作线程
      *
      * 子类可以重写此方法来执行初始化操作。
@@ -283,4 +298,10 @@ private:
     QElapsedTimer m_uptimeTimer;        ///< 运行时间计时器
 
     bool m_waitForFinish;               ///< 是否等待完成
+
+    // Adaptive sleep: when a subclass calls setDidWork(false), workLoop
+    // sleeps 1ms; when setDidWork(true), it skips the sleep. Subclasses
+    // that never call setDidWork() always sleep (m_adaptiveSleepEnabled stays false).
+    std::atomic<bool> m_adaptiveSleepEnabled{false}; ///< Whether subclass opted in
+    std::atomic<bool> m_lastDidWork{false};          ///< Last processTask() work hint
 };

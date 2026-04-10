@@ -192,13 +192,16 @@ void ScreenCaptureWorker::processTask() {
                     return;
                 }
                 performCapture();
+                setDidWork(true);  // Performed capture — skip workLoop idle sleep
             } else {
                 // 未到帧间隔，短暂休眠让出CPU
                 QThread::msleep(1);
+                setDidWork(false);
             }
         } else {
             // 未处于捕获状态时，轻量休眠避免空转
             QThread::msleep(2);
+            setDidWork(false);
         }
 
         if ( m_configChanged.load() ) {

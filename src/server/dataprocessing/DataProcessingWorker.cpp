@@ -208,6 +208,9 @@ void DataProcessingWorker::processTask() {
             frameBatch.push_back(std::move(firstFrame));
         }
 
+        // Adaptive sleep: skip idle sleep when processing frames
+        setDidWork(hasFirstFrame);
+
         // 如果获取到第一帧，继续收集更多帧进行批量处理
         if ( hasFirstFrame ) {
             while ( frameBatch.size() < static_cast<size_t>(maxBatchSize) ) {
