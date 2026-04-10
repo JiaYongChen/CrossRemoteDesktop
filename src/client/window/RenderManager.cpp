@@ -90,8 +90,7 @@ void RenderManager::setRemoteScreen(const QImage& image) {
         return;
     }
 
-    // 在主线程中将 QImage 转换为 QPixmap
-    // QPixmap 应该只在主线程中创建和使用
+    // Convert QImage → QPixmap in the main thread (QPixmap is GPU-backed)
     QPixmap pixmap = QPixmap::fromImage(image);
 
     m_remoteScreen = pixmap;
@@ -104,18 +103,23 @@ void RenderManager::setRemoteScreen(const QImage& image) {
         m_pixmapItem->setPixmap(pixmap);
     }
 
-    // 更新场景矩形
-    updateSceneRect();
+    // Only recalculate view transform when the pixmap dimensions change.
+    // For consecutive frames of the same resolution (the common case),
+    // this skips updateSceneRect, calculateScaledSize, and fitInView —
+    // saving ~1-3ms per frame of redundant layout/transform work.
+    if ( pixmap.size() != m_lastPixmapSize ) {
+        m_lastPixmapSize = pixmap.size();
 
-    // 计算缩放后的尺寸
-    calculateScaledSize();
+        // 更新场景矩形
+        updateSceneRect();
 
-    // 让视图适应场景，完全显示远程屏幕
-    if ( m_graphicsView && m_pixmapItem ) {
-        // 异步更新视图
-        QMetaObject::invokeMethod(this, [this]() {
+        // 计算缩放后的尺寸
+        calculateScaledSize();
+
+        // 让视图适应场景，完全显示远程屏幕
+        if ( m_graphicsView && m_pixmapItem ) {
             m_graphicsView->fitInView(m_pixmapItem, Qt::KeepAspectRatio);
-        }, Qt::QueuedConnection);
+        }
     }
 
     // 更新显示

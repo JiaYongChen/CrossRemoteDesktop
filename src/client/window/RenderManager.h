@@ -271,6 +271,7 @@ private:
     QPixmap m_remoteScreen;                 ///< 远程屏幕内容
     QSize m_remoteSize;                     ///< 远程屏幕尺寸
     QSize m_scaledSize;                     ///< 缩放后的尺寸
+    QSize m_lastPixmapSize;                 ///< Last pixmap size (for conditional fitInView)
 
     double m_scaleFactor;                   ///< 当前缩放因子
     double m_customScaleFactor;             ///< 自定义缩放因子

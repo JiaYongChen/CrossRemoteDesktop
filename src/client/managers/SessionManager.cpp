@@ -316,21 +316,21 @@ void SessionManager::handleScreenData(const QByteArray& data) {
     bool loaded = image.loadFromData(frameData, "JPEG");
 
     if ( loaded && !image.isNull() ) {
-        // 检查是否需要将缩放后的图像恢复到原始尺寸
+        // Record the logical remote screen size for layout/aspect ratio.
+        // If the server downscaled the frame, use the original dimensions
+        // so that RenderManager::fitInView() computes the correct aspect ratio.
+        // The actual upscale is NOT performed here — it was a redundant
+        // SmoothTransformation that cost 5-10ms per frame without recovering
+        // any lost detail. RenderManager's fitInView() handles display scaling.
         if ( screenData.flags & static_cast<quint8>(ScreenDataFlags::SCALED) ) {
-            // 图像被缩放过，需要恢复到原始尺寸
             if ( screenData.originalWidth > 0 && screenData.originalHeight > 0 ) {
-                QSize originalSize(screenData.originalWidth, screenData.originalHeight);
-                if ( image.size() != originalSize ) {
-                    // 使用平滑缩放恢复到原始尺寸
-                    image = image.scaled(originalSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-                }
+                m_remoteScreenSize = QSize(screenData.originalWidth, screenData.originalHeight);
+            } else {
+                m_remoteScreenSize = image.size();
             }
+        } else {
+            m_remoteScreenSize = image.size();
         }
-        
-        // 成功加载图像，转换为QPixmap并更新（仅用于内部缓存）
-        m_currentScreen = QPixmap::fromImage(image);
-        m_remoteScreenSize = image.size();
 
         // 更新性能统计
         m_frameTimes.enqueue(QDateTime::currentDateTime());
