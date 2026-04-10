@@ -116,7 +116,6 @@ if(APPLE)
     else()
         set(HOMEBREW_PREFIX "/usr/local")
     endif()
-    set(OPENSSL_SEARCH_PATH "${HOMEBREW_PREFIX}/opt/openssl@3")
 
     # Hint paths for Qt6 (Homebrew, Qt Online Installer)
     list(APPEND CMAKE_PREFIX_PATH
@@ -181,19 +180,6 @@ if(Qt6_FOUND)
     message(STATUS "[Qt6 Auto-Detection] Qt6 Root: ${QT6_ROOT_DIR}")
 else()
     message(WARNING "[Qt6 Auto-Detection] Qt6 >= 6.9 not found. Please set Qt6_DIR or CMAKE_PREFIX_PATH.")
-endif()
-
-# OpenSSL path configuration (platform-specific)
-if(APPLE AND OPENSSL_SEARCH_PATH AND EXISTS "${OPENSSL_SEARCH_PATH}")
-    set(OPENSSL_ROOT_DIR "${OPENSSL_SEARCH_PATH}" CACHE PATH "OpenSSL root (Auto-detected)" FORCE)
-    set(OPENSSL_INCLUDE_DIR "${OPENSSL_SEARCH_PATH}/include" CACHE PATH "OpenSSL include (Auto-detected)" FORCE)
-    set(OPENSSL_CRYPTO_LIBRARY "${OPENSSL_SEARCH_PATH}/lib/libcrypto.dylib" CACHE FILEPATH "OpenSSL crypto lib (Auto-detected)" FORCE)
-    set(OPENSSL_SSL_LIBRARY "${OPENSSL_SEARCH_PATH}/lib/libssl.dylib" CACHE FILEPATH "OpenSSL ssl lib (Auto-detected)" FORCE)
-    message(STATUS "[OpenSSL Auto-Detection] Found OpenSSL at: ${OPENSSL_SEARCH_PATH}")
-elseif(WIN32)
-    if(DEFINED ENV{VCPKG_ROOT})
-        set(OPENSSL_ROOT_DIR "$ENV{VCPKG_ROOT}/installed/${PLATFORM_ARCH}-windows" CACHE PATH "OpenSSL root (vcpkg)" FORCE)
-    endif()
 endif()
 
 # 优化CMake查找行为

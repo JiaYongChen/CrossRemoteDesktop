@@ -24,51 +24,17 @@ set(OPENSSL_TP_INCLUDE  "${OPENSSL_THIRD_PARTY}/include")
 set(OPENSSL_TP_LIB      "${OPENSSL_THIRD_PARTY}/lib")
 set(OPENSSL_TP_BIN      "${OPENSSL_THIRD_PARTY}/bin")
 
-# ===========================================================================
-# macOS: Use Homebrew
-# ===========================================================================
-if(APPLE)
-    if(PLATFORM_ARCH STREQUAL "ARM64")
-        set(_BREW_OPENSSL "/opt/homebrew/opt/openssl@3")
-    else()
-        set(_BREW_OPENSSL "/usr/local/opt/openssl@3")
-    endif()
-
-    if(EXISTS "${_BREW_OPENSSL}")
-        set(OPENSSL_ROOT_DIR    "${_BREW_OPENSSL}" CACHE PATH "OpenSSL root (Homebrew)" FORCE)
-        set(OPENSSL_INCLUDE_DIR "${_BREW_OPENSSL}/include" CACHE PATH "OpenSSL include" FORCE)
-        set(OPENSSL_CRYPTO_LIBRARY "${_BREW_OPENSSL}/lib/libcrypto.dylib" CACHE FILEPATH "OpenSSL crypto" FORCE)
-        set(OPENSSL_SSL_LIBRARY    "${_BREW_OPENSSL}/lib/libssl.dylib"    CACHE FILEPATH "OpenSSL ssl" FORCE)
-        message(STATUS "[OpenSSL] Found Homebrew OpenSSL at: ${_BREW_OPENSSL}")
-    else()
-        message(FATAL_ERROR "[OpenSSL] Not found. Install with: brew install openssl@3")
-    endif()
-
-    find_package(OpenSSL REQUIRED)
-    return()
-endif()
-
-# ===========================================================================
-# Linux: Use system package
-# ===========================================================================
-if(UNIX AND NOT APPLE)
-    find_package(OpenSSL REQUIRED)
-    message(STATUS "[OpenSSL] Using system OpenSSL: ${OPENSSL_VERSION}")
-    return()
-endif()
-
-# ===========================================================================
-# Windows: Check third_party/ → download source, build, install
-# ===========================================================================
-if(NOT WIN32)
-    return()
-endif()
-
 # Platform-specific file names
-set(_SSL_LIB    "${OPENSSL_TP_LIB}/libssl.lib")
-set(_CRYPTO_LIB "${OPENSSL_TP_LIB}/libcrypto.lib")
-set(_SSL_DLL    "${OPENSSL_TP_BIN}/libssl-3-x64.dll")
-set(_CRYPTO_DLL "${OPENSSL_TP_BIN}/libcrypto-3-x64.dll")
+if(WIN32)
+    set(_SSL_LIB    "${OPENSSL_TP_LIB}/libssl.lib")
+    set(_CRYPTO_LIB "${OPENSSL_TP_LIB}/libcrypto.lib")
+    set(_SSL_DLL    "${OPENSSL_TP_BIN}/libssl-3-x64.dll")
+    set(_CRYPTO_DLL "${OPENSSL_TP_BIN}/libcrypto-3-x64.dll")
+else()
+    set(_SSL_LIB    "${OPENSSL_TP_LIB}/libssl.a")
+    set(_CRYPTO_LIB "${OPENSSL_TP_LIB}/libcrypto.a")
+endif(WIN32)
+
 
 # ---------------------------------------------------------------------------
 # Helper: create imported targets from third_party/ artifacts
