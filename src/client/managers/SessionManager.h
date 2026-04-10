@@ -42,7 +42,6 @@ public:
     bool isActive() const;
 
     // 远程桌面数据
-    QPixmap currentScreen() const;
     QSize remoteScreenSize() const;
 
 public slots:
@@ -135,7 +134,6 @@ private:
     ConnectionManager* m_connectionManager;
 
     // 远程桌面数据
-    QPixmap m_currentScreen;
     QSize m_remoteScreenSize;
 
     // 帧数据缓存和线程安全

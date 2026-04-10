@@ -73,17 +73,12 @@ void SessionManager::terminateSession() {
     // 此处只负责清理会话本地数据和状态
 
     // 清理会话数据
-    m_currentScreen = QPixmap();
     m_remoteScreenSize = QSize();
     m_frameTimes.clear();
 }
 
 bool SessionManager::isActive() const {
     return m_connectionManager && m_connectionManager->isAuthenticated() && m_statsTimer->isActive();
-}
-
-QPixmap SessionManager::currentScreen() const {
-    return m_currentScreen;
 }
 
 QSize SessionManager::remoteScreenSize() const {
