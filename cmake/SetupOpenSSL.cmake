@@ -3,10 +3,13 @@
 # ==============================================================================
 #
 # Strategy (mirrors SetupZstd.cmake pattern):
-#   1. Check third_party/openssl/{include,lib,bin} for pre-installed artifacts
+#   1. Check third_party/<platform>-<arch>/openssl/{include,lib,bin}
+#      for pre-installed artifacts
 #   2. If found  → create imported targets, done
-#   3. If absent → download source tarball, build with perl+nmake,
-#                   install headers+lib+bin+LICENSE to third_party/openssl/
+#   3. If absent → download source tarball, build from source,
+#                   install headers+lib+bin+LICENSE
+#
+# Requires PLATFORM_NAME and PLATFORM_ARCH to be set before inclusion.
 #
 # Output variables:
 #   OPENSSL_INCLUDE_DIR  — path to OpenSSL headers
@@ -18,11 +21,13 @@
 #   OpenSSL::Crypto      — imported target for libcrypto
 # ==============================================================================
 
-set(OPENSSL_VERSION     "3.5.0")
+set(OPENSSL_VERSION     "3.6.2")
+# Platform-specific subdirs under third_party/openssl/{include,lib,bin}/<platform>-<arch>/
 set(OPENSSL_THIRD_PARTY "${CMAKE_SOURCE_DIR}/third_party/openssl")
+set(_TP_PLATFORM_TAG    "${PLATFORM_NAME}-${PLATFORM_ARCH}")
 set(OPENSSL_TP_INCLUDE  "${OPENSSL_THIRD_PARTY}/include")
-set(OPENSSL_TP_LIB      "${OPENSSL_THIRD_PARTY}/lib")
-set(OPENSSL_TP_BIN      "${OPENSSL_THIRD_PARTY}/bin")
+set(OPENSSL_TP_LIB      "${OPENSSL_THIRD_PARTY}/lib/${_TP_PLATFORM_TAG}")
+set(OPENSSL_TP_BIN      "${OPENSSL_THIRD_PARTY}/bin/${_TP_PLATFORM_TAG}")
 
 # Platform-specific file names
 if(WIN32)
@@ -91,10 +96,10 @@ set(_OPENSSL_TARBALL_PATH "${_OPENSSL_DL_DIR}/${_OPENSSL_TARBALL}")
 # Download tarball if not cached
 if(NOT EXISTS "${_OPENSSL_TARBALL_PATH}")
     file(MAKE_DIRECTORY "${_OPENSSL_DL_DIR}")
-    # Mirror list: ghfast proxy for CN users, then direct GitHub
+    # Mirror list: GitHub first, ghfast proxy as fallback for CN users
     set(_OPENSSL_URLS
-        "https://ghfast.top/${_OPENSSL_URL}"
         "${_OPENSSL_URL}"
+        "https://ghfast.top/${_OPENSSL_URL}"
     )
     set(_dl_success FALSE)
     foreach(_url ${_OPENSSL_URLS})
@@ -148,7 +153,7 @@ if(NOT EXISTS "${_OPENSSL_SRC_DIR}/include/openssl/ssl.h.in")
     endif()
 endif()
 
-# Build OpenSSL using perl + nmake
+# Build OpenSSL from source
 if(NOT EXISTS "${_SSL_LIB}")
     message(STATUS "[OpenSSL] Building from source (this may take several minutes)...")
 
@@ -157,31 +162,88 @@ if(NOT EXISTS "${_SSL_LIB}")
     if(NOT _PERL_EXE)
         message(FATAL_ERROR
             "[OpenSSL] Perl not found (required to build OpenSSL from source).\n"
-            "  Install Strawberry Perl: https://strawberryperl.com/"
+            "  Windows: Install Strawberry Perl: https://strawberryperl.com/\n"
+            "  macOS:   Perl is pre-installed\n"
+            "  Linux:   sudo apt install perl  (or equivalent)"
         )
     endif()
     message(STATUS "[OpenSSL] Using Perl: ${_PERL_EXE}")
 
-    # --- Locate vcvarsall.bat from MSVC compiler path ---
-    # CMAKE_CXX_COMPILER = .../VC/Tools/MSVC/<ver>/bin/Hostx64/x64/cl.exe
-    get_filename_component(_CL_REAL "${CMAKE_CXX_COMPILER}" REALPATH)
-    string(REPLACE "\\" "/" _CL_REAL "${_CL_REAL}")
-    string(REGEX REPLACE "/VC/Tools/.*" "" _VS_ROOT "${_CL_REAL}")
-    set(_VCVARSALL "${_VS_ROOT}/VC/Auxiliary/Build/vcvarsall.bat")
-    if(NOT EXISTS "${_VCVARSALL}")
-        message(FATAL_ERROR "[OpenSSL] vcvarsall.bat not found at: ${_VCVARSALL}")
+    # --- Determine number of parallel jobs ---
+    include(ProcessorCount)
+    ProcessorCount(_NPROC)
+    if(_NPROC EQUAL 0)
+        set(_NPROC 4)
     endif()
-    message(STATUS "[OpenSSL] Using vcvarsall: ${_VCVARSALL}")
 
-    # --- Configure and build (single cmd invocation for VC environment) ---
-    # no-asm: skip NASM dependency; builds slightly slower but no extra tools needed
-    string(REPLACE "/" "\\" _SRC_WIN "${_OPENSSL_SRC_DIR}")
-    execute_process(
-        COMMAND cmd /c "\"${_VCVARSALL}\" x64 && cd /d \"${_SRC_WIN}\" && perl Configure VC-WIN64A no-asm && nmake build_libs"
-        RESULT_VARIABLE _build_result
-        OUTPUT_VARIABLE _build_output
-        ERROR_VARIABLE  _build_error
-    )
+    if(WIN32)
+        # --- Windows: Locate vcvarsall.bat from MSVC compiler path ---
+        # CMAKE_CXX_COMPILER = .../VC/Tools/MSVC/<ver>/bin/Hostx64/x64/cl.exe
+        get_filename_component(_CL_REAL "${CMAKE_CXX_COMPILER}" REALPATH)
+        string(REPLACE "\\" "/" _CL_REAL "${_CL_REAL}")
+        string(REGEX REPLACE "/VC/Tools/.*" "" _VS_ROOT "${_CL_REAL}")
+        set(_VCVARSALL "${_VS_ROOT}/VC/Auxiliary/Build/vcvarsall.bat")
+        if(NOT EXISTS "${_VCVARSALL}")
+            message(FATAL_ERROR "[OpenSSL] vcvarsall.bat not found at: ${_VCVARSALL}")
+        endif()
+        message(STATUS "[OpenSSL] Using vcvarsall: ${_VCVARSALL}")
+
+        # --- Configure and build (single cmd invocation for VC environment) ---
+        # no-asm: skip NASM dependency; builds slightly slower but no extra tools needed
+        string(REPLACE "/" "\\" _SRC_WIN "${_OPENSSL_SRC_DIR}")
+        execute_process(
+            COMMAND cmd /c "\"${_VCVARSALL}\" x64 && cd /d \"${_SRC_WIN}\" && perl Configure VC-WIN64A no-asm && nmake build_libs"
+            RESULT_VARIABLE _build_result
+            OUTPUT_VARIABLE _build_output
+            ERROR_VARIABLE  _build_error
+        )
+    else()
+        # --- macOS / Linux: Configure and build with make ---
+        # Determine OpenSSL target platform
+        if(APPLE)
+            if(CMAKE_OSX_ARCHITECTURES STREQUAL "arm64" OR PLATFORM_ARCH STREQUAL "ARM64")
+                set(_OPENSSL_TARGET "darwin64-arm64-cc")
+            else()
+                set(_OPENSSL_TARGET "darwin64-x86_64-cc")
+            endif()
+        else()
+            # Linux
+            if(PLATFORM_ARCH STREQUAL "ARM64")
+                set(_OPENSSL_TARGET "linux-aarch64")
+            else()
+                set(_OPENSSL_TARGET "linux-x86_64")
+            endif()
+        endif()
+        message(STATUS "[OpenSSL] Target: ${_OPENSSL_TARGET}")
+
+        # Configure
+        execute_process(
+            COMMAND ${_PERL_EXE} Configure ${_OPENSSL_TARGET} no-asm no-shared
+                    --prefix=${OPENSSL_THIRD_PARTY}
+                    --openssldir=${OPENSSL_THIRD_PARTY}/ssl
+            WORKING_DIRECTORY "${_OPENSSL_SRC_DIR}"
+            RESULT_VARIABLE _conf_result
+            OUTPUT_VARIABLE _conf_output
+            ERROR_VARIABLE  _conf_error
+        )
+        if(NOT _conf_result EQUAL 0)
+            message(FATAL_ERROR "[OpenSSL] Configure failed:\n${_conf_error}")
+        endif()
+
+        # Build (only libraries, skip tests/apps for speed)
+        find_program(_MAKE_EXE make)
+        if(NOT _MAKE_EXE)
+            message(FATAL_ERROR "[OpenSSL] make not found")
+        endif()
+        execute_process(
+            COMMAND ${_MAKE_EXE} -j${_NPROC} build_libs
+            WORKING_DIRECTORY "${_OPENSSL_SRC_DIR}"
+            RESULT_VARIABLE _build_result
+            OUTPUT_VARIABLE _build_output
+            ERROR_VARIABLE  _build_error
+        )
+    endif()
+
     if(NOT _build_result EQUAL 0)
         message(FATAL_ERROR "[OpenSSL] Build failed:\n${_build_error}")
     endif()
@@ -192,12 +254,17 @@ if(NOT EXISTS "${_SSL_LIB}")
 
     # --- Install libraries ---
     file(MAKE_DIRECTORY "${OPENSSL_TP_LIB}")
-    file(COPY "${_OPENSSL_SRC_DIR}/libssl.lib"    DESTINATION "${OPENSSL_TP_LIB}")
-    file(COPY "${_OPENSSL_SRC_DIR}/libcrypto.lib" DESTINATION "${OPENSSL_TP_LIB}")
+    if(WIN32)
+        file(COPY "${_OPENSSL_SRC_DIR}/libssl.lib"    DESTINATION "${OPENSSL_TP_LIB}")
+        file(COPY "${_OPENSSL_SRC_DIR}/libcrypto.lib" DESTINATION "${OPENSSL_TP_LIB}")
+    else()
+        file(COPY "${_OPENSSL_SRC_DIR}/libssl.a"    DESTINATION "${OPENSSL_TP_LIB}")
+        file(COPY "${_OPENSSL_SRC_DIR}/libcrypto.a" DESTINATION "${OPENSSL_TP_LIB}")
+    endif()
 
-    # --- Install runtime DLLs ---
+    # --- Install runtime DLLs (Windows only) ---
     file(MAKE_DIRECTORY "${OPENSSL_TP_BIN}")
-    if(EXISTS "${_OPENSSL_SRC_DIR}/libssl-3-x64.dll")
+    if(WIN32 AND EXISTS "${_OPENSSL_SRC_DIR}/libssl-3-x64.dll")
         file(COPY "${_OPENSSL_SRC_DIR}/libssl-3-x64.dll"    DESTINATION "${OPENSSL_TP_BIN}")
         file(COPY "${_OPENSSL_SRC_DIR}/libcrypto-3-x64.dll" DESTINATION "${OPENSSL_TP_BIN}")
     endif()

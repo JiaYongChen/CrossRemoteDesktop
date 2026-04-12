@@ -607,15 +607,15 @@ target_link_libraries(QtRemoteDesktop PRIVATE
 # zstd is pre-built during configure (see cmake/SetupZstd.cmake), no build-time dependency needed
 
 # Windows下自动拷贝OpenSSL运行时DLL到输出目录（TLS所需）
-# DLL 位于 third_party/openssl/bin/ (由 cmake/SetupOpenSSL.cmake 安装)
-set(_OPENSSL_BIN_DIR "${CMAKE_SOURCE_DIR}/third_party/openssl/bin")
-if(WIN32 AND EXISTS "${_OPENSSL_BIN_DIR}/libssl-3-x64.dll")
+# DLL 位于 OPENSSL_TP_BIN (third_party/openssl/bin/<platform>-<arch>/)
+# OPENSSL_TP_BIN 由 cmake/SetupOpenSSL.cmake 设置
+if(WIN32 AND EXISTS "${OPENSSL_TP_BIN}/libssl-3-x64.dll")
     add_custom_command(TARGET QtRemoteDesktop POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${_OPENSSL_BIN_DIR}/libssl-3-x64.dll"
+            "${OPENSSL_TP_BIN}/libssl-3-x64.dll"
             "$<TARGET_FILE_DIR:QtRemoteDesktop>"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${_OPENSSL_BIN_DIR}/libcrypto-3-x64.dll"
+            "${OPENSSL_TP_BIN}/libcrypto-3-x64.dll"
             "$<TARGET_FILE_DIR:QtRemoteDesktop>"
         COMMENT "Copying OpenSSL DLLs to output directory"
     )

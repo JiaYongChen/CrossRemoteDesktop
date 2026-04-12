@@ -3,10 +3,13 @@
 # ==============================================================================
 #
 # Strategy:
-#   1. Check third_party/zstd/{include,lib} for pre-built artifacts
+#   1. Check third_party/<platform>-<arch>/zstd/{include,lib}
+#      for pre-built artifacts
 #   2. If found  → create imported target, set ZSTD_INCLUDE_DIR / ZSTD_LIBRARY
 #   3. If absent → download source tarball, build static lib via cmake,
-#                   install headers+lib+LICENSE to third_party/zstd/
+#                   install headers+lib+LICENSE
+#
+# Requires PLATFORM_NAME and PLATFORM_ARCH to be set before inclusion.
 #
 # Output variables:
 #   ZSTD_INCLUDE_DIR  — path to zstd headers
@@ -14,9 +17,11 @@
 # ==============================================================================
 
 set(ZSTD_VERSION      "1.5.6")
+# Platform-specific subdirs under third_party/zstd/{include,lib}/<platform>-<arch>/
 set(ZSTD_THIRD_PARTY  "${CMAKE_SOURCE_DIR}/third_party/zstd")
+set(_TP_PLATFORM_TAG  "${PLATFORM_NAME}-${PLATFORM_ARCH}")
 set(ZSTD_TP_INCLUDE   "${ZSTD_THIRD_PARTY}/include")
-set(ZSTD_TP_LIB       "${ZSTD_THIRD_PARTY}/lib")
+set(ZSTD_TP_LIB       "${ZSTD_THIRD_PARTY}/lib/${_TP_PLATFORM_TAG}")
 
 # Platform-specific library file name
 if(WIN32)
@@ -167,7 +172,11 @@ if(NOT EXISTS "${_ZSTD_LIB_FILE}")
     # Install compiled library
     file(MAKE_DIRECTORY "${ZSTD_TP_LIB}")
     # Find the built library (could be in Release/ subdir for multi-config generators)
-    file(GLOB_RECURSE _built_libs "${_ZSTD_BUILD_DIR}/lib/*zstd_static*")
+    # On Windows MSVC the target produces zstd_static.lib; on Unix it produces libzstd.a
+    file(GLOB_RECURSE _built_libs
+        "${_ZSTD_BUILD_DIR}/lib/*zstd_static*"
+        "${_ZSTD_BUILD_DIR}/lib/libzstd.a"
+    )
     if(_built_libs)
         list(GET _built_libs 0 _built_lib)
         file(COPY "${_built_lib}" DESTINATION "${ZSTD_TP_LIB}")
