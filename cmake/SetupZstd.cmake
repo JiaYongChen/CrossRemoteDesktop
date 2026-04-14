@@ -1,208 +1,200 @@
-# ==============================================================================
-# SetupZstd.cmake — Detect or auto-build zstd and install to third_party/
-# ==============================================================================
+# SetupZstd.cmake — Detect or auto-build zstd into third_party/
 #
-# Strategy:
-#   1. Check third_party/<platform>-<arch>/zstd/{include,lib}
-#      for pre-built artifacts
-#   2. If found  → create imported target, set ZSTD_INCLUDE_DIR / ZSTD_LIBRARY
-#   3. If absent → download source tarball, build static lib via cmake,
-#                   install headers+lib+LICENSE
+# 1. Check third_party/zstd/{include,lib/<platform>} for pre-built artifacts
+# 2. Found  → create imported target zstd::zstd
+# 3. Absent → download source, build static lib, install to third_party/
 #
-# Requires PLATFORM_NAME and PLATFORM_ARCH to be set before inclusion.
+# Requires PLATFORM_NAME and PLATFORM_ARCH from parent CMakeLists.txt.
 #
-# Output variables:
-#   ZSTD_INCLUDE_DIR  — path to zstd headers
-#   ZSTD_LIBRARY      — library to link (file path or target name)
-# ==============================================================================
+# Output: zstd::zstd (imported static, per-config), ZSTD_INCLUDE_DIR
 
 set(ZSTD_VERSION      "1.5.6")
-# Platform-specific subdirs under third_party/zstd/{include,lib}/<platform>-<arch>/
 set(ZSTD_THIRD_PARTY  "${CMAKE_SOURCE_DIR}/third_party/zstd")
-set(_TP_PLATFORM_TAG  "${PLATFORM_NAME}-${PLATFORM_ARCH}")
 set(ZSTD_TP_INCLUDE   "${ZSTD_THIRD_PARTY}/include")
-set(ZSTD_TP_LIB       "${ZSTD_THIRD_PARTY}/lib/${_TP_PLATFORM_TAG}")
+set(ZSTD_TP_LIB       "${ZSTD_THIRD_PARTY}/lib/${PLATFORM_NAME}-${PLATFORM_ARCH}")
 
-# Platform-specific library file name
 if(WIN32)
-    set(_ZSTD_LIB_NAME "zstd_static.lib")
+    set(_ZSTD_REL "zstd_static.lib")
+    set(_ZSTD_DBG "zstd_staticD.lib")
 else()
-    set(_ZSTD_LIB_NAME "libzstd.a")
+    set(_ZSTD_REL "libzstd.a")
+    set(_ZSTD_DBG "libzstdD.a")
 endif()
-set(_ZSTD_LIB_FILE "${ZSTD_TP_LIB}/${_ZSTD_LIB_NAME}")
 
-# ---------------------------------------------------------------------------
-# 1) Try pre-built artifacts in third_party/
-# ---------------------------------------------------------------------------
-if(EXISTS "${ZSTD_TP_INCLUDE}/zstd.h" AND EXISTS "${_ZSTD_LIB_FILE}")
-    message(STATUS "[zstd] Using pre-built zstd from: ${ZSTD_THIRD_PARTY}")
-
+# -- Helper: create imported target ----------------------------------------
+macro(_zstd_create_target)
+    if(NOT TARGET zstd::zstd)
+        add_library(zstd::zstd STATIC IMPORTED GLOBAL)
+        set_target_properties(zstd::zstd PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES    "${ZSTD_TP_INCLUDE}"
+            IMPORTED_LOCATION_DEBUG          "${ZSTD_TP_LIB}/${_ZSTD_DBG}"
+            IMPORTED_LOCATION_RELEASE        "${ZSTD_TP_LIB}/${_ZSTD_REL}"
+            IMPORTED_LOCATION_RELWITHDEBINFO "${ZSTD_TP_LIB}/${_ZSTD_REL}"
+            IMPORTED_LOCATION_MINSIZEREL     "${ZSTD_TP_LIB}/${_ZSTD_REL}"
+        )
+    endif()
     set(ZSTD_INCLUDE_DIR "${ZSTD_TP_INCLUDE}")
-    set(ZSTD_LIBRARY     "${_ZSTD_LIB_FILE}")
+endmacro()
 
-    message(STATUS "[zstd] include: ${ZSTD_INCLUDE_DIR}")
-    message(STATUS "[zstd] library: ${ZSTD_LIBRARY}")
+# -- Helper: locate built lib and copy to third_party/ with target name ----
+function(_zstd_install_lib BUILD_DIR CONFIG DEST_NAME)
+    file(MAKE_DIRECTORY "${ZSTD_TP_LIB}")
+    # Multi-config (VS): lib/<Config>/  |  Single-config: lib/
+    set(_candidates
+        "${BUILD_DIR}/lib/${CONFIG}/zstd_static.lib"
+        "${BUILD_DIR}/lib/${CONFIG}/libzstd.a"
+        "${BUILD_DIR}/lib/libzstd.a"
+    )
+    set(_found "")
+    foreach(_p IN LISTS _candidates)
+        if(EXISTS "${_p}")
+            set(_found "${_p}")
+            break()
+        endif()
+    endforeach()
+    if(NOT _found)
+        message(FATAL_ERROR "[zstd] ${CONFIG} lib not found in ${BUILD_DIR}")
+    endif()
+    execute_process(COMMAND ${CMAKE_COMMAND} -E copy "${_found}" "${ZSTD_TP_LIB}/${DEST_NAME}")
+    message(STATUS "[zstd]   ${CONFIG}: ${_found} -> ${DEST_NAME}")
+endfunction()
+
+# ==========================================================================
+# 1) Use pre-built if both Debug+Release exist
+# ==========================================================================
+if(EXISTS "${ZSTD_TP_INCLUDE}/zstd.h"
+   AND EXISTS "${ZSTD_TP_LIB}/${_ZSTD_DBG}"
+   AND EXISTS "${ZSTD_TP_LIB}/${_ZSTD_REL}")
+    message(STATUS "[zstd] Using pre-built from ${ZSTD_THIRD_PARTY}")
+    _zstd_create_target()
     return()
 endif()
 
-# ---------------------------------------------------------------------------
-# 2) Not found → download, build, and install
-# ---------------------------------------------------------------------------
-message(STATUS "[zstd] Pre-built not found, downloading and building v${ZSTD_VERSION}...")
+# ==========================================================================
+# 2) Download source and build
+# ==========================================================================
+message(STATUS "[zstd] Pre-built not found — downloading v${ZSTD_VERSION}...")
 
-set(_ZSTD_TARBALL     "zstd-${ZSTD_VERSION}.tar.gz")
-set(_ZSTD_URL         "https://github.com/facebook/zstd/releases/download/v${ZSTD_VERSION}/${_ZSTD_TARBALL}")
-set(_ZSTD_DL_DIR      "${CMAKE_BINARY_DIR}/_deps/zstd-download")
-set(_ZSTD_SRC_DIR     "${CMAKE_BINARY_DIR}/_deps/zstd-src")
-set(_ZSTD_BUILD_DIR   "${CMAKE_BINARY_DIR}/_deps/zstd-build")
-set(_ZSTD_TARBALL_PATH "${_ZSTD_DL_DIR}/${_ZSTD_TARBALL}")
+set(_DL_DIR   "${CMAKE_BINARY_DIR}/_deps/zstd-download")
+set(_SRC_DIR  "${CMAKE_BINARY_DIR}/_deps/zstd-src")
+set(_TARBALL  "${_DL_DIR}/zstd-${ZSTD_VERSION}.tar.gz")
 
-# Download tarball if not cached
-if(NOT EXISTS "${_ZSTD_TARBALL_PATH}")
-    file(MAKE_DIRECTORY "${_ZSTD_DL_DIR}")
-    # Mirror list: try GitHub first, then ghproxy mirror for CN users
-    set(_ZSTD_URLS
-        "${_ZSTD_URL}"
-        "https://ghfast.top/https://github.com/facebook/zstd/releases/download/v${ZSTD_VERSION}/${_ZSTD_TARBALL}"
+# Download
+if(NOT EXISTS "${_TARBALL}")
+    file(MAKE_DIRECTORY "${_DL_DIR}")
+    set(_URLS
+        "https://github.com/facebook/zstd/releases/download/v${ZSTD_VERSION}/zstd-${ZSTD_VERSION}.tar.gz"
+        "https://ghfast.top/https://github.com/facebook/zstd/releases/download/v${ZSTD_VERSION}/zstd-${ZSTD_VERSION}.tar.gz"
     )
-    set(_dl_success FALSE)
-    foreach(_url ${_ZSTD_URLS})
-        message(STATUS "[zstd] Downloading ${_url} ...")
-        file(DOWNLOAD "${_url}" "${_ZSTD_TARBALL_PATH}"
-             STATUS _dl_status
-             SHOW_PROGRESS
-             TIMEOUT 120
-        )
-        list(GET _dl_status 0 _dl_code)
-        if(_dl_code EQUAL 0)
-            # Verify the file is not empty (partial download)
-            file(SIZE "${_ZSTD_TARBALL_PATH}" _dl_size)
-            if(_dl_size GREATER 100000)
-                set(_dl_success TRUE)
+    set(_ok FALSE)
+    foreach(_url IN LISTS _URLS)
+        message(STATUS "[zstd] Trying ${_url}")
+        file(DOWNLOAD "${_url}" "${_TARBALL}" STATUS _st SHOW_PROGRESS TIMEOUT 120)
+        list(GET _st 0 _code)
+        if(_code EQUAL 0)
+            file(SIZE "${_TARBALL}" _sz)
+            if(_sz GREATER 100000)
+                set(_ok TRUE)
                 break()
             endif()
         endif()
-        file(REMOVE "${_ZSTD_TARBALL_PATH}")
-        message(STATUS "[zstd] Download failed from ${_url}, trying next mirror...")
+        file(REMOVE "${_TARBALL}")
     endforeach()
-    if(NOT _dl_success)
-        message(FATAL_ERROR
-            "[zstd] All download mirrors failed.\n"
-            "  Please manually download zstd-${ZSTD_VERSION}.tar.gz and place it at:\n"
-            "  ${_ZSTD_TARBALL_PATH}"
-        )
+    if(NOT _ok)
+        message(FATAL_ERROR "[zstd] Download failed. Place zstd-${ZSTD_VERSION}.tar.gz at: ${_TARBALL}")
     endif()
 endif()
 
-# Extract tarball if source not present
-if(NOT EXISTS "${_ZSTD_SRC_DIR}/lib/zstd.h")
-    message(STATUS "[zstd] Extracting ${_ZSTD_TARBALL} ...")
-    execute_process(
-        COMMAND ${CMAKE_COMMAND} -E tar xzf "${_ZSTD_TARBALL_PATH}"
-        WORKING_DIRECTORY "${_ZSTD_DL_DIR}"
-        RESULT_VARIABLE _extract_result
-    )
-    if(NOT _extract_result EQUAL 0)
-        message(FATAL_ERROR "[zstd] Failed to extract tarball")
+# Extract
+if(NOT EXISTS "${_SRC_DIR}/lib/zstd.h")
+    message(STATUS "[zstd] Extracting...")
+    execute_process(COMMAND ${CMAKE_COMMAND} -E tar xzf "${_TARBALL}"
+                    WORKING_DIRECTORY "${_DL_DIR}" RESULT_VARIABLE _r)
+    if(NOT _r EQUAL 0)
+        message(FATAL_ERROR "[zstd] Extract failed")
     endif()
-    # The tarball extracts to zstd-<version>/ subdirectory; move contents
-    file(GLOB _extracted_dirs "${_ZSTD_DL_DIR}/zstd-*")
-    list(GET _extracted_dirs 0 _extracted_dir)
-    if(EXISTS "${_extracted_dir}/lib/zstd.h")
-        # Remove any stale target directory before rename (Windows does not allow rename-over)
-        if(EXISTS "${_ZSTD_SRC_DIR}")
-            file(REMOVE_RECURSE "${_ZSTD_SRC_DIR}")
-        endif()
-        file(RENAME "${_extracted_dir}" "${_ZSTD_SRC_DIR}")
-    else()
-        message(FATAL_ERROR "[zstd] Extracted directory does not contain lib/zstd.h: ${_extracted_dir}")
+    file(GLOB _dirs "${_DL_DIR}/zstd-*")
+    list(GET _dirs 0 _dir)
+    if(EXISTS "${_SRC_DIR}")
+        file(REMOVE_RECURSE "${_SRC_DIR}")
     endif()
+    file(RENAME "${_dir}" "${_SRC_DIR}")
 endif()
 
-# Build zstd static library using cmake subprocess
-if(NOT EXISTS "${_ZSTD_LIB_FILE}")
-    message(STATUS "[zstd] Building static library...")
-    file(MAKE_DIRECTORY "${_ZSTD_BUILD_DIR}")
+# Build (only configs not yet installed)
+set(_ZSTD_CMAKE_ARGS
+    -DZSTD_BUILD_PROGRAMS=OFF -DZSTD_BUILD_SHARED=OFF
+    -DZSTD_BUILD_STATIC=ON   -DZSTD_BUILD_TESTS=OFF
+)
 
-    # Build platform args for multi-config generators (VS)
-    set(_ZSTD_GEN_ARGS -G "${CMAKE_GENERATOR}")
+if(MSVC)
+    # Multi-config: one configure, two --config builds
+    set(_BD "${CMAKE_BINARY_DIR}/_deps/zstd-build")
+    set(_GEN -G "${CMAKE_GENERATOR}")
     if(CMAKE_GENERATOR_PLATFORM)
-        list(APPEND _ZSTD_GEN_ARGS -A "${CMAKE_GENERATOR_PLATFORM}")
+        list(APPEND _GEN -A "${CMAKE_GENERATOR_PLATFORM}")
     endif()
-
-    # Configure
     execute_process(
-        COMMAND ${CMAKE_COMMAND}
-            -S "${_ZSTD_SRC_DIR}/build/cmake"
-            -B "${_ZSTD_BUILD_DIR}"
-            ${_ZSTD_GEN_ARGS}
-            -DCMAKE_BUILD_TYPE=Release
-            -DZSTD_BUILD_PROGRAMS=OFF
-            -DZSTD_BUILD_SHARED=OFF
-            -DZSTD_BUILD_STATIC=ON
-            -DZSTD_BUILD_TESTS=OFF
-        RESULT_VARIABLE _cfg_result
-        OUTPUT_VARIABLE _cfg_output
-        ERROR_VARIABLE  _cfg_error
-    )
-    if(NOT _cfg_result EQUAL 0)
-        message(FATAL_ERROR "[zstd] Configure failed:\n${_cfg_error}")
+        COMMAND ${CMAKE_COMMAND} -S "${_SRC_DIR}/build/cmake" -B "${_BD}" ${_GEN} ${_ZSTD_CMAKE_ARGS}
+        RESULT_VARIABLE _r OUTPUT_QUIET ERROR_VARIABLE _e)
+    if(NOT _r EQUAL 0)
+        message(FATAL_ERROR "[zstd] Configure failed:\n${_e}")
     endif()
-
-    # Build
-    execute_process(
-        COMMAND ${CMAKE_COMMAND} --build "${_ZSTD_BUILD_DIR}" --config Release --target libzstd_static
-        RESULT_VARIABLE _build_result
-        OUTPUT_VARIABLE _build_output
-        ERROR_VARIABLE  _build_error
-    )
-    if(NOT _build_result EQUAL 0)
-        message(FATAL_ERROR "[zstd] Build failed:\n${_build_error}")
-    endif()
-
-    # Install headers to third_party/
-    file(MAKE_DIRECTORY "${ZSTD_TP_INCLUDE}")
-    file(COPY
-        "${_ZSTD_SRC_DIR}/lib/zstd.h"
-        "${_ZSTD_SRC_DIR}/lib/zstd_errors.h"
-        "${_ZSTD_SRC_DIR}/lib/zdict.h"
-        DESTINATION "${ZSTD_TP_INCLUDE}"
-    )
-
-    # Install compiled library
-    file(MAKE_DIRECTORY "${ZSTD_TP_LIB}")
-    # Find the built library (could be in Release/ subdir for multi-config generators)
-    # On Windows MSVC the target produces zstd_static.lib; on Unix it produces libzstd.a
-    file(GLOB_RECURSE _built_libs
-        "${_ZSTD_BUILD_DIR}/lib/*zstd_static*"
-        "${_ZSTD_BUILD_DIR}/lib/libzstd.a"
-    )
-    if(_built_libs)
-        list(GET _built_libs 0 _built_lib)
-        file(COPY "${_built_lib}" DESTINATION "${ZSTD_TP_LIB}")
-        # Normalize the file name
-        get_filename_component(_copied_name "${_built_lib}" NAME)
-        if(NOT "${_copied_name}" STREQUAL "${_ZSTD_LIB_NAME}")
-            file(RENAME "${ZSTD_TP_LIB}/${_copied_name}" "${_ZSTD_LIB_FILE}")
+    foreach(_cfg Debug Release)
+        if(_cfg STREQUAL "Debug")
+            set(_dest "${_ZSTD_DBG}")
+        else()
+            set(_dest "${_ZSTD_REL}")
         endif()
-    else()
-        message(FATAL_ERROR "[zstd] Could not find built library in ${_ZSTD_BUILD_DIR}")
-    endif()
-
-    # Install LICENSE / COPYING
-    if(EXISTS "${_ZSTD_SRC_DIR}/LICENSE")
-        file(COPY "${_ZSTD_SRC_DIR}/LICENSE" DESTINATION "${ZSTD_THIRD_PARTY}")
-    endif()
-    if(EXISTS "${_ZSTD_SRC_DIR}/COPYING")
-        file(COPY "${_ZSTD_SRC_DIR}/COPYING" DESTINATION "${ZSTD_THIRD_PARTY}")
-    endif()
-
-    message(STATUS "[zstd] Installed to: ${ZSTD_THIRD_PARTY}")
+        if(NOT EXISTS "${ZSTD_TP_LIB}/${_dest}")
+            message(STATUS "[zstd] Building ${_cfg}...")
+            execute_process(
+                COMMAND ${CMAKE_COMMAND} --build "${_BD}" --config ${_cfg} --target libzstd_static
+                RESULT_VARIABLE _r OUTPUT_QUIET ERROR_VARIABLE _e)
+            if(NOT _r EQUAL 0)
+                message(FATAL_ERROR "[zstd] ${_cfg} build failed:\n${_e}")
+            endif()
+            _zstd_install_lib("${_BD}" "${_cfg}" "${_dest}")
+        endif()
+    endforeach()
+else()
+    # Single-config: separate build dirs per config
+    foreach(_cfg Debug Release)
+        if(_cfg STREQUAL "Debug")
+            set(_dest "${_ZSTD_DBG}")
+        else()
+            set(_dest "${_ZSTD_REL}")
+        endif()
+        if(NOT EXISTS "${ZSTD_TP_LIB}/${_dest}")
+            set(_BD "${CMAKE_BINARY_DIR}/_deps/zstd-build-${_cfg}")
+            message(STATUS "[zstd] Configuring+building ${_cfg}...")
+            execute_process(
+                COMMAND ${CMAKE_COMMAND} -S "${_SRC_DIR}/build/cmake" -B "${_BD}"
+                        -DCMAKE_BUILD_TYPE=${_cfg} ${_ZSTD_CMAKE_ARGS}
+                RESULT_VARIABLE _r OUTPUT_QUIET ERROR_VARIABLE _e)
+            if(NOT _r EQUAL 0)
+                message(FATAL_ERROR "[zstd] ${_cfg} configure failed:\n${_e}")
+            endif()
+            execute_process(
+                COMMAND ${CMAKE_COMMAND} --build "${_BD}" --target libzstd_static
+                RESULT_VARIABLE _r OUTPUT_QUIET ERROR_VARIABLE _e)
+            if(NOT _r EQUAL 0)
+                message(FATAL_ERROR "[zstd] ${_cfg} build failed:\n${_e}")
+            endif()
+            _zstd_install_lib("${_BD}" "${_cfg}" "${_dest}")
+        endif()
+    endforeach()
 endif()
 
-# Use the installed artifacts
-set(ZSTD_INCLUDE_DIR "${ZSTD_TP_INCLUDE}")
-set(ZSTD_LIBRARY     "${_ZSTD_LIB_FILE}")
+# Install headers + license
+file(MAKE_DIRECTORY "${ZSTD_TP_INCLUDE}")
+file(COPY "${_SRC_DIR}/lib/zstd.h" "${_SRC_DIR}/lib/zstd_errors.h" "${_SRC_DIR}/lib/zdict.h"
+     DESTINATION "${ZSTD_TP_INCLUDE}")
+foreach(_lic LICENSE COPYING)
+    if(EXISTS "${_SRC_DIR}/${_lic}")
+        file(COPY "${_SRC_DIR}/${_lic}" DESTINATION "${ZSTD_THIRD_PARTY}")
+    endif()
+endforeach()
+message(STATUS "[zstd] Installed to ${ZSTD_THIRD_PARTY}")
 
-message(STATUS "[zstd] include: ${ZSTD_INCLUDE_DIR}")
-message(STATUS "[zstd] library: ${ZSTD_LIBRARY}")
+_zstd_create_target()

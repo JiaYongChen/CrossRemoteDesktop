@@ -74,12 +74,12 @@ else()
     find_package(OpenSSL REQUIRED)
 endif()
 
-# 查找zstd - 复用父项目配置（由 cmake/SetupZstd.cmake 设置 ZSTD_INCLUDE_DIR / ZSTD_LIBRARY）
-# 父项目的变量在子目录中自动可见，无需重复查找
-if(NOT ZSTD_INCLUDE_DIR OR NOT ZSTD_LIBRARY)
-    message(FATAL_ERROR "[Tests] ZSTD_INCLUDE_DIR or ZSTD_LIBRARY not set by parent project")
+# 查找zstd - 复用父项目创建的 zstd::zstd imported target
+# （由 cmake/SetupZstd.cmake 提供，包含 include 目录和 per-config 库路径）
+if(NOT TARGET zstd::zstd)
+    message(FATAL_ERROR "[Tests] zstd::zstd target not defined by parent project")
 endif()
-message(STATUS "[Tests] Reusing zstd from parent: ${ZSTD_INCLUDE_DIR}")
+message(STATUS "[Tests] Reusing zstd::zstd from parent: ${ZSTD_INCLUDE_DIR}")
 
 # 设置Qt6自动处理
 set(CMAKE_AUTOMOC ON)
@@ -104,6 +104,40 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../build/test)
 
 # 启用测试
 enable_testing()
+
+# ============================================================================
+# Windows: build runtime PATH for test executables (DLL resolution)
+# On Windows, Qt/OpenSSL DLLs are not in the test output directory.
+# We prepend Qt bin + OpenSSL bin dirs to PATH so ctest can find them at
+# runtime. OpenSSL DLLs use D-suffix naming (libssl-3-x64D.dll for Debug),
+# but import libs always reference the original name (libssl-3-x64.dll),
+# so the runtime loader finds the Release DLL via PATH. This is fine for
+# tests — the DLL is self-contained with its own CRT.
+# Semicolons inside PATH are escaped with \; so CMake's list parser does
+# not split them into separate ENVIRONMENT entries.
+# ============================================================================
+if(WIN32 AND QT6_ROOT_DIR)
+    set(_qt_bindir "${QT6_ROOT_DIR}/bin")
+    set(_qt_plugindir "${QT6_ROOT_DIR}/plugins")
+
+    # PATH = Qt bin ; OpenSSL bin ; system PATH
+    set(_test_path_value "${_qt_bindir}")
+    if(OPENSSL_TP_BIN)
+        string(APPEND _test_path_value "\;${OPENSSL_TP_BIN}")
+    endif()
+    string(REPLACE ";" "\;" _sys_path_escaped "$ENV{PATH}")
+    string(APPEND _test_path_value "\;${_sys_path_escaped}")
+
+    # Base environment inherited by ALL tests
+    set(_TEST_BASE_ENV
+        "QT_QPA_PLATFORM=offscreen"
+        "PATH=${_test_path_value}"
+        "QT_PLUGIN_PATH=${_qt_plugindir}"
+    )
+    message(STATUS "[Tests] Windows runtime PATH configured (Qt: ${_qt_bindir})")
+else()
+    set(_TEST_BASE_ENV "QT_QPA_PLATFORM=offscreen")
+endif()
 
 # ============================================================================
 # Shared STATIC libraries to avoid compiling common sources multiple times
@@ -164,7 +198,7 @@ add_test(
 set_tests_properties(ThreadManagerTest PROPERTIES
     TIMEOUT 30  # 30秒超时
     LABELS "unit;threading;manager"
-    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    ENVIRONMENT "${_TEST_BASE_ENV}"
 )
 
 # ScreenCaptureWorker测试用例
@@ -201,7 +235,7 @@ add_test(
 set_tests_properties(ScreenCaptureWorkerTest PROPERTIES
     TIMEOUT 30  # 30秒超时
     LABELS "unit;capture;worker"
-    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    ENVIRONMENT "${_TEST_BASE_ENV}"
 )
 
 # 创建自定义目标来运行所有测试
@@ -274,7 +308,7 @@ add_test(
 set_tests_properties(ScreenCaptureTest PROPERTIES
     TIMEOUT 60  # 1分钟超时
     LABELS "unit;capture;main"
-    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    ENVIRONMENT "${_TEST_BASE_ENV}"
 )
 
 
@@ -327,7 +361,7 @@ add_test(
 set_tests_properties(ScreenCaptureIntegrationTest PROPERTIES
     TIMEOUT 300  # 5分钟超时
     LABELS "integration;screencapture;redundancy"
-    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    ENVIRONMENT "${_TEST_BASE_ENV}"
 )
 
 message(STATUS "  Tests: Memory Optimization, ThreadManager, ScreenCaptureWorker, ScreenCaptureIntegration")
@@ -366,7 +400,10 @@ target_compile_definitions(test_dataprocessing PRIVATE QT_NO_OPENGL)
 
 # 添加测试
 add_test(NAME DataProcessingTest COMMAND test_dataprocessing)
-set_tests_properties(DataProcessingTest PROPERTIES LABELS "unit;server;dataprocessing")
+set_tests_properties(DataProcessingTest PROPERTIES
+    LABELS "unit;server;dataprocessing"
+    ENVIRONMENT "${_TEST_BASE_ENV}"
+)
 
 
 
@@ -394,7 +431,10 @@ target_compile_definitions(test_data_consistency PRIVATE QT_NO_OPENGL)
 
 # 添加测试
 add_test(NAME DataConsistencyTest COMMAND test_data_consistency)
-set_tests_properties(DataConsistencyTest PROPERTIES LABELS "integration;consistency;network")
+set_tests_properties(DataConsistencyTest PROPERTIES
+    LABELS "integration;consistency;network"
+    ENVIRONMENT "${_TEST_BASE_ENV}"
+)
 
 # 帧传输延迟测试用例
 set(FRAME_TRANSMISSION_LATENCY_TEST_SOURCES
@@ -420,7 +460,10 @@ target_compile_definitions(test_frame_transmission_latency PRIVATE QT_NO_OPENGL)
 
 # 添加测试
 add_test(NAME FrameTransmissionLatencyTest COMMAND test_frame_transmission_latency)
-set_tests_properties(FrameTransmissionLatencyTest PROPERTIES LABELS "performance;latency;network")
+set_tests_properties(FrameTransmissionLatencyTest PROPERTIES
+    LABELS "performance;latency;network"
+    ENVIRONMENT "${_TEST_BASE_ENV}"
+)
 
 # 保证自定义测试目标的依赖
 if(TARGET run_all_tests)
@@ -461,7 +504,7 @@ target_link_libraries(test_clientremotewindow PRIVATE
     Qt6::Network
     OpenSSL::SSL
     OpenSSL::Crypto
-    ${ZSTD_LIBRARY}
+    zstd::zstd
     common_test_core
 )
 
@@ -478,7 +521,7 @@ add_test(
 set_tests_properties(ClientRemoteWindowTest PROPERTIES
     TIMEOUT 30  # 30秒超时
     LABELS "unit;client;window"
-    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    ENVIRONMENT "${_TEST_BASE_ENV}"
 )
 
 # 保证自定义测试目标的依赖
@@ -511,7 +554,7 @@ target_link_libraries(test_screen_data_flow PRIVATE
     Qt6::Concurrent
     OpenSSL::SSL
     OpenSSL::Crypto
-    ${ZSTD_LIBRARY}
+    zstd::zstd
     common_test_core
 )
 
@@ -528,7 +571,7 @@ add_test(
 set_tests_properties(ScreenDataFlowTest PROPERTIES
     TIMEOUT 120  # 2分钟超时
     LABELS "integration;screen;data;flow;network"
-    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    ENVIRONMENT "${_TEST_BASE_ENV}"
 )
 
 # 保证自定义测试目标的依赖
@@ -569,7 +612,7 @@ add_test(
 set_tests_properties(ClientHandlerWorkerTest PROPERTIES
     TIMEOUT 60  # 1分钟超时
     LABELS "unit;server;worker;network"
-    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    ENVIRONMENT "${_TEST_BASE_ENV}"
 )
 
 # 保证自定义测试目标的依赖
@@ -636,7 +679,7 @@ target_link_libraries(test_producer_consumer_integration PRIVATE
     Qt6::Concurrent
     OpenSSL::SSL
     OpenSSL::Crypto
-    ${ZSTD_LIBRARY}
+    zstd::zstd
     capture_test_core
 )
 
@@ -653,7 +696,7 @@ add_test(
 set_tests_properties(ProducerConsumerIntegrationTest PROPERTIES
     TIMEOUT 300  # 5分钟超时
     LABELS "integration;producer;consumer;queue;threading"
-    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    ENVIRONMENT "${_TEST_BASE_ENV}"
 )
 
 # 保证自定义测试目标的依赖
@@ -691,13 +734,16 @@ add_test(
     WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
 )
 
+# CloseEventTest needs extra env vars beyond the base
+set(_close_event_env ${_TEST_BASE_ENV})
+list(APPEND _close_event_env
+    "AUTO_RUN=1"
+    "RD_MAIN_APP_PATH=${CMAKE_SOURCE_DIR}/Debug/QtRemoteDesktop.app/Contents/MacOS/QtRemoteDesktop"
+)
 set_tests_properties(CloseEventTest PROPERTIES
     TIMEOUT 60
     LABELS "integration;ui;closeevent;app"
-    # 指定主应用可执行文件路径，避免测试误用旧版本的.app bundle
-    # 这里使用主工程在Debug配置下的输出位置（见顶层CMakeLists: CMAKE_RUNTIME_OUTPUT_DIRECTORY 设置）
-    # 对于非Debug配置，路径可根据需要扩展；当前测试默认在Debug下运行
-    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;AUTO_RUN=1;RD_MAIN_APP_PATH=${CMAKE_SOURCE_DIR}/Debug/QtRemoteDesktop.app/Contents/MacOS/QtRemoteDesktop"
+    ENVIRONMENT "${_close_event_env}"
 )
 
 # ============================================================================
@@ -731,7 +777,7 @@ add_test(
 set_tests_properties(QueueManagerTest PROPERTIES
     TIMEOUT 30
     LABELS "unit;server;queue"
-    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    ENVIRONMENT "${_TEST_BASE_ENV}"
 )
 
 if(TARGET run_all_tests)

@@ -23,7 +23,6 @@
 *.log
 
 #path
-.claude/
 .codacy/
 .trae/
 .vscode/
@@ -35,6 +34,10 @@ logs/
 scripts/
 
 #files
-CLAUDE.md
 需求文档.md
 REQUIREMENTS.md
+
+#claude
+.claude/
+settings.local.json
+claude.md

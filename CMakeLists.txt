@@ -587,10 +587,9 @@ if(APPLE AND _qtgui_link_opts)
     endif()
 endif()
 
-# 添加zstd头文件路径
-target_include_directories(QtRemoteDesktop PRIVATE ${ZSTD_INCLUDE_DIR})
-
 # 链接库
+# zstd::zstd imported target provides both include directories and per-config
+# library selection (Debug/Release on MSVC), avoiding CRT mismatch (LNK4098).
 target_link_libraries(QtRemoteDesktop PRIVATE
     Qt6::Core
     Qt6::Widgets
@@ -602,21 +601,25 @@ target_link_libraries(QtRemoteDesktop PRIVATE
     Qt6::Svg
     OpenSSL::SSL
     OpenSSL::Crypto
-    ${ZSTD_LIBRARY}
+    zstd::zstd
 )
-# zstd is pre-built during configure (see cmake/SetupZstd.cmake), no build-time dependency needed
 
 # Windows下自动拷贝OpenSSL运行时DLL到输出目录（TLS所需）
-# DLL 位于 OPENSSL_TP_BIN (third_party/openssl/bin/<platform>-<arch>/)
+# DLL 使用 D 后缀区分 Debug/Release: libssl-3-x64D.dll (Debug), libssl-3-x64.dll (Release)
 # OPENSSL_TP_BIN 由 cmake/SetupOpenSSL.cmake 设置
+# 注意：import lib 内部引用的 DLL 名称始终为原始名称（无 D 后缀），
+# 因此拷贝到输出目录时必须使用原始名称，以确保运行时能正确加载。
 if(WIN32 AND EXISTS "${OPENSSL_TP_BIN}/libssl-3-x64.dll")
+    # D-suffix source file name, but always copy as the original name for runtime loading
+    set(_ssl_dll_src "$<IF:$<CONFIG:Debug>,libssl-3-x64D.dll,libssl-3-x64.dll>")
+    set(_crypto_dll_src "$<IF:$<CONFIG:Debug>,libcrypto-3-x64D.dll,libcrypto-3-x64.dll>")
     add_custom_command(TARGET QtRemoteDesktop POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${OPENSSL_TP_BIN}/libssl-3-x64.dll"
-            "$<TARGET_FILE_DIR:QtRemoteDesktop>"
+            "${OPENSSL_TP_BIN}/${_ssl_dll_src}"
+            "$<TARGET_FILE_DIR:QtRemoteDesktop>/libssl-3-x64.dll"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${OPENSSL_TP_BIN}/libcrypto-3-x64.dll"
-            "$<TARGET_FILE_DIR:QtRemoteDesktop>"
+            "${OPENSSL_TP_BIN}/${_crypto_dll_src}"
+            "$<TARGET_FILE_DIR:QtRemoteDesktop>/libcrypto-3-x64.dll"
         COMMENT "Copying OpenSSL DLLs to output directory"
     )
     # 拷贝 Qt TLS 插件到输出目录，确保 Qt 能找到 OpenSSL 后端
@@ -663,9 +666,10 @@ endif()
 
 # 定义宏与编译选项（debug 日志开关、平台宏等）
 # 说明：日志输出使用 QLoggingCategory，默认级别为 debug（通过运行时环境变量控制过滤）。
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    target_compile_definitions(QtRemoteDesktop PRIVATE QT_MESSAGELOGCONTEXT)
-endif()
+# 使用生成器表达式而非 CMAKE_BUILD_TYPE，确保在多配置生成器（Visual Studio）下也能正确生效。
+target_compile_definitions(QtRemoteDesktop PRIVATE
+    $<$<CONFIG:Debug>:QT_MESSAGELOGCONTEXT>
+)
 
 # 安装规则（可根据需要扩展）
 install(TARGETS QtRemoteDesktop
