@@ -41,6 +41,9 @@ Q_DECLARE_LOGGING_CATEGORY(lcScreenCaptureManager)
 /// 屏幕捕获Worker日志
 Q_DECLARE_LOGGING_CATEGORY(lcScreenCaptureWorker)
 
+/// DXGI Desktop Duplication 捕获引擎日志
+Q_DECLARE_LOGGING_CATEGORY(lcDxgiCapture)
+
 /// 数据流日志
 Q_DECLARE_LOGGING_CATEGORY(lcDataFlow)
 
@@ -95,6 +98,9 @@ Q_DECLARE_LOGGING_CATEGORY(lcSessionManager)
 
 /// 渲染管理器日志
 Q_DECLARE_LOGGING_CATEGORY(lcRenderManager)
+
+/// OpenGL纹理视口日志
+Q_DECLARE_LOGGING_CATEGORY(lcGLViewport)
 
 // ============================================================================
 // 用户界面模块日志分类

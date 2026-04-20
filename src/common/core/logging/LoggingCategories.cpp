@@ -38,6 +38,9 @@ Q_LOGGING_CATEGORY(lcScreenCaptureManager, "server.capture.manager", QtDebugMsg)
 /// 屏幕捕获Worker日志
 Q_LOGGING_CATEGORY(lcScreenCaptureWorker, "server.capture.worker", QtDebugMsg)
 
+/// DXGI Desktop Duplication 捕获引擎日志
+Q_LOGGING_CATEGORY(lcDxgiCapture, "server.capture.dxgi", QtDebugMsg)
+
 /// 数据流日志
 Q_LOGGING_CATEGORY(lcDataFlow, "dataflow", QtDebugMsg)
 
@@ -92,6 +95,9 @@ Q_LOGGING_CATEGORY(lcSessionManager, "client.session", QtDebugMsg)
 
 /// 渲染管理器日志
 Q_LOGGING_CATEGORY(lcRenderManager, "client.render", QtDebugMsg)
+
+/// OpenGL纹理视口日志
+Q_LOGGING_CATEGORY(lcGLViewport, "client.glviewport", QtDebugMsg)
 
 // ============================================================================
 // 用户界面模块日志分类定义
