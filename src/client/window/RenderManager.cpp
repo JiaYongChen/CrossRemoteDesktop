@@ -1,4 +1,7 @@
 #include "RenderManager.h"
+#ifndef QT_NO_OPENGL
+#include "GLTextureViewport.h"
+#endif
 #include "../../common/core/logging/LoggingCategories.h"
 #include <QtWidgets/QGraphicsScene>
 #include <QtWidgets/QGraphicsPixmapItem>
@@ -90,11 +93,22 @@ void RenderManager::setRemoteScreen(const QImage& image) {
         return;
     }
 
-    // Convert QImage → QPixmap in the main thread (QPixmap is GPU-backed)
+    m_remoteSize = image.size();
+
+#ifndef QT_NO_OPENGL
+    if ( m_glModeActive && m_glViewport ) {
+        // GL direct path: upload texture directly, bypass QGraphicsScene
+        m_glViewport->uploadFrame(image);
+        m_glViewport->setRemoteSize(m_remoteSize);
+        return;
+    }
+#endif
+
+    // QGraphicsView fallback path (existing logic)
+    // Convert QImage -> QPixmap in the main thread (QPixmap is GPU-backed)
     QPixmap pixmap = QPixmap::fromImage(image);
 
     m_remoteScreen = pixmap;
-    m_remoteSize = image.size();
 
     // 确保像素图项存在
     ensurePixmapItem();
@@ -135,6 +149,15 @@ void RenderManager::updateRemoteRegion(const QImage& region, const QRect& rect) 
         qCWarning(lcRenderManager) << "RenderManager::updateRemoteRegion() - Invalid region update parameters";
         return;
     }
+
+#ifndef QT_NO_OPENGL
+    if ( m_glModeActive && m_glViewport ) {
+        // In GL mode, partial texture updates are not yet implemented.
+        // This code path is currently unused in the production flow.
+        qCDebug(lcRenderManager) << "Region update in GL mode not yet supported";
+        return;
+    }
+#endif
 
     if ( m_remoteScreen.isNull() ) {
         qCWarning(lcRenderManager) << "RenderManager::updateRemoteRegion() - No remote screen to update";
@@ -194,6 +217,15 @@ void RenderManager::setScaleFactor(double factor) {
 }
 
 QPoint RenderManager::mapToRemote(const QPoint& localPoint) const {
+#ifndef QT_NO_OPENGL
+    if ( m_glModeActive && m_glViewport ) {
+        // localPoint is in the QGraphicsView's own coordinate system;
+        // translate into the GL overlay's local coords before delegating.
+        const QPoint glLocal = localPoint - m_glViewport->pos();
+        return m_glViewport->mapToRemote(glLocal);
+    }
+#endif
+
     if ( !m_graphicsView || !m_pixmapItem || m_remoteSize.isEmpty() ) {
         return localPoint;
     }
@@ -204,6 +236,13 @@ QPoint RenderManager::mapToRemote(const QPoint& localPoint) const {
 }
 
 QPoint RenderManager::mapFromRemote(const QPoint& remotePoint) const {
+#ifndef QT_NO_OPENGL
+    if ( m_glModeActive && m_glViewport ) {
+        // GL overlay returns coords in its own widget space — shift to view space.
+        return m_glViewport->mapFromRemote(remotePoint) + m_glViewport->pos();
+    }
+#endif
+
     if ( !m_graphicsView || !m_pixmapItem || m_remoteSize.isEmpty() ) {
         return remotePoint;
     }
@@ -255,19 +294,48 @@ void RenderManager::enableOpenGL(bool enable) {
 
 #ifndef QT_NO_OPENGL
     if ( enable ) {
-        QOpenGLWidget* openGLWidget = new QOpenGLWidget();
-        m_graphicsView->setViewport(openGLWidget);
-        qCDebug(lcRenderManager) << "RenderManager::enableOpenGL() - OpenGL rendering enabled";
+        // Architecture note:
+        // Using GLTextureViewport as QGraphicsView's viewport via setViewport()
+        // does NOT work — QGraphicsView intercepts the viewport's paintEvent via
+        // viewportEvent(QEvent::Paint) and draws the scene with QPainter, which
+        // means QOpenGLWidget::paintGL() is never called.
+        //
+        // Instead, we install GLTextureViewport as a *sibling overlay* that is a
+        // direct child of m_graphicsView, sized to cover the default viewport.
+        // It receives its own paintGL() calls as a normal QOpenGLWidget, and its
+        // WA_TransparentForMouseEvents attribute lets mouse events pass through
+        // to the underlying QGraphicsView for standard event handling.
+        if ( !m_glViewport ) {
+            auto* glWidget = new GLTextureViewport(m_graphicsView);
+            glWidget->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+            glWidget->setGeometry(m_graphicsView->viewport()->geometry());
+            glWidget->show();
+            glWidget->raise();
+            m_glViewport = glWidget;
+        }
+        m_glModeActive = true;
+        qCInfo(lcRenderManager) << "GL direct texture mode enabled (overlay geometry:"
+                                << m_glViewport->geometry() << ")";
     } else {
-        m_graphicsView->setViewport(new QWidget());
-        qCDebug(lcRenderManager) << "RenderManager::enableOpenGL() - OpenGL rendering disabled";
+        if ( m_glViewport ) {
+            m_glViewport->hide();
+            m_glViewport->deleteLater();
+            m_glViewport = nullptr;
+        }
+        m_glModeActive = false;
+        qCInfo(lcRenderManager) << "GL mode disabled, using QGraphicsPixmapItem path";
+
+        // Restore the current frame to QGraphicsPixmapItem
+        if ( m_pixmapItem && !m_remoteScreen.isNull() ) {
+            m_pixmapItem->setPixmap(m_remoteScreen);
+        }
     }
 #else
-    // OpenGL is disabled, always use software rendering
-    m_graphicsView->setViewport(new QWidget());
-    qCDebug(lcRenderManager) << "RenderManager::enableOpenGL() - OpenGL disabled at compile time, using software rendering";
+    m_glViewport = nullptr;
+    m_glModeActive = false;
+    qCDebug(lcRenderManager) << "OpenGL disabled at compile time, using software rendering";
     Q_UNUSED(enable)
-    #endif
+#endif
 }
 
 void RenderManager::setUpdateMode(QGraphicsView::ViewportUpdateMode mode) {
@@ -277,6 +345,16 @@ void RenderManager::setUpdateMode(QGraphicsView::ViewportUpdateMode mode) {
 }
 
 void RenderManager::onViewResized() {
+#ifndef QT_NO_OPENGL
+    if ( m_glModeActive && m_glViewport && m_graphicsView ) {
+        // Sync the GL overlay geometry to track the default viewport's area.
+        // resizeGL() is then invoked by Qt on the GL widget automatically.
+        m_glViewport->setGeometry(m_graphicsView->viewport()->geometry());
+        calculateScaledSize();
+        return;
+    }
+#endif
+
     calculateScaledSize();
 
     // 当视图大小改变时，重新适应场景以确保完全显示

@@ -14,6 +14,7 @@ class QGraphicsPixmapItem;
 class QGraphicsView;
 class QPainter;
 class QTimer;
+class GLTextureViewport;
 
 /**
  * @brief RenderManager类负责管理远程桌面的渲染和视图相关功能
@@ -191,6 +192,16 @@ public:
     void enableOpenGL(bool enable = true);
 
     /**
+     * @brief Check if OpenGL direct texture mode is active.
+     */
+    bool isGLModeActive() const { return m_glModeActive; }
+
+    /**
+     * @brief Get the GL viewport (nullptr if not in GL mode).
+     */
+    GLTextureViewport* glViewport() const { return m_glViewport; }
+
+    /**
      * @brief 设置视图更新模式
      * @param mode 更新模式
      */
@@ -285,5 +296,9 @@ private:
     int m_cacheSizeLimit;                   ///< 缓存大小限制（MB）
     QHash<QString, QPixmap> m_pixmapCache;  ///< 图片缓存
     int m_currentCacheSize;                 ///< 当前缓存大小（字节）
+
+    // OpenGL direct texture rendering
+    GLTextureViewport* m_glViewport = nullptr;  ///< GL texture viewport (owned by QGraphicsView)
+    bool m_glModeActive = false;                ///< Whether GL direct rendering is active
 };
 

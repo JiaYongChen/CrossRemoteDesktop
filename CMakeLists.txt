@@ -604,6 +604,11 @@ target_link_libraries(QtRemoteDesktop PRIVATE
     zstd::zstd
 )
 
+# Windows: link D3D11 and DXGI for Desktop Duplication capture
+if(WIN32)
+    target_link_libraries(QtRemoteDesktop PRIVATE d3d11.lib dxgi.lib)
+endif()
+
 # Windows下自动拷贝OpenSSL运行时DLL到输出目录（TLS所需）
 # DLL 使用 D 后缀区分 Debug/Release: libssl-3-x64D.dll (Debug), libssl-3-x64.dll (Release)
 # OPENSSL_TP_BIN 由 cmake/SetupOpenSSL.cmake 设置

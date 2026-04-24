@@ -2,6 +2,7 @@
 
 #include <QtCore/QObject>
 #include <QtCore/QPoint>
+#include <QtCore/QPointer>
 #include <QtCore/Qt>
 #include <QtGui/QPainter>
 
@@ -68,7 +69,15 @@ public:
     void reset();
 
 private:
-    QWidget* m_targetWidget;          ///< 目标窗口部件
+    /**
+     * @brief 解析出当前生效的 viewport widget
+     * @return 若 target 本身就是 QAbstractScrollArea 的子类则返回其 viewport；
+     *         否则返回 findChild<QWidget*>("qt_scrollarea_viewport") 的结果（可能为 nullptr）
+     * @note 每次调用时重新解析，以兼容 QGraphicsView::setViewport() 替换 viewport 的情况
+     */
+    QWidget* resolveViewport() const;
+
+    QPointer<QWidget> m_targetWidget;   ///< 目标窗口部件（QPointer 自动感知销毁）
 
     // 远程光标状态
     Qt::CursorShape m_remoteCursorType; ///< 远程光标类型

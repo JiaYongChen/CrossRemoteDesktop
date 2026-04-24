@@ -159,7 +159,10 @@ void ClientRemoteWindow::initializeManagers() {
     m_renderManager = new RenderManager(this, this);
 
     // Cursor management
-    m_cursorManager = new CursorManager(viewport(), this);
+    // 传入 `this`（QGraphicsView 的派生类）而非 viewport()——因为后续 enableOpenGL()
+    // 会调用 setViewport() 替换并销毁原 viewport，若此处保存瞬态 viewport 指针会变悬空。
+    // CursorManager 内部通过 resolveViewport() 每次动态取当前 viewport。
+    m_cursorManager = new CursorManager(this, this);
 
     // Clipboard management
     m_clipboardManager = new ClipboardManager(this);
@@ -206,6 +209,12 @@ void ClientRemoteWindow::setupView() {
 
     // Enable mouse tracking
     setMouseTracking(true);
+
+    // Enable OpenGL direct texture rendering for best performance
+    // Falls back to software rendering if OpenGL is unavailable
+#ifndef QT_NO_OPENGL
+    enableOpenGL(true);
+#endif
 }
 
 void ClientRemoteWindow::setupManagerConnections() {
@@ -417,12 +426,22 @@ CursorManager* ClientRemoteWindow::cursorManager() const {
 
 // Event handlers
 void ClientRemoteWindow::paintEvent(QPaintEvent* event) {
+    if ( m_renderManager && m_renderManager->isGLModeActive() ) {
+        // GL mode: skip QGraphicsView::paintEvent entirely.
+        // The GLTextureViewport (set as viewport via setViewport()) handles
+        // its own rendering in paintGL(). We only need to draw the overlay.
+        if ( m_showPerformanceInfo ) {
+            QPainter painter(viewport());
+            drawPerformanceInfo(painter);
+        }
+        return;
+    }
+
+    // Standard QGraphicsView rendering path
     QGraphicsView::paintEvent(event);
 
-    QPainter painter(viewport());
-
-    // Draw performance info if enabled
     if ( m_showPerformanceInfo ) {
+        QPainter painter(viewport());
         drawPerformanceInfo(painter);
     }
 }
@@ -557,6 +576,14 @@ void ClientRemoteWindow::wheelEvent(QWheelEvent* event) {
 }
 
 void ClientRemoteWindow::keyPressEvent(QKeyEvent* event) {
+    // Toggle OpenGL / software rendering mode with Ctrl+G
+    if ( event->modifiers() == Qt::ControlModifier && event->key() == Qt::Key_G ) {
+        bool currentlyGL = m_renderManager && m_renderManager->isGLModeActive();
+        enableOpenGL(!currentlyGL);
+        event->accept();
+        return;
+    }
+
     if ( m_inputEnabled && m_sessionManager ) {
         QMetaObject::invokeMethod(m_sessionManager, "sendKeyboardEvent",
             Qt::QueuedConnection,
@@ -660,6 +687,27 @@ void ClientRemoteWindow::onConnectionError(const QString& error) {
     QMessageBox::critical(this, "Connection Error", error);
 }
 
+void ClientRemoteWindow::enableOpenGL(bool enable) {
+    if ( m_renderManager ) {
+        m_renderManager->enableOpenGL(enable);
+
+        if ( enable && m_renderManager->isGLModeActive() ) {
+            // In GL mode, disable QGraphicsView's scrollbars and drag mode
+            // since the GL viewport handles everything
+            setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+            setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+            setDragMode(QGraphicsView::NoDrag);
+            qCInfo(lcClientRemoteWindow) << "OpenGL direct rendering enabled";
+        } else {
+            // Restore QGraphicsView defaults
+            setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+            setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+            setDragMode(QGraphicsView::ScrollHandDrag);
+            qCInfo(lcClientRemoteWindow) << "Software rendering mode";
+        }
+    }
+}
+
 void ClientRemoteWindow::showDisconnectionDialog() {
     qCInfo(lcClientRemoteWindow) << "ClientRemoteWindow::showDisconnectionDialog() - Showing disconnection dialog";
 
@@ -724,6 +772,11 @@ void ClientRemoteWindow::drawPerformanceInfo(QPainter& painter) {
 
     double currentScale = m_renderManager ? m_renderManager->scaleFactor() : 1.0;
     info << QString("Scale: %1%").arg(currentScale * 100, 0, 'f', 0);
+
+    // Show current rendering mode
+    QString renderMode = (m_renderManager && m_renderManager->isGLModeActive())
+        ? "OpenGL Direct" : "QGraphicsView";
+    info << QString("Render: %1").arg(renderMode);
 
     QString infoText = info.join(" | ");
 

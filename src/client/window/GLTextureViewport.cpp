@@ -1,0 +1,356 @@
+#ifndef QT_NO_OPENGL
+
+#include "GLTextureViewport.h"
+#include "../../common/core/logging/LoggingCategories.h"
+
+// Vertex shader: pass through position and texture coordinates
+static const char* s_vertexShaderSource = R"(
+    #version 330 core
+    layout(location = 0) in vec2 aPosition;
+    layout(location = 1) in vec2 aTexCoord;
+    out vec2 vTexCoord;
+    void main() {
+        gl_Position = vec4(aPosition, 0.0, 1.0);
+        vTexCoord = aTexCoord;
+    }
+)";
+
+// Fragment shader: sample texture
+static const char* s_fragmentShaderSource = R"(
+    #version 330 core
+    in vec2 vTexCoord;
+    out vec4 fragColor;
+    uniform sampler2D uTexture;
+    void main() {
+        fragColor = texture(uTexture, vTexCoord);
+    }
+)";
+
+GLTextureViewport::GLTextureViewport(QWidget* parent)
+    : QOpenGLWidget(parent)
+    , m_vertexBuffer(QOpenGLBuffer::VertexBuffer) {
+    // Request OpenGL 3.3 Core profile
+    QSurfaceFormat format;
+    format.setVersion(3, 3);
+    format.setProfile(QSurfaceFormat::CoreProfile);
+    format.setSwapInterval(1); // VSync on
+    setFormat(format);
+}
+
+GLTextureViewport::~GLTextureViewport() {
+    // Critical: disconnect aboutToBeDestroyed BEFORE the base destructor chain
+    // destroys the underlying QOpenGLContext.
+    //
+    // Why (Qt 6.9 destruction sequence):
+    //   1) This derived destructor body finishes (reaches '}');
+    //   2) The compiler invokes ~QOpenGLWidget() — at this point the vtable
+    //      has downgraded to QOpenGLWidget (C++ standard);
+    //   3) Inside ~QOpenGLWidget() the underlying QOpenGLContext is torn down
+    //      and emits aboutToBeDestroyed;
+    //   4) Our slot GLTextureViewport::cleanupGL is dispatched via Qt's
+    //      QCallableObject::impl, which calls
+    //      assertObjectType<GLTextureViewport>(this). qobject_cast goes
+    //      through metaObject() — a virtual call — and now returns
+    //      QOpenGLWidget::staticMetaObject, so the cast yields nullptr and
+    //      the Q_ASSERT fires (qFatal).
+    //
+    // We cannot rely on ~QObject()'s auto-disconnect because ~QObject() runs
+    // at the END of the base destruction chain, long after the signal has
+    // already tried to invoke the downgraded slot. The disconnect must happen
+    // while the derived vtable is still live — i.e., inside this body.
+    if ( QOpenGLContext* ctx = context() ) {
+        disconnect(ctx, &QOpenGLContext::aboutToBeDestroyed,
+                   this, &GLTextureViewport::cleanupGL);
+    }
+
+    // Must make context current before deleting GL resources
+    makeCurrent();
+    cleanupGL();
+    doneCurrent();
+}
+
+void GLTextureViewport::initializeGL() {
+    initializeOpenGLFunctions();
+
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+
+    if ( !initializeShaders() ) {
+        qCCritical(lcGLViewport) << "Failed to initialize shaders";
+        return;
+    }
+
+    initializeGeometry();
+    m_glInitialized = true;
+
+    // Prepare for context loss recovery
+    connect(context(), &QOpenGLContext::aboutToBeDestroyed,
+            this, &GLTextureViewport::cleanupGL);
+
+    qCInfo(lcGLViewport) << "OpenGL initialized:"
+        << "vendor:" << reinterpret_cast<const char*>(glGetString(GL_VENDOR))
+        << "renderer:" << reinterpret_cast<const char*>(glGetString(GL_RENDERER))
+        << "version:" << reinterpret_cast<const char*>(glGetString(GL_VERSION));
+}
+
+bool GLTextureViewport::initializeShaders() {
+    m_shaderProgram = new QOpenGLShaderProgram(this);
+
+    if ( !m_shaderProgram->addShaderFromSourceCode(QOpenGLShader::Vertex, s_vertexShaderSource) ) {
+        qCCritical(lcGLViewport) << "Vertex shader compilation failed:"
+            << m_shaderProgram->log();
+        return false;
+    }
+
+    if ( !m_shaderProgram->addShaderFromSourceCode(QOpenGLShader::Fragment, s_fragmentShaderSource) ) {
+        qCCritical(lcGLViewport) << "Fragment shader compilation failed:"
+            << m_shaderProgram->log();
+        return false;
+    }
+
+    if ( !m_shaderProgram->link() ) {
+        qCCritical(lcGLViewport) << "Shader program link failed:"
+            << m_shaderProgram->log();
+        return false;
+    }
+
+    return true;
+}
+
+void GLTextureViewport::initializeGeometry() {
+    // Fullscreen quad: 2 triangles covering NDC [-1, 1]
+    // Each vertex: position (x,y) + texcoord (u,v)
+    // Note: texcoord Y is flipped (1->0) because QImage origin is top-left
+    // while OpenGL origin is bottom-left
+    static const float vertices[] = {
+        // Position    TexCoord
+        -1.0f, -1.0f,  0.0f, 1.0f,  // bottom-left
+         1.0f, -1.0f,  1.0f, 1.0f,  // bottom-right
+        -1.0f,  1.0f,  0.0f, 0.0f,  // top-left
+         1.0f,  1.0f,  1.0f, 0.0f,  // top-right
+    };
+
+    m_vao.create();
+    QOpenGLVertexArrayObject::Binder vaoBinder(&m_vao);
+
+    m_vertexBuffer.create();
+    m_vertexBuffer.bind();
+    m_vertexBuffer.allocate(vertices, sizeof(vertices));
+
+    // Position attribute (location = 0)
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float),
+                          nullptr);
+
+    // TexCoord attribute (location = 1)
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float),
+                          reinterpret_cast<void*>(2 * sizeof(float)));
+
+    m_vertexBuffer.release();
+}
+
+void GLTextureViewport::cleanupGL() {
+    if ( m_textureId != 0 ) {
+        glDeleteTextures(1, &m_textureId);
+        m_textureId = 0;
+    }
+    m_vertexBuffer.destroy();
+    m_vao.destroy();
+    delete m_shaderProgram;
+    m_shaderProgram = nullptr;
+    m_glInitialized = false;
+}
+
+void GLTextureViewport::uploadFrame(const QImage& image) {
+    if ( image.isNull() || image.format() == QImage::Format_Invalid ) {
+        qCWarning(lcGLViewport) << "Received null or invalid image, skipping upload";
+        return;
+    }
+
+    if ( !m_glInitialized ) {
+        qCWarning(lcGLViewport) << "GL not initialized, skipping upload";
+        return;
+    }
+
+    makeCurrent();
+
+    // Convert to RGBA8888 for consistent GL upload format
+    QImage glImage = image.convertedTo(QImage::Format_RGBA8888);
+
+    const bool sizeChanged = (glImage.size() != m_textureSize);
+
+    if ( sizeChanged ) {
+        // Texture size changed: recreate texture
+        if ( m_textureId != 0 ) {
+            glDeleteTextures(1, &m_textureId);
+        }
+
+        glGenTextures(1, &m_textureId);
+        glBindTexture(GL_TEXTURE_2D, m_textureId);
+
+        // Set texture parameters
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+        // Allocate and upload texture data
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, glImage.bytesPerLine() / 4);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
+                     glImage.width(), glImage.height(), 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, glImage.constBits());
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+
+        m_textureSize = glImage.size();
+        updateRenderRect();
+
+        qCDebug(lcGLViewport) << "Texture created:" << m_textureSize;
+    } else {
+        // Same size: fast sub-image update
+        glBindTexture(GL_TEXTURE_2D, m_textureId);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, glImage.bytesPerLine() / 4);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
+                        glImage.width(), glImage.height(),
+                        GL_RGBA, GL_UNSIGNED_BYTE, glImage.constBits());
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+    }
+
+    doneCurrent();
+
+    // Schedule repaint
+    update();
+}
+
+void GLTextureViewport::renderNow() {
+    update();
+}
+
+void GLTextureViewport::resizeGL(int w, int h) {
+    Q_UNUSED(w)
+    Q_UNUSED(h)
+    updateRenderRect();
+}
+
+void GLTextureViewport::paintGL() {
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    if ( m_textureId == 0 || !m_shaderProgram || m_renderRect.isEmpty() ) {
+        return;
+    }
+
+    // Set viewport to the aspect-ratio-preserving render rectangle
+    const qreal dpr = devicePixelRatioF();
+    const int rx = static_cast<int>(m_renderRect.x() * dpr);
+    const int ry = static_cast<int>((height() - m_renderRect.bottom()) * dpr);
+    const int rw = static_cast<int>(m_renderRect.width() * dpr);
+    const int rh = static_cast<int>(m_renderRect.height() * dpr);
+    glViewport(rx, ry, rw, rh);
+
+    m_shaderProgram->bind();
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, m_textureId);
+    m_shaderProgram->setUniformValue("uTexture", 0);
+
+    QOpenGLVertexArrayObject::Binder vaoBinder(&m_vao);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    m_shaderProgram->release();
+}
+
+void GLTextureViewport::updateRenderRect() {
+    if ( m_textureSize.isEmpty() ) {
+        m_renderRect = QRectF();
+        return;
+    }
+
+    const qreal viewW = width();
+    const qreal viewH = height();
+    if ( viewW <= 0.0 || viewH <= 0.0 ) {
+        m_renderRect = QRectF();
+        return;
+    }
+
+    // Compute aspect-ratio-preserving rectangle
+    // (equivalent to fitInView + KeepAspectRatio)
+    const qreal imageAspect = static_cast<qreal>(m_textureSize.width())
+                            / m_textureSize.height();
+    const qreal viewAspect = viewW / viewH;
+
+    qreal renderW = 0.0;
+    qreal renderH = 0.0;
+    if ( imageAspect > viewAspect ) {
+        // Image wider than viewport: fit to width, letterbox top/bottom
+        renderW = viewW;
+        renderH = viewW / imageAspect;
+    } else {
+        // Image taller than viewport: fit to height, pillarbox left/right
+        renderH = viewH;
+        renderW = viewH * imageAspect;
+    }
+
+    const qreal renderX = (viewW - renderW) / 2.0;
+    const qreal renderY = (viewH - renderH) / 2.0;
+
+    m_renderRect = QRectF(renderX, renderY, renderW, renderH);
+    emit renderRectChanged(m_renderRect);
+}
+
+void GLTextureViewport::setRemoteSize(const QSize& size) {
+    m_remoteSize = size;
+}
+
+QRectF GLTextureViewport::renderRect() const {
+    return m_renderRect;
+}
+
+QPoint GLTextureViewport::mapToRemote(const QPoint& localPoint) const {
+    // localPoint is in widget logical coordinates (Qt handles DPI scaling
+    // in event delivery). m_renderRect is also in logical coordinates.
+    // No DPR adjustment needed here; only needed in paintGL's glViewport call.
+    if ( m_renderRect.isEmpty() ) {
+        return localPoint;
+    }
+
+    // Use remoteSize if set (for downscaled frames), otherwise texture size
+    const QSize targetSize = m_remoteSize.isEmpty() ? m_textureSize : m_remoteSize;
+    if ( targetSize.isEmpty() ) {
+        return localPoint;
+    }
+
+    // Transform: local widget coords -> normalized render rect -> remote coords
+    const qreal normX = (localPoint.x() - m_renderRect.x()) / m_renderRect.width();
+    const qreal normY = (localPoint.y() - m_renderRect.y()) / m_renderRect.height();
+
+    // Clamp to [0, 1]
+    const qreal clampedX = qBound(0.0, normX, 1.0);
+    const qreal clampedY = qBound(0.0, normY, 1.0);
+
+    return QPoint(
+        static_cast<int>(clampedX * targetSize.width()),
+        static_cast<int>(clampedY * targetSize.height())
+    );
+}
+
+QPoint GLTextureViewport::mapFromRemote(const QPoint& remotePoint) const {
+    if ( m_renderRect.isEmpty() ) {
+        return remotePoint;
+    }
+
+    const QSize targetSize = m_remoteSize.isEmpty() ? m_textureSize : m_remoteSize;
+    if ( targetSize.isEmpty() ) {
+        return remotePoint;
+    }
+
+    // Transform: remote coords -> normalized -> local widget coords
+    const qreal normX = static_cast<qreal>(remotePoint.x()) / targetSize.width();
+    const qreal normY = static_cast<qreal>(remotePoint.y()) / targetSize.height();
+
+    return QPoint(
+        static_cast<int>(normX * m_renderRect.width() + m_renderRect.x()),
+        static_cast<int>(normY * m_renderRect.height() + m_renderRect.y())
+    );
+}
+
+#endif // QT_NO_OPENGL
