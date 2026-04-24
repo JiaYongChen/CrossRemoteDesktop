@@ -2,10 +2,16 @@
 #include "./network/ConnectionManager.h"
 #include "./managers/SessionManager.h"
 #include "./window/ClientRemoteWindow.h"
+#include "./window/RenderManager.h"
+#ifndef QT_NO_OPENGL
+#include "./window/GLTextureViewport.h"
+#endif
 #include "../common/core/config/UiConstants.h"
 #include "../common/core/logging/LoggingCategories.h"
 #include "../common/core/threading/ThreadManager.h"
 #include "./network/TcpClient.h"  // 新增：获取实际服务器IP地址
+
+#include <chrono>
 
 #include <QtCore/QSettings>
 #include <QtCore/QDateTime>
@@ -704,9 +710,23 @@ void ClientManager::onFrameAvailable() {
 
     // Drain all available frames from this session (typically 1, occasionally 2-3).
     while ( instance->sessionManager && instance->sessionManager->hasScreenImage() ) {
-        QImage image = instance->sessionManager->dequeueScreenImage();
-        if ( !image.isNull() ) {
+        QImage image;
+        std::chrono::steady_clock::time_point ts;
+        if ( !instance->sessionManager->dequeueScreenFrame(image, ts) ) {
+            break;
+        }
+        if ( !image.isNull() && instance->remoteDesktopWindow ) {
+#ifndef QT_NO_OPENGL
+            // If GL mode is active, push arrival timestamp directly to the GL viewport.
+            auto* render = instance->remoteDesktopWindow->renderManager();
+            if ( render && render->isGLModeActive() && render->glViewport() ) {
+                render->glViewport()->uploadFrame(image, ts);
+            } else {
+                instance->remoteDesktopWindow->updateRemoteScreen(image);
+            }
+#else
             instance->remoteDesktopWindow->updateRemoteScreen(image);
+#endif
         }
     }
 
@@ -725,9 +745,19 @@ void ClientManager::updateScreens() {
         }
 
         if ( instance->sessionManager->hasScreenImage() ) {
-            QImage image = instance->sessionManager->dequeueScreenImage();
-            if ( !image.isNull() ) {
+            QImage image;
+            std::chrono::steady_clock::time_point ts;
+            if ( instance->sessionManager->dequeueScreenFrame(image, ts) && !image.isNull() ) {
+#ifndef QT_NO_OPENGL
+                auto* render = instance->remoteDesktopWindow->renderManager();
+                if ( render && render->isGLModeActive() && render->glViewport() ) {
+                    render->glViewport()->uploadFrame(image, ts);
+                } else {
+                    instance->remoteDesktopWindow->updateRemoteScreen(image);
+                }
+#else
                 instance->remoteDesktopWindow->updateRemoteScreen(image);
+#endif
             }
             // Reset notification flag in case it was stuck
             instance->sessionManager->resetFrameNotification();

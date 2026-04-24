@@ -343,7 +343,8 @@ void SessionManager::handleScreenData(const QByteArray& data) {
                 m_screenImageQueue.dequeue();
                 qCDebug(lcClient) << "SessionManager: Queue full, dropped oldest frame";
             }
-            m_screenImageQueue.enqueue(image);
+            QueuedFrame qf{image, std::chrono::steady_clock::now()};
+            m_screenImageQueue.enqueue(qf);
         }
 
         // Notify consumer via coalesced signal: only emit when the flag
@@ -447,13 +448,23 @@ bool SessionManager::hasScreenImage() const {
 }
 
 QImage SessionManager::dequeueScreenImage() {
+    QImage img;
+    std::chrono::steady_clock::time_point unused;
+    dequeueScreenFrame(img, unused);
+    return img;
+}
+
+bool SessionManager::dequeueScreenFrame(QImage& out,
+                                        std::chrono::steady_clock::time_point& outTs) {
     QMutexLocker locker(&m_screenImageQueueMutex);
     if ( m_screenImageQueue.isEmpty() ) {
-        return QImage();
+        return false;
     }
-    QImage image = m_screenImageQueue.dequeue();
+    const QueuedFrame qf = m_screenImageQueue.dequeue();
+    out   = qf.image;
+    outTs = qf.arrivalTs;
     qCDebug(lcClient) << "SessionManager: Image dequeued, remaining:" << m_screenImageQueue.size();
-    return image;
+    return true;
 }
 
 void SessionManager::resetFrameNotification() {

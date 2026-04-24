@@ -11,6 +11,7 @@
 #include <QtCore/QSize>
 #include <QtCore/QPoint>
 #include <QtCore/QRectF>
+#include <chrono>
 
 /**
  * @brief OpenGL viewport that renders remote desktop frames via direct texture upload.
@@ -42,6 +43,10 @@ public:
      * @param image Decoded frame (any QImage::Format, converted internally)
      */
     void uploadFrame(const QImage& image);
+
+    /// Upload with an attached arrival timestamp to measure end-to-glass latency.
+    void uploadFrame(const QImage& image,
+                     std::chrono::steady_clock::time_point arrivalTs);
 
     /**
      * @brief Force an immediate repaint (calls update() internally).
@@ -139,6 +144,13 @@ private:
 
     // GL initialization state
     bool m_glInitialized = false;
+
+    // Metrics aggregation
+    std::chrono::steady_clock::time_point m_pendingArrivalTs{};
+    quint64 m_metricsFrameCount = 0;
+    qint64  m_metricsLatencyAccumUs = 0;
+    qint64  m_metricsLatencyMaxUs = 0;
+    static constexpr quint64 kMetricsReportInterval = 30;  // frames
 };
 
 #endif // QT_NO_OPENGL

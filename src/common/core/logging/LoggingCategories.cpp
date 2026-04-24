@@ -99,6 +99,9 @@ Q_LOGGING_CATEGORY(lcRenderManager, "client.render", QtDebugMsg)
 /// OpenGL纹理视口日志
 Q_LOGGING_CATEGORY(lcGLViewport, "client.glviewport", QtDebugMsg)
 
+/// 客户端刷新性能度量日志
+Q_LOGGING_CATEGORY(lcRefreshMetrics, "qrd.client.refresh.metrics", QtDebugMsg)
+
 // ============================================================================
 // 用户界面模块日志分类定义
 // ============================================================================

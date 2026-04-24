@@ -886,3 +886,40 @@ if(TARGET run_core_tests)
     add_dependencies(run_core_tests test_dxgi_capture)
 endif()
 
+# ============================================================================
+# 客户端刷新延迟度量测试
+# ============================================================================
+qt_add_executable(test_refresh_latency_metric
+    test_refresh_latency_metric.cpp
+    ../src/client/managers/SessionManager.cpp
+    ../src/client/network/ConnectionManager.cpp
+    ../src/client/network/TcpClient.cpp
+    ../src/common/core/network/ProtocolImpl.cpp
+)
+
+target_link_libraries(test_refresh_latency_metric PRIVATE
+    Qt6::Core Qt6::Test Qt6::Gui Qt6::Network
+    common_test_core
+    OpenSSL::SSL OpenSSL::Crypto
+    zstd::zstd
+)
+
+target_compile_definitions(test_refresh_latency_metric PRIVATE QT_NO_OPENGL)
+
+add_test(
+    NAME RefreshLatencyMetricTest
+    COMMAND test_refresh_latency_metric
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+)
+set_tests_properties(RefreshLatencyMetricTest PROPERTIES
+    TIMEOUT 30
+    LABELS "unit;client;metrics"
+    ENVIRONMENT "${_TEST_BASE_ENV}"
+)
+if(TARGET run_all_tests)
+    add_dependencies(run_all_tests test_refresh_latency_metric)
+endif()
+if(TARGET run_core_tests)
+    add_dependencies(run_core_tests test_refresh_latency_metric)
+endif()
+

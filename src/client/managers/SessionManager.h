@@ -11,6 +11,7 @@
 #include "../../common/core/config/UiConstants.h"
 #include "../network/ConnectionManager.h"
 #include <atomic>
+#include <chrono>
 
 class QTimer;
 
@@ -76,7 +77,10 @@ public:
 
     // 图片队列操作（线程安全）
     bool hasScreenImage() const;
+    // 旧签名保留以兼容现有调用点（返回 QImage）
     QImage dequeueScreenImage();
+    // 新签名：同时返回到达时间戳
+    bool dequeueScreenFrame(QImage& out, std::chrono::steady_clock::time_point& outTs);
 
     /**
      * @brief Reset the frame notification coalescing flag.
@@ -141,7 +145,11 @@ private:
     mutable QMutex m_frameDataMutex;
 
     // 图片队列（用于替代信号槽机制）
-    QQueue<QImage> m_screenImageQueue;
+    struct QueuedFrame {
+        QImage image;
+        std::chrono::steady_clock::time_point arrivalTs;
+    };
+    QQueue<QueuedFrame> m_screenImageQueue;
     mutable QMutex m_screenImageQueueMutex;
     static constexpr int MAX_QUEUE_SIZE = 5;  // Queue capacity (absorb network jitter)
 

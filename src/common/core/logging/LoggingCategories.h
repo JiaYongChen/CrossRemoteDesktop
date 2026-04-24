@@ -102,6 +102,9 @@ Q_DECLARE_LOGGING_CATEGORY(lcRenderManager)
 /// OpenGL纹理视口日志
 Q_DECLARE_LOGGING_CATEGORY(lcGLViewport)
 
+/// 客户端刷新性能度量日志
+Q_DECLARE_LOGGING_CATEGORY(lcRefreshMetrics)
+
 // ============================================================================
 // 用户界面模块日志分类
 // ============================================================================

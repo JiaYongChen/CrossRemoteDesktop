@@ -3,6 +3,9 @@
 #include "GLTextureViewport.h"
 #include "../../common/core/logging/LoggingCategories.h"
 
+#include <algorithm>  // std::max
+#include <chrono>
+
 // Vertex shader: pass through position and texture coordinates
 static const char* s_vertexShaderSource = R"(
     #version 330 core
@@ -161,6 +164,12 @@ void GLTextureViewport::cleanupGL() {
     m_glInitialized = false;
 }
 
+void GLTextureViewport::uploadFrame(const QImage& image,
+                                    std::chrono::steady_clock::time_point arrivalTs) {
+    m_pendingArrivalTs = arrivalTs;
+    uploadFrame(image);
+}
+
 void GLTextureViewport::uploadFrame(const QImage& image) {
     if ( image.isNull() || image.format() == QImage::Format_Invalid ) {
         qCWarning(lcGLViewport) << "Received null or invalid image, skipping upload";
@@ -257,6 +266,26 @@ void GLTextureViewport::paintGL() {
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
     m_shaderProgram->release();
+
+    using namespace std::chrono;
+    if ( m_pendingArrivalTs.time_since_epoch().count() != 0 ) {
+        const auto latencyUs = duration_cast<microseconds>(
+            steady_clock::now() - m_pendingArrivalTs).count();
+        m_metricsLatencyAccumUs += latencyUs;
+        m_metricsLatencyMaxUs = std::max(m_metricsLatencyMaxUs, latencyUs);
+        if ( ++m_metricsFrameCount >= kMetricsReportInterval ) {
+            const double avgMs = (m_metricsLatencyAccumUs / double(m_metricsFrameCount)) / 1000.0;
+            const double maxMs = m_metricsLatencyMaxUs / 1000.0;
+            qCInfo(lcRefreshMetrics)
+                << "end-to-glass avg:" << avgMs << "ms"
+                << "max:" << maxMs << "ms"
+                << "over" << m_metricsFrameCount << "frames";
+            m_metricsFrameCount = 0;
+            m_metricsLatencyAccumUs = 0;
+            m_metricsLatencyMaxUs = 0;
+        }
+        m_pendingArrivalTs = {};
+    }
 }
 
 void GLTextureViewport::updateRenderRect() {
