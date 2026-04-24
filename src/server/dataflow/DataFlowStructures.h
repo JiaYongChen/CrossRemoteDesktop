@@ -13,39 +13,60 @@
  * 包含原始图像数据和相关元信息。
  */
 struct CapturedFrame {
-    QImage image;                    ///< 捕获的屏幕图像
+    std::shared_ptr<QImage> image;   ///< 捕获的屏幕图像（共享指针以实现零拷贝帧传递）
     QDateTime timestamp;             ///< 捕获时间戳
     quint64 frameId;                 ///< 帧ID，用于追踪和调试
     QSize originalSize;              ///< 原始屏幕尺寸
 
     /**
      * @brief 默认构造函数
+     *
+     * image is intentionally left as a null shared_ptr; the frame is
+     * considered invalid until populated.
      */
     CapturedFrame()
-        : timestamp(QDateTime::currentDateTime())
+        : image()
+        , timestamp(QDateTime::currentDateTime())
         , frameId(0) {
     }
 
     /**
-     * @brief 构造函数
-     * @param img 捕获的图像
-     * @param id 帧ID
+     * @brief Construct from a QImage by value (copies into a new shared buffer).
+     * @param img captured image (implicit-shared copy moved into the shared_ptr)
+     * @param id frame id
      */
-    CapturedFrame(const QImage& img, quint64 id)
-        : image(img)
+    explicit CapturedFrame(const QImage& img, quint64 id)
+        : image(std::make_shared<QImage>(img))
         , timestamp(QDateTime::currentDateTime())
         , frameId(id)
         , originalSize(img.size()) {
     }
 
     /**
-     * @brief 移动构造函数
+     * @brief Construct from an rvalue QImage (moves into the shared buffer).
      */
-    CapturedFrame(QImage&& img, quint64 id)
+    explicit CapturedFrame(QImage&& img, quint64 id)
+        : image(std::make_shared<QImage>(std::move(img)))
+        , timestamp(QDateTime::currentDateTime())
+        , frameId(id)
+        , originalSize(image ? image->size() : QSize()) {
+    }
+
+    /**
+     * @brief Zero-copy constructor accepting a pre-built shared image (shared ownership).
+     *
+     * Producers that already allocate a shared_ptr<QImage> (e.g. DXGI capture)
+     * can hand the pointer to the frame without any QImage deep-copy.
+     * @param img Pre-built shared image pointer. Moved into the frame's member;
+     *            if the caller passes an lvalue copy, their shared_ptr remains
+     *            valid with the refcount incremented (shared ownership semantics).
+     * @param id frame id
+     */
+    explicit CapturedFrame(std::shared_ptr<QImage> img, quint64 id)
         : image(std::move(img))
         , timestamp(QDateTime::currentDateTime())
         , frameId(id)
-        , originalSize(image.size()) {
+        , originalSize(image ? image->size() : QSize()) {
     }
 
     /**
@@ -53,8 +74,9 @@ struct CapturedFrame {
      * @return true 数据有效，false 数据无效
      */
     bool isValid() const {
-        return !image.isNull() &&
-            image.format() != QImage::Format_Invalid &&
+        return image &&
+            !image->isNull() &&
+            image->format() != QImage::Format_Invalid &&
             !originalSize.isEmpty() &&
             frameId > 0;
     }
@@ -64,7 +86,7 @@ struct CapturedFrame {
      * @return 图像数据大小
      */
     qint64 dataSize() const {
-        return image.sizeInBytes();
+        return image ? image->sizeInBytes() : 0;
     }
 
     /**

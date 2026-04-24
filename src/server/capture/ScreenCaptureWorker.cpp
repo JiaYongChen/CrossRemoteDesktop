@@ -90,12 +90,35 @@ bool ScreenCaptureWorker::initialize() {
             Qt::UniqueConnection);
     }
 
+    // Initialize DXGI capture engine (Windows only)
+#ifdef Q_OS_WIN
+    m_dxgiCapture = std::make_unique<DxgiCapture>();
+    if ( m_dxgiCapture->initialize() ) {
+        m_dxgiAvailable = true;
+        m_dxgiReinitAttempts = 0;
+        qCInfo(lcScreenCaptureWorker) << "DXGI Desktop Duplication initialized, desktop:"
+            << m_dxgiCapture->desktopSize();
+    } else {
+        m_dxgiAvailable = false;
+        qCWarning(lcScreenCaptureWorker) << "DXGI initialization failed:"
+            << m_dxgiCapture->lastError()
+            << "— falling back to QScreen::grabWindow()";
+    }
+#endif
+
     qCInfo(lcScreenCaptureWorker) << "ScreenCaptureWorker 初始化成功";
     return true;
 }
 
 void ScreenCaptureWorker::cleanup() {
     qCInfo(lcScreenCaptureWorker) << "清理 ScreenCaptureWorker 资源";
+#ifdef Q_OS_WIN
+    if ( m_dxgiCapture ) {
+        m_dxgiCapture->shutdown();
+        m_dxgiCapture.reset();
+        m_dxgiAvailable = false;
+    }
+#endif
     if ( m_statsTimer ) {
         m_statsTimer->stop();
     }
@@ -265,10 +288,13 @@ void ScreenCaptureWorker::performCapture() {
         // 如果有队列管理器，将帧放入捕获队列
         if ( m_queueManager ) {
             CapturedFrame frame;
-            frame.image = capturedImage;
+            // Zero-copy: wrap QImage in shared_ptr; move the local QImage to
+            // avoid any implicit-shared copy. capturedImage must NOT be used
+            // after this line.
+            frame.originalSize = capturedImage.size();
+            frame.image = std::make_shared<QImage>(std::move(capturedImage));
             frame.timestamp = QDateTime::fromMSecsSinceEpoch(timestamp);
             frame.frameId = m_stats.totalFramesCaptured;
-            frame.originalSize = capturedImage.size();
 
             // 使用 QueueManager 统一接口入队
             bool enqueued = m_queueManager->enqueueCapturedFrame(frame);
@@ -292,29 +318,65 @@ void ScreenCaptureWorker::performCapture() {
 }
 
 QImage ScreenCaptureWorker::captureScreen() {
-    // 在屏幕抓取前检查停止请求，若已请求停止则立即返回空图像
+    // Check stop request before capture
     if ( shouldStop() ) {
         return QImage();
     }
 
+#ifdef Q_OS_WIN
+    // DXGI fast path — GPU-accelerated capture
+    if ( m_dxgiAvailable && m_dxgiCapture ) {
+        QImage image = m_dxgiCapture->captureFrame(100);
+
+        if ( !image.isNull() ) {
+            m_dxgiReinitAttempts = 0;  // Reset on success
+            return image;
+        }
+
+        // Handle access-lost (desktop switch, resolution change, UAC, etc.)
+        if ( !m_dxgiCapture->isInitialized() ) {
+            qCWarning(lcScreenCaptureWorker) << "DXGI access lost, attempting reinitialize"
+                << "(attempt" << (m_dxgiReinitAttempts + 1) << "/" << MAX_DXGI_REINIT_ATTEMPTS << ")";
+
+            ++m_dxgiReinitAttempts;
+            if ( m_dxgiReinitAttempts <= MAX_DXGI_REINIT_ATTEMPTS ) {
+                if ( m_dxgiCapture->reinitialize() ) {
+                    m_dxgiReinitAttempts = 0;
+                    qCInfo(lcScreenCaptureWorker) << "DXGI reinitialized successfully";
+                    // Retry capture immediately
+                    image = m_dxgiCapture->captureFrame(100);
+                    if ( !image.isNull() ) {
+                        return image;
+                    }
+                }
+            } else {
+                qCWarning(lcScreenCaptureWorker) << "DXGI reinit attempts exhausted,"
+                    << "falling back to QScreen::grabWindow()";
+                m_dxgiAvailable = false;
+            }
+        }
+
+        // DXGI returned null (timeout, no new frame) — fall through to Qt path
+        // Note: timeout is normal (no desktop content changed), not an error
+    }
+#endif
+
+    // Qt fallback path — QScreen::grabWindow() (GDI-based)
     if ( !m_primaryScreen ) {
         qCWarning(lcScreenCaptureWorker) << "主屏幕指针为空";
         return QImage();
     }
 
-    // 使用完整的屏幕区域，不使用配置的捕获区域
     QRect captureRect = m_screenGeometry;
     if ( captureRect.isEmpty() ) {
         qCWarning(lcScreenCaptureWorker) << "屏幕区域无效";
         return QImage();
     }
 
-    // 在调用潜在耗时的 grabWindow 前再次检查停止请求
     if ( shouldStop() ) {
         return QImage();
     }
 
-    // 直接在当前线程执行屏幕抓取
     QPixmap pixmap = m_primaryScreen->grabWindow(0,
         captureRect.x(),
         captureRect.y(),
@@ -326,26 +388,7 @@ QImage ScreenCaptureWorker::captureScreen() {
         return QImage();
     }
 
-    QImage image = pixmap.toImage();
-
-    // 优化：适度缩小图像以减少数据传输量，同时保持视觉清晰度
-    // 缩放比例：75% 可减少约 44% 的数据量，同时保持良好的视觉效果
-    // 使用 SmoothTransformation 保证缩放质量
-    // const double SCALE_FACTOR = 0.75; // 可调整：0.5-1.0，推荐 0.75
-
-    // if ( !image.isNull() && SCALE_FACTOR < 1.0 ) {
-    //     int scaledWidth = static_cast<int>(image.width() * SCALE_FACTOR);
-    //     int scaledHeight = static_cast<int>(image.height() * SCALE_FACTOR);
-
-    //     // 确保缩放后的尺寸至少为 1x1
-    //     if ( scaledWidth > 0 && scaledHeight > 0 ) {
-    //         image = image.scaled(scaledWidth, scaledHeight,
-    //             Qt::IgnoreAspectRatio,
-    //             Qt::SmoothTransformation);
-    //     }
-    // }
-
-    return image;
+    return pixmap.toImage();
 }
 
 QImage ScreenCaptureWorker::captureScreenRegion(const QRect& /*region*/) {

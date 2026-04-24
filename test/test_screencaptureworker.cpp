@@ -430,10 +430,11 @@ void TestScreenCaptureWorker::test_signalEmission()
     // 验证至少接收到一帧
     QVERIFY2(frameReceived, "应该从队列中接收到至少一帧数据");
     
-    // 验证帧数据的有效性
-    QVERIFY(!tempFrame.image.isNull());
-    QVERIFY(tempFrame.image.width() > 0);
-    QVERIFY(tempFrame.image.height() > 0);
+    // 验证帧数据的有效性（image 现在是 std::shared_ptr<QImage>）
+    QVERIFY(tempFrame.image);                      // shared_ptr 非空
+    QVERIFY(!tempFrame.image->isNull());
+    QVERIFY(tempFrame.image->width() > 0);
+    QVERIFY(tempFrame.image->height() > 0);
     QVERIFY(tempFrame.timestamp.isValid());
     QVERIFY(tempFrame.frameId > 0);
 }

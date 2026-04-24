@@ -724,8 +724,9 @@ CapturedFrame TestProducerConsumerIntegration::createTestFrame(quint64 frameId, 
     frame.frameId = frameId;
     frame.timestamp = QDateTime::currentDateTime();
     frame.originalSize = QSize(image.width(), image.height());
-    frame.image = image;
-
+    // CapturedFrame::image is std::shared_ptr<QImage>; wrap by copy (QImage is
+    // implicit-shared, so this doesn't deep-copy the pixel buffer).
+    frame.image = std::make_shared<QImage>(image);
 
     return frame;
 }

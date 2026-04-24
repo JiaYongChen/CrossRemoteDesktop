@@ -374,9 +374,9 @@ void TestScreenCapture::test_syncCapture()
     // 验证至少接收到一帧
     QVERIFY2(frameReceived, "应该从队列中接收到至少一帧");
     
-    // 获取帧数据
-    QImage capturedImage = tempFrame.image;
-    
+    // 获取帧数据（image 现在是 std::shared_ptr<QImage>，通过解引用复制出 QImage 副本）
+    QImage capturedImage = tempFrame.image ? *tempFrame.image : QImage();
+
     // 验证捕获的图像
     if (!capturedImage.isNull()) {
         QVERIFY(capturedImage.width() > 0);

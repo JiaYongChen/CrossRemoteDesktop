@@ -318,7 +318,10 @@ int DataProcessingWorker::processBatchParallel(const std::vector<CapturedFrame>&
     // 并行编码所有图像，传入当前质量和缩放参数
     QFuture<ProcessedData> future = QtConcurrent::mapped(frameList,
         [currentQuality, currentScale](const CapturedFrame* frame) -> ProcessedData {
-        return DataProcessingWorker::encodeImageParallel(frame->image, frame->frameId, 
+        // shared_ptr dereference — frame->image is guaranteed non-null here
+        // because framesToProcess was populated only with validated frames
+        // (validateFrame ensures shared_ptr is non-null & !isNull()).
+        return DataProcessingWorker::encodeImageParallel(*frame->image, frame->frameId,
                                                          currentQuality, currentScale);
     });
 
@@ -525,7 +528,13 @@ bool DataProcessingWorker::validateFrame(const CapturedFrame& frame) const {
     }
 
     // 检查图像尺寸是否合理
-    QSize size = frame.image.size();
+    // frame.isValid() 已在首行校验 image 非空且非 Null，这里可安全解引用；
+    // 但显式再做一次空指针校验，避免 validateFrame 被从其他路径直接调用时崩溃。
+    if ( !frame.image ) {
+        qCWarning(lcDataProcessingWorker) << "frame.image is null";
+        return false;
+    }
+    QSize size = frame.image->size();
     if ( size.width() <= 0 || size.height() <= 0 ||
         size.width() > 8192 || size.height() > 8192 ) {
         qCWarning(lcDataProcessingWorker) << "图像尺寸不合理:" << size;

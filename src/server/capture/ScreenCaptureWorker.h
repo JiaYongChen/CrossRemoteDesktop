@@ -16,6 +16,9 @@
 #include <atomic>
 #include <chrono>
 #include <deque>
+#ifdef Q_OS_WIN
+#include "DxgiCapture.h"
+#endif
 
 /**
  * @brief 屏幕捕获工作线程类
@@ -165,5 +168,13 @@ private:
     static constexpr int MAX_ERROR_COUNT = 10;             ///< 最大错误计数
     static constexpr int MIN_FRAME_RATE = 1;              ///< 最小帧率
     static constexpr int MAX_FRAME_RATE = 120;            ///< 最大帧率
+
+    // DXGI Desktop Duplication engine (Windows only)
+#ifdef Q_OS_WIN
+    std::unique_ptr<DxgiCapture> m_dxgiCapture;    ///< DXGI capture engine
+    bool m_dxgiAvailable = false;                   ///< Whether DXGI init succeeded
+    int m_dxgiReinitAttempts = 0;                   ///< Consecutive reinit attempts
+    static constexpr int MAX_DXGI_REINIT_ATTEMPTS = 3; ///< Max reinit attempts before fallback
+#endif
 };
 

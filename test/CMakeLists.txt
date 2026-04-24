@@ -165,7 +165,16 @@ qt_add_library(capture_test_core STATIC
     ../src/server/dataflow/QueueManager.cpp
     ../src/server/dataflow/DataFlowStructures.cpp
 )
+# Windows: include DXGI capture engine source so ScreenCaptureWorker links cleanly
+if(WIN32)
+    target_sources(capture_test_core PRIVATE
+        ../src/server/capture/DxgiCapture.cpp
+    )
+endif()
 target_link_libraries(capture_test_core PUBLIC Qt6::Core Qt6::Gui threading_test_core)
+if(WIN32)
+    target_link_libraries(capture_test_core PUBLIC d3d11 dxgi)
+endif()
 
 # ThreadManager测试用例
 set(THREADMANAGER_TEST_SOURCES
@@ -787,5 +796,93 @@ if(TARGET run_core_tests)
     add_dependencies(run_core_tests test_queuemanager)
 endif()
 
+# ============================================================================
+# CapturedFrame 结构体单元测试 (zero-copy shared_ptr<QImage> refactor)
+# ============================================================================
+set(CAPTURED_FRAME_TEST_SOURCES
+    test_captured_frame.cpp
+)
+
+qt_add_executable(test_captured_frame
+    ${CAPTURED_FRAME_TEST_SOURCES}
+)
+
+# CapturedFrame is a header-only struct wrapping a QImage; the test only
+# needs Qt Core + Gui (for QImage) + Test.
+target_link_libraries(test_captured_frame PRIVATE
+    Qt6::Core
+    Qt6::Test
+    Qt6::Gui
+    common_test_core
+)
+
+target_compile_definitions(test_captured_frame PRIVATE QT_NO_OPENGL)
+
+add_test(
+    NAME CapturedFrameTest
+    COMMAND test_captured_frame
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+)
+
+set_tests_properties(CapturedFrameTest PROPERTIES
+    TIMEOUT 30
+    LABELS "unit;server;dataflow"
+    ENVIRONMENT "${_TEST_BASE_ENV}"
+)
+
+if(TARGET run_all_tests)
+    add_dependencies(run_all_tests test_captured_frame)
+endif()
+if(TARGET run_core_tests)
+    add_dependencies(run_core_tests test_captured_frame)
+endif()
+
 # zstd is pre-built during configure (see cmake/SetupZstd.cmake), no build-time dependency needed
+
+# ============================================================================
+# DXGI Desktop Duplication 捕获引擎测试 (Windows only at runtime; skipped elsewhere)
+# ============================================================================
+set(DXGI_CAPTURE_TEST_SOURCES
+    test_dxgi_capture.cpp
+)
+
+if(WIN32)
+    list(APPEND DXGI_CAPTURE_TEST_SOURCES
+        ../src/server/capture/DxgiCapture.cpp
+    )
+endif()
+
+qt_add_executable(test_dxgi_capture
+    ${DXGI_CAPTURE_TEST_SOURCES}
+)
+
+target_link_libraries(test_dxgi_capture PRIVATE
+    Qt6::Core
+    Qt6::Test
+    Qt6::Gui
+    common_test_core
+)
+
+if(WIN32)
+    target_link_libraries(test_dxgi_capture PRIVATE d3d11 dxgi)
+endif()
+
+add_test(
+    NAME DxgiCaptureTest
+    COMMAND test_dxgi_capture
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+)
+
+set_tests_properties(DxgiCaptureTest PROPERTIES
+    TIMEOUT 30
+    LABELS "unit;capture;dxgi;windows"
+    ENVIRONMENT "${_TEST_BASE_ENV}"
+)
+
+if(TARGET run_all_tests)
+    add_dependencies(run_all_tests test_dxgi_capture)
+endif()
+if(TARGET run_core_tests)
+    add_dependencies(run_core_tests test_dxgi_capture)
+endif()
 
