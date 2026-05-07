@@ -11,6 +11,7 @@
 #include <QtCore/QSize>
 #include <QtCore/QPoint>
 #include <QtCore/QRectF>
+#include <QtGui/qopengl.h>
 #include <chrono>
 
 /**
@@ -31,6 +32,18 @@ class GLTextureViewport : public QOpenGLWidget, protected QOpenGLFunctions {
     Q_OBJECT
 
 public:
+    struct GLPixelLayout {
+        GLint  internalFormat;  // GL_RGB8 / GL_RGBA8
+        GLenum format;          // GL_RGB / GL_RGBA
+        GLenum type;            // GL_UNSIGNED_BYTE
+        int    bytesPerPixel;   // 3 or 4
+    };
+
+    /// Pure function mapping QImage::Format to GL upload parameters.
+    /// Returns false for unsupported formats — caller must convertedTo() a
+    /// supported format before uploading.
+    static bool chooseGLFormat(QImage::Format f, GLPixelLayout& out);
+
     explicit GLTextureViewport(QWidget* parent = nullptr);
     ~GLTextureViewport() override;
 

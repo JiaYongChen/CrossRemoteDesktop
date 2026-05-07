@@ -6,6 +6,28 @@
 #include <algorithm>  // std::max
 #include <chrono>
 
+// GL format constants not guaranteed by all GL headers
+#ifndef GL_RGB8
+#  define GL_RGB8  0x8051
+#endif
+#ifndef GL_RGBA8
+#  define GL_RGBA8 0x8058
+#endif
+
+bool GLTextureViewport::chooseGLFormat(QImage::Format f, GLPixelLayout& out) {
+    switch ( f ) {
+        case QImage::Format_RGB888:
+            out = {GL_RGB8,  GL_RGB,  GL_UNSIGNED_BYTE, 3};
+            return true;
+        case QImage::Format_RGBA8888:
+        case QImage::Format_RGBA8888_Premultiplied:
+            out = {GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, 4};
+            return true;
+        default:
+            return false;
+    }
+}
+
 // Vertex shader: pass through position and texture coordinates
 static const char* s_vertexShaderSource = R"(
     #version 330 core
@@ -183,10 +205,20 @@ void GLTextureViewport::uploadFrame(const QImage& image) {
 
     makeCurrent();
 
-    // Convert to RGBA8888 for consistent GL upload format
-    QImage glImage = image.convertedTo(QImage::Format_RGBA8888);
+    // Determine GL pixel layout from QImage format — avoids a mandatory
+    // RGBA8888 CPU copy for common formats like RGB888 (JPEG decode output).
+    GLPixelLayout layout;
+    QImage glImage;
+    const QImage* src = nullptr;
+    if ( chooseGLFormat(image.format(), layout) ) {
+        src = &image;  // zero-copy fast path
+    } else {
+        glImage = image.convertedTo(QImage::Format_RGBA8888);
+        chooseGLFormat(QImage::Format_RGBA8888, layout);
+        src = &glImage;
+    }
 
-    const bool sizeChanged = (glImage.size() != m_textureSize);
+    const bool sizeChanged = (src->size() != m_textureSize);
 
     if ( sizeChanged ) {
         // Texture size changed: recreate texture
@@ -204,14 +236,16 @@ void GLTextureViewport::uploadFrame(const QImage& image) {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
         // Allocate and upload texture data
+        // QImage always pads rows to 4-byte alignment
         glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, glImage.bytesPerLine() / 4);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
-                     glImage.width(), glImage.height(), 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, glImage.constBits());
+        glPixelStorei(GL_UNPACK_ROW_LENGTH,
+                      src->bytesPerLine() / layout.bytesPerPixel);
+        glTexImage2D(GL_TEXTURE_2D, 0, layout.internalFormat,
+                     src->width(), src->height(), 0,
+                     layout.format, layout.type, src->constBits());
         glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 
-        m_textureSize = glImage.size();
+        m_textureSize = src->size();
         updateRenderRect();
 
         qCDebug(lcGLViewport) << "Texture created:" << m_textureSize;
@@ -219,10 +253,11 @@ void GLTextureViewport::uploadFrame(const QImage& image) {
         // Same size: fast sub-image update
         glBindTexture(GL_TEXTURE_2D, m_textureId);
         glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, glImage.bytesPerLine() / 4);
+        glPixelStorei(GL_UNPACK_ROW_LENGTH,
+                      src->bytesPerLine() / layout.bytesPerPixel);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                        glImage.width(), glImage.height(),
-                        GL_RGBA, GL_UNSIGNED_BYTE, glImage.constBits());
+                        src->width(), src->height(),
+                        layout.format, layout.type, src->constBits());
         glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
     }
 

@@ -960,3 +960,32 @@ if(TARGET run_core_tests)
     add_dependencies(run_core_tests test_session_latest_wins)
 endif()
 
+# ============================================================================
+# GL upload format dispatch 测试 (Task 3: 消除 RGBA8888 中转拷贝)
+# ============================================================================
+qt_add_executable(test_gl_upload_formats
+    test_gl_upload_formats.cpp
+    ../src/client/window/GLTextureViewport.cpp
+)
+target_link_libraries(test_gl_upload_formats PRIVATE
+    Qt6::Core Qt6::Test Qt6::Gui
+    Qt6::OpenGL Qt6::OpenGLWidgets
+    common_test_core
+)
+add_test(
+    NAME GLUploadFormatsTest
+    COMMAND test_gl_upload_formats
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+)
+set_tests_properties(GLUploadFormatsTest PROPERTIES
+    TIMEOUT 30
+    LABELS "unit;client;gl"
+    ENVIRONMENT "${_TEST_BASE_ENV}"
+)
+if(TARGET run_all_tests)
+    add_dependencies(run_all_tests test_gl_upload_formats)
+endif()
+if(TARGET run_core_tests)
+    add_dependencies(run_core_tests test_gl_upload_formats)
+endif()
+
