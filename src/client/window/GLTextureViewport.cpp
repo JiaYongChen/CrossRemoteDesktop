@@ -301,9 +301,12 @@ void GLTextureViewport::uploadFrame(const QImage& image) {
             } else {
                 qCWarning(lcGLViewport) << "PBO map failed, falling back to direct upload once";
                 glBindTexture(GL_TEXTURE_2D, m_textureId);
+                glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+                glPixelStorei(GL_UNPACK_ROW_LENGTH, rowBytes / layout.bytesPerPixel);
                 glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
                                 src->width(), src->height(),
                                 layout.format, layout.type, src->constBits());
+                glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
             }
             pbo.release();
             m_currentPbo = nextPboIndex(m_currentPbo);
@@ -311,8 +314,7 @@ void GLTextureViewport::uploadFrame(const QImage& image) {
             // Direct upload (PBO disabled or unavailable)
             glBindTexture(GL_TEXTURE_2D, m_textureId);
             glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-            glPixelStorei(GL_UNPACK_ROW_LENGTH,
-                          src->bytesPerLine() / layout.bytesPerPixel);
+            glPixelStorei(GL_UNPACK_ROW_LENGTH, rowBytes / layout.bytesPerPixel);
             glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
                             src->width(), src->height(),
                             layout.format, layout.type, src->constBits());
