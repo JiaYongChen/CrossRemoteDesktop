@@ -2,9 +2,11 @@
 
 #include "GLTextureViewport.h"
 #include "../../common/core/logging/LoggingCategories.h"
+#include "../../common/core/config/RenderConfig.h"
 
 #include <algorithm>  // std::max
 #include <chrono>
+#include <cstring>    // std::memcpy
 
 // GL format constants not guaranteed by all GL headers
 #ifndef GL_RGB8
@@ -105,6 +107,21 @@ void GLTextureViewport::initializeGL() {
     }
 
     initializeGeometry();
+
+    // Load PBO preference from config; gracefully degrade if create() fails.
+    const auto cfg = RenderConfig::load();
+    m_usePbo = cfg.gl.usePbo;
+    if ( m_usePbo ) {
+        for (int i = 0; i < kPboCount; ++i) {
+            if ( !m_pbo[i].create() ) {
+                qCWarning(lcGLViewport) << "PBO" << i << "create() failed, falling back to direct upload";
+                m_usePbo = false;
+                break;
+            }
+            m_pbo[i].setUsagePattern(QOpenGLBuffer::StreamDraw);
+        }
+    }
+
     m_glInitialized = true;
 
     // Prepare for context loss recovery
@@ -180,6 +197,11 @@ void GLTextureViewport::cleanupGL() {
         m_textureId = 0;
     }
     m_vertexBuffer.destroy();
+    for (int i = 0; i < kPboCount; ++i) {
+        if ( m_pbo[i].isCreated() ) m_pbo[i].destroy();
+    }
+    m_pboAllocatedBytes = 0;
+    m_currentPbo = 0;
     m_vao.destroy();
     delete m_shaderProgram;
     m_shaderProgram = nullptr;
@@ -250,16 +272,55 @@ void GLTextureViewport::uploadFrame(const QImage& image) {
 
         qCDebug(lcGLViewport) << "Texture created:" << m_textureSize;
     } else {
-        // Same size: fast sub-image update
-        glBindTexture(GL_TEXTURE_2D, m_textureId);
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-        glPixelStorei(GL_UNPACK_ROW_LENGTH,
-                      src->bytesPerLine() / layout.bytesPerPixel);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                        src->width(), src->height(),
-                        layout.format, layout.type, src->constBits());
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+        const int rowBytes = src->bytesPerLine();
+        const int totalBytes = rowBytes * src->height();
+
+        if ( m_usePbo ) {
+            // Fast async PBO path
+            QOpenGLBuffer& pbo = m_pbo[m_currentPbo];
+            pbo.bind();
+            if ( totalBytes != m_pboAllocatedBytes ) {
+                pbo.allocate(nullptr, totalBytes);  // orphan + realloc
+                m_pboAllocatedBytes = totalBytes;
+            } else {
+                pbo.allocate(nullptr, totalBytes);  // orphan for driver sync
+            }
+            void* mapped = pbo.map(QOpenGLBuffer::WriteOnly);
+            if ( mapped ) {
+                std::memcpy(mapped, src->constBits(), size_t(totalBytes));
+                pbo.unmap();
+                glBindTexture(GL_TEXTURE_2D, m_textureId);
+                glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+                glPixelStorei(GL_UNPACK_ROW_LENGTH, rowBytes / layout.bytesPerPixel);
+                // When a PBO is bound, the data pointer is interpreted as a byte
+                // offset into the PBO — nullptr means offset 0.
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
+                                src->width(), src->height(),
+                                layout.format, layout.type, nullptr);
+                glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+            } else {
+                qCWarning(lcGLViewport) << "PBO map failed, falling back to direct upload once";
+                glBindTexture(GL_TEXTURE_2D, m_textureId);
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
+                                src->width(), src->height(),
+                                layout.format, layout.type, src->constBits());
+            }
+            pbo.release();
+            m_currentPbo = nextPboIndex(m_currentPbo);
+        } else {
+            // Direct upload (PBO disabled or unavailable)
+            glBindTexture(GL_TEXTURE_2D, m_textureId);
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+            glPixelStorei(GL_UNPACK_ROW_LENGTH,
+                          src->bytesPerLine() / layout.bytesPerPixel);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
+                            src->width(), src->height(),
+                            layout.format, layout.type, src->constBits());
+            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+        }
     }
+
+    m_textureDirty = true;
 
     doneCurrent();
 
@@ -278,6 +339,11 @@ void GLTextureViewport::resizeGL(int w, int h) {
 }
 
 void GLTextureViewport::paintGL() {
+    if ( !m_textureDirty ) {
+        return;  // nothing new to draw
+    }
+    m_textureDirty = false;
+
     glClear(GL_COLOR_BUFFER_BIT);
 
     if ( m_textureId == 0 || !m_shaderProgram || m_renderRect.isEmpty() ) {

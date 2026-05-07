@@ -44,6 +44,10 @@ public:
     /// supported format before uploading.
     static bool chooseGLFormat(QImage::Format f, GLPixelLayout& out);
 
+    static constexpr int kPboCount = 2;
+    /// Pure function: next PBO index in the double-buffered ring.
+    static int nextPboIndex(int current) { return (current + 1) % kPboCount; }
+
     explicit GLTextureViewport(QWidget* parent = nullptr);
     ~GLTextureViewport() override;
 
@@ -157,6 +161,18 @@ private:
 
     // GL initialization state
     bool m_glInitialized = false;
+
+    // PBO double-buffered async upload
+    QOpenGLBuffer m_pbo[kPboCount] = {
+        QOpenGLBuffer(QOpenGLBuffer::PixelUnpackBuffer),
+        QOpenGLBuffer(QOpenGLBuffer::PixelUnpackBuffer),
+    };
+    int m_currentPbo = 0;
+    int m_pboAllocatedBytes = 0;  // current PBO size
+    bool m_usePbo = true;
+
+    // Dirty-frame gating for paintGL
+    bool m_textureDirty = false;
 
     // Metrics aggregation
     std::chrono::steady_clock::time_point m_pendingArrivalTs{};

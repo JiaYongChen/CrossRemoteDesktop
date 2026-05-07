@@ -961,6 +961,34 @@ if(TARGET run_core_tests)
 endif()
 
 # ============================================================================
+# PBO 双缓冲异步上传测试 (Task 4: PBO index wrap-around)
+# ============================================================================
+qt_add_executable(test_gl_pbo_upload
+    test_gl_pbo_upload.cpp
+)
+target_link_libraries(test_gl_pbo_upload PRIVATE
+    Qt6::Core Qt6::Test Qt6::Gui
+    Qt6::OpenGL Qt6::OpenGLWidgets
+)
+# Test uses only the static nextPboIndex helper which is header-inline.
+target_include_directories(test_gl_pbo_upload PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/client/window
+)
+add_test(
+    NAME GLPboUploadTest
+    COMMAND test_gl_pbo_upload
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+)
+set_tests_properties(GLPboUploadTest PROPERTIES
+    TIMEOUT 30
+    LABELS "unit;client;gl;pbo"
+    ENVIRONMENT "${_TEST_BASE_ENV}"
+)
+if(TARGET run_all_tests)
+    add_dependencies(run_all_tests test_gl_pbo_upload)
+endif()
+
+# ============================================================================
 # GL upload format dispatch 测试 (Task 3: 消除 RGBA8888 中转拷贝)
 # ============================================================================
 qt_add_executable(test_gl_upload_formats
