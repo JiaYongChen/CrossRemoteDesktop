@@ -1017,3 +1017,27 @@ if(TARGET run_core_tests)
     add_dependencies(run_core_tests test_gl_upload_formats)
 endif()
 
+# ============================================================================
+# RenderConfig 配置测试 (VSync / PBO 默认值与读写)
+# ============================================================================
+qt_add_executable(test_render_config
+    test_render_config.cpp
+)
+target_link_libraries(test_render_config PRIVATE
+    Qt6::Core
+    Qt6::Test
+)
+add_test(
+    NAME RenderConfigTest
+    COMMAND test_render_config
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+)
+set_tests_properties(RenderConfigTest PROPERTIES
+    TIMEOUT 30
+    LABELS "unit;config"
+    ENVIRONMENT "${_TEST_BASE_ENV}"
+)
+if(TARGET run_all_tests)
+    add_dependencies(run_all_tests test_render_config)
+endif()
+

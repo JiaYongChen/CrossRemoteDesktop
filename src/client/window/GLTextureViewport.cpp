@@ -60,7 +60,9 @@ GLTextureViewport::GLTextureViewport(QWidget* parent)
     QSurfaceFormat format;
     format.setVersion(3, 3);
     format.setProfile(QSurfaceFormat::CoreProfile);
-    format.setSwapInterval(1); // VSync on
+    const auto cfg = RenderConfig::load();
+    m_vsyncEnabled = cfg.gl.vsyncEnabled;
+    format.setSwapInterval(m_vsyncEnabled ? 1 : 0);
     setFormat(format);
 }
 
@@ -483,6 +485,16 @@ QPoint GLTextureViewport::mapFromRemote(const QPoint& remotePoint) const {
         static_cast<int>(normX * m_renderRect.width() + m_renderRect.x()),
         static_cast<int>(normY * m_renderRect.height() + m_renderRect.y())
     );
+}
+
+void GLTextureViewport::setVSyncEnabled(bool on) {
+    if ( m_vsyncEnabled == on ) return;
+    m_vsyncEnabled = on;
+    QSurfaceFormat f = format();
+    f.setSwapInterval(on ? 1 : 0);
+    setFormat(f);
+    qCInfo(lcGLViewport) << "VSync toggled:" << (on ? "ON" : "OFF");
+    update();
 }
 
 #endif // QT_NO_OPENGL

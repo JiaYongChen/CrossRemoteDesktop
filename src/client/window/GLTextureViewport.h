@@ -65,6 +65,13 @@ public:
     void uploadFrame(const QImage& image,
                      std::chrono::steady_clock::time_point arrivalTs);
 
+    /// Rebuild surface format with the given VSync setting.
+    /// Note: QOpenGLWidget rebuilds its context when format changes, so a
+    /// brief frame loss is possible. Caller should re-upload the current
+    /// frame after this returns.
+    void setVSyncEnabled(bool on);
+    bool isVSyncEnabled() const { return m_vsyncEnabled; }
+
     /**
      * @brief Force an immediate repaint (calls update() internally).
      */
@@ -161,6 +168,9 @@ private:
 
     // GL initialization state
     bool m_glInitialized = false;
+
+    // VSync toggle
+    bool m_vsyncEnabled = true;
 
     // PBO double-buffered async upload
     QOpenGLBuffer m_pbo[kPboCount] = {

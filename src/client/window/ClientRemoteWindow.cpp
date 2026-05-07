@@ -14,6 +14,7 @@
 #include <QtGui/QCursor>
 #ifndef QT_NO_OPENGL
 #include <QtOpenGLWidgets/QOpenGLWidget>
+#include "GLTextureViewport.h"
 #endif
 #include <QtCore/QPropertyAnimation>
 #include <QtCore/QEasingCurve>
@@ -583,6 +584,22 @@ void ClientRemoteWindow::keyPressEvent(QKeyEvent* event) {
         event->accept();
         return;
     }
+
+#ifndef QT_NO_OPENGL
+    // Toggle VSync with Ctrl+V (GL mode only)
+    if ( event->key() == Qt::Key_V
+         && (event->modifiers() & Qt::ControlModifier) ) {
+        if ( m_renderManager && m_renderManager->isGLModeActive()
+             && m_renderManager->glViewport() ) {
+            auto* gl = m_renderManager->glViewport();
+            gl->setVSyncEnabled(!gl->isVSyncEnabled());
+            qCInfo(lcClientRemoteWindow) << "VSync toggled via Ctrl+V:"
+                << (gl->isVSyncEnabled() ? "ON" : "OFF");
+            event->accept();
+            return;
+        }
+    }
+#endif
 
     if ( m_inputEnabled && m_sessionManager ) {
         QMetaObject::invokeMethod(m_sessionManager, "sendKeyboardEvent",
