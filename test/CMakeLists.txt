@@ -923,3 +923,40 @@ if(TARGET run_core_tests)
     add_dependencies(run_core_tests test_refresh_latency_metric)
 endif()
 
+# ============================================================================
+# SessionManager latest-wins 丢弃策略测试
+# ============================================================================
+qt_add_executable(test_session_latest_wins
+    test_session_latest_wins.cpp
+    ../src/client/managers/SessionManager.cpp
+    ../src/client/network/ConnectionManager.cpp
+    ../src/client/network/TcpClient.cpp
+    ../src/common/core/network/ProtocolImpl.cpp
+)
+target_compile_definitions(test_session_latest_wins PRIVATE
+    QRD_TESTING
+    QT_NO_OPENGL
+)
+target_link_libraries(test_session_latest_wins PRIVATE
+    Qt6::Core Qt6::Test Qt6::Gui Qt6::Network
+    common_test_core
+    OpenSSL::SSL OpenSSL::Crypto
+    zstd::zstd
+)
+add_test(
+    NAME SessionLatestWinsTest
+    COMMAND test_session_latest_wins
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+)
+set_tests_properties(SessionLatestWinsTest PROPERTIES
+    TIMEOUT 30
+    LABELS "unit;client;queue"
+    ENVIRONMENT "${_TEST_BASE_ENV}"
+)
+if(TARGET run_all_tests)
+    add_dependencies(run_all_tests test_session_latest_wins)
+endif()
+if(TARGET run_core_tests)
+    add_dependencies(run_core_tests test_session_latest_wins)
+endif()
+

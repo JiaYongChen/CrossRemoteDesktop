@@ -9,6 +9,7 @@
 #include <QtCore/QSize>
 #include "../../common/core/network/Protocol.h"
 #include "../../common/core/config/UiConstants.h"
+#include "../../common/core/config/RenderConfig.h"
 #include "../network/ConnectionManager.h"
 #include <atomic>
 #include <chrono>
@@ -82,6 +83,12 @@ public:
     // 新签名：同时返回到达时间戳
     bool dequeueScreenFrame(QImage& out, std::chrono::steady_clock::time_point& outTs);
 
+#ifdef QRD_TESTING
+    /// Test-only: bypass network path, enqueue an image directly using the
+    /// current drop policy.
+    void enqueueForTest(const QImage& image);
+#endif
+
     /**
      * @brief Reset the frame notification coalescing flag.
      *
@@ -151,7 +158,9 @@ private:
     };
     QQueue<QueuedFrame> m_screenImageQueue;
     mutable QMutex m_screenImageQueueMutex;
-    static constexpr int MAX_QUEUE_SIZE = 5;  // Queue capacity (absorb network jitter)
+    RenderConfig::FrameDropPolicy m_dropPolicy =
+        RenderConfig::FrameDropPolicy::LatestOnly;
+    int m_queueCapacity = 1;   // Aligned with LatestOnly default
 
     // Coalescing flag for frameAvailable() signal: prevents signal storms
     // when frames arrive faster than the consumer can process them.
