@@ -6,6 +6,7 @@
 #include <QtCore/QDataStream>
 #include <QtCore/QTimer>
 #include <QtCore/QMutexLocker>
+#include <algorithm>
 #include <zstd.h>
 
 SessionManager::SessionManager(const QString& connectionId, QObject* parent)

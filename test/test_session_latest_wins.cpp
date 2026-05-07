@@ -23,6 +23,11 @@ private:
 private slots:
     void initTestCase() {
         QVERIFY(m_tmp.isValid());
+        // Use IniFormat so RenderConfig::load() (default QSettings) reads
+        // from the same format that writeConfig() writes to. On Windows,
+        // QSettings() defaults to NativeFormat (registry); without this,
+        // the config loading path is untested.
+        QSettings::setDefaultFormat(QSettings::IniFormat);
         QCoreApplication::setOrganizationName("QrdTest");
         QCoreApplication::setApplicationName("RenderConfigTest");
     }
