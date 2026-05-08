@@ -275,7 +275,7 @@ QString ClientManager::connectToHost(const QString& host, int port) {
         instance->remoteDesktopWindow->updateWindowTitle(host);
     }
 
-    // 注意：ClientRemoteWindow 继承自 QWidget（QGraphicsView），
+    // 注意：ClientRemoteWindow 继承自 QWidget，GLTextureViewport 为其子控件。
     // QWidget 及其子类必须在主线程中创建和销毁，不能移动到其他线程。
     // 因此我们不将 remoteDesktopWindow 移动到 session thread，保持在主线程中运行。
     qCDebug(lcClientManager) << "connectToHost(): remoteDesktopWindow created and kept in main thread";
