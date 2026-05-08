@@ -887,21 +887,15 @@ if(TARGET run_core_tests)
 endif()
 
 # ============================================================================
-# 客户端刷新延迟度量测试
+# 客户端刷新延迟度量测试 (TripleBuffer arrivalTs validation)
 # ============================================================================
 qt_add_executable(test_refresh_latency_metric
     test_refresh_latency_metric.cpp
-    ../src/client/managers/SessionManager.cpp
-    ../src/client/network/ConnectionManager.cpp
-    ../src/client/network/TcpClient.cpp
-    ../src/common/core/network/ProtocolImpl.cpp
 )
 
 target_link_libraries(test_refresh_latency_metric PRIVATE
-    Qt6::Core Qt6::Test Qt6::Gui Qt6::Network
+    Qt6::Core Qt6::Test Qt6::Gui
     common_test_core
-    OpenSSL::SSL OpenSSL::Crypto
-    zstd::zstd
 )
 
 target_compile_definitions(test_refresh_latency_metric PRIVATE QT_NO_OPENGL)
@@ -934,7 +928,6 @@ qt_add_executable(test_session_latest_wins
     ../src/common/core/network/ProtocolImpl.cpp
 )
 target_compile_definitions(test_session_latest_wins PRIVATE
-    QRD_TESTING
     QT_NO_OPENGL
 )
 target_link_libraries(test_session_latest_wins PRIVATE
@@ -1065,5 +1058,28 @@ set_tests_properties(RenderSurfaceTest PROPERTIES
 )
 if(TARGET run_all_tests)
     add_dependencies(run_all_tests test_render_surface)
+endif()
+
+# ============================================================================
+# TripleBuffer 无锁帧交换单元测试 (Task 2: Triple-Buffered lock-free swap)
+# ============================================================================
+qt_add_executable(test_triple_buffer_swap
+    test_triple_buffer_swap.cpp
+)
+target_link_libraries(test_triple_buffer_swap PRIVATE
+    Qt6::Core Qt6::Test
+)
+add_test(
+    NAME TripleBufferSwapTest
+    COMMAND test_triple_buffer_swap
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+)
+set_tests_properties(TripleBufferSwapTest PROPERTIES
+    TIMEOUT 30
+    LABELS "unit;client;threading"
+    ENVIRONMENT "${_TEST_BASE_ENV}"
+)
+if(TARGET run_all_tests)
+    add_dependencies(run_all_tests test_triple_buffer_swap)
 endif()
 

@@ -221,21 +221,14 @@ bool ConnectionInstance::isAuthenticated() const {
 // ClientManager 方法实现
 
 ClientManager::ClientManager(QObject* parent)
-    : QObject(parent)
-    , m_screenUpdateTimer(new QTimer(this)) {
-    // Fallback timer at low frequency — primary path is event-driven
-    // via SessionManager::frameAvailable() → onFrameAvailable().
-    // This timer only catches frames that slip through (e.g. during
-    // connection setup before signals are wired).
-    m_screenUpdateTimer->setInterval(100);
-    connect(m_screenUpdateTimer, &QTimer::timeout, this, &ClientManager::updateScreens);
+    : QObject(parent) {
+    // Frame delivery now uses TripleBuffer (lock-free, atomic SPSC).
+    // No timer or signal-based pump needed — GLTextureViewport::paintGL()
+    // reads directly from the triple buffer.
 }
 
 ClientManager::~ClientManager() {
     qCDebug(lcClientManager) << "~ClientManager(): cleanupResources begin";
-    if ( m_screenUpdateTimer ) {
-        m_screenUpdateTimer->stop();
-    }
     cleanupResources();
     qCDebug(lcClientManager) << "~ClientManager(): cleanupResources end";
 }
@@ -287,16 +280,16 @@ QString ClientManager::connectToHost(const QString& host, int port) {
     // 注册到连接表
     m_connections.insert(instance->connectionId, instance);
 
-    // 启动定时器（如果还未启动）
-    if ( !m_screenUpdateTimer->isActive() ) {
-        qCDebug(lcClientManager) << "connectToHost(): Starting screen update timer";
-        m_screenUpdateTimer->start();
+    // Triple-buffered lock-free frame delivery: attach session's triple buffer
+    // to the GL viewport so paintGL() reads frames directly via atomics.
+#ifndef QT_NO_OPENGL
+    {
+        auto* gl = instance->remoteDesktopWindow->glViewport();
+        if ( gl && instance->sessionManager ) {
+            gl->attachFrameBuffer(instance->sessionManager->frameBuffer());
+        }
     }
-
-    // Event-driven screen update: SessionManager emits frameAvailable()
-    // from its worker thread; QueuedConnection delivers to main thread.
-    connect(instance->sessionManager, &SessionManager::frameAvailable,
-        this, &ClientManager::onFrameAvailable, Qt::QueuedConnection);
+#endif
 
     // 连接到 SessionManager 的连接状态变化信号，监听认证成功和连接建立事件
     connect(instance->sessionManager, &SessionManager::connectionStateChanged,
@@ -371,13 +364,7 @@ void ClientManager::disconnectFromHost(const QString& connectionId) {
     // 清理连接
     qCDebug(lcClientManager) << "disconnectFromHost(): [STEP-3] Cleaning up connection for" << connectionId;
     cleanupConnection(instance);
-    
-    // 如果没有活动连接了，停止定时器
-    if ( m_connections.isEmpty() && m_screenUpdateTimer->isActive() ) {
-        qCDebug(lcClientManager) << "disconnectFromHost(): No more connections, stopping screen update timer";
-        m_screenUpdateTimer->stop();
-    }
-    
+
     qCInfo(lcClientManager) << "disconnectFromHost(): [COMPLETE] Disconnected" << connectionId;
 }
 
@@ -495,7 +482,6 @@ void ClientManager::onAuthenticated() {
     qCDebug(lcClientManager) << "onAuthenticated(): start session for" << sessionManager->connectionId();
     // 认证成功后启动会话
     sessionManager->startSession();
-    m_screenUpdateTimer->start();
 }
 
 void ClientManager::onConnectionClosed() {
@@ -540,13 +526,7 @@ void ClientManager::onConnectionClosed() {
     // 清理连接
     qCDebug(lcClientManager) << "onConnectionClosed(): [STEP-2] Cleaning up connection for" << connectionId;
     cleanupConnection(instance);
-    
-    // 如果没有活动连接了，停止定时器
-    if ( m_connections.isEmpty() && m_screenUpdateTimer->isActive() ) {
-        qCDebug(lcClientManager) << "onConnectionClosed(): No more connections, stopping screen update timer";
-        m_screenUpdateTimer->stop();
-    }
-    
+
     qCInfo(lcClientManager) << "onConnectionClosed(): [COMPLETE] Processed for" << connectionId;
 }
 
@@ -590,13 +570,7 @@ void ClientManager::onConnectionError(const QString& error) {
     // 清理连接
     qCDebug(lcClientManager) << "onConnectionError(): [STEP-1] Cleaning up connection for" << connectionId;
     cleanupConnection(instance);
-    
-    // 如果没有活动连接了，停止定时器
-    if ( m_connections.isEmpty() && m_screenUpdateTimer->isActive() ) {
-        qCDebug(lcClientManager) << "onConnectionError(): No more connections, stopping screen update timer";
-        m_screenUpdateTimer->stop();
-    }
-    
+
     qCInfo(lcClientManager) << "onConnectionError(): [COMPLETE] Processed error for" << connectionId;
 }
 
@@ -625,11 +599,6 @@ void ClientManager::onWindowClosed() {
 
         // 检查是否所有连接都已关闭
         if ( m_connections.isEmpty() ) {
-            // 停止定时器
-            if ( m_screenUpdateTimer->isActive() ) {
-                qCDebug(lcClientManager) << "onWindowClosed(): No more connections, stopping screen update timer";
-                m_screenUpdateTimer->stop();
-            }
             qCInfo(lcClientManager) << "onWindowClosed(): [COMPLETE] All connections closed, emitting signal";
             emit allConnectionsClosed();
         } else {
@@ -695,72 +664,4 @@ QString ClientManager::generateConnectionId() const {
 
 ConnectionInstance* ClientManager::getConnectionInstance(const QString& connectionId) const {
     return m_connections.value(connectionId, nullptr);
-}
-
-void ClientManager::onFrameAvailable() {
-    SessionManager* session = qobject_cast<SessionManager*>(sender());
-    if ( !session ) {
-        return;
-    }
-
-    ConnectionInstance* instance = getConnectionInstance(session->connectionId());
-    if ( !instance || !instance->remoteDesktopWindow ) {
-        return;
-    }
-
-    // Drain all available frames from this session (typically 1, occasionally 2-3).
-    while ( instance->sessionManager && instance->sessionManager->hasScreenImage() ) {
-        QImage image;
-        std::chrono::steady_clock::time_point ts;
-        if ( !instance->sessionManager->dequeueScreenFrame(image, ts) ) {
-            break;
-        }
-        if ( !image.isNull() && instance->remoteDesktopWindow ) {
-#ifndef QT_NO_OPENGL
-            // If GL mode is active, push arrival timestamp directly to the GL viewport.
-            auto* render = instance->remoteDesktopWindow->renderManager();
-            if ( render && render->isGLModeActive() && render->glViewport() ) {
-                render->glViewport()->uploadFrame(image, ts);
-            } else {
-                instance->remoteDesktopWindow->updateRemoteScreen(image);
-            }
-#else
-            instance->remoteDesktopWindow->updateRemoteScreen(image);
-#endif
-        }
-    }
-
-    // Reset the coalescing flag so the next enqueue can re-emit frameAvailable().
-    if ( instance->sessionManager ) {
-        instance->sessionManager->resetFrameNotification();
-    }
-}
-
-void ClientManager::updateScreens() {
-    // Fallback path: drain any frames that the event-driven path may have missed.
-    for ( auto it = m_connections.begin(); it != m_connections.end(); ++it ) {
-        ConnectionInstance* instance = it.value();
-        if ( !instance || !instance->sessionManager || !instance->remoteDesktopWindow ) {
-            continue;
-        }
-
-        if ( instance->sessionManager->hasScreenImage() ) {
-            QImage image;
-            std::chrono::steady_clock::time_point ts;
-            if ( instance->sessionManager->dequeueScreenFrame(image, ts) && !image.isNull() ) {
-#ifndef QT_NO_OPENGL
-                auto* render = instance->remoteDesktopWindow->renderManager();
-                if ( render && render->isGLModeActive() && render->glViewport() ) {
-                    render->glViewport()->uploadFrame(image, ts);
-                } else {
-                    instance->remoteDesktopWindow->updateRemoteScreen(image);
-                }
-#else
-                instance->remoteDesktopWindow->updateRemoteScreen(image);
-#endif
-            }
-            // Reset notification flag in case it was stuck
-            instance->sessionManager->resetFrameNotification();
-        }
-    }
 }

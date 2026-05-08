@@ -11,8 +11,12 @@
 #include <QtCore/QSize>
 #include <QtCore/QPoint>
 #include <QtCore/QRectF>
+#include <QtCore/QTimer>
 #include <QtGui/qopengl.h>
 #include <chrono>
+
+#include "../core/TripleBuffer.h"
+#include "../core/FrameSlot.h"
 
 /**
  * @brief OpenGL viewport that renders remote desktop frames via direct texture upload.
@@ -127,6 +131,14 @@ public:
      */
     QSize remoteSize() const { return m_remoteSize; }
 
+    /**
+     * @brief Attach a TripleBuffer for lock-free frame delivery.
+     *
+     * Once attached, paintGL() will poll the buffer on each tick and upload
+     * any newly committed frame. Set to nullptr to detach.
+     */
+    void attachFrameBuffer(TripleBuffer<FrameSlot>* buffer);
+
 signals:
     /**
      * @brief Emitted when the viewport is resized and render rect changes.
@@ -153,6 +165,19 @@ private:
      * @brief Recalculate the render rectangle based on viewport and texture sizes.
      */
     void updateRenderRect();
+
+    /**
+     * @brief Upload texture data without GL context management.
+     *
+     * Called from uploadFrame() (with makeCurrent/doneCurrent wrap) and from
+     * paintGL() (context already current). Sets m_textureDirty=true on success.
+     */
+    void applyFrame(const QImage& image);
+
+    /**
+     * @brief Start or stop the frame-polling timer based on VSync state.
+     */
+    void configurePollTimer();
 
     /**
      * @brief Clean up OpenGL resources.
@@ -191,6 +216,12 @@ private:
 
     // Dirty-frame gating for paintGL
     bool m_textureDirty = false;
+
+    // Triple-buffered lock-free frame delivery
+    TripleBuffer<FrameSlot>* m_frameBuffer = nullptr;
+
+    // Frame-polling timer for non-VSync mode
+    QTimer* m_pollTimer = nullptr;
 
     // Metrics aggregation
     std::chrono::steady_clock::time_point m_pendingArrivalTs{};

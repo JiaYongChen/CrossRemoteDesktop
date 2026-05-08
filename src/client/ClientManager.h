@@ -13,7 +13,6 @@
 class SessionManager;
 class QSettings;
 class ThreadManager;
-class QTimer;
 
 /**
  * @brief 连接实例结构体 - 管理单个远程桌面连接的所有组件
@@ -144,8 +143,6 @@ private slots:
     void onConnectionClosed();
     void onConnectionError(const QString& error);
     void onWindowClosed();
-    void onFrameAvailable();   // Event-driven: triggered by SessionManager::frameAvailable()
-    void updateScreens();      // Fallback timer: drains any frames missed by signal path
 
 private:
     ConnectionInstance* getConnectionInstance(const QString& connectionId) const;
@@ -155,6 +152,5 @@ private:
 
 private:
     QHash<QString, ConnectionInstance*> m_connections;
-    QTimer* m_screenUpdateTimer;  // 定时器，用于定期从队列拉取图片
 };
 

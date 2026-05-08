@@ -16,11 +16,6 @@ SessionManager::SessionManager(const QString& connectionId, QObject* parent)
     , m_statsTimer(new QTimer(this))
     , m_frameRate(30) {
 
-    const auto cfg = RenderConfig::load();
-    m_dropPolicy = cfg.frame.dropPolicy;
-    m_queueCapacity = (m_dropPolicy == RenderConfig::FrameDropPolicy::LatestOnly)
-        ? 1 : std::max(1, cfg.frame.queueCapacity);
-
     // SessionManager 拥有并管理 ConnectionManager
     setupConnections();
 
@@ -341,36 +336,16 @@ void SessionManager::handleScreenData(const QByteArray& data) {
         m_stats.frameCount++;
         calculateFPS();
 
-        // 将图片放入队列，替代信号槽机制
-        {
-            QMutexLocker locker(&m_screenImageQueueMutex);
-            switch ( m_dropPolicy ) {
-                case RenderConfig::FrameDropPolicy::KeepOldest:
-                    if ( m_screenImageQueue.size() < m_queueCapacity ) {
-                        m_screenImageQueue.enqueue({image, std::chrono::steady_clock::now()});
-                    } else {
-                        qCDebug(lcClient) << "SessionManager: Queue full (keep-oldest), dropped new frame";
-                    }
-                    break;
-                case RenderConfig::FrameDropPolicy::KeepLatest:
-                    while ( m_screenImageQueue.size() >= m_queueCapacity ) {
-                        m_screenImageQueue.dequeue();
-                    }
-                    m_screenImageQueue.enqueue({image, std::chrono::steady_clock::now()});
-                    break;
-                case RenderConfig::FrameDropPolicy::LatestOnly:
-                    m_screenImageQueue.clear();
-                    m_screenImageQueue.enqueue({image, std::chrono::steady_clock::now()});
-                    break;
-            }
-        }
-
-        // Notify consumer via coalesced signal: only emit when the flag
-        // transitions false→true, so rapid enqueues produce at most one
-        // pending signal in the consumer's event queue.
-        bool expected = false;
-        if ( m_frameNotificationPending.compare_exchange_strong(expected, true) ) {
-            emit frameAvailable();
+        // Triple-buffered lock-free frame delivery: write decoded frame
+        // to the triple buffer. paintGL() reads on the GUI thread via atomics.
+        FrameSlot* slot = nullptr;
+        int idx = m_frameBuffer.acquireWrite(slot);
+        if ( slot ) {
+            slot->image = image;
+            slot->remoteSize = m_remoteScreenSize;
+            slot->arrivalTs = std::chrono::steady_clock::now();
+            slot->frameId = static_cast<quint64>(m_stats.frameCount);
+            m_frameBuffer.commitWrite(idx);
         }
     } else {
         qCWarning(lcClient) << "SessionManager::handleScreenData() - Failed to load JPEG image from frame data, size:" << frameData.size()
@@ -458,54 +433,3 @@ void SessionManager::handleClipboardData(const QByteArray& data) {
     }
 }
 
-// ==================== 图片队列操作实现 ====================
-
-bool SessionManager::hasScreenImage() const {
-    QMutexLocker locker(&m_screenImageQueueMutex);
-    return !m_screenImageQueue.isEmpty();
-}
-
-QImage SessionManager::dequeueScreenImage() {
-    QImage img;
-    std::chrono::steady_clock::time_point unused;
-    dequeueScreenFrame(img, unused);
-    return img;
-}
-
-bool SessionManager::dequeueScreenFrame(QImage& out,
-                                        std::chrono::steady_clock::time_point& outTs) {
-    QMutexLocker locker(&m_screenImageQueueMutex);
-    if ( m_screenImageQueue.isEmpty() ) {
-        return false;
-    }
-    const QueuedFrame qf = m_screenImageQueue.dequeue();
-    out   = qf.image;
-    outTs = qf.arrivalTs;
-    qCDebug(lcClient) << "SessionManager: Image dequeued, remaining:" << m_screenImageQueue.size();
-    return true;
-}
-
-void SessionManager::resetFrameNotification() {
-    m_frameNotificationPending.store(false);
-}
-
-#ifdef QRD_TESTING
-void SessionManager::enqueueForTest(const QImage& image) {
-    QMutexLocker locker(&m_screenImageQueueMutex);
-    switch ( m_dropPolicy ) {
-        case RenderConfig::FrameDropPolicy::KeepOldest:
-            if ( m_screenImageQueue.size() < m_queueCapacity )
-                m_screenImageQueue.enqueue({image, std::chrono::steady_clock::now()});
-            break;
-        case RenderConfig::FrameDropPolicy::KeepLatest:
-            while ( m_screenImageQueue.size() >= m_queueCapacity )
-                m_screenImageQueue.dequeue();
-            m_screenImageQueue.enqueue({image, std::chrono::steady_clock::now()});
-            break;
-        case RenderConfig::FrameDropPolicy::LatestOnly:
-            m_screenImageQueue.clear();
-            m_screenImageQueue.enqueue({image, std::chrono::steady_clock::now()});
-            break;
-    }
-}
-#endif

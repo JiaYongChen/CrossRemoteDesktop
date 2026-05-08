@@ -55,7 +55,8 @@ static const char* s_fragmentShaderSource = R"(
 
 GLTextureViewport::GLTextureViewport(QWidget* parent)
     : QOpenGLWidget(parent)
-    , m_vertexBuffer(QOpenGLBuffer::VertexBuffer) {
+    , m_vertexBuffer(QOpenGLBuffer::VertexBuffer)
+    , m_pollTimer(new QTimer(this)) {
     // Request OpenGL 3.3 Core profile
     QSurfaceFormat format;
     format.setVersion(3, 3);
@@ -64,9 +65,20 @@ GLTextureViewport::GLTextureViewport(QWidget* parent)
     m_vsyncEnabled = cfg.gl.vsyncEnabled;
     format.setSwapInterval(m_vsyncEnabled ? 1 : 0);
     setFormat(format);
+
+    // Frame-polling timer — only active when VSync is off and a frame buffer
+    // is attached. 16ms (60fps) is the default cadence.
+    m_pollTimer->setInterval(16);
+    m_pollTimer->setTimerType(Qt::PreciseTimer);
+    connect(m_pollTimer, &QTimer::timeout, this, [this]() { update(); });
 }
 
 GLTextureViewport::~GLTextureViewport() {
+    // Stop frame-polling timer
+    if ( m_pollTimer ) {
+        m_pollTimer->stop();
+    }
+
     // Critical: disconnect aboutToBeDestroyed BEFORE the base destructor chain
     // destroys the underlying QOpenGLContext.
     //
@@ -210,24 +222,14 @@ void GLTextureViewport::cleanupGL() {
     m_glInitialized = false;
 }
 
-void GLTextureViewport::uploadFrame(const QImage& image,
-                                    std::chrono::steady_clock::time_point arrivalTs) {
-    m_pendingArrivalTs = arrivalTs;
-    uploadFrame(image);
-}
+void GLTextureViewport::applyFrame(const QImage& image) {
+    // Core texture upload without GL context management.
+    // Called from uploadFrame() (with makeCurrent/doneCurrent) and from
+    // paintGL() (context already current). Sets m_textureDirty on success.
 
-void GLTextureViewport::uploadFrame(const QImage& image) {
     if ( image.isNull() || image.format() == QImage::Format_Invalid ) {
-        qCWarning(lcGLViewport) << "Received null or invalid image, skipping upload";
         return;
     }
-
-    if ( !m_glInitialized ) {
-        qCWarning(lcGLViewport) << "GL not initialized, skipping upload";
-        return;
-    }
-
-    makeCurrent();
 
     // Determine GL pixel layout from QImage format — avoids a mandatory
     // RGBA8888 CPU copy for common formats like RGB888 (JPEG decode output).
@@ -325,7 +327,27 @@ void GLTextureViewport::uploadFrame(const QImage& image) {
     }
 
     m_textureDirty = true;
+}
 
+void GLTextureViewport::uploadFrame(const QImage& image,
+                                    std::chrono::steady_clock::time_point arrivalTs) {
+    m_pendingArrivalTs = arrivalTs;
+    uploadFrame(image);
+}
+
+void GLTextureViewport::uploadFrame(const QImage& image) {
+    if ( image.isNull() || image.format() == QImage::Format_Invalid ) {
+        qCWarning(lcGLViewport) << "Received null or invalid image, skipping upload";
+        return;
+    }
+
+    if ( !m_glInitialized ) {
+        qCWarning(lcGLViewport) << "GL not initialized, skipping upload";
+        return;
+    }
+
+    makeCurrent();
+    applyFrame(image);
     doneCurrent();
 
     // Schedule repaint
@@ -343,6 +365,19 @@ void GLTextureViewport::resizeGL(int w, int h) {
 }
 
 void GLTextureViewport::paintGL() {
+    // Check triple buffer for new frames (lock-free, atomic read)
+    if ( m_frameBuffer ) {
+        FrameSlot* slot = nullptr;
+        const int idx = m_frameBuffer->getReadSlot(slot);
+        if ( idx >= 0 && slot && !slot->image.isNull() ) {
+            applyFrame(slot->image);
+            m_pendingArrivalTs = slot->arrivalTs;
+            if ( !slot->remoteSize.isEmpty() ) {
+                setRemoteSize(slot->remoteSize);
+            }
+        }
+    }
+
     if ( !m_textureDirty ) {
         return;  // nothing new to draw
     }
@@ -494,7 +529,26 @@ void GLTextureViewport::setVSyncEnabled(bool on) {
     f.setSwapInterval(on ? 1 : 0);
     setFormat(f);
     qCInfo(lcGLViewport) << "VSync toggled:" << (on ? "ON" : "OFF");
+    configurePollTimer();
     update();
+}
+
+void GLTextureViewport::attachFrameBuffer(TripleBuffer<FrameSlot>* buffer) {
+    m_frameBuffer = buffer;
+    configurePollTimer();
+}
+
+void GLTextureViewport::configurePollTimer() {
+    if ( !m_pollTimer ) return;
+
+    // With VSync enabled, paintGL is driven by the compositor — no timer needed.
+    // With VSync disabled and a frame buffer attached, poll at ~60fps.
+    const bool needPolling = !m_vsyncEnabled && (m_frameBuffer != nullptr);
+    if ( needPolling && !m_pollTimer->isActive() ) {
+        m_pollTimer->start();
+    } else if ( !needPolling && m_pollTimer->isActive() ) {
+        m_pollTimer->stop();
+    }
 }
 
 #endif // QT_NO_OPENGL

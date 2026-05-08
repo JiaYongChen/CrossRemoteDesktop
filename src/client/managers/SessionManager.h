@@ -9,8 +9,9 @@
 #include <QtCore/QSize>
 #include "../../common/core/network/Protocol.h"
 #include "../../common/core/config/UiConstants.h"
-#include "../../common/core/config/RenderConfig.h"
 #include "../network/ConnectionManager.h"
+#include "../core/TripleBuffer.h"
+#include "../core/FrameSlot.h"
 #include <atomic>
 #include <chrono>
 
@@ -76,27 +77,8 @@ public:
     bool isConnected() const;
     bool isAuthenticated() const;
 
-    // 图片队列操作（线程安全）
-    bool hasScreenImage() const;
-    // 旧签名保留以兼容现有调用点（返回 QImage）
-    QImage dequeueScreenImage();
-    // 新签名：同时返回到达时间戳
-    bool dequeueScreenFrame(QImage& out, std::chrono::steady_clock::time_point& outTs);
-
-#ifdef QRD_TESTING
-    /// Test-only: bypass network path, enqueue an image directly using the
-    /// current drop policy.
-    void enqueueForTest(const QImage& image);
-#endif
-
-    /**
-     * @brief Reset the frame notification coalescing flag.
-     *
-     * Must be called by the consumer (ClientManager) after it has drained
-     * or attempted to drain the queue, so that the next enqueue can
-     * re-emit frameAvailable().
-     */
-    void resetFrameNotification();
+    // Triple-buffered lock-free frame delivery
+    TripleBuffer<FrameSlot>* frameBuffer() { return &m_frameBuffer; }
 
 public slots:
     // 连接控制（声明为 slot 以支持跨线程调用）
@@ -120,15 +102,6 @@ signals:
     void clipboardTextReceived(const QString& text);
     void clipboardImageReceived(const QByteArray& imageData);
 
-    /**
-     * @brief Lightweight notification that a new frame is available in the queue.
-     *
-     * Uses atomic flag coalescing: only emitted when the flag transitions
-     * from false to true, preventing signal storms under high frame rates.
-     * The consumer must call resetFrameNotification() after draining the queue.
-     */
-    void frameAvailable();
-
 private slots:
     void onMessageReceived(MessageType type, const QByteArray& data);
     void updatePerformanceStats();
@@ -151,20 +124,8 @@ private:
     QByteArray m_previousFrameData;
     mutable QMutex m_frameDataMutex;
 
-    // 图片队列（用于替代信号槽机制）
-    struct QueuedFrame {
-        QImage image;
-        std::chrono::steady_clock::time_point arrivalTs;
-    };
-    QQueue<QueuedFrame> m_screenImageQueue;
-    mutable QMutex m_screenImageQueueMutex;
-    RenderConfig::FrameDropPolicy m_dropPolicy =
-        RenderConfig::FrameDropPolicy::LatestOnly;
-    int m_queueCapacity = 1;   // Aligned with LatestOnly default
-
-    // Coalescing flag for frameAvailable() signal: prevents signal storms
-    // when frames arrive faster than the consumer can process them.
-    std::atomic<bool> m_frameNotificationPending{false};
+    // Triple-buffered lock-free frame delivery (replaces QQueue+QMutex+signal)
+    TripleBuffer<FrameSlot> m_frameBuffer;
 
     // 性能统计
     QTimer* m_statsTimer;
