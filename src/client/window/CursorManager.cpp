@@ -100,17 +100,8 @@ void CursorManager::reset() {
 // ==================== 内部辅助 ====================
 
 QWidget* CursorManager::resolveViewport() const {
-    if ( !m_targetWidget ) {
-        return nullptr;
-    }
-
-    // target 恒为 QGraphicsView（QAbstractScrollArea 派生）。qobject_cast 只在
-    // 对象活着且完整时成功；若失败（返回 nullptr），说明 target 正处于派生类
-    // 析构阶段（vtable 已降级），此时绝对不能再对它做任何派生类方法调用，
-    // 更不能调用 findChild——这会命中 qobject.cpp:2190 的 Q_ASSERT(parent)。
-    auto* scrollArea = qobject_cast<QAbstractScrollArea*>(m_targetWidget.data());
-    if ( !scrollArea ) {
-        return nullptr;
-    }
-    return scrollArea->viewport();
+    // ClientRemoteWindow is now a plain QWidget — there is no scroll area
+    // viewport indirection. Cursor is set directly on m_targetWidget above.
+    Q_UNUSED(m_targetWidget)
+    return nullptr;
 }

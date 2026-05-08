@@ -8,12 +8,8 @@
 #include "CursorManager.h"
 #include "../../common/clipboard/ClipboardManager.h"
 
-#include <QtWidgets/QGraphicsScene>
-#include <QtWidgets/QGraphicsPixmapItem>
-#include <QtWidgets/QGraphicsRectItem>
 #include <QtGui/QCursor>
 #ifndef QT_NO_OPENGL
-#include <QtOpenGLWidgets/QOpenGLWidget>
 #include "GLTextureViewport.h"
 #endif
 #include <QtCore/QPropertyAnimation>
@@ -48,26 +44,23 @@
 
 
 ClientRemoteWindow::ClientRemoteWindow(SessionManager* sessionManager, QWidget* parent)
-    : QGraphicsView(parent)
+    : QWidget(parent)
     , m_connectionId(QString::number(0))
     , m_sessionManager(sessionManager)
     , m_connectionState(ConnectionManager::Disconnected)
     , m_isFullScreen(false)
-    , m_isClosing(false) // 初始化关闭标志,默认不在关闭流程中
-    , m_hostName()  // 初始化为空,将由外部通过 updateWindowTitle 设置
+    , m_isClosing(false)
+    , m_hostName()
     , m_inputEnabled(true)
     , m_lastMousePos(-1, -1)
     , m_fileTransferManager(nullptr)
     , m_renderManager(nullptr)
     , m_cursorManager(nullptr)
     , m_showPerformanceInfo(false) {
-    // 确保窗口关闭时自动删除,避免无父对象窗口内存泄漏
-    // 使用属性而非手动deleteLater,减少重复释放风险
+    // Ensure auto-delete on close to avoid parentless window memory leak
     setAttribute(Qt::WA_DeleteOnClose, true);
     qCDebug(lcClientRemoteWindow) << "ClientRemoteWindow::ClientRemoteWindow() - Constructor started for sessionManager:" << sessionManager;
 
-    // 注意:sessionManager 可能已经 moveToThread,所以要避免直接调用其方法
-    // connectionId() 访问的是构造时设置的 m_connectionId，通常是安全的
     m_connectionId = sessionManager ? sessionManager->connectionId() : QString::number(0);
 
     // Initialize all managers using composition pattern
@@ -77,11 +70,9 @@ ClientRemoteWindow::ClientRemoteWindow(SessionManager* sessionManager, QWidget* 
     configureWindow();
 
     // Setup UI components
-    setupScene();
-    setupView();
+    setupUI();
 
-    // 不在构造函数中调用 sessionManager->currentHost()，因为可能已经 moveToThread
-    // 窗口标题将在外部通过 updateWindowTitle() 设置
+    // Window title will be set externally via updateWindowTitle()
     setWindowTitle(tr("Remote Desktop"));
 
     // Setup connections to SessionManager if provided
@@ -91,8 +82,8 @@ ClientRemoteWindow::ClientRemoteWindow(SessionManager* sessionManager, QWidget* 
 }
 
 ClientRemoteWindow::~ClientRemoteWindow() {
-    // 注意：不在析构中发射 windowClosed()，避免与 closeEvent 重复
-    // Qt 父子关系将自动清理子对象
+    // Note: do not emit windowClosed() in destructor, to avoid duplication with closeEvent
+    // Qt parent-child relationship will clean up children automatically
 }
 
 QString ClientRemoteWindow::connectionId() const {
@@ -102,16 +93,13 @@ QString ClientRemoteWindow::connectionId() const {
 // Window title management
 void ClientRemoteWindow::updateWindowTitle(const QString& title) {
     if ( !title.isEmpty() ) {
-        // 缓存主机名，用于后续状态变化时更新标题
         m_hostName = title;
         setWindowTitle(title);
     }
 }
 
 void ClientRemoteWindow::updateWindowTitle() {
-    // 使用缓存的主机名，避免跨线程调用 SessionManager
     if ( !m_hostName.isEmpty() ) {
-        // 根据连接状态显示不同的标题格式
         QString title;
         switch ( m_connectionState ) {
             case ConnectionManager::Connecting:
@@ -147,113 +135,76 @@ void ClientRemoteWindow::updateWindowTitle() {
 }
 
 void ClientRemoteWindow::initializeManagers() {
-    // Initialize managers using composition pattern
-    // Each manager is responsible for a specific aspect of functionality
-    // Note: managers are created as children of this widget and run in the main thread.
-    // moveToThread() would silently fail here because QObjects with a parent cannot be
-    // moved to a different thread; the previously created orphan QThread* objects were leaked.
-
     // File transfer management
     m_fileTransferManager = new FileTransferManager(this, this);
 
     // Render and view management
     m_renderManager = new RenderManager(this, this);
 
-    // Cursor management
-    // 传入 `this`（QGraphicsView 的派生类）而非 viewport()——因为后续 enableOpenGL()
-    // 会调用 setViewport() 替换并销毁原 viewport，若此处保存瞬态 viewport 指针会变悬空。
-    // CursorManager 内部通过 resolveViewport() 每次动态取当前 viewport。
+    // Cursor management — plain QWidget, no viewport indirection needed
     m_cursorManager = new CursorManager(this, this);
 
     // Clipboard management
     m_clipboardManager = new ClipboardManager(this);
-    m_clipboardManager->setEnabled(true);  // 默认启用剪贴板同步
+    m_clipboardManager->setEnabled(true);
 }
 
 void ClientRemoteWindow::configureWindow() {
-    // 设置窗口的最小尺寸与初始尺寸，保证初次打开时有合理的显示区域
-    // 最小尺寸设为400x225，确保基本可用性
     setMinimumSize(400, 225);
-    // 默认初始尺寸设为1600x900，提供良好的初始体验
     resize(1600, 900);
 
-    // 设置焦点策略，确保输入事件能够被正确接收和处理
     setFocusPolicy(Qt::StrongFocus);
-
-    // 启用鼠标跟踪，确保能够接收到 enterEvent 和 leaveEvent
     setMouseTracking(true);
 }
 
 void ClientRemoteWindow::enableManagerFeatures() {
-    // Enable drag and drop through FileTransferManager
     if ( m_fileTransferManager ) {
         m_fileTransferManager->setEnabled(true);
     }
 }
 
-void ClientRemoteWindow::setupScene() {
-    // Initialize render manager scene
-    if ( m_renderManager ) {
-        m_renderManager->initializeScene();
-    }
-}
-
-void ClientRemoteWindow::setupView() {
-    // Delegate view setup to render manager
-    if ( m_renderManager ) {
-        m_renderManager->setupView();
-    }
-
-    // Set transformation anchor
-    setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
-    setResizeAnchor(QGraphicsView::AnchorUnderMouse);
-
-    // Enable mouse tracking
-    setMouseTracking(true);
-
-    // Enable OpenGL direct texture rendering for best performance
-    // Falls back to software rendering if OpenGL is unavailable
+void ClientRemoteWindow::setupUI() {
+    // GLTextureViewport fills the entire window and is the sole render surface.
+    // All QGraphicsView/QGraphicsScene/QGraphicsPixmapItem infrastructure removed.
 #ifndef QT_NO_OPENGL
-    enableOpenGL(true);
+    m_glViewport = new GLTextureViewport(this);
+    m_glViewport->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    m_glViewport->setGeometry(rect());
+    m_glViewport->show();
+    m_glViewport->raise();
+
+    // Wire GL viewport into RenderManager for coordinate mapping
+    if ( m_renderManager ) {
+        m_renderManager->setGLViewport(m_glViewport);
+    }
+
+    // Connect render rect changes for overlay invalidation
+    connect(m_glViewport, &GLTextureViewport::renderRectChanged, this, [this](const QRectF&) {
+        update();
+    });
 #endif
 }
 
 void ClientRemoteWindow::setupManagerConnections() {
-    // Connect SessionManager signals
     if ( m_sessionManager ) {
         connect(m_sessionManager, &SessionManager::performanceStatsUpdated,
             this, &ClientRemoteWindow::onPerformanceStatsUpdated);
-        // 注意：不再连接screenUpdated信号，改用ClientManager定时器拉取
-        // connect(m_sessionManager, &SessionManager::screenUpdated,
-        //     this, &ClientRemoteWindow::onScreenUpdated);
 
-        // 连接状态变化信号,同步更新 UI 显示
         connect(m_sessionManager, &SessionManager::connectionStateChanged,
             this, &ClientRemoteWindow::setConnectionState);
     }
 
-    // Connect cursor manager signals
     if ( m_cursorManager && m_sessionManager ) {
-        // 连接远程光标类型更新信号
         connect(m_sessionManager, &SessionManager::remoteCursorTypeUpdated,
             m_cursorManager, &CursorManager::setRemoteCursorType);
     }
 
-    // Connect file transfer manager signals  
-    if ( m_fileTransferManager ) {
-        // Forward file drop events to external listeners if needed
-    }
-
-    // Connect render manager signals
     if ( m_renderManager ) {
-        // 连接窗口大小调整请求信号
         connect(m_renderManager, &RenderManager::windowResizeRequested,
             this, &ClientRemoteWindow::onWindowResizeRequested);
     }
 
-    // Connect clipboard manager signals
     if ( m_clipboardManager && m_sessionManager ) {
-        // 本地剪贴板文本变化时，发送到服务器
         connect(m_clipboardManager, &ClipboardManager::clipboardTextChanged,
             this, [this](const QString& text) {
             if ( m_sessionManager && m_connectionState == ConnectionManager::Connected ) {
@@ -261,7 +212,6 @@ void ClientRemoteWindow::setupManagerConnections() {
             }
         });
 
-        // 本地剪贴板图片变化时，发送到服务器
         connect(m_clipboardManager, &ClipboardManager::clipboardImageChanged,
             this, [this](const QByteArray& imageData, quint32 width, quint32 height) {
             if ( m_sessionManager && m_connectionState == ConnectionManager::Connected ) {
@@ -269,11 +219,9 @@ void ClientRemoteWindow::setupManagerConnections() {
             }
         });
 
-        // 接收服务器端的剪贴板文本更新
         connect(m_sessionManager, &SessionManager::clipboardTextReceived,
             m_clipboardManager, &ClipboardManager::setText);
 
-        // 接收服务器端的剪贴板图片更新
         connect(m_sessionManager, &SessionManager::clipboardImageReceived,
             m_clipboardManager, &ClipboardManager::setImageFromPng);
     }
@@ -284,12 +232,9 @@ void ClientRemoteWindow::setConnectionState(ConnectionManager::ConnectionState s
     if ( m_connectionState != state ) {
         ConnectionManager::ConnectionState oldState = m_connectionState;
         m_connectionState = state;
-        // 状态变化时自动更新窗口标题
         updateWindowTitle();
 
-        // 如果从已连接状态变为断开连接,且不是用户主动关闭窗口
         if ( state == ConnectionManager::Disconnected && !m_isClosing ) {
-            // 检查之前是否处于已连接状态
             if ( oldState == ConnectionManager::Connected ||
                 oldState == ConnectionManager::Authenticated ||
                 oldState == ConnectionManager::Authenticating ||
@@ -297,9 +242,8 @@ void ClientRemoteWindow::setConnectionState(ConnectionManager::ConnectionState s
 
                 qCInfo(lcClientRemoteWindow) << "ClientRemoteWindow::setConnectionState() - Connection lost, preparing to show notification and close window";
 
-                // 使用 QTimer::singleShot 延迟执行,确保在事件循环中执行
                 QTimer::singleShot(100, this, [this]() {
-                    if ( !m_isClosing ) {  // 再次检查,避免重复处理
+                    if ( !m_isClosing ) {
                         showDisconnectionDialog();
                     }
                 });
@@ -312,30 +256,31 @@ ConnectionManager::ConnectionState ClientRemoteWindow::connectionState() const {
     return m_connectionState;
 }
 
-// Screen display methods
+// Screen display methods — direct GL path only
 void ClientRemoteWindow::setRemoteScreen(const QImage& image) {
-    if ( m_renderManager ) {
-        m_renderManager->setRemoteScreen(image);
+#ifndef QT_NO_OPENGL
+    if ( m_glViewport ) {
+        m_glViewport->uploadFrame(image);
     }
+#else
+    Q_UNUSED(image)
+#endif
 }
 
 void ClientRemoteWindow::updateRemoteScreen(const QImage& screen) {
-    if ( m_renderManager ) {
-        m_renderManager->updateRemoteScreen(screen);
+#ifndef QT_NO_OPENGL
+    if ( m_glViewport ) {
+        m_glViewport->uploadFrame(screen);
     }
-}
-
-void ClientRemoteWindow::updateRemoteRegion(const QImage& region, const QRect& rect) {
-    if ( m_renderManager ) {
-        m_renderManager->updateRemoteRegion(region, rect);
-    }
+#else
+    Q_UNUSED(screen)
+#endif
 }
 
 // Scaling methods
 void ClientRemoteWindow::setScaleFactor(double factor) {
     if ( m_renderManager ) {
         m_renderManager->setScaleFactor(factor);
-
     }
 }
 
@@ -353,52 +298,6 @@ void ClientRemoteWindow::setFullScreen(bool fullScreen) {
 
 bool ClientRemoteWindow::isFullScreen() const {
     return m_isFullScreen;
-}
-
-/**
- * @brief 设置图片质量
- */
-void ClientRemoteWindow::setImageQuality(RenderManager::ImageQuality quality) {
-    if ( m_renderManager ) {
-        m_renderManager->setImageQuality(quality);
-    }
-}
-
-/**
- * @brief 获取当前图片质量
- */
-RenderManager::ImageQuality ClientRemoteWindow::imageQuality() const {
-    if ( m_renderManager ) {
-        return m_renderManager->imageQuality();
-    }
-    return RenderManager::SmoothRendering;
-}
-
-/**
- * @brief 启用或禁用图片缓存
- */
-void ClientRemoteWindow::enableImageCache(bool enable) {
-    if ( m_renderManager ) {
-        m_renderManager->enableImageCache(enable);
-    }
-}
-
-/**
- * @brief 清除图片缓存
- */
-void ClientRemoteWindow::clearImageCache() {
-    if ( m_renderManager ) {
-        m_renderManager->clearImageCache();
-    }
-}
-
-/**
- * @brief 设置缓存大小限制
- */
-void ClientRemoteWindow::setCacheSizeLimit(int sizeMB) {
-    if ( m_renderManager ) {
-        m_renderManager->setCacheSizeLimit(sizeMB);
-    }
 }
 
 // Input control
@@ -423,26 +322,13 @@ CursorManager* ClientRemoteWindow::cursorManager() const {
     return m_cursorManager;
 }
 
-// Public slots
-
 // Event handlers
 void ClientRemoteWindow::paintEvent(QPaintEvent* event) {
-    if ( m_renderManager && m_renderManager->isGLModeActive() ) {
-        // GL mode: skip QGraphicsView::paintEvent entirely.
-        // The GLTextureViewport (set as viewport via setViewport()) handles
-        // its own rendering in paintGL(). We only need to draw the overlay.
-        if ( m_showPerformanceInfo ) {
-            QPainter painter(viewport());
-            drawPerformanceInfo(painter);
-        }
-        return;
-    }
-
-    // Standard QGraphicsView rendering path
-    QGraphicsView::paintEvent(event);
-
+    Q_UNUSED(event);
+    // GLTextureViewport handles all rendering.
+    // Only draw performance overlay if enabled.
     if ( m_showPerformanceInfo ) {
-        QPainter painter(viewport());
+        QPainter painter(this);
         drawPerformanceInfo(painter);
     }
 }
@@ -451,7 +337,6 @@ void ClientRemoteWindow::mousePressEvent(QMouseEvent* event) {
     if ( m_inputEnabled && m_sessionManager ) {
         QPoint remotePos = mapToRemote(event->pos());
 
-        // 确定鼠标按键类型
         int mouseEventType = 0;
         Qt::MouseButton btn = event->button();
 
@@ -471,9 +356,8 @@ void ClientRemoteWindow::mousePressEvent(QMouseEvent* event) {
                 Q_ARG(int, mouseEventType));
         }
     }
-    QGraphicsView::mousePressEvent(event);
+    QWidget::mousePressEvent(event);
 
-    // 刷新光标状态
     if ( m_cursorManager ) {
         m_cursorManager->refreshLocalCursor();
     }
@@ -483,7 +367,6 @@ void ClientRemoteWindow::mouseReleaseEvent(QMouseEvent* event) {
     if ( m_inputEnabled && m_sessionManager ) {
         QPoint remotePos = mapToRemote(event->pos());
 
-        // 确定鼠标按键类型
         int mouseEventType = 0;
         Qt::MouseButton btn = event->button();
 
@@ -503,9 +386,8 @@ void ClientRemoteWindow::mouseReleaseEvent(QMouseEvent* event) {
                 Q_ARG(int, mouseEventType));
         }
     }
-    QGraphicsView::mouseReleaseEvent(event);
+    QWidget::mouseReleaseEvent(event);
 
-    // 刷新光标状态
     if ( m_cursorManager ) {
         m_cursorManager->refreshLocalCursor();
     }
@@ -521,9 +403,8 @@ void ClientRemoteWindow::mouseMoveEvent(QMouseEvent* event) {
             Q_ARG(int, remotePos.y()),
             Q_ARG(int, static_cast<int>(MouseEventType::MOVE)));
     }
-    QGraphicsView::mouseMoveEvent(event);
+    QWidget::mouseMoveEvent(event);
 
-    // 刷新本地光标状态
     if ( m_cursorManager ) {
         m_cursorManager->refreshLocalCursor();
     }
@@ -533,7 +414,6 @@ void ClientRemoteWindow::mouseDoubleClickEvent(QMouseEvent* event) {
     if ( m_inputEnabled && m_sessionManager ) {
         QPoint remotePos = mapToRemote(event->pos());
 
-        // 确定鼠标按键类型
         int mouseEventType = 0;
         Qt::MouseButton btn = event->button();
 
@@ -553,9 +433,8 @@ void ClientRemoteWindow::mouseDoubleClickEvent(QMouseEvent* event) {
                 Q_ARG(int, mouseEventType));
         }
     }
-    QGraphicsView::mouseDoubleClickEvent(event);
+    QWidget::mouseDoubleClickEvent(event);
 
-    // 刷新光标状态
     if ( m_cursorManager ) {
         m_cursorManager->refreshLocalCursor();
     }
@@ -573,28 +452,18 @@ void ClientRemoteWindow::wheelEvent(QWheelEvent* event) {
             Q_ARG(int, delta),
             Q_ARG(int, Qt::Vertical));
     }
-    QGraphicsView::wheelEvent(event);
+    QWidget::wheelEvent(event);
 }
 
 void ClientRemoteWindow::keyPressEvent(QKeyEvent* event) {
-    // Toggle OpenGL / software rendering mode with Ctrl+G
-    if ( event->modifiers() == Qt::ControlModifier && event->key() == Qt::Key_G ) {
-        bool currentlyGL = m_renderManager && m_renderManager->isGLModeActive();
-        enableOpenGL(!currentlyGL);
-        event->accept();
-        return;
-    }
-
 #ifndef QT_NO_OPENGL
     // Toggle VSync with Ctrl+V (GL mode only)
     if ( event->key() == Qt::Key_V
          && (event->modifiers() & Qt::ControlModifier) ) {
-        if ( m_renderManager && m_renderManager->isGLModeActive()
-             && m_renderManager->glViewport() ) {
-            auto* gl = m_renderManager->glViewport();
-            gl->setVSyncEnabled(!gl->isVSyncEnabled());
+        if ( m_glViewport ) {
+            m_glViewport->setVSyncEnabled(!m_glViewport->isVSyncEnabled());
             qCInfo(lcClientRemoteWindow) << "VSync toggled via Ctrl+V:"
-                << (gl->isVSyncEnabled() ? "ON" : "OFF");
+                << (m_glViewport->isVSyncEnabled() ? "ON" : "OFF");
             event->accept();
             return;
         }
@@ -609,7 +478,7 @@ void ClientRemoteWindow::keyPressEvent(QKeyEvent* event) {
             Q_ARG(bool, true),
             Q_ARG(QString, event->text()));
     }
-    QGraphicsView::keyPressEvent(event);
+    QWidget::keyPressEvent(event);
 }
 
 void ClientRemoteWindow::keyReleaseEvent(QKeyEvent* event) {
@@ -621,44 +490,44 @@ void ClientRemoteWindow::keyReleaseEvent(QKeyEvent* event) {
             Q_ARG(bool, false),
             Q_ARG(QString, QString()));
     }
-    QGraphicsView::keyReleaseEvent(event);
+    QWidget::keyReleaseEvent(event);
 }
 
 void ClientRemoteWindow::resizeEvent(QResizeEvent* event) {
-    QGraphicsView::resizeEvent(event);
+    QWidget::resizeEvent(event);
 
-    // 通知 RenderManager 视图大小已改变，以重新适应显示
+    // Keep GL viewport filling the window
+#ifndef QT_NO_OPENGL
+    if ( m_glViewport ) {
+        m_glViewport->setGeometry(rect());
+    }
+#endif
+
+    // Notify RenderManager of view resize for coordinate recalculation
     if ( m_renderManager ) {
         m_renderManager->onViewResized();
     }
 }
 
-// Note: Drag and drop events are now handled by FileTransferManager
-// The events are automatically forwarded to the manager through Qt's event system
-
 void ClientRemoteWindow::focusInEvent(QFocusEvent* event) {
-    QGraphicsView::focusInEvent(event);
+    QWidget::focusInEvent(event);
 }
 
 void ClientRemoteWindow::focusOutEvent(QFocusEvent* event) {
-    QGraphicsView::focusOutEvent(event);
+    QWidget::focusOutEvent(event);
 }
 
 void ClientRemoteWindow::enterEvent(QEnterEvent* event) {
-    // 鼠标进入远程控制窗口时的处理
-    QGraphicsView::enterEvent(event);
+    QWidget::enterEvent(event);
 
-    // 应用本地光标状态（隐藏或显示）
     if ( m_cursorManager ) {
         m_cursorManager->applyLocalCursorState();
     }
 }
 
 void ClientRemoteWindow::leaveEvent(QEvent* event) {
-    // 鼠标离开远程控制窗口时的处理
-    QGraphicsView::leaveEvent(event);
+    QWidget::leaveEvent(event);
 
-    // 恢复本地光标
     if ( m_cursorManager ) {
         m_cursorManager->restoreLocalCursor();
     }
@@ -667,85 +536,45 @@ void ClientRemoteWindow::leaveEvent(QEvent* event) {
 void ClientRemoteWindow::closeEvent(QCloseEvent* event) {
     qCDebug(lcClientRemoteWindow) << "closeEvent received, isClosing=" << m_isClosing;
 
-    // 若已处于关闭流程，直接接受事件并返回，避免重入
     if ( m_isClosing ) {
         event->accept();
         return;
     }
 
-    // 设置关闭标志，表示进入窗口关闭流程
     m_isClosing = true;
 
-    // 先发射一次 windowClosed，保证上层（ClientManager）进行清理。
-    // 通过标志位确保只发射一次，避免析构或其他路径再次发射。
     emit windowClosed();
 
-    // 接受事件并调用父类实现，确保正常的 QWidget/QGraphicsView 关闭流程
     event->accept();
-    QGraphicsView::closeEvent(event);
+    QWidget::closeEvent(event);
 }
 
 // Private slots
 void ClientRemoteWindow::onConnectionClosed() {
-    /*
-     * 连接关闭回调（来自底层/会话）
-     * - 不在窗口侧主动修改连接状态，交由 ConnectionManager 广播最终状态
-     * - 此处可按需加入资源清理或提示逻辑
-     */
-     // Handle connection closed (no state changes here)
+    // Connection closed callback — no state changes here
 }
 
 void ClientRemoteWindow::onConnectionError(const QString& error) {
-    /*
-     * 连接错误回调
-     * - 不在窗口侧主动修改连接状态，交由 ConnectionManager 广播 Error/Disconnected 等状态
-     * - 仅负责展示错误信息
-     */
     QMessageBox::critical(this, "Connection Error", error);
-}
-
-void ClientRemoteWindow::enableOpenGL(bool enable) {
-    if ( m_renderManager ) {
-        m_renderManager->enableOpenGL(enable);
-
-        if ( enable && m_renderManager->isGLModeActive() ) {
-            // In GL mode, disable QGraphicsView's scrollbars and drag mode
-            // since the GL viewport handles everything
-            setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-            setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-            setDragMode(QGraphicsView::NoDrag);
-            qCInfo(lcClientRemoteWindow) << "OpenGL direct rendering enabled";
-        } else {
-            // Restore QGraphicsView defaults
-            setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-            setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-            setDragMode(QGraphicsView::ScrollHandDrag);
-            qCInfo(lcClientRemoteWindow) << "Software rendering mode";
-        }
-    }
 }
 
 void ClientRemoteWindow::showDisconnectionDialog() {
     qCInfo(lcClientRemoteWindow) << "ClientRemoteWindow::showDisconnectionDialog() - Showing disconnection dialog";
 
-    // 标记为正在关闭,避免重复处理
     m_isClosing = true;
 
-    // 显示提示对话框
     QMessageBox msgBox(this);
-    msgBox.setWindowTitle(tr("连接已断开"));
-    msgBox.setText(tr("与远程主机 %1 的连接已断开。").arg(m_hostName.isEmpty() ? "服务器" : m_hostName));
-    msgBox.setInformativeText(tr("窗口将关闭。"));
+    msgBox.setWindowTitle(tr("Connection Disconnected"));
+    msgBox.setText(tr("Connection to remote host %1 has been disconnected.").arg(m_hostName.isEmpty() ? "Server" : m_hostName));
+    msgBox.setInformativeText(tr("The window will close."));
     msgBox.setIcon(QMessageBox::Information);
     msgBox.setStandardButtons(QMessageBox::Ok);
     msgBox.setDefaultButton(QMessageBox::Ok);
 
-    // 显示对话框(阻塞)
     msgBox.exec();
 
     qCInfo(lcClientRemoteWindow) << "ClientRemoteWindow::showDisconnectionDialog() - User confirmed disconnect, closing window";
 
-    // 关闭窗口
     close();
 }
 
@@ -754,93 +583,98 @@ void ClientRemoteWindow::onScreenUpdated(const QImage& screen) {
 }
 
 void ClientRemoteWindow::onPerformanceStatsUpdated() {
-    // Handle performance statistics updates
     if ( m_showPerformanceInfo ) {
         update();
     }
 }
 
-// Private methods
-// updateDisplay and calculateScaledSize are now handled by RenderManager
-
 QPoint ClientRemoteWindow::mapToRemote(const QPoint& localPoint) const {
-    if ( m_renderManager ) {
-        return m_renderManager->mapToRemote(localPoint);
+    // Delegate to GL viewport directly for coordinate mapping
+#ifndef QT_NO_OPENGL
+    if ( m_glViewport ) {
+        return m_glViewport->mapToRemote(localPoint);
     }
-    return localPoint;
+#else
+    Q_UNUSED(localPoint)
+#endif
+    return QPoint(0, 0);
 }
 
 QPoint ClientRemoteWindow::mapFromRemote(const QPoint& remotePoint) const {
-    if ( m_renderManager ) {
-        return m_renderManager->mapFromRemote(remotePoint);
+#ifndef QT_NO_OPENGL
+    if ( m_glViewport ) {
+        return m_glViewport->mapFromRemote(remotePoint);
     }
-    return remotePoint;
+#else
+    Q_UNUSED(remotePoint)
+#endif
+    return QPoint(0, 0);
+}
+
+QRect ClientRemoteWindow::mapToRemote(const QRect& localRect) const {
+    QPoint topLeft = mapToRemote(localRect.topLeft());
+    QPoint bottomRight = mapToRemote(localRect.bottomRight());
+    return QRect(topLeft, bottomRight);
+}
+
+QRect ClientRemoteWindow::mapFromRemote(const QRect& remoteRect) const {
+    QPoint topLeft = mapFromRemote(remoteRect.topLeft());
+    QPoint bottomRight = mapFromRemote(remoteRect.bottomRight());
+    return QRect(topLeft, bottomRight);
 }
 
 void ClientRemoteWindow::drawPerformanceInfo(QPainter& painter) {
     painter.save();
 
-    // Get performance info from SessionManager
     QString sessionInfo = m_sessionManager ? m_sessionManager->getFormattedPerformanceInfo() : "No Session";
 
-    // Add render info
     QStringList info;
     info << sessionInfo;
 
     double currentScale = m_renderManager ? m_renderManager->scaleFactor() : 1.0;
     info << QString("Scale: %1%").arg(currentScale * 100, 0, 'f', 0);
 
-    // Show current rendering mode
-    QString renderMode = (m_renderManager && m_renderManager->isGLModeActive())
-        ? "OpenGL Direct" : "QGraphicsView";
-    info << QString("Render: %1").arg(renderMode);
+    // GL is always active now
+    info << QString("Render: OpenGL Direct");
 
     QString infoText = info.join(" | ");
 
-    // Draw performance info
     painter.setPen(Qt::white);
     painter.drawText(10, 20, infoText);
 
     painter.restore();
 }
 
-// Note: Mouse and keyboard input events are directly forwarded to SessionManager
-
 bool ClientRemoteWindow::isClosing() const {
     return m_isClosing;
 }
 
 void ClientRemoteWindow::onWindowResizeRequested(const QSize& size) {
-    // 智能窗口大小调整：根据图片宽高比调整窗口大小以消除黑边
     if ( size.isEmpty() ) {
         return;
     }
 
-    // 获取当前窗口的父窗口（主窗口）
     QWidget* parentWindow = window();
     if ( !parentWindow ) {
         return;
     }
 
-    // 计算窗口边框和标题栏的额外空间
+    // Calculate extra space from window borders and title bar
     QSize currentWindowSize = parentWindow->size();
-    QSize currentViewportSize = viewport()->size();
+    // For QWidget (no viewport), use widget's own size as the content area
+    QSize currentViewportSize = this->size();
     QSize extraSpace = currentWindowSize - currentViewportSize;
 
-    // 计算新的窗口大小
     QSize newWindowSize = size + extraSpace;
 
-    // 获取屏幕可用区域，确保窗口不会超出屏幕
     QScreen* screen = parentWindow->screen();
     if ( screen ) {
         QRect availableGeometry = screen->availableGeometry();
 
-        // 限制窗口大小不超过屏幕的80%
         int maxWidth = static_cast<int>(availableGeometry.width() * 0.8);
         int maxHeight = static_cast<int>(availableGeometry.height() * 0.8);
 
         if ( newWindowSize.width() > maxWidth || newWindowSize.height() > maxHeight ) {
-            // 如果计算出的窗口大小太大，按比例缩小
             double scaleX = static_cast<double>(maxWidth) / newWindowSize.width();
             double scaleY = static_cast<double>(maxHeight) / newWindowSize.height();
             double scale = qMin(scaleX, scaleY);
@@ -849,15 +683,12 @@ void ClientRemoteWindow::onWindowResizeRequested(const QSize& size) {
                 static_cast<int>(newWindowSize.height() * scale));
         }
 
-        // 设置最小窗口大小
         newWindowSize = newWindowSize.expandedTo(QSize(400, 300));
     }
 
-    // 调整窗口大小
     parentWindow->resize(newWindowSize);
 
-    // 记录调试信息
     qCDebug(lcClientRemoteWindow) << "Window resize requested:"
-        << "requested viewport size:" << size
+        << "requested size:" << size
         << "new window size:" << newWindowSize;
 }

@@ -1,8 +1,7 @@
 #pragma once
 
-#include <QtWidgets/QGraphicsView>
+#include <QtWidgets/QWidget>
 #include <QtCore/Qt>
-#include <QtGui/QPixmap>
 #include <QtCore/QString>
 #include <QtCore/QStringList>
 #include <QtCore/QList>
@@ -13,10 +12,7 @@
 #include "../network/ConnectionManager.h"
 #include "RenderManager.h"
 
-// 前置声明以减少编译依赖
-class QGraphicsScene;
-class QGraphicsPixmapItem;
-class QGraphicsRectItem;
+// Forward declarations to reduce compile dependencies
 class QWidget;
 class QTimer;
 class QPainter;
@@ -29,6 +25,7 @@ class QDragEnterEvent;
 class QDropEvent;
 class QFocusEvent;
 class QCloseEvent;
+class GLTextureViewport;
 
 class SessionManager;
 class FileTransferManager;
@@ -36,7 +33,7 @@ class RenderManager;
 class CursorManager;
 class ClipboardManager;
 
-class ClientRemoteWindow : public QGraphicsView {
+class ClientRemoteWindow : public QWidget {
     Q_OBJECT
 
 public:
@@ -53,26 +50,16 @@ public:
     void setConnectionState(ConnectionManager::ConnectionState state);
     ConnectionManager::ConnectionState connectionState() const;
 
-    // Screen display methods (delegated to RenderManager)
+    // Screen display methods (delegated to GLTextureViewport)
     void setRemoteScreen(const QImage& image);
     void updateRemoteScreen(const QImage& screen);
-    void updateRemoteRegion(const QImage& region, const QRect& rect);
 
-    // Scaling (delegated to RenderManager)
-
+    // Scaling
     void setScaleFactor(double factor);
     double scaleFactor() const;
 
     void setFullScreen(bool fullScreen);
     bool isFullScreen() const;
-
-    // Image quality and rendering options
-    void setImageQuality(RenderManager::ImageQuality quality);
-    RenderManager::ImageQuality imageQuality() const;
-
-    void enableImageCache(bool enable);
-    void clearImageCache();
-    void setCacheSizeLimit(int sizeMB);
 
     // Input control
     void setInputEnabled(bool enabled);
@@ -83,10 +70,12 @@ public:
     RenderManager* renderManager() const;
     CursorManager* cursorManager() const;
 
-    // 新增：查询窗口是否处于关闭流程中
-    // 说明：
-    // - 当 closeEvent 被触发时会设置该标志位，
-    // - 用于让外部（如 ClientManager）判断是否需要再次调用 close()，避免重入导致卡死。
+    // GL viewport access
+    GLTextureViewport* glViewport() const { return m_glViewport; }
+
+    // Query whether the window is in closing flow
+    // Set when closeEvent is triggered; external callers (e.g. ClientManager)
+    // use this to decide whether to call close() again to avoid re-entry deadlock.
     bool isClosing() const;
 
 signals:
@@ -119,26 +108,22 @@ private slots:
     void onWindowResizeRequested(const QSize& size);
 
 private:
-    void updateWindowTitle(); // 使用当前连接的主机名更新标题
+    void updateWindowTitle(); // Update title using cached host name
     void initializeManagers();
     void configureWindow();
     void enableManagerFeatures();
 
     void setupManagerConnections();
-    void setupScene();
-    void setupView();
+    void setupUI();
 
     QPoint mapToRemote(const QPoint& localPoint) const;
     QPoint mapFromRemote(const QPoint& remotePoint) const;
     QRect mapToRemote(const QRect& viewRect) const;
     QRect mapFromRemote(const QRect& remoteRect) const;
 
-    void setUpdateMode(QGraphicsView::ViewportUpdateMode mode);
-    void enableOpenGL(bool enable = true);
-
     void drawPerformanceInfo(QPainter& painter);
 
-    // 显示断开连接对话框
+    // Show disconnection dialog
     void showDisconnectionDialog();
 
 private:
@@ -147,10 +132,10 @@ private:
     ConnectionManager::ConnectionState m_connectionState;
     bool m_isFullScreen;
 
-    // 新增：窗口关闭中的标志位
+    // Window closing flag
     bool m_isClosing;
 
-    // 缓存主机名，避免跨线程直接调用 SessionManager
+    // Cached host name, avoids cross-thread direct SessionManager access
     QString m_hostName;
 
     bool m_inputEnabled;
@@ -162,5 +147,7 @@ private:
     ClipboardManager* m_clipboardManager;
 
     bool m_showPerformanceInfo;
-};
 
+    // GL texture viewport — sole render surface, fills entire widget
+    GLTextureViewport* m_glViewport = nullptr;
+};

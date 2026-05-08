@@ -52,6 +52,14 @@ public:
     ~GLTextureViewport() override;
 
     /**
+     * @brief Convenience wrapper — equivalent to uploadFrame(image).
+     *
+     * Provided for API compatibility: setRemoteScreen + setRemoteSize
+     * replaces the old RenderManager::setRemoteScreen flow.
+     */
+    void setRemoteScreen(const QImage& image) { uploadFrame(image); }
+
+    /**
      * @brief Upload a decoded frame to the GPU texture.
      *
      * If the image size matches the current texture, uses glTexSubImage2D

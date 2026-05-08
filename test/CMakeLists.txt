@@ -1041,3 +1041,29 @@ if(TARGET run_all_tests)
     add_dependencies(run_all_tests test_render_config)
 endif()
 
+# ============================================================================
+# RenderSurface 测试 (Task 1: GLTextureViewport as sole render surface)
+# ============================================================================
+qt_add_executable(test_render_surface
+    test_render_surface.cpp
+    ../src/client/window/GLTextureViewport.cpp
+)
+target_link_libraries(test_render_surface PRIVATE
+    Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets
+    Qt6::OpenGL Qt6::OpenGLWidgets
+    common_test_core
+)
+add_test(
+    NAME RenderSurfaceTest
+    COMMAND test_render_surface
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+)
+set_tests_properties(RenderSurfaceTest PROPERTIES
+    TIMEOUT 30
+    LABELS "unit;client;render"
+    ENVIRONMENT "${_TEST_BASE_ENV}"
+)
+if(TARGET run_all_tests)
+    add_dependencies(run_all_tests test_render_surface)
+endif()
+
