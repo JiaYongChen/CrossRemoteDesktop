@@ -361,6 +361,12 @@ void SessionManager::handleScreenData(const QByteArray& data) {
             // the critical path.
             if (m_glUploadReady && m_glContext && m_glSurface && m_glViewportForUpload) {
                 m_glContext->makeCurrent(m_glSurface);
+                // Delete any fence from previous frame before overwriting
+                if (slot->uploadFence) {
+                    auto* f = m_glContext->extraFunctions();
+                    if (f) f->glDeleteSync(slot->uploadFence);
+                    slot->uploadFence = nullptr;
+                }
                 GLsync fence = m_glViewportForUpload->uploadFromWorker(image);
                 if (fence) {
                     slot->uploadFence = fence;

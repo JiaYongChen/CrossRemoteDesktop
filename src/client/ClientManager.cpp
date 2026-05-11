@@ -300,6 +300,13 @@ QString ClientManager::connectToHost(const QString& host, int port) {
                 [sm = instance->sessionManager.data()](QOpenGLContext* ctx) {
                     sm->initializeGLUpload(ctx);
                 }, Qt::QueuedConnection);
+
+            // Guard against signal race: if initializeGL() already fired
+            // (e.g., during processEvents in createRemoteDesktopWindow),
+            // the signal was lost — initialize directly.
+            if (gl->context() && gl->context()->isValid()) {
+                instance->sessionManager->initializeGLUpload(gl->context());
+            }
         }
     }
 #endif
