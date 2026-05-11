@@ -2,6 +2,11 @@
 #include "../network/ConnectionManager.h"
 #include "../../common/core/logging/LoggingCategories.h"
 #include "../../common/core/network/Protocol.h"
+#ifndef QT_NO_OPENGL
+#include "../window/GLTextureViewport.h"
+#include <QtGui/QOpenGLContext>
+#include <QtGui/QOffscreenSurface>
+#endif
 #include <QtCore/QBuffer>
 #include <QtCore/QDataStream>
 #include <QtCore/QTimer>
@@ -29,6 +34,14 @@ SessionManager::SessionManager(const QString& connectionId, QObject* parent)
 
 SessionManager::~SessionManager() {
     terminateSession();
+
+#ifndef QT_NO_OPENGL
+    // Clean up shared GL resources
+    delete m_glContext;
+    m_glContext = nullptr;
+    delete m_glSurface;
+    m_glSurface = nullptr;
+#endif
 
     // ConnectionManager 由 Qt 父对象机制自动删除
     // QMutex 是栈上值类型，自动析构，无需 delete
@@ -341,6 +354,20 @@ void SessionManager::handleScreenData(const QByteArray& data) {
         FrameSlot* slot = nullptr;
         int idx = m_frameBuffer.acquireWrite(slot);
         if ( slot ) {
+#ifndef QT_NO_OPENGL
+            // Worker-side GL upload: decode → PBO memcpy → glTexSubImage2D
+            // all on the worker thread. The GUI thread only waits for the
+            // GLsync fence in paintGL() before drawing — no CPU memcpy in
+            // the critical path.
+            if (m_glUploadReady && m_glContext && m_glSurface && m_glViewportForUpload) {
+                m_glContext->makeCurrent(m_glSurface);
+                GLsync fence = m_glViewportForUpload->uploadFromWorker(image);
+                if (fence) {
+                    slot->uploadFence = fence;
+                }
+                m_glContext->doneCurrent();
+            }
+#endif
             slot->image = image;
             slot->remoteSize = m_remoteScreenSize;
             slot->arrivalTs = std::chrono::steady_clock::now();
@@ -432,4 +459,30 @@ void SessionManager::handleClipboardData(const QByteArray& data) {
         emit clipboardImageReceived(message.imageData());
     }
 }
+
+#ifndef QT_NO_OPENGL
+void SessionManager::initializeGLUpload(QOpenGLContext* shareContext) {
+    if (!shareContext) {
+        qCWarning(lcClient) << "SessionManager: No share context provided for GL upload";
+        return;
+    }
+
+    m_glContext = new QOpenGLContext();
+    m_glContext->setShareContext(shareContext);
+    m_glContext->setFormat(shareContext->format());
+    if (!m_glContext->create()) {
+        qCWarning(lcClient) << "SessionManager: Failed to create shared GL context";
+        delete m_glContext;
+        m_glContext = nullptr;
+        return;
+    }
+
+    m_glSurface = new QOffscreenSurface();
+    m_glSurface->setFormat(m_glContext->format());
+    m_glSurface->create();
+
+    m_glUploadReady = true;
+    qCInfo(lcClient) << "SessionManager: Shared GL context initialized for worker-thread texture upload";
+}
+#endif
 

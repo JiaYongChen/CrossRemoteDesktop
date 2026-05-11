@@ -4,6 +4,7 @@
 #include "../../common/core/logging/LoggingCategories.h"
 #include "../../common/core/config/RenderConfig.h"
 
+#include <QtGui/QOpenGLExtraFunctions>
 #include <algorithm>  // std::max
 #include <chrono>
 #include <cstring>    // std::memcpy
@@ -14,6 +15,26 @@
 #endif
 #ifndef GL_RGBA8
 #  define GL_RGBA8 0x8058
+#endif
+
+// GL fence-sync constants not guaranteed by all GL headers
+#ifndef GL_SYNC_GPU_COMMANDS_COMPLETE
+#  define GL_SYNC_GPU_COMMANDS_COMPLETE 0x9117
+#endif
+#ifndef GL_SYNC_FLUSH_COMMANDS_BIT
+#  define GL_SYNC_FLUSH_COMMANDS_BIT    0x00000001
+#endif
+#ifndef GL_ALREADY_SIGNALED
+#  define GL_ALREADY_SIGNALED           0x911A
+#endif
+#ifndef GL_CONDITION_SATISFIED
+#  define GL_CONDITION_SATISFIED        0x911C
+#endif
+#ifndef GL_TIMEOUT_EXPIRED
+#  define GL_TIMEOUT_EXPIRED            0x911B
+#endif
+#ifndef GL_WAIT_FAILED
+#  define GL_WAIT_FAILED                0x911D
 #endif
 
 bool GLTextureViewport::chooseGLFormat(QImage::Format f, GLPixelLayout& out) {
@@ -146,6 +167,9 @@ void GLTextureViewport::initializeGL() {
         << "vendor:" << reinterpret_cast<const char*>(glGetString(GL_VENDOR))
         << "renderer:" << reinterpret_cast<const char*>(glGetString(GL_RENDERER))
         << "version:" << reinterpret_cast<const char*>(glGetString(GL_VERSION));
+
+    // Notify listeners (SessionManager) that the GL context is ready for sharing
+    emit glContextReady(context());
 }
 
 bool GLTextureViewport::initializeShaders() {
@@ -329,6 +353,112 @@ void GLTextureViewport::applyFrame(const QImage& image) {
     m_textureDirty = true;
 }
 
+GLsync GLTextureViewport::uploadFromWorker(const QImage& image) {
+    // Called from worker thread with a shared GL context already made current.
+    // Uploads decoded QImage directly to m_textureId via PBO (DMA async),
+    // then inserts a GLsync fence for the GUI thread to wait on in paintGL().
+    //
+    // This eliminates the PBO memcpy from the GUI thread critical path
+    // entirely — the worker thread pays the CPU cost instead, and the GUI
+    // thread only draws when the GPU signals the fence is complete.
+
+    if (image.isNull() || image.format() == QImage::Format_Invalid) {
+        return nullptr;
+    }
+
+    // Determine GL pixel layout from QImage format
+    GLPixelLayout layout;
+    QImage glImage;
+    const QImage* src = nullptr;
+    if (chooseGLFormat(image.format(), layout)) {
+        src = &image;  // zero-copy fast path
+    } else {
+        glImage = image.convertedTo(QImage::Format_RGBA8888);
+        chooseGLFormat(QImage::Format_RGBA8888, layout);
+        src = &glImage;
+    }
+
+    const bool sizeChanged = (src->size() != m_textureSize);
+
+    if (sizeChanged) {
+        // Texture size changed: recreate texture (first frame or resolution change).
+        // m_textureId is shared between the worker's context and the GUI's context
+        // because the worker context was created with setShareContext().
+        if (m_textureId != 0) {
+            glDeleteTextures(1, &m_textureId);
+        }
+
+        glGenTextures(1, &m_textureId);
+        glBindTexture(GL_TEXTURE_2D, m_textureId);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+        glPixelStorei(GL_UNPACK_ROW_LENGTH,
+                      src->bytesPerLine() / layout.bytesPerPixel);
+        glTexImage2D(GL_TEXTURE_2D, 0, layout.internalFormat,
+                     src->width(), src->height(), 0,
+                     layout.format, layout.type, src->constBits());
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+
+        m_textureSize = src->size();
+        // m_textureDirty will be set by paintGL after fence is signaled
+    } else {
+        const int rowBytes = src->bytesPerLine();
+        const int totalBytes = rowBytes * src->height();
+
+        if (m_usePbo) {
+            // PBO async upload path: memcpy to mapped PBO, then DMA to texture
+            QOpenGLBuffer& pbo = m_pbo[m_currentPbo];
+            pbo.bind();
+            if (totalBytes != m_pboAllocatedBytes) {
+                pbo.allocate(nullptr, totalBytes);  // orphan + realloc
+                m_pboAllocatedBytes = totalBytes;
+            } else {
+                pbo.allocate(nullptr, totalBytes);  // orphan for driver sync
+            }
+            void* mapped = pbo.map(QOpenGLBuffer::WriteOnly);
+            if (mapped) {
+                std::memcpy(mapped, src->constBits(), size_t(totalBytes));
+                pbo.unmap();
+                glBindTexture(GL_TEXTURE_2D, m_textureId);
+                glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+                glPixelStorei(GL_UNPACK_ROW_LENGTH,
+                              rowBytes / layout.bytesPerPixel);
+                // PBO is bound, so nullptr = byte offset 0 into the PBO
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
+                                src->width(), src->height(),
+                                layout.format, layout.type, nullptr);
+                glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+            }
+            pbo.release();
+            m_currentPbo = nextPboIndex(m_currentPbo);
+        } else {
+            // Direct upload (PBO disabled or unavailable)
+            glBindTexture(GL_TEXTURE_2D, m_textureId);
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+            glPixelStorei(GL_UNPACK_ROW_LENGTH,
+                          rowBytes / layout.bytesPerPixel);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
+                            src->width(), src->height(),
+                            layout.format, layout.type, src->constBits());
+            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+        }
+    }
+
+    // Insert a GPU fence so the GUI thread can wait for the upload to
+    // complete before drawing the texture.
+    auto* f = QOpenGLContext::currentContext()->extraFunctions();
+    Q_ASSERT(f);
+    GLsync fence = f->glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+    f->glFlush();  // ensure all commands are submitted to the GPU
+
+    return fence;
+}
+
 void GLTextureViewport::uploadFrame(const QImage& image,
                                     std::chrono::steady_clock::time_point arrivalTs) {
     m_pendingArrivalTs = arrivalTs;
@@ -370,7 +500,35 @@ void GLTextureViewport::paintGL() {
         FrameSlot* slot = nullptr;
         const int idx = m_frameBuffer->getReadSlot(slot);
         if ( idx >= 0 && slot && !slot->image.isNull() ) {
-            applyFrame(slot->image);
+            if ( slot->uploadFence ) {
+                // Worker thread already uploaded this frame to the shared
+                // texture via its shared GL context. Check if the GPU has
+                // finished the DMA transfer.
+                auto* f = context()->extraFunctions();
+                Q_ASSERT(f);
+                const GLenum result = f->glClientWaitSync(
+                    slot->uploadFence, GL_SYNC_FLUSH_COMMANDS_BIT, 0);
+                if ( result == GL_ALREADY_SIGNALED ||
+                     result == GL_CONDITION_SATISFIED ) {
+                    // GPU upload complete — texture is ready to draw.
+                    f->glDeleteSync(slot->uploadFence);
+                    slot->uploadFence = nullptr;
+                    m_textureDirty = true;
+                    // Update cached size if it changed (first frame or
+                    // resolution change handled by worker).
+                    if ( slot->image.size() != m_textureSize ) {
+                        m_textureSize = slot->image.size();
+                        updateRenderRect();
+                    }
+                }
+                // else: GL_TIMEOUT_EXPIRED or GL_WAIT_FAILED.
+                // Worker hasn't finished DMA yet — skip this frame.
+                // paintGL will retry next tick (VSync or poll timer).
+            } else {
+                // No worker-side upload (fallback path): upload on GUI thread
+                // using the stored QImage.
+                applyFrame(slot->image);
+            }
             m_pendingArrivalTs = slot->arrivalTs;
             if ( !slot->remoteSize.isEmpty() ) {
                 setRemoteSize(slot->remoteSize);

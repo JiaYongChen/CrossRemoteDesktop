@@ -17,6 +17,12 @@
 
 class QTimer;
 
+#ifndef QT_NO_OPENGL
+class GLTextureViewport;
+class QOpenGLContext;
+class QOffscreenSurface;
+#endif
+
 class SessionManager : public QObject {
     Q_OBJECT
 
@@ -80,6 +86,15 @@ public:
     // Triple-buffered lock-free frame delivery
     TripleBuffer<FrameSlot>* frameBuffer() { return &m_frameBuffer; }
 
+#ifndef QT_NO_OPENGL
+    /// Initialize a shared OpenGL context for worker-thread texture upload.
+    /// @param shareContext The GUI thread's GL context to share resources with.
+    void initializeGLUpload(QOpenGLContext* shareContext);
+
+    /// Set the GLTextureViewport reference for worker-side frame upload.
+    void setGLViewportForUpload(GLTextureViewport* vp) { m_glViewportForUpload = vp; }
+#endif
+
 public slots:
     // 连接控制（声明为 slot 以支持跨线程调用）
     void connectToHost(const QString& host, int port);
@@ -134,5 +149,13 @@ private:
 
     // 配置
     int m_frameRate;
+
+#ifndef QT_NO_OPENGL
+    // Shared GL context for worker-thread texture upload
+    QOpenGLContext* m_glContext = nullptr;
+    QOffscreenSurface* m_glSurface = nullptr;
+    bool m_glUploadReady = false;
+    GLTextureViewport* m_glViewportForUpload = nullptr;
+#endif
 };
 

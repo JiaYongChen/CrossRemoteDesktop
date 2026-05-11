@@ -14,6 +14,7 @@
 #include <QtCore/QTimer>
 #include <QtGui/qopengl.h>
 #include <chrono>
+#include <atomic>
 
 #include "../core/TripleBuffer.h"
 #include "../core/FrameSlot.h"
@@ -139,11 +140,30 @@ public:
      */
     void attachFrameBuffer(TripleBuffer<FrameSlot>* buffer);
 
+    /**
+     * @brief Upload decoded frame data directly to the GPU texture via PBO.
+     *
+     * Designed to be called from a worker thread that has made a shared
+     * OpenGL context current. Uses m_textureId and m_pbo[] which are
+     * automatically shared because the worker's context was created with
+     * setShareContext().
+     *
+     * @param image Decoded frame (any QImage::Format, converted internally).
+     * @return GLsync fence for the GUI thread to wait on, or nullptr on failure.
+     */
+    GLsync uploadFromWorker(const QImage& image);
+
 signals:
     /**
      * @brief Emitted when the viewport is resized and render rect changes.
      */
     void renderRectChanged(const QRectF& rect);
+
+    /**
+     * @brief Emitted after initializeGL() completes, carrying the GL context
+     *        that worker threads can share for cross-thread texture upload.
+     */
+    void glContextReady(QOpenGLContext* context);
 
 protected:
     void initializeGL() override;

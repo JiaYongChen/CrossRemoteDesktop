@@ -287,6 +287,19 @@ QString ClientManager::connectToHost(const QString& host, int port) {
         auto* gl = instance->remoteDesktopWindow->glViewport();
         if ( gl && instance->sessionManager ) {
             gl->attachFrameBuffer(instance->sessionManager->frameBuffer());
+
+            // Wire worker-thread GL upload: when the GL context is ready,
+            // initialize a shared context on the worker thread so that
+            // SessionManager::handleScreenData() can upload textures directly
+            // to the GPU via PBO, eliminating the CPU memcpy from the GUI
+            // thread's critical path.
+            instance->sessionManager->setGLViewportForUpload(gl);
+
+            QObject::connect(gl, &GLTextureViewport::glContextReady,
+                instance->sessionManager,
+                [sm = instance->sessionManager.data()](QOpenGLContext* ctx) {
+                    sm->initializeGLUpload(ctx);
+                }, Qt::QueuedConnection);
         }
     }
 #endif

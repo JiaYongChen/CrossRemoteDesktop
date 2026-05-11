@@ -1061,6 +1061,32 @@ if(TARGET run_all_tests)
 endif()
 
 # ============================================================================
+# GL Worker Upload 单元测试 (Task 3: Worker thread writes GPU texture directly)
+# ============================================================================
+qt_add_executable(test_gl_worker_upload
+    test_gl_worker_upload.cpp
+    ../src/client/window/GLTextureViewport.cpp
+)
+target_link_libraries(test_gl_worker_upload PRIVATE
+    Qt6::Core Qt6::Test Qt6::Gui
+    Qt6::OpenGL Qt6::OpenGLWidgets
+    common_test_core
+)
+add_test(
+    NAME GLWorkerUploadTest
+    COMMAND test_gl_worker_upload
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+)
+set_tests_properties(GLWorkerUploadTest PROPERTIES
+    TIMEOUT 30
+    LABELS "unit;client;gl"
+    ENVIRONMENT "${_TEST_BASE_ENV}"
+)
+if(TARGET run_all_tests)
+    add_dependencies(run_all_tests test_gl_worker_upload)
+endif()
+
+# ============================================================================
 # TripleBuffer 无锁帧交换单元测试 (Task 2: Triple-Buffered lock-free swap)
 # ============================================================================
 qt_add_executable(test_triple_buffer_swap
