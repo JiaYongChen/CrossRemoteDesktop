@@ -26,6 +26,7 @@ private slots:
         const auto cfg = RenderConfig::load();
         QVERIFY(cfg.gl.vsyncEnabled);
         QVERIFY(cfg.gl.usePbo);
+        QVERIFY(cfg.gl.usePersistentPbo);
     }
     void testVSyncCanBeDisabled() {
         QSettings s;
@@ -35,6 +36,15 @@ private slots:
         s.sync();
         const auto cfg = RenderConfig::load();
         QVERIFY(!cfg.gl.vsyncEnabled);
+    }
+    void testPersistentPboCanBeDisabled() {
+        QSettings s;
+        s.beginGroup("RemoteDesktop/Render");
+        s.setValue("UsePersistentPbo", false);
+        s.endGroup();
+        s.sync();
+        const auto cfg = RenderConfig::load();
+        QVERIFY(!cfg.gl.usePersistentPbo);
     }
 };
 

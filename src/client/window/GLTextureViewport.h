@@ -225,14 +225,23 @@ private:
     // VSync toggle
     bool m_vsyncEnabled = true;
 
-    // PBO double-buffered async upload
+    // PBO double-buffered async upload (traditional map/unmap path)
     QOpenGLBuffer m_pbo[kPboCount] = {
         QOpenGLBuffer(QOpenGLBuffer::PixelUnpackBuffer),
         QOpenGLBuffer(QOpenGLBuffer::PixelUnpackBuffer),
     };
-    int m_currentPbo = 0;
-    int m_pboAllocatedBytes = 0;  // current PBO size
+    int m_currentPbo = 0;        // GUI thread ring-buffer index
+    int m_pboAllocatedBytes = 0; // current PBO size
     bool m_usePbo = true;
+
+    // Persistent mapped PBO (GL_ARB_buffer_storage)
+    bool m_usePersistentPbo = false;
+    void* m_persistentPtr[kPboCount] = {nullptr, nullptr};
+    GLuint m_persistentId[kPboCount] = {0, 0};
+    int m_sharedPboIndex = 0;    // worker thread ring-buffer index
+
+    void createPersistentPBOs(int size);
+    void destroyPersistentPBOs();
 
     // Dirty-frame gating for paintGL
     bool m_textureDirty = false;

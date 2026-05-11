@@ -5,6 +5,7 @@
 #include "../../common/core/config/RenderConfig.h"
 
 #include <QtGui/QOpenGLExtraFunctions>
+#include <QtGui/QOpenGLContext>
 #include <algorithm>  // std::max
 #include <chrono>
 #include <cstring>    // std::memcpy
@@ -35,6 +36,14 @@
 #endif
 #ifndef GL_WAIT_FAILED
 #  define GL_WAIT_FAILED                0x911D
+#endif
+
+// GL_ARB_buffer_storage / GL 4.4+ constants not guaranteed by all GL headers
+#ifndef GL_MAP_PERSISTENT_BIT
+#  define GL_MAP_PERSISTENT_BIT  0x0040
+#endif
+#ifndef GL_MAP_COHERENT_BIT
+#  define GL_MAP_COHERENT_BIT    0x0080
 #endif
 
 bool GLTextureViewport::chooseGLFormat(QImage::Format f, GLPixelLayout& out) {
@@ -230,6 +239,7 @@ void GLTextureViewport::initializeGeometry() {
 }
 
 void GLTextureViewport::cleanupGL() {
+    destroyPersistentPBOs();
     if ( m_textureId != 0 ) {
         glDeleteTextures(1, &m_textureId);
         m_textureId = 0;
@@ -240,10 +250,100 @@ void GLTextureViewport::cleanupGL() {
     }
     m_pboAllocatedBytes = 0;
     m_currentPbo = 0;
+    m_sharedPboIndex = 0;
     m_vao.destroy();
     delete m_shaderProgram;
     m_shaderProgram = nullptr;
     m_glInitialized = false;
+}
+
+void GLTextureViewport::createPersistentPBOs(int size) {
+    // Check extension support via the widget's GL context
+    QOpenGLContext* ctx = QOpenGLContext::currentContext();
+    if (!ctx) {
+        qCWarning(lcGLViewport) << "No current GL context for persistent PBO init";
+        m_usePersistentPbo = false;
+        return;
+    }
+
+    const bool hasBufferStorage = ctx->hasExtension(
+        QByteArrayLiteral("GL_ARB_buffer_storage"));
+    if (!hasBufferStorage) {
+        qCInfo(lcGLViewport) << "GL_ARB_buffer_storage not supported, using traditional PBO";
+        m_usePersistentPbo = false;
+        return;
+    }
+
+    // Resolve glBufferStorage via getProcAddress — it is a GL 4.4+ function
+    // not exposed through QOpenGLExtraFunctions.
+    using GLBufferStorageProc = void (*)(GLenum, GLsizeiptr, const void*, GLbitfield);
+    auto glBufferStorageFn = reinterpret_cast<GLBufferStorageProc>(
+        ctx->getProcAddress(QByteArrayLiteral("glBufferStorage")));
+    if (!glBufferStorageFn) {
+        qCInfo(lcGLViewport) << "glBufferStorage not resolvable, using traditional PBO";
+        m_usePersistentPbo = false;
+        return;
+    }
+
+    auto* f = ctx->extraFunctions();
+    if (!f) {
+        qCWarning(lcGLViewport) << "Cannot get GL extraFunctions for persistent PBO";
+        m_usePersistentPbo = false;
+        return;
+    }
+
+    for (int i = 0; i < kPboCount; ++i) {
+        // Destroy old PBO if it already exists (for resize)
+        if (m_persistentId[i] != 0) {
+            f->glDeleteBuffers(1, &m_persistentId[i]);
+            m_persistentPtr[i] = nullptr;
+            m_persistentId[i] = 0;
+        }
+
+        f->glGenBuffers(1, &m_persistentId[i]);
+        f->glBindBuffer(GL_PIXEL_UNPACK_BUFFER, m_persistentId[i]);
+
+        const GLbitfield storageFlags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
+        glBufferStorageFn(GL_PIXEL_UNPACK_BUFFER, size, nullptr, storageFlags);
+
+        const GLbitfield mapFlags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
+        m_persistentPtr[i] = f->glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, size, mapFlags);
+
+        if (!m_persistentPtr[i]) {
+            qCWarning(lcGLViewport) << "Persistent PBO map failed for slot" << i;
+            m_usePersistentPbo = false;
+            destroyPersistentPBOs();
+            return;
+        }
+
+        f->glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+    }
+
+    m_pboAllocatedBytes = size;
+    m_usePersistentPbo = true;
+    qCInfo(lcGLViewport) << "Persistent PBOs created:" << size << "bytes x" << kPboCount;
+}
+
+void GLTextureViewport::destroyPersistentPBOs() {
+    QOpenGLContext* ctx = QOpenGLContext::currentContext();
+    auto* f = ctx ? ctx->extraFunctions() : nullptr;
+    for (int i = 0; i < kPboCount; ++i) {
+        if (m_persistentId[i] != 0 && f) {
+            f->glBindBuffer(GL_PIXEL_UNPACK_BUFFER, m_persistentId[i]);
+            if (m_persistentPtr[i]) {
+                f->glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+                m_persistentPtr[i] = nullptr;
+            }
+            f->glDeleteBuffers(1, &m_persistentId[i]);
+            m_persistentId[i] = 0;
+        } else if (m_persistentId[i] != 0) {
+            // Context may be gone during destruction (e.g., app shutdown)
+            m_persistentPtr[i] = nullptr;
+            m_persistentId[i] = 0;
+        }
+    }
+    m_usePersistentPbo = false;
+    m_pboAllocatedBytes = 0;
 }
 
 void GLTextureViewport::applyFrame(const QImage& image) {
@@ -410,8 +510,43 @@ GLsync GLTextureViewport::uploadFromWorker(const QImage& image) {
         const int rowBytes = src->bytesPerLine();
         const int totalBytes = rowBytes * src->height();
 
-        if (m_usePbo) {
-            // PBO async upload path: memcpy to mapped PBO, then DMA to texture
+        // Lazy init persistent PBOs on first same-size frame
+        if (m_usePbo && !m_usePersistentPbo && m_persistentId[0] == 0) {
+            const auto cfg = RenderConfig::load();
+            m_usePersistentPbo = cfg.gl.usePersistentPbo;
+            if (m_usePersistentPbo) {
+                createPersistentPBOs(totalBytes);
+            }
+        }
+
+        // Resize persistent PBOs if frame dimensions changed
+        if (m_usePersistentPbo && totalBytes != m_pboAllocatedBytes) {
+            destroyPersistentPBOs();
+            createPersistentPBOs(totalBytes);
+        }
+
+        if (m_usePersistentPbo && m_persistentPtr[m_sharedPboIndex]) {
+            // Fast persistent-mapped PBO path: direct memcpy, no alloc/map/unmap
+            std::memcpy(m_persistentPtr[m_sharedPboIndex], src->constBits(), size_t(totalBytes));
+
+            auto* f = QOpenGLContext::currentContext()->extraFunctions();
+            Q_ASSERT(f);
+            f->glBindBuffer(GL_PIXEL_UNPACK_BUFFER, m_persistentId[m_sharedPboIndex]);
+
+            glBindTexture(GL_TEXTURE_2D, m_textureId);
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+            glPixelStorei(GL_UNPACK_ROW_LENGTH, rowBytes / layout.bytesPerPixel);
+            // When a PBO is bound, the data pointer is interpreted as a byte
+            // offset into the PBO — nullptr means offset 0.
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
+                            src->width(), src->height(),
+                            layout.format, layout.type, nullptr);
+            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+
+            f->glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);  // unbind
+            m_sharedPboIndex = nextPboIndex(m_sharedPboIndex);
+        } else if (m_usePbo) {
+            // Traditional PBO async upload path (fallback)
             QOpenGLBuffer& pbo = m_pbo[m_currentPbo];
             pbo.bind();
             if (totalBytes != m_pboAllocatedBytes) {

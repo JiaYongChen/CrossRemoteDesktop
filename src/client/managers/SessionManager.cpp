@@ -5,6 +5,7 @@
 #ifndef QT_NO_OPENGL
 #include "../window/GLTextureViewport.h"
 #include <QtGui/QOpenGLContext>
+#include <QtGui/QOpenGLExtraFunctions>
 #include <QtGui/QOffscreenSurface>
 #endif
 #include <QtCore/QBuffer>

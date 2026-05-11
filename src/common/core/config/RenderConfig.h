@@ -18,6 +18,7 @@ struct ClientFrame {
 struct GL {
     bool vsyncEnabled = true;
     bool usePbo = true;
+    bool usePersistentPbo = true;
 };
 
 struct Client {
@@ -41,6 +42,7 @@ inline Client load() {
     cfg.frame.queueCapacity = settings.value(QStringLiteral("QueueCapacity"), 5).toInt();
     cfg.gl.vsyncEnabled = settings.value(QStringLiteral("VSync"), true).toBool();
     cfg.gl.usePbo = settings.value(QStringLiteral("UsePbo"), true).toBool();
+    cfg.gl.usePersistentPbo = settings.value(QStringLiteral("UsePersistentPbo"), true).toBool();
     settings.endGroup();
     return cfg;
 }
