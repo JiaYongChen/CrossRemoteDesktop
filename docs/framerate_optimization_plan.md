@@ -2,7 +2,7 @@
 
 > 文档版本: 1.0  
 > 日期: 2026-04-10  
-> 状态: 3.3.3 已完成（2026-05-07），其余章节待评估
+> 状态: 3.3.3 已完成（2026-04-24 第一轮 + 2026-05-11 第二轮激进重构）
 
 ---
 
@@ -301,6 +301,13 @@ void RenderManager::setRemoteScreen(const QImage& image) {
 - 端到玻璃延迟度量 (commit `6f05f23`)：lcRefreshMetrics 日志分类
 
 详细迭代过程与度量方法见 `docs/superpowers/plans/2026-04-24-client-refresh-rate-optimization.md`。
+
+第二轮激进重构 (2026-05-11，commit `47ceb8c` ~ `9b175df`)：
+- 移除 QGraphicsView 回退路径，GLTextureViewport 成为唯一渲染表面 (commit `b4378a8`)
+- Triple-Buffered 无锁跨线程帧交换替代 QQueue+信号 (commit `47ceb8c`)
+- Worker 线程通过共享 GL 上下文直写 GPU 纹理 (commit `f64d2cf`)
+- Persistent Mapped PBO (GL_ARB_buffer_storage) 消除每帧 alloc/map 开销 (commit `9b175df`)
+详细迭代过程见 `docs/superpowers/plans/2026-05-07-client-render-radical-refactor.md`。
 
 #### 3.3.4 验收标准
 
