@@ -1,4 +1,4 @@
-# Qt Remote Desktop
+# Cross Remote Desktop
 
 一个基于 Qt 6.9.3 的高性能跨平台远程桌面应用程序，支持 macOS、Windows 与 Linux 之间的远程连接与控制。
 
