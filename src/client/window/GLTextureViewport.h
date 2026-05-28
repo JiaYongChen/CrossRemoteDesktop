@@ -15,6 +15,7 @@
 #include <QtGui/qopengl.h>
 #include <chrono>
 #include <atomic>
+#include <atomic>
 
 #include "../core/TripleBuffer.h"
 #include "../core/FrameSlot.h"
@@ -204,8 +205,13 @@ private:
      */
     void cleanupGL();
 
-    // OpenGL resources
-    GLuint m_textureId = 0;
+    // OpenGL resources — double-buffered textures to eliminate
+    // worker/GUI read-write race on shared GL objects:
+    // - Worker writes to texture[1 - displayTexIndex] via shared context
+    // - GUI renders from texture[displayTexIndex]
+    // - After worker's fence is signaled, swap displayTexIndex atomically
+    GLuint m_textureId[2] = {0, 0};
+    std::atomic<int> m_displayTexIndex{0};
     QOpenGLShaderProgram* m_shaderProgram = nullptr;
     QOpenGLBuffer m_vertexBuffer;
     QOpenGLVertexArrayObject m_vao;
