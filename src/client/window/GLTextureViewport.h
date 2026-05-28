@@ -15,7 +15,6 @@
 #include <QtGui/qopengl.h>
 #include <chrono>
 #include <atomic>
-#include <atomic>
 
 #include "../core/TripleBuffer.h"
 #include "../core/FrameSlot.h"
@@ -94,7 +93,7 @@ public:
     /**
      * @brief Check if a texture has been uploaded.
      */
-    bool hasTexture() const { return m_textureId != 0; }
+    bool hasTexture() const { return m_textureId[0] != 0; }
 
     /**
      * @brief Get the current texture dimensions.

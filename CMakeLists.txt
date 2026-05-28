@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(QtRemoteDesktop VERSION 1.0.0 LANGUAGES CXX C)
+project(CrossRemoteDesktop VERSION 1.0.0 LANGUAGES CXX C)
 
 # 设置C++标准
 set(CMAKE_CXX_STANDARD 20)
@@ -330,13 +330,13 @@ file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS
 set(SOURCES ${PROJECT_SOURCES})
 
 # 生成可执行文件
-qt_add_executable(QtRemoteDesktop
+qt_add_executable(CrossRemoteDesktop
     ${SOURCES}
     resources/resources.qrc
 )
 
 # 头文件包含目录（为便于使用诸如 "common/core/..." 和 "config/..." 的包含路径）
-target_include_directories(QtRemoteDesktop PRIVATE
+target_include_directories(CrossRemoteDesktop PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/common
     ${CMAKE_CURRENT_SOURCE_DIR}/src/common/core
@@ -590,7 +590,7 @@ endif()
 # 链接库
 # zstd::zstd imported target provides both include directories and per-config
 # library selection (Debug/Release on MSVC), avoiding CRT mismatch (LNK4098).
-target_link_libraries(QtRemoteDesktop PRIVATE
+target_link_libraries(CrossRemoteDesktop PRIVATE
     Qt6::Core
     Qt6::Widgets
     Qt6::Network
@@ -606,7 +606,25 @@ target_link_libraries(QtRemoteDesktop PRIVATE
 
 # Windows: link D3D11 and DXGI for Desktop Duplication capture
 if(WIN32)
-    target_link_libraries(QtRemoteDesktop PRIVATE d3d11.lib dxgi.lib)
+    target_link_libraries(CrossRemoteDesktop PRIVATE d3d11.lib dxgi.lib)
+endif()
+
+# Windows下使用 windeployqt 自动部署 Qt 运行时依赖
+# windeployqt 自动解析可执行文件的 Qt 依赖并拷贝：
+#   - Qt 运行时 DLL（Core、Gui、Widgets、Network、OpenGL 等）
+#   - 平台插件（platforms/qwindows.dll）
+#   - 图像格式插件（imageformats/）
+#   - 图标引擎插件（iconengines/）
+#   - 样式插件（styles/）
+#   - TLS 插件（tls/）
+# --no-translations：翻译文件通过 .qrc 嵌入，无需部署外部 .qm
+if(WIN32 AND EXISTS "${QT6_ROOT_DIR}/bin/windeployqt.exe")
+    add_custom_command(TARGET CrossRemoteDesktop POST_BUILD
+        COMMAND "${QT6_ROOT_DIR}/bin/windeployqt.exe"
+            --no-translations
+            "$<TARGET_FILE:CrossRemoteDesktop>"
+        COMMENT "Running windeployqt to deploy Qt runtime dependencies"
+    )
 endif()
 
 # Windows下自动拷贝OpenSSL运行时DLL到输出目录（TLS所需）
@@ -618,52 +636,52 @@ if(WIN32 AND EXISTS "${OPENSSL_TP_BIN}/libssl-3-x64.dll")
     # D-suffix source file name, but always copy as the original name for runtime loading
     set(_ssl_dll_src "$<IF:$<CONFIG:Debug>,libssl-3-x64D.dll,libssl-3-x64.dll>")
     set(_crypto_dll_src "$<IF:$<CONFIG:Debug>,libcrypto-3-x64D.dll,libcrypto-3-x64.dll>")
-    add_custom_command(TARGET QtRemoteDesktop POST_BUILD
+    add_custom_command(TARGET CrossRemoteDesktop POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${OPENSSL_TP_BIN}/${_ssl_dll_src}"
-            "$<TARGET_FILE_DIR:QtRemoteDesktop>/libssl-3-x64.dll"
+            "$<TARGET_FILE_DIR:CrossRemoteDesktop>/libssl-3-x64.dll"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${OPENSSL_TP_BIN}/${_crypto_dll_src}"
-            "$<TARGET_FILE_DIR:QtRemoteDesktop>/libcrypto-3-x64.dll"
+            "$<TARGET_FILE_DIR:CrossRemoteDesktop>/libcrypto-3-x64.dll"
         COMMENT "Copying OpenSSL DLLs to output directory"
     )
     # 拷贝 Qt TLS 插件到输出目录，确保 Qt 能找到 OpenSSL 后端
     set(QT_TLS_PLUGIN_DIR "${QT6_ROOT_DIR}/plugins/tls")
     if(EXISTS "${QT_TLS_PLUGIN_DIR}")
-        add_custom_command(TARGET QtRemoteDesktop POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:QtRemoteDesktop>/tls"
+        add_custom_command(TARGET CrossRemoteDesktop POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:CrossRemoteDesktop>/tls"
             COMMAND ${CMAKE_COMMAND} -E copy_directory
                 "${QT_TLS_PLUGIN_DIR}"
-                "$<TARGET_FILE_DIR:QtRemoteDesktop>/tls"
+                "$<TARGET_FILE_DIR:CrossRemoteDesktop>/tls"
             COMMENT "Copying Qt TLS plugins to output directory"
         )
     endif()
     # 拷贝 Qt6Svg 运行时 DLL 到输出目录（SVG 插件的核心依赖）
     set(QT_BIN_DIR "${QT6_ROOT_DIR}/bin")
-    add_custom_command(TARGET QtRemoteDesktop POST_BUILD
+    add_custom_command(TARGET CrossRemoteDesktop POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${QT_BIN_DIR}/$<IF:$<CONFIG:Debug>,Qt6Svgd.dll,Qt6Svg.dll>"
-            "$<TARGET_FILE_DIR:QtRemoteDesktop>/"
+            "$<TARGET_FILE_DIR:CrossRemoteDesktop>/"
         COMMENT "Copying Qt6Svg runtime DLL to output directory"
     )
     # 拷贝 Qt SVG 插件到输出目录，确保 QIcon 能正确渲染 SVG 图标
     set(QT_IMAGEFORMATS_DIR "${QT6_ROOT_DIR}/plugins/imageformats")
     set(QT_ICONENGINES_DIR "${QT6_ROOT_DIR}/plugins/iconengines")
     if(EXISTS "${QT_IMAGEFORMATS_DIR}")
-        add_custom_command(TARGET QtRemoteDesktop POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:QtRemoteDesktop>/imageformats"
+        add_custom_command(TARGET CrossRemoteDesktop POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:CrossRemoteDesktop>/imageformats"
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 "${QT_IMAGEFORMATS_DIR}/$<IF:$<CONFIG:Debug>,qsvgd.dll,qsvg.dll>"
-                "$<TARGET_FILE_DIR:QtRemoteDesktop>/imageformats/"
+                "$<TARGET_FILE_DIR:CrossRemoteDesktop>/imageformats/"
             COMMENT "Copying Qt SVG imageformat plugin to output directory"
         )
     endif()
     if(EXISTS "${QT_ICONENGINES_DIR}")
-        add_custom_command(TARGET QtRemoteDesktop POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:QtRemoteDesktop>/iconengines"
+        add_custom_command(TARGET CrossRemoteDesktop POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:CrossRemoteDesktop>/iconengines"
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 "${QT_ICONENGINES_DIR}/$<IF:$<CONFIG:Debug>,qsvgicond.dll,qsvgicon.dll>"
-                "$<TARGET_FILE_DIR:QtRemoteDesktop>/iconengines/"
+                "$<TARGET_FILE_DIR:CrossRemoteDesktop>/iconengines/"
             COMMENT "Copying Qt SVG icon engine plugin to output directory"
         )
     endif()
@@ -672,12 +690,12 @@ endif()
 # 定义宏与编译选项（debug 日志开关、平台宏等）
 # 说明：日志输出使用 QLoggingCategory，默认级别为 debug（通过运行时环境变量控制过滤）。
 # 使用生成器表达式而非 CMAKE_BUILD_TYPE，确保在多配置生成器（Visual Studio）下也能正确生效。
-target_compile_definitions(QtRemoteDesktop PRIVATE
+target_compile_definitions(CrossRemoteDesktop PRIVATE
     $<$<CONFIG:Debug>:QT_MESSAGELOGCONTEXT>
 )
 
 # 安装规则（可根据需要扩展）
-install(TARGETS QtRemoteDesktop
+install(TARGETS CrossRemoteDesktop
         RUNTIME DESTINATION bin)
 
 # 启用CTest测试收集（顶层）

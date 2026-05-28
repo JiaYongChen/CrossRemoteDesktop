@@ -16,7 +16,7 @@
  * 这些类型用于数据传输、状态管理和配置等场景。
  */
 
-namespace QtRemoteDesktop {
+namespace CrossRemoteDesktop {
 
     /**
      * @brief 连接状态枚举
@@ -125,13 +125,13 @@ namespace QtRemoteDesktop {
         }
     };
 
-} // namespace QtRemoteDesktop
+} // namespace CrossRemoteDesktop
 
 // 注册元类型以支持信号槽传递
-Q_DECLARE_METATYPE(QtRemoteDesktop::ConnectionState)
-Q_DECLARE_METATYPE(QtRemoteDesktop::SessionState)
-Q_DECLARE_METATYPE(QtRemoteDesktop::QualityLevel)
-Q_DECLARE_METATYPE(QtRemoteDesktop::ErrorLevel)
-Q_DECLARE_METATYPE(QtRemoteDesktop::PerformanceStats)
-Q_DECLARE_METATYPE(QtRemoteDesktop::ConnectionInfo)
-Q_DECLARE_METATYPE(QtRemoteDesktop::ScreenInfo)
+Q_DECLARE_METATYPE(CrossRemoteDesktop::ConnectionState)
+Q_DECLARE_METATYPE(CrossRemoteDesktop::SessionState)
+Q_DECLARE_METATYPE(CrossRemoteDesktop::QualityLevel)
+Q_DECLARE_METATYPE(CrossRemoteDesktop::ErrorLevel)
+Q_DECLARE_METATYPE(CrossRemoteDesktop::PerformanceStats)
+Q_DECLARE_METATYPE(CrossRemoteDesktop::ConnectionInfo)
+Q_DECLARE_METATYPE(CrossRemoteDesktop::ScreenInfo)

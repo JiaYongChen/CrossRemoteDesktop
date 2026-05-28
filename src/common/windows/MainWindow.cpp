@@ -49,6 +49,9 @@ MainWindow::MainWindow(QWidget* parent)
     , m_mainSplitter(nullptr)
     , m_connectionList(nullptr)
     , m_welcomeWidget(nullptr)
+    , m_welcomeTitleLabel(nullptr)
+    , m_welcomeDescLabel(nullptr)
+    , m_welcomeHistoryLabel(nullptr)
     , m_trayIcon(nullptr)
     , m_connectionDialog(nullptr)
     , m_settingsDialog(nullptr)
@@ -246,27 +249,27 @@ void MainWindow::createWelcomeWidget() {
     mainLayout->setSpacing(20);
 
     // 欢迎标题
-    QLabel* titleLabel = new QLabel(tr("欢迎使用Qt远程桌面"));
-    QFont titleFont = titleLabel->font();
+    m_welcomeTitleLabel = new QLabel(tr("欢迎使用Qt远程桌面"));
+    QFont titleFont = m_welcomeTitleLabel->font();
     titleFont.setPointSize(24);
     titleFont.setBold(true);
-    titleLabel->setFont(titleFont);
-    titleLabel->setAlignment(Qt::AlignCenter);
-    titleLabel->setStyleSheet("color: #2c3e50; margin-bottom: 10px;");
+    m_welcomeTitleLabel->setFont(titleFont);
+    m_welcomeTitleLabel->setAlignment(Qt::AlignCenter);
+    m_welcomeTitleLabel->setStyleSheet("color: #2c3e50; margin-bottom: 10px;");
 
     // 描述文本
-    QLabel* descLabel = new QLabel(tr("使用左侧按钮连接到远程计算机。"));
-    descLabel->setAlignment(Qt::AlignCenter);
-    descLabel->setWordWrap(true);
-    descLabel->setStyleSheet("color: #7f8c8d; font-size: 14px;");
+    m_welcomeDescLabel = new QLabel(tr("使用左侧按钮连接到远程计算机。"));
+    m_welcomeDescLabel->setAlignment(Qt::AlignCenter);
+    m_welcomeDescLabel->setWordWrap(true);
+    m_welcomeDescLabel->setStyleSheet("color: #7f8c8d; font-size: 14px;");
 
     // 连接历史记录部分
-    QLabel* historyLabel = new QLabel(tr("连接历史记录"));
-    QFont historyFont = historyLabel->font();
+    m_welcomeHistoryLabel = new QLabel(tr("连接历史记录"));
+    QFont historyFont = m_welcomeHistoryLabel->font();
     historyFont.setPointSize(16);
     historyFont.setBold(true);
-    historyLabel->setFont(historyFont);
-    historyLabel->setStyleSheet("color: #2c3e50; margin-top: 20px;");
+    m_welcomeHistoryLabel->setFont(historyFont);
+    m_welcomeHistoryLabel->setStyleSheet("color: #2c3e50; margin-top: 20px;");
 
     // 创建历史记录列表
     m_connectionList = new QListWidget;
@@ -323,11 +326,11 @@ void MainWindow::createWelcomeWidget() {
         this, &MainWindow::onConnectionItemDoubleClicked);
 
     // 添加到主布局
-    mainLayout->addWidget(titleLabel);
+    mainLayout->addWidget(m_welcomeTitleLabel);
     mainLayout->addSpacing(10);
-    mainLayout->addWidget(descLabel);
+    mainLayout->addWidget(m_welcomeDescLabel);
     mainLayout->addSpacing(30);
-    mainLayout->addWidget(historyLabel);
+    mainLayout->addWidget(m_welcomeHistoryLabel);
     mainLayout->addSpacing(10);
     mainLayout->addWidget(m_connectionList);
     mainLayout->addStretch();
@@ -490,7 +493,71 @@ void MainWindow::changeEvent(QEvent* event) {
         if ( isMinimized() && m_trayIcon && m_trayIcon->isVisible() ) {
             hide();
         }
+    } else if ( event->type() == QEvent::LanguageChange ) {
+        qCInfo(lcUI) << "MainWindow::changeEvent - LanguageChange received, calling retranslateUi";
+        retranslateUi();
+        qCInfo(lcUI) << "MainWindow::changeEvent - retranslateUi completed";
     }
+}
+
+void MainWindow::retranslateUi() {
+    qCInfo(lcUI) << "MainWindow::retranslateUi - starting UI retranslation";
+    setWindowTitle(tr("Qt远程桌面"));
+
+    // 动作文本
+    m_newConnectionAction->setText(tr("新建连接(&N)..."));
+    m_newConnectionAction->setStatusTip(tr("创建新的远程连接"));
+    m_exitAction->setText(tr("退出(&X)"));
+    m_exitAction->setStatusTip(tr("退出应用程序"));
+    m_connectAction->setText(tr("连接(&C)"));
+    m_connectAction->setStatusTip(tr("连接到远程主机"));
+    m_settingsAction->setText(tr("设置(&S)..."));
+    m_settingsAction->setStatusTip(tr("配置应用程序设置"));
+    m_aboutAction->setText(tr("关于(&A)"));
+    m_aboutAction->setStatusTip(tr("显示应用程序的关于对话框"));
+    m_aboutQtAction->setText(tr("关于Qt(&Q)"));
+    m_aboutQtAction->setStatusTip(tr("显示Qt库的关于对话框"));
+
+    // 系统托盘动作
+    m_minimizeAction->setText(tr("最小化(&N)"));
+    m_maximizeAction->setText(tr("最大化(&X)"));
+    m_restoreAction->setText(tr("恢复(&R)"));
+
+    // 菜单标题
+    m_fileMenu->setTitle(tr("文件(&F)"));
+    m_connectionMenu->setTitle(tr("连接(&C)"));
+    m_toolsMenu->setTitle(tr("工具(&T)"));
+    m_helpMenu->setTitle(tr("帮助(&H)"));
+
+    // 工具栏
+    m_mainToolBar->setWindowTitle(tr("主工具栏"));
+
+    // 状态栏
+    m_connectionStatusLabel->setText(tr("未连接"));
+    m_serverStatusLabel->setText(tr("服务器已停止"));
+    m_performanceLabel->setText(tr("CPU: 0% | 内存: 0MB"));
+    statusBar()->showMessage(tr("就绪"));
+
+    // 欢迎页面
+    if ( m_welcomeTitleLabel ) m_welcomeTitleLabel->setText(tr("欢迎使用Qt远程桌面"));
+    if ( m_welcomeDescLabel ) m_welcomeDescLabel->setText(tr("使用左侧按钮连接到远程计算机。"));
+    if ( m_welcomeHistoryLabel ) m_welcomeHistoryLabel->setText(tr("连接历史记录"));
+
+    // 刷新连接历史列表项中的翻译文本
+    for (int i = 0; i < m_connectionList->count(); ++i) {
+        QListWidgetItem* item = m_connectionList->item(i);
+        if ( item ) {
+            QString host = item->data(Qt::UserRole).toString();
+            int port = item->data(Qt::UserRole + 1).toInt();
+            QString connTime = item->data(Qt::UserRole + 2).toString();
+            QLabel* label = qobject_cast<QLabel*>(m_connectionList->itemWidget(item));
+            if ( label ) {
+                label->setText(formatConnectionText(host, port, connTime));
+            }
+        }
+    }
+
+    qCInfo(lcUI) << "MainWindow::retranslateUi - UI retranslation done, windowTitle:" << windowTitle();
 }
 
 // 槽函数实现
@@ -547,7 +614,7 @@ void MainWindow::startServer() {
                 "<li>点击<b>隐私</b>标签</li>"
                 "<li>在左侧列表中选择<b>辅助功能</b></li>"
                 "<li>点击左下角的锁图标解锁</li>"
-                "<li>在右侧列表中勾选<b>QtRemoteDesktop</b></li>"
+                "<li>在右侧列表中勾选<b>CrossRemoteDesktop</b></li>"
                 "</ol>"
                 "<p>授予权限后，请重启应用程序。</p>"));
         // 尝试打开系统设置
@@ -1034,7 +1101,7 @@ void MainWindow::setClientMode(bool clientMode) {
 }
 
 QString MainWindow::formatConnectionText(const QString& host, int port, const QString& connectionTime) {
-    return QString("主机: %1\n端口: %2\n连接时间: %3")
+    return tr("主机: %1\n端口: %2\n连接时间: %3")
         .arg(host)
         .arg(port)
         .arg(connectionTime);

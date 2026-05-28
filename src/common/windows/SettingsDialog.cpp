@@ -24,12 +24,15 @@
 #include <QtCore/QSettings>
 #include <QtWidgets/QApplication>
 #include <QtGui/QScreen>
+#include <QtCore/QEvent>
 #include <QtCore/QTimer>
+#include <QtCore/QVariant>
 #include <QtWidgets/QProgressDialog>
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
 #include <QtCore/QCryptographicHash>
 #include "common/core/config/Config.h"
+#include "common/core/TranslationUtils.h"
 #include "common/core/logging/LoggingCategories.h"
 
 SettingsDialog::SettingsDialog(QWidget* parent)
@@ -112,6 +115,12 @@ void SettingsDialog::setupConnections() {
     if ( ui->frameRateSpinBox ) {
         connect(ui->frameRateSpinBox, QOverload<int>::of(&QSpinBox::valueChanged),
             this, &SettingsDialog::onFrameRateChanged);
+    }
+
+    // 连接语言选择信号
+    if ( ui->languageComboBox ) {
+        connect(ui->languageComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &SettingsDialog::onLanguageChanged);
     }
 
     // 连接缩放模式设置信号
@@ -253,7 +262,9 @@ void SettingsDialog::setupAdvancedPageComponents() {
         auto* h = new QHBoxLayout(buttonBar);
         h->setContentsMargins(0, 0, 0, 0);
         QPushButton* presetBtn = new QPushButton(tr("Enable Core Debug"), buttonBar);
+        presetBtn->setObjectName("presetDebugBtn");
         QPushButton* resetBtn = new QPushButton(tr("Reset Rules"), buttonBar);
+        resetBtn->setObjectName("resetRulesBtn");
         h->addWidget(presetBtn);
         h->addWidget(resetBtn);
         h->addStretch();
@@ -298,7 +309,12 @@ void SettingsDialog::createAdvancedTab() {
 void SettingsDialog::updateLanguageList() {
     if ( m_languageCombo ) {
         m_languageCombo->clear();
-        m_languageCombo->addItems({ tr("英语"), tr("中文"), tr("日语"), tr("韩语") });
+        m_languageCombo->addItem(tr("中文"), QVariant(QStringLiteral("zh_CN")));
+        m_languageCombo->addItem(tr("English"), QVariant(QStringLiteral("en_US")));
+        qCInfo(lcUI) << "updateLanguageList: items[0]=" << m_languageCombo->itemText(0)
+                      << "data=" << m_languageCombo->itemData(0).toString()
+                      << "items[1]=" << m_languageCombo->itemText(1)
+                      << "data=" << m_languageCombo->itemData(1).toString();
     }
 }
 
@@ -323,7 +339,9 @@ void SettingsDialog::updateAudioDeviceList() {
 
 void SettingsDialog::loadSettings() {
     m_settings->beginGroup("General");
-    m_generalSettings.language = m_settings->value("language", "English").toString();
+    // Config 是翻译器的权威数据源，优先从 Config 读取以确保与当前界面语言一致
+    m_generalSettings.language = Config::instance()->value("language", "zh_CN").toString();
+    qCInfo(lcUI) << "loadSettings: Config language=" << m_generalSettings.language;
     m_generalSettings.theme = m_settings->value("theme", "Light").toString();
     m_generalSettings.startWithSystem = m_settings->value("startWithSystem", false).toBool();
     m_generalSettings.minimizeToTray = m_settings->value("minimizeToTray", false).toBool();
@@ -417,7 +435,9 @@ void SettingsDialog::saveSettings() {
 void SettingsDialog::applySettingsToUI() {
     // 通用设置
     if ( m_languageCombo ) {
-        int langIndex = m_languageCombo->findText(m_generalSettings.language);
+        int langIndex = m_languageCombo->findData(QVariant(m_generalSettings.language));
+        qCInfo(lcUI) << "applySettingsToUI: loaded language=" << m_generalSettings.language
+                      << "findData result=" << langIndex;
         if ( langIndex >= 0 ) m_languageCombo->setCurrentIndex(langIndex);
     }
 
@@ -474,7 +494,7 @@ void SettingsDialog::applySettingsToUI() {
 
 void SettingsDialog::getSettingsFromUI() {
     // 通用设置 - 添加空指针检查
-    if ( m_languageCombo ) m_generalSettings.language = m_languageCombo->currentText();
+    if ( m_languageCombo ) m_generalSettings.language = m_languageCombo->currentData().toString();
     if ( m_themeCombo ) m_generalSettings.theme = m_themeCombo->currentText();
     if ( m_startWithSystemCheck ) m_generalSettings.startWithSystem = m_startWithSystemCheck->isChecked();
     if ( m_minimizeToTrayCheck ) m_generalSettings.minimizeToTray = m_minimizeToTrayCheck->isChecked();
@@ -549,6 +569,38 @@ void SettingsDialog::reject() {
     QDialog::reject(); // 调用基类方法关闭对话框
 }
 
+void SettingsDialog::changeEvent(QEvent* event) {
+    QDialog::changeEvent(event);
+    if ( event->type() == QEvent::LanguageChange ) {
+        // 保存当前选中的 locale 代码
+        const QString currentLocale = m_languageCombo
+            ? m_languageCombo->currentData().toString() : QString();
+
+        // 刷新 .ui 文件中的字符串（标签、分组框标题等）
+        ui->retranslateUi(this);
+
+        // 重新填充语言下拉列表（翻译后的显示文本）
+        updateLanguageList();
+
+        // 恢复之前的选择
+        if ( m_languageCombo && !currentLocale.isEmpty() ) {
+            const int idx = m_languageCombo->findData(currentLocale);
+            if ( idx >= 0 ) m_languageCombo->setCurrentIndex(idx);
+        }
+
+        // 重新翻译代码中创建的按钮
+        if ( m_resetButton ) m_resetButton->setText(tr("重置"));
+        if ( m_importButton ) m_importButton->setText(tr("导入"));
+        if ( m_exportButton ) m_exportButton->setText(tr("导出"));
+
+        // 高级页面中的代码创建按钮
+        if ( auto* btn = findChild<QPushButton*>("presetDebugBtn") )
+            btn->setText(tr("Enable Core Debug"));
+        if ( auto* btn = findChild<QPushButton*>("resetRulesBtn") )
+            btn->setText(tr("Reset Rules"));
+    }
+}
+
 void SettingsDialog::onApplyClicked() {
     if ( validateSettings() ) {
         applySettings();
@@ -581,6 +633,11 @@ void SettingsDialog::onExportClicked() {
 void SettingsDialog::applySettings() {
     getSettingsFromUI();
     saveSettings();
+
+    // 同步语言设置到 Config 并触发运行时切换
+    qCInfo(lcUI) << "SettingsDialog::applySettings - switching language to:" << m_generalSettings.language;
+    Config::instance()->setValue("language", m_generalSettings.language, Config::General);
+    switchTranslation(*qApp, m_generalSettings.language);
 
     // 应用到全局 Logger / Config
     Config::instance()->setValue("level", m_advancedSettings.loggingLevel, Config::Logging);

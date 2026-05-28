@@ -13,7 +13,7 @@
  * 定义网络通信中使用的数据类型、错误码和状态信息。
  */
 
-namespace QtRemoteDesktop {
+namespace CrossRemoteDesktop {
     namespace Network {
 
         /**
@@ -167,12 +167,12 @@ namespace QtRemoteDesktop {
         }
 
     } // namespace Network
-} // namespace QtRemoteDesktop
+} // namespace CrossRemoteDesktop
 
 // 注册元类型以支持信号槽传递
-Q_DECLARE_METATYPE(QtRemoteDesktop::Network::ErrorType)
-Q_DECLARE_METATYPE(QtRemoteDesktop::Network::ConnectionType)
-Q_DECLARE_METATYPE(QtRemoteDesktop::Network::TransferMode)
-Q_DECLARE_METATYPE(QtRemoteDesktop::Network::ErrorInfo)
-Q_DECLARE_METATYPE(QtRemoteDesktop::Network::Statistics)
-Q_DECLARE_METATYPE(QtRemoteDesktop::Network::ConnectionConfig)
+Q_DECLARE_METATYPE(CrossRemoteDesktop::Network::ErrorType)
+Q_DECLARE_METATYPE(CrossRemoteDesktop::Network::ConnectionType)
+Q_DECLARE_METATYPE(CrossRemoteDesktop::Network::TransferMode)
+Q_DECLARE_METATYPE(CrossRemoteDesktop::Network::ErrorInfo)
+Q_DECLARE_METATYPE(CrossRemoteDesktop::Network::Statistics)
+Q_DECLARE_METATYPE(CrossRemoteDesktop::Network::ConnectionConfig)

@@ -64,7 +64,7 @@
 ## 代码结构
 
 ```
-QtRemoteDesktop/
+CrossRemoteDesktop/
 ├── CMakeLists.txt                  # 主构建配置（跨平台自动检测）
 ├── resources/                      # 资源文件
 │   ├── Info.plist.in              # macOS 应用信息模板
@@ -231,7 +231,7 @@ cmake ..
 cmake --build . --config Release -j8
 
 # 运行（macOS）
-./bin/QtRemoteDesktop.app/Contents/MacOS/QtRemoteDesktop
+./bin/CrossRemoteDesktop.app/Contents/MacOS/CrossRemoteDesktop
 ```
 
 ### Windows
@@ -245,7 +245,7 @@ cmake ..
 cmake --build . --config Release -j8
 
 # 运行（Windows）
-..\bin\QtRemoteDesktop.exe
+..\bin\CrossRemoteDesktop.exe
 ```
 
 ### 部署（macOS 阶段 E）
@@ -254,7 +254,7 @@ cmake --build . --config Release -j8
 
 ```bash
 cmake --build . --target deploy_macos -j8
-# 应用包示例路径： ./bin/QtRemoteDesktop.app
+# 应用包示例路径： ./bin/CrossRemoteDesktop.app
 ```
 
 deploy_macos 目标会在打包前清理历史 Frameworks 目录并调用 macdeployqt 完成依赖部署。
@@ -295,8 +295,8 @@ cmake -DQt6_DIR=/path/to/qt6/lib/cmake/Qt6 ..
 
 ### 日志系统
 -   **日志路径**：
-    -   macOS：`~/Library/Application Support/QtRemoteDesktop/logs/`
-    -   Windows：`%APPDATA%/QtRemoteDesktop/logs/`
+    -   macOS：`~/Library/Application Support/CrossRemoteDesktop/logs/`
+    -   Windows：`%APPDATA%/CrossRemoteDesktop/logs/`
 -   **滚动策略**：按大小滚动（size-based rolling）
 -   **日志级别**：Debug / Info / Warning / Critical
 -   **默认配置**：
@@ -418,9 +418,9 @@ Totals: 14 passed, 0 failed, 0 skipped, 0 blacklisted, 838ms
 -   **内存检查**：
     ```bash
     # macOS
-    leaks QtRemoteDesktop
+    leaks CrossRemoteDesktop
     # Linux
-    valgrind --leak-check=full ./QtRemoteDesktop
+    valgrind --leak-check=full ./CrossRemoteDesktop
     ```
 
 ## 技术文档
@@ -478,8 +478,8 @@ Totals: 14 passed, 0 failed, 0 skipped, 0 blacklisted, 838ms
 
 ## 联系方式
 
--   **项目主页**: https://github.com/JiaYongChen/QtRemoteDesktop
--   **问题反馈**: https://github.com/JiaYongChen/QtRemoteDesktop/issues
+-   **项目主页**: https://github.com/JiaYongChen/CrossRemoteDesktop
+-   **问题反馈**: https://github.com/JiaYongChen/CrossRemoteDesktop/issues
 -   **技术讨论**: 欢迎在 Issues 中提问和讨论
 
 ## 致谢

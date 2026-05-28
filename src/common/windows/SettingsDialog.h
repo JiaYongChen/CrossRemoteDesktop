@@ -17,6 +17,7 @@ public:
 protected:
     void accept() override;
     void reject() override;
+    void changeEvent(QEvent* event) override;
 
 private slots:
     void onApplyClicked();

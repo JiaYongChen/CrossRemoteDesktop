@@ -1,4 +1,4 @@
-/* QtRemoteDesktop 默认样式表 */
+/* CrossRemoteDesktop 默认样式表 */
 
 /* 主窗口样式 */
 QMainWindow {

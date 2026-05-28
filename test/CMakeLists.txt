@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 # 设置项目名称
-project(QtRemoteDesktopTests LANGUAGES CXX)
+project(CrossRemoteDesktopTests LANGUAGES CXX)
 
 # 设置C++标准
 set(CMAKE_CXX_STANDARD 20)
@@ -747,7 +747,7 @@ add_test(
 set(_close_event_env ${_TEST_BASE_ENV})
 list(APPEND _close_event_env
     "AUTO_RUN=1"
-    "RD_MAIN_APP_PATH=${CMAKE_SOURCE_DIR}/Debug/QtRemoteDesktop.app/Contents/MacOS/QtRemoteDesktop"
+    "RD_MAIN_APP_PATH=${CMAKE_SOURCE_DIR}/Debug/CrossRemoteDesktop.app/Contents/MacOS/CrossRemoteDesktop"
 )
 set_tests_properties(CloseEventTest PROPERTIES
     TIMEOUT 60

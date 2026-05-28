@@ -93,6 +93,7 @@ private:
     void saveSettings();
     void loadConnectionHistory();
     void saveConnectionHistory();
+    void retranslateUi();
     
     void showConnectionDialog();
     void cleanupConnection(const QString &connectionId);
@@ -108,6 +109,9 @@ private:
     class QSplitter *m_mainSplitter;
     class QListWidget *m_connectionList;
     class QWidget *m_welcomeWidget;
+    class QLabel *m_welcomeTitleLabel;
+    class QLabel *m_welcomeDescLabel;
+    class QLabel *m_welcomeHistoryLabel;
     
     // 菜单
     class QMenu *m_fileMenu;

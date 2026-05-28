@@ -605,7 +605,7 @@ QListWidget::item:hover {
     <string>关于(&amp;A)</string>
    </property>
    <property name="toolTip">
-    <string>关于Qt Remote Desktop</string>
+    <string>关于Cross Remote Desktop</string>
    </property>
   </action>
   <action name="actionExit">

@@ -3,17 +3,17 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDisplayName</key>
-	<string>Qt Remote Desktop</string>
+	<string>Cross Remote Desktop</string>
 	<key>CFBundleExecutable</key>
-	<string>QtRemoteDesktop</string>
+	<string>CrossRemoteDesktop</string>
 	<key>CFBundleIconFile</key>
 	<string>app.icns</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.qtremotedesktop.app</string>
+	<string>com.crossremotedesktop.app</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>QtRemoteDesktop</string>
+	<string>CrossRemoteDesktop</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -27,7 +27,7 @@
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2024 Qt Remote Desktop. All rights reserved.</string>
+	<string>Copyright © 2024 Cross Remote Desktop. All rights reserved.</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
 	<key>NSCameraUsageDescription</key>

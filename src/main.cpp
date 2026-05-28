@@ -3,8 +3,6 @@
 #include <QtCore/QDir>
 #include <QtCore/QStandardPaths>
 #include "common/core/logging/LoggingCategories.h"
-#include <QtCore/QTranslator>
-#include <QtCore/QLocale>
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QSplashScreen>
 #include <QtGui/QPixmap>
@@ -20,11 +18,12 @@
 #include "common/core/config/Config.h"
 #include "common/core/config/UiConstants.h"
 #include "common/core/config/Constants.h"
+#include "common/core/TranslationUtils.h"
 
 // 应用程序信息
-const QString APP_NAME = "Qt Remote Desktop";
+const QString APP_NAME = "Cross Remote Desktop";
 const QString APP_VERSION = "1.0.0";
-const QString APP_ORGANIZATION = "QtRemoteDesktop";
+const QString APP_ORGANIZATION = "CrossRemoteDesktop";
 const QString APP_DOMAIN = "qtremotedesktop.com";
 
 // 全局变量用于信号处理
@@ -217,22 +216,7 @@ void initializeConfig() {
 
 // 加载翻译文件
 void loadTranslations(QApplication& app) {
-    QTranslator* translator = new QTranslator(&app);
-
-    // 默认使用中文
-    QString defaultLocale = "zh_CN";
-
-    // 从配置中获取语言设置
-    QString configLocale = Config::instance()->value("general/language", defaultLocale).toString();
-
-    // 加载翻译文件
-    QString translationFile = QString(":/translations/%1.qm").arg(configLocale);
-    if ( translator->load(translationFile) ) {
-        app.installTranslator(translator);
-        qCInfo(lcApp) << "Translation loaded:" << configLocale;
-    } else {
-        qCWarning(lcApp) << "Failed to load translation:" << configLocale;
-    }
+    initTranslation(app);
 }
 
 // 应用样式
@@ -270,7 +254,7 @@ int main(int argc, char* argv[]) {
 
     // 解析命令行参数
     QCommandLineParser parser;
-    parser.setApplicationDescription("Qt Remote Desktop - 远程桌面应用程序");
+    parser.setApplicationDescription("Cross Remote Desktop - 远程桌面应用程序");
     parser.addHelpOption();
     parser.addVersionOption();
 

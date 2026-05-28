@@ -390,7 +390,7 @@ void ConnectionManager::sendHandshakeRequest() {
     request.screenWidth = 1920;
     request.screenHeight = 1080;
     request.colorDepth = 32;
-    request.clientName = QStringLiteral("QtRemoteDesktop Client");
+    request.clientName = QStringLiteral("CrossRemoteDesktop Client");
     request.clientOS = getClientOS();
 
     m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST, request);

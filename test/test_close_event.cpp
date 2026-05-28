@@ -2,7 +2,7 @@
  * @file test_close_event.cpp
  * @brief 测试MainWindow的closeEvent方法的C++程序
  * 
- * 这个程序会启动QtRemoteDesktop应用程序，然后通过Qt信号机制
+ * 这个程序会启动CrossRemoteDesktop应用程序，然后通过Qt信号机制
  * 触发正常的关闭流程，验证closeEvent方法是否正确执行。
  */
 
@@ -50,10 +50,10 @@ public slots:
             return;
         }
         
-        appendLog("启动QtRemoteDesktop应用程序...");
+        appendLog("启动CrossRemoteDesktop应用程序...");
         QString program = locateProgram();
         if (program.isEmpty()) {
-            appendLog("❌ 未找到QtRemoteDesktop可执行文件，请检查构建输出");
+            appendLog("❌ 未找到CrossRemoteDesktop可执行文件，请检查构建输出");
             return;
         }
         appendLog("使用可执行路径: " + program);
@@ -191,24 +191,24 @@ private:
 
 #ifdef Q_OS_MAC
         // .app bundle 可能存在
-        candidates << cwd.filePath("../QtRemoteDesktop.app/Contents/MacOS/QtRemoteDesktop");
-        candidates << cwd.filePath("../Debug/QtRemoteDesktop.app/Contents/MacOS/QtRemoteDesktop");
-        candidates << cwd.filePath("../Release/QtRemoteDesktop.app/Contents/MacOS/QtRemoteDesktop");
-        candidates << cwd.filePath("QtRemoteDesktop.app/Contents/MacOS/QtRemoteDesktop");
+        candidates << cwd.filePath("../CrossRemoteDesktop.app/Contents/MacOS/CrossRemoteDesktop");
+        candidates << cwd.filePath("../Debug/CrossRemoteDesktop.app/Contents/MacOS/CrossRemoteDesktop");
+        candidates << cwd.filePath("../Release/CrossRemoteDesktop.app/Contents/MacOS/CrossRemoteDesktop");
+        candidates << cwd.filePath("CrossRemoteDesktop.app/Contents/MacOS/CrossRemoteDesktop");
         // 项目根输出（CMAKE_RUNTIME_OUTPUT_DIRECTORY）
-        candidates << QDir(projectRoot).filePath("QtRemoteDesktop.app/Contents/MacOS/QtRemoteDesktop");
-        candidates << QDir(projectRoot).filePath("Debug/QtRemoteDesktop.app/Contents/MacOS/QtRemoteDesktop");
-        candidates << QDir(projectRoot).filePath("Release/QtRemoteDesktop.app/Contents/MacOS/QtRemoteDesktop");
+        candidates << QDir(projectRoot).filePath("CrossRemoteDesktop.app/Contents/MacOS/CrossRemoteDesktop");
+        candidates << QDir(projectRoot).filePath("Debug/CrossRemoteDesktop.app/Contents/MacOS/CrossRemoteDesktop");
+        candidates << QDir(projectRoot).filePath("Release/CrossRemoteDesktop.app/Contents/MacOS/CrossRemoteDesktop");
 #endif
         // 非bundle（常见于开发构建）
-        candidates << cwd.filePath("../QtRemoteDesktop");
-        candidates << cwd.filePath("../Debug/QtRemoteDesktop");
-        candidates << cwd.filePath("../Release/QtRemoteDesktop");
-        candidates << cwd.filePath("QtRemoteDesktop");
+        candidates << cwd.filePath("../CrossRemoteDesktop");
+        candidates << cwd.filePath("../Debug/CrossRemoteDesktop");
+        candidates << cwd.filePath("../Release/CrossRemoteDesktop");
+        candidates << cwd.filePath("CrossRemoteDesktop");
         // 项目根输出（CMAKE_RUNTIME_OUTPUT_DIRECTORY）
-        candidates << QDir(projectRoot).filePath("QtRemoteDesktop");
-        candidates << QDir(projectRoot).filePath("Debug/QtRemoteDesktop");
-        candidates << QDir(projectRoot).filePath("Release/QtRemoteDesktop");
+        candidates << QDir(projectRoot).filePath("CrossRemoteDesktop");
+        candidates << QDir(projectRoot).filePath("Debug/CrossRemoteDesktop");
+        candidates << QDir(projectRoot).filePath("Release/CrossRemoteDesktop");
 
         for (const QString &path : candidates) {
             QFileInfo fi(path);
@@ -220,7 +220,7 @@ private:
 
     void setupUI()
     {
-        setWindowTitle("QtRemoteDesktop CloseEvent 测试工具");
+        setWindowTitle("CrossRemoteDesktop CloseEvent 测试工具");
         setMinimumSize(800, 600);
         
         QWidget *centralWidget = new QWidget(this);
@@ -229,7 +229,7 @@ private:
         QVBoxLayout *layout = new QVBoxLayout(centralWidget);
         
         // 标题
-        QLabel *titleLabel = new QLabel("QtRemoteDesktop CloseEvent 测试工具", this);
+        QLabel *titleLabel = new QLabel("CrossRemoteDesktop CloseEvent 测试工具", this);
         titleLabel->setStyleSheet("font-size: 16px; font-weight: bold; margin: 10px;");
         layout->addWidget(titleLabel);
         

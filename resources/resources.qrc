@@ -42,5 +42,6 @@
         <file>styles/default.qss</file>
         <file>translations/zh_CN.qm</file>
         <file>translations/en_US.qm</file>
+        <file>translations/qtbase_zh_CN.qm</file>
         </qresource>
 </RCC>
