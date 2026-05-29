@@ -329,7 +329,7 @@ file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS
 set(SOURCES ${PROJECT_SOURCES})
 
 # 生成可执行文件
-qt_add_executable(CrossRemoteDesktop
+qt_add_executable(CrossRemoteDesktop WIN32
     ${SOURCES}
     resources/resources.qrc
 )
@@ -603,6 +603,12 @@ target_link_libraries(CrossRemoteDesktop PRIVATE
 # Windows: link D3D11 and DXGI for Desktop Duplication capture
 if(WIN32)
     target_link_libraries(CrossRemoteDesktop PRIVATE d3d11.lib dxgi.lib)
+
+    # 子系统切换：Release 无终端窗口 (WIN32)，Debug 保留控制台输出
+    # WIN32 标志设置 /SUBSYSTEM:WINDOWS，Debug 用 CONSOLE 覆盖。
+    target_link_options(CrossRemoteDesktop PRIVATE
+        $<$<AND:$<CONFIG:Debug>,$<CXX_COMPILER_ID:MSVC>>:/SUBSYSTEM:CONSOLE>
+    )
 endif()
 
 # ────────────────────────────────────────────────────────────
