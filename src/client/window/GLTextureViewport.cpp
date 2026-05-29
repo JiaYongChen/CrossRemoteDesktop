@@ -45,6 +45,9 @@
 #ifndef GL_MAP_COHERENT_BIT
 #  define GL_MAP_COHERENT_BIT    0x0080
 #endif
+#ifndef GL_MAP_INVALIDATE_BUFFER_BIT
+#  define GL_MAP_INVALIDATE_BUFFER_BIT 0x0004
+#endif
 
 bool GLTextureViewport::chooseGLFormat(QImage::Format f, GLPixelLayout& out) {
     switch ( f ) {
@@ -411,24 +414,30 @@ void GLTextureViewport::applyFrame(const QImage& image) {
         const int totalBytes = rowBytes * src->height();
 
         if ( m_usePbo ) {
-            // Fast async PBO path
+            // PBO 异步上传：同尺寸帧用 glMapBufferRange + INVALIDATE_BUFFER
+            // 单次驱动调用替代 allocate()+map() 两次往返。
             QOpenGLBuffer& pbo = m_pbo[m_currentPbo];
             pbo.bind();
-            if ( totalBytes != m_pboAllocatedBytes ) {
-                pbo.allocate(nullptr, totalBytes);  // orphan + realloc
+            auto* f = QOpenGLContext::currentContext()->extraFunctions();
+            const bool sizeChanged = (totalBytes != m_pboAllocatedBytes);
+            void* mapped = nullptr;
+            if ( sizeChanged ) {
+                pbo.allocate(nullptr, totalBytes);
                 m_pboAllocatedBytes = totalBytes;
+                mapped = pbo.map(QOpenGLBuffer::WriteOnly);
             } else {
-                pbo.allocate(nullptr, totalBytes);  // orphan for driver sync
+                const GLbitfield access = GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT;
+                mapped = f->glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, totalBytes, access);
             }
-            void* mapped = pbo.map(QOpenGLBuffer::WriteOnly);
             if ( mapped ) {
                 std::memcpy(mapped, src->constBits(), size_t(totalBytes));
-                pbo.unmap();
+                if ( sizeChanged )
+                    pbo.unmap();
+                else
+                    f->glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
                 glBindTexture(GL_TEXTURE_2D, m_textureId[m_displayTexIndex.load()]);
                 glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
                 glPixelStorei(GL_UNPACK_ROW_LENGTH, rowBytes / layout.bytesPerPixel);
-                // When a PBO is bound, the data pointer is interpreted as a byte
-                // offset into the PBO — nullptr means offset 0.
                 glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
                                 src->width(), src->height(),
                                 layout.format, layout.type, nullptr);
@@ -556,24 +565,31 @@ GLsync GLTextureViewport::uploadFromWorker(const QImage& image) {
             f->glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);  // unbind
             m_sharedPboIndex = nextPboIndex(m_sharedPboIndex);
         } else if (m_usePbo) {
-            // Traditional PBO async upload path (fallback)
+            // Traditional PBO async upload: single-call glMapBufferRange +
+            // INVALIDATE_BUFFER 替代 allocate()+map() 两次驱动往返。
             QOpenGLBuffer& pbo = m_pbo[m_currentPbo];
             pbo.bind();
-            if (totalBytes != m_pboAllocatedBytes) {
-                pbo.allocate(nullptr, totalBytes);  // orphan + realloc
+            auto* f2 = QOpenGLContext::currentContext()->extraFunctions();
+            const bool sizeChanged = (totalBytes != m_pboAllocatedBytes);
+            void* mapped = nullptr;
+            if (sizeChanged) {
+                pbo.allocate(nullptr, totalBytes);
                 m_pboAllocatedBytes = totalBytes;
+                mapped = pbo.map(QOpenGLBuffer::WriteOnly);
             } else {
-                pbo.allocate(nullptr, totalBytes);  // orphan for driver sync
+                const GLbitfield access = GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT;
+                mapped = f2->glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, totalBytes, access);
             }
-            void* mapped = pbo.map(QOpenGLBuffer::WriteOnly);
             if (mapped) {
                 std::memcpy(mapped, src->constBits(), size_t(totalBytes));
-                pbo.unmap();
+                if (sizeChanged)
+                    pbo.unmap();
+                else
+                    f2->glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
                 glBindTexture(GL_TEXTURE_2D, m_textureId[1 - m_displayTexIndex.load()]);
                 glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
                 glPixelStorei(GL_UNPACK_ROW_LENGTH,
                               rowBytes / layout.bytesPerPixel);
-                // PBO is bound, so nullptr = byte offset 0 into the PBO
                 glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
                                 src->width(), src->height(),
                                 layout.format, layout.type, nullptr);
@@ -633,6 +649,18 @@ void GLTextureViewport::renderNow() {
     update();
 }
 
+bool GLTextureViewport::requestRepaint() {
+    // 仅当前一帧已被 paintGL 消费后才排队新的 paint 事件，
+    // 避免在 GUI 线程事件队列中堆积冗余事件。
+    // 此方法可被任意线程安全调用。
+    bool expected = false;
+    if ( m_needsRepaint.compare_exchange_strong(expected, true) ) {
+        QMetaObject::invokeMethod(this, "update", Qt::QueuedConnection);
+        return true;
+    }
+    return false;
+}
+
 void GLTextureViewport::resizeGL(int w, int h) {
     Q_UNUSED(w)
     Q_UNUSED(h)
@@ -647,15 +675,19 @@ void GLTextureViewport::paintGL() {
     if ( m_frameBuffer ) {
         FrameSlot* slot = nullptr;
         const int idx = m_frameBuffer->getReadSlot(slot);
-        if ( idx >= 0 && slot && !slot->image.isNull() ) {
+        // GL 上传路径中 image 可能为空（像素已通过 uploadFromWorker 写入纹理），
+        // uploadFence 作为备选有效性指示器。
+        if ( idx >= 0 && slot && (!slot->image.isNull() || slot->uploadFence) ) {
             if ( slot->uploadFence ) {
                 // Worker thread already uploaded this frame to the shared
                 // texture via its shared GL context. Check if the GPU has
                 // finished the DMA transfer.
                 auto* f = context()->extraFunctions();
                 Q_ASSERT(f);
+                // timeout=2ms: 给 GPU DMA 上传一个短暂的完成窗口，
+                // 避免零超时导致差几微秒的帧被直接丢弃。
                 const GLenum result = f->glClientWaitSync(
-                    slot->uploadFence, GL_SYNC_FLUSH_COMMANDS_BIT, 0);
+                    slot->uploadFence, GL_SYNC_FLUSH_COMMANDS_BIT, 2000000);
                 static int s_fenceDiagCount = 0;
                 ++s_fenceDiagCount;
                 if ( s_fenceDiagCount <= 3 || s_fenceDiagCount % 100 == 0 )
@@ -666,14 +698,15 @@ void GLTextureViewport::paintGL() {
                 if ( result == GL_ALREADY_SIGNALED ||
                      result == GL_CONDITION_SATISFIED ) {
                     // GPU upload complete — texture is ready to draw.
+                    m_consecutiveSkips.store(0, std::memory_order_relaxed);
                     f->glDeleteSync(slot->uploadFence);
                     slot->uploadFence = nullptr;
                     // Worker 写入了非显示纹理，GPU 上传完成后交换显示索引
                     m_displayTexIndex.store(1 - m_displayTexIndex.load());
                     m_textureDirty = true;
-                    // Update cached size if it changed (first frame or
-                    // resolution change handled by worker).
-                    if ( slot->image.size() != m_textureSize ) {
+                    // Worker 在上传时已设置 m_textureSize；
+                    // image 可能为空（GL 上传路径），此时跳过尺寸更新。
+                    if ( !slot->image.isNull() && slot->image.size() != m_textureSize ) {
                         m_textureSize = slot->image.size();
                     }
                     // Worker 在上传时已设置 m_textureSize 但未调用 updateRenderRect，
@@ -681,10 +714,11 @@ void GLTextureViewport::paintGL() {
                     if ( m_renderRect.isEmpty() && !m_textureSize.isEmpty() ) {
                         updateRenderRect();
                     }
+                } else {
+                    // GL_TIMEOUT_EXPIRED or GL_WAIT_FAILED: GPU 未完成 DMA。
+                    // 递增跳过计数器，生产者可据此降低上传频率。
+                    m_consecutiveSkips.fetch_add(1, std::memory_order_relaxed);
                 }
-                // else: GL_TIMEOUT_EXPIRED or GL_WAIT_FAILED.
-                // Worker hasn't finished DMA yet — skip this frame.
-                // paintGL will retry next tick (VSync or poll timer).
             } else {
                 // No worker-side upload (fallback path): upload on GUI thread
                 // using the stored QImage.
@@ -701,9 +735,11 @@ void GLTextureViewport::paintGL() {
     if ( !m_textureDirty ) {
         if ( ++s_skipCount <= 3 || s_skipCount % 300 == 0 )
             qCInfo(lcGLViewport) << "paintGL skip #" << s_skipCount << "(m_textureDirty=false)";
+        m_needsRepaint.store(false, std::memory_order_release);
         return;  // nothing new to draw
     }
     m_textureDirty = false;
+    m_needsRepaint.store(false, std::memory_order_release);
     s_skipCount = 0;  // reset skip counter on successful render
 
     static int s_renderCount = 0;

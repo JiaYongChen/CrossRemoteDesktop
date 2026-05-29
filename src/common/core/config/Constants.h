@@ -48,7 +48,7 @@ public:
      * @brief 捕获和帧率相关常量
      */
     struct Capture {
-        static constexpr int DEFAULT_FRAME_RATE = 30;                   ///< 默认帧率 30fps
+        static constexpr int DEFAULT_FRAME_RATE = 60;                   ///< 默认帧率 60fps
         static constexpr int MIN_FRAME_RATE = 1;                        ///< 最小帧率 1fps
         static constexpr int MAX_FRAME_RATE = 120;                      ///< 最大帧率 120fps
         static constexpr int DEBUG_LOG_INTERVAL = 1000;                 ///< 调试日志间隔 1000ms

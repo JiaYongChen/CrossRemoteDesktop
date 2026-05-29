@@ -91,6 +91,15 @@ public:
     void renderNow();
 
     /**
+     * @brief 请求重绘（去重版）。线程安全，可从任意线程调用。
+     *
+     * 仅当上一帧已被 paintGL 消费后才排队新的 update()，
+     * 避免 GUI 线程事件队列中堆积冗余的 paint 事件。
+     * @return true 表示成功排队了新的 paint 事件。
+     */
+    bool requestRepaint();
+
+    /**
      * @brief Check if a texture has been uploaded.
      */
     bool hasTexture() const { return m_textureId[0] != 0; }
@@ -152,6 +161,10 @@ public:
      * @return GLsync fence for the GUI thread to wait on, or nullptr on failure.
      */
     GLsync uploadFromWorker(const QImage& image);
+
+    /// 生产者背压：返回 paintGL 因 fence 未就绪而连续跳过的帧数。
+    /// 生产者可据此降低上传频率，避免 GPU 队列无限积压。
+    int consecutiveSkips() const { return m_consecutiveSkips.load(); }
 
 signals:
     /**
@@ -250,6 +263,14 @@ private:
 
     // Dirty-frame gating for paintGL
     bool m_textureDirty = false;
+
+    // 生产者背压：paintGL 因 fence 未就绪而跳过的连续帧数。
+    // 生产者 (handleScreenData) 读取此值决定是否降低 GL 上传频率。
+    std::atomic<int> m_consecutiveSkips{0};
+
+    /// 防止重复排队 update()：仅在 paintGL 消费完上一帧后才允许新的 paint 事件。
+    /// 生产者 (handleScreenData) 写入 true，paintGL 在消费后重置为 false。
+    std::atomic<bool> m_needsRepaint{false};
 
     // Triple-buffered lock-free frame delivery
     TripleBuffer<FrameSlot>* m_frameBuffer = nullptr;

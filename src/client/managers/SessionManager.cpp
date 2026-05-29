@@ -20,7 +20,7 @@ SessionManager::SessionManager(const QString& connectionId, QObject* parent)
     , m_connectionId(connectionId)
     , m_connectionManager(new ConnectionManager(this))
     , m_statsTimer(new QTimer(this))
-    , m_frameRate(30) {
+    , m_frameRate(60) {
 
     // SessionManager 拥有并管理 ConnectionManager
     setupConnections();
@@ -181,7 +181,7 @@ QString SessionManager::getFormattedPerformanceInfo() const {
 }
 
 void SessionManager::setFrameRate(int fps) {
-    m_frameRate = qBound(1, fps, 60);
+    m_frameRate = qBound(1, fps, 120);
 
     if ( isActive() && m_connectionManager && m_connectionManager->isAuthenticated() ) {
         QByteArray data;
@@ -337,6 +337,15 @@ void SessionManager::handleScreenData(const QByteArray& data) {
             // the critical path.
             static int s_glUploadDiagCount = 0;
             if (m_glUploadReady && m_glContext && m_glSurface && m_glViewportForUpload) {
+                // 生产者背压：paintGL 连续跳过 ≥3 帧时，隔帧跳过 GL 上传让 GPU 追赶。
+                static int s_backoffCounter = 0;
+                const bool gpuOverloaded = m_glViewportForUpload->consecutiveSkips() >= 3;
+                const bool skipThisUpload = gpuOverloaded && (++s_backoffCounter % 2 == 0);
+                if (gpuOverloaded && s_backoffCounter <= 3)
+                    qCInfo(lcClient) << "GPU backpressure: skipping GL upload, skips="
+                        << m_glViewportForUpload->consecutiveSkips();
+
+                if (!skipThisUpload) {
                 ++s_glUploadDiagCount;
                 if ( s_glUploadDiagCount <= 3 || s_glUploadDiagCount % 100 == 0 )
                     qCInfo(lcClient) << "handleScreenData: GL upload #" << s_glUploadDiagCount << "frame" << m_stats.frameCount;
@@ -352,6 +361,10 @@ void SessionManager::handleScreenData(const QByteArray& data) {
                     slot->uploadFence = fence;
                 }
                 m_glContext->doneCurrent();
+                } else {
+                    // 背压触发：跳过 GL 上传，保留 image 供 GUI 线程回退上传
+                    slot->image = image;
+                }
             } else {
                 static int s_glSkipDiagCount = 0;
                 if ( ++s_glSkipDiagCount <= 3 ) {
@@ -361,19 +374,21 @@ void SessionManager::handleScreenData(const QByteArray& data) {
                         << "surface:" << (m_glSurface != nullptr)
                         << "viewport:" << (m_glViewportForUpload != nullptr);
                 }
+                // 仅在 GL 上传失败/未就绪时保留 image 供 GUI 线程回退上传
+                slot->image = image;
             }
-#endif
+#else
             slot->image = image;
+#endif
             slot->remoteSize = m_remoteScreenSize;
             slot->arrivalTs = std::chrono::steady_clock::now();
             slot->frameId = static_cast<quint64>(m_stats.frameCount);
             m_frameBuffer.commitWrite(idx);
 
 #ifndef QT_NO_OPENGL
-            // 通知 GUI 线程有新帧可用，触发 paintGL
+            // 请求 GUI 线程重绘（内部防重复排队）
             if ( m_glViewportForUpload ) {
-                QMetaObject::invokeMethod(m_glViewportForUpload, "update",
-                    Qt::QueuedConnection);
+                m_glViewportForUpload->requestRepaint();
             }
 #endif
             }
