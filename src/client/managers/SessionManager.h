@@ -45,6 +45,7 @@ public slots:
     void suspendSession();
     void resumeSession();
     void terminateSession();
+    void moveGLToThread(QThread* target);   ///< 将 GL 对象移到目标线程（为安全析构做准备）
 
 public:
     // 状态查询

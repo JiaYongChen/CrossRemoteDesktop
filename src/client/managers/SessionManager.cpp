@@ -37,7 +37,9 @@ SessionManager::~SessionManager() {
     terminateSession();
 
 #ifndef QT_NO_OPENGL
-    // Clean up shared GL resources
+    // GL 资源通常已在 shutdown 第一阶段由 cleanupGLResources() 在工作线程中清理。
+    // 此处为防御性删除：如果 Phase 1 未执行（异常路径），直接 delete（不作
+    // moveToThread，因为 moveToThread 只能从对象所属线程调用）。
     delete m_glContext;
     m_glContext = nullptr;
     delete m_glSurface;
@@ -90,6 +92,15 @@ void SessionManager::terminateSession() {
     // 清理会话数据
     m_remoteScreenSize = QSize();
     m_frameTimes.clear();
+}
+
+void SessionManager::moveGLToThread(QThread* target) {
+    Q_UNUSED(target);
+#ifndef QT_NO_OPENGL
+    if (m_glContext) m_glContext->moveToThread(target);
+    if (m_glSurface) m_glSurface->moveToThread(target);
+    m_glUploadReady = false;
+#endif
 }
 
 bool SessionManager::isActive() const {

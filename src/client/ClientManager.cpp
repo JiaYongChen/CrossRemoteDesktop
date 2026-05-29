@@ -97,10 +97,13 @@ void ConnectionInstance::shutdownPhase1_CloseWindowAndDisconnect() {
             }, Qt::BlockingQueuedConnection);
         }
 
-        // Move SessionManager back to main thread to avoid cross-thread delete assertion
+        // 将 GL 对象和 SessionManager 移回主线程。
+        // Lambda 由 BlockingQueuedConnection 在 SessionThread 中执行，
+        // moveToThread 只能从对象所在线程调用，因此必须在此处完成。
         if ( instanceThread && instanceThread->isRunning() ) {
             QThread* mainThread = QThread::currentThread();
             QMetaObject::invokeMethod(sessionManager.data(), [sm = sessionManager.data(), mainThread]() {
+                sm->moveGLToThread(mainThread);
                 sm->moveToThread(mainThread);
             }, Qt::BlockingQueuedConnection);
         }

@@ -649,8 +649,11 @@ void ClientHandlerWorker::onError(QAbstractSocket::SocketError error) {
     qCInfo(lcClientHandlerWorker) << "错误分类:" << errorCategory
         << ", 是否强制断开:" << (shouldForceDisconnect ? "是" : "否");
 
-    // 发出错误信号
-    emit errorOccurred(errorString);
+    // 客户端主动断开（RemoteHostClosedError）是正常关闭流程，不视为服务端错误。
+    // 其余错误才向上通知，避免 MainWindow 对正常断连弹窗警告。
+    if ( error != QAbstractSocket::RemoteHostClosedError ) {
+        emit errorOccurred(errorString);
+    }
 
     // 对于严重错误，强制断开连接
     if ( shouldForceDisconnect ) {
