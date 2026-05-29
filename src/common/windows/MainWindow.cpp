@@ -808,12 +808,8 @@ void MainWindow::onServerStopped() {
 
 void MainWindow::onServerError(const QString& error) {
     qCWarning(lcApp) << "MainWindow::onServerError() called with error:" << error;
-    // QMessageBox msgBox(this);
-    // msgBox.setIcon(QMessageBox::Warning);
-    // msgBox.setWindowTitle(tr("服务器错误"));
-    // msgBox.setText(error);
-    // msgBox.setStandardButtons(QMessageBox::Ok);
-    // msgBox.exec();
+    updateServerStatus(tr("服务器启动失败"));
+    QMessageBox::warning(this, tr("服务器错误"), error);
 }
 
 void MainWindow::onClientConnected(const QString& clientId) {

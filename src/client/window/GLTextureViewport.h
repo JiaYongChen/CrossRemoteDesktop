@@ -262,7 +262,7 @@ private:
     quint64 m_metricsFrameCount = 0;
     qint64  m_metricsLatencyAccumUs = 0;
     qint64  m_metricsLatencyMaxUs = 0;
-    static constexpr quint64 kMetricsReportInterval = 30;  // frames
+    static constexpr quint64 kMetricsReportInterval = 10;  // frames
 };
 
 #endif // QT_NO_OPENGL

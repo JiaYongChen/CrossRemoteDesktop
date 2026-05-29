@@ -149,6 +149,7 @@ private:
     mutable QMutex m_stateMutex;        ///< 状态互斥锁
     bool m_isServerRunning;             ///< 服务器运行状态
     quint16 m_currentPort;              ///< 当前端口
+    quint16 m_pendingStartPort{ 0 };    ///< 信号连接就绪前的待启动端口
     bool m_captureStarted{ false };       ///< 屏幕捕获/数据处理是否已启动（避免重复启动）
 
     // 屏幕捕获和数据处理组件

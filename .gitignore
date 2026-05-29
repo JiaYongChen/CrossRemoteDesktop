@@ -21,6 +21,7 @@
 *.app
 *.user
 *.log
+*.stackdump
 
 #path
 .codacy/

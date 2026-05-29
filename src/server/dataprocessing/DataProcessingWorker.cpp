@@ -412,12 +412,14 @@ ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, qui
             return result;
         }
 
-        //输出原始图像信息和缩放后的信息
-        qCDebug(lcDataProcessingWorker) << "编码JPEG，帧ID:" << frameId
-            << "原始尺寸:" << image.size()
-            << "处理后尺寸:" << convertedImage.size()
-            << "缩放因子:" << scaleFactor
-            << "质量:" << quality;
+        // 每 100 帧输出一次编码信息，避免刷屏
+        if ( frameId <= 3 || frameId % 100 == 0 ) {
+            qCDebug(lcDataProcessingWorker) << "编码JPEG，帧ID:" << frameId
+                << "原始尺寸:" << image.size()
+                << "处理后尺寸:" << convertedImage.size()
+                << "缩放因子:" << scaleFactor
+                << "质量:" << quality;
+        }
 
         // 使用传入的JPEG质量参数
         bool saveSuccess = convertedImage.save(&buffer, "JPG", quality);
@@ -478,14 +480,16 @@ ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, qui
         // 判断是否进行了缩放
         bool wasScaled = (scaleFactor < 1.0 && scaleFactor > 0.1);
 
-        //输出原始数据大小和压缩后数据大小的对比日志
-        qCDebug(lcDataProcessingWorker) << "帧ID:" << frameId
-            << "原始图像尺寸:" << image.size() 
-            << "处理后尺寸:" << convertedImage.size()
-            << "缩放:" << (wasScaled ? QString::number(scaleFactor) : "无")
-            << "质量:" << quality
-            << "原始JPEG大小:" << jpegData.size() << "字节,"
-            << (zstdCompressed ? "zstd压缩后:" : "最终:") << finalData.size() << "字节";
+        // 每 100 帧输出一次压缩统计，避免刷屏
+        if ( frameId <= 3 || frameId % 100 == 0 ) {
+            qCDebug(lcDataProcessingWorker) << "帧ID:" << frameId
+                << "原始图像尺寸:" << image.size()
+                << "处理后尺寸:" << convertedImage.size()
+                << "缩放:" << (wasScaled ? QString::number(scaleFactor) : "无")
+                << "质量:" << quality
+                << "原始JPEG大小:" << jpegData.size() << "字节,"
+                << (zstdCompressed ? "zstd压缩后:" : "最终:") << finalData.size() << "字节";
+        }
 
         // 构造ProcessedData
         result.originalFrameId = frameId;

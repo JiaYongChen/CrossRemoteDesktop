@@ -99,8 +99,9 @@ include_directories(
     ${ZSTD_INCLUDE_DIR}
 )
 
-# 创建构建目录
+# 创建构建目录（测试可执行文件和静态库统一输出到 build/test/，避免污染主输出目录）
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../build/test)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../build/test)
 
 # 启用测试
 enable_testing()

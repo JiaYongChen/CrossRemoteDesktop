@@ -127,17 +127,11 @@ bool ServerManager::startServer(quint16 port, const QString& password) {
             Q_ARG(QString, password));
     }
 
-    // 使用定时器延迟启动服务器，避免在Worker启动过程中调用
-    // 使用 QPointer 防止 worker 在定时器触发前被销毁导致悬空指针崩溃
-    QPointer<ServerWorker> safeWorker(worker);
-    QTimer::singleShot(100, [safeWorker, port]() {
-        if ( safeWorker ) {
-            QMetaObject::invokeMethod(safeWorker.data(), "startServer", Qt::QueuedConnection,
-                Q_ARG(quint16, port));
-        }
-    });
+    // 将启动请求挂起，等 connectToServerWorker() 建立信号连接后再执行
+    // 避免因线程启动延迟导致的信号丢失
+    m_pendingStartPort = port;
 
-    // 5. 更新状态（最后更新，确保服务器启动成功）
+    // 5. 更新状态
     {
         QMutexLocker stateLock(&m_stateMutex);
         m_isServerRunning = true;
@@ -287,6 +281,11 @@ void ServerManager::onWorkerServerStopped() {
 
 void ServerManager::onWorkerServerError(const QString& error) {
     qCDebug(lcServerManager) << "onWorkerServerError():" << error;
+    {
+        QMutexLocker stateLock(&m_stateMutex);
+        m_isServerRunning = false;
+        m_currentPort = 0;
+    }
     emit serverError(error);
 }
 
@@ -330,6 +329,15 @@ void ServerManager::connectToServerWorker() {
     connect(worker, &ServerWorker::newClientConnection, this, &ServerManager::onNewClientConnection, Qt::QueuedConnection);
 
     qCDebug(lcServerManager) << "ServerManager::connectToServerWorker() - All signals connected successfully";
+
+    // 信号连接就绪后，执行之前挂起的服务器启动请求
+    if ( m_pendingStartPort > 0 ) {
+        const quint16 port = m_pendingStartPort;
+        m_pendingStartPort = 0;
+        QMetaObject::invokeMethod(worker, "startServer", Qt::QueuedConnection,
+            Q_ARG(quint16, port));
+        qCDebug(lcServerManager) << "ServerManager::connectToServerWorker() - Pending server start triggered on port:" << port;
+    }
 }
 
 ServerWorker* ServerManager::getServerWorker() const {

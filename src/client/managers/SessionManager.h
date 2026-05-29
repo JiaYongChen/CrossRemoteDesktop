@@ -100,7 +100,14 @@ public slots:
     void connectToHost(const QString& host, int port);
     void disconnectFromHost();
 
+    /// 重置当前连接状态：清理连接数据、重置内部状态、发出 connectionReset 信号。
+    /// 线程安全，可从任意线程通过信号槽跨线程调用。
+    void resetConnection();
+
 signals:
+    // 连接重置信号（在 resetConnection() 完成清理后发出）
+    void connectionReset();
+
     // 远程桌面数据更新信号
     void screenUpdated(const QImage& screen);
     void screenRegionUpdated(const QImage& region, const QRect& rect);

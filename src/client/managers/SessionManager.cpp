@@ -10,6 +10,7 @@
 #endif
 #include <QtCore/QBuffer>
 #include <QtCore/QDataStream>
+#include <QtCore/QThread>
 #include <QtCore/QTimer>
 #include <QtCore/QMutexLocker>
 #include <algorithm>
@@ -360,7 +361,11 @@ void SessionManager::handleScreenData(const QByteArray& data) {
             // all on the worker thread. The GUI thread only waits for the
             // GLsync fence in paintGL() before drawing — no CPU memcpy in
             // the critical path.
+            static int s_glUploadDiagCount = 0;
             if (m_glUploadReady && m_glContext && m_glSurface && m_glViewportForUpload) {
+                ++s_glUploadDiagCount;
+                if ( s_glUploadDiagCount <= 3 || s_glUploadDiagCount % 100 == 0 )
+                    qCInfo(lcClient) << "handleScreenData: GL upload #" << s_glUploadDiagCount << "frame" << m_stats.frameCount;
                 m_glContext->makeCurrent(m_glSurface);
                 // Delete any fence from previous frame before overwriting
                 if (slot->uploadFence) {
@@ -373,6 +378,15 @@ void SessionManager::handleScreenData(const QByteArray& data) {
                     slot->uploadFence = fence;
                 }
                 m_glContext->doneCurrent();
+            } else {
+                static int s_glSkipDiagCount = 0;
+                if ( ++s_glSkipDiagCount <= 3 ) {
+                    qCWarning(lcClient) << "handleScreenData: GL upload skipped -"
+                        << "ready:" << m_glUploadReady
+                        << "ctx:" << (m_glContext != nullptr)
+                        << "surface:" << (m_glSurface != nullptr)
+                        << "viewport:" << (m_glViewportForUpload != nullptr);
+                }
             }
 #endif
             slot->image = image;
@@ -380,7 +394,15 @@ void SessionManager::handleScreenData(const QByteArray& data) {
             slot->arrivalTs = std::chrono::steady_clock::now();
             slot->frameId = static_cast<quint64>(m_stats.frameCount);
             m_frameBuffer.commitWrite(idx);
-        }
+
+#ifndef QT_NO_OPENGL
+            // 通知 GUI 线程有新帧可用，触发 paintGL
+            if ( m_glViewportForUpload ) {
+                QMetaObject::invokeMethod(m_glViewportForUpload, "update",
+                    Qt::QueuedConnection);
+            }
+#endif
+            }
     } else {
         qCWarning(lcClient) << "SessionManager::handleScreenData() - Failed to load JPEG image from frame data, size:" << frameData.size()
             << "first 16 bytes:" << frameData.left(16).toHex();
@@ -425,6 +447,31 @@ void SessionManager::disconnectFromHost() {
     if ( m_connectionManager ) {
         m_connectionManager->disconnectFromHost();
     }
+}
+
+void SessionManager::resetConnection() {
+    // 1) 清理帧数据缓存（QMutexLocker 保证线程安全）
+    {
+        QMutexLocker locker(&m_frameDataMutex);
+        m_previousFrameData.clear();
+    }
+
+    // 2) 清理帧时间队列
+    m_frameTimes.clear();
+
+    // 3) 重置远程屏幕尺寸
+    m_remoteScreenSize = QSize();
+
+    // 4) 重置性能统计（包含 FPS、帧计数等）
+    resetStats();
+
+    // 5) 重置 TripleBuffer 索引，防止 GUI 线程读取上一次连接的过时帧
+    m_frameBuffer.reset();
+
+    // 6) 通知外部（UI、RenderManager 等）连接已重置
+    emit connectionReset();
+
+    qCInfo(lcClient) << "SessionManager::resetConnection() - Connection state reset complete";
 }
 
 // ==================== 剪贴板同步实现 ====================
@@ -474,6 +521,8 @@ void SessionManager::initializeGLUpload(QOpenGLContext* shareContext) {
         return;
     }
 
+    // 原生 GL 资源必须在 GUI 线程创建（QOffscreenSurface 内部使用 QWindow）
+    // 创建后通过 moveToThread 转移到 Worker 线程使用
     m_glContext = new QOpenGLContext();
     m_glContext->setShareContext(shareContext);
     m_glContext->setFormat(shareContext->format());
@@ -487,6 +536,10 @@ void SessionManager::initializeGLUpload(QOpenGLContext* shareContext) {
     m_glSurface = new QOffscreenSurface();
     m_glSurface->setFormat(m_glContext->format());
     m_glSurface->create();
+
+    // 转移到 SessionManager 所在的 Worker 线程，之后 handleScreenData 可在该线程调 makeCurrent
+    m_glContext->moveToThread(this->thread());
+    m_glSurface->moveToThread(this->thread());
 
     m_glUploadReady = true;
     qCInfo(lcClient) << "SessionManager: Shared GL context initialized for worker-thread texture upload";

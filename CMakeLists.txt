@@ -609,80 +609,89 @@ if(WIN32)
     target_link_libraries(CrossRemoteDesktop PRIVATE d3d11.lib dxgi.lib)
 endif()
 
-# Windows下使用 windeployqt 自动部署 Qt 运行时依赖
-# windeployqt 自动解析可执行文件的 Qt 依赖并拷贝：
-#   - Qt 运行时 DLL（Core、Gui、Widgets、Network、OpenGL 等）
-#   - 平台插件（platforms/qwindows.dll）
-#   - 图像格式插件（imageformats/）
-#   - 图标引擎插件（iconengines/）
-#   - 样式插件（styles/）
-#   - TLS 插件（tls/）
-# --no-translations：翻译文件通过 .qrc 嵌入，无需部署外部 .qm
-if(WIN32 AND EXISTS "${QT6_ROOT_DIR}/bin/windeployqt.exe")
-    add_custom_command(TARGET CrossRemoteDesktop POST_BUILD
-        COMMAND "${QT6_ROOT_DIR}/bin/windeployqt.exe"
-            --no-translations
-            "$<TARGET_FILE:CrossRemoteDesktop>"
-        COMMENT "Running windeployqt to deploy Qt runtime dependencies"
-    )
-endif()
+# ────────────────────────────────────────────────────────────
+# Windows 运行时依赖部署（精确拷贝，仅项目实际需要的 DLL）
+# ────────────────────────────────────────────────────────────
+if(WIN32)
+    set(_qt_bin "${QT6_ROOT_DIR}/bin")
+    set(_qt_plugins "${QT6_ROOT_DIR}/plugins")
+    set(_out_dir "$<TARGET_FILE_DIR:CrossRemoteDesktop>")
 
-# Windows下自动拷贝OpenSSL运行时DLL到输出目录（TLS所需）
-# DLL 使用 D 后缀区分 Debug/Release: libssl-3-x64D.dll (Debug), libssl-3-x64.dll (Release)
-# OPENSSL_TP_BIN 由 cmake/SetupOpenSSL.cmake 设置
-# 注意：import lib 内部引用的 DLL 名称始终为原始名称（无 D 后缀），
-# 因此拷贝到输出目录时必须使用原始名称，以确保运行时能正确加载。
-if(WIN32 AND EXISTS "${OPENSSL_TP_BIN}/libssl-3-x64.dll")
-    # D-suffix source file name, but always copy as the original name for runtime loading
-    set(_ssl_dll_src "$<IF:$<CONFIG:Debug>,libssl-3-x64D.dll,libssl-3-x64.dll>")
-    set(_crypto_dll_src "$<IF:$<CONFIG:Debug>,libcrypto-3-x64D.dll,libcrypto-3-x64.dll>")
-    add_custom_command(TARGET CrossRemoteDesktop POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${OPENSSL_TP_BIN}/${_ssl_dll_src}"
-            "$<TARGET_FILE_DIR:CrossRemoteDesktop>/libssl-3-x64.dll"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${OPENSSL_TP_BIN}/${_crypto_dll_src}"
-            "$<TARGET_FILE_DIR:CrossRemoteDesktop>/libcrypto-3-x64.dll"
-        COMMENT "Copying OpenSSL DLLs to output directory"
-    )
-    # 拷贝 Qt TLS 插件到输出目录，确保 Qt 能找到 OpenSSL 后端
-    set(QT_TLS_PLUGIN_DIR "${QT6_ROOT_DIR}/plugins/tls")
-    if(EXISTS "${QT_TLS_PLUGIN_DIR}")
+    # ── Qt 运行时 DLL（仅 target_link_libraries 中实际链接的模块）──
+    set(_qt_modules Core Gui Widgets Network OpenGL OpenGLWidgets Concurrent Svg)
+    foreach(_mod ${_qt_modules})
         add_custom_command(TARGET CrossRemoteDesktop POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:CrossRemoteDesktop>/tls"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${_qt_bin}/$<IF:$<CONFIG:Debug>,Qt6${_mod}d.dll,Qt6${_mod}.dll>"
+                "${_out_dir}/"
+            COMMENT "Copying Qt6${_mod} DLL"
+        )
+    endforeach()
+
+    # ── 平台插件（Windows 平台抽象）──
+    add_custom_command(TARGET CrossRemoteDesktop POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${_out_dir}/platforms"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${_qt_plugins}/platforms/$<IF:$<CONFIG:Debug>,qwindowsd.dll,qwindows.dll>"
+            "${_out_dir}/platforms/"
+        COMMENT "Copying Qt platform plugin"
+    )
+
+    # ── 样式插件（Windows 现代风格）──
+    add_custom_command(TARGET CrossRemoteDesktop POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${_out_dir}/styles"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${_qt_plugins}/styles/$<IF:$<CONFIG:Debug>,qmodernwindowsstyled.dll,qmodernwindowsstyle.dll>"
+            "${_out_dir}/styles/"
+        COMMENT "Copying Qt style plugin"
+    )
+
+    # ── SVG 图像格式插件（QIcon 渲染 SVG 图标所需）──
+    if(EXISTS "${_qt_plugins}/imageformats")
+        add_custom_command(TARGET CrossRemoteDesktop POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${_out_dir}/imageformats"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${_qt_plugins}/imageformats/$<IF:$<CONFIG:Debug>,qsvgd.dll,qsvg.dll>"
+                "${_out_dir}/imageformats/"
+            COMMENT "Copying Qt SVG imageformat plugin"
+        )
+    endif()
+
+    # ── SVG 图标引擎插件（QIcon::fromTheme SVG 支持）──
+    if(EXISTS "${_qt_plugins}/iconengines")
+        add_custom_command(TARGET CrossRemoteDesktop POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${_out_dir}/iconengines"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${_qt_plugins}/iconengines/$<IF:$<CONFIG:Debug>,qsvgicond.dll,qsvgicon.dll>"
+                "${_out_dir}/iconengines/"
+            COMMENT "Copying Qt SVG icon engine plugin"
+        )
+    endif()
+
+    # ── OpenSSL DLL（TLS 加密 + 项目自有加密逻辑）──
+    # import lib 内部引用的 DLL 名称始终无 D 后缀，因此目标文件名不带 D
+    if(EXISTS "${OPENSSL_TP_BIN}/libssl-3-x64.dll")
+        set(_ssl_src "$<IF:$<CONFIG:Debug>,libssl-3-x64D.dll,libssl-3-x64.dll>")
+        set(_crypto_src "$<IF:$<CONFIG:Debug>,libcrypto-3-x64D.dll,libcrypto-3-x64.dll>")
+        add_custom_command(TARGET CrossRemoteDesktop POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${OPENSSL_TP_BIN}/${_ssl_src}"
+                "${_out_dir}/libssl-3-x64.dll"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${OPENSSL_TP_BIN}/${_crypto_src}"
+                "${_out_dir}/libcrypto-3-x64.dll"
+            COMMENT "Copying OpenSSL DLLs"
+        )
+    endif()
+
+    # ── Qt TLS 插件（Qt Network SSL 后端，含 Schannel + OpenSSL）──
+    if(EXISTS "${_qt_plugins}/tls")
+        add_custom_command(TARGET CrossRemoteDesktop POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${_out_dir}/tls"
             COMMAND ${CMAKE_COMMAND} -E copy_directory
-                "${QT_TLS_PLUGIN_DIR}"
-                "$<TARGET_FILE_DIR:CrossRemoteDesktop>/tls"
-            COMMENT "Copying Qt TLS plugins to output directory"
-        )
-    endif()
-    # 拷贝 Qt6Svg 运行时 DLL 到输出目录（SVG 插件的核心依赖）
-    set(QT_BIN_DIR "${QT6_ROOT_DIR}/bin")
-    add_custom_command(TARGET CrossRemoteDesktop POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${QT_BIN_DIR}/$<IF:$<CONFIG:Debug>,Qt6Svgd.dll,Qt6Svg.dll>"
-            "$<TARGET_FILE_DIR:CrossRemoteDesktop>/"
-        COMMENT "Copying Qt6Svg runtime DLL to output directory"
-    )
-    # 拷贝 Qt SVG 插件到输出目录，确保 QIcon 能正确渲染 SVG 图标
-    set(QT_IMAGEFORMATS_DIR "${QT6_ROOT_DIR}/plugins/imageformats")
-    set(QT_ICONENGINES_DIR "${QT6_ROOT_DIR}/plugins/iconengines")
-    if(EXISTS "${QT_IMAGEFORMATS_DIR}")
-        add_custom_command(TARGET CrossRemoteDesktop POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:CrossRemoteDesktop>/imageformats"
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${QT_IMAGEFORMATS_DIR}/$<IF:$<CONFIG:Debug>,qsvgd.dll,qsvg.dll>"
-                "$<TARGET_FILE_DIR:CrossRemoteDesktop>/imageformats/"
-            COMMENT "Copying Qt SVG imageformat plugin to output directory"
-        )
-    endif()
-    if(EXISTS "${QT_ICONENGINES_DIR}")
-        add_custom_command(TARGET CrossRemoteDesktop POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:CrossRemoteDesktop>/iconengines"
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${QT_ICONENGINES_DIR}/$<IF:$<CONFIG:Debug>,qsvgicond.dll,qsvgicon.dll>"
-                "$<TARGET_FILE_DIR:CrossRemoteDesktop>/iconengines/"
-            COMMENT "Copying Qt SVG icon engine plugin to output directory"
+                "${_qt_plugins}/tls"
+                "${_out_dir}/tls"
+            COMMENT "Copying Qt TLS plugins"
         )
     endif()
 endif()

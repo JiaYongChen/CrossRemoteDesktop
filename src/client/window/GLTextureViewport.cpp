@@ -641,6 +641,9 @@ void GLTextureViewport::resizeGL(int w, int h) {
 
 void GLTextureViewport::paintGL() {
     // Check triple buffer for new frames (lock-free, atomic read)
+    static int s_paintCount = 0;
+    if ( ++s_paintCount <= 3 )
+        qCInfo(lcGLViewport) << "paintGL called, frameBuffer:" << (m_frameBuffer != nullptr);
     if ( m_frameBuffer ) {
         FrameSlot* slot = nullptr;
         const int idx = m_frameBuffer->getReadSlot(slot);
@@ -653,6 +656,13 @@ void GLTextureViewport::paintGL() {
                 Q_ASSERT(f);
                 const GLenum result = f->glClientWaitSync(
                     slot->uploadFence, GL_SYNC_FLUSH_COMMANDS_BIT, 0);
+                static int s_fenceDiagCount = 0;
+                ++s_fenceDiagCount;
+                if ( s_fenceDiagCount <= 3 || s_fenceDiagCount % 100 == 0 )
+                    qCInfo(lcGLViewport) << "paintGL fence #" << s_fenceDiagCount << "result:" << result
+                        << (result == GL_ALREADY_SIGNALED ? "SIGNALED" :
+                            result == GL_CONDITION_SATISFIED ? "SATISFIED" :
+                            result == GL_TIMEOUT_EXPIRED ? "TIMEOUT" : "OTHER");
                 if ( result == GL_ALREADY_SIGNALED ||
                      result == GL_CONDITION_SATISFIED ) {
                     // GPU upload complete — texture is ready to draw.
@@ -665,6 +675,10 @@ void GLTextureViewport::paintGL() {
                     // resolution change handled by worker).
                     if ( slot->image.size() != m_textureSize ) {
                         m_textureSize = slot->image.size();
+                    }
+                    // Worker 在上传时已设置 m_textureSize 但未调用 updateRenderRect，
+                    // 首帧时需要确保 render rect 已计算
+                    if ( m_renderRect.isEmpty() && !m_textureSize.isEmpty() ) {
                         updateRenderRect();
                     }
                 }
@@ -683,14 +697,30 @@ void GLTextureViewport::paintGL() {
         }
     }
 
+    static int s_skipCount = 0;
     if ( !m_textureDirty ) {
+        if ( ++s_skipCount <= 3 || s_skipCount % 300 == 0 )
+            qCInfo(lcGLViewport) << "paintGL skip #" << s_skipCount << "(m_textureDirty=false)";
         return;  // nothing new to draw
     }
     m_textureDirty = false;
+    s_skipCount = 0;  // reset skip counter on successful render
+
+    static int s_renderCount = 0;
+    ++s_renderCount;
+    if ( s_renderCount <= 3 || s_renderCount % 30 == 0 )
+        qCInfo(lcGLViewport) << "paintGL rendering #" << s_renderCount
+            << "texId:" << m_textureId[m_displayTexIndex.load()]
+            << "size:" << m_textureSize
+            << "rect:" << m_renderRect;
 
     glClear(GL_COLOR_BUFFER_BIT);
 
     if ( m_textureId[m_displayTexIndex.load()] == 0 || !m_shaderProgram || m_renderRect.isEmpty() ) {
+        if ( s_renderCount <= 3 )
+            qCWarning(lcGLViewport) << "paintGL render skip - texId:" << m_textureId[m_displayTexIndex.load()]
+                << "shader:" << (m_shaderProgram != nullptr)
+                << "rect:" << m_renderRect;
         return;
     }
 
@@ -711,6 +741,17 @@ void GLTextureViewport::paintGL() {
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
     m_shaderProgram->release();
+
+    // 简易 paintGL FPS 统计（每 60 帧输出一次）
+    static int s_frameCount = 0;
+    static auto s_lastFpsTime = std::chrono::steady_clock::now();
+    if ( ++s_frameCount >= 60 ) {
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - s_lastFpsTime).count();
+        qCInfo(lcRefreshMetrics) << "paintGL FPS:" << (60000.0 / elapsed) << "(" << elapsed << "ms for 60 frames)";
+        s_frameCount = 0;
+        s_lastFpsTime = now;
+    }
 
     using namespace std::chrono;
     if ( m_pendingArrivalTs.time_since_epoch().count() != 0 ) {

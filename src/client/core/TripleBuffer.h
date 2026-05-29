@@ -46,6 +46,14 @@ public:
         return m_readySlot.load(std::memory_order_acquire);
     }
 
+    /// 重置缓冲区索引，防止在连接重置后读取过时帧数据。
+    /// 使用 memory_order_seq_cst 确保跨线程的 happens-before 关系。
+    void reset() {
+        m_readSlot.store(-1, std::memory_order_seq_cst);
+        m_readySlot.store(-1, std::memory_order_seq_cst);
+        m_lastWrite = -1;
+    }
+
 private:
     std::array<std::unique_ptr<T>, 3> m_slots;
     std::atomic<int> m_readSlot{-1};
