@@ -14,7 +14,6 @@
 #include <QtCore/QTimer>
 #include <QtCore/QMutexLocker>
 #include <algorithm>
-#include <zstd.h>
 
 SessionManager::SessionManager(const QString& connectionId, QObject* parent)
     : QObject(parent)
@@ -263,44 +262,8 @@ void SessionManager::handleScreenData(const QByteArray& data) {
         return;
     }
 
-    // 检查是否需要zstd解压
-    QByteArray jpegData;
-    if ( screenData.flags & static_cast<quint8>(ScreenDataFlags::ZSTD_COMPRESSED) ) {
-        // 数据经过zstd压缩，需要解压
-        // 获取原始大小（zstd在压缩帧中存储了原始大小）
-        unsigned long long decompressedSize = ZSTD_getFrameContentSize(
-            screenData.imageData.constData(),
-            static_cast<size_t>(screenData.imageData.size())
-        );
-        
-        if ( decompressedSize == ZSTD_CONTENTSIZE_UNKNOWN ) {
-            // 无法确定大小，使用估算值
-            decompressedSize = static_cast<unsigned long long>(screenData.dataSize * 10);
-        } else if ( decompressedSize == ZSTD_CONTENTSIZE_ERROR ) {
-            qCWarning(lcClient) << "SessionManager::handleScreenData() - Invalid zstd compressed data";
-            return;
-        }
-        
-        QByteArray uncompressedData(static_cast<int>(decompressedSize), '\0');
-        
-        size_t result = ZSTD_decompress(
-            uncompressedData.data(),
-            static_cast<size_t>(decompressedSize),
-            screenData.imageData.constData(),
-            static_cast<size_t>(screenData.imageData.size())
-        );
-        
-        if ( ZSTD_isError(result) ) {
-            qCWarning(lcClient) << "SessionManager::handleScreenData() - Failed to decompress zstd data, error:" << ZSTD_getErrorName(result);
-            return;
-        }
-        
-        uncompressedData.resize(static_cast<int>(result));
-        jpegData = uncompressedData;
-    } else {
-        // 数据未经zstd压缩，直接使用
-        jpegData = screenData.imageData;
-    }
+    // 直接使用 JPEG 数据（服务端不再做 zstd 二次压缩）
+    QByteArray jpegData = screenData.imageData;
 
     // 验证JPEG格式头部（JPEG文件以0xFF 0xD8开头）
     if ( jpegData.size() >= 2 ) {

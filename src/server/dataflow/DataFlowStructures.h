@@ -105,13 +105,12 @@ struct CapturedFrame {
  * 包含处理后的数据和传输所需的元信息。
  */
 struct ProcessedData {
-    QByteArray compressedData;       ///< 处理后的图像数据（JPEG编码，可能经过zstd压缩）
+    QByteArray compressedData;       ///< 处理后的图像数据（JPEG编码）
     QDateTime processedTime;         ///< 处理完成时间戳
     quint64 originalFrameId;         ///< 原始帧ID
     QSize imageSize;                 ///< 图像尺寸
     qint64 originalDataSize;         ///< 原始数据大小
     qint64 compressedDataSize;       ///< 处理后数据大小
-    bool isZstdCompressed;           ///< 是否使用了zstd二次压缩
     bool isScaled;                   ///< 是否进行了缩放
     QSize originalImageSize;         ///< 原始图像尺寸（缩放前）
 
@@ -123,7 +122,6 @@ struct ProcessedData {
         , originalFrameId(0)
         , originalDataSize(0)
         , compressedDataSize(0)
-        , isZstdCompressed(false)
         , isScaled(false) {
     }
 
@@ -141,7 +139,6 @@ struct ProcessedData {
         , imageSize(size)
         , originalDataSize(origSize)
         , compressedDataSize(data.size())
-        , isZstdCompressed(false)
         , isScaled(false)
         , originalImageSize(size) {
     }
@@ -156,7 +153,6 @@ struct ProcessedData {
         , imageSize(size)
         , originalDataSize(origSize)
         , compressedDataSize(compressedData.size())
-        , isZstdCompressed(false)
         , isScaled(false)
         , originalImageSize(size) {
     }

@@ -217,7 +217,6 @@ struct KeyboardEvent : public IMessageCodec {
 // 屏幕数据压缩类型标志
 enum class ScreenDataFlags : quint8 {
     NONE = 0x00,           ///< 无特殊标志（仅JPEG压缩）
-    ZSTD_COMPRESSED = 0x01,///< 数据经过zstd二次压缩
     SCALED = 0x02          ///< 图像已缩放（需要客户端放大显示）
 };
 

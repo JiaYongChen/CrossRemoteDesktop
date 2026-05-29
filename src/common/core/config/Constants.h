@@ -65,9 +65,6 @@ public:
         static constexpr int JPEG_QUALITY_LOW = 50;                     ///< 低质量 JPEG 压缩
         static constexpr int JPEG_QUALITY_MIN = 30;                     ///< 最低质量 JPEG 压缩
         static constexpr int DEFAULT_JPEG_QUALITY = 85;                 ///< 默认 JPEG 质量（平衡大小与质量）
-        static constexpr bool ENABLE_ZSTD_COMPRESSION = true;           ///< 启用 zstd 二次压缩
-        static constexpr int ZSTD_COMPRESSION_LEVEL = 2;                ///< zstd 压缩级别 (1=快速, 2=最佳压缩, 推荐3-5)
-        static constexpr int MIN_SIZE_FOR_ZSTD = 1024;                  ///< 启用 zstd 的最小数据大小 (字节)
         static constexpr double SCALE_FACTOR_HIGH = 1.0;                ///< 高清缩放因子
         static constexpr double SCALE_FACTOR_MEDIUM = 0.75;             ///< 中等缩放因子
         static constexpr double SCALE_FACTOR_LOW = 0.5;                 ///< 低清缩放因子

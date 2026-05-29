@@ -301,9 +301,6 @@ void ClientHandlerWorker::sendScreenDataFromQueue() {
 
         // 设置压缩标志位
         quint8 flags = static_cast<quint8>(ScreenDataFlags::NONE);
-        if ( processedData.isZstdCompressed ) {
-            flags |= static_cast<quint8>(ScreenDataFlags::ZSTD_COMPRESSED);
-        }
         if ( processedData.isScaled ) {
             flags |= static_cast<quint8>(ScreenDataFlags::SCALED);
         }

@@ -9,7 +9,6 @@
 #include <QtConcurrent/QtConcurrent>
 #include <cstring>
 #include <algorithm>
-#include <zstd.h>
 
 
 DataProcessingWorker::DataProcessingWorker(QObject* parent)
@@ -447,36 +446,6 @@ ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, qui
             return result;
         }
 
-        // 对JPEG数据进行zstd压缩（如果启用且数据足够大）
-        // 使用zstd进行二次压缩，提供更高的压缩率和更快的解压速度
-        QByteArray finalData = jpegData;
-        bool zstdCompressed = false;
-        
-        if ( CoreConstants::Compression::ENABLE_ZSTD_COMPRESSION && 
-             jpegData.size() >= CoreConstants::Compression::MIN_SIZE_FOR_ZSTD ) {
-            
-            // 计算压缩后的最大可能大小
-            size_t compressedBound = ZSTD_compressBound(static_cast<size_t>(jpegData.size()));
-            QByteArray compressedData(static_cast<int>(compressedBound), '\0');
-            
-            // 使用zstd压缩，级别3提供良好的压缩率/速度平衡
-            size_t compressedSize = ZSTD_compress(
-                compressedData.data(),
-                compressedBound,
-                jpegData.constData(),
-                static_cast<size_t>(jpegData.size()),
-                CoreConstants::Compression::ZSTD_COMPRESSION_LEVEL
-            );
-            
-            if ( !ZSTD_isError(compressedSize) && compressedSize < static_cast<size_t>(jpegData.size()) ) {
-                // 压缩成功且压缩后更小，使用压缩数据
-                compressedData.resize(static_cast<int>(compressedSize));
-                finalData = compressedData;
-                zstdCompressed = true;
-            }
-            // 如果压缩失败或压缩后更大，保持原JPEG数据
-        }
-
         // 判断是否进行了缩放
         bool wasScaled = (scaleFactor < 1.0 && scaleFactor > 0.1);
 
@@ -487,19 +456,17 @@ ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, qui
                 << "处理后尺寸:" << convertedImage.size()
                 << "缩放:" << (wasScaled ? QString::number(scaleFactor) : "无")
                 << "质量:" << quality
-                << "原始JPEG大小:" << jpegData.size() << "字节,"
-                << (zstdCompressed ? "zstd压缩后:" : "最终:") << finalData.size() << "字节";
+                << "最终:" << jpegData.size() << "字节";
         }
 
         // 构造ProcessedData
         result.originalFrameId = frameId;
-        result.compressedData = finalData;
+        result.compressedData = jpegData;
         result.imageSize = convertedImage.size();         // 当前图像尺寸（可能是缩放后的）
         result.originalImageSize = image.size();          // 原始图像尺寸
         result.processedTime = QDateTime::currentDateTime();
         result.originalDataSize = image.sizeInBytes();    // 原始图像数据大小
-        result.compressedDataSize = finalData.size();
-        result.isZstdCompressed = zstdCompressed;         // 标记是否使用了zstd压缩
+        result.compressedDataSize = jpegData.size();
         result.isScaled = wasScaled;                      // 标记是否进行了缩放
     } catch ( const std::exception& e ) {
         qCCritical(lcDataProcessingWorker) << "图像处理异常:" << e.what() << "帧ID:" << frameId;

@@ -273,10 +273,9 @@ find_package(Qt6 6.9 REQUIRED COMPONENTS
 # ==============================================================================
 # Third-party dependencies (modular setup from cmake/ directory)
 # Strategy: check third_party/<lib>/ first, auto-download/build if absent.
-# See cmake/SetupOpenSSL.cmake and cmake/SetupZstd.cmake for details.
+# See cmake/SetupOpenSSL.cmake for details.
 # ==============================================================================
 include(cmake/SetupOpenSSL.cmake)
-include(cmake/SetupZstd.cmake)
 
 # 标准Qt项目设置（可用时）
 if(COMMAND qt_standard_project_setup)
@@ -588,8 +587,6 @@ if(APPLE AND _qtgui_link_opts)
 endif()
 
 # 链接库
-# zstd::zstd imported target provides both include directories and per-config
-# library selection (Debug/Release on MSVC), avoiding CRT mismatch (LNK4098).
 target_link_libraries(CrossRemoteDesktop PRIVATE
     Qt6::Core
     Qt6::Widgets
@@ -601,7 +598,6 @@ target_link_libraries(CrossRemoteDesktop PRIVATE
     Qt6::Svg
     OpenSSL::SSL
     OpenSSL::Crypto
-    zstd::zstd
 )
 
 # Windows: link D3D11 and DXGI for Desktop Duplication capture
@@ -646,14 +642,19 @@ if(WIN32)
         COMMENT "Copying Qt style plugin"
     )
 
-    # ── SVG 图像格式插件（QIcon 渲染 SVG 图标所需）──
+    # ── JPEG + SVG 图像格式插件 ──
     if(EXISTS "${_qt_plugins}/imageformats")
         add_custom_command(TARGET CrossRemoteDesktop POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E make_directory "${_out_dir}/imageformats"
+            # JPEG 编解码插件（屏幕帧传输必需）
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${_qt_plugins}/imageformats/$<IF:$<CONFIG:Debug>,qjpegd.dll,qjpeg.dll>"
+                "${_out_dir}/imageformats/"
+            # SVG 图像格式插件（QIcon 渲染 SVG 图标所需）
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 "${_qt_plugins}/imageformats/$<IF:$<CONFIG:Debug>,qsvgd.dll,qsvg.dll>"
                 "${_out_dir}/imageformats/"
-            COMMENT "Copying Qt SVG imageformat plugin"
+            COMMENT "Copying Qt imageformat plugins (JPEG + SVG)"
         )
     endif()
 

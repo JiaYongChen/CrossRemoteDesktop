@@ -74,13 +74,6 @@ else()
     find_package(OpenSSL REQUIRED)
 endif()
 
-# 查找zstd - 复用父项目创建的 zstd::zstd imported target
-# （由 cmake/SetupZstd.cmake 提供，包含 include 目录和 per-config 库路径）
-if(NOT TARGET zstd::zstd)
-    message(FATAL_ERROR "[Tests] zstd::zstd target not defined by parent project")
-endif()
-message(STATUS "[Tests] Reusing zstd::zstd from parent: ${ZSTD_INCLUDE_DIR}")
-
 # 设置Qt6自动处理
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
@@ -96,7 +89,6 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/common/core/adaptive
     ${CMAKE_CURRENT_SOURCE_DIR}/../include
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${ZSTD_INCLUDE_DIR}
 )
 
 # 创建构建目录（测试可执行文件和静态库统一输出到 build/test/，避免污染主输出目录）
@@ -514,7 +506,6 @@ target_link_libraries(test_clientremotewindow PRIVATE
     Qt6::Network
     OpenSSL::SSL
     OpenSSL::Crypto
-    zstd::zstd
     common_test_core
 )
 
@@ -564,7 +555,6 @@ target_link_libraries(test_screen_data_flow PRIVATE
     Qt6::Concurrent
     OpenSSL::SSL
     OpenSSL::Crypto
-    zstd::zstd
     common_test_core
 )
 
@@ -689,7 +679,6 @@ target_link_libraries(test_producer_consumer_integration PRIVATE
     Qt6::Concurrent
     OpenSSL::SSL
     OpenSSL::Crypto
-    zstd::zstd
     capture_test_core
 )
 
@@ -838,8 +827,6 @@ if(TARGET run_core_tests)
     add_dependencies(run_core_tests test_captured_frame)
 endif()
 
-# zstd is pre-built during configure (see cmake/SetupZstd.cmake), no build-time dependency needed
-
 # ============================================================================
 # DXGI Desktop Duplication 捕获引擎测试 (Windows only at runtime; skipped elsewhere)
 # ============================================================================
@@ -935,7 +922,6 @@ target_link_libraries(test_session_latest_wins PRIVATE
     Qt6::Core Qt6::Test Qt6::Gui Qt6::Network
     common_test_core
     OpenSSL::SSL OpenSSL::Crypto
-    zstd::zstd
 )
 add_test(
     NAME SessionLatestWinsTest
