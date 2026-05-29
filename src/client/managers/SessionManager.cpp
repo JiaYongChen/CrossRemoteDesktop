@@ -13,6 +13,7 @@
 #include <QtCore/QThread>
 #include <QtCore/QTimer>
 #include <QtCore/QMutexLocker>
+#include <QtGui/QImageReader>
 #include <algorithm>
 
 SessionManager::SessionManager(const QString& connectionId, QObject* parent)
@@ -91,7 +92,8 @@ void SessionManager::terminateSession() {
 
     // 清理会话数据
     m_remoteScreenSize = QSize();
-    m_frameTimes.clear();
+    m_lastFpsTime = {};
+    m_smoothedFrameDuration = 0.0;
 }
 
 void SessionManager::moveGLToThread(QThread* target) {
@@ -164,7 +166,8 @@ void SessionManager::resetStats() {
     m_stats.currentFPS = 0.0;
     m_stats.sessionStartTime = QDateTime();
     m_stats.frameCount = 0;
-    m_frameTimes.clear();
+    m_lastFpsTime = {};
+    m_smoothedFrameDuration = 0.0;
 }
 
 QString SessionManager::getFormattedPerformanceInfo() const {
@@ -238,17 +241,10 @@ void SessionManager::setupConnections() {
 }
 
 void SessionManager::calculateFPS() {
-    if ( m_frameTimes.size() < 2 ) {
-        m_stats.currentFPS = 0.0;
-        return;
-    }
-
-    QDateTime oldest = m_frameTimes.first();
-    QDateTime newest = m_frameTimes.last();
-
-    qint64 timeSpan = oldest.msecsTo(newest);
-    if ( timeSpan > 0 ) {
-        m_stats.currentFPS = (m_frameTimes.size() - 1) * 1000.0 / timeSpan;
+    // EMA 指数滑动平均：无 QQueue 迭代器开销，无 QDateTime 构造开销。
+    // 公式: smoothed = α × instantFps + (1-α) × smoothed
+    if ( m_smoothedFrameDuration > 0.0 ) {
+        m_stats.currentFPS = 1.0 / m_smoothedFrameDuration;
     } else {
         m_stats.currentFPS = 0.0;
     }
@@ -296,9 +292,14 @@ void SessionManager::handleScreenData(const QByteArray& data) {
         m_previousFrameData = jpegData;
     }
 
-    // 从JPEG格式数据加载QImage
-    QImage image;
-    bool loaded = image.loadFromData(frameData, "JPEG");
+    // JPEG 解码到复用缓冲区，消除每帧 8MB malloc/free
+    // （MSVC Debug 堆的 alloc/free 跟踪是"越来越慢"的根因）
+    QBuffer buffer(&frameData);
+    buffer.open(QIODevice::ReadOnly);
+    QImageReader reader(&buffer, "JPEG");
+    reader.setAutoTransform(true);
+    const bool loaded = reader.read(&m_decodeBuffer);
+    QImage& image = m_decodeBuffer;
 
     if ( loaded && !image.isNull() ) {
         // Record the logical remote screen size for layout/aspect ratio.
@@ -317,10 +318,19 @@ void SessionManager::handleScreenData(const QByteArray& data) {
             m_remoteScreenSize = image.size();
         }
 
-        // 更新性能统计
-        m_frameTimes.enqueue(QDateTime::currentDateTime());
-        if ( m_frameTimes.size() > 100 ) {
-            m_frameTimes.dequeue();
+        // 更新时间统计：用 std::chrono + EMA 替代 QQueue<QDateTime>，
+        // 消除 Debug STL 迭代器检查和 QDateTime 构造开销。
+        {
+            const auto now = std::chrono::steady_clock::now();
+            if ( m_lastFpsTime.time_since_epoch().count() != 0 ) {
+                const double instant = std::chrono::duration<double>(now - m_lastFpsTime).count();
+                if ( m_smoothedFrameDuration == 0.0 ) {
+                    m_smoothedFrameDuration = instant;
+                } else {
+                    m_smoothedFrameDuration = kFpsAlpha * instant + (1.0 - kFpsAlpha) * m_smoothedFrameDuration;
+                }
+            }
+            m_lastFpsTime = now;
         }
         m_stats.frameCount++;
         calculateFPS();
@@ -342,13 +352,13 @@ void SessionManager::handleScreenData(const QByteArray& data) {
                 const bool gpuOverloaded = m_glViewportForUpload->consecutiveSkips() >= 3;
                 const bool skipThisUpload = gpuOverloaded && (++s_backoffCounter % 2 == 0);
                 if (gpuOverloaded && s_backoffCounter <= 3)
-                    qCInfo(lcClient) << "GPU backpressure: skipping GL upload, skips="
+                    qCDebug(lcClient) << "GPU backpressure: skipping GL upload, skips="
                         << m_glViewportForUpload->consecutiveSkips();
 
                 if (!skipThisUpload) {
                 ++s_glUploadDiagCount;
                 if ( s_glUploadDiagCount <= 3 || s_glUploadDiagCount % 100 == 0 )
-                    qCInfo(lcClient) << "handleScreenData: GL upload #" << s_glUploadDiagCount << "frame" << m_stats.frameCount;
+                    qCDebug(lcClient) << "handleScreenData: GL upload #" << s_glUploadDiagCount << "frame" << m_stats.frameCount;
                 m_glContext->makeCurrent(m_glSurface);
                 // Delete any fence from previous frame before overwriting
                 if (slot->uploadFence) {
@@ -446,7 +456,8 @@ void SessionManager::resetConnection() {
     }
 
     // 2) 清理帧时间队列
-    m_frameTimes.clear();
+    m_lastFpsTime = {};
+    m_smoothedFrameDuration = 0.0;
 
     // 3) 重置远程屏幕尺寸
     m_remoteScreenSize = QSize();

@@ -150,10 +150,17 @@ private:
     // Triple-buffered lock-free frame delivery (replaces QQueue+QMutex+signal)
     TripleBuffer<FrameSlot> m_frameBuffer;
 
+    // JPEG 解码缓冲区复用：避免每帧 malloc/free 8MB 导致 Debug 堆碎片化
+    QImage m_decodeBuffer;
+
     // 性能统计
     QTimer* m_statsTimer;
     PerformanceStats m_stats;
-    QQueue<QDateTime> m_frameTimes;
+
+    // EMA 指数滑动平均 FPS 追踪（替代 QQueue<QDateTime>，消除 STL Debug 迭代器开销）
+    std::chrono::steady_clock::time_point m_lastFpsTime{};
+    double m_smoothedFrameDuration = 0.0;  // EMA 平滑帧间隔（秒）
+    static constexpr double kFpsAlpha = 0.1;     // EMA 平滑系数
 
     // 配置
     int m_frameRate;

@@ -671,7 +671,7 @@ void GLTextureViewport::paintGL() {
     // Check triple buffer for new frames (lock-free, atomic read)
     static int s_paintCount = 0;
     if ( ++s_paintCount <= 3 )
-        qCInfo(lcGLViewport) << "paintGL called, frameBuffer:" << (m_frameBuffer != nullptr);
+        qCDebug(lcGLViewport) << "paintGL called, frameBuffer:" << (m_frameBuffer != nullptr);
     if ( m_frameBuffer ) {
         FrameSlot* slot = nullptr;
         const int idx = m_frameBuffer->getReadSlot(slot);
@@ -691,7 +691,7 @@ void GLTextureViewport::paintGL() {
                 static int s_fenceDiagCount = 0;
                 ++s_fenceDiagCount;
                 if ( s_fenceDiagCount <= 3 || s_fenceDiagCount % 100 == 0 )
-                    qCInfo(lcGLViewport) << "paintGL fence #" << s_fenceDiagCount << "result:" << result
+                    qCDebug(lcGLViewport) << "paintGL fence #" << s_fenceDiagCount << "result:" << result
                         << (result == GL_ALREADY_SIGNALED ? "SIGNALED" :
                             result == GL_CONDITION_SATISFIED ? "SATISFIED" :
                             result == GL_TIMEOUT_EXPIRED ? "TIMEOUT" : "OTHER");
@@ -734,7 +734,7 @@ void GLTextureViewport::paintGL() {
     static int s_skipCount = 0;
     if ( !m_textureDirty ) {
         if ( ++s_skipCount <= 3 || s_skipCount % 300 == 0 )
-            qCInfo(lcGLViewport) << "paintGL skip #" << s_skipCount << "(m_textureDirty=false)";
+            qCDebug(lcGLViewport) << "paintGL skip #" << s_skipCount << "(m_textureDirty=false)";
         m_needsRepaint.store(false, std::memory_order_release);
         return;  // nothing new to draw
     }
@@ -745,7 +745,7 @@ void GLTextureViewport::paintGL() {
     static int s_renderCount = 0;
     ++s_renderCount;
     if ( s_renderCount <= 3 || s_renderCount % 30 == 0 )
-        qCInfo(lcGLViewport) << "paintGL rendering #" << s_renderCount
+        qCDebug(lcGLViewport) << "paintGL rendering #" << s_renderCount
             << "texId:" << m_textureId[m_displayTexIndex.load()]
             << "size:" << m_textureSize
             << "rect:" << m_renderRect;
@@ -784,7 +784,7 @@ void GLTextureViewport::paintGL() {
     if ( ++s_frameCount >= 60 ) {
         auto now = std::chrono::steady_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - s_lastFpsTime).count();
-        qCInfo(lcRefreshMetrics) << "paintGL FPS:" << (60000.0 / elapsed) << "(" << elapsed << "ms for 60 frames)";
+        qCDebug(lcRefreshMetrics) << "paintGL FPS:" << (60000.0 / elapsed) << "(" << elapsed << "ms for 60 frames)";
         s_frameCount = 0;
         s_lastFpsTime = now;
     }
@@ -798,7 +798,7 @@ void GLTextureViewport::paintGL() {
         if ( ++m_metricsFrameCount >= kMetricsReportInterval ) {
             const double avgMs = (m_metricsLatencyAccumUs / double(m_metricsFrameCount)) / 1000.0;
             const double maxMs = m_metricsLatencyMaxUs / 1000.0;
-            qCInfo(lcRefreshMetrics)
+            qCDebug(lcRefreshMetrics)
                 << "end-to-glass avg:" << avgMs << "ms"
                 << "max:" << maxMs << "ms"
                 << "over" << m_metricsFrameCount << "frames";
