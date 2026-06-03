@@ -67,7 +67,6 @@
 CrossRemoteDesktop/
 ├── CMakeLists.txt                  # 主构建配置（跨平台自动检测）
 ├── resources/                      # 资源文件
-│   ├── Info.plist.in              # macOS 应用信息模板
 │   ├── icons/                     # 应用图标
 │   ├── styles/                    # 样式文件
 │   ├── resources.qrc              # Qt 资源配置

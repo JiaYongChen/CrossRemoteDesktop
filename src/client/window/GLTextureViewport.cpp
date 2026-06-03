@@ -107,40 +107,76 @@ GLTextureViewport::GLTextureViewport(QWidget* parent)
 }
 
 GLTextureViewport::~GLTextureViewport() {
-    // Stop frame-polling timer
-    if ( m_pollTimer ) {
+    // 如果已在 closeEvent 中通过 cleanupGLResources() 主动清理，
+    // 则跳过 makeCurrent()+cleanupGL()，避免在原生窗口已销毁后崩溃。
+    if (!m_glCleanedUp) {
+        // Stop frame-polling timer
+        if (m_pollTimer) {
+            m_pollTimer->stop();
+        }
+
+        // Critical: disconnect aboutToBeDestroyed BEFORE the base destructor chain
+        // destroys the underlying QOpenGLContext.
+        //
+        // Why (Qt 6.9 destruction sequence):
+        //   1) This derived destructor body finishes (reaches '}');
+        //   2) The compiler invokes ~QOpenGLWidget() — at this point the vtable
+        //      has downgraded to QOpenGLWidget (C++ standard);
+        //   3) Inside ~QOpenGLWidget() the underlying QOpenGLContext is torn down
+        //      and emits aboutToBeDestroyed;
+        //   4) Our slot GLTextureViewport::cleanupGL is dispatched via Qt's
+        //      QCallableObject::impl, which calls
+        //      assertObjectType<GLTextureViewport>(this). qobject_cast goes
+        //      through metaObject() — a virtual call — and now returns
+        //      QOpenGLWidget::staticMetaObject, so the cast yields nullptr and
+        //      the Q_ASSERT fires (qFatal).
+        //
+        // We cannot rely on ~QObject()'s auto-disconnect because ~QObject() runs
+        // at the END of the base destruction chain, long after the signal has
+        // already tried to invoke the downgraded slot. The disconnect must happen
+        // while the derived vtable is still live — i.e., inside this body.
+        if (QOpenGLContext* ctx = context()) {
+            disconnect(ctx, &QOpenGLContext::aboutToBeDestroyed,
+                       this, &GLTextureViewport::cleanupGL);
+        }
+
+        // Must make context current before deleting GL resources
+        makeCurrent();
+        cleanupGL();
+        doneCurrent();
+    } else {
+        // 已主动清理：仅停止定时器（防御性）
+        if (m_pollTimer) {
+            m_pollTimer->stop();
+        }
+    }
+}
+
+void GLTextureViewport::cleanupGLResources() {
+    // 幂等：多次调用安全
+    if (m_glCleanedUp) {
+        return;
+    }
+
+    qCInfo(lcGLViewport) << "GLTextureViewport::cleanupGLResources() - 主动清理 GL 资源";
+
+    // 停止帧轮询定时器
+    if (m_pollTimer) {
         m_pollTimer->stop();
     }
 
-    // Critical: disconnect aboutToBeDestroyed BEFORE the base destructor chain
-    // destroys the underlying QOpenGLContext.
-    //
-    // Why (Qt 6.9 destruction sequence):
-    //   1) This derived destructor body finishes (reaches '}');
-    //   2) The compiler invokes ~QOpenGLWidget() — at this point the vtable
-    //      has downgraded to QOpenGLWidget (C++ standard);
-    //   3) Inside ~QOpenGLWidget() the underlying QOpenGLContext is torn down
-    //      and emits aboutToBeDestroyed;
-    //   4) Our slot GLTextureViewport::cleanupGL is dispatched via Qt's
-    //      QCallableObject::impl, which calls
-    //      assertObjectType<GLTextureViewport>(this). qobject_cast goes
-    //      through metaObject() — a virtual call — and now returns
-    //      QOpenGLWidget::staticMetaObject, so the cast yields nullptr and
-    //      the Q_ASSERT fires (qFatal).
-    //
-    // We cannot rely on ~QObject()'s auto-disconnect because ~QObject() runs
-    // at the END of the base destruction chain, long after the signal has
-    // already tried to invoke the downgraded slot. The disconnect must happen
-    // while the derived vtable is still live — i.e., inside this body.
-    if ( QOpenGLContext* ctx = context() ) {
+    // 断开 aboutToBeDestroyed 信号（避免 vtable 降级后 Qt 的 qFatal 断言）
+    if (QOpenGLContext* ctx = context()) {
         disconnect(ctx, &QOpenGLContext::aboutToBeDestroyed,
                    this, &GLTextureViewport::cleanupGL);
     }
 
-    // Must make context current before deleting GL resources
+    // 此时窗口尚未隐藏，原生 QWindow 仍然有效，makeCurrent 可以成功
     makeCurrent();
     cleanupGL();
     doneCurrent();
+
+    m_glCleanedUp = true;
 }
 
 void GLTextureViewport::initializeGL() {
@@ -668,6 +704,11 @@ void GLTextureViewport::resizeGL(int w, int h) {
 }
 
 void GLTextureViewport::paintGL() {
+    // GL 资源已通过 cleanupGLResources() 清理（窗口正在关闭），跳过绘制
+    if (!m_shaderProgram) {
+        return;
+    }
+
     // Check triple buffer for new frames (lock-free, atomic read)
     static int s_paintCount = 0;
     if ( ++s_paintCount <= 3 )

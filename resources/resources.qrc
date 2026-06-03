@@ -17,9 +17,7 @@
     <file>icons/import.svg</file>
     <file>icons/export.svg</file>
     <file>icons/save.svg</file>
-    <file>icons/load.svg</file>
     <file>icons/delete.svg</file>
-    <file>icons/test.svg</file>
         
         <!-- 功能图标 -->
     <file>icons/fullscreen.svg</file>

@@ -18,6 +18,8 @@ DecodeWorker::DecodeWorker(QObject* parent)
 DecodeWorker::~DecodeWorker() {
     requestStop();
 #ifndef QT_NO_OPENGL
+    // 仅当 cleanupGL() 未被预先调用（destroyDecodePipeline 的正常路径）时执行兜底清理。
+    // 此时 DecodeThread 已停止，调用者确保已无跨线程事件风险。
     delete m_glContext;
     m_glContext = nullptr;
     delete m_glSurface;
@@ -194,12 +196,13 @@ bool DecodeWorker::initializeGL(QOpenGLContext* shareContext) {
     m_glSurface->setFormat(m_glContext->format());
     m_glSurface->create();
 
-    // 转移到 DecodeWorker 所在的 DecodeThread
-    m_glContext->moveToThread(this->thread());
-    m_glSurface->moveToThread(this->thread());
+    // 不再需要 moveToThread：此方法现在通过 QueuedConnection 在 DecodeThread 中执行，
+    // QOffscreenSurface 内部的 QWindow 原生资源直接创建在正确的线程中。
+    // 在非 GUI 线程创建 QOffscreenSurface 会产生 Qt 警告但功能正常。
 
     m_glUploadReady = true;
-    qCInfo(lcClient) << "DecodeWorker::initializeGL() - GL context ready on DecodeThread";
+    qCInfo(lcClient) << "DecodeWorker::initializeGL() - GL context ready on"
+                      << (this->thread() ? this->thread()->objectName() : "null");
     return true;
 }
 
@@ -207,6 +210,16 @@ void DecodeWorker::moveGLToThread(QThread* target) {
     if (m_glContext) m_glContext->moveToThread(target);
     if (m_glSurface) m_glSurface->moveToThread(target);
     m_glUploadReady = false;
+}
+
+void DecodeWorker::cleanupGL() {
+    m_glUploadReady = false;
+    m_glViewport = nullptr;
+    delete m_glContext;
+    m_glContext = nullptr;
+    delete m_glSurface;
+    m_glSurface = nullptr;
+    qCInfo(lcClient) << "DecodeWorker::cleanupGL() - GL resources deleted on DecodeThread";
 }
 
 void DecodeWorker::setGLViewport(GLTextureViewport* vp) {

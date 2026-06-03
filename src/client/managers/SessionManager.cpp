@@ -430,10 +430,16 @@ void SessionManager::createDecodePipeline() {
     m_decodeWorker->setFrameBuffer(&m_frameBuffer);
 
 #ifndef QT_NO_OPENGL
-    // 初始化 DecodeWorker 的 GL 上下文（如果已有）
+    // 初始化 DecodeWorker 的 GL 上下文（如果已有）。
+    // 必须通过 QueuedConnection 在 DecodeThread 中执行，
+    // 因为 QOffscreenSurface::create() 内部创建 QWindow，
+    // 而 QWindow 是原生资源，创建后无法 moveToThread。
     if (m_pendingGLContext && m_pendingGLContext->isValid()) {
-        m_decodeWorker->initializeGL(m_pendingGLContext);
+        QMetaObject::invokeMethod(m_decodeWorker, [w = m_decodeWorker, ctx = m_pendingGLContext]() {
+            w->initializeGL(ctx);
+        }, Qt::QueuedConnection);
     }
+    // setGLViewport 不需要 GL 上下文，直接设置即可
     m_decodeWorker->setGLViewport(m_glViewportForUpload);
 #endif
 
@@ -469,7 +475,19 @@ void SessionManager::destroyDecodePipeline() {
     // 2. 获取 DecodeThread 引用
     QThread* decodeThread = m_decodeWorker->thread();
 
-    // 3. 停止线程
+    // 3. 在 DecodeThread 上下文内清理 GL 资源（必须在线程 quit 之前执行）。
+    //    因为 m_glContext（QOpenGLContext*）和 m_glSurface（QOffscreenSurface*）
+    //    在 initializeGL() 中被 moveToThread 到 DecodeThread，跨线程 delete
+    //    会触发 Qt 的 "Cannot send events to objects owned by a different thread" 断言。
+#ifndef QT_NO_OPENGL
+    if (decodeThread && decodeThread->isRunning()) {
+        QMetaObject::invokeMethod(m_decodeWorker, [w = m_decodeWorker]() {
+            w->cleanupGL();
+        }, Qt::BlockingQueuedConnection);
+    }
+#endif
+
+    // 4. 停止线程
     if (decodeThread && decodeThread->isRunning()) {
         decodeThread->quit();
         if (!decodeThread->wait(3000)) {
@@ -480,8 +498,7 @@ void SessionManager::destroyDecodePipeline() {
         }
     }
 
-    // 4. 删除 worker（Qt 6 允许从非 current 线程删除 QOpenGLContext）
-    //    DecodeWorker 析构函数内部 delete GL 资源
+    // 5. 删除 worker — GL 资源已在步骤 3 中同一线程内安全释放
     delete m_decodeWorker;
     m_decodeWorker = nullptr;
 

@@ -545,6 +545,16 @@ void ClientRemoteWindow::closeEvent(QCloseEvent* event) {
 
     emit windowClosed();
 
+    // 在 QWidget::closeEvent（内部调用 hide()）之前主动清理 GL 资源。
+    // hide() 在 Windows 上会销毁原生 QWindow，导致后续析构时
+    // QOpenGLWidget::makeCurrent() 因缺失有效 surface 而崩溃。
+    // 此处 GL 资源清理完成后，析构函数会检测 m_glCleanedUp 标记并跳过重复清理。
+#ifndef QT_NO_OPENGL
+    if ( m_glViewport ) {
+        m_glViewport->cleanupGLResources();
+    }
+#endif
+
     event->accept();
     QWidget::closeEvent(event);
 }

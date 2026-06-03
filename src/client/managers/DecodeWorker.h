@@ -37,6 +37,10 @@ public:
     /// 将 GL 对象移到目标线程（用于安全析构）
     void moveGLToThread(QThread* target);
 
+    /// 在 DecodeThread 上下文内安全删除 GL 对象，避免跨线程 QObject 删除断言。
+    /// 必须在 decodeThread->quit() 之前通过 BlockingQueuedConnection 调用。
+    void cleanupGL();
+
     /// 设置 GLTextureViewport 引用
     void setGLViewport(GLTextureViewport* vp);
 #endif
