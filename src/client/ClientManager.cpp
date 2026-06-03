@@ -71,6 +71,14 @@ void ConnectionInstance::shutdownPhase1_CloseWindowAndDisconnect() {
         remoteDesktopWindow->disconnect();
     }
 
+    // 0. 先停止解码管线（消费者先停，再停生产者 SessionThread）
+    if ( sessionManager && !sessionManager.isNull() && instanceThread && instanceThread->isRunning() ) {
+        qCDebug(lcClientManager) << "shutdown [PHASE-1] Stopping decode pipeline for" << connectionId;
+        QMetaObject::invokeMethod(sessionManager.data(), [sm = sessionManager.data()]() {
+            sm->destroyDecodePipeline();
+        }, Qt::BlockingQueuedConnection);
+    }
+
     if ( sessionManager && !sessionManager.isNull() ) {
         qCDebug(lcClientManager) << "shutdown [PHASE-1] Disconnecting session for" << connectionId;
         Qt::ConnectionType connType = (instanceThread && instanceThread->isRunning())
@@ -97,13 +105,12 @@ void ConnectionInstance::shutdownPhase1_CloseWindowAndDisconnect() {
             }, Qt::BlockingQueuedConnection);
         }
 
-        // 将 GL 对象和 SessionManager 移回主线程。
+        // 将 SessionManager 移回主线程。
         // Lambda 由 BlockingQueuedConnection 在 SessionThread 中执行，
         // moveToThread 只能从对象所在线程调用，因此必须在此处完成。
         if ( instanceThread && instanceThread->isRunning() ) {
             QThread* mainThread = QThread::currentThread();
             QMetaObject::invokeMethod(sessionManager.data(), [sm = sessionManager.data(), mainThread]() {
-                sm->moveGLToThread(mainThread);
                 sm->moveToThread(mainThread);
             }, Qt::BlockingQueuedConnection);
         }
@@ -292,23 +299,21 @@ QString ClientManager::connectToHost(const QString& host, int port) {
             gl->attachFrameBuffer(instance->sessionManager->frameBuffer());
 
             // Wire worker-thread GL upload: when the GL context is ready,
-            // initialize a shared context on the worker thread so that
-            // SessionManager::handleScreenData() can upload textures directly
-            // to the GPU via PBO, eliminating the CPU memcpy from the GUI
-            // thread's critical path.
+            // store it so createDecodePipeline() can initialize the DecodeWorker
+            // with a shared GL context for direct GPU texture upload.
             instance->sessionManager->setGLViewportForUpload(gl);
 
             QObject::connect(gl, &GLTextureViewport::glContextReady,
                 instance->sessionManager,
                 [sm = instance->sessionManager.data()](QOpenGLContext* ctx) {
-                    sm->initializeGLUpload(ctx);
+                    sm->setGLContextForDecode(ctx);
                 }, Qt::QueuedConnection);
 
             // Guard against signal race: if initializeGL() already fired
             // (e.g., during processEvents in createRemoteDesktopWindow),
-            // the signal was lost — initialize directly.
+            // the signal was lost — set directly.
             if (gl->context() && gl->context()->isValid()) {
-                instance->sessionManager->initializeGLUpload(gl->context());
+                instance->sessionManager->setGLContextForDecode(gl->context());
             }
         }
     }

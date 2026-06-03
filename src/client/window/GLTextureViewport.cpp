@@ -419,9 +419,9 @@ void GLTextureViewport::applyFrame(const QImage& image) {
             QOpenGLBuffer& pbo = m_pbo[m_currentPbo];
             pbo.bind();
             auto* f = QOpenGLContext::currentContext()->extraFunctions();
-            const bool sizeChanged = (totalBytes != m_pboAllocatedBytes);
+            const bool pboSizeChanged = (totalBytes != m_pboAllocatedBytes);
             void* mapped = nullptr;
-            if ( sizeChanged ) {
+            if ( pboSizeChanged ) {
                 pbo.allocate(nullptr, totalBytes);
                 m_pboAllocatedBytes = totalBytes;
                 mapped = pbo.map(QOpenGLBuffer::WriteOnly);
@@ -570,9 +570,9 @@ GLsync GLTextureViewport::uploadFromWorker(const QImage& image) {
             QOpenGLBuffer& pbo = m_pbo[m_currentPbo];
             pbo.bind();
             auto* f2 = QOpenGLContext::currentContext()->extraFunctions();
-            const bool sizeChanged = (totalBytes != m_pboAllocatedBytes);
+            const bool pboSizeChanged = (totalBytes != m_pboAllocatedBytes);
             void* mapped = nullptr;
-            if (sizeChanged) {
+            if (pboSizeChanged) {
                 pbo.allocate(nullptr, totalBytes);
                 m_pboAllocatedBytes = totalBytes;
                 mapped = pbo.map(QOpenGLBuffer::WriteOnly);

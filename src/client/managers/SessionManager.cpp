@@ -1,4 +1,5 @@
 #include "SessionManager.h"
+#include "DecodeWorker.h"
 #include "../network/ConnectionManager.h"
 #include "../../common/core/logging/LoggingCategories.h"
 #include "../../common/core/network/Protocol.h"
@@ -35,20 +36,10 @@ SessionManager::SessionManager(const QString& connectionId, QObject* parent)
 }
 
 SessionManager::~SessionManager() {
+    destroyDecodePipeline();
     terminateSession();
 
-#ifndef QT_NO_OPENGL
-    // GL 资源通常已在 shutdown 第一阶段由 cleanupGLResources() 在工作线程中清理。
-    // 此处为防御性删除：如果 Phase 1 未执行（异常路径），直接 delete（不作
-    // moveToThread，因为 moveToThread 只能从对象所属线程调用）。
-    delete m_glContext;
-    m_glContext = nullptr;
-    delete m_glSurface;
-    m_glSurface = nullptr;
-#endif
-
     // ConnectionManager 由 Qt 父对象机制自动删除
-    // QMutex 是栈上值类型，自动析构，无需 delete
 }
 
 QString SessionManager::connectionId() const {
@@ -65,6 +56,9 @@ void SessionManager::startSession() {
     // 重置统计数据
     resetStats();
     m_stats.sessionStartTime = QDateTime::currentDateTime();
+
+    // 认证成功后创建解码管线
+    createDecodePipeline();
 
     // 启动统计定时器
     m_statsTimer->start();
@@ -84,6 +78,9 @@ void SessionManager::resumeSession() {
 }
 
 void SessionManager::terminateSession() {
+    // 先停止解码管线（消费者先停）
+    destroyDecodePipeline();
+
     m_statsTimer->stop();
 
     // 注意：会话终止不发送断开请求，避免重复发送
@@ -94,15 +91,6 @@ void SessionManager::terminateSession() {
     m_remoteScreenSize = QSize();
     m_lastFpsTime = {};
     m_smoothedFrameDuration = 0.0;
-}
-
-void SessionManager::moveGLToThread(QThread* target) {
-    Q_UNUSED(target);
-#ifndef QT_NO_OPENGL
-    if (m_glContext) m_glContext->moveToThread(target);
-    if (m_glSurface) m_glSurface->moveToThread(target);
-    m_glUploadReady = false;
-#endif
 }
 
 bool SessionManager::isActive() const {
@@ -251,160 +239,69 @@ void SessionManager::calculateFPS() {
 }
 
 void SessionManager::handleScreenData(const QByteArray& data) {
-    // 使用正确的ScreenData结构体解码数据
+    // 1. 协议级解码 + 校验
     ScreenData screenData{};
-    if ( !screenData.decode(data) ) {
-        qCWarning(lcClient) << "SessionManager::handleScreenData() - Failed to decode ScreenData from received data, size:" << data.size();
+    if (!screenData.decode(data)) {
+        qCWarning(lcClient) << "SessionManager::handleScreenData() - Failed to decode ScreenData, size:" << data.size();
         return;
     }
 
-    // 验证数据完整性
-    if ( screenData.imageData.isEmpty() || screenData.dataSize == 0 ) {
+    if (screenData.imageData.isEmpty() || screenData.dataSize == 0) {
         qCWarning(lcClient) << "SessionManager::handleScreenData() - ScreenData contains empty image data";
         return;
     }
 
-    if ( static_cast<quint32>(screenData.imageData.size()) != screenData.dataSize ) {
-        qCWarning(lcClient) << "SessionManager::handleScreenData() - ScreenData size mismatch, expected:" << screenData.dataSize << "actual:" << screenData.imageData.size();
+    if (static_cast<quint32>(screenData.imageData.size()) != screenData.dataSize) {
+        qCWarning(lcClient) << "SessionManager::handleScreenData() - Size mismatch, expected:"
+                            << screenData.dataSize << "actual:" << screenData.imageData.size();
         return;
     }
 
-    // 直接使用 JPEG 数据（服务端不再做 zstd 二次压缩）
-    QByteArray jpegData = screenData.imageData;
-
-    // 验证JPEG格式头部（JPEG文件以0xFF 0xD8开头）
-    if ( jpegData.size() >= 2 ) {
-        unsigned char byte0 = static_cast<unsigned char>(jpegData[0]);
-        unsigned char byte1 = static_cast<unsigned char>(jpegData[1]);
-        if ( byte0 != 0xFF || byte1 != 0xD8 ) {
+    // 2. JPEG 头部校验
+    if (screenData.imageData.size() >= 2) {
+        unsigned char byte0 = static_cast<unsigned char>(screenData.imageData[0]);
+        unsigned char byte1 = static_cast<unsigned char>(screenData.imageData[1]);
+        if (byte0 != 0xFF || byte1 != 0xD8) {
             qCWarning(lcClient) << "SessionManager::handleScreenData() - Invalid JPEG header, first 2 bytes:"
-                << QString("0x%1 0x%2")
-                .arg(byte0, 2, 16, QChar('0'))
-                .arg(byte1, 2, 16, QChar('0'));
+                                << QString("0x%1 0x%2").arg(byte0, 2, 16, QChar('0')).arg(byte1, 2, 16, QChar('0'));
+            return;
         }
     }
 
-    QByteArray frameData;
+    // 3. 缓存 JPEG 数据（保留兼容性）
     {
         QMutexLocker locker(&m_frameDataMutex);
-        // 使用解压后的JPEG数据
-        frameData = jpegData;
-        m_previousFrameData = jpegData;
+        m_previousFrameData = screenData.imageData;
     }
 
-    // JPEG 解码到复用缓冲区，消除每帧 8MB malloc/free
-    // （MSVC Debug 堆的 alloc/free 跟踪是"越来越慢"的根因）
-    QBuffer buffer(&frameData);
-    buffer.open(QIODevice::ReadOnly);
-    QImageReader reader(&buffer, "JPEG");
-    reader.setAutoTransform(true);
-    const bool loaded = reader.read(&m_decodeBuffer);
-    QImage& image = m_decodeBuffer;
-
-    if ( loaded && !image.isNull() ) {
-        // Record the logical remote screen size for layout/aspect ratio.
-        // If the server downscaled the frame, use the original dimensions
-        // so that RenderManager::fitInView() computes the correct aspect ratio.
-        // The actual upscale is NOT performed here — it was a redundant
-        // SmoothTransformation that cost 5-10ms per frame without recovering
-        // any lost detail. RenderManager's fitInView() handles display scaling.
-        if ( screenData.flags & static_cast<quint8>(ScreenDataFlags::SCALED) ) {
-            if ( screenData.originalWidth > 0 && screenData.originalHeight > 0 ) {
-                m_remoteScreenSize = QSize(screenData.originalWidth, screenData.originalHeight);
-            } else {
-                m_remoteScreenSize = image.size();
-            }
-        } else {
-            m_remoteScreenSize = image.size();
+    // 4. 更新 remoteScreenSize（缩放场景）
+    if (screenData.flags & static_cast<quint8>(ScreenDataFlags::SCALED)) {
+        if (screenData.originalWidth > 0 && screenData.originalHeight > 0) {
+            m_remoteScreenSize = QSize(screenData.originalWidth, screenData.originalHeight);
         }
+    }
+    // Note: 非缩放场景的尺寸更新移到了 DecodeWorker::processOneFrame() 中
 
-        // 更新时间统计：用 std::chrono + EMA 替代 QQueue<QDateTime>，
-        // 消除 Debug STL 迭代器检查和 QDateTime 构造开销。
-        {
+    // 5. 投递到解码线程
+    if (m_decodeWorker && m_decodeWorker->isRunning()) {
+        if (m_decodeWorker->enqueueFrame(screenData, m_remoteScreenSize)) {
+            // 6. FPS 统计（基于入队时间）
             const auto now = std::chrono::steady_clock::now();
-            if ( m_lastFpsTime.time_since_epoch().count() != 0 ) {
+            if (m_lastFpsTime.time_since_epoch().count() != 0) {
                 const double instant = std::chrono::duration<double>(now - m_lastFpsTime).count();
-                if ( m_smoothedFrameDuration == 0.0 ) {
+                if (m_smoothedFrameDuration == 0.0) {
                     m_smoothedFrameDuration = instant;
                 } else {
                     m_smoothedFrameDuration = kFpsAlpha * instant + (1.0 - kFpsAlpha) * m_smoothedFrameDuration;
                 }
             }
             m_lastFpsTime = now;
+            m_stats.frameCount++;
+            calculateFPS();
+        } else {
+            // 队列满（背压）或队列已停止
+            qCDebug(lcClient) << "SessionManager::handleScreenData() - Frame dropped (queue full or stopped)";
         }
-        m_stats.frameCount++;
-        calculateFPS();
-
-        // Triple-buffered lock-free frame delivery: write decoded frame
-        // to the triple buffer. paintGL() reads on the GUI thread via atomics.
-        FrameSlot* slot = nullptr;
-        int idx = m_frameBuffer.acquireWrite(slot);
-        if ( slot ) {
-#ifndef QT_NO_OPENGL
-            // Worker-side GL upload: decode → PBO memcpy → glTexSubImage2D
-            // all on the worker thread. The GUI thread only waits for the
-            // GLsync fence in paintGL() before drawing — no CPU memcpy in
-            // the critical path.
-            static int s_glUploadDiagCount = 0;
-            if (m_glUploadReady && m_glContext && m_glSurface && m_glViewportForUpload) {
-                // 生产者背压：paintGL 连续跳过 ≥3 帧时，隔帧跳过 GL 上传让 GPU 追赶。
-                static int s_backoffCounter = 0;
-                const bool gpuOverloaded = m_glViewportForUpload->consecutiveSkips() >= 3;
-                const bool skipThisUpload = gpuOverloaded && (++s_backoffCounter % 2 == 0);
-                if (gpuOverloaded && s_backoffCounter <= 3)
-                    qCDebug(lcClient) << "GPU backpressure: skipping GL upload, skips="
-                        << m_glViewportForUpload->consecutiveSkips();
-
-                if (!skipThisUpload) {
-                ++s_glUploadDiagCount;
-                if ( s_glUploadDiagCount <= 3 || s_glUploadDiagCount % 100 == 0 )
-                    qCDebug(lcClient) << "handleScreenData: GL upload #" << s_glUploadDiagCount << "frame" << m_stats.frameCount;
-                m_glContext->makeCurrent(m_glSurface);
-                // Delete any fence from previous frame before overwriting
-                if (slot->uploadFence) {
-                    auto* f = m_glContext->extraFunctions();
-                    if (f) f->glDeleteSync(slot->uploadFence);
-                    slot->uploadFence = nullptr;
-                }
-                GLsync fence = m_glViewportForUpload->uploadFromWorker(image);
-                if (fence) {
-                    slot->uploadFence = fence;
-                }
-                m_glContext->doneCurrent();
-                } else {
-                    // 背压触发：跳过 GL 上传，保留 image 供 GUI 线程回退上传
-                    slot->image = image;
-                }
-            } else {
-                static int s_glSkipDiagCount = 0;
-                if ( ++s_glSkipDiagCount <= 3 ) {
-                    qCWarning(lcClient) << "handleScreenData: GL upload skipped -"
-                        << "ready:" << m_glUploadReady
-                        << "ctx:" << (m_glContext != nullptr)
-                        << "surface:" << (m_glSurface != nullptr)
-                        << "viewport:" << (m_glViewportForUpload != nullptr);
-                }
-                // 仅在 GL 上传失败/未就绪时保留 image 供 GUI 线程回退上传
-                slot->image = image;
-            }
-#else
-            slot->image = image;
-#endif
-            slot->remoteSize = m_remoteScreenSize;
-            slot->arrivalTs = std::chrono::steady_clock::now();
-            slot->frameId = static_cast<quint64>(m_stats.frameCount);
-            m_frameBuffer.commitWrite(idx);
-
-#ifndef QT_NO_OPENGL
-            // 请求 GUI 线程重绘（内部防重复排队）
-            if ( m_glViewportForUpload ) {
-                m_glViewportForUpload->requestRepaint();
-            }
-#endif
-            }
-    } else {
-        qCWarning(lcClient) << "SessionManager::handleScreenData() - Failed to load JPEG image from frame data, size:" << frameData.size()
-            << "first 16 bytes:" << frameData.left(16).toHex();
     }
 }
 
@@ -514,35 +411,86 @@ void SessionManager::handleClipboardData(const QByteArray& data) {
     }
 }
 
+void SessionManager::createDecodePipeline() {
+    if (m_decodeWorker) {
+        qCWarning(lcClient) << "SessionManager::createDecodePipeline() - DecodeWorker already exists";
+        return;
+    }
+
+    // 创建 DecodeThread
+    QThread* decodeThread = new QThread();
+    decodeThread->setObjectName(QString("DecodeThread-%1").arg(m_connectionId));
+    decodeThread->start();
+
+    // 创建 DecodeWorker
+    m_decodeWorker = new DecodeWorker(nullptr);
+    m_decodeWorker->moveToThread(decodeThread);
+
+    // 设置 TripleBuffer 指针
+    m_decodeWorker->setFrameBuffer(&m_frameBuffer);
+
 #ifndef QT_NO_OPENGL
-void SessionManager::initializeGLUpload(QOpenGLContext* shareContext) {
-    if (!shareContext) {
-        qCWarning(lcClient) << "SessionManager: No share context provided for GL upload";
+    // 初始化 DecodeWorker 的 GL 上下文（如果已有）
+    if (m_pendingGLContext && m_pendingGLContext->isValid()) {
+        m_decodeWorker->initializeGL(m_pendingGLContext);
+    }
+    m_decodeWorker->setGLViewport(m_glViewportForUpload);
+#endif
+
+    // 连接 stopped 信号
+    connect(m_decodeWorker, &DecodeWorker::stopped, this, [this]() {
+        qCInfo(lcClient) << "SessionManager: DecodeWorker stopped for" << m_connectionId;
+    });
+
+    connect(m_decodeWorker, &DecodeWorker::decodeError, this, [this](const QString& msg) {
+        qCWarning(lcClient) << "SessionManager: Decode error for" << m_connectionId << ":" << msg;
+    });
+
+    // 让 worker 拥有线程（通过 parent），destroyDecodePipeline 中 delete worker 时自动清理
+    decodeThread->setParent(m_decodeWorker);
+
+    // 启动工作循环
+    QMetaObject::invokeMethod(m_decodeWorker, "start", Qt::QueuedConnection);
+
+    qCInfo(lcClient) << "SessionManager: DecodePipeline created for" << m_connectionId
+                      << "on thread" << decodeThread->objectName();
+}
+
+void SessionManager::destroyDecodePipeline() {
+    if (!m_decodeWorker) {
         return;
     }
 
-    // 原生 GL 资源必须在 GUI 线程创建（QOffscreenSurface 内部使用 QWindow）
-    // 创建后通过 moveToThread 转移到 Worker 线程使用
-    m_glContext = new QOpenGLContext();
-    m_glContext->setShareContext(shareContext);
-    m_glContext->setFormat(shareContext->format());
-    if (!m_glContext->create()) {
-        qCWarning(lcClient) << "SessionManager: Failed to create shared GL context";
-        delete m_glContext;
-        m_glContext = nullptr;
-        return;
+    qCInfo(lcClient) << "SessionManager::destroyDecodePipeline() - Stopping decode pipeline for" << m_connectionId;
+
+    // 1. 停止队列（唤醒所有阻塞操作）
+    m_decodeWorker->requestStop();
+
+    // 2. 获取 DecodeThread 引用
+    QThread* decodeThread = m_decodeWorker->thread();
+
+    // 3. 停止线程
+    if (decodeThread && decodeThread->isRunning()) {
+        decodeThread->quit();
+        if (!decodeThread->wait(3000)) {
+            qCWarning(lcClient) << "SessionManager::destroyDecodePipeline() - DecodeThread quit timeout, forcing";
+            decodeThread->requestInterruption();
+            decodeThread->quit();
+            decodeThread->wait(1000);
+        }
     }
 
-    m_glSurface = new QOffscreenSurface();
-    m_glSurface->setFormat(m_glContext->format());
-    m_glSurface->create();
+    // 4. 删除 worker（Qt 6 允许从非 current 线程删除 QOpenGLContext）
+    //    DecodeWorker 析构函数内部 delete GL 资源
+    delete m_decodeWorker;
+    m_decodeWorker = nullptr;
 
-    // 转移到 SessionManager 所在的 Worker 线程，之后 handleScreenData 可在该线程调 makeCurrent
-    m_glContext->moveToThread(this->thread());
-    m_glSurface->moveToThread(this->thread());
+    qCInfo(lcClient) << "SessionManager::destroyDecodePipeline() - Decode pipeline destroyed for" << m_connectionId;
+}
 
-    m_glUploadReady = true;
-    qCInfo(lcClient) << "SessionManager: Shared GL context initialized for worker-thread texture upload";
+#ifndef QT_NO_OPENGL
+void SessionManager::setGLContextForDecode(QOpenGLContext* context) {
+    m_pendingGLContext = context;
 }
 #endif
 

@@ -15,6 +15,8 @@
 #include <atomic>
 #include <chrono>
 
+class DecodeWorker;
+
 class QTimer;
 
 #ifndef QT_NO_OPENGL
@@ -45,7 +47,6 @@ public slots:
     void suspendSession();
     void resumeSession();
     void terminateSession();
-    void moveGLToThread(QThread* target);   ///< 将 GL 对象移到目标线程（为安全析构做准备）
 
 public:
     // 状态查询
@@ -87,10 +88,15 @@ public:
     // Triple-buffered lock-free frame delivery
     TripleBuffer<FrameSlot>* frameBuffer() { return &m_frameBuffer; }
 
+    /// 创建并启动解码管线（在 startSession 中调用，认证成功后延迟创建）
+    void createDecodePipeline();
+
+    /// 停止并销毁解码管线（在关闭连接时先于 disconnectFromHost 调用）
+    void destroyDecodePipeline();
+
 #ifndef QT_NO_OPENGL
-    /// Initialize a shared OpenGL context for worker-thread texture upload.
-    /// @param shareContext The GUI thread's GL context to share resources with.
-    void initializeGLUpload(QOpenGLContext* shareContext);
+    /// 设置解码管线使用的 GL 上下文（在 DecodeWorker 创建时使用）
+    void setGLContextForDecode(QOpenGLContext* context);
 
     /// Set the GLTextureViewport reference for worker-side frame upload.
     void setGLViewportForUpload(GLTextureViewport* vp) { m_glViewportForUpload = vp; }
@@ -150,8 +156,8 @@ private:
     // Triple-buffered lock-free frame delivery (replaces QQueue+QMutex+signal)
     TripleBuffer<FrameSlot> m_frameBuffer;
 
-    // JPEG 解码缓冲区复用：避免每帧 malloc/free 8MB 导致 Debug 堆碎片化
-    QImage m_decodeBuffer;
+    // 解码管线（认证成功后创建）
+    DecodeWorker* m_decodeWorker = nullptr;
 
     // 性能统计
     QTimer* m_statsTimer;
@@ -166,11 +172,8 @@ private:
     int m_frameRate;
 
 #ifndef QT_NO_OPENGL
-    // Shared GL context for worker-thread texture upload
-    QOpenGLContext* m_glContext = nullptr;
-    QOffscreenSurface* m_glSurface = nullptr;
-    bool m_glUploadReady = false;
     GLTextureViewport* m_glViewportForUpload = nullptr;
+    QOpenGLContext* m_pendingGLContext = nullptr;
 #endif
 };
 

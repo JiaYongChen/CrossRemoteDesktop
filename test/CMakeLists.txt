@@ -485,6 +485,7 @@ set(CLIENTREMOTEWINDOW_TEST_SOURCES
     ../src/client/managers/FileTransferManager.cpp
     ../src/client/window/RenderManager.cpp
     ../src/client/managers/SessionManager.cpp
+    ../src/client/managers/DecodeWorker.cpp
     ../src/client/network/ConnectionManager.cpp
     ../src/client/network/TcpClient.cpp
     ../src/common/core/network/ProtocolImpl.cpp
@@ -911,6 +912,7 @@ endif()
 qt_add_executable(test_session_latest_wins
     test_session_latest_wins.cpp
     ../src/client/managers/SessionManager.cpp
+    ../src/client/managers/DecodeWorker.cpp
     ../src/client/network/ConnectionManager.cpp
     ../src/client/network/TcpClient.cpp
     ../src/common/core/network/ProtocolImpl.cpp
