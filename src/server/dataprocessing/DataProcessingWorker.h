@@ -12,6 +12,7 @@
 #include <QtCore/QMutex>
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QThreadPool>
+#include <QtCore/QFutureWatcher>
 #include <QtConcurrent/QtConcurrent>
 #include <memory>
 #include <atomic>
@@ -205,7 +206,11 @@ private:
      * @param frames 待处理的帧列表
      * @return 处理成功的帧数
      */
-    int processBatchParallel(const std::vector<CapturedFrame>& frames);
+    /// 异步非阻塞并行编码：提交后立即返回，编码完成后通过 QFutureWatcher 回调入队
+    void processBatchAsync(std::vector<CapturedFrame>&& frames);
+
+    /// QFutureWatcher 回调：上一批异步编码完成时收集结果并入队
+    void onAsyncBatchFinished();
 
     /**
      * @brief 并行编码单帧图像（线程安全的静态方法）
@@ -218,11 +223,6 @@ private:
     static ProcessedData encodeImageParallel(const QImage& image, quint64 frameId, 
                                              int quality = CoreConstants::Compression::DEFAULT_JPEG_QUALITY,
                                              double scaleFactor = 1.0);
-
-    /**
-     * @brief 根据队列状态调整编码质量
-     */
-    void adjustQualityBasedOnQueueState();
 
     /**
      * @brief 验证帧数据
@@ -272,9 +272,11 @@ private:
     std::atomic<int> m_activeParallelTasks;                             ///< 当前活跃的并行任务数
     mutable QMutex m_batchMutex;                                        ///< 批处理互斥锁
 
-    // 自适应质量相关
-    std::atomic<int> m_currentQuality;                                  ///< 当前JPEG质量
-    std::atomic<double> m_currentScale;                                 ///< 当前缩放因子
+    // 异步非阻塞编码（替代 waitForFinished 阻断）
+    QFutureWatcher<ProcessedData>* m_asyncWatcher = nullptr;            ///< 异步编码观察器
+    std::atomic<int> m_inFlightBatches{0};                              ///< 当前飞行中的批次数
+    static constexpr int kMaxInFlightBatches = 1;                       ///< 最多同时飞行 1 批
+    std::shared_ptr<std::vector<CapturedFrame>> m_inFlightFrames;       ///< 飞行中批次的帧数据（智能指针管理生命周期）
 
     // 性能监控阈值
     static constexpr double MAX_PROCESSING_LATENCY = 100.0;             ///< 最大处理延迟阈值（毫秒）

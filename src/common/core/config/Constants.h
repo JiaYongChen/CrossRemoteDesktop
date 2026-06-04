@@ -64,13 +64,10 @@ public:
         static constexpr int JPEG_QUALITY_MEDIUM = 70;                  ///< 中等质量 JPEG 压缩
         static constexpr int JPEG_QUALITY_LOW = 50;                     ///< 低质量 JPEG 压缩
         static constexpr int JPEG_QUALITY_MIN = 30;                     ///< 最低质量 JPEG 压缩
-        static constexpr int DEFAULT_JPEG_QUALITY = 85;                 ///< 默认 JPEG 质量（平衡大小与质量）
+        static constexpr int DEFAULT_JPEG_QUALITY = 85;                 ///< 默认 JPEG 质量
         static constexpr double SCALE_FACTOR_HIGH = 1.0;                ///< 高清缩放因子
         static constexpr double SCALE_FACTOR_MEDIUM = 0.75;             ///< 中等缩放因子
         static constexpr double SCALE_FACTOR_LOW = 0.5;                 ///< 低清缩放因子
-        static constexpr bool ENABLE_ADAPTIVE_QUALITY = true;           ///< 启用自适应质量调整
-        static constexpr int QUEUE_HIGH_WATERMARK = 60;                 ///< 队列高水位（触发质量降低）
-        static constexpr int QUEUE_LOW_WATERMARK = 20;                  ///< 队列低水位（恢复质量）
     };
 
     /**

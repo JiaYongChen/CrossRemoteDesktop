@@ -7,7 +7,6 @@
 #include <QtCore/QBuffer>
 #include <QtGui/QImageReader>
 #include <QtCore/QThread>
-#include <QtCore/QTimer>
 
 // ---- 构造/析构/基础方法 ----
 
@@ -27,14 +26,14 @@ DecodeWorker::~DecodeWorker() {
 #endif
 }
 
-bool DecodeWorker::enqueueFrame(const ScreenData& screenData, const QSize& remoteSize) {
+bool DecodeWorker::enqueueFrame(ScreenData screenData, const QSize& remoteSize) {
     if (!m_running.load()) {
         return false;
     }
     DecodeTask task;
-    task.screenData = screenData;
+    task.screenData = std::move(screenData);
     task.remoteSize = remoteSize;
-    return m_queue.enqueue(task);
+    return m_queue.enqueue(std::move(task));
 }
 
 void DecodeWorker::setFrameBuffer(TripleBuffer<FrameSlot>* buffer) {
@@ -43,7 +42,10 @@ void DecodeWorker::setFrameBuffer(TripleBuffer<FrameSlot>* buffer) {
 
 void DecodeWorker::start() {
     m_running.store(true);
-    QTimer::singleShot(0, this, &DecodeWorker::workLoop);
+    // 直接调用 workLoop() 替代 QTimer::singleShot(0,...)。
+    // workLoop() 本身就是阻塞式 while 循环，无需额外事件循环延迟。
+    // start() 通过 QueuedConnection 调用，已在正确的线程上下文中。
+    workLoop();
 }
 
 void DecodeWorker::requestStop() {

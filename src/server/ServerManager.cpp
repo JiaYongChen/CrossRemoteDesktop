@@ -29,7 +29,8 @@ ServerManager::ServerManager(QObject* parent, ThreadManager* threadMgr, QueueMan
 
     // Use injected QueueManager or fall back to singleton
     m_queueManager = queueMgr ? queueMgr : QueueManager::instance();
-    m_queueManager->initialize(120, 120); // 捕获队列120, 处理队列120
+    // 队列容量 3：低延迟（~50ms @ 60FPS）与足够缓冲的平衡
+    m_queueManager->initialize(3, 3);
 
     // 创建屏幕捕获管理器（在主线程创建）
     m_screenCapture = new ScreenCapture(this);

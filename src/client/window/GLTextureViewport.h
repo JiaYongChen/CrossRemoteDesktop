@@ -226,6 +226,15 @@ private:
      */
     void cleanupGL();
 
+    /**
+     * @brief paintGL 渲染完成后检查 TripleBuffer 是否有在绘制期间到达的新帧。
+     *
+     * 若有则立即通过 CAS + invokeMethod("update") 排队下一次 paint，
+     * 避免帧在缓冲区空等至下一个 VSync 或轮询周期。
+     * @param consumedSlot 本次 paintGL 中 getReadSlot 返回的槽位索引
+     */
+    void CheckForNewFrameAfterPaint(int consumedSlot);
+
     // OpenGL resources — double-buffered textures to eliminate
     // worker/GUI read-write race on shared GL objects:
     // - Worker writes to texture[1 - displayTexIndex] via shared context
@@ -287,6 +296,10 @@ private:
 
     // Triple-buffered lock-free frame delivery
     TripleBuffer<FrameSlot>* m_frameBuffer = nullptr;
+
+    /// 当前 paintGL 周期内已消费的 TripleBuffer 槽位索引，-1 表示未消费。
+    /// 用于 CheckForNewFrameAfterPaint()：若 peekReady() 与本值不同说明新帧已到达。
+    int m_consumedSlot = -1;
 
     // Frame-polling timer for non-VSync mode
     QTimer* m_pollTimer = nullptr;

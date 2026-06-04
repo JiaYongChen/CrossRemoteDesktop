@@ -24,8 +24,9 @@ public:
     explicit DecodeWorker(QObject* parent = nullptr);
     ~DecodeWorker() override;
 
-    /// 由 SessionManager 在 SessionThread 调用，投递待解码的帧（线程安全）
-    bool enqueueFrame(const ScreenData& screenData, const QSize& remoteSize);
+    /// 由 SessionManager 在 SessionThread 调用，投递待解码的帧（线程安全）。
+    /// 接受 ScreenData 值传递，使用移动语义避免 QByteArray imageData 深拷贝。
+    bool enqueueFrame(ScreenData screenData, const QSize& remoteSize);
 
     /// 设置 TripleBuffer 指针（在 createDecodePipeline 中调用）
     void setFrameBuffer(TripleBuffer<FrameSlot>* buffer);

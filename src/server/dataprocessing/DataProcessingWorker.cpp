@@ -27,9 +27,7 @@ DataProcessingWorker::DataProcessingWorker(QObject* parent)
     , m_maxQueueSize(100)
     , m_statsUpdateInterval(DEFAULT_STATS_INTERVAL)
     , m_maxParallelTasks(QThread::idealThreadCount())
-    , m_activeParallelTasks(0)
-    , m_currentQuality(CoreConstants::Compression::DEFAULT_JPEG_QUALITY)
-    , m_currentScale(CoreConstants::Compression::SCALE_FACTOR_HIGH) {
+    , m_activeParallelTasks(0) {
     qCDebug(lcDataProcessingWorker) << "DataProcessingWorker 构造函数";
     qCInfo(lcDataProcessingWorker) << "并行处理线程数:" << m_maxParallelTasks;
 }
@@ -126,6 +124,11 @@ bool DataProcessingWorker::initialize() {
         m_performanceTimer.start();
         m_lastStatsUpdate = m_performanceTimer.elapsed();
 
+        // 创建异步编码 Watcher（由本线程事件循环驱动）
+        m_asyncWatcher = new QFutureWatcher<ProcessedData>(this);
+        connect(m_asyncWatcher, &QFutureWatcher<ProcessedData>::finished,
+                this, &DataProcessingWorker::onAsyncBatchFinished);
+
         qCInfo(lcDataProcessingWorker) << "DataProcessingWorker 初始化成功";
         return true;
 
@@ -184,9 +187,17 @@ void DataProcessingWorker::processTask() {
         return;
     }
 
+    // 非阻塞模式：有飞行中的编码批次时直接返回，由 Worker 的事件循环
+    // 在下一次 processTask 中重新检查。避免 waitForFinished 阻断线程。
+    if ( m_inFlightBatches.load() >= kMaxInFlightBatches ) {
+        setDidWork(false);  // 告知 workLoop 本回合空闲，应进入 1ms 睡眠
+        return;
+    }
+
     try {
-        // 批量处理帧数据以提高效率 - 动态调整批大小
-        const int maxBatchSize = std::min(m_maxParallelTasks * 2, 10); // 最多10帧
+        // Drain-to-latest: dequeueCapturedFrame 清空队列并返回最新帧，
+        // 因此每轮只需出队一帧。编码线程数沿用全核配置（单帧编码一个核）。
+        const int maxBatchSize = 1;
         std::vector<CapturedFrame> frameBatch;
         frameBatch.reserve(maxBatchSize);
 
@@ -228,9 +239,9 @@ void DataProcessingWorker::processTask() {
                 }
             }
 
-            // 调用统一的异步批处理方法
+            // 异步非阻塞提交：编码在线程池中执行，本线程不等待
             if ( !frameBatch.empty() ) {
-                processBatchParallel(frameBatch);
+                processBatchAsync(std::move(frameBatch));
             }
         }
 
@@ -261,106 +272,68 @@ void DataProcessingWorker::processTask() {
     }
 }
 
-int DataProcessingWorker::processBatchParallel(const std::vector<CapturedFrame>& frames) {
-    if ( frames.empty() ) {
-        return 0;
+void DataProcessingWorker::processBatchAsync(std::vector<CapturedFrame>&& frames) {
+    const int currentQuality = CoreConstants::Compression::DEFAULT_JPEG_QUALITY;
+    const double currentScale = CoreConstants::Compression::SCALE_FACTOR_HIGH;
+
+    // 将帧存入 shared_ptr，确保线程池异步编码期间不会被销毁
+    auto sharedFrames = std::make_shared<std::vector<CapturedFrame>>();
+    sharedFrames->reserve(frames.size());
+
+    int droppedCount = 0;
+    for ( auto& frame : frames ) {
+        if ( !frame.isValid() ) { ++droppedCount; continue; }
+        if ( frame.getLatency() > 5000 ) { ++droppedCount; continue; }
+        sharedFrames->push_back(std::move(frame));
     }
 
-    QElapsedTimer timer;
-    timer.start();
+    m_droppedFrames += droppedCount;
+
+    if ( sharedFrames->empty() ) {
+        return;
+    }
+
+    // 保持飞行中批次引用，防止在编码完成前被清理
+    m_inFlightFrames = sharedFrames;
+    m_inFlightBatches.fetch_add(1);
+
+    // Lambda 按值捕获 shared_ptr —— 帧数据生命周期与异步任务绑定
+    QFuture<ProcessedData> future = QtConcurrent::mapped(*sharedFrames,
+        [currentQuality, currentScale, sharedFrames](const CapturedFrame& frame) -> ProcessedData {
+        auto pd = DataProcessingWorker::encodeImageParallel(
+            *frame.image, frame.frameId, currentQuality, currentScale);
+        pd.captureTimestamp = static_cast<quint64>(frame.timestamp.toMSecsSinceEpoch());
+        return pd;
+    });
+
+    m_asyncWatcher->setFuture(future);
+}
+
+void DataProcessingWorker::onAsyncBatchFinished() {
+    const QFuture<ProcessedData>& future = m_asyncWatcher->future();
+    const QList<ProcessedData> results = future.results();
 
     int successCount = 0;
     int droppedCount = 0;
 
-    // 调整编码质量基于队列状态
-    if ( CoreConstants::Compression::ENABLE_ADAPTIVE_QUALITY ) {
-        adjustQualityBasedOnQueueState();
-    }
-
-    // 获取当前质量和缩放参数
-    int currentQuality = m_currentQuality.load();
-    double currentScale = m_currentScale.load();
-
-    // 过滤无效帧
-    std::vector<const CapturedFrame*> framesToProcess;
-    framesToProcess.reserve(frames.size());
-    
-    for ( size_t i = 0; i < frames.size(); ++i ) {
-        const auto& frame = frames[i];
-        
-        // 验证帧数据
-        if ( !frame.isValid() ) {
-            droppedCount++;
-            continue;
-        }
-
-        // 检查帧延迟
-        qint64 latency = frame.getLatency();
-        if ( latency > 5000 ) { // 5秒超时
-            droppedCount++;
-            continue;
-        }
-        
-        framesToProcess.push_back(&frame);
-    }
-
-    if ( framesToProcess.empty() ) {
-        return 0;
-    }
-
-    // 使用 QtConcurrent 并行处理需要编码的帧
-    QList<const CapturedFrame*> frameList;
-    for ( const auto* frame : framesToProcess ) {
-        frameList.append(frame);
-    }
-
-    // 并行编码所有图像，传入当前质量和缩放参数
-    QFuture<ProcessedData> future = QtConcurrent::mapped(frameList,
-        [currentQuality, currentScale](const CapturedFrame* frame) -> ProcessedData {
-        // shared_ptr dereference — frame->image is guaranteed non-null here
-        // because framesToProcess was populated only with validated frames
-        // (validateFrame ensures shared_ptr is non-null & !isNull()).
-        return DataProcessingWorker::encodeImageParallel(*frame->image, frame->frameId,
-                                                         currentQuality, currentScale);
-    });
-
-    // 等待所有编码完成
-    future.waitForFinished();
-
-    // 收集结果并入队
-    QList<ProcessedData> results = future.results();
-    for ( const auto& processedData : results ) {
-        if ( processedData.isValid() ) {
-            // 使用 QueueManager 统一接口入队
-            if ( m_queueManager && m_queueManager->enqueueProcessedData(processedData) ) {
-                successCount++;
+    for ( const auto& pd : results ) {
+        if ( pd.isValid() ) {
+            if ( m_queueManager && m_queueManager->enqueueProcessedData(pd) ) {
+                ++successCount;
                 m_processedFrames++;
             } else {
-                // 队列已停止
-                droppedCount++;
+                ++droppedCount;
                 m_droppedFrames++;
-                qCWarning(lcDataProcessingWorker) << "处理队列已停止，无法入队，帧ID:" << processedData.originalFrameId;
             }
         } else {
-            droppedCount++;
+            ++droppedCount;
             m_droppedFrames++;
         }
     }
 
-    qint64 elapsed = timer.elapsed();
-    if ( successCount > 0 ) {
-        m_totalProcessingTime += elapsed;
-    }
-
-    // 记录批处理统计信息
-    if ( droppedCount > 0 ) {
-        qCDebug(lcDataProcessingWorker) << "批处理完成: 成功" << successCount
-            << "丢弃" << droppedCount
-            << "质量" << currentQuality << "缩放" << currentScale
-            << "耗时" << elapsed << "ms";
-    }
-
-    return successCount;
+    // 释放帧数据引用，下一轮 processTask 可提交新批次
+    m_inFlightFrames.reset();
+    m_inFlightBatches.fetch_sub(1);
 }
 
 ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, quint64 frameId,
@@ -587,6 +560,15 @@ void DataProcessingWorker::stopProcessingAndClearQueues() {
         qCDebug(lcDataProcessingWorker) << "已设置停止标志，暂停数据处理任务";
     }
 
+    // 取消飞行中的异步编码批次
+    if ( m_asyncWatcher && m_asyncWatcher->isRunning() ) {
+        m_asyncWatcher->cancel();
+        m_asyncWatcher->waitForFinished();
+        m_inFlightFrames.reset();
+        m_inFlightBatches.store(0);
+        qCDebug(lcDataProcessingWorker) << "已等待飞行中的异步编码批次完成";
+    }
+
     // 使用 QueueManager 统一接口清空队列
     if ( m_queueManager ) {
         m_queueManager->clearQueue(QueueManager::CaptureQueue);
@@ -628,49 +610,4 @@ void DataProcessingWorker::resumeProcessing() {
     }
 
     qCDebug(lcDataProcessingWorker) << "恢复数据处理完成";
-}
-
-void DataProcessingWorker::adjustQualityBasedOnQueueState() {
-    if ( !m_queueManager ) {
-        return;
-    }
-
-    // 获取当前队列大小
-    QueueStats stats = m_queueManager->getQueueStats(QueueManager::ProcessedQueue);
-    int queueSize = stats.currentSize;
-    
-    int newQuality = m_currentQuality.load();
-    double newScale = m_currentScale.load();
-
-    // 根据队列高低水位调整质量
-    if ( queueSize > CoreConstants::Compression::QUEUE_HIGH_WATERMARK ) {
-        // 队列积压，降低质量以加快处理
-        if ( newQuality > CoreConstants::Compression::JPEG_QUALITY_MIN ) {
-            newQuality = std::max(newQuality - 10, CoreConstants::Compression::JPEG_QUALITY_MIN);
-        }
-        // 如果质量已经很低，考虑降低分辨率
-        if ( newQuality <= CoreConstants::Compression::JPEG_QUALITY_LOW && 
-             newScale > CoreConstants::Compression::SCALE_FACTOR_LOW ) {
-            newScale = std::max(newScale - 0.1, CoreConstants::Compression::SCALE_FACTOR_LOW);
-        }
-        
-        qCDebug(lcDataProcessingWorker) << "队列积压(" << queueSize << ")，降低质量:" 
-            << newQuality << "缩放:" << newScale;
-            
-    } else if ( queueSize < CoreConstants::Compression::QUEUE_LOW_WATERMARK ) {
-        // 队列空闲，可以提高质量
-        if ( newScale < CoreConstants::Compression::SCALE_FACTOR_HIGH ) {
-            // 先恢复分辨率
-            newScale = std::min(newScale + 0.1, CoreConstants::Compression::SCALE_FACTOR_HIGH);
-        } else if ( newQuality < CoreConstants::Compression::DEFAULT_JPEG_QUALITY ) {
-            // 再恢复质量
-            newQuality = std::min(newQuality + 5, CoreConstants::Compression::DEFAULT_JPEG_QUALITY);
-        }
-    }
-
-    // 更新参数
-    if ( newQuality != m_currentQuality.load() || newScale != m_currentScale.load() ) {
-        m_currentQuality.store(newQuality);
-        m_currentScale.store(newScale);
-    }
 }

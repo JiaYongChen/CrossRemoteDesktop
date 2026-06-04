@@ -697,6 +697,24 @@ bool GLTextureViewport::requestRepaint() {
     return false;
 }
 
+void GLTextureViewport::CheckForNewFrameAfterPaint(int consumedSlot) {
+    // 仅在本次 paintGL 确实消费了一帧之后才检查。
+    // 若 peekReady() 返回不同于 consumedSlot 的索引，说明在 paintGL 执行
+    // 期间解码线程又提交了新帧。此时立即 CAS 排队 update()，
+    // 将帧间等待时间从"下一个 VSync/轮询"缩短到"下一个事件循环迭代"。
+    if (!m_frameBuffer || consumedSlot < 0) {
+        return;
+    }
+
+    const int readySlot = m_frameBuffer->peekReady();
+    if (readySlot >= 0 && readySlot != consumedSlot) {
+        bool expected = false;
+        if (m_needsRepaint.compare_exchange_strong(expected, true)) {
+            QMetaObject::invokeMethod(this, "update", Qt::QueuedConnection);
+        }
+    }
+}
+
 void GLTextureViewport::resizeGL(int w, int h) {
     Q_UNUSED(w)
     Q_UNUSED(h)
@@ -713,12 +731,14 @@ void GLTextureViewport::paintGL() {
     static int s_paintCount = 0;
     if ( ++s_paintCount <= 3 )
         qCDebug(lcGLViewport) << "paintGL called, frameBuffer:" << (m_frameBuffer != nullptr);
+    m_consumedSlot = -1;  // 每次 paintGL 重置
     if ( m_frameBuffer ) {
         FrameSlot* slot = nullptr;
         const int idx = m_frameBuffer->getReadSlot(slot);
         // GL 上传路径中 image 可能为空（像素已通过 uploadFromWorker 写入纹理），
         // uploadFence 作为备选有效性指示器。
         if ( idx >= 0 && slot && (!slot->image.isNull() || slot->uploadFence) ) {
+            m_consumedSlot = idx;  // 记录已消费的槽位，供帧尾检查新帧用
             if ( slot->uploadFence ) {
                 // Worker thread already uploaded this frame to the shared
                 // texture via its shared GL context. Check if the GPU has
@@ -736,8 +756,11 @@ void GLTextureViewport::paintGL() {
                         << (result == GL_ALREADY_SIGNALED ? "SIGNALED" :
                             result == GL_CONDITION_SATISFIED ? "SATISFIED" :
                             result == GL_TIMEOUT_EXPIRED ? "TIMEOUT" : "OTHER");
+
+                static int s_consecutiveFenceTimeouts = 0;
                 if ( result == GL_ALREADY_SIGNALED ||
                      result == GL_CONDITION_SATISFIED ) {
+                    s_consecutiveFenceTimeouts = 0;
                     // GPU upload complete — texture is ready to draw.
                     m_consecutiveSkips.store(0, std::memory_order_relaxed);
                     f->glDeleteSync(slot->uploadFence);
@@ -757,8 +780,22 @@ void GLTextureViewport::paintGL() {
                     }
                 } else {
                     // GL_TIMEOUT_EXPIRED or GL_WAIT_FAILED: GPU 未完成 DMA。
-                    // 递增跳过计数器，生产者可据此降低上传频率。
-                    m_consecutiveSkips.fetch_add(1, std::memory_order_relaxed);
+                    ++s_consecutiveFenceTimeouts;
+                    if ( s_consecutiveFenceTimeouts >= 5 ) {
+                        // 连续 5 次超时（~80ms）：强制放弃 fence，避免画面卡死。
+                        // 可能显示部分上传的纹理，但远好于冻结。
+                        qCWarning(lcGLViewport) << "paintGL: force-skipping stuck fence after"
+                                               << s_consecutiveFenceTimeouts << "timeouts";
+                        f->glDeleteSync(slot->uploadFence);
+                        slot->uploadFence = nullptr;
+                        m_displayTexIndex.store(1 - m_displayTexIndex.load());
+                        m_textureDirty = true;
+                        m_consecutiveSkips.store(0, std::memory_order_relaxed);
+                        s_consecutiveFenceTimeouts = 0;
+                    } else {
+                        // 增递跳过计数器，生产者可据此降低上传频率
+                        m_consecutiveSkips.fetch_add(1, std::memory_order_relaxed);
+                    }
                 }
             } else {
                 // No worker-side upload (fallback path): upload on GUI thread
@@ -777,6 +814,9 @@ void GLTextureViewport::paintGL() {
         if ( ++s_skipCount <= 3 || s_skipCount % 300 == 0 )
             qCDebug(lcGLViewport) << "paintGL skip #" << s_skipCount << "(m_textureDirty=false)";
         m_needsRepaint.store(false, std::memory_order_release);
+        // 帧间间隙修复：即便 fence 未就绪导致本次未绘制，
+        // 也检查 TripleBuffer 是否有绘制期间到达的新帧
+        CheckForNewFrameAfterPaint(m_consumedSlot);
         return;  // nothing new to draw
     }
     m_textureDirty = false;
@@ -798,6 +838,7 @@ void GLTextureViewport::paintGL() {
             qCWarning(lcGLViewport) << "paintGL render skip - texId:" << m_textureId[m_displayTexIndex.load()]
                 << "shader:" << (m_shaderProgram != nullptr)
                 << "rect:" << m_renderRect;
+        CheckForNewFrameAfterPaint(m_consumedSlot);
         return;
     }
 
@@ -849,6 +890,11 @@ void GLTextureViewport::paintGL() {
         }
         m_pendingArrivalTs = {};
     }
+
+    // 帧间间隙修复：绘制完成后检查 TripleBuffer 是否有在绘制期间
+    // 到达的新帧。若有则立即 CAS 排队 update()，将等待时间从"下个
+    // VSync/轮询周期"缩短到"下个事件循环迭代"。
+    CheckForNewFrameAfterPaint(m_consumedSlot);
 }
 
 void GLTextureViewport::updateRenderRect() {

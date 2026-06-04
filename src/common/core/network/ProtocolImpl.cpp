@@ -458,6 +458,9 @@ QByteArray ScreenData::encode() const {
     // 写入压缩标志位
     ds << static_cast<quint8>(flags);
 
+    // 写入捕获时间戳（用于客户端端到端延迟测量）
+    ds << static_cast<quint64>(captureTimestamp);
+
     // 检查数据大小限制，防止内存问题
     const quint32 MAX_SCREEN_DATA_SIZE = 50 * 1024 * 1024; // 50MB限制
     if ( actualDataSize > MAX_SCREEN_DATA_SIZE ) {
@@ -472,8 +475,8 @@ QByteArray ScreenData::encode() const {
 }
 
 bool ScreenData::decode(const QByteArray& bytes) {
-    // 检查最小头部大小：x(2) + y(2) + width(2) + height(2) + originalWidth(2) + originalHeight(2) + dataSize(4) + flags(1) = 17字节
-    const qsizetype headerSize = 2 + 2 + 2 + 2 + 2 + 2 + 4 + 1;
+    // 检查最小头部大小：x(2)+y(2)+w(2)+h(2)+origW(2)+origH(2)+dataSize(4)+flags(1)+captureTs(8) = 25 字节
+    const qsizetype headerSize = 2 + 2 + 2 + 2 + 2 + 2 + 4 + 1 + 8;
     if ( bytes.size() < headerSize ) {
         qCWarning(lcProtocol)
             << "ScreenData decode failed: insufficient header size"
@@ -488,6 +491,7 @@ bool ScreenData::decode(const QByteArray& bytes) {
     quint16 origW = 0, origH = 0;
     quint32 size = 0;
     quint8 flagsVal = 0;
+    quint64 captureTs = 0;
 
     ds >> x_val;
     ds >> y_val;
@@ -497,6 +501,7 @@ bool ScreenData::decode(const QByteArray& bytes) {
     ds >> origH;
     ds >> size;
     ds >> flagsVal;
+    ds >> captureTs;
 
     if ( ds.status() != QDataStream::Ok ) {
         qCWarning(lcProtocol)
@@ -539,6 +544,7 @@ bool ScreenData::decode(const QByteArray& bytes) {
     originalHeight = origH;
     dataSize = size;
     flags = flagsVal;
+    captureTimestamp = captureTs;
 
     // 提取图像数据
     if ( size > 0 ) {

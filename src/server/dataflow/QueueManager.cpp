@@ -346,15 +346,11 @@ bool QueueManager::enqueueCapturedFrame(const CapturedFrame& frame) {
         return false;
     }
 
-    // 如果队列满了，先丢弃最旧的帧，然后再尝试入队
-    if ( m_captureQueue->isFull() ) {
-        CapturedFrame oldFrame;
-        if ( m_captureQueue->tryDequeue(oldFrame) ) {
-            qCDebug(lcQueueManager) << "捕获队列已满，丢弃最旧的帧ID:" << oldFrame.frameId;
-        }
-    }
-
-    // 使用 tryEnqueue 尝试入队
+    // 若队列满，直接丢弃新帧（不弹旧帧）。
+    // 旧逻辑弹旧帧入新帧会使队列中的帧不断"老化"——每弹一次，
+    // 最旧帧变得越来越旧，编码处理到的帧也同步老化，
+    // 导致"捕获→接收"延迟随时间推移单调递增。
+    // 新逻辑丢弃新帧确保队列中始终是最近 N 帧，编码处理的总是最新画面。
     return m_captureQueue->tryEnqueue(frame);
 }
 
@@ -363,7 +359,19 @@ bool QueueManager::dequeueCapturedFrame(CapturedFrame& frame) {
         qCWarning(lcQueueManager) << "捕获队列未初始化";
         return false;
     }
-    return m_captureQueue->tryDequeue(frame);
+
+    // 清空队列，仅保留最新帧：确保编码管线总是处理最新的画面，
+    // 不积压陈旧帧导致延迟随时间单调递增。
+    CapturedFrame latest;
+    bool hasAny = false;
+    while ( m_captureQueue->tryDequeue(latest) ) {
+        hasAny = true;
+    }
+    if ( hasAny ) {
+        frame = std::move(latest);
+        return true;
+    }
+    return false;
 }
 
 // ==================== 处理队列统一接口实现 ====================
@@ -380,27 +388,8 @@ bool QueueManager::enqueueProcessedData(const ProcessedData& data) {
         return false;
     }
 
-    // 检查新帧ID是否比最后入队的帧ID小（说明是过期帧）
-    if ( m_lastProcessedFrameId > 0 && data.originalFrameId < m_lastProcessedFrameId ) {
-        qCDebug(lcQueueManager) << "新帧ID" << data.originalFrameId
-            << "小于最后入队帧ID" << m_lastProcessedFrameId << "，舍弃新帧";
-        return false;
-    }
-
-    // 如果队列满了，先丢弃最旧的帧，然后再尝试入队
-    if ( m_processedQueue->isFull() ) {
-        ProcessedData oldData;
-        if ( m_processedQueue->tryDequeue(oldData) ) {
-            qCDebug(lcQueueManager) << "处理队列已满，丢弃最旧的帧ID:" << oldData.originalFrameId;
-        }
-    }
-
-    // 使用 tryEnqueue 尝试入队
+    // 若队列满直接丢弃，不弹旧帧（与捕获队列策略一致）。
     bool result = m_processedQueue->tryEnqueue(data);
-    if ( result ) {
-        // 更新最后入队的帧ID
-        m_lastProcessedFrameId = data.originalFrameId;
-    }
     return result;
 }
 
@@ -409,5 +398,16 @@ bool QueueManager::dequeueProcessedData(ProcessedData& data) {
         qCWarning(lcQueueManager) << "处理队列未初始化";
         return false;
     }
-    return m_processedQueue->tryDequeue(data);
+
+    // 清空队列仅保留最新帧，确保客户端总是收到最新编码结果
+    ProcessedData latest;
+    bool hasAny = false;
+    while ( m_processedQueue->tryDequeue(latest) ) {
+        hasAny = true;
+    }
+    if ( hasAny ) {
+        data = std::move(latest);
+        return true;
+    }
+    return false;
 }

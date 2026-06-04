@@ -113,6 +113,7 @@ struct ProcessedData {
     qint64 compressedDataSize;       ///< 处理后数据大小
     bool isScaled;                   ///< 是否进行了缩放
     QSize originalImageSize;         ///< 原始图像尺寸（缩放前）
+    quint64 captureTimestamp = 0;    ///< 捕获时间戳 (ms since epoch)，用于端到端延迟测量
 
     /**
      * @brief 默认构造函数
@@ -132,7 +133,7 @@ struct ProcessedData {
      * @param size 图像尺寸
      * @param origSize 原始数据大小
      */
-    ProcessedData(const QByteArray& data, quint64 frameId, const QSize& size, qint64 origSize)
+    ProcessedData(const QByteArray& data, quint64 frameId, const QSize& size, qint64 origSize, quint64 captureTs = 0)
         : compressedData(data)
         , processedTime(QDateTime::currentDateTime())
         , originalFrameId(frameId)
@@ -140,7 +141,8 @@ struct ProcessedData {
         , originalDataSize(origSize)
         , compressedDataSize(data.size())
         , isScaled(false)
-        , originalImageSize(size) {
+        , originalImageSize(size)
+        , captureTimestamp(captureTs) {
     }
 
     /**

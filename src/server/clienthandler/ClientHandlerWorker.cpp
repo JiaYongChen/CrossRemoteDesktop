@@ -266,9 +266,8 @@ void ClientHandlerWorker::sendScreenDataFromQueue() {
     }
 
     // Batch send: dequeue and send up to MAX_SEND_BATCH frames per invocation.
-    // This reduces the overhead of workLoop's per-iteration msleep and
-    // QMetaObject::invokeMethod round-trip when frames are queued up.
-    static constexpr int MAX_SEND_BATCH = 3;
+    // 批量为 6：小队列（容量 2）下多数触发时为 1-2 帧，批量开销可忽略。
+    static constexpr int MAX_SEND_BATCH = 6;
     int sent = 0;
 
     while ( sent < MAX_SEND_BATCH ) {
@@ -305,6 +304,7 @@ void ClientHandlerWorker::sendScreenDataFromQueue() {
             flags |= static_cast<quint8>(ScreenDataFlags::SCALED);
         }
         screenData.flags = flags;
+        screenData.captureTimestamp = processedData.captureTimestamp;
 
         // 预先编码消息,然后发送
         QByteArray messageData = Protocol::createMessage(MessageType::SCREEN_DATA, screenData);

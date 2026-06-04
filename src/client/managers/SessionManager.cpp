@@ -282,9 +282,11 @@ void SessionManager::handleScreenData(const QByteArray& data) {
     }
     // Note: 非缩放场景的尺寸更新移到了 DecodeWorker::processOneFrame() 中
 
-    // 5. 投递到解码线程
+    // 5. 投递到解码线程（使用移动语义避免 imageData 深拷贝）
     if (m_decodeWorker && m_decodeWorker->isRunning()) {
-        if (m_decodeWorker->enqueueFrame(screenData, m_remoteScreenSize)) {
+        // 在移动前捕获时间戳，用于端到端延迟诊断
+        const quint64 captureTs = screenData.captureTimestamp;
+        if (m_decodeWorker->enqueueFrame(std::move(screenData), m_remoteScreenSize)) {
             // 6. FPS 统计（基于入队时间）
             const auto now = std::chrono::steady_clock::now();
             if (m_lastFpsTime.time_since_epoch().count() != 0) {
@@ -298,6 +300,17 @@ void SessionManager::handleScreenData(const QByteArray& data) {
             m_lastFpsTime = now;
             m_stats.frameCount++;
             calculateFPS();
+
+            // 诊断：每 120 帧输出一次捕获→接收延迟
+            if (captureTs > 0) {
+                static int s_diagCount = 0;
+                if (++s_diagCount % 120 == 1) {
+                    const auto nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::system_clock::now().time_since_epoch()).count();
+                    qCInfo(lcClient) << "Capture-to-receive latency:" << (nowMs - static_cast<qint64>(captureTs))
+                                    << "ms (frame" << m_stats.frameCount << ")";
+                }
+            }
         } else {
             // 队列满（背压）或队列已停止
             qCDebug(lcClient) << "SessionManager::handleScreenData() - Frame dropped (queue full or stopped)";

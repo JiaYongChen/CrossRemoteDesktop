@@ -230,9 +230,10 @@ struct ScreenData : public IMessageCodec {
     quint16 originalHeight;    ///< 原始图像高度（缩放前）
     quint32 dataSize;
     quint8 flags;              ///< 压缩标志 (ScreenDataFlags)
+    quint64 captureTimestamp;  ///< 服务端捕获时间戳 (ms since epoch)，用于端到端延迟测量
     QByteArray imageData;
 
-    ScreenData() : x(0), y(0), width(0), height(0), originalWidth(0), originalHeight(0), dataSize(0), flags(0) {}
+    ScreenData() : x(0), y(0), width(0), height(0), originalWidth(0), originalHeight(0), dataSize(0), flags(0), captureTimestamp(0) {}
 
     QByteArray encode() const; // 附带数据体
     bool decode(const QByteArray& dataBuffer);

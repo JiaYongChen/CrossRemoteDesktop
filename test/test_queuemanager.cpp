@@ -57,6 +57,7 @@ private slots:
         QCOMPARE(received.frameId, quint64(1));
     }
 
+    // drain-to-latest: 入队多帧后仅返回最新一帧
     void testCaptureQueueFIFO() {
         QVERIFY(m_qm->initialize(10, 5));
 
@@ -64,11 +65,13 @@ private slots:
             QVERIFY(m_qm->enqueueCapturedFrame(makeFrame(i)));
         }
 
-        for ( quint64 i = 1; i <= 5; ++i ) {
-            CapturedFrame f;
-            QVERIFY(m_qm->dequeueCapturedFrame(f));
-            QCOMPARE(f.frameId, i);
-        }
+        // drain-to-latest: 清空队列，仅保留并返回 frame 5
+        CapturedFrame f;
+        QVERIFY(m_qm->dequeueCapturedFrame(f));
+        QCOMPARE(f.frameId, quint64(5));
+
+        // 队列已清空，再次出队应返回 false
+        QVERIFY(!m_qm->dequeueCapturedFrame(f));
     }
 
     // --- ProcessedQueue enqueue/dequeue ---
@@ -142,6 +145,8 @@ private slots:
 
     // --- Concurrent enqueue/dequeue ---
 
+    // 并发生产一侧入队 COUNT 帧，消费者 drain-to-latest 仅取出最新帧。
+    // 验证并发环境下入队/出队不崩溃且线程安全。
     void testConcurrentAccess() {
         QVERIFY(m_qm->initialize(200, 200));
 
@@ -149,7 +154,6 @@ private slots:
         std::atomic<int> produced{0};
         std::atomic<int> consumed{0};
 
-        // Producer thread: enqueue COUNT frames
         QThread* producer = QThread::create([this, &produced]() {
             for ( int i = 0; i < COUNT; ++i ) {
                 m_qm->enqueueCapturedFrame(makeFrame(static_cast<quint64>(i + 1)));
@@ -161,11 +165,12 @@ private slots:
         producer->wait(10000);
         QCOMPARE(produced.load(), COUNT);
 
-        // Consumer thread: dequeue all frames (non-blocking tryDequeue)
+        // drain-to-latest: 出队返回最新帧（帧 COUNT），其余被丢弃
         QThread* consumer = QThread::create([this, &consumed]() {
             CapturedFrame f;
-            while ( consumed.load() < COUNT ) {
+            while ( consumed.load() < 1 ) {
                 if ( m_qm->dequeueCapturedFrame(f) ) {
+                    QCOMPARE(f.frameId, quint64(COUNT));
                     consumed.fetch_add(1);
                 }
             }
@@ -173,7 +178,7 @@ private slots:
 
         consumer->start();
         consumer->wait(10000);
-        QCOMPARE(consumed.load(), COUNT);
+        QCOMPARE(consumed.load(), 1);
 
         delete producer;
         delete consumer;

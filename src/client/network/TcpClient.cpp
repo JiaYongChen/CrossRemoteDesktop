@@ -277,11 +277,10 @@ void TcpClient::onReadyRead() {
             // 步骤3：移除已处理的数据
             m_receiveBuffer.remove(0, result);
 
-            // 步骤4：异步处理消息，使用 QMetaObject::invokeMethod 调度到主线程
-            // 这样可以避免跨线程访问 QTcpSocket 的问题
-            QMetaObject::invokeMethod(this, [this, header, payload]() {
-                processMessage(header, payload);
-            }, Qt::QueuedConnection);
+            // 步骤4：同步处理消息。
+            // 原先使用 QueuedConnection 是为了"防止递归信号级联"，但消息
+            // 处理路径不重新进入 readyRead，同步调用节省一次事件循环延迟。
+            processMessage(header, payload);
         } else if ( result == 0 ) {
             // 消息无效，清空缓冲区
             qCCritical(lcClient) << "接收到无效消息，清空缓冲区";
