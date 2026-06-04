@@ -194,12 +194,28 @@ void DataProcessingWorker::processTask() {
         return;
     }
 
+    // 流水池背压：PQ 满时暂停消费 CQ，等待发送端消化空间后再继续编码。
+    // 主动检查（非阻塞），避免编码产出无法入队的帧造成 CPU 浪费和死锁风险。
+    if ( m_queueManager && m_queueManager->isProcessedQueueFull() ) {
+        qCDebug(lcDataProcessingWorker) << "ProcessedQueue 满 ("
+                                        << m_queueManager->getProcessedQueueSize()
+                                        << ")，暂停编码等待发送端消化";
+        setDidWork(false);
+        return;
+    }
+
     try {
-        // Drain-to-latest: dequeueCapturedFrame 清空队列并返回最新帧，
-        // 因此每轮只需出队一帧。编码线程数沿用全核配置（单帧编码一个核）。
-        const int maxBatchSize = 1;
+        // 动态批次大小：由 maxBatchSize、CQ 当前帧数、PQ 剩余容量三者共同决定。
+        // 取最小值避免无用的出队尝试和编码产出无法入队的帧。
+        const int maxBatchSize = 4;
+        const int cqSize = m_queueManager->getCaptureQueueSize();
+        // 使用 PQ 真实最大容量而非硬编码常量，确保修改队列大小时计算自适应
+        const int pqMaxSize = m_queueManager->getProcessedQueueMaxSize();
+        const int pqRemaining = pqMaxSize - m_queueManager->getProcessedQueueSize();
+        const int effectiveBatchSize = std::max(1, std::min({maxBatchSize, cqSize, pqRemaining}));
+
         std::vector<CapturedFrame> frameBatch;
-        frameBatch.reserve(maxBatchSize);
+        frameBatch.reserve(static_cast<size_t>(effectiveBatchSize));
 
         // 自动处理机制：使用带超时的阻塞式获取第一帧数据
         CapturedFrame firstFrame;
@@ -221,9 +237,9 @@ void DataProcessingWorker::processTask() {
         // Adaptive sleep: skip idle sleep when processing frames
         setDidWork(hasFirstFrame);
 
-        // 如果获取到第一帧，继续收集更多帧进行批量处理
+        // 如果获取到第一帧，继续收集更多帧进行批量处理（不超过 effectiveBatchSize）
         if ( hasFirstFrame ) {
-            while ( frameBatch.size() < static_cast<size_t>(maxBatchSize) ) {
+            while ( frameBatch.size() < static_cast<size_t>(effectiveBatchSize) ) {
                 CapturedFrame additionalFrame;
                 // 使用 QueueManager 统一接口尝试出队
                 if ( !m_queueManager->dequeueCapturedFrame(additionalFrame) ) {
@@ -311,13 +327,23 @@ void DataProcessingWorker::processBatchAsync(std::vector<CapturedFrame>&& frames
 
 void DataProcessingWorker::onAsyncBatchFinished() {
     const QFuture<ProcessedData>& future = m_asyncWatcher->future();
-    const QList<ProcessedData> results = future.results();
+    auto results = future.results().toVector();
+
+    // 流水池模型：批次内按帧 ID 升序排序，保证入队（PQ）时序正确。
+    // 线程池并行编码完成顺序不可控，排序消除时序反转风险。
+    std::sort(results.begin(), results.end(),
+              [](const ProcessedData& a, const ProcessedData& b) {
+                  return a.originalFrameId < b.originalFrameId;
+              });
 
     int successCount = 0;
     int droppedCount = 0;
 
     for ( const auto& pd : results ) {
         if ( pd.isValid() ) {
+            // 非阻塞入队：正常运行时 ClientHandlerWorker 持续消费 PQ，
+            // 队列保持低位；若仍满（发送端异常），丢弃该帧。
+            // 预防性背压由 processTask() 中 isProcessedQueueFull() 检查保证。
             if ( m_queueManager && m_queueManager->enqueueProcessedData(pd) ) {
                 ++successCount;
                 m_processedFrames++;

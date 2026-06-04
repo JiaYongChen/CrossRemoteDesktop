@@ -48,12 +48,14 @@ public:
      * @brief 捕获和帧率相关常量
      */
     struct Capture {
-        static constexpr int DEFAULT_FRAME_RATE = 60;                   ///< 默认帧率 60fps
+        static constexpr int DEFAULT_FRAME_RATE = 120;                  ///< 默认帧率 120fps
         static constexpr int MIN_FRAME_RATE = 1;                        ///< 最小帧率 1fps
         static constexpr int MAX_FRAME_RATE = 120;                      ///< 最大帧率 120fps
         static constexpr int DEBUG_LOG_INTERVAL = 1000;                 ///< 调试日志间隔 1000ms
         static constexpr int FAILURE_LOG_INTERVAL = 5000;               ///< 失败日志间隔 5000ms
         static constexpr int MILLISECONDS_PER_SECOND = 1000;            ///< 每秒毫秒数
+        static constexpr int CAPTURE_QUEUE_SIZE = 120;                  ///< 捕获队列容量 120帧（流水池模型）
+        static constexpr int PROCESSED_QUEUE_SIZE = 120;                ///< 处理队列容量 120帧（流水池模型）
     };
 
     /**
@@ -68,6 +70,13 @@ public:
         static constexpr double SCALE_FACTOR_HIGH = 1.0;                ///< 高清缩放因子
         static constexpr double SCALE_FACTOR_MEDIUM = 0.75;             ///< 中等缩放因子
         static constexpr double SCALE_FACTOR_LOW = 0.5;                 ///< 低清缩放因子
+    };
+
+    /**
+     * @brief 客户端相关常量
+     */
+    struct Client {
+        static constexpr int DECODE_QUEUE_SIZE = 8;                     ///< 客户端解码队列容量（流水池模型）
     };
 
     /**

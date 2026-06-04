@@ -117,32 +117,72 @@ public:
     // ==================== 统一的入队和出队接口 ====================
 
     /**
-     * @brief 捕获队列入队
+     * @brief 捕获队列入队（非阻塞）
+     *
+     * 队列满时丢弃新帧（不弹旧帧）。DXGI 不缓冲历史帧，
+     * CQ 满时背压无意义——丢弃是唯一合理选择。
+     *
      * @param frame 要入队的捕获帧
-     * @return true 入队成功，false 入队失败
+     * @return true 入队成功，false 入队失败（队列满或已停止）
      */
     bool enqueueCapturedFrame(const CapturedFrame& frame);
 
     /**
-     * @brief 捕获队列出队
+     * @brief 捕获队列出队（FIFO 逐帧出队）
+     *
+     * 流水池模型下改为逐帧 FIFO 出队（不再排空至最新），
+     * 配合大容量队列(120)吸收短暂波动，不丢帧。
+     *
      * @param frame 用于接收出队帧的引用
      * @return true 出队成功，false 队列已停止
      */
     bool dequeueCapturedFrame(CapturedFrame& frame);
 
     /**
-     * @brief 处理队列入队
+     * @brief 处理队列入队（非阻塞）
      * @param data 要入队的处理数据
-     * @return true 入队成功，false 入队失败
+     * @return true 入队成功，false 入队失败（队列满或已停止）
      */
     bool enqueueProcessedData(const ProcessedData& data);
 
     /**
-     * @brief 处理队列出队
+     * @brief 处理队列出队（FIFO 逐帧出队）
+     *
+     * 流水池模型下改为逐帧 FIFO 出队（不再排空至最新），
+     * 保证画面连续性的同时靠大容量队列控制延迟上限。
+     *
      * @param data 用于接收出队数据的引用
      * @return true 出队成功，false 队列已停止
      */
     bool dequeueProcessedData(ProcessedData& data);
+
+    /**
+     * @brief 检查处理队列是否已满（流水池背压）
+     *
+     * 编码线程在出队CQ前调用此方法：PQ满时跳过本轮编码，
+     * 等待发送端消化空间后再继续。主动背压，无阻塞无死锁。
+     *
+     * @return true 队列满，应暂停编码
+     */
+    [[nodiscard]] bool isProcessedQueueFull() const;
+
+    /**
+     * @brief 获取处理队列当前大小
+     * @return 当前队列中的帧数
+     */
+    [[nodiscard]] int getProcessedQueueSize() const;
+
+    /**
+     * @brief 获取捕获队列当前大小
+     * @return 当前队列中的帧数
+     */
+    [[nodiscard]] int getCaptureQueueSize() const;
+
+    /**
+     * @brief 获取处理队列最大容量
+     * @return 队列最大帧数
+     */
+    [[nodiscard]] int getProcessedQueueMaxSize() const;
 
 signals:
     /**

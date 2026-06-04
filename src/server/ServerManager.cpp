@@ -27,10 +27,11 @@ ServerManager::ServerManager(QObject* parent, ThreadManager* threadMgr, QueueMan
     , m_currentClientThreadName() {
     qCDebug(lcServerManager) << "ServerManager::ServerManager() - Initializing ServerManager";
 
-    // Use injected QueueManager or fall back to singleton
+    // 使用注入的 QueueManager 或回退到单例
     m_queueManager = queueMgr ? queueMgr : QueueManager::instance();
-    // 队列容量 3：低延迟（~50ms @ 60FPS）与足够缓冲的平衡
-    m_queueManager->initialize(3, 3);
+    // 流水池模型：两个队列容量均为120，配合FIFO出队+PQ背压
+    m_queueManager->initialize(CoreConstants::Capture::CAPTURE_QUEUE_SIZE,
+                               CoreConstants::Capture::PROCESSED_QUEUE_SIZE);
 
     // 创建屏幕捕获管理器（在主线程创建）
     m_screenCapture = new ScreenCapture(this);

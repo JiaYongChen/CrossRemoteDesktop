@@ -346,11 +346,9 @@ bool QueueManager::enqueueCapturedFrame(const CapturedFrame& frame) {
         return false;
     }
 
-    // 若队列满，直接丢弃新帧（不弹旧帧）。
-    // 旧逻辑弹旧帧入新帧会使队列中的帧不断"老化"——每弹一次，
-    // 最旧帧变得越来越旧，编码处理到的帧也同步老化，
-    // 导致"捕获→接收"延迟随时间推移单调递增。
-    // 新逻辑丢弃新帧确保队列中始终是最近 N 帧，编码处理的总是最新画面。
+    // 非阻塞入队：队列满时丢弃新帧（不弹旧帧）。
+    // DXGI 不缓冲历史帧，CQ 满时背压无意义——GPU 侧帧已丢失。
+    // 大容量(120)使 CQ 满仅发生在极端编码落后场景，正常波动不影响。
     return m_captureQueue->tryEnqueue(frame);
 }
 
@@ -360,18 +358,10 @@ bool QueueManager::dequeueCapturedFrame(CapturedFrame& frame) {
         return false;
     }
 
-    // 清空队列，仅保留最新帧：确保编码管线总是处理最新的画面，
-    // 不积压陈旧帧导致延迟随时间单调递增。
-    CapturedFrame latest;
-    bool hasAny = false;
-    while ( m_captureQueue->tryDequeue(latest) ) {
-        hasAny = true;
-    }
-    if ( hasAny ) {
-        frame = std::move(latest);
-        return true;
-    }
-    return false;
+    // 流水池模型：FIFO 逐帧出队，不排空。
+    // 大容量队列(120)在正常运行中保持低位，FIFO 与排空行为无差异；
+    // 波动时用容量吸收而非丢弃，保证画面连续性。
+    return m_captureQueue->tryDequeue(frame);
 }
 
 // ==================== 处理队列统一接口实现 ====================
@@ -388,9 +378,8 @@ bool QueueManager::enqueueProcessedData(const ProcessedData& data) {
         return false;
     }
 
-    // 若队列满直接丢弃，不弹旧帧（与捕获队列策略一致）。
-    bool result = m_processedQueue->tryEnqueue(data);
-    return result;
+    // 非阻塞入队：队列满时返回 false，调用方自行决定丢弃或重试
+    return m_processedQueue->tryEnqueue(data);
 }
 
 bool QueueManager::dequeueProcessedData(ProcessedData& data) {
@@ -399,15 +388,23 @@ bool QueueManager::dequeueProcessedData(ProcessedData& data) {
         return false;
     }
 
-    // 清空队列仅保留最新帧，确保客户端总是收到最新编码结果
-    ProcessedData latest;
-    bool hasAny = false;
-    while ( m_processedQueue->tryDequeue(latest) ) {
-        hasAny = true;
-    }
-    if ( hasAny ) {
-        data = std::move(latest);
-        return true;
-    }
-    return false;
+    // 流水池模型：FIFO 逐帧出队，不排空。
+    // 发送端每轮取 1-6 帧(MAX_SEND_BATCH)，逐帧发送保证画面连续性。
+    return m_processedQueue->tryDequeue(data);
+}
+
+bool QueueManager::isProcessedQueueFull() const {
+    return m_processedQueue && m_processedQueue->isFull();
+}
+
+int QueueManager::getProcessedQueueSize() const {
+    return m_processedQueue ? m_processedQueue->size() : 0;
+}
+
+int QueueManager::getCaptureQueueSize() const {
+    return m_captureQueue ? m_captureQueue->size() : 0;
+}
+
+int QueueManager::getProcessedQueueMaxSize() const {
+    return m_processedQueue ? m_processedQueue->maxSize() : 0;
 }

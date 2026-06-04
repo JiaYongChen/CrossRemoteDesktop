@@ -6,6 +6,7 @@
 #include <atomic>
 #include <chrono>
 #include "../../common/core/network/Protocol.h"
+#include "../../common/core/config/Constants.h"
 #include "../../common/core/threading/ThreadSafeQueue.h"
 #include "../core/FrameSlot.h"
 #include "../core/TripleBuffer.h"
@@ -70,7 +71,7 @@ private:
         QSize      remoteSize;
     };
 
-    ThreadSafeQueue<DecodeTask> m_queue{3};
+    ThreadSafeQueue<DecodeTask> m_queue{CoreConstants::Client::DECODE_QUEUE_SIZE};  ///< 解码队列（流水池模型，默认8帧）
     std::atomic<bool> m_running{false};
 
 #ifndef QT_NO_OPENGL

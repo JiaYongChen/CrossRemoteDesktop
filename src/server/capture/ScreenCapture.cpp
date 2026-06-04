@@ -30,9 +30,10 @@ ScreenCapture::ScreenCapture(QObject* parent)
 
     // 确保队列管理器初始化（测试环境可能未主动初始化）
     if ( QueueManager::instance() ) {
-        // 队列容量 3：在低延迟（~50ms @ 60FPS）与足够缓冲间取得平衡。
-        // 小于并行编码批大小（4）→ 编码永远是瓶颈 → 丢弃发生在捕获侧（正确）。
-        QueueManager::instance()->initialize(3, 3);
+        // 流水池模型：两个队列容量均为120，配合FIFO出队+PQ背压
+        QueueManager::instance()->initialize(
+            CoreConstants::Capture::CAPTURE_QUEUE_SIZE,
+            CoreConstants::Capture::PROCESSED_QUEUE_SIZE);
     } else {
         qCWarning(lcScreenCaptureManager) << "QueueManager::instance()返回空指针，队列功能不可用";
     }

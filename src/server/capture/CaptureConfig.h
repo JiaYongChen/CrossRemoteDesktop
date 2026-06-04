@@ -10,7 +10,7 @@
  * 避免重复定义，提供清晰的配置管理接口。
  */
 struct CaptureConfig {
-    int frameRate = 30;                    ///< 目标帧率
+    int frameRate = 120;                   ///< 目标帧率（默认120fps，流水池模型）
     bool highDefinition = true;            ///< 高清模式
     bool antiAliasing = true;              ///< 抗锯齿
     bool highScaleQuality = true;          ///< 高质量缩放
@@ -30,7 +30,7 @@ struct CaptureConfig {
      * @brief 重置为默认配置
      */
     void reset() {
-        frameRate = 30;
+        frameRate = 120;
         highDefinition = true;
         antiAliasing = true;
         highScaleQuality = true;

@@ -166,8 +166,8 @@ void TestProducerConsumerIntegration::initTestCase() {
     m_queueManager = QueueManager::instance();
     QVERIFY(m_queueManager != nullptr);
 
-    // 初始化队列管理器（设置队列大小）
-    bool initResult = m_queueManager->initialize(10, 5);
+    // 初始化队列管理器（FIFO+流水池，容量适配批处理4）
+    bool initResult = m_queueManager->initialize(30, 30);
     QVERIFY(initResult);
 
     // 清空队列
