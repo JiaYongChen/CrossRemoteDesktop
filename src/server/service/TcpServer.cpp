@@ -1,20 +1,10 @@
 #include "TcpServer.h"
-#include "../../common/core/network/Protocol.h"
-#include "../../common/core/config/NetworkConstants.h"
-#include "../simulator/InputSimulator.h"
 #include <QtNetwork/QTcpSocket>
-#include <QtNetwork/QSslSocket>
-#include <QtNetwork/QSslConfiguration>
 #include <QtNetwork/QHostAddress>
 #include <QtCore/QTimer>
-#include <QtCore/QMutexLocker>
 #include "../../common/core/logging/LoggingCategories.h"
-#include <QtCore/QDateTime>
-#include <QtCore/QBuffer>
-#include <QtGui/QPixmap>
 #include <QtCore/QThread>
 #include <QtCore/QCoreApplication>
-#include <QtCore/QElapsedTimer>
 
 #include <openssl/pem.h>
 #include <openssl/x509.h>

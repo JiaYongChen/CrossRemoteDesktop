@@ -12,8 +12,7 @@ QueueManager::QueueManager(QObject* parent)
     , m_statsTimer(new QTimer(this))
     , m_statsEnabled(true)
     , m_statsUpdateInterval(1000)  // 默认1秒更新一次
-    , m_initialized(false)
-    , m_lastProcessedFrameId(0) {
+    , m_initialized(false) {
     qCDebug(lcQueueManager) << "QueueManager构造函数";
 
     // 连接统计更新定时器
@@ -100,9 +99,6 @@ void QueueManager::cleanup() {
     m_captureQueue.reset();
     m_processedQueue.reset();
 
-    // 重置最后入队的帧ID
-    m_lastProcessedFrameId = 0;
-
     m_initialized = false;
     qCDebug(lcQueueManager) << "队列管理器清理完成";
 }
@@ -158,8 +154,6 @@ void QueueManager::clearQueue(QueueType type) {
             if ( m_processedQueue ) {
                 m_processedQueue->clear();
             }
-            // 重置最后入队的帧ID
-            m_lastProcessedFrameId = 0;
             break;
         default:
             qCWarning(lcQueueManager) << "清空队列失败，未知类型:" << type;
@@ -190,56 +184,9 @@ void QueueManager::restartAllQueues() {
         m_processedQueue->restart();
     }
 
-    // 重置最后入队的帧ID
-    m_lastProcessedFrameId = 0;
-}
-
-bool QueueManager::isQueueHealthy(QueueType type) const {
-    QueueStats stats = getQueueStats(type);
-
-    // 检查队列使用率
-    double usage = stats.getUsagePercentage();
-    if ( usage > QUEUE_ERROR_THRESHOLD ) {
-        return false;
-    }
-
-    // 检查平均延迟
-    if ( stats.averageLatency > MAX_LATENCY_WARNING ) {
-        return false;
-    }
-
-    return true;
-}
-
-void QueueManager::setStatsEnabled(bool enabled) {
-    qCDebug(lcQueueManager) << "设置统计启用状态:" << enabled;
-
-    m_statsEnabled = enabled;
-
-    if ( enabled && m_initialized ) {
-        if ( !m_statsTimer->isActive() ) {
-            m_statsTimer->start(m_statsUpdateInterval);
-        }
-    } else {
-        if ( m_statsTimer->isActive() ) {
-            m_statsTimer->stop();
-        }
-    }
-}
-
-void QueueManager::setStatsUpdateInterval(int intervalMs) {
-    qCDebug(lcQueueManager) << "设置统计更新间隔:" << intervalMs << "毫秒";
-
-    m_statsUpdateInterval = intervalMs;
-
-    if ( m_statsTimer->isActive() ) {
-        m_statsTimer->stop();
-        m_statsTimer->start(m_statsUpdateInterval);
-    }
 }
 
 void QueueManager::forceUpdateStats() {
-    qCDebug(lcQueueManager) << "强制更新统计信息";
     updateStats();
 }
 
@@ -294,9 +241,7 @@ void QueueManager::updateQueueStats(QueueType type) {
     // 更新时间戳
     stats->lastUpdateTime = QDateTime::currentDateTime();
 
-    // 发射统计更新信号
     locker.unlock();
-    emit queueStatsUpdated(type, *stats);
 }
 
 void QueueManager::checkQueueHealth(QueueType type) {
@@ -314,11 +259,6 @@ void QueueManager::checkQueueHealth(QueueType type) {
         emit queueWarning(type, warning);
     }
 
-    // 检查延迟警告
-    if ( stats.averageLatency > MAX_LATENCY_WARNING ) {
-        QString warning = QString("队列 %1 平均延迟过高: %2ms").arg(queueName).arg(stats.averageLatency, 0, 'f', 1);
-        emit queueWarning(type, warning);
-    }
 }
 
 QString QueueManager::getQueueName(QueueType type) const {

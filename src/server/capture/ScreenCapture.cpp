@@ -7,10 +7,7 @@
 #include <QtCore/QTimer>
 #include <QtCore/QMutex>
 #include <QtCore/QMutexLocker>
-#include <QtGui/QScreen>
-#include <QtGui/QGuiApplication>
 #include <memory>
-// 新增头文件: 使用std::clamp进行数值裁剪
 #include <algorithm>
 
 
@@ -20,13 +17,6 @@ ScreenCapture::ScreenCapture(QObject* parent)
     , m_isCapturing(false)
     , m_statsTimer(new QTimer(this)) {
     qCDebug(lcScreenCaptureManager) << "ScreenCapture 多线程管理器构造函数调用";
-
-    // 初始化默认配置
-    m_captureConfig.frameRate = CoreConstants::Capture::DEFAULT_FRAME_RATE;
-    m_captureConfig.highDefinition = true;
-    m_captureConfig.antiAliasing = true;
-    m_captureConfig.highScaleQuality = true;
-    m_captureConfig.captureRect = QRect(); // 空矩形表示全屏
 
     // 确保队列管理器初始化（测试环境可能未主动初始化）
     if ( QueueManager::instance() ) {
@@ -72,17 +62,11 @@ void ScreenCapture::startCapture() {
         return;
     }
 
-    int currentFrameRate;
-    {
-        QMutexLocker locker(&m_configMutex);
-        currentFrameRate = m_captureConfig.frameRate;
-    }
-    qCInfo(lcScreenCaptureManager) << "启动多线程屏幕捕获，帧率:" << currentFrameRate;
+    qCInfo(lcScreenCaptureManager) << "启动多线程屏幕捕获，帧率:" << m_captureFrameRate;
 
     // 初始化线程架构
     if ( !initializeThreads() ) {
         qCCritical(lcScreenCaptureManager) << "线程初始化失败，无法启动捕获";
-        emit captureError("线程初始化失败");
         return;
     }
 
@@ -109,8 +93,6 @@ void ScreenCapture::startCapture() {
                     m_performanceStats.totalFramesCaptured = stats.totalFramesCaptured;
                     m_performanceStats.droppedFrames = stats.droppedFrames;
                     m_performanceStats.averageCaptureTime = static_cast<quint64>(stats.avgCaptureTime.count());
-                    // 队列已移除，直接发出统计更新
-                    emit performanceStatsUpdated(m_performanceStats);
                 });
             }
             // 调用worker的捕获启动方法
@@ -122,12 +104,10 @@ void ScreenCapture::startCapture() {
             qCInfo(lcScreenCaptureManager) << "使用ThreadManager启动ScreenCaptureWorker线程成功，已连接直接信号";
         } else {
             qCCritical(lcScreenCaptureManager) << "ThreadManager启动ScreenCaptureWorker线程失败";
-            emit captureError("线程启动失败");
             cleanupThreads();
         }
     } else {
         qCCritical(lcScreenCaptureManager) << "ScreenCaptureWorker线程不存在";
-        emit captureError("Worker线程不存在");
         cleanupThreads();
     }
 }
@@ -234,9 +214,6 @@ bool ScreenCapture::initializeThreads() {
         return false;
     }
 
-    // 连接Worker错误信号至ScreenCapture错误处理
-    connect(m_captureWorker, &Worker::errorOccurred, this, &ScreenCapture::onCaptureError);
-
     qCInfo(lcScreenCaptureManager) << "ScreenCaptureWorker线程创建成功";
     return true;
 }
@@ -325,18 +302,13 @@ void ScreenCapture::onThreadRestarted(const QString& name, int restartCount) {
 }
 
 void ScreenCapture::configureWorkers() {
-    updateCaptureConfig(m_captureConfig);
+    if ( m_captureWorker ) {
+        m_captureWorker->setFrameRate(m_captureFrameRate);
+    }
 }
 
 void ScreenCapture::updatePerformanceStats() {
-    if ( !m_isCapturing.load() ) {
-        return;
-    }
-
-    // 更新统计信息
-    // if ( m_captureWorker ) {
-    //     qCDebug(lcScreenCaptureManager) << "捕获Worker状态正常";
-    // }
+    // 统计信息通过 captureStatsUpdated 信号异步更新
 }
 
 void ScreenCapture::resetPerformanceStats() {
@@ -352,43 +324,20 @@ ScreenCapture::PerformanceStats ScreenCapture::getPerformanceStats() const {
 }
 
 
-void ScreenCapture::onCaptureError(const QString& error) {
-    // 处理捕获错误
-    qCWarning(lcScreenCaptureManager) << "捕获错误: " << error;
-    emit captureError(error);
-}
-
-// 统一配置管理方法实现
-void ScreenCapture::updateCaptureConfig(const CaptureConfig& config) {
-    // 本地归一化配置：对帧率进行边界裁剪，确保对外可见配置始终有效
-    const int originalFrameRate = config.frameRate;            // 记录输入帧率（用于日志）
-    CaptureConfig normalized = config;
-    // 帧率裁剪到平台允许范围
-    normalized.frameRate = std::clamp(
-        normalized.frameRate,
-        CoreConstants::Capture::MIN_FRAME_RATE,
-        CoreConstants::Capture::MAX_FRAME_RATE
-    );
-
+void ScreenCapture::setFrameRate(int fps) {
+    fps = std::clamp(fps, CoreConstants::Capture::MIN_FRAME_RATE,
+                     CoreConstants::Capture::MAX_FRAME_RATE);
     {
         QMutexLocker locker(&m_configMutex);
-        m_captureConfig = normalized; // 存储归一化后的配置，保证getCaptureConfig可通过边界测试
+        m_captureFrameRate = fps;
     }
-
-    // 如果捕获Worker存在，更新其配置（传递归一化后的配置）
     if ( m_captureWorker ) {
-        // 直接传递配置，因为现在使用统一的CaptureConfig结构
-        m_captureWorker->updateConfig(normalized);
+        m_captureWorker->setFrameRate(fps);
     }
-
-    // 日志增强：同时打印输入值与裁剪后的值，便于问题定位
-    qCInfo(lcScreenCaptureManager) << "捕获配置已更新: 帧率(输入=" << originalFrameRate
-        << ", 裁剪=" << m_captureConfig.frameRate
-        << "), 高清=" << (m_captureConfig.highDefinition ? "开启" : "关闭")
-        << ", 抗锯齿=" << (m_captureConfig.antiAliasing ? "开启" : "关闭");
+    qCInfo(lcScreenCaptureManager) << "捕获帧率已更新: " << fps;
 }
 
-CaptureConfig ScreenCapture::getCaptureConfig() const {
+int ScreenCapture::frameRate() const {
     QMutexLocker locker(&m_configMutex);
-    return m_captureConfig;
+    return m_captureFrameRate;
 }

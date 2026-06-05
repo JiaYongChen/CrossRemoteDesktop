@@ -3,12 +3,12 @@
 #include <QtCore/QObject>
 #include <QtCore/QTimer>
 #include <QtCore/QMutex>
-#include <QtCore/QVariant>
 #include <QtCore/QPointer>
 #include <QtGui/QImage>
 #include <memory>
 #include <atomic>
 #include "CaptureConfig.h"
+#include "../../common/core/config/Constants.h"
 
 // 前向声明
 class ScreenCaptureWorker;
@@ -35,9 +35,9 @@ public:
     void stopCapture();
     bool isCapturing() const;
     
-    // 配置管理方法 - 统一通过CaptureConfig设置
-    void updateCaptureConfig(const CaptureConfig& config);
-    CaptureConfig getCaptureConfig() const;
+    // 帧率管理
+    void setFrameRate(int fps);
+    int frameRate() const;
 
     // 性能统计结构体
     struct PerformanceStats {
@@ -53,37 +53,18 @@ public:
     PerformanceStats getPerformanceStats() const;
     void resetPerformanceStats();
 
-signals:
-    /**
-     * @brief 捕获错误信号
-     * @param error 错误描述
-     */
-    void captureError(const QString& error);
-
-    /**
-     * @brief 性能统计更新信号
-     * @param stats 性能统计数据
-     */
-    void performanceStatsUpdated(const PerformanceStats& stats);
-
 private slots:
-    /**
-     * @brief 处理捕获错误
-     * @param error 错误信息
-     */
-    void onCaptureError(const QString& error);
-
     /**
      * @brief 更新性能统计
      */
     void updatePerformanceStats();
-    
+
     /**
      * @brief 处理线程启动信号
      * @param name 线程名称
      */
     void onThreadStarted(const QString& name);
-    
+
     /**
      * @brief 处理线程停止信号
      * @param name 线程名称
@@ -129,9 +110,9 @@ private:
     // 状态控制
     std::atomic<bool> m_isCapturing;                                   ///< 捕获状态
     
-    // 配置参数（线程安全）- 统一使用CaptureConfig管理
-    mutable QMutex m_configMutex;                                      ///< 配置互斥锁
-    CaptureConfig m_captureConfig;                                     ///< 捕获配置结构
+     // 帧率
+    mutable QMutex m_configMutex;
+    int m_captureFrameRate = CoreConstants::Capture::DEFAULT_FRAME_RATE;
     
     // 性能统计
     mutable QMutex m_statsMutex;                                       ///< 统计数据互斥锁

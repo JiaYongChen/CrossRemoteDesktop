@@ -154,9 +154,7 @@ target_link_libraries(threading_test_core PUBLIC Qt6::Core common_test_core)
 # capture_test_core: screen capture + data processing + queue (needed by capture tests)
 qt_add_library(capture_test_core STATIC
     ../src/server/capture/ScreenCaptureWorker.cpp
-    ../src/server/dataprocessing/DataProcessing.cpp
     ../src/server/dataflow/QueueManager.cpp
-    ../src/server/dataflow/DataFlowStructures.cpp
 )
 # Windows: include DXGI capture engine source so ScreenCaptureWorker links cleanly
 if(WIN32)
@@ -379,7 +377,6 @@ message(STATUS "    - run_worker_tests: 运行工作线程测试")
 # 数据处理模块测试用例
 set(DATAPROCESSING_TEST_SOURCES
     test_dataprocessing.cpp
-    ../src/server/dataprocessing/DataProcessing.cpp
 )
 
 # 创建数据处理模块测试可执行文件
@@ -412,8 +409,6 @@ set_tests_properties(DataProcessingTest PROPERTIES
 # 数据一致性验证测试用例
 set(DATA_CONSISTENCY_TEST_SOURCES
     test_data_consistency.cpp
-    ../src/server/dataprocessing/DataProcessing.cpp
-    ../src/server/dataprocessing/DataProcessingConfig.cpp
     ../src/common/core/network/ProtocolImpl.cpp
 )
 
@@ -441,8 +436,6 @@ set_tests_properties(DataConsistencyTest PROPERTIES
 # 帧传输延迟测试用例
 set(FRAME_TRANSMISSION_LATENCY_TEST_SOURCES
     test_frame_transmission_latency.cpp
-    ../src/server/dataprocessing/DataProcessing.cpp
-    ../src/server/dataprocessing/DataProcessingConfig.cpp
     ../src/common/core/network/ProtocolImpl.cpp
 )
 
@@ -635,7 +628,6 @@ set(PRODUCER_CONSUMER_INTEGRATION_TEST_SOURCES
     # Server-specific sources not in shared object libraries
     ../src/server/service/ServerWorker.cpp
     ../src/server/dataprocessing/DataProcessingWorker.cpp
-    ../src/server/dataprocessing/DataProcessingConfig.cpp
     ../src/server/capture/ScreenCapture.cpp
     ../src/server/clienthandler/ClientHandlerWorker.cpp
     ../src/server/service/TcpServer.cpp

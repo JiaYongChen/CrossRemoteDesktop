@@ -129,8 +129,8 @@ private slots:
     // 新增：按函数名规范覆盖核心职责
     void test_startCapture();
     void test_stopCapture();
-    void test_updateCaptureConfig();
-    void test_getCaptureConfig();
+    void test_setFrameRate();
+    void test_frameRate();
     void test_getPerformanceStats();
     void test_stopCapture_errorPath();
 };
@@ -172,8 +172,7 @@ void TestScreenCapture::test_basicFunctionality()
     
     // 测试初始状态
     QVERIFY(!m_screenCapture->isCapturing());
-    auto config = m_screenCapture->getCaptureConfig();
-    QVERIFY(config.frameRate > 0);
+    QVERIFY(m_screenCapture->frameRate() > 0);
     
     qCDebug(testScreenCapture, "基本功能测试通过");
 }
@@ -199,102 +198,41 @@ void TestScreenCapture::test_captureControl()
 void TestScreenCapture::test_frameRateControl()
 {
     qCDebug(testScreenCapture, "测试帧率控制");
-    
-    // 测试设置和获取帧率
-    int testFrameRates[] = {15, 30, 60};
+
+    int testFrameRates[] = {15, 30, 60, 120};
     for (int fps : testFrameRates) {
-        auto config = m_screenCapture->getCaptureConfig();
-        config.frameRate = fps;
-        m_screenCapture->updateCaptureConfig(config);
-        
-        auto updatedConfig = m_screenCapture->getCaptureConfig();
-        QCOMPARE(updatedConfig.frameRate, fps);
+        m_screenCapture->setFrameRate(fps);
+        QCOMPARE(m_screenCapture->frameRate(), fps);
     }
-    
-    // 测试边界值
-    auto config = m_screenCapture->getCaptureConfig();
-    config.frameRate = 1;
-    m_screenCapture->updateCaptureConfig(config);
-    QVERIFY(m_screenCapture->getCaptureConfig().frameRate >= 1);
-    
-    config.frameRate = 120;
-    m_screenCapture->updateCaptureConfig(config);
-    QVERIFY(m_screenCapture->getCaptureConfig().frameRate <= 120);
-    
+
+    // 测试边界裁剪
+    m_screenCapture->setFrameRate(0);
+    QVERIFY(m_screenCapture->frameRate() >= CoreConstants::Capture::MIN_FRAME_RATE);
+
+    m_screenCapture->setFrameRate(200);
+    QVERIFY(m_screenCapture->frameRate() <= CoreConstants::Capture::MAX_FRAME_RATE);
+
     qCDebug(testScreenCapture, "帧率控制测试通过");
 }
 
 void TestScreenCapture::test_qualityControl()
 {
-    qCDebug(testScreenCapture, "测试质量控制");
-    
     qCDebug(testScreenCapture, "质量控制测试通过");
 }
 
 void TestScreenCapture::test_highDefinitionMode()
 {
-    qCDebug(testScreenCapture, "测试高清模式");
-    
-    // 测试启用高清模式
-    auto config = m_screenCapture->getCaptureConfig();
-    config.highDefinition = true;
-    m_screenCapture->updateCaptureConfig(config);
-    
-    auto updatedConfig = m_screenCapture->getCaptureConfig();
-    QVERIFY(updatedConfig.highDefinition);
-    
-    // 测试禁用高清模式
-    config.highDefinition = false;
-    m_screenCapture->updateCaptureConfig(config);
-    
-    updatedConfig = m_screenCapture->getCaptureConfig();
-    QVERIFY(!updatedConfig.highDefinition);
-    
-    qCDebug(testScreenCapture, "高清模式测试通过");
+    qCDebug(testScreenCapture, "高清模式测试（已移除 CaptureConfig，保留空测试）");
 }
 
 void TestScreenCapture::test_antiAliasing()
 {
-    qCDebug(testScreenCapture, "测试抗锯齿功能");
-    
-    // 测试启用抗锯齿
-    auto config = m_screenCapture->getCaptureConfig();
-    config.antiAliasing = true;
-    m_screenCapture->updateCaptureConfig(config);
-    
-    auto updatedConfig = m_screenCapture->getCaptureConfig();
-    QVERIFY(updatedConfig.antiAliasing);
-    
-    // 测试禁用抗锯齿
-    config.antiAliasing = false;
-    m_screenCapture->updateCaptureConfig(config);
-    
-    updatedConfig = m_screenCapture->getCaptureConfig();
-    QVERIFY(!updatedConfig.antiAliasing);
-    
-    qCDebug(testScreenCapture, "抗锯齿功能测试通过");
+    qCDebug(testScreenCapture, "抗锯齿测试（已移除 CaptureConfig，保留空测试）");
 }
 
 void TestScreenCapture::test_scaleQuality()
 {
-    qCDebug(testScreenCapture, "测试缩放质量控制");
-    
-    // 测试高质量缩放
-    auto config = m_screenCapture->getCaptureConfig();
-    config.highScaleQuality = true;
-    m_screenCapture->updateCaptureConfig(config);
-    
-    auto updatedConfig = m_screenCapture->getCaptureConfig();
-    QVERIFY(updatedConfig.highScaleQuality);
-    
-    // 测试禁用高质量缩放
-    config.highScaleQuality = false;
-    m_screenCapture->updateCaptureConfig(config);
-    
-    updatedConfig = m_screenCapture->getCaptureConfig();
-    QVERIFY(!updatedConfig.highScaleQuality);
-    
-    qCDebug(testScreenCapture, "缩放质量控制测试通过");
+    qCDebug(testScreenCapture, "缩放质量测试（已移除 CaptureConfig，保留空测试）");
 }
 
 void TestScreenCapture::test_queueManagement()
@@ -391,50 +329,19 @@ void TestScreenCapture::test_syncCapture()
 
 void TestScreenCapture::test_signalEmission()
 {
-    qCDebug(testScreenCapture, "测试信号发射（错误和性能信号）");
-    
-    // 创建信号监听器（frameReady已删除，只测试错误和性能信号）
-    QSignalSpy captureErrorSpy(m_screenCapture.get(), &ScreenCapture::captureError);
-    QSignalSpy performanceStatsSpy(m_screenCapture.get(), &ScreenCapture::performanceStatsUpdated);
-    
-    // 验证信号监听器有效
-    QVERIFY(captureErrorSpy.isValid());
-    QVERIFY(performanceStatsSpy.isValid());
-    
-    // 启动捕获并等待信号
+    qCDebug(testScreenCapture, "信号发射测试（captureError/performanceStatsUpdated 信号已移除）");
     m_screenCapture->startCapture();
-    QTest::qWait(2000); // 等待足够时间以产生信号
-    
-    // 检查是否有信号发射（在测试环境中可能没有实际的帧）
-    qCDebug(testScreenCapture, "captureError信号数量: %lld", static_cast<long long>(captureErrorSpy.count()));
-    qCDebug(testScreenCapture, "performanceStatsUpdated信号数量: %lld", static_cast<long long>(performanceStatsSpy.count()));
-    
+    QTest::qWait(100);
     m_screenCapture->stopCapture();
-    
-    qCDebug(testScreenCapture, "信号发射测试通过");
 }
 
 void TestScreenCapture::test_errorHandling()
 {
-    qCDebug(testScreenCapture, "测试错误处理");
-    
-    // 创建错误信号监听器
-    QSignalSpy errorSpy(m_screenCapture.get(), &ScreenCapture::captureError);
-    
-    // 测试多次快速启动停止（可能触发错误条件）
-    for (int i = 0; i < 5; ++i) {
-        m_screenCapture->startCapture();
-        QTest::qWait(10);
-        m_screenCapture->stopCapture();
-        QTest::qWait(10);
-    }
-    
-    // 检查错误处理
-    qCDebug(testScreenCapture, "错误信号数量: %lld", static_cast<long long>(errorSpy.count()));
-    
-    // 确保最终状态正确
+    qCDebug(testScreenCapture, "错误处理测试（captureError 信号已移除）");
+    m_screenCapture->startCapture();
+    QTest::qWait(100);
+    m_screenCapture->stopCapture();
     QVERIFY(!m_screenCapture->isCapturing());
-    
     qCDebug(testScreenCapture, "错误处理测试通过");
 }
 
@@ -446,14 +353,11 @@ void TestScreenCapture::test_threadSafety()
     std::atomic<bool> stopTest{false};
     std::vector<std::thread> threads;
     
-    // 创建多个线程同时修改配置
+    // 创建多个线程同时修改帧率
     for (int i = 0; i < 3; ++i) {
         threads.emplace_back([this, &stopTest, i]() {
             while (!stopTest.load()) {
-                auto config = m_screenCapture->getCaptureConfig();
-                config.frameRate = 30 + i;
-                config.highDefinition = (i % 2 == 0);
-                m_screenCapture->updateCaptureConfig(config);
+                m_screenCapture->setFrameRate(30 + i);
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
         });
@@ -469,8 +373,7 @@ void TestScreenCapture::test_threadSafety()
     }
     
     // 验证对象仍然有效
-    auto config = m_screenCapture->getCaptureConfig();
-    QVERIFY(config.frameRate > 0);
+    QVERIFY(m_screenCapture->frameRate() > 0);
     
     qCDebug(testScreenCapture, "线程安全性测试通过");
 }
@@ -523,24 +426,19 @@ void TestScreenCapture::test_stopCapture()
     QVERIFY(!m_screenCapture->isCapturing());
 }
 
-void TestScreenCapture::test_updateCaptureConfig()
+void TestScreenCapture::test_setFrameRate()
 {
-    qCDebug(testScreenCapture, "test_updateCaptureConfig");
-    auto cfg = m_screenCapture->getCaptureConfig();
-    cfg.frameRate = 24;
-    cfg.highDefinition = true;
-    m_screenCapture->updateCaptureConfig(cfg);
-    auto updated = m_screenCapture->getCaptureConfig();
-    QCOMPARE(updated.frameRate, 24);
-    QCOMPARE(updated.highDefinition, true);
+    qCDebug(testScreenCapture, "test_setFrameRate");
+    m_screenCapture->setFrameRate(24);
+    QCOMPARE(m_screenCapture->frameRate(), 24);
 }
 
-void TestScreenCapture::test_getCaptureConfig()
+void TestScreenCapture::test_frameRate()
 {
-    qCDebug(testScreenCapture, "test_getCaptureConfig");
-    auto cfg = m_screenCapture->getCaptureConfig();
-    QVERIFY(cfg.frameRate >= 1);
-    QVERIFY(cfg.frameRate <= 120);
+    qCDebug(testScreenCapture, "test_frameRate");
+    auto fps = m_screenCapture->frameRate();
+    QVERIFY(fps >= 1);
+    QVERIFY(fps <= 120);
 }
 
 void TestScreenCapture::test_getPerformanceStats()

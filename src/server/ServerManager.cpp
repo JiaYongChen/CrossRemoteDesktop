@@ -2,7 +2,6 @@
 #include <atomic>
 #include "service/ServerWorker.h"
 #include "dataprocessing/DataProcessingWorker.h"
-#include "dataprocessing/DataProcessingConfig.h"
 #include "capture/ScreenCapture.h"
 #include "clienthandler/ClientHandlerWorker.h"
 #include "../common/core/threading/ThreadManager.h"
@@ -181,83 +180,6 @@ quint16 ServerManager::getCurrentPort() const {
     return m_currentPort;
 }
 
-bool ServerManager::isRunning() const {
-    ServerWorker* worker = getServerWorker();
-    if ( !worker ) {
-        return false;
-    }
-
-    bool running = false;
-    QMetaObject::invokeMethod(worker, "isRunning", Qt::BlockingQueuedConnection,
-        Q_RETURN_ARG(bool, running));
-    return running;
-}
-
-quint16 ServerManager::getPort() const {
-    ServerWorker* worker = getServerWorker();
-    if ( !worker ) {
-        return 0;
-    }
-
-    quint16 port = 0;
-    QMetaObject::invokeMethod(worker, "getPort", Qt::BlockingQueuedConnection,
-        Q_RETURN_ARG(quint16, port));
-    return port;
-}
-
-int ServerManager::getConnectedClientCount() const {
-    ServerWorker* worker = getServerWorker();
-    if ( !worker ) {
-        return 0;
-    }
-
-    int count = 0;
-    QMetaObject::invokeMethod(worker, "getConnectedClientCount", Qt::BlockingQueuedConnection,
-        Q_RETURN_ARG(int, count));
-    return count;
-}
-
-QStringList ServerManager::getConnectedClients() const {
-    ServerWorker* worker = getServerWorker();
-    if ( !worker ) {
-        return QStringList();
-    }
-
-    QStringList clients;
-    QMetaObject::invokeMethod(worker, "getConnectedClients", Qt::BlockingQueuedConnection,
-        Q_RETURN_ARG(QStringList, clients));
-    return clients;
-}
-
-bool ServerManager::isClientConnected(const QString& clientAddress) const {
-    ServerWorker* worker = getServerWorker();
-    if ( !worker ) {
-        return false;
-    }
-
-    bool connected = false;
-    QMetaObject::invokeMethod(worker, "isClientConnected", Qt::BlockingQueuedConnection,
-        Q_RETURN_ARG(bool, connected),
-        Q_ARG(QString, clientAddress));
-    return connected;
-}
-
-bool ServerManager::hasConnectedClients() const {
-    return getConnectedClientCount() > 0;
-}
-
-bool ServerManager::hasAuthenticatedClients() const {
-    ServerWorker* worker = getServerWorker();
-    if ( !worker ) {
-        return false;
-    }
-
-    bool hasAuthenticated = false;
-    QMetaObject::invokeMethod(worker, "hasAuthenticatedClients", Qt::BlockingQueuedConnection,
-        Q_RETURN_ARG(bool, hasAuthenticated));
-    return hasAuthenticated;
-}
-
 // 信号槽处理方法 - 转发ServerWorker的信号
 void ServerManager::onWorkerServerStarted(quint16 port) {
     {
@@ -351,60 +273,6 @@ ServerWorker* ServerManager::getServerWorker() const {
     }
 
     return qobject_cast<ServerWorker*>(threadInfo->worker);
-}
-
-DataProcessingWorker* ServerManager::getDataProcessingWorker() const {
-    QMutexLocker lock(&m_workerMutex);
-
-    const ThreadManager::ThreadInfo* threadInfo = m_threadManager->getThreadInfo("DataProcessingWorker");
-    if ( !threadInfo || !threadInfo->worker ) {
-        return nullptr;
-    }
-
-    return qobject_cast<DataProcessingWorker*>(threadInfo->worker);
-}
-
-// 客户端管理方法实现
-int ServerManager::clientCount() const {
-    ServerWorker* worker = getServerWorker();
-    if ( !worker ) {
-        return 0;
-    }
-
-    int count = 0;
-    QMetaObject::invokeMethod(worker, "clientCount", Qt::BlockingQueuedConnection,
-        Q_RETURN_ARG(int, count));
-    return count;
-}
-
-QStringList ServerManager::connectedClients() const {
-    ServerWorker* worker = getServerWorker();
-    if ( !worker ) {
-        return QStringList();
-    }
-
-    QStringList clients;
-    QMetaObject::invokeMethod(worker, "connectedClients", Qt::BlockingQueuedConnection,
-        Q_RETURN_ARG(QStringList, clients));
-    return clients;
-}
-
-void ServerManager::sendMessageToClient(const QString& clientAddress, MessageType type, const QByteArray& data) {
-    ServerWorker* worker = getServerWorker();
-    if ( worker ) {
-        QMetaObject::invokeMethod(worker, "sendMessageToClient", Qt::QueuedConnection,
-            Q_ARG(QString, clientAddress),
-            Q_ARG(MessageType, type),
-            Q_ARG(QByteArray, data));
-    }
-}
-
-void ServerManager::disconnectClient(const QString& clientAddress) {
-    ServerWorker* worker = getServerWorker();
-    if ( worker ) {
-        QMetaObject::invokeMethod(worker, "disconnectClient", Qt::QueuedConnection,
-            Q_ARG(QString, clientAddress));
-    }
 }
 
 void ServerManager::gracefulShutdown() {
@@ -549,14 +417,9 @@ void ServerManager::startWorkerThreads() {
     if ( !m_threadManager->hasThread(dataWorkerName) ) {
         qCDebug(lcServerManager) << "ServerManager::startWorkerThreads() - Creating DataProcessingWorker thread";
 
-        // 创建数据处理配置
-        auto processingConfig = std::make_shared<DataProcessingConfig>();
-
         // 创建数据处理工作线程
         auto dataWorker = std::make_unique<DataProcessingWorker>();
         DataProcessingWorker* dataWorkerPtr = dataWorker.get();
-        dataWorkerPtr->setProcessingConfig(processingConfig);
-        dataWorkerPtr->setMaxQueueSize(CoreConstants::Performance::MAX_QUEUE_SIZE);
         dataWorkerPtr->setProcessingTimeout(2000);
 
         if ( !m_threadManager->createThread(dataWorkerName, std::move(dataWorker), false, true, 3) ) {

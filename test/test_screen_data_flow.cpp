@@ -9,7 +9,6 @@
 // 包含需要测试的类
 #include "../src/common/core/logging/LoggingCategories.h"
 #include "../src/common/core/network/Protocol.h"
-#include "../src/common/types/CommonTypes.h"
 
 /**
  * @brief 测试屏幕数据传输流程的核心功能

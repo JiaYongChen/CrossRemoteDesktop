@@ -44,17 +44,6 @@ enum class MessageType : quint32 {
     MOUSE_EVENT = 0x2001,
     KEYBOARD_EVENT = 0x2002,
 
-    // 音频数据
-    AUDIO_DATA = 0x3001,
-    AUDIO_FORMAT = 0x3002,
-
-    // 文件传输
-    FILE_TRANSFER_REQUEST = 0x4001,
-    FILE_TRANSFER_RESPONSE = 0x4002,
-    FILE_DATA = 0x4003,
-    FILE_TRANSFER_COMPLETE = 0x4004,
-    FILE_TRANSFER_ERROR = 0x4005,
-
     // 剪贴板
     CLIPBOARD_DATA = 0x5001
 };
@@ -90,14 +79,7 @@ enum class AuthResult : quint8 {
     UNKNOWN_ERROR = 0xFF
 };
 
-// 文件传输状态
-enum class FileTransferStatus : quint8 {
-    PENDING = 0x00,
-    IN_PROGRESS = 0x01,
-    COMPLETED = 0x02,
-    CANCELLED = 0x03,
-    ERROR = 0x04
-};
+
 
 // 编解码接口：仅负责消息打包与从缓冲区解包
 class IMessageCodec {
@@ -239,18 +221,6 @@ struct ScreenData : public IMessageCodec {
     bool decode(const QByteArray& dataBuffer);
 };
 
-// 音频数据
-struct AudioData : public IMessageCodec {
-    quint32 sampleRate;
-    quint8 channels;
-    quint8 bitsPerSample;
-    quint32 dataSize;
-    // 实际音频数据跟在后面
-
-    QByteArray encode() const;
-    bool decode(const QByteArray& dataBuffer);
-};
-
 // 光标类型消息（仅包含光标类型信息）
 struct CursorMessage : public IMessageCodec {
     Qt::CursorShape cursorType;        // 光标类型
@@ -260,38 +230,6 @@ struct CursorMessage : public IMessageCodec {
 
     QByteArray encode() const override;
     bool decode(const QByteArray& dataBuffer) override;
-};
-
-// 文件传输请求
-struct FileTransferRequest : public IMessageCodec {
-    QString fileName;
-    quint64 fileSize;
-    quint32 transferId;
-    quint8 direction;
-
-    QByteArray encode() const;
-    bool decode(const QByteArray& dataBuffer);
-};
-
-// 文件传输响应
-struct FileTransferResponse : public IMessageCodec {
-    quint32 transferId;
-    FileTransferStatus status;
-    QString errorMessage;
-
-    QByteArray encode() const;
-    bool decode(const QByteArray& dataBuffer);
-};
-
-// 文件数据块
-struct FileData : public IMessageCodec {
-    quint32 transferId;
-    quint64 offset;
-    quint32 dataSize;
-    // 实际文件数据跟在后面
-
-    QByteArray encode() const;
-    bool decode(const QByteArray& dataBuffer);
 };
 
 // 剪贴板数据类型

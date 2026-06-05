@@ -12,7 +12,6 @@
 #include <QtCore/QDataStream>
 #include <QtNetwork/QTcpServer>
 #include <QtNetwork/QTcpSocket>
-#include "../src/common/data/DataRecord.h"
 #include "../src/common/core/network/Protocol.h"
 
 /**

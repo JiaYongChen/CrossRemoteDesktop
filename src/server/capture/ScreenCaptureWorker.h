@@ -1,17 +1,15 @@
 #pragma once
 
 #include "../../common/core/threading/Worker.h"
-#include "../../common/core/threading/ThreadSafeQueue.h"
 #include "../dataflow/DataFlowStructures.h"
 #include "../dataflow/QueueManager.h"
-#include "../dataprocessing/DataProcessing.h"
 #include "CaptureConfig.h"
+#include "../../common/core/config/Constants.h"
 #include <QtGui/QImage>
 #include <QtGui/QScreen>
 #include <QtCore/QTimer>
 #include <QtCore/QMutex>
 #include <QtCore/QElapsedTimer>
-#include <QtCore/QBuffer>
 #include <memory>
 #include <atomic>
 #include <chrono>
@@ -49,13 +47,11 @@ public:
     ScreenCaptureWorker(const ScreenCaptureWorker&) = delete;
     ScreenCaptureWorker& operator=(const ScreenCaptureWorker&) = delete;
 
-    // 配置管理方法
-    void updateConfig(const CaptureConfig& config);
-    CaptureConfig getCurrentConfig() const;
+    // 帧率设置
+    void setFrameRate(int fps);
+    int frameRate() const;
 
     // 统计信息获取（内部使用）
-    CaptureStats getCaptureStats() const;
-
     /**
      * @brief 开始捕获
      *
@@ -112,7 +108,6 @@ private slots:
 private:
     // 核心捕获方法
     QImage captureScreen();
-    QImage captureScreenRegion(const QRect& region);
 
     // 帧率和时序控制
     void calculateFrameDelay();
@@ -125,19 +120,17 @@ private:
 
     // 错误处理方法
     void handleCaptureError(const QString& error);
-    bool recoverFromError();
 
 private:
     // 队列管理
     QueueManager* m_queueManager{ nullptr };  ///< 队列管理器，用于将捕获的帧放入队列
 
-    // 配置相关
+    // 帧率
     mutable QMutex m_configMutex;
-    CaptureConfig m_config;
+    int m_frameRate = CoreConstants::Capture::DEFAULT_FRAME_RATE;
 
     // 捕获状态
     std::atomic<bool> m_isCapturing{ false };
-    std::atomic<bool> m_configChanged{ false };
 
     // 时序控制
     QTimer* m_statsTimer{ nullptr };                      ///< 统计更新定时器

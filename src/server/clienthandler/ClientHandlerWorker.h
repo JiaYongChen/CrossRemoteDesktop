@@ -10,6 +10,7 @@
 #include <QtNetwork/QSslSocket>
 #include <QtNetwork/QSslCertificate>
 #include <QtNetwork/QSslKey>
+#include <chrono>
 
 class InputSimulator;
 class IMessageCodec;
@@ -75,17 +76,14 @@ public:
     Q_INVOKABLE void setPbkdf2Params(quint32 iterations, quint32 keyLength);
 
     /**
-     * @brief 发送消息到客户端
+     * @brief 发送消息到客户端（统一发送入口）
+     *
+     * 所有对外消息发送均通过此方法，内部编码后委托 sendEncodedMessage 写入 socket。
+     *
      * @param type 消息类型
      * @param message 消息数据（实现IMessageCodec接口）
      */
     Q_INVOKABLE void sendMessage(MessageType type, const IMessageCodec& message);
-
-    /**
-     * @brief 发送已编码的消息数据到客户端（用于非阻塞发送）
-     * @param messageData 已编码的消息数据（包含消息头和负载）
-     */
-    Q_INVOKABLE void sendEncodedMessage(const QByteArray& messageData);
 
     /**
      * @brief 断开客户端连接
@@ -235,6 +233,12 @@ private:
     void handleClipboardData(const QByteArray& data);
 
     /**
+     * @brief 将已编码字节写入 socket（底层写入点）
+     * @param messageData 已编码的消息数据（头部+负载）
+     */
+    void sendEncodedMessage(const QByteArray& messageData);
+
+    /**
      * @brief 发送握手响应
      */
     void sendHandshakeResponse();
@@ -328,5 +332,9 @@ private:
     // processTask posts sendScreenDataFromQueue via QueuedConnection on each tick;
     // without this flag, pending invocations pile up if the event loop is slow.
     std::atomic<bool> m_sendScreenDataPending{ false };
+
+    // 屏幕数据发送节律控制：记录上次发送时间，强制帧间隔均匀化，
+    // 消除编码批处理导致的"簇式发送"，让客户端 paintGL 每帧都有机会渲染。
+    std::chrono::steady_clock::time_point m_lastScreenSendTime{};
 };
 

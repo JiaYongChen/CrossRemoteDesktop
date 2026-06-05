@@ -1,31 +1,15 @@
 #include <QtTest/QTest>
 #include <QtGui/QImage>
-#include <QtCore/QSettings>
-#include <QtCore/QTemporaryDir>
 
 #include "../src/client/managers/SessionManager.h"
 #include "../src/client/core/TripleBuffer.h"
 #include "../src/client/core/FrameSlot.h"
-#include "../src/common/core/config/RenderConfig.h"
 
 class TestSessionLatestWins : public QObject {
     Q_OBJECT
-private:
-    QTemporaryDir m_tmp;
-    void writeConfig(const QString& policy) {
-        QSettings s(m_tmp.filePath("cfg.ini"), QSettings::IniFormat);
-        s.beginGroup("RemoteDesktop/Render");
-        s.setValue("DropPolicy", policy);
-        s.endGroup();
-        s.sync();
-        QSettings::setPath(QSettings::IniFormat, QSettings::UserScope,
-                           m_tmp.path());
-    }
 
 private slots:
     void initTestCase() {
-        QVERIFY(m_tmp.isValid());
-        QSettings::setDefaultFormat(QSettings::IniFormat);
         QCoreApplication::setOrganizationName("QrdTest");
         QCoreApplication::setApplicationName("RenderConfigTest");
     }

@@ -40,7 +40,6 @@ protected:
     void incomingConnection(qintptr socketDescriptor) override;
 
 private:
-    void cleanup();
     bool generateSelfSignedCertificate();
 
     // 服务器状态

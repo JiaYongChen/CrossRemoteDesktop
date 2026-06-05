@@ -1,18 +1,14 @@
 #pragma once
 
 #include <QtCore/QObject>
-#include <QtCore/QMutex>
-#include <QtGui/QPixmap>
 #include <QtGui/QImage>
 #include <QtCore/QDateTime>
-#include <QtCore/QQueue>
 #include <QtCore/QSize>
 #include "../../common/core/network/Protocol.h"
 #include "../../common/core/config/UiConstants.h"
 #include "../network/ConnectionManager.h"
 #include "../core/TripleBuffer.h"
 #include "../core/FrameSlot.h"
-#include <atomic>
 #include <chrono>
 
 class DecodeWorker;
@@ -65,8 +61,6 @@ public slots:
     void sendClipboardText(const QString& text);
     void sendClipboardImage(const QByteArray& imageData, quint32 width, quint32 height);
 
-    // 配置（跨线程调用需要使用 slots）
-    void setFrameRate(int fps);
 
 public:
     // 性能统计
@@ -75,9 +69,6 @@ public:
 
     // 性能信息格式化
     QString getFormattedPerformanceInfo() const;
-
-    // 配置
-    int frameRate() const;
 
     // 连接信息
     QString currentHost() const;
@@ -149,10 +140,6 @@ private:
     // 远程桌面数据
     QSize m_remoteScreenSize;
 
-    // 帧数据缓存和线程安全
-    QByteArray m_previousFrameData;
-    mutable QMutex m_frameDataMutex;
-
     // Triple-buffered lock-free frame delivery (replaces QQueue+QMutex+signal)
     TripleBuffer<FrameSlot> m_frameBuffer;
 
@@ -167,9 +154,6 @@ private:
     std::chrono::steady_clock::time_point m_lastFpsTime{};
     double m_smoothedFrameDuration = 0.0;  // EMA 平滑帧间隔（秒）
     static constexpr double kFpsAlpha = 0.1;     // EMA 平滑系数
-
-    // 配置
-    int m_frameRate;
 
 #ifndef QT_NO_OPENGL
     GLTextureViewport* m_glViewportForUpload = nullptr;

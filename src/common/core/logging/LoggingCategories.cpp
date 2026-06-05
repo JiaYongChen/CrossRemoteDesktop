@@ -23,9 +23,6 @@ Q_LOGGING_CATEGORY(lcServerManager, "server.manager", QtDebugMsg)
 /// 服务端网络模块日志
 Q_LOGGING_CATEGORY(lcNetServer, "server.net", QtDebugMsg)
 
-/// 数据处理器日志
-Q_LOGGING_CATEGORY(lcDataProcessor, "server.dataprocessor", QtDebugMsg)
-
 /// 输入模拟器日志
 Q_LOGGING_CATEGORY(lcInputSimulator, "server.inputsimulator", QtDebugMsg)
 
@@ -41,17 +38,8 @@ Q_LOGGING_CATEGORY(lcScreenCaptureWorker, "server.capture.worker", QtDebugMsg)
 /// DXGI Desktop Duplication 捕获引擎日志
 Q_LOGGING_CATEGORY(lcDxgiCapture, "server.capture.dxgi", QtDebugMsg)
 
-/// 数据流日志
-Q_LOGGING_CATEGORY(lcDataFlow, "dataflow", QtDebugMsg)
-
 /// 队列管理器日志
 Q_LOGGING_CATEGORY(lcQueueManager, "queuemanager", QtDebugMsg)
-
-/// 数据处理日志
-Q_LOGGING_CATEGORY(lcDataProcessing, "server.dataprocessing", QtDebugMsg)
-
-/// 数据处理配置日志
-Q_LOGGING_CATEGORY(lcDataProcessingConfig, "server.dataprocessing.config", QtDebugMsg)
 
 /// 数据处理Worker日志
 Q_LOGGING_CATEGORY(lcDataProcessingWorker, "dataprocessingworker", QtDebugMsg)
@@ -80,9 +68,6 @@ Q_LOGGING_CATEGORY(lcMouseSimulatorWindows, "simulator.mouse.windows", QtDebugMs
 
 /// 客户端主模块日志
 Q_LOGGING_CATEGORY(lcClient, "client", QtDebugMsg)
-
-/// 客户端窗口模块日志
-Q_LOGGING_CATEGORY(lcClientWindow, "client.window", QtDebugMsg)
 
 /// 客户端远程窗口日志
 Q_LOGGING_CATEGORY(lcClientRemoteWindow, "client.remote.window", QtDebugMsg)
@@ -125,12 +110,3 @@ Q_LOGGING_CATEGORY(lcThreading, "core.threading", QtDebugMsg)
 
 /// 测试主模块日志
 Q_LOGGING_CATEGORY(lcTest, "test", QtDebugMsg)
-
-/// 单元测试日志
-Q_LOGGING_CATEGORY(lcUnitTest, "test.unit", QtDebugMsg)
-
-/// 集成测试日志
-Q_LOGGING_CATEGORY(lcIntegrationTest, "test.integration", QtDebugMsg)
-
-/// 性能测试日志
-Q_LOGGING_CATEGORY(lcPerformanceTest, "test.performance", QtDebugMsg)

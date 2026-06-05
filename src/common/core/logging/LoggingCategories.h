@@ -26,9 +26,6 @@ Q_DECLARE_LOGGING_CATEGORY(lcServerManager)
 /// 服务端网络模块日志
 Q_DECLARE_LOGGING_CATEGORY(lcNetServer)
 
-/// 数据处理器日志
-Q_DECLARE_LOGGING_CATEGORY(lcDataProcessor)
-
 /// 输入模拟器日志
 Q_DECLARE_LOGGING_CATEGORY(lcInputSimulator)
 
@@ -44,17 +41,8 @@ Q_DECLARE_LOGGING_CATEGORY(lcScreenCaptureWorker)
 /// DXGI Desktop Duplication 捕获引擎日志
 Q_DECLARE_LOGGING_CATEGORY(lcDxgiCapture)
 
-/// 数据流日志
-Q_DECLARE_LOGGING_CATEGORY(lcDataFlow)
-
 /// 队列管理器日志
 Q_DECLARE_LOGGING_CATEGORY(lcQueueManager)
-
-/// 数据处理日志
-Q_DECLARE_LOGGING_CATEGORY(lcDataProcessing)
-
-/// 数据处理配置日志
-Q_DECLARE_LOGGING_CATEGORY(lcDataProcessingConfig)
 
 /// 数据处理Worker日志
 Q_DECLARE_LOGGING_CATEGORY(lcDataProcessingWorker)
@@ -83,9 +71,6 @@ Q_DECLARE_LOGGING_CATEGORY(lcMouseSimulatorWindows)
 
 /// 客户端主模块日志
 Q_DECLARE_LOGGING_CATEGORY(lcClient)
-
-/// 客户端窗口模块日志
-Q_DECLARE_LOGGING_CATEGORY(lcClientWindow)
 
 /// 客户端远程窗口日志
 Q_DECLARE_LOGGING_CATEGORY(lcClientRemoteWindow)
@@ -128,13 +113,4 @@ Q_DECLARE_LOGGING_CATEGORY(lcThreading)
 
 /// 测试主模块日志
 Q_DECLARE_LOGGING_CATEGORY(lcTest)
-
-/// 单元测试日志
-Q_DECLARE_LOGGING_CATEGORY(lcUnitTest)
-
-/// 集成测试日志
-Q_DECLARE_LOGGING_CATEGORY(lcIntegrationTest)
-
-/// 性能测试日志
-Q_DECLARE_LOGGING_CATEGORY(lcPerformanceTest)
 

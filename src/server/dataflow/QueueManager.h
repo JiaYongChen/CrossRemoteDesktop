@@ -89,28 +89,7 @@ public:
     void restartAllQueues();
 
     /**
-     * @brief 检查队列是否健康
-     * @param type 队列类型
-     * @return true 队列健康，false 队列异常
-     */
-    [[nodiscard]] bool isQueueHealthy(QueueType type) const;
-
-    /**
-     * @brief 启用/禁用统计监控
-     * @param enabled 是否启用
-     */
-    void setStatsEnabled(bool enabled);
-
-    /**
-     * @brief 设置统计更新间隔
-     * @param intervalMs 更新间隔（毫秒）
-     */
-    void setStatsUpdateInterval(int intervalMs);
-
-    /**
-     * @brief 强制更新统计信息
-     *
-     * 立即更新所有队列的统计信息，主要用于测试场景。
+     * @brief 强制更新统计信息（主要供测试使用）
      */
     void forceUpdateStats();
 
@@ -186,13 +165,6 @@ public:
 
 signals:
     /**
-     * @brief 队列统计更新信号
-     * @param type 队列类型
-     * @param stats 统计信息
-     */
-    void queueStatsUpdated(QueueType type, const QueueStats& stats);
-
-    /**
      * @brief 队列警告信号
      * @param type 队列类型
      * @param message 警告消息
@@ -249,11 +221,8 @@ private:
 
     bool m_initialized;                                                 ///< 是否已初始化
 
-    quint64 m_lastProcessedFrameId;                                     ///< 最后入队的处理帧ID
-
     // 健康检查阈值
     static constexpr int QUEUE_WARNING_THRESHOLD = 80;                  ///< 队列警告阈值（百分比）
     static constexpr int QUEUE_ERROR_THRESHOLD = 95;                    ///< 队列错误阈值（百分比）
-    static constexpr int MAX_LATENCY_WARNING = 1000;                    ///< 最大延迟警告阈值（毫秒）
 };
 

@@ -656,9 +656,6 @@ void TestProducerConsumerIntegration::test_queueStatistics() {
         m_queueManager->enqueueCapturedFrame(frame);
     }
 
-    // 强制更新统计信息
-    m_queueManager->forceUpdateStats();
-
     // 获取更新后的统计信息
     QueueStats updatedStats = m_queueManager->getQueueStats(QueueManager::CaptureQueue);
 

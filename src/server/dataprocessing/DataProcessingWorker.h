@@ -4,16 +4,12 @@
 #include "../../common/core/config/Constants.h"
 #include "../dataflow/DataFlowStructures.h"
 #include "../dataflow/QueueManager.h"
-#include "DataProcessing.h"
-#include "DataProcessingConfig.h"
 
 #include <QtCore/QObject>
 #include <QtCore/QTimer>
 #include <QtCore/QMutex>
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QThreadPool>
-#include <QtCore/QFutureWatcher>
-#include <QtConcurrent/QtConcurrent>
 #include <memory>
 #include <atomic>
 #include <vector>
@@ -42,65 +38,7 @@ public:
      */
     ~DataProcessingWorker() override;
 
-    /**
-     * @brief 设置处理配置
-     * @param config 数据处理配置
-     */
-    void setProcessingConfig(std::shared_ptr<DataProcessingConfig> config);
-
-    /**
-     * @brief 获取处理配置
-     * @return 数据处理配置
-     */
-    std::shared_ptr<DataProcessingConfig> getProcessingConfig() const;
-
-    /**
-      * @brief 获取处理统计信息
-      * @return 处理统计信息字符串
-      */
-    QString getProcessingStats() const;
-
-    /**
-     * @brief 获取当前处理速率（帧/秒）
-     * @return 处理速率
-     */
-    double getProcessingRate() const;
-
-    /**
-     * @brief 获取平均处理延迟（毫秒）
-     * @return 平均处理延迟
-     */
-    double getAverageProcessingLatency() const;
-
-    /**
-     * @brief 设置处理超时时间
-     * @param timeoutMs 超时时间（毫秒）
-     */
     void setProcessingTimeout(int timeoutMs);
-
-    /**
-     * @brief 设置最大处理队列大小
-     * @param maxSize 最大队列大小
-     */
-    void setMaxQueueSize(int maxSize);
-
-    /**
-     * @brief 获取详细的性能指标
-     * @return 性能指标结构
-     */
-    struct PerformanceMetrics {
-        quint64 processedFrames;
-        quint64 droppedFrames;
-        double averageLatency;
-        double processingRate;
-    };
-    PerformanceMetrics getPerformanceMetrics() const;
-
-    /**
-     * @brief 停止工作线程
-     * @param waitForFinish 是否等待完成
-     */
-    void stop(bool waitForFinish = true) override;
 
 public slots:
     /**
@@ -157,20 +95,6 @@ private slots:
      */
     void updateStats();
 
-    /**
-     * @brief 处理队列警告
-     * @param type 队列类型
-     * @param message 警告消息
-     */
-    void onQueueWarning(QueueManager::QueueType type, const QString& message);
-
-    /**
-     * @brief 处理队列错误
-     * @param type 队列类型
-     * @param error 错误消息
-     */
-    void onQueueError(QueueManager::QueueType type, const QString& error);
-
 signals:
     /**
      * @brief 处理统计更新信号
@@ -182,61 +106,18 @@ signals:
     void processingStatsUpdated(quint64 processedFrames, quint64 droppedFrames,
         double averageLatency, double processingRate);
 
-    /**
-     * @brief 处理错误信号
-     * @param error 错误消息
-     */
-    void processingError(const QString& error);
-
-    /**
-     * @brief 处理警告信号
-     * @param warning 警告消息
-     */
-    void processingWarning(const QString& warning);
-
-    /**
-     * @brief 性能指标更新信号
-     * @param metrics 性能指标
-     */
-    void performanceMetricsUpdated(const PerformanceMetrics& metrics);
-
 private:
     /**
-     * @brief 批量并行处理多个帧
-     * @param frames 待处理的帧列表
-     * @return 处理成功的帧数
-     */
-    /// 异步非阻塞并行编码：提交后立即返回，编码完成后通过 QFutureWatcher 回调入队
-    void processBatchAsync(std::vector<CapturedFrame>&& frames);
-
-    /// QFutureWatcher 回调：上一批异步编码完成时收集结果并入队
-    void onAsyncBatchFinished();
-
-    /**
-     * @brief 并行编码单帧图像（线程安全的静态方法）
+     * @brief 并行编码单帧图像（线程安全的静态方法，在线程池中执行）
      * @param image 图像数据
      * @param frameId 帧ID
      * @param quality JPEG质量 (0-100)
      * @param scaleFactor 缩放因子 (0.1-1.0)
      * @return 处理后的数据
      */
-    static ProcessedData encodeImageParallel(const QImage& image, quint64 frameId, 
-                                             int quality = CoreConstants::Compression::DEFAULT_JPEG_QUALITY,
-                                             double scaleFactor = 1.0);
-
-    /**
-     * @brief 验证帧数据
-     * @param frame 帧数据
-     * @return true 数据有效，false 数据无效
-     */
-    bool validateFrame(const CapturedFrame& frame) const;
-
-    /**
-     * @brief 更新处理统计
-     * @param processingTime 处理耗时（毫秒）
-     * @param success 是否处理成功
-     */
-    void updateProcessingStats(qint64 processingTime, bool success);
+    static ProcessedData encodeImage(const QImage& image, quint64 frameId,
+                                     int quality = CoreConstants::Compression::DEFAULT_JPEG_QUALITY,
+                                     double scaleFactor = 1.0);
 
     /**
      * @brief 检查处理性能
@@ -245,9 +126,6 @@ private:
 
 private:
     QueueManager* m_queueManager;                                       ///< 队列管理器
-
-    std::shared_ptr<DataProcessingConfig> m_config;                     ///< 处理配置
-    std::unique_ptr<DataProcessor> m_dataProcessor;                     ///< 数据处理器
 
     QTimer* m_statsTimer;                                               ///< 统计更新定时器
     mutable QMutex m_statsMutex;                                        ///< 统计互斥锁
@@ -264,19 +142,11 @@ private:
 
     // 配置参数
     int m_processingTimeout;                                            ///< 处理超时时间（毫秒）
-    int m_maxQueueSize;                                                 ///< 最大队列大小
     int m_statsUpdateInterval;                                          ///< 统计更新间隔（毫秒）
 
     // 并行处理
     int m_maxParallelTasks;                                             ///< 最大并行任务数
     std::atomic<int> m_activeParallelTasks;                             ///< 当前活跃的并行任务数
-    mutable QMutex m_batchMutex;                                        ///< 批处理互斥锁
-
-    // 异步非阻塞编码（替代 waitForFinished 阻断）
-    QFutureWatcher<ProcessedData>* m_asyncWatcher = nullptr;            ///< 异步编码观察器
-    std::atomic<int> m_inFlightBatches{0};                              ///< 当前飞行中的批次数
-    static constexpr int kMaxInFlightBatches = 1;                       ///< 最多同时飞行 1 批
-    std::shared_ptr<std::vector<CapturedFrame>> m_inFlightFrames;       ///< 飞行中批次的帧数据（智能指针管理生命周期）
 
     // 性能监控阈值
     static constexpr double MAX_PROCESSING_LATENCY = 100.0;             ///< 最大处理延迟阈值（毫秒）

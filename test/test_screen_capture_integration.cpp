@@ -79,17 +79,12 @@ private slots:
         try {
             ScreenCapture capture;
             
-            // 测试配置设置冗余
-            auto config = capture.getCaptureConfig();
-            config.frameRate = 30;
-            capture.updateCaptureConfig(config);
-            
-            // 冗余设置（相同配置）
-            capture.updateCaptureConfig(config);
-            
-            // 验证配置
-            auto updatedConfig = capture.getCaptureConfig();
-            QVERIFY(updatedConfig.frameRate == 30);
+            // 测试帧率设置
+            capture.setFrameRate(30);
+            // 冗余设置（相同帧率）
+            capture.setFrameRate(30);
+            // 验证帧率
+            QVERIFY(capture.frameRate() == 30);
         } catch (const std::exception& e) {
             QFAIL(QString("Exception in test_configurationRedundancy: %1").arg(e.what()).toLocal8Bit().constData());
         } catch (...) {
