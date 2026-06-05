@@ -19,6 +19,8 @@
 #include "../core/TripleBuffer.h"
 #include "../core/FrameSlot.h"
 
+class DecodeWorker;
+
 /**
  * @brief OpenGL viewport that renders remote desktop frames via direct texture upload.
  *
@@ -148,6 +150,8 @@ public:
      * any newly committed frame. Set to nullptr to detach.
      */
     void attachFrameBuffer(TripleBuffer<FrameSlot>* buffer);
+
+    void setDecodeWorker(DecodeWorker* w) { m_decodeWorker = w; }
 
     /**
      * @brief Upload decoded frame data directly to the GPU texture via PBO.
@@ -297,7 +301,8 @@ private:
     // Triple-buffered lock-free frame delivery
     TripleBuffer<FrameSlot>* m_frameBuffer = nullptr;
 
-    /// 当前 paintGL 周期内已消费的 TripleBuffer 槽位索引，-1 表示未消费。
+    /// 异步预解码管线：paintGL 渲染时通过原子信号通知 DecodeWorker 预解码
+    class DecodeWorker* m_decodeWorker = nullptr;    /// 当前 paintGL 周期内已消费的 TripleBuffer 槽位索引，-1 表示未消费。
     /// 用于 CheckForNewFrameAfterPaint()：若 peekReady() 与本值不同说明新帧已到达。
     int m_consumedSlot = -1;
 

@@ -29,6 +29,12 @@ public:
     /// 接受 ScreenData 值传递，使用移动语义避免 QByteArray imageData 深拷贝。
     bool enqueueFrame(ScreenData screenData, const QSize& remoteSize);
 
+    /// 由 paintGL 在开始渲染时调用，触发下一帧的预解码
+    void notifyPredecodeStart() { m_startPredecode.store(true, std::memory_order_release); }
+
+    /// 由 paintGL 在渲染完成后调用，通知预解码帧可以提交
+    void notifyRenderingDone() { m_renderingDone.store(true, std::memory_order_release); }
+
     /// 设置 TripleBuffer 指针（在 createDecodePipeline 中调用）
     void setFrameBuffer(TripleBuffer<FrameSlot>* buffer);
 
@@ -88,4 +94,33 @@ private:
 
     // 帧计数
     int m_frameId = 0;
+
+    // === 异步预解码管线状态 ===
+    // 原子信号：paintGL(GUI线程) ↔ DecodeWorker(DecodeThread)
+    std::atomic<bool> m_startPredecode{false};      ///< paintGL 开始渲染 → 预解码启动
+    std::atomic<bool> m_predecodedReady{false};      ///< 预解码完成，可提交
+    std::atomic<bool> m_renderingDone{false};        ///< paintGL 渲染完成 → 可以提交
+    bool m_firstFrame = true;                        ///< 首帧豁免：绕过 paintGL 信号，打破启动死锁
+
+    // 预解码帧暂存（单线程访问，无需锁）
+    struct PredecodeSlot {
+#ifndef QT_NO_OPENGL
+        GLsync fence = nullptr;
+#endif
+        QImage  image;                 // 非 GL 回退路径 / 尺寸回退
+        QSize   remoteSize;
+        quint64 frameId = 0;
+        bool    valid = false;
+
+        void clear() {
+#ifndef QT_NO_OPENGL
+            fence = nullptr;
+#endif
+            image = QImage();
+            remoteSize = QSize();
+            frameId = 0;
+            valid = false;
+        }
+    };
+    PredecodeSlot m_predecodeSlot;
 };

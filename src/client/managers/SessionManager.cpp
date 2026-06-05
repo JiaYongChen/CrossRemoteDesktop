@@ -419,6 +419,10 @@ void SessionManager::createDecodePipeline() {
     }
     // setGLViewport 不需要 GL 上下文，直接设置即可
     m_decodeWorker->setGLViewport(m_glViewportForUpload);
+    // 建立双向引用：paintGL 通过此指针触发预解码信号
+    if (m_glViewportForUpload) {
+        m_glViewportForUpload->setDecodeWorker(m_decodeWorker);
+    }
 #endif
 
     // 连接 stopped 信号
@@ -450,33 +454,26 @@ void SessionManager::destroyDecodePipeline() {
     // 1. 停止队列（唤醒所有阻塞操作）
     m_decodeWorker->requestStop();
 
-    // 2. 获取 DecodeThread 引用
-    QThread* decodeThread = m_decodeWorker->thread();
-
-    // 3. 在 DecodeThread 上下文内清理 GL 资源（必须在线程 quit 之前执行）。
-    //    因为 m_glContext（QOpenGLContext*）和 m_glSurface（QOffscreenSurface*）
-    //    在 initializeGL() 中被 moveToThread 到 DecodeThread，跨线程 delete
-    //    会触发 Qt 的 "Cannot send events to objects owned by a different thread" 断言。
+    // 1.5 断开 viewport 对 worker 的引用，防止 paintGL 访问已释放内存
 #ifndef QT_NO_OPENGL
-    if (decodeThread && decodeThread->isRunning()) {
-        QMetaObject::invokeMethod(m_decodeWorker, [w = m_decodeWorker]() {
-            w->cleanupGL();
-        }, Qt::BlockingQueuedConnection);
+    if (m_glViewportForUpload) {
+        m_glViewportForUpload->setDecodeWorker(nullptr);
     }
 #endif
 
-    // 4. 停止线程
+    // 2. 获取 DecodeThread 引用并停止线程
+    //    workLoop() 退出后在 DecodeThread 自身上下文中同步调用 cleanupGL()，无需额外处理
+    QThread* decodeThread = m_decodeWorker->thread();
     if (decodeThread && decodeThread->isRunning()) {
         decodeThread->quit();
         if (!decodeThread->wait(3000)) {
             qCWarning(lcClient) << "SessionManager::destroyDecodePipeline() - DecodeThread quit timeout, forcing";
-            decodeThread->requestInterruption();
-            decodeThread->quit();
+            decodeThread->terminate();  // 强制终止：GL 资源已在同线程事件循环中清理
             decodeThread->wait(1000);
         }
     }
 
-    // 5. 删除 worker — GL 资源已在步骤 3 中同一线程内安全释放
+    // 5. 删除 worker — GL 资源已在 workLoop() 退出后的 cleanupGL() 中安全释放
     delete m_decodeWorker;
     m_decodeWorker = nullptr;
 

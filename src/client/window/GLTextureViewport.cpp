@@ -1,6 +1,7 @@
 #ifndef QT_NO_OPENGL
 
 #include "GLTextureViewport.h"
+#include "../managers/DecodeWorker.h"
 #include "../../common/core/logging/LoggingCategories.h"
 #include "../../common/core/config/RenderConfig.h"
 
@@ -144,6 +145,8 @@ GLTextureViewport::~GLTextureViewport() {
         makeCurrent();
         cleanupGL();
         doneCurrent();
+        // 断开预解码管线指针，防止 Worker 已释放后的访问
+        m_decodeWorker = nullptr;
     } else {
         // 已主动清理：仅停止定时器（防御性）
         if (m_pollTimer) {
@@ -164,6 +167,9 @@ void GLTextureViewport::cleanupGLResources() {
     if (m_pollTimer) {
         m_pollTimer->stop();
     }
+
+    // 断开预解码管线引用，防止关闭后 paintGL 访问已释放的 DecodeWorker
+    m_decodeWorker = nullptr;
 
     // 断开 aboutToBeDestroyed 信号（避免 vtable 降级后 Qt 的 qFatal 断言）
     if (QOpenGLContext* ctx = context()) {
@@ -732,6 +738,12 @@ void GLTextureViewport::paintGL() {
     if ( ++s_paintCount <= 3 )
         qCDebug(lcGLViewport) << "paintGL called, frameBuffer:" << (m_frameBuffer != nullptr);
     m_consumedSlot = -1;  // 每次 paintGL 重置
+
+    // 每次 paintGL 驱动都触发预解码信号，确保首帧和持续节奏
+    if (m_frameBuffer && m_decodeWorker) {
+        m_decodeWorker->notifyPredecodeStart();
+    }
+
     if ( m_frameBuffer ) {
         FrameSlot* slot = nullptr;
         const int idx = m_frameBuffer->getReadSlot(slot);
@@ -814,6 +826,10 @@ void GLTextureViewport::paintGL() {
         if ( ++s_skipCount <= 3 || s_skipCount % 300 == 0 )
             qCDebug(lcGLViewport) << "paintGL skip #" << s_skipCount << "(m_textureDirty=false)";
         m_needsRepaint.store(false, std::memory_order_release);
+        // 跳过帧时仍需通知，防止解码线程死等
+        if (m_decodeWorker) {
+            m_decodeWorker->notifyRenderingDone();
+        }
         // 帧间间隙修复：即便 fence 未就绪导致本次未绘制，
         // 也检查 TripleBuffer 是否有绘制期间到达的新帧
         CheckForNewFrameAfterPaint(m_consumedSlot);
@@ -889,6 +905,11 @@ void GLTextureViewport::paintGL() {
             m_metricsLatencyMaxUs = 0;
         }
         m_pendingArrivalTs = {};
+    }
+
+    // 渲染完成，通知 DecodeWorker 提交预解码帧
+    if (m_decodeWorker) {
+        m_decodeWorker->notifyRenderingDone();
     }
 
     // 帧间间隙修复：绘制完成后检查 TripleBuffer 是否有在绘制期间

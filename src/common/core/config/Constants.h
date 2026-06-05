@@ -34,7 +34,7 @@ public:
      * @brief 客户端相关常量
      */
     struct Client {
-        static constexpr int DECODE_QUEUE_SIZE = 8;                     ///< 客户端解码队列容量（流水池模型）
+        static constexpr int DECODE_QUEUE_SIZE = 4;                     ///< 客户端解码队列容量（流水池模型）
     };
 
 private:
