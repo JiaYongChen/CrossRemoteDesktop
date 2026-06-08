@@ -55,7 +55,7 @@ void DecodeWorker::workLoop() {
         }
 
         // 2. JPEG 解码
-        QBuffer buffer(const_cast<QByteArray*>(&task.screenData.imageData));
+        QBuffer buffer(&task.screenData.imageData);
         buffer.open(QIODevice::ReadOnly);
         QImageReader reader(&buffer, "JPEG");
         reader.setAutoTransform(true);
@@ -73,7 +73,7 @@ void DecodeWorker::workLoop() {
             remoteSize = m_decodeBuffer.size();
         }
 
-        // 3. 输出到 TripleBuffer（移动语义零拷贝）
+        // 3. 输出到 TripleBuffer（移动语义避免深拷贝）
         if (!m_outputBuffer) {
             qCWarning(lcClient) << "DecodeWorker: outputBuffer is null, dropping frame";
             continue;
@@ -81,7 +81,7 @@ void DecodeWorker::workLoop() {
 
         DecodedFrame* frame = nullptr;
         int idx = m_outputBuffer->acquireWrite(frame);
-        if (idx >= 0 && frame) {
+        if (frame) {
             quint64 fid = m_nextFrameId.fetch_add(1, std::memory_order_relaxed);
             frame->image      = std::move(m_decodeBuffer);
             frame->remoteSize = remoteSize;
@@ -89,7 +89,8 @@ void DecodeWorker::workLoop() {
             m_outputBuffer->commitWrite(idx);
             emit frameDecoded(fid);
         }
-        // idx < 0: TripleBuffer 满，优雅丢弃帧
+        // TripleBuffer 无空闲槽时覆盖最旧未读槽（latest-wins 语义），
+        // 而非丢弃新帧。acquireWrite 永远返回有效索引。
     }
 
     qCInfo(lcClient) << "DecodeWorker::workLoop() - Decode loop ended";

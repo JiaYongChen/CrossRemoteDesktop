@@ -4,7 +4,7 @@
 #include <QtCore/QSize>
 #include <QtGui/QImage>
 #include <atomic>
-#include <chrono>
+
 #include "../../common/core/network/Protocol.h"
 #include "../../common/core/threading/ThreadSafeQueue.h"
 #include "../core/TripleBuffer.h"
