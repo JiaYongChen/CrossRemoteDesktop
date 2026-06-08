@@ -5,11 +5,29 @@
 #include <QtGui/QImage>
 #include <QtCore/QSize>
 #include <QtCore/QRect>
+#include <QtCore/QPoint>
+#include <QtCore/QVector>
 #include <QtCore/QString>
 
 #include <d3d11.h>
 #include <dxgi1_2.h>
 #include <wrl/client.h>  // Microsoft::WRL::ComPtr
+
+/// 脏/移动矩形描述
+struct DirtyRect {
+    QRect  rect;
+    bool   isMoveRect = false;
+    QPoint moveSrc;
+};
+
+/// 捕获结果：全帧模式或区域模式
+struct CaptureResult {
+    QImage             fullImage;
+    QVector<DirtyRect> dirtyRects;
+    bool               isFullFrame = true;
+    QSize              desktopSize;
+    quint64            frameId = 0;
+};
 
 /**
  * @brief DXGI Desktop Duplication capture engine.
@@ -76,6 +94,14 @@ public:
     QImage captureFrame(int timeoutMs = 100);
 
     /**
+     * @brief 捕获桌面帧并检测脏矩形。
+     *
+     * 调用 AcquireNextFrame + GetFrameDirtyRects + GetFrameMoveRects。
+     * 自动合并相邻脏矩形；面积 >70% 全屏时回退全帧模式。
+     */
+    CaptureResult captureFrameWithDirtyRects(int timeoutMs = 100);
+
+    /**
      * @brief Get the desktop dimensions being captured.
      */
     QSize desktopSize() const { return m_desktopSize; }
@@ -113,6 +139,13 @@ private:
      * Called when the desktop size changes (resolution switch).
      */
     bool createStagingTexture(int width, int height);
+
+    /// 合并相邻脏矩形（间距 <mergeThreshold px），控制数量 ≤16
+    static QVector<DirtyRect> mergeDirtyRects(
+        const QVector<QRect>&                   rawDirtyRects,
+        const QVector<DXGI_OUTDUPL_MOVE_RECT>&  rawMoveRects,
+        int                                     mergeThreshold,
+        const QSize&                            desktopSize);
 
     // D3D11 / DXGI COM objects
     Microsoft::WRL::ComPtr<ID3D11Device>           m_device;
