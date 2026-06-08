@@ -8,6 +8,7 @@
 #include "../../common/core/network/Protocol.h"
 #include "../../common/core/threading/ThreadSafeQueue.h"
 #include "../core/TripleBuffer.h"
+#include "../core/DecodedFrame.h"
 
 /**
  * @brief 纯 CPU 解码 Worker — JPEG 解码后通过 TripleBuffer 输出到 GUI 线程。
@@ -19,13 +20,6 @@ class DecodeWorker : public QObject {
     Q_OBJECT
 
 public:
-    /// 解码后的帧，通过 TripleBuffer 传递给 GUI 线程
-    struct DecodedFrame {
-        QImage   image;
-        QSize    remoteSize;
-        quint64  frameId = 0;
-    };
-
     explicit DecodeWorker(QObject* parent = nullptr);
     ~DecodeWorker() override;
 

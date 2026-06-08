@@ -17,7 +17,7 @@
 #include <atomic>
 
 #include "../core/TripleBuffer.h"
-#include "../managers/DecodeWorker.h"
+#include "../core/DecodedFrame.h"
 #include "TextureRingBuffer.h"
 
 /**
@@ -93,7 +93,7 @@ public:
     /**
      * @brief Get the input TripleBuffer for DecodeWorker to write decoded frames.
      */
-    TripleBuffer<DecodeWorker::DecodedFrame>* inputBuffer() { return &m_inputBuffer; }
+    TripleBuffer<DecodedFrame>* inputBuffer() { return &m_inputBuffer; }
 
     /**
      * @brief 在窗口隐藏前主动清理 GL 资源，避免 hide() 销毁原生窗口后
@@ -184,7 +184,7 @@ private:
     // === 新数据管线 ===
 
     /// 解码帧输入缓冲区（DecodeWorker 写入，doPreRender 读取）
-    TripleBuffer<DecodeWorker::DecodedFrame> m_inputBuffer;
+    TripleBuffer<DecodedFrame> m_inputBuffer;
 
     /// 3 槽纹理环缓冲区（PBO + DMA + fence 管理）
     TextureRingBuffer m_ringBuffer;

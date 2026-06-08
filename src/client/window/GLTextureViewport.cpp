@@ -256,7 +256,7 @@ void GLTextureViewport::doPreRender() {
     }
 
     // 从 TripleBuffer 取出解码帧
-    DecodeWorker::DecodedFrame* frame = nullptr;
+    DecodedFrame* frame = nullptr;
     int idx = m_inputBuffer.getReadSlot(frame);
 
     if (idx >= 0 && frame && !frame->image.isNull()) {
