@@ -610,12 +610,13 @@ void ClientHandlerWorker::onError(QAbstractSocket::SocketError error) {
         << ", 是否强制断开:" << (shouldForceDisconnect ? "是" : "否");
 
     // 客户端主动断开（RemoteHostClosedError）是正常关闭流程，不视为服务端错误。
-    // NetworkError 在套接字已断开时同样是正常断连的副作用——写入失败而非真正网络故障。
+    // NetworkError 同样是客户端断开后尝试写入的副作用——只要当时套接字
+    // 已不在 ConnectedState 中，说明错误不是真正的网络故障。
     // 这些不向上通知，避免 MainWindow 对正常断连弹窗 "服务器错误/无法写入"。
     bool isNormalDisconnect = (error == QAbstractSocket::RemoteHostClosedError)
                            || (error == QAbstractSocket::NetworkError
                                && m_socket
-                               && m_socket->state() == QAbstractSocket::UnconnectedState);
+                               && m_socket->state() != QAbstractSocket::ConnectedState);
     if (!isNormalDisconnect) {
         emit errorOccurred(errorString);
     }
