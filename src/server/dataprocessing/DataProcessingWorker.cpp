@@ -166,7 +166,7 @@ void DataProcessingWorker::processTask() {
 
         // 火后不管：提交到线程池异步编码，不跟踪不回调，lambda 直接入队 PQ。
         if ( !frameBatch.empty() ) {
-            const int quality = CoreConstants::Compression::DEFAULT_JPEG_QUALITY;
+            const int quality = CoreConstants::Compression::DEFAULT_WEBP_QUALITY;
             const double scale = CoreConstants::Compression::SCALE_FACTOR_HIGH;
 
             for ( auto& f : frameBatch ) {

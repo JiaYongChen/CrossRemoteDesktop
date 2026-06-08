@@ -116,7 +116,7 @@ private:
      * @return 处理后的数据
      */
     static ProcessedData encodeImage(const QImage& image, quint64 frameId,
-                                     int quality = CoreConstants::Compression::DEFAULT_JPEG_QUALITY,
+                                     int quality = CoreConstants::Compression::DEFAULT_WEBP_QUALITY,
                                      double scaleFactor = 1.0);
 
     /**
