@@ -1,41 +1,32 @@
 #include <QtTest/QTest>
-#include <QtGui/QImage>
-#include <chrono>
-
 #include "../src/client/core/TripleBuffer.h"
-#include "../src/client/core/FrameSlot.h"
+#include "../src/client/managers/DecodeWorker.h"
 
 class TestRefreshLatencyMetric : public QObject {
     Q_OBJECT
 private slots:
-    void testTripleBufferReturnsArrivalTimestamp() {
-        // Validate that the TripleBuffer exposes FrameSlot with arrivalTs
-        TripleBuffer<FrameSlot> tb;
-        FrameSlot* w = nullptr;
+    void testTripleBufferStoresFrame() {
+        TripleBuffer<DecodeWorker::DecodedFrame> tb;
+        DecodeWorker::DecodedFrame* w = nullptr;
         int idx = tb.acquireWrite(w);
         QVERIFY(idx >= 0);
-        auto beforeWrite = std::chrono::steady_clock::now();
-        w->image = QImage(16, 16, QImage::Format_RGB888);
-        w->image.fill(Qt::red);
-        w->arrivalTs = std::chrono::steady_clock::now();
+        w->frameId = 1;
+        w->remoteSize = QSize(1920, 1080);
         tb.commitWrite(idx);
 
-        FrameSlot* r = nullptr;
+        DecodeWorker::DecodedFrame* r = nullptr;
         int ridx = tb.getReadSlot(r);
         QVERIFY(ridx >= 0);
-        QVERIFY(r != nullptr);
-        QVERIFY(!r->image.isNull());
-        // arrivalTs should be between beforeWrite and now
-        QVERIFY(r->arrivalTs >= beforeWrite);
-        QVERIFY(r->arrivalTs <= std::chrono::steady_clock::now());
+        QCOMPARE(r->frameId, quint64(1));
+        QCOMPARE(r->remoteSize, QSize(1920, 1080));
     }
 
     void testTripleBufferEmptyReturnsNoSlot() {
-        TripleBuffer<FrameSlot> tb;
-        FrameSlot* r = nullptr;
+        TripleBuffer<DecodeWorker::DecodedFrame> tb;
+        DecodeWorker::DecodedFrame* r = nullptr;
         QCOMPARE(tb.getReadSlot(r), -1);
     }
 };
 
-QTEST_MAIN(TestRefreshLatencyMetric)
+QTEST_APPLESS_MAIN(TestRefreshLatencyMetric)
 #include "test_refresh_latency_metric.moc"

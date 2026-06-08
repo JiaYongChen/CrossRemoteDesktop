@@ -50,10 +50,6 @@ public:
     void setConnectionState(ConnectionManager::ConnectionState state);
     ConnectionManager::ConnectionState connectionState() const;
 
-    // Screen display methods (delegated to GLTextureViewport)
-    void setRemoteScreen(const QImage& image);
-    void updateRemoteScreen(const QImage& screen);
-
     // Scaling
     void setScaleFactor(double factor);
     double scaleFactor() const;
@@ -102,7 +98,6 @@ private slots:
     void onConnectionClosed();
     void onConnectionError(const QString& error);
 
-    void onScreenUpdated(const QImage& screen);
     void onPerformanceStatsUpdated();
 
     void onWindowResizeRequested(const QSize& size);

@@ -132,24 +132,6 @@ private slots:
         QVERIFY(procStats.getUsagePercentage() >= 0.0);
     }
 
-    // --- Stop/restart ---
-
-    void testStopAndRestart() {
-        QVERIFY(m_qm->initialize(5, 5));
-
-        m_qm->stopAllQueues();
-
-        // After stop, enqueue should fail
-        QVERIFY(!m_qm->enqueueCapturedFrame(makeFrame(1)));
-
-        m_qm->restartAllQueues();
-        // After restart, enqueue and dequeue should both succeed
-        QVERIFY(m_qm->enqueueCapturedFrame(makeFrame(2)));
-        CapturedFrame f;
-        QVERIFY(m_qm->dequeueCapturedFrame(f));
-        QCOMPARE(f.frameId, quint64(2));
-    }
-
     // --- Concurrent enqueue/dequeue ---
 
     // 并发环境下验证 FIFO 出队：消费者应收到全部 COUNT 帧。

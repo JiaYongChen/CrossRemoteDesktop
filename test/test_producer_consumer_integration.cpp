@@ -490,7 +490,7 @@ void TestProducerConsumerIntegration::test_queueFullHandling() {
     for ( int i = 0; i < 3; ++i ) {
         QImage image = createTestImage(100, 100, i);
         CapturedFrame frame = createTestFrame(i, image);
-        bool enqueued = smallQueue.enqueue(frame);
+        bool enqueued = smallQueue.tryEnqueue(frame);
         QVERIFY(enqueued);
     }
 
@@ -503,10 +503,6 @@ void TestProducerConsumerIntegration::test_queueFullHandling() {
     // 使用非阻塞方式，应该失败
     bool enqueued = smallQueue.tryEnqueue(extraFrame);
     QVERIFY(!enqueued);
-
-    // 使用超时方式，应该超时
-    bool enqueuedWithTimeout = smallQueue.enqueue(extraFrame, 100); // 100ms超时
-    QVERIFY(!enqueuedWithTimeout);
 
     // 消费一个元素后应该能够添加
     CapturedFrame dequeuedFrame;

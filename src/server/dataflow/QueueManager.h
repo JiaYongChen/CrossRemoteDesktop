@@ -83,10 +83,6 @@ public:
      */
     void stopAllQueues();
 
-    /**
-     * @brief 重启所有队列
-     */
-    void restartAllQueues();
 
     /**
      * @brief 强制更新统计信息（主要供测试使用）

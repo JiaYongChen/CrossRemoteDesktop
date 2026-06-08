@@ -162,28 +162,15 @@ void QueueManager::clearQueue(QueueType type) {
 }
 
 void QueueManager::stopAllQueues() {
-    qCDebug(lcQueueManager) << "停止所有队列";
+    qCDebug(lcQueueManager) << "停止所有队列（清空）";
 
     if ( m_captureQueue ) {
-        m_captureQueue->stop();
+        m_captureQueue->clear();
     }
 
     if ( m_processedQueue ) {
-        m_processedQueue->stop();
+        m_processedQueue->clear();
     }
-}
-
-void QueueManager::restartAllQueues() {
-    qCDebug(lcQueueManager) << "重启所有队列";
-
-    if ( m_captureQueue ) {
-        m_captureQueue->restart();
-    }
-
-    if ( m_processedQueue ) {
-        m_processedQueue->restart();
-    }
-
 }
 
 void QueueManager::forceUpdateStats() {

@@ -73,11 +73,6 @@ void ScreenCapture::startCapture() {
     // 配置Worker参数
     configureWorkers();
 
-    // 确保队列在开始捕获前处于运行状态
-    if ( QueueManager::instance() ) {
-        QueueManager::instance()->restartAllQueues();
-    }
-
     // 直接调用Worker开始捕获（通过ThreadManager确保在其线程执行）
     const QString threadName = "ScreenCaptureWorker";
     if ( m_threadManager->hasThread(threadName) ) {
