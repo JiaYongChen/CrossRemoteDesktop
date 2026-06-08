@@ -281,21 +281,25 @@ void ClientHandlerWorker::sendScreenDataFromQueue() {
     }
 
     ScreenData screenData;
-    screenData.x = 0;
-    screenData.y = 0;
+    screenData.x = static_cast<quint16>(processedData.dirtyRect.x());
+    screenData.y = static_cast<quint16>(processedData.dirtyRect.y());
     screenData.imageData = processedData.compressedData;
-    screenData.width = processedData.imageSize.width();
-    screenData.height = processedData.imageSize.height();
-    screenData.originalWidth = processedData.originalImageSize.width();
-    screenData.originalHeight = processedData.originalImageSize.height();
-    screenData.dataSize = processedData.compressedData.size();
+    screenData.width  = static_cast<quint16>(processedData.isMoveRect
+        ? processedData.moveSize.width()
+        : processedData.imageSize.width());
+    screenData.height = static_cast<quint16>(processedData.isMoveRect
+        ? processedData.moveSize.height()
+        : processedData.imageSize.height());
+    screenData.originalWidth  = static_cast<quint16>(processedData.originalImageSize.width());
+    screenData.originalHeight = static_cast<quint16>(processedData.originalImageSize.height());
+    screenData.dataSize = processedData.compressedDataSize;
+    screenData.captureTimestamp = processedData.captureTimestamp;
 
     quint8 flags = static_cast<quint8>(ScreenDataFlags::NONE);
-    if ( processedData.isScaled ) {
-        flags |= static_cast<quint8>(ScreenDataFlags::SCALED);
-    }
+    if (processedData.isScaled)    flags |= static_cast<quint8>(ScreenDataFlags::SCALED);
+    if (processedData.isFullFrame) flags |= static_cast<quint8>(ScreenDataFlags::FULL_FRAME);
+    if (processedData.isMoveRect)  flags |= static_cast<quint8>(ScreenDataFlags::MOVE_RECT);
     screenData.flags = flags;
-    screenData.captureTimestamp = processedData.captureTimestamp;
 
     sendMessage(MessageType::SCREEN_DATA, screenData);
     m_lastScreenSendTime = now;
