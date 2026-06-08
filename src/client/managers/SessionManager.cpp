@@ -5,9 +5,6 @@
 #include "../../common/core/network/Protocol.h"
 #ifndef QT_NO_OPENGL
 #include "../window/GLTextureViewport.h"
-#include <QtGui/QOpenGLContext>
-#include <QtGui/QOpenGLExtraFunctions>
-#include <QtGui/QOffscreenSurface>
 #endif
 #include <QtCore/QThread>
 #include <QtCore/QTimer>
@@ -340,10 +337,7 @@ void SessionManager::resetConnection() {
     // 3) 重置性能统计（包含 FPS、帧计数等）
     resetStats();
 
-    // 4) 重置 TripleBuffer 索引，防止 GUI 线程读取上一次连接的过时帧
-    m_frameBuffer.reset();
-
-    // 5) 通知外部（UI、RenderManager 等）连接已重置
+    // 4) 通知外部（UI、RenderManager 等）连接已重置
     emit connectionReset();
 
     qCInfo(lcClient) << "SessionManager::resetConnection() - Connection state reset complete";
@@ -395,37 +389,22 @@ void SessionManager::createDecodePipeline() {
         return;
     }
 
-    // 创建 DecodeThread
     QThread* decodeThread = new QThread();
     decodeThread->setObjectName(QString("DecodeThread-%1").arg(m_connectionId));
     decodeThread->start();
 
-    // 创建 DecodeWorker
     m_decodeWorker = new DecodeWorker(nullptr);
     m_decodeWorker->moveToThread(decodeThread);
 
-    // 设置 TripleBuffer 指针
-    m_decodeWorker->setFrameBuffer(&m_frameBuffer);
-
 #ifndef QT_NO_OPENGL
-    // 初始化 DecodeWorker 的 GL 上下文（如果已有）。
-    // 必须通过 QueuedConnection 在 DecodeThread 中执行，
-    // 因为 QOffscreenSurface::create() 内部创建 QWindow，
-    // 而 QWindow 是原生资源，创建后无法 moveToThread。
-    if (m_pendingGLContext && m_pendingGLContext->isValid()) {
-        QMetaObject::invokeMethod(m_decodeWorker, [w = m_decodeWorker, ctx = m_pendingGLContext]() {
-            w->initializeGL(ctx);
-        }, Qt::QueuedConnection);
-    }
-    // setGLViewport 不需要 GL 上下文，直接设置即可
-    m_decodeWorker->setGLViewport(m_glViewportForUpload);
-    // 建立双向引用：paintGL 通过此指针触发预解码信号
-    if (m_glViewportForUpload) {
-        m_glViewportForUpload->setDecodeWorker(m_decodeWorker);
+    if (m_glViewport) {
+        m_decodeWorker->setOutputBuffer(m_glViewport->inputBuffer());
+        connect(m_decodeWorker, &DecodeWorker::frameDecoded,
+                m_glViewport, &GLTextureViewport::doPreRender,
+                Qt::QueuedConnection);
     }
 #endif
 
-    // 连接 stopped 信号
     connect(m_decodeWorker, &DecodeWorker::stopped, this, [this]() {
         qCInfo(lcClient) << "SessionManager: DecodeWorker stopped for" << m_connectionId;
     });
@@ -434,10 +413,7 @@ void SessionManager::createDecodePipeline() {
         qCWarning(lcClient) << "SessionManager: Decode error for" << m_connectionId << ":" << msg;
     });
 
-    // 让 worker 拥有线程（通过 parent），destroyDecodePipeline 中 delete worker 时自动清理
     decodeThread->setParent(m_decodeWorker);
-
-    // 启动工作循环
     QMetaObject::invokeMethod(m_decodeWorker, "start", Qt::QueuedConnection);
 
     qCInfo(lcClient) << "SessionManager: DecodePipeline created for" << m_connectionId
@@ -445,44 +421,32 @@ void SessionManager::createDecodePipeline() {
 }
 
 void SessionManager::destroyDecodePipeline() {
-    if (!m_decodeWorker) {
-        return;
-    }
+    if (!m_decodeWorker) return;
 
-    qCInfo(lcClient) << "SessionManager::destroyDecodePipeline() - Stopping decode pipeline for" << m_connectionId;
+    qCInfo(lcClient) << "SessionManager::destroyDecodePipeline() - Stopping decode pipeline for"
+                     << m_connectionId;
 
-    // 1. 停止队列（唤醒所有阻塞操作）
-    m_decodeWorker->requestStop();
-
-    // 1.5 断开 viewport 对 worker 的引用，防止 paintGL 访问已释放内存
 #ifndef QT_NO_OPENGL
-    if (m_glViewportForUpload) {
-        m_glViewportForUpload->setDecodeWorker(nullptr);
-    }
+    disconnect(m_decodeWorker, &DecodeWorker::frameDecoded,
+               m_glViewport, &GLTextureViewport::doPreRender);
 #endif
 
-    // 2. 获取 DecodeThread 引用并停止线程
-    //    workLoop() 退出后在 DecodeThread 自身上下文中同步调用 cleanupGL()，无需额外处理
+    m_decodeWorker->requestStop();
+
     QThread* decodeThread = m_decodeWorker->thread();
     if (decodeThread && decodeThread->isRunning()) {
         decodeThread->quit();
         if (!decodeThread->wait(3000)) {
             qCWarning(lcClient) << "SessionManager::destroyDecodePipeline() - DecodeThread quit timeout, forcing";
-            decodeThread->terminate();  // 强制终止：GL 资源已在同线程事件循环中清理
+            decodeThread->terminate();
             decodeThread->wait(1000);
         }
     }
 
-    // 5. 删除 worker — GL 资源已在 workLoop() 退出后的 cleanupGL() 中安全释放
     delete m_decodeWorker;
     m_decodeWorker = nullptr;
 
-    qCInfo(lcClient) << "SessionManager::destroyDecodePipeline() - Decode pipeline destroyed for" << m_connectionId;
+    qCInfo(lcClient) << "SessionManager::destroyDecodePipeline() - Decode pipeline destroyed for"
+                     << m_connectionId;
 }
-
-#ifndef QT_NO_OPENGL
-void SessionManager::setGLContextForDecode(QOpenGLContext* context) {
-    m_pendingGLContext = context;
-}
-#endif
 

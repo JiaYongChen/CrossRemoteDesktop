@@ -7,8 +7,6 @@
 #include "../../common/core/network/Protocol.h"
 #include "../../common/core/config/UiConstants.h"
 #include "../network/ConnectionManager.h"
-#include "../core/TripleBuffer.h"
-#include "../core/FrameSlot.h"
 #include <chrono>
 
 class DecodeWorker;
@@ -17,8 +15,6 @@ class QTimer;
 
 #ifndef QT_NO_OPENGL
 class GLTextureViewport;
-class QOpenGLContext;
-class QOffscreenSurface;
 #endif
 
 class SessionManager : public QObject {
@@ -76,9 +72,6 @@ public:
     bool isConnected() const;
     bool isAuthenticated() const;
 
-    // Triple-buffered lock-free frame delivery
-    TripleBuffer<FrameSlot>* frameBuffer() { return &m_frameBuffer; }
-
     /// 创建并启动解码管线（在 startSession 中调用，认证成功后延迟创建）
     void createDecodePipeline();
 
@@ -86,11 +79,8 @@ public:
     void destroyDecodePipeline();
 
 #ifndef QT_NO_OPENGL
-    /// 设置解码管线使用的 GL 上下文（在 DecodeWorker 创建时使用）
-    void setGLContextForDecode(QOpenGLContext* context);
-
-    /// Set the GLTextureViewport reference for worker-side frame upload.
-    void setGLViewportForUpload(GLTextureViewport* vp) { m_glViewportForUpload = vp; }
+    /// Set the GLTextureViewport reference for decode pipeline wiring.
+    void setGLViewport(GLTextureViewport* vp) { m_glViewport = vp; }
 #endif
 
 public slots:
@@ -107,7 +97,6 @@ signals:
     void connectionReset();
 
     // 远程桌面数据更新信号
-    void screenUpdated(const QImage& screen);
     void screenRegionUpdated(const QImage& region, const QRect& rect);
     void performanceStatsUpdated(const PerformanceStats& stats);
     void sessionError(const QString& error);
@@ -140,9 +129,6 @@ private:
     // 远程桌面数据
     QSize m_remoteScreenSize;
 
-    // Triple-buffered lock-free frame delivery (replaces QQueue+QMutex+signal)
-    TripleBuffer<FrameSlot> m_frameBuffer;
-
     // 解码管线（认证成功后创建）
     DecodeWorker* m_decodeWorker = nullptr;
 
@@ -156,8 +142,7 @@ private:
     static constexpr double kFpsAlpha = 0.1;     // EMA 平滑系数
 
 #ifndef QT_NO_OPENGL
-    GLTextureViewport* m_glViewportForUpload = nullptr;
-    QOpenGLContext* m_pendingGLContext = nullptr;
+    GLTextureViewport* m_glViewport = nullptr;
 #endif
 };
 
