@@ -2,16 +2,14 @@
 
 #ifndef QT_NO_OPENGL
 
-#include <QtGui/qopengl.h>
+#include <QtGui/QOpenGLFunctions>
 #include <QtCore/QSize>
 #include <QtGui/QImage>
 #include <QtOpenGL/QOpenGLBuffer>
 #include <atomic>
 #include <array>
 
-class QOpenGLFunctions;
-
-class TextureRingBuffer {
+class TextureRingBuffer : protected QOpenGLFunctions {
 public:
     static constexpr int kSlotCount = 3;
 
@@ -79,6 +77,9 @@ private:
     bool tryInitPersistPbo(int requiredBytes);
     void destroyPersistPbo();
 
+    /// Ensure QOpenGLFunctions are initialized (lazy, called before any GL op)
+    bool ensureGLInitialized();
+
     static bool chooseGLFormat(QImage::Format f,
                                GLint&  internalFormat,
                                GLenum& format,
@@ -91,6 +92,7 @@ private:
     int     m_pboIndex   = 0;
     int     m_pboSize    = 0;
     bool    m_usePersistPbo = false;
+    bool    m_glInitialized = false;
 
     QSize m_textureSize;
 };

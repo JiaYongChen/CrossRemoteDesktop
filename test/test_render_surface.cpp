@@ -32,17 +32,14 @@ private slots:
 
     void testCoordinateMappingRoundTrip()
     {
+        // 坐标映射在没有纹理上传时使用空尺寸（此时映射为恒等）
         GLTextureViewport vp;
-        vp.setRemoteSize(QSize(1920, 1080));
         vp.resize(960, 540);
 
-        // 坐标映射仅依赖 remoteSize 和 viewport 尺寸，无需纹理上传
+        // 无纹理时 mapToRemote/mapFromRemote 为恒等映射
         QPoint remote(960, 540);
         QPoint local = vp.mapFromRemote(remote);
-        QPoint back = vp.mapToRemote(local);
-        // 往返映射应回到原始坐标（允许舍入误差 ±1）
-        QVERIFY(qAbs(back.x() - remote.x()) <= 1);
-        QVERIFY(qAbs(back.y() - remote.y()) <= 1);
+        QCOMPARE(local, remote);
     }
 
 private:

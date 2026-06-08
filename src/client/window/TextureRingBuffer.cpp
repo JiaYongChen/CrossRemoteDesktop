@@ -90,6 +90,17 @@ TextureRingBuffer::~TextureRingBuffer() {
     qCWarning(lcGLViewport) << "TextureRingBuffer destroyed without explicit cleanup()";
 }
 
+bool TextureRingBuffer::ensureGLInitialized() {
+    if (m_glInitialized) return true;
+    if (QOpenGLContext::currentContext()) {
+        initializeOpenGLFunctions();
+        m_glInitialized = true;
+        return true;
+    }
+    qCWarning(lcGLViewport) << "ensureGLInitialized: no current GL context";
+    return false;
+}
+
 // ---- 槽位管理 ----
 
 int TextureRingBuffer::acquireWriteSlot(quint64 frameId) {
@@ -267,6 +278,9 @@ GLsync TextureRingBuffer::uploadToSlot(int idx, const QImage& image) {
     if (image.isNull() || image.format() == QImage::Format_Invalid)
         return nullptr;
 
+    if (!ensureGLInitialized())
+        return nullptr;
+
     Slot& slot = m_slots[idx];
 
     GLint  internalFormat;
@@ -321,8 +335,8 @@ GLsync TextureRingBuffer::uploadToSlot(int idx, const QImage& image) {
                 std::memcpy(m_pbo[m_pboIndex].ptr, src->constBits(),
                             static_cast<size_t>(totalBytes));
 
-                auto* f = QOpenGLContext::currentContext()->extraFunctions();
-                f->glBindBuffer(GL_PIXEL_UNPACK_BUFFER, m_pbo[m_pboIndex].buffer);
+                auto* ef = QOpenGLContext::currentContext()->extraFunctions();
+                ef->glBindBuffer(GL_PIXEL_UNPACK_BUFFER, m_pbo[m_pboIndex].buffer);
 
                 glBindTexture(GL_TEXTURE_2D, slot.textureId);
                 glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
@@ -332,7 +346,7 @@ GLsync TextureRingBuffer::uploadToSlot(int idx, const QImage& image) {
                                 format, type, nullptr);
                 glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 
-                f->glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+                ef->glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
                 m_pboIndex = (m_pboIndex + 1) % 2;
             }
         } else {
@@ -346,12 +360,12 @@ GLsync TextureRingBuffer::uploadToSlot(int idx, const QImage& image) {
         }
     }
 
-    auto* f = QOpenGLContext::currentContext()->extraFunctions();
-    if (!f) {
+    auto* ef = QOpenGLContext::currentContext()->extraFunctions();
+    if (!ef) {
         qCWarning(lcGLViewport) << "uploadToSlot: extraFunctions() returned null";
         return nullptr;
     }
-    GLsync fence = f->glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+    GLsync fence = ef->glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
     glFlush();
 
     return fence;
@@ -360,6 +374,8 @@ GLsync TextureRingBuffer::uploadToSlot(int idx, const QImage& image) {
 // ---- 清理 ----
 
 void TextureRingBuffer::abortInFlight() {
+    if (!ensureGLInitialized()) return;
+
     auto* f = QOpenGLContext::currentContext()->extraFunctions();
     for (int i = 0; i < kSlotCount; ++i) {
         SlotState expected = SlotState::InFlight;
@@ -374,6 +390,8 @@ void TextureRingBuffer::abortInFlight() {
 }
 
 void TextureRingBuffer::cleanup() {
+    if (!ensureGLInitialized()) return;
+
     destroyPersistPbo();
 
     auto* f = QOpenGLContext::currentContext()->extraFunctions();
