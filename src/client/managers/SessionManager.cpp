@@ -413,7 +413,12 @@ void SessionManager::createDecodePipeline() {
         qCWarning(lcClient) << "SessionManager: Decode error for" << m_connectionId << ":" << msg;
     });
 
-    decodeThread->setParent(m_decodeWorker);
+    // 注意：不能调用 decodeThread->setParent(m_decodeWorker)，
+    // 因为 decodeThread (QThread) 活在当前线程 (SessionThread)，
+    // 而 m_decodeWorker 已被 moveToThread(decodeThread) 迁到 DecodeThread。
+    // 跨线程 setParent 会触发 Qt 警告，且析构时可能 crash。
+    // 线程生命周期由 destroyDecodePipeline() 显式管理：quit → wait → delete worker。
+
     QMetaObject::invokeMethod(m_decodeWorker, "start", Qt::QueuedConnection);
 
     qCInfo(lcClient) << "SessionManager: DecodePipeline created for" << m_connectionId
@@ -445,6 +450,12 @@ void SessionManager::destroyDecodePipeline() {
 
     delete m_decodeWorker;
     m_decodeWorker = nullptr;
+
+    // 由于不再通过 setParent 将 decodeThread 设为 m_decodeWorker 的子对象，
+    // 需要手动清理 QThread。quit()+wait() 已确保事件循环退出。
+    if (decodeThread) {
+        delete decodeThread;
+    }
 
     qCInfo(lcClient) << "SessionManager::destroyDecodePipeline() - Decode pipeline destroyed for"
                      << m_connectionId;
