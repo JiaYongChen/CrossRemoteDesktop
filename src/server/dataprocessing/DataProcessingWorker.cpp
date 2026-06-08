@@ -3,6 +3,7 @@
 #include "../../common/core/config/Constants.h"
 #include <QtCore/QMutexLocker>
 #include <QtCore/QThread>
+#include <QtCore/QDataStream>
 #include <QtCore/QIODevice>
 #include <QtCore/QBuffer>
 #include <QtGui/QImageWriter>
@@ -173,14 +174,64 @@ void DataProcessingWorker::processTask() {
                 if ( !f.isValid() || f.getLatency() > 5000 ) { ++m_droppedFrames; continue; }
 
                 auto capturedImage = f.image;  // shared_ptr → lambda 按值捕获，延长生命周期
-                auto frameId = f.frameId;
-                auto ts = f.timestamp;
+                auto frameId       = f.frameId;
+                auto ts            = f.timestamp;
+                auto isFull        = f.isFullFrame;
+                auto dirtyRect     = f.dirtyRect;
+                auto origSize      = f.originalSize;
 
-                m_activeParallelTasks.fetch_add(1);  // 提交前计数，防止竞态窗口
+                if (f.isMoveRect) {
+                    // 移动矩形：跳过图像编码，构造 20 字节 move payload
+                    m_activeParallelTasks.fetch_add(1);
+                    auto moveSrc  = f.moveSrc;
+                    auto moveDst  = f.moveDst;
+                    auto moveSize = f.moveSize;
+                    QThreadPool::globalInstance()->start([moveSrc, moveDst, moveSize,
+                        frameId, ts, origSize, this]() {
+                        ProcessedData pd;
+                        pd.originalFrameId   = frameId;
+                        pd.imageSize         = moveSize;
+                        pd.originalImageSize = origSize;
+                        pd.isFullFrame       = false;
+                        pd.isMoveRect        = true;
+                        pd.moveSrc           = moveSrc;
+                        pd.moveDst           = moveDst;
+                        pd.moveSize          = moveSize;
+                        pd.dirtyRect         = QRect(moveDst, moveSize);
+                        pd.captureTimestamp  = static_cast<quint64>(
+                            ts.toMSecsSinceEpoch());
+                        // 20 字节 move rect 编码：srcX(4)+srcY(4)+dstX(4)+dstY(4)+w(2)+h(2)
+                        pd.compressedData.resize(20);
+                        QDataStream ds(&pd.compressedData, QIODevice::WriteOnly);
+                        ds.setByteOrder(QDataStream::LittleEndian);
+                        ds << static_cast<qint32>(moveSrc.x())
+                           << static_cast<qint32>(moveSrc.y())
+                           << static_cast<qint32>(moveDst.x())
+                           << static_cast<qint32>(moveDst.y())
+                           << static_cast<quint16>(moveSize.width())
+                           << static_cast<quint16>(moveSize.height());
+                        pd.compressedDataSize = pd.compressedData.size();
+
+                        if (m_queueManager && m_queueManager->enqueueProcessedData(pd)) {
+                            m_processedFrames++;
+                        } else {
+                            m_droppedFrames++;
+                        }
+                        m_activeParallelTasks.fetch_sub(1);
+                    });
+                    continue;
+                }
+
+                // 编码路径（全帧或脏区域）
+                m_activeParallelTasks.fetch_add(1);
                 QThreadPool::globalInstance()->start([quality, scale, capturedImage,
-                                                      frameId, ts, this]() {
+                    frameId, ts, isFull, dirtyRect, origSize, this]() {
                     auto pd = encodeImage(*capturedImage, frameId, quality, scale);
                     pd.captureTimestamp = static_cast<quint64>(ts.toMSecsSinceEpoch());
+                    pd.isFullFrame      = isFull;
+                    pd.dirtyRect        = dirtyRect;
+                    pd.originalImageSize = origSize;
+
                     if ( pd.isValid() && m_queueManager &&
                          m_queueManager->enqueueProcessedData(pd) ) {
                         m_processedFrames++;

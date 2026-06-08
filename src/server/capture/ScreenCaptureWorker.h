@@ -121,6 +121,12 @@ private:
     // 错误处理方法
     void handleCaptureError(const QString& error);
 
+    // 区域编码入队方法
+    void enqueueFullFrame(const CaptureResult& cap, quint64 frameId);
+    void enqueueDirtyRegion(QImage&& image, const QRect& rect,
+        const QSize& desktopSize, quint64 frameId);
+    void enqueueMoveRect(const DirtyRect& dr, quint64 frameId);
+
 private:
     // 队列管理
     QueueManager* m_queueManager{ nullptr };  ///< 队列管理器，用于将捕获的帧放入队列

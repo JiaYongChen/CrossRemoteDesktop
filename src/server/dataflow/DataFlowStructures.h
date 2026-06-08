@@ -19,6 +19,14 @@ struct CapturedFrame {
     quint64 frameId;                 ///< 帧ID，用于追踪和调试
     QSize originalSize;              ///< 原始屏幕尺寸
 
+    // === 区域更新字段 ===
+    bool   isFullFrame = true;     ///< 全帧模式（首帧/回退）
+    bool   isMoveRect  = false;    ///< 移动区域
+    QRect  dirtyRect;              ///< 脏矩形坐标
+    QPoint moveSrc;                ///< 移动源坐标
+    QPoint moveDst;                ///< 移动目标坐标
+    QSize  moveSize;               ///< 移动区域大小
+
     /**
      * @brief 默认构造函数
      *
