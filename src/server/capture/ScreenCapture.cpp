@@ -129,9 +129,7 @@ void ScreenCapture::stopCapture() {
         QueueManager::instance()->stopAllQueues();
     }
 
-    // 通知Worker停止捕获
-    // 安全前提：Worker 存在且其线程仍在运行时才使用 BlockingQueuedConnection，
-    // 否则目标线程事件循环已退出，BlockingQueuedConnection 会永久阻塞。
+    // 通知 Worker 停止捕获（必须在 stopThread 之前，确保定时器已断开）
     if ( m_captureWorker && m_threadManager && m_threadManager->isThreadRunning(threadName) ) {
         bool invokeSuccess = QMetaObject::invokeMethod(m_captureWorker, "stopCapturing",
             Qt::BlockingQueuedConnection);
@@ -141,22 +139,15 @@ void ScreenCapture::stopCapture() {
             qCWarning(lcScreenCaptureManager) << "Worker停止捕获调用失败";
         }
     } else if ( m_captureWorker ) {
-        // 线程已停止但 Worker 仍存在，直接设置原子标志
         qCDebug(lcScreenCaptureManager) << "Worker线程未运行，直接通知停止";
         m_captureWorker->stopCapturing();
     }
 
-    // 使用ThreadManager停止Worker线程
-    if ( threadExists ) {
-        bool stopSuccess = m_threadManager->stopThread(threadName, true);
-        if ( stopSuccess ) {
-            qCInfo(lcScreenCaptureManager) << "使用ThreadManager停止ScreenCaptureWorker线程成功";
-        } else {
-            qCWarning(lcScreenCaptureManager) << "ThreadManager停止ScreenCaptureWorker线程失败";
-        }
-    }
-
-    // 清理线程资源（销毁线程对象，防止 auto-restart 重新启动）
+    // 清理线程资源（分发 stopThread + delete worker + delete thread）。
+    // 注意：不在 stopCapture 内单独调用 stopThread，避免与 cleanupThreads 内部的
+    // destroyThread → stopThread 形成双重调用——在 Worker::doStop 异步完成期间
+    // 第二次 Worker::stop(true) 会创建竞争 QTimer::singleShot，与随后的
+    // delete worker / delete thread 竞态导致 ACCESS_VIOLATION。
     cleanupThreads();
 
     qCInfo(lcScreenCaptureManager) << "多线程屏幕捕获停止完成";
