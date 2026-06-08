@@ -446,7 +446,10 @@ void ClientHandlerWorker::disconnectClient() {
 }
 
 void ClientHandlerWorker::forceDisconnect() {
+    // 设置标记（abort 前），防止 onError 在 abort 触发的错误中
+    // 重复 emit errorOccurred 传递到 MainWindow 弹窗。
     m_isConnectedAtomic.store(false, std::memory_order_release);
+    m_forceDisconnecting.store(true, std::memory_order_release);
     qCWarning(lcClientHandlerWorker) << "强制断开客户端连接:" << clientId();
 
     m_receiveBuffer.clear();
@@ -565,64 +568,50 @@ void ClientHandlerWorker::onDisconnected() {
 }
 
 void ClientHandlerWorker::onError(QAbstractSocket::SocketError error) {
+    // 已在强制断开流程中 → abort 触发的错误全部静默忽略，
+    // 避免 abort 产生的 NetworkError 通过 errorOccurred 传递到 MainWindow 弹窗。
+    if (m_forceDisconnecting.load(std::memory_order_acquire)) {
+        return;
+    }
+
     QString errorString = m_socket ? m_socket->errorString() : "未知错误";
 
     // 详细的错误日志记录
     qCWarning(lcClientHandlerWorker) << "套接字错误 [" << static_cast<int>(error) << "]:"
         << errorString << "(客户端:" << clientId() << ")";
 
-    // 根据错误类型进行分类处理
-    bool shouldForceDisconnect = false;
-    QString errorCategory;
-
+    // NetworkError(7) + RemoteHostClosedError(1) 在远程桌面服务端场景下
+    // 均为客户端正常断连的副作用（写入已关闭套接字 / 远端主动关闭），
+    // 不需要 emit errorOccurred 弹窗。
+    // ConnectionRefusedError / HostNotFoundError 等才是真正的服务端异常。
     switch ( error ) {
-        case QAbstractSocket::RemoteHostClosedError:
-            errorCategory = "远程主机关闭连接";
-            shouldForceDisconnect = true;
-            break;
-        case QAbstractSocket::NetworkError:
-            // NetworkError 常因客户端先断开、服务端在收到 disconnected 信号前
-            // 尝试发送数据而触发。若套接字已处于 UnconnectedState，
-            // 说明是正常断连的副作用——仍需 forceDisconnect() 做清理，
-            // 但不向上 emit errorOccurred 避免对正常关连弹窗。
-            errorCategory = "网络错误";
-            shouldForceDisconnect = true;
-            break;
+        case QAbstractSocket::RemoteHostClosedError: {
+            qCInfo(lcClientHandlerWorker) << "错误分类: 远程主机关闭连接, 强制断开: 是";
+            forceDisconnect();
+            return;
+        }
+        case QAbstractSocket::NetworkError: {
+            qCInfo(lcClientHandlerWorker) << "错误分类: 网络错误, 强制断开: 是";
+            forceDisconnect();
+            return;
+        }
         case QAbstractSocket::ConnectionRefusedError:
-            errorCategory = "连接被拒绝";
-            shouldForceDisconnect = true;
+            qCInfo(lcClientHandlerWorker) << "错误分类: 连接被拒绝, 强制断开: 是";
             break;
         case QAbstractSocket::HostNotFoundError:
-            errorCategory = "主机未找到";
-            shouldForceDisconnect = true;
-            break;
-        case QAbstractSocket::SocketTimeoutError:
-            errorCategory = "套接字超时";
-            shouldForceDisconnect = false; // 超时可能是临时的，不立即断开
+            qCInfo(lcClientHandlerWorker) << "错误分类: 主机未找到, 强制断开: 是";
             break;
         default:
-            errorCategory = QString("其他错误 (%1)").arg(static_cast<int>(error));
-            shouldForceDisconnect = false;
+            qCInfo(lcClientHandlerWorker) << "错误分类: 其他错误 (" << static_cast<int>(error) << ")";
             break;
     }
 
-    qCInfo(lcClientHandlerWorker) << "错误分类:" << errorCategory
-        << ", 是否强制断开:" << (shouldForceDisconnect ? "是" : "否");
-
-    // 客户端主动断开（RemoteHostClosedError）是正常关闭流程，不视为服务端错误。
-    // NetworkError 同样是客户端断开后尝试写入的副作用——只要当时套接字
-    // 已不在 ConnectedState 中，说明错误不是真正的网络故障。
-    // 这些不向上通知，避免 MainWindow 对正常断连弹窗 "服务器错误/无法写入"。
-    bool isNormalDisconnect = (error == QAbstractSocket::RemoteHostClosedError)
-                           || (error == QAbstractSocket::NetworkError
-                               && m_socket
-                               && m_socket->state() != QAbstractSocket::ConnectedState);
-    if (!isNormalDisconnect) {
-        emit errorOccurred(errorString);
-    }
+    // 非正常断连导致的错误，向上通知
+    emit errorOccurred(errorString);
 
     // 对于严重错误，强制断开连接
-    if ( shouldForceDisconnect ) {
+    if (error == QAbstractSocket::ConnectionRefusedError
+        || error == QAbstractSocket::HostNotFoundError) {
         qCWarning(lcClientHandlerWorker) << "严重错误，强制断开客户端连接:" << clientId();
         forceDisconnect();
     }

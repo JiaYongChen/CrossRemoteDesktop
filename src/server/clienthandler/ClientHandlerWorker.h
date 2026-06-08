@@ -317,6 +317,9 @@ private:
     // 断开连接标志（避免重复发送disconnected信号）
     std::atomic<bool> m_disconnectSignalSent{ false };
 
+    // 正在强制断开标记（防 onError 在 abort 期间递归/重复 emit errorOccurred）
+    std::atomic<bool> m_forceDisconnecting{ false };
+
     // 统计信息（线程安全访问需要互斥锁）
     mutable QMutex m_statsMutex;          ///< 统计信息互斥锁
     quint64 m_bytesReceived;              ///< 接收字节数
