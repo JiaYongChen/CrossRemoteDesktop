@@ -1,15 +1,10 @@
 #ifndef QT_NO_OPENGL
 
 #include "GLTextureViewport.h"
-#include "../managers/DecodeWorker.h"
 #include "../../common/core/logging/LoggingCategories.h"
 #include "../../common/core/config/RenderConfig.h"
 
-#include <QtGui/QOpenGLExtraFunctions>
 #include <QtGui/QOpenGLContext>
-#include <algorithm>  // std::max
-#include <chrono>
-#include <cstring>    // std::memcpy
 
 // GL format constants not guaranteed by all GL headers
 #ifndef GL_RGB8
@@ -17,37 +12,6 @@
 #endif
 #ifndef GL_RGBA8
 #  define GL_RGBA8 0x8058
-#endif
-
-// GL fence-sync constants not guaranteed by all GL headers
-#ifndef GL_SYNC_GPU_COMMANDS_COMPLETE
-#  define GL_SYNC_GPU_COMMANDS_COMPLETE 0x9117
-#endif
-#ifndef GL_SYNC_FLUSH_COMMANDS_BIT
-#  define GL_SYNC_FLUSH_COMMANDS_BIT    0x00000001
-#endif
-#ifndef GL_ALREADY_SIGNALED
-#  define GL_ALREADY_SIGNALED           0x911A
-#endif
-#ifndef GL_CONDITION_SATISFIED
-#  define GL_CONDITION_SATISFIED        0x911C
-#endif
-#ifndef GL_TIMEOUT_EXPIRED
-#  define GL_TIMEOUT_EXPIRED            0x911B
-#endif
-#ifndef GL_WAIT_FAILED
-#  define GL_WAIT_FAILED                0x911D
-#endif
-
-// GL_ARB_buffer_storage / GL 4.4+ constants not guaranteed by all GL headers
-#ifndef GL_MAP_PERSISTENT_BIT
-#  define GL_MAP_PERSISTENT_BIT  0x0040
-#endif
-#ifndef GL_MAP_COHERENT_BIT
-#  define GL_MAP_COHERENT_BIT    0x0080
-#endif
-#ifndef GL_MAP_INVALIDATE_BUFFER_BIT
-#  define GL_MAP_INVALIDATE_BUFFER_BIT 0x0004
 #endif
 
 bool GLTextureViewport::chooseGLFormat(QImage::Format f, GLPixelLayout& out) {
@@ -90,7 +54,8 @@ static const char* s_fragmentShaderSource = R"(
 GLTextureViewport::GLTextureViewport(QWidget* parent)
     : QOpenGLWidget(parent)
     , m_vertexBuffer(QOpenGLBuffer::VertexBuffer)
-    , m_pollTimer(new QTimer(this)) {
+    , m_pollTimer(new QTimer(this))
+    , m_fallbackTimer(new QTimer(this)) {
     // Request OpenGL 3.3 Core profile
     QSurfaceFormat format;
     format.setVersion(3, 3);
@@ -100,22 +65,30 @@ GLTextureViewport::GLTextureViewport(QWidget* parent)
     format.setSwapInterval(m_vsyncEnabled ? 1 : 0);
     setFormat(format);
 
-    // Frame-polling timer — only active when VSync is off and a frame buffer
-    // is attached. 16ms (60fps) is the default cadence.
+    // Frame-polling timer — only active when VSync is off.
+    // 16ms (60fps) is the default cadence.
     m_pollTimer->setInterval(16);
     m_pollTimer->setTimerType(Qt::PreciseTimer);
     connect(m_pollTimer, &QTimer::timeout, this, [this]() { update(); });
+
+    // 保底 fence 收割定时器 — 防止 doPreRender 的 update() 在边缘情况下丢失
+    m_fallbackTimer->setInterval(16);
+    m_fallbackTimer->setTimerType(Qt::PreciseTimer);
+    connect(m_fallbackTimer, &QTimer::timeout, this, &GLTextureViewport::onFallbackTimer);
 }
 
 GLTextureViewport::~GLTextureViewport() {
+    // 停止所有定时器
+    if (m_pollTimer) {
+        m_pollTimer->stop();
+    }
+    if (m_fallbackTimer) {
+        m_fallbackTimer->stop();
+    }
+
     // 如果已在 closeEvent 中通过 cleanupGLResources() 主动清理，
     // 则跳过 makeCurrent()+cleanupGL()，避免在原生窗口已销毁后崩溃。
     if (!m_glCleanedUp) {
-        // Stop frame-polling timer
-        if (m_pollTimer) {
-            m_pollTimer->stop();
-        }
-
         // Critical: disconnect aboutToBeDestroyed BEFORE the base destructor chain
         // destroys the underlying QOpenGLContext.
         //
@@ -145,13 +118,6 @@ GLTextureViewport::~GLTextureViewport() {
         makeCurrent();
         cleanupGL();
         doneCurrent();
-        // 断开预解码管线指针，防止 Worker 已释放后的访问
-        m_decodeWorker = nullptr;
-    } else {
-        // 已主动清理：仅停止定时器（防御性）
-        if (m_pollTimer) {
-            m_pollTimer->stop();
-        }
     }
 }
 
@@ -163,13 +129,13 @@ void GLTextureViewport::cleanupGLResources() {
 
     qCInfo(lcGLViewport) << "GLTextureViewport::cleanupGLResources() - 主动清理 GL 资源";
 
-    // 停止帧轮询定时器
+    // 停止所有定时器
     if (m_pollTimer) {
         m_pollTimer->stop();
     }
-
-    // 断开预解码管线引用，防止关闭后 paintGL 访问已释放的 DecodeWorker
-    m_decodeWorker = nullptr;
+    if (m_fallbackTimer) {
+        m_fallbackTimer->stop();
+    }
 
     // 断开 aboutToBeDestroyed 信号（避免 vtable 降级后 Qt 的 qFatal 断言）
     if (QOpenGLContext* ctx = context()) {
@@ -196,20 +162,6 @@ void GLTextureViewport::initializeGL() {
     }
 
     initializeGeometry();
-
-    // Load PBO preference from config; gracefully degrade if create() fails.
-    const auto cfg = RenderConfig::load();
-    m_usePbo = cfg.gl.usePbo;
-    if ( m_usePbo ) {
-        for (int i = 0; i < kPboCount; ++i) {
-            if ( !m_pbo[i].create() ) {
-                qCWarning(lcGLViewport) << "PBO" << i << "create() failed, falling back to direct upload";
-                m_usePbo = false;
-                break;
-            }
-            m_pbo[i].setUsagePattern(QOpenGLBuffer::StreamDraw);
-        }
-    }
 
     m_glInitialized = true;
 
@@ -284,577 +236,95 @@ void GLTextureViewport::initializeGeometry() {
 }
 
 void GLTextureViewport::cleanupGL() {
-    destroyPersistentPBOs();
-    if ( m_textureId[0] != 0 ) {
-        glDeleteTextures(2, m_textureId);
-        m_textureId[0] = 0;
-        m_textureId[1] = 0;
-        m_displayTexIndex.store(0);
-    }
+    m_ringBuffer.cleanup();
+
     m_vertexBuffer.destroy();
-    for (int i = 0; i < kPboCount; ++i) {
-        if ( m_pbo[i].isCreated() ) m_pbo[i].destroy();
-    }
-    m_pboAllocatedBytes = 0;
-    m_currentPbo = 0;
-    m_sharedPboIndex = 0;
     m_vao.destroy();
     delete m_shaderProgram;
     m_shaderProgram = nullptr;
     m_glInitialized = false;
 }
 
-void GLTextureViewport::createPersistentPBOs(int size) {
-    // Check extension support via the widget's GL context
-    QOpenGLContext* ctx = QOpenGLContext::currentContext();
-    if (!ctx) {
-        qCWarning(lcGLViewport) << "No current GL context for persistent PBO init";
-        m_usePersistentPbo = false;
-        return;
+// ============================================================================
+// 解码帧上传 + 保底 fence 收割
+// ============================================================================
+
+void GLTextureViewport::doPreRender() {
+    // 启动保底定时器（首次调用时）
+    if (m_fallbackTimer && !m_fallbackTimer->isActive()) {
+        m_fallbackTimer->start();
     }
 
-    const bool hasBufferStorage = ctx->hasExtension(
-        QByteArrayLiteral("GL_ARB_buffer_storage"));
-    if (!hasBufferStorage) {
-        qCInfo(lcGLViewport) << "GL_ARB_buffer_storage not supported, using traditional PBO";
-        m_usePersistentPbo = false;
-        return;
-    }
+    // 从 TripleBuffer 取出解码帧
+    DecodeWorker::DecodedFrame* frame = nullptr;
+    int idx = m_inputBuffer.getReadSlot(frame);
 
-    // Resolve glBufferStorage via getProcAddress — it is a GL 4.4+ function
-    // not exposed through QOpenGLExtraFunctions.
-    using GLBufferStorageProc = void (*)(GLenum, GLsizeiptr, const void*, GLbitfield);
-    auto glBufferStorageFn = reinterpret_cast<GLBufferStorageProc>(
-        ctx->getProcAddress(QByteArrayLiteral("glBufferStorage")));
-    if (!glBufferStorageFn) {
-        qCInfo(lcGLViewport) << "glBufferStorage not resolvable, using traditional PBO";
-        m_usePersistentPbo = false;
-        return;
-    }
-
-    auto* f = ctx->extraFunctions();
-    if (!f) {
-        qCWarning(lcGLViewport) << "Cannot get GL extraFunctions for persistent PBO";
-        m_usePersistentPbo = false;
-        return;
-    }
-
-    for (int i = 0; i < kPboCount; ++i) {
-        // Destroy old PBO if it already exists (for resize)
-        if (m_persistentId[i] != 0) {
-            f->glDeleteBuffers(1, &m_persistentId[i]);
-            m_persistentPtr[i] = nullptr;
-            m_persistentId[i] = 0;
-        }
-
-        f->glGenBuffers(1, &m_persistentId[i]);
-        f->glBindBuffer(GL_PIXEL_UNPACK_BUFFER, m_persistentId[i]);
-
-        const GLbitfield storageFlags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
-        glBufferStorageFn(GL_PIXEL_UNPACK_BUFFER, size, nullptr, storageFlags);
-
-        const GLbitfield mapFlags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
-        m_persistentPtr[i] = f->glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, size, mapFlags);
-
-        if (!m_persistentPtr[i]) {
-            qCWarning(lcGLViewport) << "Persistent PBO map failed for slot" << i;
-            m_usePersistentPbo = false;
-            destroyPersistentPBOs();
-            return;
-        }
-
-        f->glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-    }
-
-    m_pboAllocatedBytes = size;
-    m_usePersistentPbo = true;
-    qCInfo(lcGLViewport) << "Persistent PBOs created:" << size << "bytes x" << kPboCount;
-}
-
-void GLTextureViewport::destroyPersistentPBOs() {
-    QOpenGLContext* ctx = QOpenGLContext::currentContext();
-    auto* f = ctx ? ctx->extraFunctions() : nullptr;
-    for (int i = 0; i < kPboCount; ++i) {
-        if (m_persistentId[i] != 0 && f) {
-            f->glBindBuffer(GL_PIXEL_UNPACK_BUFFER, m_persistentId[i]);
-            if (m_persistentPtr[i]) {
-                f->glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
-                m_persistentPtr[i] = nullptr;
-            }
-            f->glDeleteBuffers(1, &m_persistentId[i]);
-            m_persistentId[i] = 0;
-        } else if (m_persistentId[i] != 0) {
-            // Context may be gone during destruction (e.g., app shutdown)
-            m_persistentPtr[i] = nullptr;
-            m_persistentId[i] = 0;
-        }
-    }
-    m_usePersistentPbo = false;
-    m_pboAllocatedBytes = 0;
-}
-
-void GLTextureViewport::applyFrame(const QImage& image) {
-    // Core texture upload without GL context management.
-    // Called from uploadFrame() (with makeCurrent/doneCurrent) and from
-    // paintGL() (context already current). Sets m_textureDirty on success.
-
-    if ( image.isNull() || image.format() == QImage::Format_Invalid ) {
-        return;
-    }
-
-    // Determine GL pixel layout from QImage format — avoids a mandatory
-    // RGBA8888 CPU copy for common formats like RGB888 (JPEG decode output).
-    GLPixelLayout layout;
-    QImage glImage;
-    const QImage* src = nullptr;
-    if ( chooseGLFormat(image.format(), layout) ) {
-        src = &image;  // zero-copy fast path
-    } else {
-        glImage = image.convertedTo(QImage::Format_RGBA8888);
-        chooseGLFormat(QImage::Format_RGBA8888, layout);
-        src = &glImage;
-    }
-
-    const bool sizeChanged = (src->size() != m_textureSize);
-
-    if ( sizeChanged ) {
-        // 纹理尺寸变更：重建双缓冲纹理
-        if ( m_textureId[0] != 0 ) {
-            glDeleteTextures(2, m_textureId);
-        }
-
-        glGenTextures(2, m_textureId);
-
-        // 用相同的参数和初始数据设置两个纹理
-        for (int i = 0; i < 2; ++i) {
-            glBindTexture(GL_TEXTURE_2D, m_textureId[i]);
-
-            // Set texture parameters
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-            // Allocate and upload texture data
-            // QImage always pads rows to 4-byte alignment
-            glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-            glPixelStorei(GL_UNPACK_ROW_LENGTH,
-                          src->bytesPerLine() / layout.bytesPerPixel);
-            glTexImage2D(GL_TEXTURE_2D, 0, layout.internalFormat,
-                         src->width(), src->height(), 0,
-                         layout.format, layout.type, src->constBits());
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-        }
-
-        m_textureSize = src->size();
-        m_displayTexIndex.store(0);
-        updateRenderRect();
-
-        qCDebug(lcGLViewport) << "Texture created:" << m_textureSize;
-    } else {
-        const int rowBytes = src->bytesPerLine();
-        const int totalBytes = rowBytes * src->height();
-
-        if ( m_usePbo ) {
-            // PBO 异步上传：同尺寸帧用 glMapBufferRange + INVALIDATE_BUFFER
-            // 单次驱动调用替代 allocate()+map() 两次往返。
-            QOpenGLBuffer& pbo = m_pbo[m_currentPbo];
-            pbo.bind();
-            auto* f = QOpenGLContext::currentContext()->extraFunctions();
-            const bool pboSizeChanged = (totalBytes != m_pboAllocatedBytes);
-            void* mapped = nullptr;
-            if ( pboSizeChanged ) {
-                pbo.allocate(nullptr, totalBytes);
-                m_pboAllocatedBytes = totalBytes;
-                mapped = pbo.map(QOpenGLBuffer::WriteOnly);
+    if (idx >= 0 && frame && !frame->image.isNull()) {
+        makeCurrent();
+        int slotIdx = m_ringBuffer.acquireWriteSlot(frame->frameId);
+        if (slotIdx >= 0) {
+            GLsync fence = m_ringBuffer.uploadToSlot(slotIdx, frame->image);
+            if (fence) {
+                m_ringBuffer.submitSlot(slotIdx, fence);
             } else {
-                const GLbitfield access = GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT;
-                mapped = f->glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, totalBytes, access);
-            }
-            if ( mapped ) {
-                std::memcpy(mapped, src->constBits(), size_t(totalBytes));
-                if ( sizeChanged )
-                    pbo.unmap();
-                else
-                    f->glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
-                glBindTexture(GL_TEXTURE_2D, m_textureId[m_displayTexIndex.load()]);
-                glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-                glPixelStorei(GL_UNPACK_ROW_LENGTH, rowBytes / layout.bytesPerPixel);
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                                src->width(), src->height(),
-                                layout.format, layout.type, nullptr);
-                glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-            } else {
-                qCWarning(lcGLViewport) << "PBO map failed, falling back to direct upload once";
-                glBindTexture(GL_TEXTURE_2D, m_textureId[m_displayTexIndex.load()]);
-                glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-                glPixelStorei(GL_UNPACK_ROW_LENGTH, rowBytes / layout.bytesPerPixel);
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                                src->width(), src->height(),
-                                layout.format, layout.type, src->constBits());
-                glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-            }
-            pbo.release();
-            m_currentPbo = nextPboIndex(m_currentPbo);
-        } else {
-            // Direct upload (PBO disabled or unavailable)
-            glBindTexture(GL_TEXTURE_2D, m_textureId[m_displayTexIndex.load()]);
-            glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, rowBytes / layout.bytesPerPixel);
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                            src->width(), src->height(),
-                            layout.format, layout.type, src->constBits());
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-        }
-    }
-
-    m_textureDirty = true;
-}
-
-GLsync GLTextureViewport::uploadFromWorker(const QImage& image) {
-    // Called from worker thread with a shared GL context already made current.
-    // Uploads decoded QImage directly to m_textureId via PBO (DMA async),
-    // then inserts a GLsync fence for the GUI thread to wait on in paintGL().
-    //
-    // This eliminates the PBO memcpy from the GUI thread critical path
-    // entirely — the worker thread pays the CPU cost instead, and the GUI
-    // thread only draws when the GPU signals the fence is complete.
-
-    if (image.isNull() || image.format() == QImage::Format_Invalid) {
-        return nullptr;
-    }
-
-    // Determine GL pixel layout from QImage format
-    GLPixelLayout layout;
-    QImage glImage;
-    const QImage* src = nullptr;
-    if (chooseGLFormat(image.format(), layout)) {
-        src = &image;  // zero-copy fast path
-    } else {
-        glImage = image.convertedTo(QImage::Format_RGBA8888);
-        chooseGLFormat(QImage::Format_RGBA8888, layout);
-        src = &glImage;
-    }
-
-    const bool sizeChanged = (src->size() != m_textureSize);
-
-    if (sizeChanged) {
-        // 纹理尺寸变更：重建双缓冲纹理
-        if (m_textureId[0] != 0) {
-            glDeleteTextures(2, m_textureId);
-        }
-
-        glGenTextures(2, m_textureId);
-
-        // 用相同的参数和初始数据设置两个纹理
-        for (int i = 0; i < 2; ++i) {
-            glBindTexture(GL_TEXTURE_2D, m_textureId[i]);
-
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-            glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-            glPixelStorei(GL_UNPACK_ROW_LENGTH,
-                          src->bytesPerLine() / layout.bytesPerPixel);
-            glTexImage2D(GL_TEXTURE_2D, 0, layout.internalFormat,
-                         src->width(), src->height(), 0,
-                         layout.format, layout.type, src->constBits());
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-        }
-
-        m_textureSize = src->size();
-        m_displayTexIndex.store(0);
-        // m_textureDirty will be set by paintGL after fence is signaled
-    } else {
-        const int rowBytes = src->bytesPerLine();
-        const int totalBytes = rowBytes * src->height();
-
-        // Lazy init persistent PBOs on first same-size frame
-        if (m_usePbo && !m_usePersistentPbo && m_persistentId[0] == 0) {
-            const auto cfg = RenderConfig::load();
-            m_usePersistentPbo = cfg.gl.usePersistentPbo;
-            if (m_usePersistentPbo) {
-                createPersistentPBOs(totalBytes);
+                m_ringBuffer.cancelSlot(slotIdx);
             }
         }
-
-        // Resize persistent PBOs if frame dimensions changed
-        if (m_usePersistentPbo && totalBytes != m_pboAllocatedBytes) {
-            destroyPersistentPBOs();
-            createPersistentPBOs(totalBytes);
-        }
-
-        if (m_usePersistentPbo && m_persistentPtr[m_sharedPboIndex]) {
-            // Fast persistent-mapped PBO path: direct memcpy, no alloc/map/unmap
-            std::memcpy(m_persistentPtr[m_sharedPboIndex], src->constBits(), size_t(totalBytes));
-
-            auto* f = QOpenGLContext::currentContext()->extraFunctions();
-            Q_ASSERT(f);
-            f->glBindBuffer(GL_PIXEL_UNPACK_BUFFER, m_persistentId[m_sharedPboIndex]);
-
-            glBindTexture(GL_TEXTURE_2D, m_textureId[1 - m_displayTexIndex.load()]);
-            glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, rowBytes / layout.bytesPerPixel);
-            // When a PBO is bound, the data pointer is interpreted as a byte
-            // offset into the PBO — nullptr means offset 0.
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                            src->width(), src->height(),
-                            layout.format, layout.type, nullptr);
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-
-            f->glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);  // unbind
-            m_sharedPboIndex = nextPboIndex(m_sharedPboIndex);
-        } else if (m_usePbo) {
-            // Traditional PBO async upload: single-call glMapBufferRange +
-            // INVALIDATE_BUFFER 替代 allocate()+map() 两次驱动往返。
-            QOpenGLBuffer& pbo = m_pbo[m_currentPbo];
-            pbo.bind();
-            auto* f2 = QOpenGLContext::currentContext()->extraFunctions();
-            const bool pboSizeChanged = (totalBytes != m_pboAllocatedBytes);
-            void* mapped = nullptr;
-            if (pboSizeChanged) {
-                pbo.allocate(nullptr, totalBytes);
-                m_pboAllocatedBytes = totalBytes;
-                mapped = pbo.map(QOpenGLBuffer::WriteOnly);
-            } else {
-                const GLbitfield access = GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT;
-                mapped = f2->glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, totalBytes, access);
-            }
-            if (mapped) {
-                std::memcpy(mapped, src->constBits(), size_t(totalBytes));
-                if (sizeChanged)
-                    pbo.unmap();
-                else
-                    f2->glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
-                glBindTexture(GL_TEXTURE_2D, m_textureId[1 - m_displayTexIndex.load()]);
-                glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-                glPixelStorei(GL_UNPACK_ROW_LENGTH,
-                              rowBytes / layout.bytesPerPixel);
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                                src->width(), src->height(),
-                                layout.format, layout.type, nullptr);
-                glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-            }
-            pbo.release();
-            m_currentPbo = nextPboIndex(m_currentPbo);
-        } else {
-            // Direct upload (PBO disabled or unavailable)
-            glBindTexture(GL_TEXTURE_2D, m_textureId[1 - m_displayTexIndex.load()]);
-            glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-            glPixelStorei(GL_UNPACK_ROW_LENGTH,
-                          rowBytes / layout.bytesPerPixel);
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                            src->width(), src->height(),
-                            layout.format, layout.type, src->constBits());
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-        }
+        doneCurrent();
     }
 
-    // Insert a GPU fence so the GUI thread can wait for the upload to
-    // complete before drawing the texture.
-    auto* f = QOpenGLContext::currentContext()->extraFunctions();
-    Q_ASSERT(f);
-    GLsync fence = f->glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-    f->glFlush();  // ensure all commands are submitted to the GPU
-
-    return fence;
-}
-
-void GLTextureViewport::uploadFrame(const QImage& image,
-                                    std::chrono::steady_clock::time_point arrivalTs) {
-    m_pendingArrivalTs = arrivalTs;
-    uploadFrame(image);
-}
-
-void GLTextureViewport::uploadFrame(const QImage& image) {
-    if ( image.isNull() || image.format() == QImage::Format_Invalid ) {
-        qCWarning(lcGLViewport) << "Received null or invalid image, skipping upload";
-        return;
-    }
-
-    if ( !m_glInitialized ) {
-        qCWarning(lcGLViewport) << "GL not initialized, skipping upload";
-        return;
-    }
-
+    // 尝试收割已就绪的 fence
     makeCurrent();
-    applyFrame(image);
+    bool ready = m_ringBuffer.pollFences();
     doneCurrent();
-
-    // Schedule repaint
-    update();
-}
-
-void GLTextureViewport::renderNow() {
-    update();
-}
-
-bool GLTextureViewport::requestRepaint() {
-    // 仅当前一帧已被 paintGL 消费后才排队新的 paint 事件，
-    // 避免在 GUI 线程事件队列中堆积冗余事件。
-    // 此方法可被任意线程安全调用。
-    bool expected = false;
-    if ( m_needsRepaint.compare_exchange_strong(expected, true) ) {
-        QMetaObject::invokeMethod(this, "update", Qt::QueuedConnection);
-        return true;
-    }
-    return false;
-}
-
-void GLTextureViewport::CheckForNewFrameAfterPaint(int consumedSlot) {
-    // 仅在本次 paintGL 确实消费了一帧之后才检查。
-    // 若 peekReady() 返回不同于 consumedSlot 的索引，说明在 paintGL 执行
-    // 期间解码线程又提交了新帧。此时立即 CAS 排队 update()，
-    // 将帧间等待时间从"下一个 VSync/轮询"缩短到"下一个事件循环迭代"。
-    if (!m_frameBuffer || consumedSlot < 0) {
-        return;
-    }
-
-    const int readySlot = m_frameBuffer->peekReady();
-    if (readySlot >= 0 && readySlot != consumedSlot) {
-        bool expected = false;
-        if (m_needsRepaint.compare_exchange_strong(expected, true)) {
-            QMetaObject::invokeMethod(this, "update", Qt::QueuedConnection);
-        }
+    if (ready) {
+        update();
     }
 }
 
-void GLTextureViewport::resizeGL(int w, int h) {
-    Q_UNUSED(w)
-    Q_UNUSED(h)
-    updateRenderRect();
+void GLTextureViewport::onFallbackTimer() {
+    makeCurrent();
+    bool ready = m_ringBuffer.pollFences();
+    doneCurrent();
+    if (ready) {
+        update();
+    }
 }
+
+// ============================================================================
+// 纯渲染 paintGL：getReadySlot → bind → draw → releaseSlot
+// ============================================================================
 
 void GLTextureViewport::paintGL() {
-    // GL 资源已通过 cleanupGLResources() 清理（窗口正在关闭），跳过绘制
     if (!m_shaderProgram) {
         return;
     }
 
-    // Check triple buffer for new frames (lock-free, atomic read)
-    static int s_paintCount = 0;
-    if ( ++s_paintCount <= 3 )
-        qCDebug(lcGLViewport) << "paintGL called, frameBuffer:" << (m_frameBuffer != nullptr);
-    m_consumedSlot = -1;  // 每次 paintGL 重置
+    // 按连续帧号查找已就绪的槽位
+    int idx = m_ringBuffer.getReadySlot(m_lastRenderedFrameId + 1);
 
-    // 每次 paintGL 驱动都触发预解码信号，确保首帧和持续节奏
-    if (m_frameBuffer && m_decodeWorker) {
-        m_decodeWorker->notifyPredecodeStart();
-    }
-
-    if ( m_frameBuffer ) {
-        FrameSlot* slot = nullptr;
-        const int idx = m_frameBuffer->getReadSlot(slot);
-        // GL 上传路径中 image 可能为空（像素已通过 uploadFromWorker 写入纹理），
-        // uploadFence 作为备选有效性指示器。
-        if ( idx >= 0 && slot && (!slot->image.isNull() || slot->uploadFence) ) {
-            m_consumedSlot = idx;  // 记录已消费的槽位，供帧尾检查新帧用
-            if ( slot->uploadFence ) {
-                // Worker thread already uploaded this frame to the shared
-                // texture via its shared GL context. Check if the GPU has
-                // finished the DMA transfer.
-                auto* f = context()->extraFunctions();
-                Q_ASSERT(f);
-                // timeout=2ms: 给 GPU DMA 上传一个短暂的完成窗口，
-                // 避免零超时导致差几微秒的帧被直接丢弃。
-                const GLenum result = f->glClientWaitSync(
-                    slot->uploadFence, GL_SYNC_FLUSH_COMMANDS_BIT, 2000000);
-                static int s_fenceDiagCount = 0;
-                ++s_fenceDiagCount;
-                if ( s_fenceDiagCount <= 3 || s_fenceDiagCount % 100 == 0 )
-                    qCDebug(lcGLViewport) << "paintGL fence #" << s_fenceDiagCount << "result:" << result
-                        << (result == GL_ALREADY_SIGNALED ? "SIGNALED" :
-                            result == GL_CONDITION_SATISFIED ? "SATISFIED" :
-                            result == GL_TIMEOUT_EXPIRED ? "TIMEOUT" : "OTHER");
-
-                static int s_consecutiveFenceTimeouts = 0;
-                if ( result == GL_ALREADY_SIGNALED ||
-                     result == GL_CONDITION_SATISFIED ) {
-                    s_consecutiveFenceTimeouts = 0;
-                    // GPU upload complete — texture is ready to draw.
-                    m_consecutiveSkips.store(0, std::memory_order_relaxed);
-                    f->glDeleteSync(slot->uploadFence);
-                    slot->uploadFence = nullptr;
-                    // Worker 写入了非显示纹理，GPU 上传完成后交换显示索引
-                    m_displayTexIndex.store(1 - m_displayTexIndex.load());
-                    m_textureDirty = true;
-                    // Worker 在上传时已设置 m_textureSize；
-                    // image 可能为空（GL 上传路径），此时跳过尺寸更新。
-                    if ( !slot->image.isNull() && slot->image.size() != m_textureSize ) {
-                        m_textureSize = slot->image.size();
-                    }
-                    // Worker 在上传时已设置 m_textureSize 但未调用 updateRenderRect，
-                    // 首帧时需要确保 render rect 已计算
-                    if ( m_renderRect.isEmpty() && !m_textureSize.isEmpty() ) {
-                        updateRenderRect();
-                    }
-                } else {
-                    // GL_TIMEOUT_EXPIRED or GL_WAIT_FAILED: GPU 未完成 DMA。
-                    ++s_consecutiveFenceTimeouts;
-                    if ( s_consecutiveFenceTimeouts >= 5 ) {
-                        // 连续 5 次超时（~80ms）：强制放弃 fence，避免画面卡死。
-                        // 可能显示部分上传的纹理，但远好于冻结。
-                        qCWarning(lcGLViewport) << "paintGL: force-skipping stuck fence after"
-                                               << s_consecutiveFenceTimeouts << "timeouts";
-                        f->glDeleteSync(slot->uploadFence);
-                        slot->uploadFence = nullptr;
-                        m_displayTexIndex.store(1 - m_displayTexIndex.load());
-                        m_textureDirty = true;
-                        m_consecutiveSkips.store(0, std::memory_order_relaxed);
-                        s_consecutiveFenceTimeouts = 0;
-                    } else {
-                        // 增递跳过计数器，生产者可据此降低上传频率
-                        m_consecutiveSkips.fetch_add(1, std::memory_order_relaxed);
-                    }
-                }
-            } else {
-                // No worker-side upload (fallback path): upload on GUI thread
-                // using the stored QImage.
-                applyFrame(slot->image);
-            }
-            m_pendingArrivalTs = slot->arrivalTs;
-            if ( !slot->remoteSize.isEmpty() ) {
-                setRemoteSize(slot->remoteSize);
-            }
+    // 若严格连续帧未就绪，退而求其次：渲染最新的已就绪帧
+    if (idx < 0 && m_ringBuffer.hasReadyNewerThan(m_lastRenderedFrameId)) {
+        qint64 newest = m_ringBuffer.newestReadyFrameId();
+        if (newest > 0) {
+            m_lastRenderedFrameId = static_cast<quint64>(newest);
+            idx = m_ringBuffer.getReadySlot(m_lastRenderedFrameId);
         }
     }
 
-    static int s_skipCount = 0;
-    if ( !m_textureDirty ) {
-        if ( ++s_skipCount <= 3 || s_skipCount % 300 == 0 )
-            qCDebug(lcGLViewport) << "paintGL skip #" << s_skipCount << "(m_textureDirty=false)";
-        m_needsRepaint.store(false, std::memory_order_release);
-        // 跳过帧时仍需通知，防止解码线程死等
-        if (m_decodeWorker) {
-            m_decodeWorker->notifyRenderingDone();
-        }
-        // 帧间间隙修复：即便 fence 未就绪导致本次未绘制，
-        // 也检查 TripleBuffer 是否有绘制期间到达的新帧
-        CheckForNewFrameAfterPaint(m_consumedSlot);
-        return;  // nothing new to draw
+    if (idx < 0) {
+        return;
     }
-    m_textureDirty = false;
-    m_needsRepaint.store(false, std::memory_order_release);
-    s_skipCount = 0;  // reset skip counter on successful render
 
-    static int s_renderCount = 0;
-    ++s_renderCount;
-    if ( s_renderCount <= 3 || s_renderCount % 30 == 0 )
-        qCDebug(lcGLViewport) << "paintGL rendering #" << s_renderCount
-            << "texId:" << m_textureId[m_displayTexIndex.load()]
-            << "size:" << m_textureSize
-            << "rect:" << m_renderRect;
+    // 首帧时计算渲染矩形
+    if (m_renderRect.isEmpty() && m_ringBuffer.textureSize().isValid()) {
+        updateRenderRect();
+    }
 
     glClear(GL_COLOR_BUFFER_BIT);
 
-    if ( m_textureId[m_displayTexIndex.load()] == 0 || !m_shaderProgram || m_renderRect.isEmpty() ) {
-        if ( s_renderCount <= 3 )
-            qCWarning(lcGLViewport) << "paintGL render skip - texId:" << m_textureId[m_displayTexIndex.load()]
-                << "shader:" << (m_shaderProgram != nullptr)
-                << "rect:" << m_renderRect;
-        CheckForNewFrameAfterPaint(m_consumedSlot);
+    GLuint texId = m_ringBuffer.textureId(idx);
+    if (texId == 0 || m_renderRect.isEmpty()) {
         return;
     }
 
@@ -868,7 +338,7 @@ void GLTextureViewport::paintGL() {
 
     m_shaderProgram->bind();
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, m_textureId[m_displayTexIndex.load()]);
+    glBindTexture(GL_TEXTURE_2D, texId);
     m_shaderProgram->setUniformValue("uTexture", 0);
 
     QOpenGLVertexArrayObject::Binder vaoBinder(&m_vao);
@@ -876,50 +346,28 @@ void GLTextureViewport::paintGL() {
 
     m_shaderProgram->release();
 
-    // 简易 paintGL FPS 统计（每 60 帧输出一次）
-    static int s_frameCount = 0;
-    static auto s_lastFpsTime = std::chrono::steady_clock::now();
-    if ( ++s_frameCount >= 60 ) {
-        auto now = std::chrono::steady_clock::now();
-        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - s_lastFpsTime).count();
-        qCDebug(lcRefreshMetrics) << "paintGL FPS:" << (60000.0 / elapsed) << "(" << elapsed << "ms for 60 frames)";
-        s_frameCount = 0;
-        s_lastFpsTime = now;
-    }
+    // 记录已渲染帧号并释放槽位
+    m_lastRenderedFrameId = m_ringBuffer.frameId(idx);
+    m_ringBuffer.releaseSlot(idx);
+}
 
-    using namespace std::chrono;
-    if ( m_pendingArrivalTs.time_since_epoch().count() != 0 ) {
-        const auto latencyUs = duration_cast<microseconds>(
-            steady_clock::now() - m_pendingArrivalTs).count();
-        m_metricsLatencyAccumUs += latencyUs;
-        m_metricsLatencyMaxUs = std::max(m_metricsLatencyMaxUs, latencyUs);
-        if ( ++m_metricsFrameCount >= kMetricsReportInterval ) {
-            const double avgMs = (m_metricsLatencyAccumUs / double(m_metricsFrameCount)) / 1000.0;
-            const double maxMs = m_metricsLatencyMaxUs / 1000.0;
-            qCDebug(lcRefreshMetrics)
-                << "end-to-glass avg:" << avgMs << "ms"
-                << "max:" << maxMs << "ms"
-                << "over" << m_metricsFrameCount << "frames";
-            m_metricsFrameCount = 0;
-            m_metricsLatencyAccumUs = 0;
-            m_metricsLatencyMaxUs = 0;
-        }
-        m_pendingArrivalTs = {};
-    }
+// ============================================================================
+// 工具方法
+// ============================================================================
 
-    // 渲染完成，通知 DecodeWorker 提交预解码帧
-    if (m_decodeWorker) {
-        m_decodeWorker->notifyRenderingDone();
-    }
+void GLTextureViewport::renderNow() {
+    update();
+}
 
-    // 帧间间隙修复：绘制完成后检查 TripleBuffer 是否有在绘制期间
-    // 到达的新帧。若有则立即 CAS 排队 update()，将等待时间从"下个
-    // VSync/轮询周期"缩短到"下个事件循环迭代"。
-    CheckForNewFrameAfterPaint(m_consumedSlot);
+void GLTextureViewport::resizeGL(int w, int h) {
+    Q_UNUSED(w)
+    Q_UNUSED(h)
+    updateRenderRect();
 }
 
 void GLTextureViewport::updateRenderRect() {
-    if ( m_textureSize.isEmpty() ) {
+    const QSize texSize = m_ringBuffer.textureSize();
+    if ( texSize.isEmpty() ) {
         m_renderRect = QRectF();
         return;
     }
@@ -933,8 +381,8 @@ void GLTextureViewport::updateRenderRect() {
 
     // Compute aspect-ratio-preserving rectangle
     // (equivalent to fitInView + KeepAspectRatio)
-    const qreal imageAspect = static_cast<qreal>(m_textureSize.width())
-                            / m_textureSize.height();
+    const qreal imageAspect = static_cast<qreal>(texSize.width())
+                            / texSize.height();
     const qreal viewAspect = viewW / viewH;
 
     qreal renderW = 0.0;
@@ -956,10 +404,6 @@ void GLTextureViewport::updateRenderRect() {
     emit renderRectChanged(m_renderRect);
 }
 
-void GLTextureViewport::setRemoteSize(const QSize& size) {
-    m_remoteSize = size;
-}
-
 QRectF GLTextureViewport::renderRect() const {
     return m_renderRect;
 }
@@ -972,13 +416,12 @@ QPoint GLTextureViewport::mapToRemote(const QPoint& localPoint) const {
         return localPoint;
     }
 
-    // Use remoteSize if set (for downscaled frames), otherwise texture size
-    const QSize targetSize = m_remoteSize.isEmpty() ? m_textureSize : m_remoteSize;
-    if ( targetSize.isEmpty() ) {
+    const QSize texSize = m_ringBuffer.textureSize();
+    if ( texSize.isEmpty() ) {
         return localPoint;
     }
 
-    // Transform: local widget coords -> normalized render rect -> remote coords
+    // Transform: local widget coords -> normalized render rect -> texture coords
     const qreal normX = (localPoint.x() - m_renderRect.x()) / m_renderRect.width();
     const qreal normY = (localPoint.y() - m_renderRect.y()) / m_renderRect.height();
 
@@ -987,8 +430,8 @@ QPoint GLTextureViewport::mapToRemote(const QPoint& localPoint) const {
     const qreal clampedY = qBound(0.0, normY, 1.0);
 
     return QPoint(
-        static_cast<int>(clampedX * targetSize.width()),
-        static_cast<int>(clampedY * targetSize.height())
+        static_cast<int>(clampedX * texSize.width()),
+        static_cast<int>(clampedY * texSize.height())
     );
 }
 
@@ -997,14 +440,14 @@ QPoint GLTextureViewport::mapFromRemote(const QPoint& remotePoint) const {
         return remotePoint;
     }
 
-    const QSize targetSize = m_remoteSize.isEmpty() ? m_textureSize : m_remoteSize;
-    if ( targetSize.isEmpty() ) {
+    const QSize texSize = m_ringBuffer.textureSize();
+    if ( texSize.isEmpty() ) {
         return remotePoint;
     }
 
-    // Transform: remote coords -> normalized -> local widget coords
-    const qreal normX = static_cast<qreal>(remotePoint.x()) / targetSize.width();
-    const qreal normY = static_cast<qreal>(remotePoint.y()) / targetSize.height();
+    // Transform: texture coords -> normalized -> local widget coords
+    const qreal normX = static_cast<qreal>(remotePoint.x()) / texSize.width();
+    const qreal normY = static_cast<qreal>(remotePoint.y()) / texSize.height();
 
     return QPoint(
         static_cast<int>(normX * m_renderRect.width() + m_renderRect.x()),
@@ -1023,17 +466,12 @@ void GLTextureViewport::setVSyncEnabled(bool on) {
     update();
 }
 
-void GLTextureViewport::attachFrameBuffer(TripleBuffer<FrameSlot>* buffer) {
-    m_frameBuffer = buffer;
-    configurePollTimer();
-}
-
 void GLTextureViewport::configurePollTimer() {
     if ( !m_pollTimer ) return;
 
     // With VSync enabled, paintGL is driven by the compositor — no timer needed.
-    // With VSync disabled and a frame buffer attached, poll at ~60fps.
-    const bool needPolling = !m_vsyncEnabled && (m_frameBuffer != nullptr);
+    // With VSync disabled, poll at ~60fps via m_pollTimer.
+    const bool needPolling = !m_vsyncEnabled;
     if ( needPolling && !m_pollTimer->isActive() ) {
         m_pollTimer->start();
     } else if ( !needPolling && m_pollTimer->isActive() ) {
