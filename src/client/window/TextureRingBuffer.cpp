@@ -86,8 +86,11 @@ bool TextureRingBuffer::chooseGLFormat(QImage::Format f,
 
 TextureRingBuffer::~TextureRingBuffer() {
     // cleanup() 应在 makeCurrent 后、析构前由 GLTextureViewport 显式调用。
-    // 若此处仍有未释放的 GL 资源，说明调用方遗漏了 cleanup()。
-    qCWarning(lcGLViewport) << "TextureRingBuffer destroyed without explicit cleanup()";
+    // 若 cleanup 未执行且确实分配过 GL 资源，说明调用方遗漏了清理流程。
+    if (!m_cleanedUp && m_glInitialized) {
+        qCWarning(lcGLViewport) << "TextureRingBuffer destroyed without explicit cleanup()"
+                                << "- GL resources may leak";
+    }
 }
 
 bool TextureRingBuffer::ensureGLInitialized() {
@@ -390,6 +393,8 @@ void TextureRingBuffer::abortInFlight() {
 }
 
 void TextureRingBuffer::cleanup() {
+    m_cleanedUp = true;
+
     if (!ensureGLInitialized()) return;
 
     destroyPersistPbo();

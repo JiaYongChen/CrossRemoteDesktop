@@ -89,10 +89,11 @@ private:
     std::array<Slot, kSlotCount> m_slots;
 
     PboPair m_pbo[2];
-    int     m_pboIndex   = 0;
-    int     m_pboSize    = 0;
+    int     m_pboIndex      = 0;
+    int     m_pboSize       = 0;
     bool    m_usePersistPbo = false;
     bool    m_glInitialized = false;
+    bool    m_cleanedUp     = false;
 
     QSize m_textureSize;
 };
