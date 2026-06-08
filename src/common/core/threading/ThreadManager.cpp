@@ -361,20 +361,28 @@ bool ThreadManager::destroyThread(const QString& name) {
     auto infoToDelete = m_threads.take(name);
     locker.unlock();
 
-    // Worker 线程已停止，但其子 QObject（QTimer 等）的线程归属
-    // 仍为原 Worker 线程。直接在主线 delete worker 会触发 Qt 的
-    // 跨线程子对象删除断言。moveToThread 要求从对象当前线程调用，
-    // 但线程已停止无法执行。解决方案：删除前将所有子对象摘离父对象树，
-    // 跳过 ~QObject 的递归子对象删除。子对象会泄漏但关闭阶段可接受。
-    if (infoToDelete && infoToDelete->worker) {
-        const auto children = infoToDelete->worker->findChildren<QObject*>(
-            QString(), Qt::FindDirectChildrenOnly);
-        for (QObject* child : children) {
-            child->setParent(nullptr);
+    // ThreadInfo 的析构函数会在主线程中 delete worker，但 Worker
+    // 的子 QObject（QTimer 等）创建于不同的 Worker 线程。跨线程删除
+    // 子对象触发 Qt 断言 (QCoreApplication::sendEvent cross-thread)。
+    //
+    // 解决方案：将 worker 和 thread 从 ThreadInfo 中取出，
+    // 用 deleteLater() 调度到事件循环安全删除。不触发 ~ThreadInfo()
+    // 的直接 delete。
+    if (infoToDelete) {
+        QThread* thread = infoToDelete->thread;
+        Worker*   worker = infoToDelete->worker;
+        // 防止 ~ThreadInfo 再次删除
+        infoToDelete->thread = nullptr;
+        infoToDelete->worker = nullptr;
+        if (worker) {
+            worker->deleteLater();
+        }
+        if (thread) {
+            thread->deleteLater();
         }
     }
 
-    // unique_ptr 析构时自动清理 ThreadInfo（含 worker 和 thread）
+    // unique_ptr 析构时仅清理 ThreadInfo 自身（无子对象需删）
     infoToDelete.reset();
 
     qCDebug(lcThreading) << "Thread destroyed:" << name;
