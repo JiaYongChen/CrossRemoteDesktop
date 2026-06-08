@@ -39,6 +39,14 @@ ScreenCaptureWorker::~ScreenCaptureWorker() {
 }
 
 bool ScreenCaptureWorker::initialize() {
+    // 防重复初始化：startCapturing 和 doStart 可能在 Worker 启动阶段
+    // 通过 QueuedConnection 竞相调用 initialize()，导致 D3D11 设备被
+    // 创建两次，留下不一致的 COM 状态。只允许第一次初始化生效。
+    if (m_initialized.exchange(true)) {
+        qCInfo(lcScreenCaptureWorker) << "ScreenCaptureWorker 已初始化，跳过";
+        return true;
+    }
+
     qCInfo(lcScreenCaptureWorker) << "初始化 ScreenCaptureWorker";
 
     // 检查并缓存主屏幕
@@ -101,6 +109,14 @@ bool ScreenCaptureWorker::initialize() {
 }
 
 void ScreenCaptureWorker::cleanup() {
+    // 防重复清理：Worker::doStop() 和 Worker::stop() 的 force-stop QTimer
+    // 可能竞相调用 cleanup()，导致 m_dxgiCapture->shutdown() 在已释放的
+    // COM 对象上崩溃 (0xC0000005)。
+    if (m_cleanedUp.exchange(true)) {
+        qCInfo(lcScreenCaptureWorker) << "ScreenCaptureWorker 已清理，跳过";
+        return;
+    }
+
     qCInfo(lcScreenCaptureWorker) << "清理 ScreenCaptureWorker 资源";
 #ifdef Q_OS_WIN
     if ( m_dxgiCapture ) {

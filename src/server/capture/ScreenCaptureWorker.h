@@ -131,6 +131,8 @@ private:
 
     // 捕获状态
     std::atomic<bool> m_isCapturing{ false };
+    std::atomic<bool> m_initialized{ false };     ///< 防重复初始化
+    std::atomic<bool> m_cleanedUp{ false };       ///< 防重复清理
 
     // 时序控制
     QTimer* m_statsTimer{ nullptr };                      ///< 统计更新定时器
