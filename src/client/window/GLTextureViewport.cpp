@@ -261,13 +261,50 @@ void GLTextureViewport::doPreRender() {
 
     if (idx >= 0 && frame && !frame->image.isNull()) {
         makeCurrent();
-        int slotIdx = m_ringBuffer.acquireWriteSlot(frame->frameId);
-        if (slotIdx >= 0) {
-            GLsync fence = m_ringBuffer.uploadToSlot(slotIdx, frame->image);
-            if (fence) {
-                m_ringBuffer.submitSlot(slotIdx, fence);
-            } else {
-                m_ringBuffer.cancelSlot(slotIdx);
+
+        // Resolution change → reallocate textures
+        if (frame->remoteSize != m_ringBuffer.textureSize()) {
+            m_ringBuffer.reallocate(frame->remoteSize);
+        }
+
+        if (frame->isFullFrame || !m_ringBuffer.textureSize().isValid()) {
+            // Full frame: complete glTexImage2D (reallocates texture storage)
+            int slotIdx = m_ringBuffer.acquireWriteSlot(frame->frameId);
+            if (slotIdx >= 0) {
+                GLsync fence = m_ringBuffer.uploadToSlot(slotIdx, frame->image);
+                if (fence) {
+                    m_ringBuffer.submitSlot(slotIdx, fence);
+                } else {
+                    m_ringBuffer.cancelSlot(slotIdx);
+                }
+            }
+        } else {
+            // Regional update: glTexSubImage2D (needs existing texture ID on slot)
+            int slotIdx = m_ringBuffer.acquireWriteSlot(frame->frameId);
+            if (slotIdx >= 0) {
+                // Ensure base texture exists (first regional frame after init)
+                if (m_ringBuffer.textureId(slotIdx) == 0) {
+                    // Initialize texture with full compositor buffer
+                    GLsync fence = m_ringBuffer.uploadToSlot(slotIdx, frame->image);
+                    if (fence) {
+                        m_ringBuffer.submitSlot(slotIdx, fence);
+                    } else {
+                        m_ringBuffer.cancelSlot(slotIdx);
+                    }
+                } else {
+                    // Upload only the dirty region
+                    QRect subRect = frame->dirtyRect;
+                    if (subRect.isEmpty()) {
+                        subRect = QRect(QPoint(0,0), frame->image.size());
+                    }
+                    GLsync fence = m_ringBuffer.uploadSubImage(slotIdx,
+                        frame->image, subRect);
+                    if (fence) {
+                        m_ringBuffer.submitSlot(slotIdx, fence);
+                    } else {
+                        m_ringBuffer.cancelSlot(slotIdx);
+                    }
+                }
             }
         }
         doneCurrent();

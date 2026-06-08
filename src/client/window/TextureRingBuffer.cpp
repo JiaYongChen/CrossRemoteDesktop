@@ -374,6 +374,72 @@ GLsync TextureRingBuffer::uploadToSlot(int idx, const QImage& image) {
     return fence;
 }
 
+GLsync TextureRingBuffer::uploadSubImage(int idx, const QImage& image,
+    const QRect& region) {
+    if (image.isNull() || region.isEmpty())
+        return nullptr;
+
+    if (!ensureGLInitialized())
+        return nullptr;
+
+    Slot& slot = m_slots[idx];
+    if (slot.textureId == 0)
+        return nullptr;
+
+    GLint  internalFormat;
+    GLenum format, type;
+    int    bpp;
+    const QImage* src = &image;
+
+    QImage converted;
+    if (!chooseGLFormat(image.format(), internalFormat, format, type, bpp)) {
+        converted = image.convertedTo(QImage::Format_RGBA8888);
+        chooseGLFormat(QImage::Format_RGBA8888, internalFormat, format, type, bpp);
+        src = &converted;
+    }
+
+    glBindTexture(GL_TEXTURE_2D, slot.textureId);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, src->bytesPerLine() / bpp);
+
+    glTexSubImage2D(GL_TEXTURE_2D, 0,
+        region.x(), region.y(), region.width(), region.height(),
+        format, type, src->constBits());
+
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+
+    auto* ef = QOpenGLContext::currentContext()->extraFunctions();
+    if (!ef) {
+        qCWarning(lcGLViewport) << "uploadSubImage: extraFunctions() returned null";
+        return nullptr;
+    }
+    GLsync fence = ef->glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+    glFlush();
+    return fence;
+}
+
+void TextureRingBuffer::reallocate(const QSize& newSize) {
+    if (!ensureGLInitialized()) return;
+
+    // Delete all existing textures
+    for (int i = 0; i < kSlotCount; ++i) {
+        if (m_slots[i].textureId != 0) {
+            glDeleteTextures(1, &m_slots[i].textureId);
+            m_slots[i].textureId = 0;
+        }
+        if (m_slots[i].fence) {
+            auto* ef = QOpenGLContext::currentContext()->extraFunctions();
+            if (ef) {
+                ef->glDeleteSync(m_slots[i].fence);
+                m_slots[i].fence = nullptr;
+            }
+        }
+        m_slots[i].size = QSize();
+        m_slots[i].state.store(SlotState::Free, std::memory_order_release);
+    }
+    m_textureSize = newSize;
+}
+
 // ---- 清理 ----
 
 void TextureRingBuffer::abortInFlight() {

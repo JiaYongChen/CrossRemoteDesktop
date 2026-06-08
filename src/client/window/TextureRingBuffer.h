@@ -40,6 +40,12 @@ public:
 
     GLsync uploadToSlot(int idx, const QImage& image);
 
+    /// 局部更新已有纹理的子区域（保留现有纹理存储，不重新分配）
+    GLsync uploadSubImage(int slotIdx, const QImage& image, const QRect& region);
+
+    /// 重建所有纹理槽位（分辨率变化时调用）
+    void reallocate(const QSize& newSize);
+
     void submitSlot(int idx, GLsync fence);
 
     void cancelSlot(int idx);
