@@ -4,6 +4,7 @@
 #include <QtCore/QMutexLocker>
 #include <QtCore/QTimer>
 #include <QtCore/QCoreApplication>
+#include <QtCore/QPointer>
 
 Worker::Worker(QObject* parent)
     : QObject(parent)
@@ -121,16 +122,25 @@ void Worker::stop(bool waitForFinish) {
     // 根据waitForFinish调整强制停止超时时间
     int forceStopTimeout = waitForFinish ? 2000 : 500;
 
-    // 启动强制停止定时器，绑定到当前Worker对象。
-    // 这样一来：
-    // - 如果Worker在超时前被销毁，单次定时器会自动失效，不会在销毁后访问悬挂的this指针（避免SEGFAULT）。
-    // - 定时器回调将在Worker所属线程执行，且workLoop中调用的QCoreApplication::processEvents()会驱动该回调，确保在事件循环繁忙时也能得到处理。
-    QTimer::singleShot(forceStopTimeout, this, [this, forceStopTimeout]() {
-        if ( m_state.load() == State::Stopping ) {
-            qCDebug(lcThreading) << "Worker强制停止（超时" << forceStopTimeout << "ms）：" << m_name;
-            // 在超时兜底路径执行完整的收尾逻辑，确保清理定时器并发射stopped信号
-            doStop();
-        }
+    // 启动强制停止定时器。不能使用 QTimer::singleShot(ms, this, ...) 重载——
+    // Worker::stop() 由主线程调用，而 this (Worker) 活在 Worker 线程。
+    // 该重载内部会 setParent(this)，将 QTimer 设为跨线程子对象，违反 Qt 规则
+    // 并可能触发 QObject::setParent 断言失败或访问违例 (0xC0000005)。
+    // 改为无 context 重载 + QPointer 守卫，回调通过 invokeMethod 调度避开跨线程 parent。
+    QPointer<Worker> selfGuard(this);
+    QTimer::singleShot(forceStopTimeout, [selfGuard, forceStopTimeout]() {
+        if ( !selfGuard ) return;
+        // 在 Worker 所属线程中检查状态并执行 doStop。
+        // invokeMethod 使用 AutoConnection：若回调线程与 Worker 同线程
+        // 则同步执行，否则 Queued 投递到 Worker 线程。
+        // 在内层 lambda 显式捕获 w 和 forceStopTimeout（外层 lambda 的成员）
+        Worker* w = selfGuard.data();
+        QMetaObject::invokeMethod(w, [w, forceStopTimeout]() {
+            if ( w && w->m_state.load() == State::Stopping ) {
+                qCDebug(lcThreading) << "Worker强制停止（超时" << forceStopTimeout << "ms）：" << w->m_name;
+                w->doStop();
+            }
+        }, Qt::AutoConnection);
     });
 }
 
