@@ -196,10 +196,12 @@ struct KeyboardEvent : public IMessageCodec {
     bool decode(const QByteArray& dataBuffer);
 };
 
-// 屏幕数据压缩类型标志
+// 屏幕数据标志位
 enum class ScreenDataFlags : quint8 {
-    NONE = 0x00,           ///< 无特殊标志（仅JPEG压缩）
-    SCALED = 0x02          ///< 图像已缩放（需要客户端放大显示）
+    NONE        = 0x00,  ///< 无特殊标志（区域更新帧，WebP/PNG 编码）
+    SCALED      = 0x01,  ///< 图像已缩放（需要客户端放大显示）
+    FULL_FRAME  = 0x02,  ///< 全帧（客户端据此初始化/替换 compositor buffer）
+    MOVE_RECT   = 0x04,  ///< 移动区域（imageData 前 20 字节为 MoveRect 编码）
 };
 
 // 屏幕数据
