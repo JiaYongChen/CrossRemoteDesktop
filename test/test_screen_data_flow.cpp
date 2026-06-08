@@ -40,7 +40,7 @@ private slots:
 private:
     // 辅助方法
     void createTestImage();
-    QByteArray imageToByteArray(const QImage& image, const char* format = "JPEG", int quality = 80);
+    QByteArray imageToByteArray(const QImage& image, const char* format = "WEBP", int quality = 95);
     QImage byteArrayToImage(const QByteArray& data);
 
     // 测试数据
@@ -137,22 +137,22 @@ void TestScreenDataFlow::test_imageProcessing() {
     qCDebug(lcTest) << "测试图像处理";
 
     // 测试图像转换
-    QByteArray jpegData = imageToByteArray(m_testImage, "JPEG", 85);
+    QByteArray encodedData = imageToByteArray(m_testImage, "WEBP", 85);
     QByteArray pngData = imageToByteArray(m_testImage, "PNG");
 
-    QVERIFY(!jpegData.isEmpty());
+    QVERIFY(!encodedData.isEmpty());
     QVERIFY(!pngData.isEmpty());
 
     // 测试图像恢复
-    QImage jpegImage = byteArrayToImage(jpegData);
+    QImage webpImage = byteArrayToImage(encodedData);
     QImage pngImage = byteArrayToImage(pngData);
 
-    QVERIFY(!jpegImage.isNull());
+    QVERIFY(!webpImage.isNull());
     QVERIFY(!pngImage.isNull());
-    QCOMPARE(jpegImage.size(), m_testImage.size());
+    QCOMPARE(webpImage.size(), m_testImage.size());
     QCOMPARE(pngImage.size(), m_testImage.size());
 
-    qCDebug(lcTest) << "JPEG数据大小:" << jpegData.size();
+    qCDebug(lcTest) << "WebP 数据大小:" << encodedData.size();
     qCDebug(lcTest) << "PNG数据大小:" << pngData.size();
     qCDebug(lcTest) << "图像处理测试通过";
 }

@@ -12,7 +12,7 @@
 #include "../core/DecodedFrame.h"
 
 /**
- * @brief 纯 CPU 解码 Worker — JPEG 解码后通过 TripleBuffer 输出到 GUI 线程。
+ * @brief 纯 CPU 解码 Worker — 图像解码后通过 TripleBuffer 输出到 GUI 线程。
  *
  * 不再触碰 GL。DecodeThread 上运行 workLoop()，产出 DecodedFrame
  * 放入 TripleBuffer，emit frameDecoded 通知 GUI 线程做 GPU 上传。

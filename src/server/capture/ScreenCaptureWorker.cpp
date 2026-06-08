@@ -470,7 +470,7 @@ QImage ScreenCaptureWorker::captureScreen() {
         // Only fall through to GDI if DXGI lost access (not just timeout).
         if ( m_dxgiCapture->isInitialized() ) {
             // Engine healthy, just no new frame — skip GDI fallback.
-            // This eliminates ~90% of JPEG encoding on static desktops.
+            // This eliminates ~90% of encoding on static desktops.
             return QImage();
         }
 

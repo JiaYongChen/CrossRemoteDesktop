@@ -114,7 +114,7 @@ struct CapturedFrame {
  * 包含处理后的数据和传输所需的元信息。
  */
 struct ProcessedData {
-    QByteArray compressedData;       ///< 处理后的图像数据（JPEG编码）
+    QByteArray compressedData;       ///< 处理后的图像数据（WebP/PNG 编码）
     QDateTime processedTime;         ///< 处理完成时间戳
     quint64 originalFrameId;         ///< 原始帧ID
     QSize imageSize;                 ///< 图像尺寸

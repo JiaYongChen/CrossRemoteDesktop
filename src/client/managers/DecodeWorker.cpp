@@ -121,7 +121,7 @@ void DecodeWorker::workLoop() {
             continue;
         }
 
-        // === Decode image (WebP/PNG/JPEG auto-detected) ===
+        // === Decode image (WebP/PNG auto-detected) ===
         QBuffer buffer(&task.screenData.imageData);
         buffer.open(QIODevice::ReadOnly);
         QImageReader reader(&buffer);

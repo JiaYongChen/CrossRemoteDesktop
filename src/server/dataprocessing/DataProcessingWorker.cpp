@@ -288,7 +288,7 @@ ProcessedData DataProcessingWorker::encodeImage(const QImage& image, quint64 fra
             }
         }
 
-        // 确保图像格式为 RGB888，这是 WebP/JPEG 编码推荐的格式
+        // 确保图像格式为 RGB888，这是 WebP 编码推荐的格式
         // 在Windows下，Format_RGB32 更常用且兼容性更好
         QImage convertedImage = workingImage;
         if ( workingImage.format() != QImage::Format_RGB32 && workingImage.format() != QImage::Format_RGB888 ) {
@@ -302,9 +302,9 @@ ProcessedData DataProcessingWorker::encodeImage(const QImage& image, quint64 fra
             }
         }
 
-        // 使用 QBuffer 将图像编码为 WebP/JPEG 格式
-        QByteArray jpegData;
-        QBuffer buffer(&jpegData);
+        // 使用 QBuffer 将图像编码为 WebP 格式
+        QByteArray encodedData;
+        QBuffer buffer(&encodedData);
         
         if ( !buffer.open(QIODevice::WriteOnly) ) {
             qCWarning(lcDataProcessingWorker) << "无法打开QBuffer，帧ID:" << frameId;
@@ -327,7 +327,7 @@ ProcessedData DataProcessingWorker::encodeImage(const QImage& image, quint64 fra
             // 第一次诊断输出，记录更详细的错误信息
             static bool diagnosticPrinted = false;
             if ( !diagnosticPrinted ) {
-                qCWarning(lcDataProcessingWorker) << "WebP/JPEG 编码失败诊断信息:";
+                qCWarning(lcDataProcessingWorker) << "WebP 编码失败诊断信息:";
                 qCWarning(lcDataProcessingWorker) << "  图像尺寸:" << convertedImage.size();
                 qCWarning(lcDataProcessingWorker) << "  图像格式:" << convertedImage.format();
                 qCWarning(lcDataProcessingWorker) << "  支持的图像格式:"
@@ -335,12 +335,12 @@ ProcessedData DataProcessingWorker::encodeImage(const QImage& image, quint64 fra
                 diagnosticPrinted = true;
             }
 
-            qCWarning(lcDataProcessingWorker) << "无法将图像编码为 WebP/JPEG 格式，帧ID:" << frameId
+            qCWarning(lcDataProcessingWorker) << "无法将图像编码为 WebP 格式，帧ID:" << frameId
                 << "图像尺寸:" << convertedImage.size() << "格式:" << convertedImage.format();
             return result;
         }
 
-        if ( jpegData.isEmpty() ) {
+        if ( encodedData.isEmpty() ) {
             qCWarning(lcDataProcessingWorker) << "编码结果为空，帧ID:" << frameId;
             return result;
         }
@@ -355,17 +355,17 @@ ProcessedData DataProcessingWorker::encodeImage(const QImage& image, quint64 fra
                 << "处理后尺寸:" << convertedImage.size()
                 << "缩放:" << (wasScaled ? QString::number(scaleFactor) : "无")
                 << "质量:" << quality
-                << "最终:" << jpegData.size() << "字节";
+                << "最终:" << encodedData.size() << "字节";
         }
 
         // 构造ProcessedData
         result.originalFrameId = frameId;
-        result.compressedData = jpegData;
+        result.compressedData = encodedData;
         result.imageSize = convertedImage.size();         // 当前图像尺寸（可能是缩放后的）
         result.originalImageSize = image.size();          // 原始图像尺寸
         result.processedTime = QDateTime::currentDateTime();
         result.originalDataSize = image.sizeInBytes();    // 原始图像数据大小
-        result.compressedDataSize = jpegData.size();
+        result.compressedDataSize = encodedData.size();
         result.isScaled = wasScaled;                      // 标记是否进行了缩放
     } catch ( const std::exception& e ) {
         qCCritical(lcDataProcessingWorker) << "图像处理异常:" << e.what() << "帧ID:" << frameId;

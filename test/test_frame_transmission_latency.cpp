@@ -43,7 +43,7 @@ private slots:
 private:
     // 辅助方法
     QImage createTestFrame(int width, int height, const QString& content);
-    QByteArray encodeFrame(const QImage& frame, const QString& format = "JPEG", int quality = 85);
+    QByteArray encodeFrame(const QImage& frame, const QString& format = "WEBP", int quality = 95);
     ScreenData createScreenData(const QByteArray& imageData);
     void simulateNetworkDelay(int delayMs);
 
@@ -73,7 +73,7 @@ private:
     struct TestConfig {
         QList<QSize> frameSizes = { {640, 480}, {800, 600}, {1024, 768}, {1920, 1080} };
         QList<int> networkDelays = { 0, 10, 25, 50, 100 }; // ms
-        QList<int> jpegQualities = { 50, 75, 85, 95 };
+        QList<int> encodingQualities = { 50, 75, 85, 95 };
         int measurementCount = 10; // 每种条件测量次数
     } m_config;
 };
@@ -157,9 +157,14 @@ void TestFrameTransmissionLatency::test_endToEndLatency() {
             .arg(frame.width()).arg(frame.height())
             .arg(avgLatency).arg(minLatency).arg(maxLatency);
 
-        // 验证延迟在合理范围内（WebP 质量 95，1080p 全帧编码 ~15-25ms）
-        QVERIFY2(avgLatency < 150, qPrintable(QString("平均延迟过高: %1ms").arg(avgLatency)));
-        QVERIFY2(maxLatency < 250, qPrintable(QString("最大延迟过高: %1ms").arg(maxLatency)));
+#ifndef QT_DEBUG
+        // 性能断言仅 Release 构建有效（Debug 下编码性能波动不可控）
+        QVERIFY2(avgLatency < 50, qPrintable(QString("平均延迟过高: %1ms").arg(avgLatency)));
+        QVERIFY2(maxLatency < 100, qPrintable(QString("最大延迟过高: %1ms").arg(maxLatency)));
+#else
+        Q_UNUSED(avgLatency);
+        Q_UNUSED(maxLatency);
+#endif
     }
 }
 
@@ -279,14 +284,14 @@ void TestFrameTransmissionLatency::test_clientProcessingTime() {
 
     for ( const QImage& originalFrame : m_testFrames ) {
         // 编码帧数据
-        QByteArray encodedData = encodeFrame(originalFrame, "JPEG", 85);
+        QByteArray encodedData = encodeFrame(originalFrame, "WEBP", 85);
 
         QElapsedTimer timer;
         timer.start();
 
         // 模拟客户端处理：数据解码
         QImage decodedFrame;
-        bool loaded = decodedFrame.loadFromData(encodedData, "JPEG");
+        bool loaded = decodedFrame.loadFromData(encodedData);  // 自动检测格式
         QVERIFY2(loaded, "图像解码失败");
 
         // 验证解码结果
@@ -345,21 +350,21 @@ void TestFrameTransmissionLatency::test_latencyUnderDifferentConditions() {
                 .arg(avgLatency).arg(expectedMinLatency)));
     }
 
-    // 测试不同JPEG质量的影响
+    // 测试不同编码质量的影响
     const QImage& testFrame = m_testFrames[2]; // 1024x768
-    for ( int quality : m_config.jpegQualities ) {
+    for ( int quality : m_config.encodingQualities ) {
         QElapsedTimer timer;
         timer.start();
 
-        QByteArray encodedData = encodeFrame(testFrame, "JPEG", quality);
+        QByteArray encodedData = encodeFrame(testFrame, "WEBP", quality);
         qint64 encodeTime = timer.elapsed();
 
         timer.restart();
         QImage decodedFrame;
-        decodedFrame.loadFromData(encodedData, "JPEG");
+        decodedFrame.loadFromData(encodedData);  // 自动检测格式
         qint64 decodeTime = timer.elapsed();
 
-        qDebug() << QString("JPEG质量 %1%: 编码=%2ms, 解码=%3ms, 大小=%4KB")
+        qDebug() << QString("编码质量 %1%: 编码=%2ms, 解码=%3ms, 大小=%4KB")
             .arg(quality)
             .arg(encodeTime)
             .arg(decodeTime)
@@ -419,8 +424,13 @@ void TestFrameTransmissionLatency::test_latencyStatistics() {
         .arg(avgClient).arg(minClient).arg(maxClient);
 
     // 验证延迟分布合理
+#ifndef QT_DEBUG
     QVERIFY2(avgTotal < 50, qPrintable(QString("平均延迟过高: %1ms").arg(avgTotal)));
     QVERIFY2(maxTotal < 100, qPrintable(QString("最大延迟过高: %1ms").arg(maxTotal)));
+#else
+    Q_UNUSED(avgTotal);
+    Q_UNUSED(maxTotal);
+#endif
 }
 
 QImage TestFrameTransmissionLatency::createTestFrame(int width, int height, const QString& content) {
@@ -494,7 +504,7 @@ TestFrameTransmissionLatency::measureFrameLatency(const QImage& frame, int netwo
     QElapsedTimer serverTimer;
     serverTimer.start();
 
-    QByteArray encodedData = encodeFrame(frame, "JPEG", 85);
+    QByteArray encodedData = encodeFrame(frame, "WEBP", 85);
     ScreenData screenData = createScreenData(encodedData);
     QByteArray serializedData = screenData.encode();
 
@@ -518,7 +528,7 @@ TestFrameTransmissionLatency::measureFrameLatency(const QImage& frame, int netwo
 
     // 解码图像
     QImage decodedFrame;
-    decodedFrame.loadFromData(receivedData.imageData, "JPEG");
+    decodedFrame.loadFromData(receivedData.imageData);  // 自动检测格式
 
     measurement.clientProcessingTime = clientTimer.elapsed();
 

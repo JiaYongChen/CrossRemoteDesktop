@@ -111,7 +111,7 @@ private:
      * @brief 并行编码单帧图像（线程安全的静态方法，在线程池中执行）
      * @param image 图像数据
      * @param frameId 帧ID
-     * @param quality JPEG质量 (0-100)
+     * @param quality WebP 质量 (0-100)
      * @param scaleFactor 缩放因子 (0.1-1.0)
      * @return 处理后的数据
      */
