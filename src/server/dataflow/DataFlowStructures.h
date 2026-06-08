@@ -3,6 +3,7 @@
 #include <QtCore/QObject>
 #include <QtCore/QDateTime>
 #include <QtCore/QByteArray>
+#include <QtCore/QRect>
 #include <QtGui/QImage>
 #include <memory>
 
@@ -111,6 +112,16 @@ struct ProcessedData {
     QSize imageSize;                 ///< 图像尺寸
     qint64 originalDataSize;         ///< 原始数据大小
     qint64 compressedDataSize;       ///< 处理后数据大小
+
+    // === 新增字段：脏区域更新元数据（Phase 1 Task 3） ===
+    bool isFullFrame = false;        ///< 是否为全帧（客户端需初始化 compositor buffer）
+    bool isMoveRect = false;         ///< 是否为移动区域（imageData 前 20B = MoveRect 编码）
+    QRect dirtyRect;                 ///< 脏区域坐标（客户端合成位置）
+    QPoint moveSrc;                  ///< 移动源坐标（仅 isMoveRect=true）
+    QPoint moveDst;                  ///< 移动目标坐标（仅 isMoveRect=true）
+    QSize  moveSize;                 ///< 移动区域大小（仅 isMoveRect=true）
+    // === 结束：脏区域更新元数据 ===
+
     bool isScaled;                   ///< 是否进行了缩放
     QSize originalImageSize;         ///< 原始图像尺寸（缩放前）
     quint64 captureTimestamp = 0;    ///< 捕获时间戳 (ms since epoch)，用于端到端延迟测量
