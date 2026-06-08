@@ -3,10 +3,58 @@
 #include "TextureRingBuffer.h"
 #include "../../common/core/logging/LoggingCategories.h"
 
-#include <QtGui/QOpenGLFunctions>
+#include <QtGui/QOpenGLExtraFunctions>
 #include <QtGui/QOpenGLContext>
 #include <algorithm>
 #include <cstring>
+
+// GL format constants not guaranteed by all GL headers
+#ifndef GL_RGB8
+#  define GL_RGB8  0x8051
+#endif
+#ifndef GL_RGBA8
+#  define GL_RGBA8 0x8058
+#endif
+#ifndef GL_RGB
+#  define GL_RGB  0x1907
+#endif
+#ifndef GL_RGBA
+#  define GL_RGBA 0x1908
+#endif
+
+// GL fence-sync constants not guaranteed by all GL headers
+#ifndef GL_SYNC_GPU_COMMANDS_COMPLETE
+#  define GL_SYNC_GPU_COMMANDS_COMPLETE 0x9117
+#endif
+#ifndef GL_SYNC_FLUSH_COMMANDS_BIT
+#  define GL_SYNC_FLUSH_COMMANDS_BIT    0x00000001
+#endif
+#ifndef GL_ALREADY_SIGNALED
+#  define GL_ALREADY_SIGNALED           0x911A
+#endif
+#ifndef GL_CONDITION_SATISFIED
+#  define GL_CONDITION_SATISFIED        0x911C
+#endif
+#ifndef GL_TIMEOUT_EXPIRED
+#  define GL_TIMEOUT_EXPIRED            0x911B
+#endif
+#ifndef GL_WAIT_FAILED
+#  define GL_WAIT_FAILED                0x911D
+#endif
+
+// GL_ARB_buffer_storage / GL 4.4+ constants
+#ifndef GL_MAP_WRITE_BIT
+#  define GL_MAP_WRITE_BIT       0x0002
+#endif
+#ifndef GL_MAP_PERSISTENT_BIT
+#  define GL_MAP_PERSISTENT_BIT  0x0040
+#endif
+#ifndef GL_MAP_COHERENT_BIT
+#  define GL_MAP_COHERENT_BIT    0x0080
+#endif
+#ifndef GL_MAP_INVALIDATE_BUFFER_BIT
+#  define GL_MAP_INVALIDATE_BUFFER_BIT 0x0004
+#endif
 
 // ---- 静态辅助 ----
 
@@ -17,16 +65,16 @@ bool TextureRingBuffer::chooseGLFormat(QImage::Format f,
                                        int&    bytesPerPixel) {
     switch (f) {
         case QImage::Format_RGB888:
-            internalFormat = 0x8051; // GL_RGB8
-            format         = 0x1907; // GL_RGB
-            type           = 0x1401; // GL_UNSIGNED_BYTE
+            internalFormat = GL_RGB8;
+            format         = GL_RGB;
+            type           = GL_UNSIGNED_BYTE;
             bytesPerPixel  = 3;
             return true;
         case QImage::Format_RGBA8888:
         case QImage::Format_RGBA8888_Premultiplied:
-            internalFormat = 0x8058; // GL_RGBA8
-            format         = 0x1908; // GL_RGBA
-            type           = 0x1401; // GL_UNSIGNED_BYTE
+            internalFormat = GL_RGBA8;
+            format         = GL_RGBA;
+            type           = GL_UNSIGNED_BYTE;
             bytesPerPixel  = 4;
             return true;
         default:
@@ -37,6 +85,9 @@ bool TextureRingBuffer::chooseGLFormat(QImage::Format f,
 // ---- 构造/析构 ----
 
 TextureRingBuffer::~TextureRingBuffer() {
+    // cleanup() 应在 makeCurrent 后、析构前由 GLTextureViewport 显式调用。
+    // 若此处仍有未释放的 GL 资源，说明调用方遗漏了 cleanup()。
+    qCWarning(lcGLViewport) << "TextureRingBuffer destroyed without explicit cleanup()";
 }
 
 // ---- 槽位管理 ----
@@ -58,8 +109,16 @@ void TextureRingBuffer::submitSlot(int idx, GLsync fence) {
 }
 
 void TextureRingBuffer::cancelSlot(int idx) {
-    m_slots[idx].fence = nullptr;
-    m_slots[idx].state.store(SlotState::Free, std::memory_order_release);
+    // CAS InFlight→Free，确保与 pollFences() 无竞争。
+    // 若 submitSlot() 已写入 fence，由调用方在上层负责删除——
+    // cancelSlot 仅负责将状态机回退，不做 GL 资源释放。
+    SlotState expected = SlotState::InFlight;
+    if (m_slots[idx].state.compare_exchange_strong(expected, SlotState::Free,
+                                                   std::memory_order_acq_rel)) {
+        m_slots[idx].fence = nullptr;
+    }
+    // CAS 失败：槽位已不在 InFlight 状态（可能已被 pollFences 转为 Ready），
+    // 此时调用方不应再操作该槽位。
 }
 
 bool TextureRingBuffer::pollFences() {
@@ -73,10 +132,11 @@ bool TextureRingBuffer::pollFences() {
         if (current != SlotState::InFlight) continue;
         if (!m_slots[i].fence) continue;
 
-        const GLenum result = f->glClientWaitSync(m_slots[i].fence, 0, 0);
+        const GLenum result = f->glClientWaitSync(m_slots[i].fence,
+                                                     GL_SYNC_FLUSH_COMMANDS_BIT, 0);
 
-        if (result == 0x911A /* GL_ALREADY_SIGNALED */
-            || result == 0x911C /* GL_CONDITION_SATISFIED */) {
+        if (result == GL_ALREADY_SIGNALED
+            || result == GL_CONDITION_SATISFIED) {
             f->glDeleteSync(m_slots[i].fence);
             m_slots[i].fence = nullptr;
 
@@ -149,19 +209,22 @@ bool TextureRingBuffer::tryInitPersistPbo(int requiredBytes) {
         f->glGenBuffers(1, &m_pbo[i].buffer);
         f->glBindBuffer(GL_PIXEL_UNPACK_BUFFER, m_pbo[i].buffer);
 
-        constexpr GLbitfield storageFlags = 0x0002 /* GL_MAP_WRITE_BIT */
-                                          | 0x0040 /* GL_MAP_PERSISTENT_BIT */
-                                          | 0x0080 /* GL_MAP_COHERENT_BIT */;
+        constexpr GLbitfield storageFlags = GL_MAP_WRITE_BIT
+                                          | GL_MAP_PERSISTENT_BIT
+                                          | GL_MAP_COHERENT_BIT;
         glBufferStorageFn(GL_PIXEL_UNPACK_BUFFER, requiredBytes, nullptr, storageFlags);
 
-        constexpr GLbitfield mapFlags = 0x0002 | 0x0040 | 0x0080;
+        constexpr GLbitfield mapFlags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
         m_pbo[i].ptr = f->glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0,
                                            requiredBytes, mapFlags);
         if (!m_pbo[i].ptr) {
             f->glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-            if (i == 0) {
-                f->glDeleteBuffers(1, &m_pbo[0].buffer);
-                m_pbo[0].buffer = 0;
+            // PBO[i] 映射失败：清理已创建的 PBO[0..i]
+            for (int j = 0; j <= i; ++j) {
+                if (m_pbo[j].buffer != 0) {
+                    f->glDeleteBuffers(1, &m_pbo[j].buffer);
+                    m_pbo[j].buffer = 0;
+                }
             }
             return false;
         }
@@ -284,8 +347,11 @@ GLsync TextureRingBuffer::uploadToSlot(int idx, const QImage& image) {
     }
 
     auto* f = QOpenGLContext::currentContext()->extraFunctions();
-    Q_ASSERT(f);
-    GLsync fence = f->glFenceSync(0x9117 /* GL_SYNC_GPU_COMMANDS_COMPLETE */, 0);
+    if (!f) {
+        qCWarning(lcGLViewport) << "uploadToSlot: extraFunctions() returned null";
+        return nullptr;
+    }
+    GLsync fence = f->glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
     glFlush();
 
     return fence;
@@ -326,6 +392,7 @@ void TextureRingBuffer::cleanup() {
     }
 
     m_textureSize = QSize();
+    m_pboIndex = 0;
 }
 
 QSize TextureRingBuffer::textureSize() const {
