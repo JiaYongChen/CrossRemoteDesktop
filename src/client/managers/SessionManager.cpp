@@ -231,15 +231,13 @@ void SessionManager::handleScreenData(const QByteArray& data) {
         return;
     }
 
-    // 2. JPEG 头部校验
-    if (screenData.imageData.size() >= 2) {
-        unsigned char byte0 = static_cast<unsigned char>(screenData.imageData[0]);
-        unsigned char byte1 = static_cast<unsigned char>(screenData.imageData[1]);
-        if (byte0 != 0xFF || byte1 != 0xD8) {
-            qCWarning(lcClient) << "SessionManager::handleScreenData() - Invalid JPEG header, first 2 bytes:"
-                                << QString("0x%1 0x%2").arg(byte0, 2, 16, QChar('0')).arg(byte1, 2, 16, QChar('0'));
-            return;
-        }
+    // 2. 通用图像数据校验：非移动区域帧必须至少 2 字节
+    const bool isMoveRect = screenData.flags &
+        static_cast<quint8>(ScreenDataFlags::MOVE_RECT);
+    if (!isMoveRect && screenData.imageData.size() < 2) {
+        qCWarning(lcClient) << "SessionManager::handleScreenData() - Image data too small:"
+                           << screenData.imageData.size();
+        return;
     }
 
     // 3. 更新 remoteScreenSize（缩放场景）
@@ -247,6 +245,11 @@ void SessionManager::handleScreenData(const QByteArray& data) {
         if (screenData.originalWidth > 0 && screenData.originalHeight > 0) {
             m_remoteScreenSize = QSize(screenData.originalWidth, screenData.originalHeight);
         }
+    }
+
+    // 全帧 → 更新 remoteScreenSize
+    if (screenData.flags & static_cast<quint8>(ScreenDataFlags::FULL_FRAME)) {
+        m_remoteScreenSize = QSize(screenData.originalWidth, screenData.originalHeight);
     }
     // Note: 非缩放场景的尺寸更新移到了 DecodeWorker::processOneFrame() 中
 
