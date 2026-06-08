@@ -360,6 +360,14 @@ bool ThreadManager::destroyThread(const QString& name) {
 
     auto infoToDelete = m_threads.take(name);
     locker.unlock();
+
+    // 将 Worker 迁移回当前线程（主线程），避免 ~ThreadInfo() 中
+    // delete worker 时跨线程删除子 QObject（如 QTimer）触发访问违例。
+    // Worker 线程已通过 stopThread 确认停止，moveToThread 此时安全。
+    if (infoToDelete && infoToDelete->worker) {
+        infoToDelete->worker->moveToThread(QThread::currentThread());
+    }
+
     // unique_ptr 析构时自动清理 ThreadInfo（含 worker 和 thread）
     infoToDelete.reset();
 
