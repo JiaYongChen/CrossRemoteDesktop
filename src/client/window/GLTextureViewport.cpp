@@ -125,13 +125,20 @@ void GLTextureViewport::cleanupGLResources() {
                    this, &GLTextureViewport::cleanupGL);
     }
 
-    // 清理 GL 资源。无论 initializeGL 是否被调用过（窗口可能从未真正显示），
-    // 都要走完整清理流程，确保 m_ringBuffer.cleanup() 被调用，
-    // 避免 ~TextureRingBuffer() 报告 "destroyed without explicit cleanup()"。
-    // 此时窗口尚未隐藏，原生 QWindow 仍然有效，makeCurrent 可以成功。
-    makeCurrent();
-    cleanupGL();
-    doneCurrent();
+    // 仅在 GL 已初始化时才走完整 GL 清理路径。
+    // 若窗口从未真正显示（initializeGL 未被调用），说明
+    // - m_shaderProgram 未创建（无需 delete）
+    // - m_vertexBuffer/m_vao 未创建（无需 destroy）
+    // - m_ringBuffer 中的纹理/PBO 未分配（无需 GL 删除）
+    // 此时仅标记 ringBuffer 已清理（消除 ~TextureRingBuffer 误报），
+    // 不调用 makeCurrent() 以避免在无原生窗口时崩溃。
+    if (m_glInitialized) {
+        makeCurrent();
+        cleanupGL();
+        doneCurrent();
+    } else {
+        m_ringBuffer.cleanup();
+    }
 
     m_glCleanedUp = true;
 }
