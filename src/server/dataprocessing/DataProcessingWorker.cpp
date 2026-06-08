@@ -237,7 +237,7 @@ ProcessedData DataProcessingWorker::encodeImage(const QImage& image, quint64 fra
             }
         }
 
-        // 确保图像格式为 RGB888，这是 JPEG 格式推荐的格式
+        // 确保图像格式为 RGB888，这是 WebP/JPEG 编码推荐的格式
         // 在Windows下，Format_RGB32 更常用且兼容性更好
         QImage convertedImage = workingImage;
         if ( workingImage.format() != QImage::Format_RGB32 && workingImage.format() != QImage::Format_RGB888 ) {
@@ -251,7 +251,7 @@ ProcessedData DataProcessingWorker::encodeImage(const QImage& image, quint64 fra
             }
         }
 
-        // 使用 QBuffer 将图像编码为 JPEG 格式
+        // 使用 QBuffer 将图像编码为 WebP/JPEG 格式
         QByteArray jpegData;
         QBuffer buffer(&jpegData);
         
@@ -262,36 +262,46 @@ ProcessedData DataProcessingWorker::encodeImage(const QImage& image, quint64 fra
 
         // 每 100 帧输出一次编码信息，避免刷屏
         if ( frameId <= 3 || frameId % 100 == 0 ) {
-            qCDebug(lcDataProcessingWorker) << "编码JPEG，帧ID:" << frameId
+            qCDebug(lcDataProcessingWorker) << "编码帧，格式:WebP 帧ID:" << frameId
                 << "原始尺寸:" << image.size()
                 << "处理后尺寸:" << convertedImage.size()
                 << "缩放因子:" << scaleFactor
                 << "质量:" << quality;
         }
 
-        // 使用传入的JPEG质量参数
-        bool saveSuccess = convertedImage.save(&buffer, "JPG", quality);
-        buffer.close();
-        
+        // WebP 编码（Qt 6 内置，跨平台零依赖）
+        bool saveSuccess = convertedImage.save(&buffer, "WEBP", quality);
+
+        // WebP 编码失败时回退 JPEG（兼容无 WebP 插件的 Qt 构建）
+        if (!saveSuccess || jpegData.isEmpty()) {
+            qCWarning(lcDataProcessingWorker) << "WebP 编码失败，回退 JPEG 编码，帧ID:" << frameId;
+            buffer.close();
+            QBuffer jpegBuffer(&jpegData);
+            jpegBuffer.open(QIODevice::WriteOnly);
+            saveSuccess = convertedImage.save(&jpegBuffer, "JPG",
+                CoreConstants::Compression::FALLBACK_JPEG_QUALITY);
+            jpegBuffer.close();
+        }
+
         if ( !saveSuccess ) {
             // 第一次诊断输出，记录更详细的错误信息
             static bool diagnosticPrinted = false;
             if ( !diagnosticPrinted ) {
-                qCWarning(lcDataProcessingWorker) << "JPEG编码失败诊断信息:";
+                qCWarning(lcDataProcessingWorker) << "WebP/JPEG 编码失败诊断信息:";
                 qCWarning(lcDataProcessingWorker) << "  图像尺寸:" << convertedImage.size();
                 qCWarning(lcDataProcessingWorker) << "  图像格式:" << convertedImage.format();
-                qCWarning(lcDataProcessingWorker) << "  支持的图像格式:" 
+                qCWarning(lcDataProcessingWorker) << "  支持的图像格式:"
                     << QImageWriter::supportedImageFormats();
                 diagnosticPrinted = true;
             }
-            
-            qCWarning(lcDataProcessingWorker) << "无法将图像编码为JPEG格式，帧ID:" << frameId
+
+            qCWarning(lcDataProcessingWorker) << "无法将图像编码为 WebP/JPEG 格式，帧ID:" << frameId
                 << "图像尺寸:" << convertedImage.size() << "格式:" << convertedImage.format();
             return result;
         }
 
         if ( jpegData.isEmpty() ) {
-            qCWarning(lcDataProcessingWorker) << "JPEG编码结果为空，帧ID:" << frameId;
+            qCWarning(lcDataProcessingWorker) << "编码结果为空，帧ID:" << frameId;
             return result;
         }
 
