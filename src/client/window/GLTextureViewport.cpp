@@ -242,9 +242,12 @@ void GLTextureViewport::cleanupGL() {
 // ============================================================================
 
 void GLTextureViewport::doPreRender() {
-    // 窗口关闭中或 GL 已清理 → 静默丢弃，防止在无原生窗口的 widget 上
+    // 窗口关闭中 → 静默丢弃，防止在无原生窗口的 widget 上
     // 调用 makeCurrent() 导致崩溃（Windows 平台 QWindow 销毁后不可恢复）。
-    if (m_glCleanedUp || !m_shaderProgram)
+    // 注意：不能用 !m_shaderProgram 做守卫 —— 窗口可能尚未首次变为可见
+    // （initializeGL 尚未调用），而此时 DecodeWorker 已经开始产出帧。
+    // 此时直接 return 会导致 TripleBuffer 永远不被消费，管线堵塞。
+    if (m_glCleanedUp)
         return;
 
     // 启动保底定时器（首次调用时）
@@ -252,7 +255,7 @@ void GLTextureViewport::doPreRender() {
         m_fallbackTimer->start();
     }
 
-    // 从 TripleBuffer 取出解码帧
+    // 从 TripleBuffer 取出解码帧（非阻塞）
     DecodedFrame* frame = nullptr;
     int idx = m_inputBuffer.getReadSlot(frame);
 
@@ -280,8 +283,8 @@ void GLTextureViewport::doPreRender() {
 }
 
 void GLTextureViewport::onFallbackTimer() {
-    // 窗口关闭中或 GL 已清理 → 静默停止定时器
-    if (m_glCleanedUp || !m_shaderProgram) {
+    // 窗口关闭中 → 静默停止定时器
+    if (m_glCleanedUp) {
         if (m_fallbackTimer) m_fallbackTimer->stop();
         return;
     }
