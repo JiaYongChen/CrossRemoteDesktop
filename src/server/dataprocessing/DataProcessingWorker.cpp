@@ -323,17 +323,6 @@ ProcessedData DataProcessingWorker::encodeImage(const QImage& image, quint64 fra
         // WebP 编码（Qt 6 内置，跨平台零依赖）
         bool saveSuccess = convertedImage.save(&buffer, "WEBP", quality);
 
-        // WebP 编码失败时回退 JPEG（兼容无 WebP 插件的 Qt 构建）
-        if (!saveSuccess || jpegData.isEmpty()) {
-            qCWarning(lcDataProcessingWorker) << "WebP 编码失败，回退 JPEG 编码，帧ID:" << frameId;
-            buffer.close();
-            QBuffer jpegBuffer(&jpegData);
-            jpegBuffer.open(QIODevice::WriteOnly);
-            saveSuccess = convertedImage.save(&jpegBuffer, "JPG",
-                CoreConstants::Compression::FALLBACK_JPEG_QUALITY);
-            jpegBuffer.close();
-        }
-
         if ( !saveSuccess ) {
             // 第一次诊断输出，记录更详细的错误信息
             static bool diagnosticPrinted = false;

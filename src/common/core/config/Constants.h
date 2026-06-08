@@ -27,7 +27,6 @@ public:
      */
     struct Compression {
         static constexpr int DEFAULT_WEBP_QUALITY = 95;                 ///< 默认 WebP 质量（近无损）
-        static constexpr int FALLBACK_JPEG_QUALITY = 85;                ///< 回退 JPEG 质量（WebP 编码失败时）
         static constexpr int SMALL_REGION_PNG_THRESHOLD = 64;           ///< 脏区域 ≤64×64px 使用 PNG
         static constexpr double SCALE_FACTOR_HIGH = 1.0;                ///< 高清缩放因子
     };
