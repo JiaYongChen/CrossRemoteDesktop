@@ -581,6 +581,10 @@ void ClientHandlerWorker::onError(QAbstractSocket::SocketError error) {
             shouldForceDisconnect = true;
             break;
         case QAbstractSocket::NetworkError:
+            // NetworkError 常因客户端先断开、服务端在收到 disconnected 信号前
+            // 尝试发送数据而触发。若套接字已处于 UnconnectedState，
+            // 说明是正常断连的副作用——仍需 forceDisconnect() 做清理，
+            // 但不向上 emit errorOccurred 避免对正常关连弹窗。
             errorCategory = "网络错误";
             shouldForceDisconnect = true;
             break;
@@ -606,8 +610,13 @@ void ClientHandlerWorker::onError(QAbstractSocket::SocketError error) {
         << ", 是否强制断开:" << (shouldForceDisconnect ? "是" : "否");
 
     // 客户端主动断开（RemoteHostClosedError）是正常关闭流程，不视为服务端错误。
-    // 其余错误才向上通知，避免 MainWindow 对正常断连弹窗警告。
-    if ( error != QAbstractSocket::RemoteHostClosedError ) {
+    // NetworkError 在套接字已断开时同样是正常断连的副作用——写入失败而非真正网络故障。
+    // 这些不向上通知，避免 MainWindow 对正常断连弹窗 "服务器错误/无法写入"。
+    bool isNormalDisconnect = (error == QAbstractSocket::RemoteHostClosedError)
+                           || (error == QAbstractSocket::NetworkError
+                               && m_socket
+                               && m_socket->state() == QAbstractSocket::UnconnectedState);
+    if (!isNormalDisconnect) {
         emit errorOccurred(errorString);
     }
 
