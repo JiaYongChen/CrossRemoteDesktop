@@ -26,8 +26,12 @@ public:
      * @brief 图像压缩相关常量
      */
     struct Compression {
-        static constexpr int DEFAULT_WEBP_QUALITY = 95;                 ///< 默认 WebP 质量（近无损）
-        static constexpr double SCALE_FACTOR_HIGH = 1.0;                ///< 高清缩放因子
+#ifdef QT_DEBUG
+        static constexpr int DEFAULT_WEBP_QUALITY = 30;       ///< WebP 质量（Debug 构建低质量，保证编码速度）
+#else
+        static constexpr int DEFAULT_WEBP_QUALITY = 95;       ///< WebP 质量（Release 构建近无损）
+#endif
+        static constexpr double SCALE_FACTOR_HIGH = 1.0;      ///< 高清缩放因子
     };
 
     /**
