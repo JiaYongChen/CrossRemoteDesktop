@@ -268,39 +268,22 @@ void ScreenCaptureWorker::performCapture() {
             const int captureTimeout = std::max(1,
                 static_cast<int>(m_frameDelay.count()));
 
-            static bool s_firstFrame = true;
-            CaptureResult capResult = m_dxgiCapture->captureFrameWithDirtyRects(
-                s_firstFrame ? 1000 : captureTimeout);
+            QImage capturedImage = m_dxgiCapture->captureFrame(captureTimeout);
 
-            if (!capResult.fullImage.isNull()) {
+            if (!capturedImage.isNull()) {
                 m_dxgiReinitAttempts = 0;
-                s_firstFrame = false;
 
-                // 计算帧ID并更新总帧数（必须在入队前完成）
-                quint64 currentFrameId;
-                {
-                    QMutexLocker locker(&m_statsMutex);
-                    currentFrameId = ++m_stats.totalFramesCaptured;
-                }
+                if (m_queueManager) {
+                    CapturedFrame frame(std::move(capturedImage),
+                        ++m_stats.totalFramesCaptured);
+                    frame.timestamp = QDateTime::currentDateTime();
 
-                if (capResult.isFullFrame) {
-                    // 全帧路径
-                    enqueueFullFrame(capResult, currentFrameId);
-                } else {
-                    // 区域路径：逐个入队脏矩形/移动矩形
-                    for (const auto& dr : capResult.dirtyRects) {
-                        if (dr.isMoveRect) {
-                            enqueueMoveRect(dr, currentFrameId);
-                        } else {
-                            // 从全帧暂存图像中裁剪区域
-                            QImage regionCrop = capResult.fullImage.copy(dr.rect);
-                            enqueueDirtyRegion(std::move(regionCrop), dr.rect,
-                                capResult.desktopSize, currentFrameId);
-                        }
+                    if (!m_queueManager->enqueueCapturedFrame(frame)) {
+                        QMutexLocker locker(&m_statsMutex);
+                        m_stats.droppedFrames++;
                     }
                 }
 
-                // 更新性能统计和时间戳
                 auto captureEndTime = std::chrono::steady_clock::now();
                 auto captureTime = std::chrono::duration_cast<std::chrono::milliseconds>(
                     captureEndTime - captureStartTime);
@@ -314,20 +297,20 @@ void ScreenCaptureWorker::performCapture() {
                 }
                 m_lastCaptureTime = std::chrono::steady_clock::now();
                 return;
-            } else {
-                // DXGI 超时或错误 — 保留原有恢复逻辑
-                if (!m_dxgiCapture->isInitialized()
-                    && m_dxgiReinitAttempts++ <= MAX_DXGI_REINIT_ATTEMPTS) {
-                    qCWarning(lcScreenCaptureWorker) << "DXGI access lost, reinit attempt"
-                        << m_dxgiReinitAttempts;
-                    if (m_dxgiCapture->reinitialize()) {
-                        m_dxgiReinitAttempts = 0;
-                    }
-                } else if (!m_dxgiCapture->isInitialized()) {
-                    m_dxgiAvailable = false;
-                }
-                return;
             }
+
+            // DXGI timeout or access lost
+            if (!m_dxgiCapture->isInitialized()
+                && m_dxgiReinitAttempts++ <= MAX_DXGI_REINIT_ATTEMPTS) {
+                qCWarning(lcScreenCaptureWorker) << "DXGI access lost, reinit attempt"
+                    << m_dxgiReinitAttempts;
+                if (m_dxgiCapture->reinitialize()) {
+                    m_dxgiReinitAttempts = 0;
+                }
+            } else if (!m_dxgiCapture->isInitialized()) {
+                m_dxgiAvailable = false;
+            }
+            return;
         }
 #endif
 
@@ -394,56 +377,6 @@ void ScreenCaptureWorker::performCapture() {
         handleCaptureError("未知捕获异常");
     }
     m_lastCaptureTime = std::chrono::steady_clock::now();
-}
-
-void ScreenCaptureWorker::enqueueFullFrame(const CaptureResult& cap, quint64 frameId) {
-    if (!m_queueManager) return;
-
-    CapturedFrame frame;
-    frame.image        = std::make_shared<QImage>(cap.fullImage);
-    frame.frameId      = frameId;
-    frame.originalSize = cap.desktopSize;
-    frame.timestamp    = QDateTime::currentDateTime();
-    frame.isFullFrame  = true;
-    frame.dirtyRect    = QRect(QPoint(0, 0), cap.desktopSize);
-
-    if (!m_queueManager->enqueueCapturedFrame(frame)) {
-        QMutexLocker locker(&m_statsMutex);
-        m_stats.droppedFrames++;
-    }
-}
-
-void ScreenCaptureWorker::enqueueDirtyRegion(QImage&& image, const QRect& rect,
-    const QSize& desktopSize, quint64 frameId) {
-    if (!m_queueManager) return;
-
-    CapturedFrame frame(std::move(image), frameId);
-    frame.originalSize = desktopSize;
-    frame.isFullFrame  = false;
-    frame.dirtyRect    = rect;
-
-    if (!m_queueManager->enqueueCapturedFrame(frame)) {
-        QMutexLocker locker(&m_statsMutex);
-        m_stats.droppedFrames++;
-    }
-}
-
-void ScreenCaptureWorker::enqueueMoveRect(const DirtyRect& dr, quint64 frameId) {
-    if (!m_queueManager) return;
-
-    CapturedFrame frame;
-    frame.frameId     = frameId;
-    frame.isFullFrame = false;
-    frame.isMoveRect  = true;
-    frame.moveSrc     = dr.moveSrc;
-    frame.moveDst     = QPoint(dr.rect.x(), dr.rect.y());
-    frame.moveSize    = dr.rect.size();
-    frame.dirtyRect   = dr.rect;
-
-    if (!m_queueManager->enqueueCapturedFrame(frame)) {
-        QMutexLocker locker(&m_statsMutex);
-        m_stats.droppedFrames++;
-    }
 }
 
 QImage ScreenCaptureWorker::captureScreen() {

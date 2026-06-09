@@ -1,6 +1,5 @@
 #pragma once
 
-#include <QtCore/QMutex>
 #include <QtCore/QObject>
 #include <QtCore/QSize>
 #include <QtGui/QImage>
@@ -57,9 +56,6 @@ private:
     ThreadSafeQueue<DecodeTask> m_queue{4};
     TripleBuffer<DecodedFrame>* m_outputBuffer = nullptr;
     QImage m_decodeBuffer;
-    QImage m_compositorBuffer;         ///< 全尺寸远端桌面缓冲
-    mutable QMutex m_compositorMutex;   ///< 保护 compositor buffer 写入
-    std::atomic<bool> m_compositorReady{false}; ///< 是否已初始化（收到首全帧后为 true）
     std::atomic<quint64> m_nextFrameId{1};
     std::atomic<bool> m_running{false};
 };

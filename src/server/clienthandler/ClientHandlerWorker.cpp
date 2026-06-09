@@ -281,8 +281,8 @@ void ClientHandlerWorker::sendScreenDataFromQueue() {
             continue;
         }
 
-        // 全帧间隔控制
-        if ( processedData.isFullFrame ) {
+        // 全帧间隔控制（所有帧均为全帧，防止瞬间流量冲击客户端）
+        {
             const auto now = std::chrono::steady_clock::now();
             if ( m_lastScreenSendTime.time_since_epoch().count() != 0 ) {
                 const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -295,26 +295,20 @@ void ClientHandlerWorker::sendScreenDataFromQueue() {
             m_lastScreenSendTime = std::chrono::steady_clock::now();
         }
 
-        // 构造 ScreenData 并序列化到 batch
+        // 构造 ScreenData（始终全帧）
         ScreenData screenData;
-        screenData.x = static_cast<quint16>(processedData.dirtyRect.x());
-        screenData.y = static_cast<quint16>(processedData.dirtyRect.y());
+        screenData.x = 0;
+        screenData.y = 0;
         screenData.imageData = std::move(processedData.compressedData);
-        screenData.width  = static_cast<quint16>(processedData.isMoveRect
-            ? processedData.moveSize.width()
-            : processedData.imageSize.width());
-        screenData.height = static_cast<quint16>(processedData.isMoveRect
-            ? processedData.moveSize.height()
-            : processedData.imageSize.height());
+        screenData.width  = static_cast<quint16>(processedData.imageSize.width());
+        screenData.height = static_cast<quint16>(processedData.imageSize.height());
         screenData.originalWidth  = static_cast<quint16>(processedData.originalImageSize.width());
         screenData.originalHeight = static_cast<quint16>(processedData.originalImageSize.height());
         screenData.dataSize = processedData.compressedDataSize;
         screenData.captureTimestamp = processedData.captureTimestamp;
 
-        quint8 flags = static_cast<quint8>(ScreenDataFlags::NONE);
-        if (processedData.isScaled)    flags |= static_cast<quint8>(ScreenDataFlags::SCALED);
-        if (processedData.isFullFrame) flags |= static_cast<quint8>(ScreenDataFlags::FULL_FRAME);
-        if (processedData.isMoveRect)  flags |= static_cast<quint8>(ScreenDataFlags::MOVE_RECT);
+        quint8 flags = static_cast<quint8>(ScreenDataFlags::FULL_FRAME);
+        if (processedData.isScaled) flags |= static_cast<quint8>(ScreenDataFlags::SCALED);
         screenData.flags = flags;
 
         QByteArray msg = Protocol::createMessage(MessageType::SCREEN_DATA, screenData);

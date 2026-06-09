@@ -242,75 +242,30 @@ void GLTextureViewport::cleanupGL() {
 // ============================================================================
 
 void GLTextureViewport::doPreRender() {
-    // 窗口关闭中 → 静默丢弃，防止在无原生窗口的 widget 上
-    // 调用 makeCurrent() 导致崩溃（Windows 平台 QWindow 销毁后不可恢复）。
-    // 注意：不能用 !m_shaderProgram 做守卫 —— 窗口可能尚未首次变为可见
-    // （initializeGL 尚未调用），而此时 DecodeWorker 已经开始产出帧。
-    // 此时直接 return 会导致 TripleBuffer 永远不被消费，管线堵塞。
     if (m_glCleanedUp)
         return;
 
-    // 启动保底定时器（首次调用时）
     if (m_fallbackTimer && !m_fallbackTimer->isActive()) {
         m_fallbackTimer->start();
     }
 
-    // 从 TripleBuffer 取出解码帧（非阻塞）
     DecodedFrame* frame = nullptr;
     int idx = m_inputBuffer.getReadSlot(frame);
 
     if (idx >= 0 && frame && !frame->image.isNull()) {
         makeCurrent();
-
-        // Resolution change → reallocate textures
-        if (frame->remoteSize != m_ringBuffer.textureSize()) {
-            m_ringBuffer.reallocate(frame->remoteSize);
-        }
-
-        if (frame->isFullFrame || !m_ringBuffer.textureSize().isValid()) {
-            // Full frame: complete glTexImage2D (reallocates texture storage)
-            int slotIdx = m_ringBuffer.acquireWriteSlot(frame->frameId);
-            if (slotIdx >= 0) {
-                GLsync fence = m_ringBuffer.uploadToSlot(slotIdx, frame->image);
-                if (fence) {
-                    m_ringBuffer.submitSlot(slotIdx, fence);
-                } else {
-                    m_ringBuffer.cancelSlot(slotIdx);
-                }
-            }
-        } else {
-            // Regional update: glTexSubImage2D (needs existing texture ID on slot)
-            int slotIdx = m_ringBuffer.acquireWriteSlot(frame->frameId);
-            if (slotIdx >= 0) {
-                // Ensure base texture exists (first regional frame after init)
-                if (m_ringBuffer.textureId(slotIdx) == 0) {
-                    // Initialize texture with full compositor buffer
-                    GLsync fence = m_ringBuffer.uploadToSlot(slotIdx, frame->image);
-                    if (fence) {
-                        m_ringBuffer.submitSlot(slotIdx, fence);
-                    } else {
-                        m_ringBuffer.cancelSlot(slotIdx);
-                    }
-                } else {
-                    // Upload only the dirty region
-                    QRect subRect = frame->dirtyRect;
-                    if (subRect.isEmpty()) {
-                        subRect = QRect(QPoint(0,0), frame->image.size());
-                    }
-                    GLsync fence = m_ringBuffer.uploadSubImage(slotIdx,
-                        frame->image, subRect);
-                    if (fence) {
-                        m_ringBuffer.submitSlot(slotIdx, fence);
-                    } else {
-                        m_ringBuffer.cancelSlot(slotIdx);
-                    }
-                }
+        int slotIdx = m_ringBuffer.acquireWriteSlot(frame->frameId);
+        if (slotIdx >= 0) {
+            GLsync fence = m_ringBuffer.uploadToSlot(slotIdx, frame->image);
+            if (fence) {
+                m_ringBuffer.submitSlot(slotIdx, fence);
+            } else {
+                m_ringBuffer.cancelSlot(slotIdx);
             }
         }
         doneCurrent();
     }
 
-    // 尝试收割已就绪的 fence
     makeCurrent();
     bool ready = m_ringBuffer.pollFences();
     doneCurrent();

@@ -231,10 +231,8 @@ void SessionManager::handleScreenData(const QByteArray& data) {
         return;
     }
 
-    // 2. 通用图像数据校验：非移动区域帧必须至少 2 字节
-    const bool isMoveRect = screenData.flags &
-        static_cast<quint8>(ScreenDataFlags::MOVE_RECT);
-    if (!isMoveRect && screenData.imageData.size() < 2) {
+    // 2. 图像数据校验
+    if (screenData.imageData.size() < 2) {
         qCWarning(lcClient) << "SessionManager::handleScreenData() - Image data too small:"
                            << screenData.imageData.size();
         return;
