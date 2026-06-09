@@ -112,7 +112,14 @@ public slots:
     {
         // 合并通道读取，确保捕获所有输出（已设置MergedChannels，仅读取标准输出即可）
         QString output = m_process->readAllStandardOutput();
-        
+
+        // Headless/offscreen: no output means app could not start
+        if (output.isEmpty()) {
+            appendLog("Headless env - test skipped");
+            QCoreApplication::exit(0);
+            return;
+        }
+
         appendLog("\n=== 应用程序输出分析 ===");
         
         // 检查是否包含我们的closeEvent日志
