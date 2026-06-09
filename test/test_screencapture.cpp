@@ -138,10 +138,14 @@ private slots:
 void TestScreenCapture::initTestCase()
 {
     qCDebug(testScreenCapture, "开始ScreenCapture测试");
-    
+
     // 初始化线程管理器
     m_threadManager = ThreadManager::instance();
     QVERIFY(m_threadManager != nullptr);
+
+    // QueueManager 初始化（ScreenCapture 不再自行初始化，由测试负责）
+    bool qmInit = QueueManager::instance()->initialize(120, 120);
+    QVERIFY(qmInit);
 }
 
 void TestScreenCapture::cleanupTestCase()

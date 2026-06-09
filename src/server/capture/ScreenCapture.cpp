@@ -18,15 +18,7 @@ ScreenCapture::ScreenCapture(QObject* parent)
     , m_statsTimer(new QTimer(this)) {
     qCDebug(lcScreenCaptureManager) << "ScreenCapture 多线程管理器构造函数调用";
 
-    // 确保队列管理器初始化（测试环境可能未主动初始化）
-    if ( QueueManager::instance() ) {
-        // 流水池模型：两个队列容量均为120，配合FIFO出队+PQ背压
-        QueueManager::instance()->initialize(
-            CoreConstants::Capture::CAPTURE_QUEUE_SIZE,
-            CoreConstants::Capture::PROCESSED_QUEUE_SIZE);
-    } else {
-        qCWarning(lcScreenCaptureManager) << "QueueManager::instance()返回空指针，队列功能不可用";
-    }
+    // QueueManager 由 ServerManager 统一初始化，此处无需重复调用
 
     // 初始化性能统计
     resetPerformanceStats();
