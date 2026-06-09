@@ -259,19 +259,19 @@ void ClientHandlerWorker::sendScreenDataFromQueue() {
         return;
     }
 
-    // === 批量排空模式 ===
-    // 一次调用中循环取帧发送，消除 processTask → QueuedConnection → sendScreen 的往返延迟。
-    // 区域帧/移动帧零间隔；全帧之间保留最小间隔（防止瞬时大面积流量冲击客户端缓冲区）。
-    static constexpr int kMaxBatchFrames = 16;       // 单批次最多 16 帧
-    static constexpr auto kFullFrameMinInterval = std::chrono::milliseconds(4);  // 全帧间最小间隔
+    // === 循环排空模式 ===
+    // 一次调用中循环取帧并立即发送，消除 processTask → QueuedConnection 的往返延迟。
+    // 每帧取到即发（不攒批次），保持首帧延迟最低。
+    // 全帧之间保留最小间隔避免 TCP 缓冲区瞬间撑满。
+    static constexpr int kMaxBatchFrames = 16;
+    static constexpr auto kFullFrameMinInterval = std::chrono::milliseconds(4);
 
     int sentCount = 0;
-    m_sendBuffer.clear();
 
     while (sentCount < kMaxBatchFrames) {
         ProcessedData processedData;
         if ( !m_queueManager->dequeueProcessedData(processedData) ) {
-            break;  // 队列空，停止排空
+            break;  // 队列空
         }
 
         if ( !processedData.isValid() ) {
@@ -279,16 +279,13 @@ void ClientHandlerWorker::sendScreenDataFromQueue() {
             continue;
         }
 
-        // 全帧间间隔控制
-        const bool isFullFrame = processedData.isFullFrame;
-        if ( isFullFrame ) {
+        // 全帧间隔控制
+        if ( processedData.isFullFrame ) {
             const auto now = std::chrono::steady_clock::now();
             if ( m_lastScreenSendTime.time_since_epoch().count() != 0 ) {
                 const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
                     now - m_lastScreenSendTime);
                 if ( elapsed < kFullFrameMinInterval ) {
-                    // 放回队列（下次再取），停止本批次
-                    // 注意：全帧体积大,单独发送避免挤占后续区域帧
                     m_queueManager->enqueueProcessedData(processedData);
                     break;
                 }
@@ -296,11 +293,11 @@ void ClientHandlerWorker::sendScreenDataFromQueue() {
             m_lastScreenSendTime = std::chrono::steady_clock::now();
         }
 
-        // 构造 ScreenData
+        // 取到即发：逐帧立即 socket::write()，不等批次攒满
         ScreenData screenData;
         screenData.x = static_cast<quint16>(processedData.dirtyRect.x());
         screenData.y = static_cast<quint16>(processedData.dirtyRect.y());
-        screenData.imageData = std::move(processedData.compressedData);  // 移动语义，避免拷贝
+        screenData.imageData = std::move(processedData.compressedData);
         screenData.width  = static_cast<quint16>(processedData.isMoveRect
             ? processedData.moveSize.width()
             : processedData.imageSize.width());
@@ -318,20 +315,11 @@ void ClientHandlerWorker::sendScreenDataFromQueue() {
         if (processedData.isMoveRect)  flags |= static_cast<quint8>(ScreenDataFlags::MOVE_RECT);
         screenData.flags = flags;
 
-        // 序列化到批次缓冲区
-        QByteArray message = Protocol::createMessage(MessageType::SCREEN_DATA, screenData);
-        m_sendBuffer.append(message);
-
+        sendMessage(MessageType::SCREEN_DATA, screenData);
         ++sentCount;
     }
 
-    // 一次性写入批次内所有帧
-    if ( !m_sendBuffer.isEmpty() ) {
-        sendEncodedMessage(m_sendBuffer);
-        m_sendBuffer.clear();
-    }
-
-    // 批次结束后，若队列仍有数据，重新投递（确保不丢帧）
+    // 批次结束后，若队列仍有数据，重新投递以确保不丢帧
     if ( sentCount >= kMaxBatchFrames
         && !m_sendScreenDataPending.exchange(true) ) {
         QMetaObject::invokeMethod(this, "sendScreenDataFromQueue", Qt::QueuedConnection);
