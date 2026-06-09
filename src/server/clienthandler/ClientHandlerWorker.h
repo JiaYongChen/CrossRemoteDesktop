@@ -336,8 +336,10 @@ private:
     // without this flag, pending invocations pile up if the event loop is slow.
     std::atomic<bool> m_sendScreenDataPending{ false };
 
-    // 屏幕数据发送节律控制：记录上次发送时间，强制帧间隔均匀化，
-    // 消除编码批处理导致的"簇式发送"，让客户端 paintGL 每帧都有机会渲染。
+    // 发送节律控制：全帧之间保留最小间隔，避免瞬时大面积流量冲击客户端
     std::chrono::steady_clock::time_point m_lastScreenSendTime{};
+
+    // 批量发送缓冲区：复用 QByteArray 避免每帧分配，最多积累 16 帧的数据
+    QByteArray m_sendBuffer;
 };
 

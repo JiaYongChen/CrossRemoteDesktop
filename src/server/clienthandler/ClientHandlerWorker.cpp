@@ -251,17 +251,6 @@ void ClientHandlerWorker::processTask() {
 void ClientHandlerWorker::sendScreenDataFromQueue() {
     m_sendScreenDataPending.store(false);
 
-    // 发送节律控制：强制两帧之间至少间隔 8ms（匹配 120FPS 捕获节奏），
-    // 消除编码批处理导致的"簇式发送"，让帧均匀流出而非 4 帧在 20ms 内全部发出。
-    constexpr auto kMinSendInterval = std::chrono::milliseconds(8);
-    const auto now = std::chrono::steady_clock::now();
-    if (m_lastScreenSendTime.time_since_epoch().count() != 0) {
-        const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_lastScreenSendTime);
-        if (elapsed < kMinSendInterval) {
-            return;  // 冷却中，帧留在 PQ，下轮再取
-        }
-    }
-
     if ( !m_socket || m_socket->state() != QAbstractSocket::ConnectedState ) {
         return;
     }
@@ -270,39 +259,83 @@ void ClientHandlerWorker::sendScreenDataFromQueue() {
         return;
     }
 
-    ProcessedData processedData;
-    if ( !m_queueManager->dequeueProcessedData(processedData) ) {
-        return;
+    // === 批量排空模式 ===
+    // 一次调用中循环取帧发送，消除 processTask → QueuedConnection → sendScreen 的往返延迟。
+    // 区域帧/移动帧零间隔；全帧之间保留最小间隔（防止瞬时大面积流量冲击客户端缓冲区）。
+    static constexpr int kMaxBatchFrames = 16;       // 单批次最多 16 帧
+    static constexpr auto kFullFrameMinInterval = std::chrono::milliseconds(4);  // 全帧间最小间隔
+
+    int sentCount = 0;
+    m_sendBuffer.clear();
+
+    while (sentCount < kMaxBatchFrames) {
+        ProcessedData processedData;
+        if ( !m_queueManager->dequeueProcessedData(processedData) ) {
+            break;  // 队列空，停止排空
+        }
+
+        if ( !processedData.isValid() ) {
+            qCWarning(lcClientHandlerWorker) << "ProcessedData 无效，跳过发送";
+            continue;
+        }
+
+        // 全帧间间隔控制
+        const bool isFullFrame = processedData.isFullFrame;
+        if ( isFullFrame ) {
+            const auto now = std::chrono::steady_clock::now();
+            if ( m_lastScreenSendTime.time_since_epoch().count() != 0 ) {
+                const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    now - m_lastScreenSendTime);
+                if ( elapsed < kFullFrameMinInterval ) {
+                    // 放回队列（下次再取），停止本批次
+                    // 注意：全帧体积大,单独发送避免挤占后续区域帧
+                    m_queueManager->enqueueProcessedData(processedData);
+                    break;
+                }
+            }
+            m_lastScreenSendTime = std::chrono::steady_clock::now();
+        }
+
+        // 构造 ScreenData
+        ScreenData screenData;
+        screenData.x = static_cast<quint16>(processedData.dirtyRect.x());
+        screenData.y = static_cast<quint16>(processedData.dirtyRect.y());
+        screenData.imageData = std::move(processedData.compressedData);  // 移动语义，避免拷贝
+        screenData.width  = static_cast<quint16>(processedData.isMoveRect
+            ? processedData.moveSize.width()
+            : processedData.imageSize.width());
+        screenData.height = static_cast<quint16>(processedData.isMoveRect
+            ? processedData.moveSize.height()
+            : processedData.imageSize.height());
+        screenData.originalWidth  = static_cast<quint16>(processedData.originalImageSize.width());
+        screenData.originalHeight = static_cast<quint16>(processedData.originalImageSize.height());
+        screenData.dataSize = processedData.compressedDataSize;
+        screenData.captureTimestamp = processedData.captureTimestamp;
+
+        quint8 flags = static_cast<quint8>(ScreenDataFlags::NONE);
+        if (processedData.isScaled)    flags |= static_cast<quint8>(ScreenDataFlags::SCALED);
+        if (processedData.isFullFrame) flags |= static_cast<quint8>(ScreenDataFlags::FULL_FRAME);
+        if (processedData.isMoveRect)  flags |= static_cast<quint8>(ScreenDataFlags::MOVE_RECT);
+        screenData.flags = flags;
+
+        // 序列化到批次缓冲区
+        QByteArray message = Protocol::createMessage(MessageType::SCREEN_DATA, screenData);
+        m_sendBuffer.append(message);
+
+        ++sentCount;
     }
 
-    if ( !processedData.isValid() ) {
-        qCWarning(lcClientHandlerWorker) << "ProcessedData无效，跳过发送，帧ID:" << processedData.originalFrameId;
-        return;
+    // 一次性写入批次内所有帧
+    if ( !m_sendBuffer.isEmpty() ) {
+        sendEncodedMessage(m_sendBuffer);
+        m_sendBuffer.clear();
     }
 
-    ScreenData screenData;
-    screenData.x = static_cast<quint16>(processedData.dirtyRect.x());
-    screenData.y = static_cast<quint16>(processedData.dirtyRect.y());
-    screenData.imageData = processedData.compressedData;
-    screenData.width  = static_cast<quint16>(processedData.isMoveRect
-        ? processedData.moveSize.width()
-        : processedData.imageSize.width());
-    screenData.height = static_cast<quint16>(processedData.isMoveRect
-        ? processedData.moveSize.height()
-        : processedData.imageSize.height());
-    screenData.originalWidth  = static_cast<quint16>(processedData.originalImageSize.width());
-    screenData.originalHeight = static_cast<quint16>(processedData.originalImageSize.height());
-    screenData.dataSize = processedData.compressedDataSize;
-    screenData.captureTimestamp = processedData.captureTimestamp;
-
-    quint8 flags = static_cast<quint8>(ScreenDataFlags::NONE);
-    if (processedData.isScaled)    flags |= static_cast<quint8>(ScreenDataFlags::SCALED);
-    if (processedData.isFullFrame) flags |= static_cast<quint8>(ScreenDataFlags::FULL_FRAME);
-    if (processedData.isMoveRect)  flags |= static_cast<quint8>(ScreenDataFlags::MOVE_RECT);
-    screenData.flags = flags;
-
-    sendMessage(MessageType::SCREEN_DATA, screenData);
-    m_lastScreenSendTime = now;
+    // 批次结束后，若队列仍有数据，重新投递（确保不丢帧）
+    if ( sentCount >= kMaxBatchFrames
+        && !m_sendScreenDataPending.exchange(true) ) {
+        QMetaObject::invokeMethod(this, "sendScreenDataFromQueue", Qt::QueuedConnection);
+    }
 }
 
 void ClientHandlerWorker::sendCursorType() {
