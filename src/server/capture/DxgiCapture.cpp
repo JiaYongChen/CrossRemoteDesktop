@@ -481,13 +481,15 @@ CaptureResult DxgiCapture::captureFrameWithDirtyRects(int timeoutMs) {
             r.right - r.left, r.bottom - r.top));
     }
 
-    // 5. 合并
-    const int mergeThreshold = 16;
+    // 5. 合并相邻脏矩形（阈值 32px，消除碎片化以减少下游管线条目数）
+    const int mergeThreshold = 32;
     QVector<DirtyRect> merged = mergeDirtyRects(qDirtyRects, rawMoveRects,
         mergeThreshold, m_desktopSize);
 
-    // 6. 判断是否需要全帧模式（merged 为空说明 DXGI 未提供脏矩形，
-    //    或总面积 > 70%）
+    // 6. 判断是否需要全帧模式
+    //   (a) merged 为空：DXGI 未提供脏矩形
+    //   (b) 总面积 > 70%：回退全帧更高效
+    //   (c) 脏矩形 > 6 个：碎片化开销超过单帧编码开销，回退全帧
     qint64 totalDirtyArea = 0;
     for (const auto& dr : merged) {
         totalDirtyArea += static_cast<qint64>(dr.rect.width()) * dr.rect.height();
@@ -496,7 +498,8 @@ CaptureResult DxgiCapture::captureFrameWithDirtyRects(int timeoutMs) {
                                  * m_desktopSize.height();
 
     const bool useFullFrame = merged.isEmpty()
-        || (totalDirtyArea > totalScreenArea * 7 / 10);
+        || (totalDirtyArea > totalScreenArea * 7 / 10)
+        || (merged.size() > 6);  // 过多碎片的开销超过单帧编码
 
     // 7. 检查/调整桌面尺寸
     D3D11_TEXTURE2D_DESC texDesc{};

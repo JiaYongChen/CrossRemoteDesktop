@@ -259,19 +259,21 @@ void ClientHandlerWorker::sendScreenDataFromQueue() {
         return;
     }
 
-    // === 循环排空模式 ===
-    // 一次调用中循环取帧并立即发送，消除 processTask → QueuedConnection 的往返延迟。
-    // 每帧取到即发（不攒批次），保持首帧延迟最低。
-    // 全帧之间保留最小间隔避免 TCP 缓冲区瞬间撑满。
-    static constexpr int kMaxBatchFrames = 16;
+    // === 循环排空 + 本地批量写入 ===
+    // 一次调用中将 PQ 中所有帧取尽，拼接到一个本地 QByteArray 中，最后一次性
+    // socket::write()。不攒批次（不等待未来帧），只合并当前已就绪的帧。
+    static constexpr int kMaxBatchFrames = 32;
+    static constexpr int kMaxBatchBytes  = 262144;  // 256KB 上限
     static constexpr auto kFullFrameMinInterval = std::chrono::milliseconds(4);
 
+    QByteArray batch;
+    batch.reserve(65536);  // 预分配 64KB，减少扩容
     int sentCount = 0;
 
-    while (sentCount < kMaxBatchFrames) {
+    while (sentCount < kMaxBatchFrames && batch.size() < kMaxBatchBytes) {
         ProcessedData processedData;
         if ( !m_queueManager->dequeueProcessedData(processedData) ) {
-            break;  // 队列空
+            break;
         }
 
         if ( !processedData.isValid() ) {
@@ -293,7 +295,7 @@ void ClientHandlerWorker::sendScreenDataFromQueue() {
             m_lastScreenSendTime = std::chrono::steady_clock::now();
         }
 
-        // 取到即发：逐帧立即 socket::write()，不等批次攒满
+        // 构造 ScreenData 并序列化到 batch
         ScreenData screenData;
         screenData.x = static_cast<quint16>(processedData.dirtyRect.x());
         screenData.y = static_cast<quint16>(processedData.dirtyRect.y());
@@ -315,11 +317,16 @@ void ClientHandlerWorker::sendScreenDataFromQueue() {
         if (processedData.isMoveRect)  flags |= static_cast<quint8>(ScreenDataFlags::MOVE_RECT);
         screenData.flags = flags;
 
-        sendMessage(MessageType::SCREEN_DATA, screenData);
+        QByteArray msg = Protocol::createMessage(MessageType::SCREEN_DATA, screenData);
+        batch.append(msg);
         ++sentCount;
     }
 
-    // 批次结束后，若队列仍有数据，重新投递以确保不丢帧
+    // 一次性发出批次内所有帧
+    if ( !batch.isEmpty() ) {
+        sendEncodedMessage(batch);
+    }
+
     if ( sentCount >= kMaxBatchFrames
         && !m_sendScreenDataPending.exchange(true) ) {
         QMetaObject::invokeMethod(this, "sendScreenDataFromQueue", Qt::QueuedConnection);
