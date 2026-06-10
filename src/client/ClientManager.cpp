@@ -290,11 +290,31 @@ QString ClientManager::connectToHost(const QString& host, int port) {
     // 注册到连接表
     m_connections.insert(instance->connectionId, instance);
 
+    // Triple-buffered lock-free frame delivery: attach session's triple buffer
+    // to the GL viewport so paintGL() reads frames directly via atomics.
 #ifndef QT_NO_OPENGL
     {
         auto* gl = instance->remoteDesktopWindow->glViewport();
-        if (gl && instance->sessionManager) {
-            instance->sessionManager->setGLViewport(gl);
+        if ( gl && instance->sessionManager ) {
+            gl->attachFrameBuffer(instance->sessionManager->frameBuffer());
+
+            // Wire worker-thread GL upload: when the GL context is ready,
+            // store it so createDecodePipeline() can initialize the DecodeWorker
+            // with a shared GL context for direct GPU texture upload.
+            instance->sessionManager->setGLViewportForUpload(gl);
+
+            QObject::connect(gl, &GLTextureViewport::glContextReady,
+                instance->sessionManager,
+                [sm = instance->sessionManager.data()](QOpenGLContext* ctx) {
+                    sm->setGLContextForDecode(ctx);
+                }, Qt::QueuedConnection);
+
+            // Guard against signal race: if initializeGL() already fired
+            // (e.g., during processEvents in createRemoteDesktopWindow),
+            // the signal was lost — set directly.
+            if (gl->context() && gl->context()->isValid()) {
+                instance->sessionManager->setGLContextForDecode(gl->context());
+            }
         }
     }
 #endif

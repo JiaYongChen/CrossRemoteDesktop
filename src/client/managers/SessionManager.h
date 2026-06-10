@@ -1,12 +1,18 @@
 #pragma once
 
 #include <QtCore/QObject>
+#include <QtCore/QMutex>
+#include <QtGui/QPixmap>
 #include <QtGui/QImage>
 #include <QtCore/QDateTime>
+#include <QtCore/QQueue>
 #include <QtCore/QSize>
 #include "../../common/core/network/Protocol.h"
 #include "../../common/core/config/UiConstants.h"
 #include "../network/ConnectionManager.h"
+#include "../core/TripleBuffer.h"
+#include "../core/FrameSlot.h"
+#include <atomic>
 #include <chrono>
 
 class DecodeWorker;
@@ -15,6 +21,8 @@ class QTimer;
 
 #ifndef QT_NO_OPENGL
 class GLTextureViewport;
+class QOpenGLContext;
+class QOffscreenSurface;
 #endif
 
 class SessionManager : public QObject {
@@ -57,6 +65,8 @@ public slots:
     void sendClipboardText(const QString& text);
     void sendClipboardImage(const QByteArray& imageData, quint32 width, quint32 height);
 
+    // 配置（跨线程调用需要使用 slots）
+    void setFrameRate(int fps);
 
 public:
     // 性能统计
@@ -66,11 +76,17 @@ public:
     // 性能信息格式化
     QString getFormattedPerformanceInfo() const;
 
+    // 配置
+    int frameRate() const;
+
     // 连接信息
     QString currentHost() const;
     int currentPort() const;
     bool isConnected() const;
     bool isAuthenticated() const;
+
+    // Triple-buffered lock-free frame delivery
+    TripleBuffer<FrameSlot>* frameBuffer() { return &m_frameBuffer; }
 
     /// 创建并启动解码管线（在 startSession 中调用，认证成功后延迟创建）
     void createDecodePipeline();
@@ -79,8 +95,11 @@ public:
     void destroyDecodePipeline();
 
 #ifndef QT_NO_OPENGL
-    /// Set the GLTextureViewport reference for decode pipeline wiring.
-    void setGLViewport(GLTextureViewport* vp) { m_glViewport = vp; }
+    /// 设置解码管线使用的 GL 上下文（在 DecodeWorker 创建时使用）
+    void setGLContextForDecode(QOpenGLContext* context);
+
+    /// Set the GLTextureViewport reference for worker-side frame upload.
+    void setGLViewportForUpload(GLTextureViewport* vp) { m_glViewportForUpload = vp; }
 #endif
 
 public slots:
@@ -97,6 +116,7 @@ signals:
     void connectionReset();
 
     // 远程桌面数据更新信号
+    void screenUpdated(const QImage& screen);
     void screenRegionUpdated(const QImage& region, const QRect& rect);
     void performanceStatsUpdated(const PerformanceStats& stats);
     void sessionError(const QString& error);
@@ -129,6 +149,13 @@ private:
     // 远程桌面数据
     QSize m_remoteScreenSize;
 
+    // 帧数据缓存和线程安全
+    QByteArray m_previousFrameData;
+    mutable QMutex m_frameDataMutex;
+
+    // Triple-buffered lock-free frame delivery (replaces QQueue+QMutex+signal)
+    TripleBuffer<FrameSlot> m_frameBuffer;
+
     // 解码管线（认证成功后创建）
     DecodeWorker* m_decodeWorker = nullptr;
 
@@ -141,8 +168,12 @@ private:
     double m_smoothedFrameDuration = 0.0;  // EMA 平滑帧间隔（秒）
     static constexpr double kFpsAlpha = 0.1;     // EMA 平滑系数
 
+    // 配置
+    int m_frameRate;
+
 #ifndef QT_NO_OPENGL
-    GLTextureViewport* m_glViewport = nullptr;
+    GLTextureViewport* m_glViewportForUpload = nullptr;
+    QOpenGLContext* m_pendingGLContext = nullptr;
 #endif
 };
 

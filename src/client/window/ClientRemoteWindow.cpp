@@ -256,6 +256,27 @@ ConnectionManager::ConnectionState ClientRemoteWindow::connectionState() const {
     return m_connectionState;
 }
 
+// Screen display methods — direct GL path only
+void ClientRemoteWindow::setRemoteScreen(const QImage& image) {
+#ifndef QT_NO_OPENGL
+    if ( m_glViewport ) {
+        m_glViewport->uploadFrame(image);
+    }
+#else
+    Q_UNUSED(image)
+#endif
+}
+
+void ClientRemoteWindow::updateRemoteScreen(const QImage& screen) {
+#ifndef QT_NO_OPENGL
+    if ( m_glViewport ) {
+        m_glViewport->uploadFrame(screen);
+    }
+#else
+    Q_UNUSED(screen)
+#endif
+}
+
 // Scaling methods
 void ClientRemoteWindow::setScaleFactor(double factor) {
     if ( m_renderManager ) {
@@ -565,6 +586,10 @@ void ClientRemoteWindow::showDisconnectionDialog() {
     qCInfo(lcClientRemoteWindow) << "ClientRemoteWindow::showDisconnectionDialog() - User confirmed disconnect, closing window";
 
     close();
+}
+
+void ClientRemoteWindow::onScreenUpdated(const QImage& screen) {
+    updateRemoteScreen(screen);
 }
 
 void ClientRemoteWindow::onPerformanceStatsUpdated() {

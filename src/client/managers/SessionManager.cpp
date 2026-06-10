@@ -5,15 +5,24 @@
 #include "../../common/core/network/Protocol.h"
 #ifndef QT_NO_OPENGL
 #include "../window/GLTextureViewport.h"
+#include <QtGui/QOpenGLContext>
+#include <QtGui/QOpenGLExtraFunctions>
+#include <QtGui/QOffscreenSurface>
 #endif
+#include <QtCore/QBuffer>
+#include <QtCore/QDataStream>
 #include <QtCore/QThread>
 #include <QtCore/QTimer>
+#include <QtCore/QMutexLocker>
+#include <QtGui/QImageReader>
+#include <algorithm>
 
 SessionManager::SessionManager(const QString& connectionId, QObject* parent)
     : QObject(parent)
     , m_connectionId(connectionId)
     , m_connectionManager(new ConnectionManager(this))
-    , m_statsTimer(new QTimer(this)) {
+    , m_statsTimer(new QTimer(this))
+    , m_frameRate(60) {
 
     // SessionManager 拥有并管理 ConnectionManager
     setupConnections();
@@ -152,6 +161,7 @@ void SessionManager::resetStats() {
 QString SessionManager::getFormattedPerformanceInfo() const {
     QStringList info;
     info << QString("FPS: %1").arg(m_stats.currentFPS, 0, 'f', 1);
+    info << QString("Frame Rate: %1").arg(m_frameRate);
 
     if ( m_stats.sessionStartTime.isValid() ) {
         qint64 sessionDuration = m_stats.sessionStartTime.secsTo(QDateTime::currentDateTime());
@@ -159,6 +169,22 @@ QString SessionManager::getFormattedPerformanceInfo() const {
     }
 
     return info.join(" | ");
+}
+
+void SessionManager::setFrameRate(int fps) {
+    m_frameRate = qBound(1, fps, 120);
+
+    if ( isActive() && m_connectionManager && m_connectionManager->isAuthenticated() ) {
+        QByteArray data;
+        QDataStream stream(&data, QIODevice::WriteOnly);
+        stream << m_frameRate;
+        // ConfigUpdate not available in protocol, using HANDSHAKE_REQUEST
+        // m_connectionManager->sendMessage(MessageType::HANDSHAKE_REQUEST, data);
+    }
+}
+
+int SessionManager::frameRate() const {
+    return m_frameRate;
 }
 
 void SessionManager::onMessageReceived(MessageType type, const QByteArray& data) {
@@ -231,32 +257,37 @@ void SessionManager::handleScreenData(const QByteArray& data) {
         return;
     }
 
-    // 2. 图像数据校验
-    if (screenData.imageData.size() < 2) {
-        qCWarning(lcClient) << "SessionManager::handleScreenData() - Image data too small:"
-                           << screenData.imageData.size();
-        return;
+    // 2. JPEG 头部校验
+    if (screenData.imageData.size() >= 2) {
+        unsigned char byte0 = static_cast<unsigned char>(screenData.imageData[0]);
+        unsigned char byte1 = static_cast<unsigned char>(screenData.imageData[1]);
+        if (byte0 != 0xFF || byte1 != 0xD8) {
+            qCWarning(lcClient) << "SessionManager::handleScreenData() - Invalid JPEG header, first 2 bytes:"
+                                << QString("0x%1 0x%2").arg(byte0, 2, 16, QChar('0')).arg(byte1, 2, 16, QChar('0'));
+            return;
+        }
     }
 
-    // 3. 更新 remoteScreenSize（缩放场景）
+    // 3. 缓存 JPEG 数据（保留兼容性）
+    {
+        QMutexLocker locker(&m_frameDataMutex);
+        m_previousFrameData = screenData.imageData;
+    }
+
+    // 4. 更新 remoteScreenSize（缩放场景）
     if (screenData.flags & static_cast<quint8>(ScreenDataFlags::SCALED)) {
         if (screenData.originalWidth > 0 && screenData.originalHeight > 0) {
             m_remoteScreenSize = QSize(screenData.originalWidth, screenData.originalHeight);
         }
     }
-
-    // 全帧 → 更新 remoteScreenSize
-    if (screenData.flags & static_cast<quint8>(ScreenDataFlags::FULL_FRAME)) {
-        m_remoteScreenSize = QSize(screenData.originalWidth, screenData.originalHeight);
-    }
     // Note: 非缩放场景的尺寸更新移到了 DecodeWorker::processOneFrame() 中
 
-    // 4. 投递到解码线程（使用移动语义避免 imageData 深拷贝）
+    // 5. 投递到解码线程（使用移动语义避免 imageData 深拷贝）
     if (m_decodeWorker && m_decodeWorker->isRunning()) {
         // 在移动前捕获时间戳，用于端到端延迟诊断
         const quint64 captureTs = screenData.captureTimestamp;
         if (m_decodeWorker->enqueueFrame(std::move(screenData), m_remoteScreenSize)) {
-            // 5. FPS 统计（基于入队时间）
+            // 6. FPS 统计（基于入队时间）
             const auto now = std::chrono::steady_clock::now();
             if (m_lastFpsTime.time_since_epoch().count() != 0) {
                 const double instant = std::chrono::duration<double>(now - m_lastFpsTime).count();
@@ -328,17 +359,26 @@ void SessionManager::disconnectFromHost() {
 }
 
 void SessionManager::resetConnection() {
-    // 1) 清理帧时间队列
+    // 1) 清理帧数据缓存（QMutexLocker 保证线程安全）
+    {
+        QMutexLocker locker(&m_frameDataMutex);
+        m_previousFrameData.clear();
+    }
+
+    // 2) 清理帧时间队列
     m_lastFpsTime = {};
     m_smoothedFrameDuration = 0.0;
 
-    // 2) 重置远程屏幕尺寸
+    // 3) 重置远程屏幕尺寸
     m_remoteScreenSize = QSize();
 
-    // 3) 重置性能统计（包含 FPS、帧计数等）
+    // 4) 重置性能统计（包含 FPS、帧计数等）
     resetStats();
 
-    // 4) 通知外部（UI、RenderManager 等）连接已重置
+    // 5) 重置 TripleBuffer 索引，防止 GUI 线程读取上一次连接的过时帧
+    m_frameBuffer.reset();
+
+    // 6) 通知外部（UI、RenderManager 等）连接已重置
     emit connectionReset();
 
     qCInfo(lcClient) << "SessionManager::resetConnection() - Connection state reset complete";
@@ -390,22 +430,33 @@ void SessionManager::createDecodePipeline() {
         return;
     }
 
+    // 创建 DecodeThread
     QThread* decodeThread = new QThread();
     decodeThread->setObjectName(QString("DecodeThread-%1").arg(m_connectionId));
     decodeThread->start();
 
+    // 创建 DecodeWorker
     m_decodeWorker = new DecodeWorker(nullptr);
     m_decodeWorker->moveToThread(decodeThread);
 
+    // 设置 TripleBuffer 指针
+    m_decodeWorker->setFrameBuffer(&m_frameBuffer);
+
 #ifndef QT_NO_OPENGL
-    if (m_glViewport) {
-        m_decodeWorker->setOutputBuffer(m_glViewport->inputBuffer());
-        connect(m_decodeWorker, &DecodeWorker::frameDecoded,
-                m_glViewport, &GLTextureViewport::doPreRender,
-                Qt::QueuedConnection);
+    // 初始化 DecodeWorker 的 GL 上下文（如果已有）。
+    // 必须通过 QueuedConnection 在 DecodeThread 中执行，
+    // 因为 QOffscreenSurface::create() 内部创建 QWindow，
+    // 而 QWindow 是原生资源，创建后无法 moveToThread。
+    if (m_pendingGLContext && m_pendingGLContext->isValid()) {
+        QMetaObject::invokeMethod(m_decodeWorker, [w = m_decodeWorker, ctx = m_pendingGLContext]() {
+            w->initializeGL(ctx);
+        }, Qt::QueuedConnection);
     }
+    // setGLViewport 不需要 GL 上下文，直接设置即可
+    m_decodeWorker->setGLViewport(m_glViewportForUpload);
 #endif
 
+    // 连接 stopped 信号
     connect(m_decodeWorker, &DecodeWorker::stopped, this, [this]() {
         qCInfo(lcClient) << "SessionManager: DecodeWorker stopped for" << m_connectionId;
     });
@@ -414,12 +465,10 @@ void SessionManager::createDecodePipeline() {
         qCWarning(lcClient) << "SessionManager: Decode error for" << m_connectionId << ":" << msg;
     });
 
-    // 注意：不能调用 decodeThread->setParent(m_decodeWorker)，
-    // 因为 decodeThread (QThread) 活在当前线程 (SessionThread)，
-    // 而 m_decodeWorker 已被 moveToThread(decodeThread) 迁到 DecodeThread。
-    // 跨线程 setParent 会触发 Qt 警告，且析构时可能 crash。
-    // 线程生命周期由 destroyDecodePipeline() 显式管理：quit → wait → delete worker。
+    // 让 worker 拥有线程（通过 parent），destroyDecodePipeline 中 delete worker 时自动清理
+    decodeThread->setParent(m_decodeWorker);
 
+    // 启动工作循环
     QMetaObject::invokeMethod(m_decodeWorker, "start", Qt::QueuedConnection);
 
     qCInfo(lcClient) << "SessionManager: DecodePipeline created for" << m_connectionId
@@ -427,38 +476,51 @@ void SessionManager::createDecodePipeline() {
 }
 
 void SessionManager::destroyDecodePipeline() {
-    if (!m_decodeWorker) return;
+    if (!m_decodeWorker) {
+        return;
+    }
 
-    qCInfo(lcClient) << "SessionManager::destroyDecodePipeline() - Stopping decode pipeline for"
-                     << m_connectionId;
+    qCInfo(lcClient) << "SessionManager::destroyDecodePipeline() - Stopping decode pipeline for" << m_connectionId;
 
-#ifndef QT_NO_OPENGL
-    disconnect(m_decodeWorker, &DecodeWorker::frameDecoded,
-               m_glViewport, &GLTextureViewport::doPreRender);
-#endif
-
+    // 1. 停止队列（唤醒所有阻塞操作）
     m_decodeWorker->requestStop();
 
+    // 2. 获取 DecodeThread 引用
     QThread* decodeThread = m_decodeWorker->thread();
+
+    // 3. 在 DecodeThread 上下文内清理 GL 资源（必须在线程 quit 之前执行）。
+    //    因为 m_glContext（QOpenGLContext*）和 m_glSurface（QOffscreenSurface*）
+    //    在 initializeGL() 中被 moveToThread 到 DecodeThread，跨线程 delete
+    //    会触发 Qt 的 "Cannot send events to objects owned by a different thread" 断言。
+#ifndef QT_NO_OPENGL
+    if (decodeThread && decodeThread->isRunning()) {
+        QMetaObject::invokeMethod(m_decodeWorker, [w = m_decodeWorker]() {
+            w->cleanupGL();
+        }, Qt::BlockingQueuedConnection);
+    }
+#endif
+
+    // 4. 停止线程
     if (decodeThread && decodeThread->isRunning()) {
         decodeThread->quit();
         if (!decodeThread->wait(3000)) {
             qCWarning(lcClient) << "SessionManager::destroyDecodePipeline() - DecodeThread quit timeout, forcing";
-            decodeThread->terminate();
+            decodeThread->requestInterruption();
+            decodeThread->quit();
             decodeThread->wait(1000);
         }
     }
 
+    // 5. 删除 worker — GL 资源已在步骤 3 中同一线程内安全释放
     delete m_decodeWorker;
     m_decodeWorker = nullptr;
 
-    // 由于不再通过 setParent 将 decodeThread 设为 m_decodeWorker 的子对象，
-    // 需要手动清理 QThread。quit()+wait() 已确保事件循环退出。
-    if (decodeThread) {
-        delete decodeThread;
-    }
-
-    qCInfo(lcClient) << "SessionManager::destroyDecodePipeline() - Decode pipeline destroyed for"
-                     << m_connectionId;
+    qCInfo(lcClient) << "SessionManager::destroyDecodePipeline() - Decode pipeline destroyed for" << m_connectionId;
 }
+
+#ifndef QT_NO_OPENGL
+void SessionManager::setGLContextForDecode(QOpenGLContext* context) {
+    m_pendingGLContext = context;
+}
+#endif
 
