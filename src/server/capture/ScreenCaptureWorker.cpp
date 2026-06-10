@@ -1,9 +1,10 @@
 #include "ScreenCaptureWorker.h"
+#include "../../common/core/threading/ThreadSafeQueue.h"
 #include "../../common/core/config/Constants.h"
 #include "../../common/core/logging/LoggingCategories.h"
 #include <QtGui/QGuiApplication>
 #include <QtGui/QScreen>
-#include <QtGui/QPixmap>
+#include <QtGui/QPainter>
 #include <QtCore/QThread>
 #include <QtCore/QTimer>
 #include <QtCore/QMutex>
@@ -23,6 +24,12 @@ ScreenCaptureWorker::ScreenCaptureWorker(QueueManager* queueManager, QObject* pa
     , m_primaryScreen(nullptr) {
     qCDebug(lcScreenCaptureWorker) << "ScreenCaptureWorker构造函数: 初始化基础配置";
 
+    // 初始化配置
+    m_config.frameRate = CoreConstants::Capture::DEFAULT_FRAME_RATE;
+    m_config.highDefinition = true;
+    m_config.antiAliasing = true;
+    m_config.maxQueueSize = 10; // 仅作为配置保留，不再用于实际队列
+
     // 计算初始帧延迟
     calculateFrameDelay();
 
@@ -41,12 +48,11 @@ ScreenCaptureWorker::~ScreenCaptureWorker() {
 bool ScreenCaptureWorker::initialize() {
     // 防重复初始化：startCapturing 和 doStart 可能在 Worker 启动阶段
     // 通过 QueuedConnection 竞相调用 initialize()，导致 D3D11 设备被
-    // 创建两次，留下不一致的 COM 状态。只允许第一次初始化生效。
+    // 创建两次。只允许第一次初始化生效。
     if (m_initialized.exchange(true)) {
         qCInfo(lcScreenCaptureWorker) << "ScreenCaptureWorker 已初始化，跳过";
         return true;
     }
-
     qCInfo(lcScreenCaptureWorker) << "初始化 ScreenCaptureWorker";
 
     // 检查并缓存主屏幕
@@ -60,6 +66,9 @@ bool ScreenCaptureWorker::initialize() {
     }
     qCDebug(lcScreenCaptureWorker) << "Primary Screen geometry:" << m_screenGeometry.x()
         << "," << m_screenGeometry.y() << m_screenGeometry.width() << "x" << m_screenGeometry.height();
+    if ( m_config.captureRect.isEmpty() ) {
+        m_config.captureRect = m_screenGeometry;
+    }
     {
         QMutexLocker locker(&m_statsMutex);
         m_stats = CaptureStats();
@@ -116,7 +125,6 @@ void ScreenCaptureWorker::cleanup() {
         qCInfo(lcScreenCaptureWorker) << "ScreenCaptureWorker 已清理，跳过";
         return;
     }
-
     qCInfo(lcScreenCaptureWorker) << "清理 ScreenCaptureWorker 资源";
 #ifdef Q_OS_WIN
     if ( m_dxgiCapture ) {
@@ -236,6 +244,11 @@ void ScreenCaptureWorker::processTask() {
             setDidWork(false);
         }
 
+        if ( m_configChanged.load() ) {
+            calculateFrameDelay();
+            m_configChanged.store(false);
+            qCDebug(lcScreenCaptureWorker) << "配置已更新，新帧延迟: " << m_frameDelay.count() << " ms";
+        }
     } catch ( const std::exception& e ) {
         qCCritical(lcScreenCaptureWorker) << "Exception in ScreenCaptureWorker::processTask: " << e.what();
         handleCaptureError(QString("ProcessTask exception: %1").arg(e.what()));
@@ -263,57 +276,6 @@ void ScreenCaptureWorker::performCapture() {
     }
     auto captureStartTime = std::chrono::steady_clock::now();
     try {
-#ifdef Q_OS_WIN
-        if (m_dxgiAvailable && m_dxgiCapture) {
-            const int captureTimeout = std::max(1,
-                static_cast<int>(m_frameDelay.count()));
-
-            QImage capturedImage = m_dxgiCapture->captureFrame(captureTimeout);
-
-            if (!capturedImage.isNull()) {
-                m_dxgiReinitAttempts = 0;
-
-                if (m_queueManager) {
-                    CapturedFrame frame(std::move(capturedImage),
-                        ++m_stats.totalFramesCaptured);
-                    frame.timestamp = QDateTime::currentDateTime();
-
-                    if (!m_queueManager->enqueueCapturedFrame(frame)) {
-                        QMutexLocker locker(&m_statsMutex);
-                        m_stats.droppedFrames++;
-                    }
-                }
-
-                auto captureEndTime = std::chrono::steady_clock::now();
-                auto captureTime = std::chrono::duration_cast<std::chrono::milliseconds>(
-                    captureEndTime - captureStartTime);
-                recordCaptureTime(captureTime);
-                {
-                    QMutexLocker locker(&m_statsMutex);
-                    m_frameTimestamps.push_back(QDateTime::currentMSecsSinceEpoch());
-                    if (m_frameTimestamps.size() > MAX_FRAME_TIMESTAMP_HISTORY) {
-                        m_frameTimestamps.pop_front();
-                    }
-                }
-                m_lastCaptureTime = std::chrono::steady_clock::now();
-                return;
-            }
-
-            // DXGI timeout or access lost
-            if (!m_dxgiCapture->isInitialized()
-                && m_dxgiReinitAttempts++ <= MAX_DXGI_REINIT_ATTEMPTS) {
-                qCWarning(lcScreenCaptureWorker) << "DXGI access lost, reinit attempt"
-                    << m_dxgiReinitAttempts;
-                if (m_dxgiCapture->reinitialize()) {
-                    m_dxgiReinitAttempts = 0;
-                }
-            } else if (!m_dxgiCapture->isInitialized()) {
-                m_dxgiAvailable = false;
-            }
-            return;
-        }
-#endif
-
         QImage capturedImage = captureScreen();
         // 捕获后立刻检查停止请求，防止后续处理占用时间
         if ( shouldStop() ) {
@@ -363,7 +325,7 @@ void ScreenCaptureWorker::performCapture() {
             if ( enqueued ) {
                 //qCDebug(screenCaptureWorker, "成功将帧放入捕获队列，帧ID: %llu", frame.frameId);
             } else {
-                qCWarning(lcScreenCaptureWorker) << "捕获队列已满，无法入队，丢弃帧ID: " << frame.frameId;
+                qCWarning(lcScreenCaptureWorker) << "捕获队列已停止，无法入队，丢弃帧ID: " << frame.frameId;
                 QMutexLocker locker(&m_statsMutex);
                 m_stats.droppedFrames++;
             }
@@ -387,12 +349,10 @@ QImage ScreenCaptureWorker::captureScreen() {
 
 #ifdef Q_OS_WIN
     // DXGI fast path — GPU-accelerated capture with change detection.
-    // 超时由当前帧率动态决定：取帧间隔的一半，确保既不会因超时过短
-    // 错过有变化的帧，也不会因超时过长阻塞捕获循环。
-    // 120fps→8ms, 60fps→16ms, 30fps→33ms, 最小 1ms。
+    // timeout=5ms: 短超时避免在静态桌面上阻塞等待。DXGI 桌面有变化时
+    // 立即返回帧，无变化时 5ms 后超时返回空帧——跳过 GDI 回退路径。
     if ( m_dxgiAvailable && m_dxgiCapture ) {
-        const int captureTimeout = std::max(1, static_cast<int>(m_frameDelay.count()));
-        QImage image = m_dxgiCapture->captureFrame(captureTimeout);
+        QImage image = m_dxgiCapture->captureFrame(5);
 
         if ( !image.isNull() ) {
             m_dxgiReinitAttempts = 0;  // Reset on success
@@ -403,7 +363,7 @@ QImage ScreenCaptureWorker::captureScreen() {
         // Only fall through to GDI if DXGI lost access (not just timeout).
         if ( m_dxgiCapture->isInitialized() ) {
             // Engine healthy, just no new frame — skip GDI fallback.
-            // This eliminates ~90% of encoding on static desktops.
+            // This eliminates ~90% of JPEG encoding on static desktops.
             return QImage();
         }
 
@@ -416,8 +376,8 @@ QImage ScreenCaptureWorker::captureScreen() {
             if ( m_dxgiCapture->reinitialize() ) {
                 m_dxgiReinitAttempts = 0;
                 qCInfo(lcScreenCaptureWorker) << "DXGI reinitialized successfully";
-                // Retry capture immediately — use same frame-rate-based timeout
-                image = m_dxgiCapture->captureFrame(captureTimeout);
+                // Retry capture immediately
+                image = m_dxgiCapture->captureFrame(5);
                 if ( !image.isNull() ) {
                     return image;
                 }
@@ -460,14 +420,39 @@ QImage ScreenCaptureWorker::captureScreen() {
     return pixmap.toImage();
 }
 
+QImage ScreenCaptureWorker::captureScreenRegion(const QRect& /*region*/) {
+    if ( !m_primaryScreen ) {
+        return QImage();
+    }
+
+    // 使用完整的屏幕区域，忽略传入的区域参数
+    QRect captureRect = m_screenGeometry;
+    if ( captureRect.isEmpty() ) {
+        return QImage();
+    }
+
+    // 直接在当前线程执行屏幕抓取
+    QPixmap pixmap = m_primaryScreen->grabWindow(0,
+        captureRect.x(),
+        captureRect.y(),
+        captureRect.width(),
+        captureRect.height());
+
+    if ( pixmap.isNull() ) {
+        return QImage();
+    }
+
+    return pixmap.toImage();
+}
+
 void ScreenCaptureWorker::calculateFrameDelay() {
     int fps;
     {
         QMutexLocker locker(&m_configMutex);
-        fps = m_frameRate;
+        fps = m_config.frameRate;
     }
     fps = std::clamp(fps, MIN_FRAME_RATE, MAX_FRAME_RATE);
-    m_frameDelay = std::chrono::milliseconds(static_cast<int>(1000 / fps));
+    m_frameDelay = std::chrono::milliseconds(1000 / fps);
     qCDebug(lcScreenCaptureWorker) << "计算帧延迟: " << fps << " fps -> " << m_frameDelay.count() << " ms";
 }
 
@@ -532,6 +517,13 @@ void ScreenCaptureWorker::handleCaptureError(const QString& error) {
     }
 }
 
+bool ScreenCaptureWorker::recoverFromError() {
+    // 简化恢复策略：重置错误计数与恢复标志
+    m_errorCount.store(0);
+    m_recoveryMode.store(false);
+    return true;
+}
+
 void ScreenCaptureWorker::updateStats() {
     updateFrameRate();
     monitorResourceUsage();
@@ -543,20 +535,29 @@ void ScreenCaptureWorker::updateStats() {
     emit captureStatsUpdated(snapshot);
 }
 
-void ScreenCaptureWorker::setFrameRate(int fps) {
-    fps = std::clamp(fps, MIN_FRAME_RATE, MAX_FRAME_RATE);
+void ScreenCaptureWorker::updateConfig(const CaptureConfig& config) {
+    CaptureConfig normalized = config;
     {
+        // 边界裁剪：帧率
+        if ( normalized.frameRate < MIN_FRAME_RATE ) normalized.frameRate = MIN_FRAME_RATE;
+        if ( normalized.frameRate > MAX_FRAME_RATE ) normalized.frameRate = MAX_FRAME_RATE;
         QMutexLocker locker(&m_configMutex);
-        m_frameRate = fps;
+        m_config = normalized;
     }
-    calculateFrameDelay();
+    m_configChanged.store(true);
+    // 若捕获定时器正在运行，则根据新配置动态调整间隔
     if ( m_captureTimer && m_captureTimer->isActive() ) {
+        calculateFrameDelay();
         m_captureTimer->setInterval(static_cast<int>(m_frameDelay.count()));
     }
 }
 
-int ScreenCaptureWorker::frameRate() const {
+CaptureConfig ScreenCaptureWorker::getCurrentConfig() const {
     QMutexLocker locker(&m_configMutex);
-    return m_frameRate;
+    return m_config;
 }
 
+CaptureStats ScreenCaptureWorker::getCaptureStats() const {
+    QMutexLocker locker(&m_statsMutex);
+    return m_stats;
+}
