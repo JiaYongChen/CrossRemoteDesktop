@@ -17,16 +17,19 @@
 #include <atomic>
 
 #include "../core/TripleBuffer.h"
-#include "../core/DecodedFrame.h"
-#include "TextureRingBuffer.h"
+#include "../core/FrameSlot.h"
 
 /**
- * @brief OpenGL viewport that renders remote desktop frames via texture ring buffer.
+ * @brief OpenGL viewport that renders remote desktop frames via direct texture upload.
  *
- * Receives decoded frames from DecodeWorker via TripleBuffer, uploads them
- * to GPU textures through TextureRingBuffer (3-slot ring with PBO+DMA),
- * and renders the latest ready frame as a fullscreen textured quad with
+ * Replaces QGraphicsView's default QWidget viewport when OpenGL mode is active.
+ * Manages an OpenGL texture and renders it as a fullscreen textured quad with
  * aspect-ratio-preserving scaling.
+ *
+ * Performance advantage over the QGraphicsPixmapItem path:
+ * - QPixmap::fromImage() eliminated (~3ms per frame)
+ * - QGraphicsScene rendering bypassed
+ * - glTexSubImage2D for same-size consecutive frames (sub-millisecond)
  *
  * Thread safety: all public methods must be called from the GUI thread.
  */
@@ -46,8 +49,34 @@ public:
     /// supported format before uploading.
     static bool chooseGLFormat(QImage::Format f, GLPixelLayout& out);
 
+    static constexpr int kPboCount = 2;
+    /// Pure function: next PBO index in the double-buffered ring.
+    static int nextPboIndex(int current) { return (current + 1) % kPboCount; }
+
     explicit GLTextureViewport(QWidget* parent = nullptr);
     ~GLTextureViewport() override;
+
+    /**
+     * @brief Convenience wrapper — equivalent to uploadFrame(image).
+     *
+     * Provided for API compatibility: setRemoteScreen + setRemoteSize
+     * replaces the old RenderManager::setRemoteScreen flow.
+     */
+    void setRemoteScreen(const QImage& image) { uploadFrame(image); }
+
+    /**
+     * @brief Upload a decoded frame to the GPU texture.
+     *
+     * If the image size matches the current texture, uses glTexSubImage2D
+     * (fast path). Otherwise, recreates the texture with glTexImage2D.
+     *
+     * @param image Decoded frame (any QImage::Format, converted internally)
+     */
+    void uploadFrame(const QImage& image);
+
+    /// Upload with an attached arrival timestamp to measure end-to-glass latency.
+    void uploadFrame(const QImage& image,
+                     std::chrono::steady_clock::time_point arrivalTs);
 
     /// Rebuild surface format with the given VSync setting.
     /// Note: QOpenGLWidget rebuilds its context when format changes, so a
@@ -62,14 +91,23 @@ public:
     void renderNow();
 
     /**
+     * @brief 请求重绘（去重版）。线程安全，可从任意线程调用。
+     *
+     * 仅当上一帧已被 paintGL 消费后才排队新的 update()，
+     * 避免 GUI 线程事件队列中堆积冗余的 paint 事件。
+     * @return true 表示成功排队了新的 paint 事件。
+     */
+    bool requestRepaint();
+
+    /**
      * @brief Check if a texture has been uploaded.
      */
-    bool hasTexture() const { return m_ringBuffer.textureSize().isValid(); }
+    bool hasTexture() const { return m_textureId[0] != 0; }
 
     /**
      * @brief Get the current texture dimensions.
      */
-    QSize textureSize() const { return m_ringBuffer.textureSize(); }
+    QSize textureSize() const { return m_textureSize; }
 
     /**
      * @brief Get the rectangle where the texture is rendered (in widget coordinates).
@@ -91,9 +129,42 @@ public:
     QPoint mapFromRemote(const QPoint& remotePoint) const;
 
     /**
-     * @brief Get the input TripleBuffer for DecodeWorker to write decoded frames.
+     * @brief Set the logical remote screen size (may differ from texture size
+     *        when the server downscales frames).
+     *
+     * Used for coordinate mapping: local->remote maps to this size, not texture size.
      */
-    TripleBuffer<DecodedFrame>* inputBuffer() { return &m_inputBuffer; }
+    void setRemoteSize(const QSize& size);
+
+    /**
+     * @brief Get the logical remote screen size.
+     */
+    QSize remoteSize() const { return m_remoteSize; }
+
+    /**
+     * @brief Attach a TripleBuffer for lock-free frame delivery.
+     *
+     * Once attached, paintGL() will poll the buffer on each tick and upload
+     * any newly committed frame. Set to nullptr to detach.
+     */
+    void attachFrameBuffer(TripleBuffer<FrameSlot>* buffer);
+
+    /**
+     * @brief Upload decoded frame data directly to the GPU texture via PBO.
+     *
+     * Designed to be called from a worker thread that has made a shared
+     * OpenGL context current. Uses m_textureId and m_pbo[] which are
+     * automatically shared because the worker's context was created with
+     * setShareContext().
+     *
+     * @param image Decoded frame (any QImage::Format, converted internally).
+     * @return GLsync fence for the GUI thread to wait on, or nullptr on failure.
+     */
+    GLsync uploadFromWorker(const QImage& image);
+
+    /// 生产者背压：返回 paintGL 因 fence 未就绪而连续跳过的帧数。
+    /// 生产者可据此降低上传频率，避免 GPU 队列无限积压。
+    int consecutiveSkips() const { return m_consecutiveSkips.load(); }
 
     /**
      * @brief 在窗口隐藏前主动清理 GL 资源，避免 hide() 销毁原生窗口后
@@ -115,13 +186,6 @@ signals:
      *        that worker threads can share for cross-thread texture upload.
      */
     void glContextReady(QOpenGLContext* context);
-
-public slots:
-    /**
-     * @brief 由 frameDecoded 信号驱动：从 m_inputBuffer 取出解码帧，
-     *        上传到 m_ringBuffer，收割 fence，必要时排队 update()。
-     */
-    void doPreRender();
 
 protected:
     void initializeGL() override;
@@ -145,6 +209,14 @@ private:
     void updateRenderRect();
 
     /**
+     * @brief Upload texture data without GL context management.
+     *
+     * Called from uploadFrame() (with makeCurrent/doneCurrent wrap) and from
+     * paintGL() (context already current). Sets m_textureDirty=true on success.
+     */
+    void applyFrame(const QImage& image);
+
+    /**
      * @brief Start or stop the frame-polling timer based on VSync state.
      */
     void configurePollTimer();
@@ -155,15 +227,30 @@ private:
     void cleanupGL();
 
     /**
-     * @brief 保底 fence 收割定时器：周期性调用 pollFences()，
-     *        防止 doPreRender 的 update() 在 VSync 开启时因边缘情况丢失。
+     * @brief paintGL 渲染完成后检查 TripleBuffer 是否有在绘制期间到达的新帧。
+     *
+     * 若有则立即通过 CAS + invokeMethod("update") 排队下一次 paint，
+     * 避免帧在缓冲区空等至下一个 VSync 或轮询周期。
+     * @param consumedSlot 本次 paintGL 中 getReadSlot 返回的槽位索引
      */
-    void onFallbackTimer();
+    void CheckForNewFrameAfterPaint(int consumedSlot);
 
-    // OpenGL resources
+    // OpenGL resources — double-buffered textures to eliminate
+    // worker/GUI read-write race on shared GL objects:
+    // - Worker writes to texture[1 - displayTexIndex] via shared context
+    // - GUI renders from texture[displayTexIndex]
+    // - After worker's fence is signaled, swap displayTexIndex atomically
+    GLuint m_textureId[2] = {0, 0};
+    std::atomic<int> m_displayTexIndex{0};
     QOpenGLShaderProgram* m_shaderProgram = nullptr;
     QOpenGLBuffer m_vertexBuffer;
     QOpenGLVertexArrayObject m_vao;
+
+    // Texture state
+    QSize m_textureSize;
+
+    // Logical remote screen size (for coordinate mapping)
+    QSize m_remoteSize;
 
     // Cached render rectangle (aspect-ratio-preserving)
     QRectF m_renderRect;
@@ -174,26 +261,55 @@ private:
     // VSync toggle
     bool m_vsyncEnabled = true;
 
-    // Frame-polling timer for non-VSync mode
-    QTimer* m_pollTimer = nullptr;
+    // PBO double-buffered async upload (traditional map/unmap path)
+    QOpenGLBuffer m_pbo[kPboCount] = {
+        QOpenGLBuffer(QOpenGLBuffer::PixelUnpackBuffer),
+        QOpenGLBuffer(QOpenGLBuffer::PixelUnpackBuffer),
+    };
+    int m_currentPbo = 0;        // GUI thread ring-buffer index
+    int m_pboAllocatedBytes = 0; // current PBO size
+    bool m_usePbo = true;
+
+    // Persistent mapped PBO (GL_ARB_buffer_storage)
+    bool m_usePersistentPbo = false;
+    void* m_persistentPtr[kPboCount] = {nullptr, nullptr};
+    GLuint m_persistentId[kPboCount] = {0, 0};
+    int m_sharedPboIndex = 0;    // worker thread ring-buffer index
+
+    void createPersistentPBOs(int size);
+    void destroyPersistentPBOs();
+
+    // Dirty-frame gating for paintGL
+    bool m_textureDirty = false;
+
+    // 生产者背压：paintGL 因 fence 未就绪而跳过的连续帧数。
+    // 生产者 (handleScreenData) 读取此值决定是否降低 GL 上传频率。
+    std::atomic<int> m_consecutiveSkips{0};
+
+    /// 防止重复排队 update()：仅在 paintGL 消费完上一帧后才允许新的 paint 事件。
+    /// 生产者 (handleScreenData) 写入 true，paintGL 在消费后重置为 false。
+    std::atomic<bool> m_needsRepaint{false};
 
     /// GL 资源是否已通过 cleanupGLResources() 主动清理。
     /// 析构函数检测此标记，避免在原生窗口已销毁后再次调用 makeCurrent() 导致崩溃。
     bool m_glCleanedUp = false;
 
-    // === 新数据管线 ===
+    // Triple-buffered lock-free frame delivery
+    TripleBuffer<FrameSlot>* m_frameBuffer = nullptr;
 
-    /// 解码帧输入缓冲区（DecodeWorker 写入，doPreRender 读取）
-    TripleBuffer<DecodedFrame> m_inputBuffer;
+    /// 当前 paintGL 周期内已消费的 TripleBuffer 槽位索引，-1 表示未消费。
+    /// 用于 CheckForNewFrameAfterPaint()：若 peekReady() 与本值不同说明新帧已到达。
+    int m_consumedSlot = -1;
 
-    /// 3 槽纹理环缓冲区（PBO + DMA + fence 管理）
-    TextureRingBuffer m_ringBuffer;
+    // Frame-polling timer for non-VSync mode
+    QTimer* m_pollTimer = nullptr;
 
-    /// 保底 fence 收割定时器（16ms）
-    QTimer* m_fallbackTimer = nullptr;
-
-    /// 上一帧已渲染的 frameId，用于 paintGL 中跳过旧帧
-    quint64 m_lastRenderedFrameId = 0;
+    // Metrics aggregation
+    std::chrono::steady_clock::time_point m_pendingArrivalTs{};
+    quint64 m_metricsFrameCount = 0;
+    qint64  m_metricsLatencyAccumUs = 0;
+    qint64  m_metricsLatencyMaxUs = 0;
+    static constexpr quint64 kMetricsReportInterval = 10;  // frames
 };
 
 #endif // QT_NO_OPENGL
