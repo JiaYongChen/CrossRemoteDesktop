@@ -33,7 +33,7 @@ bool DecodeWorker::enqueueFrame(ScreenData screenData, const QSize& remoteSize) 
     DecodeTask task;
     task.screenData = std::move(screenData);
     task.remoteSize = remoteSize;
-    return m_queue.enqueue(std::move(task));
+    return m_queue.tryEnqueue(std::move(task));
 }
 
 void DecodeWorker::setFrameBuffer(TripleBuffer<FrameSlot>* buffer) {
@@ -50,7 +50,6 @@ void DecodeWorker::start() {
 
 void DecodeWorker::requestStop() {
     m_running.store(false);
-    m_queue.stop();
 }
 
 // ---- 工作循环 ----
@@ -70,7 +69,7 @@ void DecodeWorker::workLoop() {
 
 void DecodeWorker::processOneFrame() {
     DecodeTask task;
-    if (!m_queue.dequeue(task)) {
+    if (!m_queue.tryDequeue(task)) {
         return;  // 队列已停止
     }
 

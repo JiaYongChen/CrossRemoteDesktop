@@ -47,6 +47,12 @@ Q_DECLARE_LOGGING_CATEGORY(lcQueueManager)
 /// 数据处理Worker日志
 Q_DECLARE_LOGGING_CATEGORY(lcDataProcessingWorker)
 
+/// 数据处理模块日志
+Q_DECLARE_LOGGING_CATEGORY(lcDataProcessing)
+
+/// 数据处理配置日志
+Q_DECLARE_LOGGING_CATEGORY(lcDataProcessingConfig)
+
 /// 键盘模拟器日志(Linux)
 Q_DECLARE_LOGGING_CATEGORY(lcKeyboardSimulatorLinux)
 

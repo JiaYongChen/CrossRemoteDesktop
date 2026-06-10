@@ -44,6 +44,12 @@ Q_LOGGING_CATEGORY(lcQueueManager, "queuemanager", QtDebugMsg)
 /// 数据处理Worker日志
 Q_LOGGING_CATEGORY(lcDataProcessingWorker, "dataprocessingworker", QtDebugMsg)
 
+/// 数据处理模块日志
+Q_LOGGING_CATEGORY(lcDataProcessing, "dataprocessing", QtDebugMsg)
+
+/// 数据处理配置日志
+Q_LOGGING_CATEGORY(lcDataProcessingConfig, "dataprocessing.config", QtDebugMsg)
+
 /// 键盘模拟器日志(Linux)
 Q_LOGGING_CATEGORY(lcKeyboardSimulatorLinux, "simulator.keyboard.linux", QtDebugMsg)
 
