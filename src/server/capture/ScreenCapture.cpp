@@ -7,7 +7,10 @@
 #include <QtCore/QTimer>
 #include <QtCore/QMutex>
 #include <QtCore/QMutexLocker>
+#include <QtGui/QScreen>
+#include <QtGui/QGuiApplication>
 #include <memory>
+// 新增头文件: 使用std::clamp进行数值裁剪
 #include <algorithm>
 
 
@@ -18,7 +21,21 @@ ScreenCapture::ScreenCapture(QObject* parent)
     , m_statsTimer(new QTimer(this)) {
     qCDebug(lcScreenCaptureManager) << "ScreenCapture 多线程管理器构造函数调用";
 
-    // QueueManager 由 ServerManager 统一初始化，此处无需重复调用
+    // 初始化默认配置
+    m_captureConfig.frameRate = CoreConstants::Capture::DEFAULT_FRAME_RATE;
+    m_captureConfig.highDefinition = true;
+    m_captureConfig.antiAliasing = true;
+    m_captureConfig.highScaleQuality = true;
+    m_captureConfig.captureRect = QRect(); // 空矩形表示全屏
+
+    // 确保队列管理器初始化（测试环境可能未主动初始化）
+    if ( QueueManager::instance() ) {
+        // 队列容量 3：在低延迟（~50ms @ 60FPS）与足够缓冲间取得平衡。
+        // 小于并行编码批大小（4）→ 编码永远是瓶颈 → 丢弃发生在捕获侧（正确）。
+        QueueManager::instance()->initialize(3, 3);
+    } else {
+        qCWarning(lcScreenCaptureManager) << "QueueManager::instance()返回空指针，队列功能不可用";
+    }
 
     // 初始化性能统计
     resetPerformanceStats();
@@ -54,16 +71,27 @@ void ScreenCapture::startCapture() {
         return;
     }
 
-    qCInfo(lcScreenCaptureManager) << "启动多线程屏幕捕获，帧率:" << m_captureFrameRate;
+    int currentFrameRate;
+    {
+        QMutexLocker locker(&m_configMutex);
+        currentFrameRate = m_captureConfig.frameRate;
+    }
+    qCInfo(lcScreenCaptureManager) << "启动多线程屏幕捕获，帧率:" << currentFrameRate;
 
     // 初始化线程架构
     if ( !initializeThreads() ) {
         qCCritical(lcScreenCaptureManager) << "线程初始化失败，无法启动捕获";
+        emit captureError("线程初始化失败");
         return;
     }
 
     // 配置Worker参数
     configureWorkers();
+
+    // 确保队列在开始捕获前处于运行状态
+    if ( QueueManager::instance() ) {
+        QueueManager::instance()->restartAllQueues();
+    }
 
     // 直接调用Worker开始捕获（通过ThreadManager确保在其线程执行）
     const QString threadName = "ScreenCaptureWorker";
@@ -80,6 +108,8 @@ void ScreenCapture::startCapture() {
                     m_performanceStats.totalFramesCaptured = stats.totalFramesCaptured;
                     m_performanceStats.droppedFrames = stats.droppedFrames;
                     m_performanceStats.averageCaptureTime = static_cast<quint64>(stats.avgCaptureTime.count());
+                    // 队列已移除，直接发出统计更新
+                    emit performanceStatsUpdated(m_performanceStats);
                 });
             }
             // 调用worker的捕获启动方法
@@ -91,10 +121,12 @@ void ScreenCapture::startCapture() {
             qCInfo(lcScreenCaptureManager) << "使用ThreadManager启动ScreenCaptureWorker线程成功，已连接直接信号";
         } else {
             qCCritical(lcScreenCaptureManager) << "ThreadManager启动ScreenCaptureWorker线程失败";
+            emit captureError("线程启动失败");
             cleanupThreads();
         }
     } else {
         qCCritical(lcScreenCaptureManager) << "ScreenCaptureWorker线程不存在";
+        emit captureError("Worker线程不存在");
         cleanupThreads();
     }
 }
@@ -121,7 +153,9 @@ void ScreenCapture::stopCapture() {
         QueueManager::instance()->stopAllQueues();
     }
 
-    // 通知 Worker 停止捕获（必须在 stopThread 之前，确保定时器已断开）
+    // 通知Worker停止捕获
+    // 安全前提：Worker 存在且其线程仍在运行时才使用 BlockingQueuedConnection，
+    // 否则目标线程事件循环已退出，BlockingQueuedConnection 会永久阻塞。
     if ( m_captureWorker && m_threadManager && m_threadManager->isThreadRunning(threadName) ) {
         bool invokeSuccess = QMetaObject::invokeMethod(m_captureWorker, "stopCapturing",
             Qt::BlockingQueuedConnection);
@@ -131,15 +165,22 @@ void ScreenCapture::stopCapture() {
             qCWarning(lcScreenCaptureManager) << "Worker停止捕获调用失败";
         }
     } else if ( m_captureWorker ) {
+        // 线程已停止但 Worker 仍存在，直接设置原子标志
         qCDebug(lcScreenCaptureManager) << "Worker线程未运行，直接通知停止";
         m_captureWorker->stopCapturing();
     }
 
-    // 清理线程资源（分发 stopThread + delete worker + delete thread）。
-    // 注意：不在 stopCapture 内单独调用 stopThread，避免与 cleanupThreads 内部的
-    // destroyThread → stopThread 形成双重调用——在 Worker::doStop 异步完成期间
-    // 第二次 Worker::stop(true) 会创建竞争 QTimer::singleShot，与随后的
-    // delete worker / delete thread 竞态导致 ACCESS_VIOLATION。
+    // 使用ThreadManager停止Worker线程
+    if ( threadExists ) {
+        bool stopSuccess = m_threadManager->stopThread(threadName, true);
+        if ( stopSuccess ) {
+            qCInfo(lcScreenCaptureManager) << "使用ThreadManager停止ScreenCaptureWorker线程成功";
+        } else {
+            qCWarning(lcScreenCaptureManager) << "ThreadManager停止ScreenCaptureWorker线程失败";
+        }
+    }
+
+    // 清理线程资源（销毁线程对象，防止 auto-restart 重新启动）
     cleanupThreads();
 
     qCInfo(lcScreenCaptureManager) << "多线程屏幕捕获停止完成";
@@ -191,6 +232,9 @@ bool ScreenCapture::initializeThreads() {
         qCCritical(lcScreenCaptureManager) << "获取ScreenCaptureWorker指针失败";
         return false;
     }
+
+    // 连接Worker错误信号至ScreenCapture错误处理
+    connect(m_captureWorker, &Worker::errorOccurred, this, &ScreenCapture::onCaptureError);
 
     qCInfo(lcScreenCaptureManager) << "ScreenCaptureWorker线程创建成功";
     return true;
@@ -280,13 +324,18 @@ void ScreenCapture::onThreadRestarted(const QString& name, int restartCount) {
 }
 
 void ScreenCapture::configureWorkers() {
-    if ( m_captureWorker ) {
-        m_captureWorker->setFrameRate(m_captureFrameRate);
-    }
+    updateCaptureConfig(m_captureConfig);
 }
 
 void ScreenCapture::updatePerformanceStats() {
-    // 统计信息通过 captureStatsUpdated 信号异步更新
+    if ( !m_isCapturing.load() ) {
+        return;
+    }
+
+    // 更新统计信息
+    // if ( m_captureWorker ) {
+    //     qCDebug(lcScreenCaptureManager) << "捕获Worker状态正常";
+    // }
 }
 
 void ScreenCapture::resetPerformanceStats() {
@@ -302,20 +351,43 @@ ScreenCapture::PerformanceStats ScreenCapture::getPerformanceStats() const {
 }
 
 
-void ScreenCapture::setFrameRate(int fps) {
-    fps = std::clamp(fps, CoreConstants::Capture::MIN_FRAME_RATE,
-                     CoreConstants::Capture::MAX_FRAME_RATE);
-    {
-        QMutexLocker locker(&m_configMutex);
-        m_captureFrameRate = fps;
-    }
-    if ( m_captureWorker ) {
-        m_captureWorker->setFrameRate(fps);
-    }
-    qCInfo(lcScreenCaptureManager) << "捕获帧率已更新: " << fps;
+void ScreenCapture::onCaptureError(const QString& error) {
+    // 处理捕获错误
+    qCWarning(lcScreenCaptureManager) << "捕获错误: " << error;
+    emit captureError(error);
 }
 
-int ScreenCapture::frameRate() const {
+// 统一配置管理方法实现
+void ScreenCapture::updateCaptureConfig(const CaptureConfig& config) {
+    // 本地归一化配置：对帧率进行边界裁剪，确保对外可见配置始终有效
+    const int originalFrameRate = config.frameRate;            // 记录输入帧率（用于日志）
+    CaptureConfig normalized = config;
+    // 帧率裁剪到平台允许范围
+    normalized.frameRate = std::clamp(
+        normalized.frameRate,
+        CoreConstants::Capture::MIN_FRAME_RATE,
+        CoreConstants::Capture::MAX_FRAME_RATE
+    );
+
+    {
+        QMutexLocker locker(&m_configMutex);
+        m_captureConfig = normalized; // 存储归一化后的配置，保证getCaptureConfig可通过边界测试
+    }
+
+    // 如果捕获Worker存在，更新其配置（传递归一化后的配置）
+    if ( m_captureWorker ) {
+        // 直接传递配置，因为现在使用统一的CaptureConfig结构
+        m_captureWorker->updateConfig(normalized);
+    }
+
+    // 日志增强：同时打印输入值与裁剪后的值，便于问题定位
+    qCInfo(lcScreenCaptureManager) << "捕获配置已更新: 帧率(输入=" << originalFrameRate
+        << ", 裁剪=" << m_captureConfig.frameRate
+        << "), 高清=" << (m_captureConfig.highDefinition ? "开启" : "关闭")
+        << ", 抗锯齿=" << (m_captureConfig.antiAliasing ? "开启" : "关闭");
+}
+
+CaptureConfig ScreenCapture::getCaptureConfig() const {
     QMutexLocker locker(&m_configMutex);
-    return m_captureFrameRate;
+    return m_captureConfig;
 }
