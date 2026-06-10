@@ -648,19 +648,19 @@ if(WIN32)
         COMMENT "Copying Qt style plugin"
     )
 
-    # ── WebP + SVG 图像格式插件 ──
+    # ── JPEG + SVG 图像格式插件 ──
     if(EXISTS "${_qt_plugins}/imageformats")
         add_custom_command(TARGET CrossRemoteDesktop POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E make_directory "${_out_dir}/imageformats"
-            # WebP 编解码插件（屏幕帧传输必需）
+            # JPEG 编解码插件（屏幕帧传输必需）
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${_qt_plugins}/imageformats/$<IF:$<CONFIG:Debug>,qwebpd.dll,qwebp.dll>"
+                "${_qt_plugins}/imageformats/$<IF:$<CONFIG:Debug>,qjpegd.dll,qjpeg.dll>"
                 "${_out_dir}/imageformats/"
             # SVG 图像格式插件（QIcon 渲染 SVG 图标所需）
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 "${_qt_plugins}/imageformats/$<IF:$<CONFIG:Debug>,qsvgd.dll,qsvg.dll>"
                 "${_out_dir}/imageformats/"
-            COMMENT "Copying Qt imageformat plugins (WebP + SVG)"
+            COMMENT "Copying Qt imageformat plugins (JPEG + SVG)"
         )
     endif()
 
