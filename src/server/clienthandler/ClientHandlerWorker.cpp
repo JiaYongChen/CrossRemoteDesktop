@@ -30,6 +30,8 @@
 #include <QtCore/QMutex>
 #include <QtCore/QMutexLocker>
 #include <QtCore/QRandomGenerator>
+#include <QtConcurrent/QtConcurrent>
+#include <cstring>
 
 
 ClientHandlerWorker::ClientHandlerWorker(qintptr socketDescriptor,
@@ -249,8 +251,12 @@ void ClientHandlerWorker::processTask() {
 }
 
 void ClientHandlerWorker::sendScreenDataFromQueue() {
+    // Reset the guard flag so processTask can post the next invocation
     m_sendScreenDataPending.store(false);
 
+    // Fix 1: 在出队之前先检查 socket 连接状态和认证状态。
+    // 若 socket 已断开，dequeueProcessedData() 会静默消耗队列数据却无法发送，
+    // 造成数据丢失并给调用方留下"仍在传输"的假象。
     if ( !m_socket || m_socket->state() != QAbstractSocket::ConnectedState ) {
         return;
     }
@@ -259,75 +265,62 @@ void ClientHandlerWorker::sendScreenDataFromQueue() {
         return;
     }
 
-    // === 循环排空 + 本地批量写入 ===
-    // 一次调用中将 PQ 中所有帧取尽，拼接到一个本地 QByteArray 中，最后一次性
-    // socket::write()。不攒批次（不等待未来帧），只合并当前已就绪的帧。
-    static constexpr int kMaxBatchFrames = 32;
-    static constexpr int kMaxBatchBytes  = 262144;  // 256KB 上限
-    static constexpr auto kFullFrameMinInterval = std::chrono::milliseconds(4);
+    // Batch send: dequeue and send up to MAX_SEND_BATCH frames per invocation.
+    // 批量为 6：小队列（容量 2）下多数触发时为 1-2 帧，批量开销可忽略。
+    static constexpr int MAX_SEND_BATCH = 6;
+    int sent = 0;
 
-    QByteArray batch;
-    batch.reserve(65536);  // 预分配 64KB，减少扩容
-    int sentCount = 0;
-
-    while (sentCount < kMaxBatchFrames && batch.size() < kMaxBatchBytes) {
-        ProcessedData processedData;
-        if ( !m_queueManager->dequeueProcessedData(processedData) ) {
+    while ( sent < MAX_SEND_BATCH ) {
+        // Re-check connection before each send in the batch
+        if ( !m_socket || m_socket->state() != QAbstractSocket::ConnectedState ) {
             break;
         }
 
+        ProcessedData processedData;
+        if ( !m_queueManager->dequeueProcessedData(processedData) ) {
+            break; // Queue empty
+        }
+
+        // 验证数据有效性
         if ( !processedData.isValid() ) {
-            qCWarning(lcClientHandlerWorker) << "ProcessedData 无效，跳过发送";
+            qCWarning(lcClientHandlerWorker) << "ProcessedData无效，跳过发送，帧ID:" << processedData.originalFrameId;
             continue;
         }
 
-        // 全帧间隔控制（所有帧均为全帧，防止瞬间流量冲击客户端）
-        {
-            const auto now = std::chrono::steady_clock::now();
-            if ( m_lastScreenSendTime.time_since_epoch().count() != 0 ) {
-                const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                    now - m_lastScreenSendTime);
-                if ( elapsed < kFullFrameMinInterval ) {
-                    m_queueManager->enqueueProcessedData(processedData);
-                    break;
-                }
-            }
-            m_lastScreenSendTime = std::chrono::steady_clock::now();
-        }
-
-        // 构造 ScreenData（始终全帧）
+        // 创建ScreenData消息
         ScreenData screenData;
         screenData.x = 0;
         screenData.y = 0;
-        screenData.imageData = std::move(processedData.compressedData);
-        screenData.width  = static_cast<quint16>(processedData.imageSize.width());
-        screenData.height = static_cast<quint16>(processedData.imageSize.height());
-        screenData.originalWidth  = static_cast<quint16>(processedData.originalImageSize.width());
-        screenData.originalHeight = static_cast<quint16>(processedData.originalImageSize.height());
-        screenData.dataSize = processedData.compressedDataSize;
+        screenData.imageData = processedData.compressedData;
+        screenData.width = processedData.imageSize.width();
+        screenData.height = processedData.imageSize.height();
+        screenData.originalWidth = processedData.originalImageSize.width();
+        screenData.originalHeight = processedData.originalImageSize.height();
+        screenData.dataSize = processedData.compressedData.size();
+
+        // 设置压缩标志位
+        quint8 flags = static_cast<quint8>(ScreenDataFlags::NONE);
+        if ( processedData.isScaled ) {
+            flags |= static_cast<quint8>(ScreenDataFlags::SCALED);
+        }
+        screenData.flags = flags;
         screenData.captureTimestamp = processedData.captureTimestamp;
 
-        quint8 flags = static_cast<quint8>(ScreenDataFlags::FULL_FRAME);
-        if (processedData.isScaled) flags |= static_cast<quint8>(ScreenDataFlags::SCALED);
-        screenData.flags = flags;
+        // 预先编码消息,然后发送
+        QByteArray messageData = Protocol::createMessage(MessageType::SCREEN_DATA, screenData);
 
-        QByteArray msg = Protocol::createMessage(MessageType::SCREEN_DATA, screenData);
-        batch.append(msg);
-        ++sentCount;
-    }
+        if ( messageData.isEmpty() ) {
+            qCWarning(lcClientHandlerWorker) << "消息编码失败，messageData为空";
+            continue;
+        }
 
-    // 一次性发出批次内所有帧
-    if ( !batch.isEmpty() ) {
-        sendEncodedMessage(batch);
-    }
-
-    if ( sentCount >= kMaxBatchFrames
-        && !m_sendScreenDataPending.exchange(true) ) {
-        QMetaObject::invokeMethod(this, "sendScreenDataFromQueue", Qt::QueuedConnection);
+        sendEncodedMessage(messageData);
+        ++sent;
     }
 }
 
 void ClientHandlerWorker::sendCursorType() {
+    // 检查连接和认证状态
     if ( !m_socket || !m_socket->isOpen() ) {
         return;
     }
@@ -340,9 +333,17 @@ void ClientHandlerWorker::sendCursorType() {
         return;
     }
 
+    // 获取当前光标类型
     int cursorType = m_inputSimulator->getCurrentCursorType();
+
+    // 创建光标类型消息（仅包含类型）
     CursorMessage message(static_cast<Qt::CursorShape>(cursorType));
-    sendMessage(MessageType::CURSOR_POSITION, message);
+
+    // 发送光标类型消息
+    QByteArray messageData = Protocol::createMessage(MessageType::CURSOR_POSITION, message);
+    if ( !messageData.isEmpty() ) {
+        sendEncodedMessage(messageData);
+    }
 }
 
 QString ClientHandlerWorker::clientAddress() const {
@@ -399,12 +400,28 @@ void ClientHandlerWorker::setPbkdf2Params(quint32 iterations, quint32 keyLength)
 }
 
 void ClientHandlerWorker::sendMessage(MessageType type, const IMessageCodec& message) {
-    QByteArray messageData = Protocol::createMessage(type, message);
-    if ( !messageData.isEmpty() ) {
-        if(type == MessageType::SCREEN_DATA) {
-            qCDebug(lcClientHandlerWorker) << "发送消息: 类型 = 0x" << Qt::hex << static_cast<int>(type) << static_cast<const ScreenData&>(message).captureTimestamp;
+    try {
+        // 使用Protocol::createMessage来创建加密的消息
+        QByteArray messageData = Protocol::createMessage(type, message);
+
+        if ( messageData.isEmpty() ) {
+            qCWarning(lcClientHandlerWorker) << "消息数据为空，跳过发送";
+            return;
         }
+
+        // 调用统一的发送实现
         sendEncodedMessage(messageData);
+
+        // 只在非屏幕数据消息时记录详细日志，避免高频日志输出
+        if ( type != MessageType::SCREEN_DATA ) {
+            qCDebug(lcClientHandlerWorker) << "消息发送完成: 类型=" << static_cast<int>(type)
+                << ", 大小=" << messageData.size() << "bytes";
+        }
+
+    } catch ( const std::exception& e ) {
+        qCWarning(lcClientHandlerWorker) << "发送消息时发生异常:" << e.what();
+    } catch ( ... ) {
+        qCWarning(lcClientHandlerWorker) << "发送消息时发生未知异常";
     }
 }
 
@@ -443,6 +460,7 @@ void ClientHandlerWorker::sendEncodedMessage(const QByteArray& messageData) {
 
         // 数据大小和发送数据大小日志
         // qCDebug(lcClientHandlerWorker) << "数据大小:" << totalSize << "bytes" << "发送数据大小:" << bytesWritten << "bytes";
+
     } catch ( const std::exception& e ) {
         qCWarning(lcClientHandlerWorker) << "发送消息时发生异常:" << e.what();
     } catch ( ... ) {
@@ -472,10 +490,7 @@ void ClientHandlerWorker::disconnectClient() {
 }
 
 void ClientHandlerWorker::forceDisconnect() {
-    // 设置标记（abort 前），防止 onError 在 abort 触发的错误中
-    // 重复 emit errorOccurred 传递到 MainWindow 弹窗。
     m_isConnectedAtomic.store(false, std::memory_order_release);
-    m_forceDisconnecting.store(true, std::memory_order_release);
     qCWarning(lcClientHandlerWorker) << "强制断开客户端连接:" << clientId();
 
     m_receiveBuffer.clear();
@@ -594,50 +609,54 @@ void ClientHandlerWorker::onDisconnected() {
 }
 
 void ClientHandlerWorker::onError(QAbstractSocket::SocketError error) {
-    // 已在强制断开流程中 → abort 触发的错误全部静默忽略，
-    // 避免 abort 产生的 NetworkError 通过 errorOccurred 传递到 MainWindow 弹窗。
-    if (m_forceDisconnecting.load(std::memory_order_acquire)) {
-        return;
-    }
-
     QString errorString = m_socket ? m_socket->errorString() : "未知错误";
 
     // 详细的错误日志记录
     qCWarning(lcClientHandlerWorker) << "套接字错误 [" << static_cast<int>(error) << "]:"
         << errorString << "(客户端:" << clientId() << ")";
 
-    // NetworkError(7) + RemoteHostClosedError(1) 在远程桌面服务端场景下
-    // 均为客户端正常断连的副作用（写入已关闭套接字 / 远端主动关闭），
-    // 不需要 emit errorOccurred 弹窗。
-    // ConnectionRefusedError / HostNotFoundError 等才是真正的服务端异常。
+    // 根据错误类型进行分类处理
+    bool shouldForceDisconnect = false;
+    QString errorCategory;
+
     switch ( error ) {
-        case QAbstractSocket::RemoteHostClosedError: {
-            qCInfo(lcClientHandlerWorker) << "错误分类: 远程主机关闭连接, 强制断开: 是";
-            forceDisconnect();
-            return;
-        }
-        case QAbstractSocket::NetworkError: {
-            qCInfo(lcClientHandlerWorker) << "错误分类: 网络错误, 强制断开: 是";
-            forceDisconnect();
-            return;
-        }
+        case QAbstractSocket::RemoteHostClosedError:
+            errorCategory = "远程主机关闭连接";
+            shouldForceDisconnect = true;
+            break;
+        case QAbstractSocket::NetworkError:
+            errorCategory = "网络错误";
+            shouldForceDisconnect = true;
+            break;
         case QAbstractSocket::ConnectionRefusedError:
-            qCInfo(lcClientHandlerWorker) << "错误分类: 连接被拒绝, 强制断开: 是";
+            errorCategory = "连接被拒绝";
+            shouldForceDisconnect = true;
             break;
         case QAbstractSocket::HostNotFoundError:
-            qCInfo(lcClientHandlerWorker) << "错误分类: 主机未找到, 强制断开: 是";
+            errorCategory = "主机未找到";
+            shouldForceDisconnect = true;
+            break;
+        case QAbstractSocket::SocketTimeoutError:
+            errorCategory = "套接字超时";
+            shouldForceDisconnect = false; // 超时可能是临时的，不立即断开
             break;
         default:
-            qCInfo(lcClientHandlerWorker) << "错误分类: 其他错误 (" << static_cast<int>(error) << ")";
+            errorCategory = QString("其他错误 (%1)").arg(static_cast<int>(error));
+            shouldForceDisconnect = false;
             break;
     }
 
-    // 非正常断连导致的错误，向上通知
-    emit errorOccurred(errorString);
+    qCInfo(lcClientHandlerWorker) << "错误分类:" << errorCategory
+        << ", 是否强制断开:" << (shouldForceDisconnect ? "是" : "否");
+
+    // 客户端主动断开（RemoteHostClosedError）是正常关闭流程，不视为服务端错误。
+    // 其余错误才向上通知，避免 MainWindow 对正常断连弹窗警告。
+    if ( error != QAbstractSocket::RemoteHostClosedError ) {
+        emit errorOccurred(errorString);
+    }
 
     // 对于严重错误，强制断开连接
-    if (error == QAbstractSocket::ConnectionRefusedError
-        || error == QAbstractSocket::HostNotFoundError) {
+    if ( shouldForceDisconnect ) {
         qCWarning(lcClientHandlerWorker) << "严重错误，强制断开客户端连接:" << clientId();
         forceDisconnect();
     }
@@ -804,14 +823,18 @@ void ClientHandlerWorker::handleHeartbeat() {
 
 void ClientHandlerWorker::sendHeartbeat() {
     if ( !m_socket || !m_socket->isOpen() ) {
+        qCDebug(lcClientHandlerWorker) << "套接字未连接，无法发送心跳请求";
         return;
     }
 
     if ( !isAuthenticated() ) {
+        qCDebug(lcClientHandlerWorker) << "客户端未认证，跳过心跳发送";
         return;
     }
 
     sendMessage(MessageType::HEARTBEAT, BaseMessage());
+
+    qCDebug(lcClientHandlerWorker) << "发送心跳请求到客户端:" << clientId();
 }
 
 void ClientHandlerWorker::handleMouseEvent(const QByteArray& data) {

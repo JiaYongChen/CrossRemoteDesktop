@@ -10,7 +10,6 @@
 #include <QtNetwork/QSslSocket>
 #include <QtNetwork/QSslCertificate>
 #include <QtNetwork/QSslKey>
-#include <chrono>
 
 class InputSimulator;
 class IMessageCodec;
@@ -76,14 +75,17 @@ public:
     Q_INVOKABLE void setPbkdf2Params(quint32 iterations, quint32 keyLength);
 
     /**
-     * @brief 发送消息到客户端（统一发送入口）
-     *
-     * 所有对外消息发送均通过此方法，内部编码后委托 sendEncodedMessage 写入 socket。
-     *
+     * @brief 发送消息到客户端
      * @param type 消息类型
      * @param message 消息数据（实现IMessageCodec接口）
      */
     Q_INVOKABLE void sendMessage(MessageType type, const IMessageCodec& message);
+
+    /**
+     * @brief 发送已编码的消息数据到客户端（用于非阻塞发送）
+     * @param messageData 已编码的消息数据（包含消息头和负载）
+     */
+    Q_INVOKABLE void sendEncodedMessage(const QByteArray& messageData);
 
     /**
      * @brief 断开客户端连接
@@ -233,12 +235,6 @@ private:
     void handleClipboardData(const QByteArray& data);
 
     /**
-     * @brief 将已编码字节写入 socket（底层写入点）
-     * @param messageData 已编码的消息数据（头部+负载）
-     */
-    void sendEncodedMessage(const QByteArray& messageData);
-
-    /**
      * @brief 发送握手响应
      */
     void sendHandshakeResponse();
@@ -317,9 +313,6 @@ private:
     // 断开连接标志（避免重复发送disconnected信号）
     std::atomic<bool> m_disconnectSignalSent{ false };
 
-    // 正在强制断开标记（防 onError 在 abort 期间递归/重复 emit errorOccurred）
-    std::atomic<bool> m_forceDisconnecting{ false };
-
     // 统计信息（线程安全访问需要互斥锁）
     mutable QMutex m_statsMutex;          ///< 统计信息互斥锁
     quint64 m_bytesReceived;              ///< 接收字节数
@@ -335,9 +328,5 @@ private:
     // processTask posts sendScreenDataFromQueue via QueuedConnection on each tick;
     // without this flag, pending invocations pile up if the event loop is slow.
     std::atomic<bool> m_sendScreenDataPending{ false };
-
-    // 发送节律控制：全帧之间保留最小间隔，避免瞬时大面积流量冲击客户端
-    std::chrono::steady_clock::time_point m_lastScreenSendTime{};
-
 };
 

@@ -4,6 +4,7 @@
 
 #include <QtGui/QImage>
 #include <QtCore/QSize>
+#include <QtCore/QRect>
 #include <QtCore/QString>
 
 #include <d3d11.h>

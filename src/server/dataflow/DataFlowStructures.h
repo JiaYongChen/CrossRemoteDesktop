@@ -3,7 +3,6 @@
 #include <QtCore/QObject>
 #include <QtCore/QDateTime>
 #include <QtCore/QByteArray>
-#include <QtCore/QRect>
 #include <QtGui/QImage>
 #include <memory>
 
@@ -106,13 +105,12 @@ struct CapturedFrame {
  * 包含处理后的数据和传输所需的元信息。
  */
 struct ProcessedData {
-    QByteArray compressedData;       ///< 处理后的图像数据（WebP/PNG 编码）
+    QByteArray compressedData;       ///< 处理后的图像数据（JPEG编码）
     QDateTime processedTime;         ///< 处理完成时间戳
     quint64 originalFrameId;         ///< 原始帧ID
     QSize imageSize;                 ///< 图像尺寸
     qint64 originalDataSize;         ///< 原始数据大小
     qint64 compressedDataSize;       ///< 处理后数据大小
-
     bool isScaled;                   ///< 是否进行了缩放
     QSize originalImageSize;         ///< 原始图像尺寸（缩放前）
     quint64 captureTimestamp = 0;    ///< 捕获时间戳 (ms since epoch)，用于端到端延迟测量
@@ -201,19 +199,40 @@ struct QueueStats {
     int maxSize;                     ///< 最大队列大小
     quint64 totalEnqueued;           ///< 总入队数量
     quint64 totalDequeued;           ///< 总出队数量
+    quint64 totalDropped;            ///< 总丢弃数量
+    double averageLatency;           ///< 平均延迟（毫秒）
     QDateTime lastUpdateTime;        ///< 最后更新时间
 
+    /**
+     * @brief 默认构造函数
+     */
     QueueStats()
         : currentSize(0)
         , maxSize(0)
         , totalEnqueued(0)
         , totalDequeued(0)
+        , totalDropped(0)
+        , averageLatency(0.0)
         , lastUpdateTime(QDateTime::currentDateTime()) {
     }
 
+    /**
+     * @brief 获取队列使用率
+     * @return 使用率百分比（0-100）
+     */
     double getUsagePercentage() const {
         if ( maxSize <= 0 ) return 0.0;
         return static_cast<double>(currentSize) / maxSize * 100.0;
+    }
+
+    /**
+     * @brief 获取吞吐率
+     * @return 每秒处理的项目数
+     */
+    double getThroughput() const {
+        auto elapsed = lastUpdateTime.msecsTo(QDateTime::currentDateTime());
+        if ( elapsed <= 0 ) return 0.0;
+        return static_cast<double>(totalDequeued) / (elapsed / 1000.0);
     }
 };
 

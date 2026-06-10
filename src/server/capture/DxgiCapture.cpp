@@ -3,7 +3,6 @@
 #include "DxgiCapture.h"
 #include "../../common/core/logging/LoggingCategories.h"
 
-#include <algorithm>
 #include <dxgi.h>
 #include <d3d11.h>
 #include <dxgi1_2.h>
@@ -41,9 +40,10 @@ bool DxgiCapture::initialize(int outputIndex) {
 }
 
 void DxgiCapture::shutdown() {
-    // 仅 m_initialized 守卫：Reset 后 COM 指针可能不归零，
-    // 联合判断 !m_device && !m_duplication 不够可靠。
-    if ( !m_initialized ) {
+    // Idempotent: skip silently when already shut down.
+    // (ScreenCaptureWorker calls both shutdown() then reset() which invokes
+    //  the destructor, which calls shutdown() again — avoid duplicate logs.)
+    if ( !m_initialized && !m_device && !m_duplication ) {
         return;
     }
 
