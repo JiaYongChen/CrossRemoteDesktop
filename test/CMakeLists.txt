@@ -628,6 +628,7 @@ set(PRODUCER_CONSUMER_INTEGRATION_TEST_SOURCES
     # Server-specific sources not in shared object libraries
     ../src/server/service/ServerWorker.cpp
     ../src/server/dataprocessing/DataProcessingWorker.cpp
+    ../src/server/dataprocessing/DataProcessing.cpp
     ../src/server/capture/ScreenCapture.cpp
     ../src/server/clienthandler/ClientHandlerWorker.cpp
     ../src/server/service/TcpServer.cpp
@@ -945,7 +946,6 @@ endif()
 qt_add_executable(test_gl_upload_formats
     test_gl_upload_formats.cpp
     ../src/client/window/GLTextureViewport.cpp
-    ../src/client/window/TextureRingBuffer.cpp
 )
 target_link_libraries(test_gl_upload_formats PRIVATE
     Qt6::Core Qt6::Test Qt6::Gui
@@ -999,7 +999,6 @@ endif()
 qt_add_executable(test_render_surface
     test_render_surface.cpp
     ../src/client/window/GLTextureViewport.cpp
-    ../src/client/window/TextureRingBuffer.cpp
 )
 target_link_libraries(test_render_surface PRIVATE
     Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets
@@ -1026,7 +1025,6 @@ endif()
 qt_add_executable(test_gl_worker_upload
     test_gl_worker_upload.cpp
     ../src/client/window/GLTextureViewport.cpp
-    ../src/client/window/TextureRingBuffer.cpp
 )
 target_link_libraries(test_gl_worker_upload PRIVATE
     Qt6::Core Qt6::Test Qt6::Gui

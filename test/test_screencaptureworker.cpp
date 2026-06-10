@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "../src/server/capture/ScreenCaptureWorker.h"
+#include "../src/server/capture/CaptureConfig.h"
 #include "../src/common/core/threading/ThreadManager.h"
 #include "../src/server/dataflow/QueueManager.h"
 #include "../src/server/dataflow/DataFlowStructures.h"
@@ -161,29 +162,37 @@ void TestScreenCaptureWorker::test_workerBasics()
 
 void TestScreenCaptureWorker::test_captureConfig()
 {
-    QVERIFY(m_worker->frameRate() > 0);
-    m_worker->setFrameRate(30);
-    QCOMPARE(m_worker->frameRate(), 30);
+    QVERIFY(m_worker->getCurrentConfig().frameRate > 0);
+    CaptureConfig cfg = m_worker->getCurrentConfig();
+    cfg.frameRate = 30;
+    m_worker->updateConfig(cfg);
+    QCOMPARE(m_worker->getCurrentConfig().frameRate, 30);
 }
 
 void TestScreenCaptureWorker::test_startCapture()
 {
-    m_worker->setFrameRate(1);
-    QCOMPARE(m_worker->frameRate(), 1);
+    CaptureConfig cfg = m_worker->getCurrentConfig();
+    cfg.frameRate = 1;
+    m_worker->updateConfig(cfg);
+    QCOMPARE(m_worker->getCurrentConfig().frameRate, 1);
 }
 
 void TestScreenCaptureWorker::test_stopCapture()
 {
-    m_worker->setFrameRate(15);
-    QCOMPARE(m_worker->frameRate(), 15);
+    CaptureConfig cfg = m_worker->getCurrentConfig();
+    cfg.frameRate = 15;
+    m_worker->updateConfig(cfg);
+    QCOMPARE(m_worker->getCurrentConfig().frameRate, 15);
 }
 
 void TestScreenCaptureWorker::test_frameRateControl()
 {
     int testRates[] = {5, 15, 30, 60, 120};
     for (int fps : testRates) {
-        m_worker->setFrameRate(fps);
-        QCOMPARE(m_worker->frameRate(), fps);
+        CaptureConfig cfg = m_worker->getCurrentConfig();
+        cfg.frameRate = fps;
+        m_worker->updateConfig(cfg);
+        QCOMPARE(m_worker->getCurrentConfig().frameRate, fps);
     }
 }
 
@@ -201,17 +210,21 @@ void TestScreenCaptureWorker::test_regionCapture()
 
 void TestScreenCaptureWorker::test_errorHandling()
 {
-    m_worker->setFrameRate(30);
-    QCOMPARE(m_worker->frameRate(), 30);
+    CaptureConfig cfg = m_worker->getCurrentConfig();
+    cfg.frameRate = 30;
+    m_worker->updateConfig(cfg);
+    QCOMPARE(m_worker->getCurrentConfig().frameRate, 30);
 
-    m_worker->setFrameRate(1);
-    QCOMPARE(m_worker->frameRate(), 1);
+    cfg = m_worker->getCurrentConfig();
+    cfg.frameRate = 1;
+    m_worker->updateConfig(cfg);
+    QCOMPARE(m_worker->getCurrentConfig().frameRate, 1);
 }
 
 void TestScreenCaptureWorker::test_performanceMonitoring()
 {
     // Verify worker is in a valid initial state
-    QVERIFY(m_worker->frameRate() > 0);
+    QVERIFY(m_worker->getCurrentConfig().frameRate > 0);
     QVERIFY(!m_worker->isRunning());
 }
 
@@ -220,20 +233,24 @@ void TestScreenCaptureWorker::test_threadSafety()
     QVERIFY(!m_worker->isRunning());
 
     for (int i = 0; i < 5; ++i) {
-        m_worker->setFrameRate(10 + i);
-        QCOMPARE(m_worker->frameRate(), 10 + i);
+        CaptureConfig cfg = m_worker->getCurrentConfig();
+        cfg.frameRate = 10 + i;
+        m_worker->updateConfig(cfg);
+        QCOMPARE(m_worker->getCurrentConfig().frameRate, 10 + i);
     }
 
     QVERIFY(!m_worker->isRunning());
-    QCOMPARE(m_worker->frameRate(), 14);
+    QCOMPARE(m_worker->getCurrentConfig().frameRate, 14);
 }
 
 void TestScreenCaptureWorker::test_memoryManagement()
 {
     QVERIFY(m_worker != nullptr);
     QVERIFY(!m_worker->isRunning());
-    m_worker->setFrameRate(30);
-    QCOMPARE(m_worker->frameRate(), 30);
+    CaptureConfig cfg = m_worker->getCurrentConfig();
+    cfg.frameRate = 30;
+    m_worker->updateConfig(cfg);
+    QCOMPARE(m_worker->getCurrentConfig().frameRate, 30);
 }
 
 void TestScreenCaptureWorker::test_signalEmission()
@@ -246,7 +263,9 @@ void TestScreenCaptureWorker::test_signalEmission()
     m_worker = std::make_unique<ScreenCaptureWorker>(queueManager);
     QVERIFY(m_worker != nullptr);
 
-    m_worker->setFrameRate(2);
+    CaptureConfig cfg = m_worker->getCurrentConfig();
+    cfg.frameRate = 2;
+    m_worker->updateConfig(cfg);
     
     // 清空捕获队列
     queueManager->clearQueue(QueueManager::CaptureQueue);

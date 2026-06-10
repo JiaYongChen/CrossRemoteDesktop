@@ -14,6 +14,7 @@
 // 包含被测试的头文件
 #include "../src/server/capture/ScreenCapture.h"
 #include "../src/server/capture/ScreenCaptureWorker.h"
+#include "../src/server/capture/CaptureConfig.h"
 
 // 日志分类
 Q_LOGGING_CATEGORY(testScreenCaptureIntegration, "test.screencapture.integration")
@@ -80,11 +81,13 @@ private slots:
             ScreenCapture capture;
             
             // 测试帧率设置
-            capture.setFrameRate(30);
+            CaptureConfig cfg = capture.getCaptureConfig();
+            cfg.frameRate = 30;
+            capture.updateCaptureConfig(cfg);
             // 冗余设置（相同帧率）
-            capture.setFrameRate(30);
+            capture.updateCaptureConfig(cfg);
             // 验证帧率
-            QVERIFY(capture.frameRate() == 30);
+            QVERIFY(capture.getCaptureConfig().frameRate == 30);
         } catch (const std::exception& e) {
             QFAIL(QString("Exception in test_configurationRedundancy: %1").arg(e.what()).toLocal8Bit().constData());
         } catch (...) {

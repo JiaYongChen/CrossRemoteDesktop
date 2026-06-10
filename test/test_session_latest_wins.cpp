@@ -1,27 +1,27 @@
 #include <QtTest/QTest>
 #include "../src/client/core/TripleBuffer.h"
-#include "../src/client/core/DecodedFrame.h"
+#include "../src/client/core/FrameSlot.h"
 
 class TestSessionLatestWins : public QObject {
     Q_OBJECT
 private slots:
     void testTripleBufferLatestWins() {
-        TripleBuffer<DecodedFrame> tb;
+        TripleBuffer<FrameSlot> tb;
         for (int i = 0; i < 3; ++i) {
-            DecodedFrame* w = nullptr;
+            FrameSlot* w = nullptr;
             int idx = tb.acquireWrite(w);
             QVERIFY(idx >= 0 && idx <= 2);
             w->frameId = static_cast<quint64>(i + 1);
             tb.commitWrite(idx);
         }
-        DecodedFrame* r = nullptr;
+        FrameSlot* r = nullptr;
         int rs = tb.getReadSlot(r);
         QVERIFY(rs >= 0);
         QCOMPARE(r->frameId, quint64(3));
     }
 
-    void testDecodeWorkerExposesDecodedFrame() {
-        DecodedFrame frame;
+    void testDecodeWorkerExposesFrameSlot() {
+        FrameSlot frame;
         frame.frameId = 42;
         QCOMPARE(frame.frameId, quint64(42));
         QVERIFY(frame.image.isNull());

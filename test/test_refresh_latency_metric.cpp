@@ -1,20 +1,20 @@
 #include <QtTest/QTest>
 #include "../src/client/core/TripleBuffer.h"
-#include "../src/client/core/DecodedFrame.h"
+#include "../src/client/core/FrameSlot.h"
 
 class TestRefreshLatencyMetric : public QObject {
     Q_OBJECT
 private slots:
     void testTripleBufferStoresFrame() {
-        TripleBuffer<DecodedFrame> tb;
-        DecodedFrame* w = nullptr;
+        TripleBuffer<FrameSlot> tb;
+        FrameSlot* w = nullptr;
         int idx = tb.acquireWrite(w);
         QVERIFY(idx >= 0);
         w->frameId = 1;
         w->remoteSize = QSize(1920, 1080);
         tb.commitWrite(idx);
 
-        DecodedFrame* r = nullptr;
+        FrameSlot* r = nullptr;
         int ridx = tb.getReadSlot(r);
         QVERIFY(ridx >= 0);
         QCOMPARE(r->frameId, quint64(1));
@@ -22,8 +22,8 @@ private slots:
     }
 
     void testTripleBufferEmptyReturnsNoSlot() {
-        TripleBuffer<DecodedFrame> tb;
-        DecodedFrame* r = nullptr;
+        TripleBuffer<FrameSlot> tb;
+        FrameSlot* r = nullptr;
         QCOMPARE(tb.getReadSlot(r), -1);
     }
 };

@@ -11,8 +11,10 @@
 #include <chrono>
 
 #include "../src/server/capture/ScreenCapture.h"
+#include "../src/server/capture/CaptureConfig.h"
 #include "../src/common/core/threading/ThreadManager.h"
 #include "../src/common/core/logging/LoggingCategories.h"
+#include "../src/common/core/config/Constants.h"
 #include "../src/server/dataflow/QueueManager.h"
 #include "../src/server/dataflow/DataFlowStructures.h"
 
@@ -176,7 +178,7 @@ void TestScreenCapture::test_basicFunctionality()
     
     // 测试初始状态
     QVERIFY(!m_screenCapture->isCapturing());
-    QVERIFY(m_screenCapture->frameRate() > 0);
+    QVERIFY(m_screenCapture->getCaptureConfig().frameRate > 0);
     
     qCDebug(testScreenCapture, "基本功能测试通过");
 }
@@ -205,16 +207,26 @@ void TestScreenCapture::test_frameRateControl()
 
     int testFrameRates[] = {15, 30, 60, 120};
     for (int fps : testFrameRates) {
-        m_screenCapture->setFrameRate(fps);
-        QCOMPARE(m_screenCapture->frameRate(), fps);
+        CaptureConfig cfg = m_screenCapture->getCaptureConfig();
+        cfg.frameRate = fps;
+        m_screenCapture->updateCaptureConfig(cfg);
+        QCOMPARE(m_screenCapture->getCaptureConfig().frameRate, fps);
     }
 
     // 测试边界裁剪
-    m_screenCapture->setFrameRate(0);
-    QVERIFY(m_screenCapture->frameRate() >= CoreConstants::Capture::MIN_FRAME_RATE);
+    {
+        CaptureConfig cfg = m_screenCapture->getCaptureConfig();
+        cfg.frameRate = 0;
+        m_screenCapture->updateCaptureConfig(cfg);
+        QVERIFY(m_screenCapture->getCaptureConfig().frameRate >= CoreConstants::Capture::MIN_FRAME_RATE);
+    }
 
-    m_screenCapture->setFrameRate(200);
-    QVERIFY(m_screenCapture->frameRate() <= CoreConstants::Capture::MAX_FRAME_RATE);
+    {
+        CaptureConfig cfg = m_screenCapture->getCaptureConfig();
+        cfg.frameRate = 200;
+        m_screenCapture->updateCaptureConfig(cfg);
+        QVERIFY(m_screenCapture->getCaptureConfig().frameRate <= CoreConstants::Capture::MAX_FRAME_RATE);
+    }
 
     qCDebug(testScreenCapture, "帧率控制测试通过");
 }
@@ -361,7 +373,9 @@ void TestScreenCapture::test_threadSafety()
     for (int i = 0; i < 3; ++i) {
         threads.emplace_back([this, &stopTest, i]() {
             while (!stopTest.load()) {
-                m_screenCapture->setFrameRate(30 + i);
+                CaptureConfig cfg = m_screenCapture->getCaptureConfig();
+                cfg.frameRate = 30 + i;
+                m_screenCapture->updateCaptureConfig(cfg);
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
         });
@@ -377,7 +391,7 @@ void TestScreenCapture::test_threadSafety()
     }
     
     // 验证对象仍然有效
-    QVERIFY(m_screenCapture->frameRate() > 0);
+    QVERIFY(m_screenCapture->getCaptureConfig().frameRate > 0);
     
     qCDebug(testScreenCapture, "线程安全性测试通过");
 }
@@ -433,14 +447,16 @@ void TestScreenCapture::test_stopCapture()
 void TestScreenCapture::test_setFrameRate()
 {
     qCDebug(testScreenCapture, "test_setFrameRate");
-    m_screenCapture->setFrameRate(24);
-    QCOMPARE(m_screenCapture->frameRate(), 24);
+    CaptureConfig cfg = m_screenCapture->getCaptureConfig();
+    cfg.frameRate = 24;
+    m_screenCapture->updateCaptureConfig(cfg);
+    QCOMPARE(m_screenCapture->getCaptureConfig().frameRate, 24);
 }
 
 void TestScreenCapture::test_frameRate()
 {
     qCDebug(testScreenCapture, "test_frameRate");
-    auto fps = m_screenCapture->frameRate();
+    auto fps = m_screenCapture->getCaptureConfig().frameRate;
     QVERIFY(fps >= 1);
     QVERIFY(fps <= 120);
 }
