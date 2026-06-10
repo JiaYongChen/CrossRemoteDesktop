@@ -3,6 +3,7 @@
 #include <QtCore/QObject>
 #include <QtCore/QHash>
 #include <QtCore/QMutex>
+#include <QtCore/QStringList>
 #include <QtCore/QElapsedTimer>
 #include <QtGui/QImage>
 #include "../common/core/network/Protocol.h"
@@ -45,9 +46,27 @@ public:
     bool startServer(quint16 port, const QString& password = QString());
     void stopServer();
     void gracefulShutdown();
+    bool isRunning() const;
+    quint16 getPort() const;
     bool isServerRunning() const;
     quint16 getCurrentPort() const;
 
+    // 客户端状态查询
+    int getConnectedClientCount() const;
+    QStringList getConnectedClients() const;
+    bool isClientConnected(const QString& clientAddress) const;
+    bool hasConnectedClients() const;
+    bool hasAuthenticatedClients() const;
+
+    // 客户端管理
+    int clientCount() const;
+    QStringList connectedClients() const;
+
+    // 消息发送
+    void sendMessageToClient(const QString& clientAddress, MessageType type, const QByteArray& data);
+
+    // 客户端断开
+    void disconnectClient(const QString& clientAddress);
 
 signals:
     // 服务器状态信号
@@ -96,6 +115,12 @@ private:
      * @return ServerWorker指针，如果不存在则返回nullptr
      */
     ServerWorker* getServerWorker() const;
+
+    /**
+     * @brief 获取DataProcessingWorker实例
+     * @return DataProcessingWorker指针，如果不存在则返回nullptr
+     */
+    class DataProcessingWorker* getDataProcessingWorker() const;
 
     /**
      * @brief 停止工作线程（DataProcessingWorker和ScreenCaptureWorker）
