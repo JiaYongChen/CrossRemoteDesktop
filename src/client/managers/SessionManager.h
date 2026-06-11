@@ -135,6 +135,12 @@ private slots:
     void onMessageReceived(MessageType type, const QByteArray& data);
     void updatePerformanceStats();
 
+protected:
+    // 测试用构造函数：接受外部 ConnectionManager（用于 mock 注入）
+    explicit SessionManager(const QString& connectionId,
+                            ConnectionManager* connManager,
+                            QObject* parent = nullptr);
+
 private:
     void setupConnections();
     void calculateFPS();

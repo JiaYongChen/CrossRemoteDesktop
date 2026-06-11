@@ -256,7 +256,7 @@ QString ClientManager::connectToHost(const QString& host, int port) {
     qCDebug(lcClientManager) << "connectToHost(): created session thread for" << connectionId;
 
     // 创建 SessionManager（不设置父对象，以便移动到线程）
-    instance->sessionManager = new SessionManager(connectionId, nullptr);
+    instance->sessionManager = new SessionManager(connectionId);
 
     // 将 SessionManager 移动到独立线程
     instance->sessionManager->moveToThread(instance->instanceThread);

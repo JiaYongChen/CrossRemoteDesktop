@@ -50,18 +50,18 @@ public:
     void abort();
 
     // 状态查询
-    bool isConnected() const;
-    bool isAuthenticated() const;
+    virtual bool isConnected() const;
+    virtual bool isAuthenticated() const;
 
     // 连接信息
-    QString currentHost() const;
-    int currentPort() const;
+    virtual QString currentHost() const;
+    virtual int currentPort() const;
 
     // 认证接口
     void authenticate(const QString& username, const QString& password);
 
     // 消息发送接口
-    void sendMessage(MessageType type, const IMessageCodec& message);
+    virtual void sendMessage(MessageType type, const IMessageCodec& message);
 
     // 自动重连管理
     void setAutoReconnect(bool enable);

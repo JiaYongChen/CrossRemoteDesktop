@@ -18,14 +18,25 @@
 #include <algorithm>
 
 SessionManager::SessionManager(const QString& connectionId, QObject* parent)
+    : SessionManager(connectionId, new ConnectionManager(nullptr), parent)
+{
+    // ConnectionManager 所有权转移至 SessionManager（Qt 父对象机制）
+    m_connectionManager->setParent(this);
+}
+
+SessionManager::SessionManager(const QString& connectionId,
+                               ConnectionManager* connManager,
+                               QObject* parent)
     : QObject(parent)
     , m_connectionId(connectionId)
-    , m_connectionManager(new ConnectionManager(this))
+    , m_connectionManager(connManager)
     , m_statsTimer(new QTimer(this))
     , m_frameRate(60) {
 
-    // SessionManager 拥有并管理 ConnectionManager
-    setupConnections();
+    // 仅在 connManager 有效时建立连接
+    if (m_connectionManager) {
+        setupConnections();
+    }
 
     // 设置性能统计定时器
     m_statsTimer->setInterval(UIConstants::STATS_UPDATE_INTERVAL);
