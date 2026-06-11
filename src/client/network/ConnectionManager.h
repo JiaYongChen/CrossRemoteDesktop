@@ -7,6 +7,7 @@
 #include <functional>
 #include "../../common/core/config/NetworkConstants.h"
 #include "../../common/core/network/Protocol.h"
+#include "error/RdError.h"
 
 class QTimer;
 class TcpClient;
@@ -86,7 +87,7 @@ signals:
 private slots:
     void onTcpConnected();
     void onTcpDisconnected();
-    void onTcpError(const QString& error);
+    void onTcpError(const RdError& error);
     void onConnectionTimeout();
     void onReconnectTimer();
     void onTcpMessageReceived(MessageType type, const QByteArray& payload);

@@ -14,6 +14,7 @@
 #include "../core/FrameSlot.h"
 #include <atomic>
 #include <chrono>
+#include "error/RdError.h"
 
 class DecodeWorker;
 
@@ -124,7 +125,7 @@ signals:
     void screenUpdated(const QImage& screen);
     void screenRegionUpdated(const QImage& region, const QRect& rect);
     void performanceStatsUpdated(const PerformanceStats& stats);
-    void sessionError(const QString& error);
+    void sessionError(const RdError& error);
 
     // 连接状态变化信号（用于 UI 更新）
     void connectionStateChanged(ConnectionManager::ConnectionState state);

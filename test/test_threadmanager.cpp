@@ -142,7 +142,7 @@ protected:
             // 只发射一次错误信号，然后请求停止
             if (!m_errorEmitted) {
                 m_errorEmitted = true;
-                emit errorOccurred("测试错误");
+                emit errorOccurred(RdError(ErrorCode::Unknown, "测试错误", "TestWorker"));
                 // 请求停止以避免继续循环
                 stop(false);
             }
@@ -549,8 +549,9 @@ void TestThreadManager::test_errorHandling()
     // 减少等待时间
     QVERIFY(errorSpy.wait(500));
     QCOMPARE(errorSpy.count(), 1);
-    QCOMPARE(errorSpy.at(0).at(0).toString(), threadName);
-    QCOMPARE(errorSpy.at(0).at(1).toString(), "测试错误");
+    RdError err = errorSpy.at(0).at(0).value<RdError>();
+    QCOMPARE(err.source, threadName);
+    QCOMPARE(err.message, "测试错误");
 }
 
 void TestThreadManager::test_performanceMetrics()

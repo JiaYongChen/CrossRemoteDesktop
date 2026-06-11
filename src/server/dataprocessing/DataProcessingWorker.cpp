@@ -259,13 +259,13 @@ void DataProcessingWorker::processTask() {
 
     } catch ( const std::exception& e ) {
         qCCritical(lcDataProcessingWorker) << "processTask异常:" << e.what();
-        emit processingError(QString("数据处理任务异常: %1").arg(e.what()));
+        emit processingError(RdError(ErrorCode::DataProcessingException, QString("数据处理任务异常: %1").arg(e.what()), "DataProcessingWorker"));
 
         // 异常后短暂休眠，避免连续异常导致CPU占用过高
         QThread::msleep(10);
     } catch ( ... ) {
         qCCritical(lcDataProcessingWorker) << "processTask未知异常";
-        emit processingError("数据处理任务发生未知异常");
+        emit processingError(RdError(ErrorCode::DataProcessingException, "数据处理任务发生未知异常", "DataProcessingWorker"));
 
         // 异常后短暂休眠，避免连续异常导致CPU占用过高
         QThread::msleep(10);
@@ -543,11 +543,9 @@ void DataProcessingWorker::onQueueWarning(QueueManager::QueueType type, const QS
     }
 }
 
-void DataProcessingWorker::onQueueError(QueueManager::QueueType type, const QString& error) {
-    if ( type == QueueManager::CaptureQueue || type == QueueManager::ProcessedQueue ) {
-        qCCritical(lcDataProcessingWorker) << "队列错误:" << error;
-        emit processingError(error);
-    }
+void DataProcessingWorker::onQueueError(const RdError& error) {
+    qCCritical(lcDataProcessingWorker) << "队列错误:" << error.logLabel();
+    emit processingError(RdError(ErrorCode::QueueEnqueueFailed, error.logLabel(), "DataProcessingWorker"));
 }
 
 void DataProcessingWorker::stopProcessingAndClearQueues() {

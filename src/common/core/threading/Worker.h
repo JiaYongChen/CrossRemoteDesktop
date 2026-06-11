@@ -6,6 +6,7 @@
 #include <QtCore/QElapsedTimer>
 #include <atomic>
 #include <memory>
+#include "error/RdError.h"
 
 /**
  * @brief 工作线程基类
@@ -170,7 +171,7 @@ signals:
      * @brief 错误信号
      * @param error 错误信息
      */
-    void errorOccurred(const QString& error);
+    void errorOccurred(const RdError& error);
 
     /**
      * @brief 状态变化信号

@@ -213,7 +213,7 @@ void ConnectionManager::onTcpDisconnected() {
     }
 }
 
-void ConnectionManager::onTcpError(const QString& error) {
+void ConnectionManager::onTcpError(const RdError& error) {
     Q_UNUSED(error);  // 参数在当前实现中未使用，但保留以供将来扩展
     m_connectionTimer->stop();
     setConnectionState(Error);

@@ -6,6 +6,7 @@
 #include <QtCore/QTimer>
 #include <QtCore/QMutex>
 #include <memory>
+#include "error/RdError.h"
 
 /**
  * @brief 队列管理器类
@@ -172,7 +173,7 @@ signals:
      * @param type 队列类型
      * @param error 错误消息
      */
-    void queueError(QueueType type, const QString& error);
+    void queueError(const RdError& error);
 
 private slots:
     /**

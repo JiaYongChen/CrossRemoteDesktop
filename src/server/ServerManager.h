@@ -6,6 +6,7 @@
 #include <QtCore/QStringList>
 #include <QtCore/QElapsedTimer>
 #include <QtGui/QImage>
+#include "error/RdError.h"
 #include "../common/core/network/Protocol.h"
 
 class ServerWorker;
@@ -72,7 +73,7 @@ signals:
     // 服务器状态信号
     void serverStarted(quint16 port);  ///< 服务器启动成功信号
     void serverStopped();              ///< 服务器停止信号
-    void serverError(const QString& error); ///< 服务器错误信号
+    void serverError(const RdError& error); ///< 服务器错误信号
 
     // 客户端状态信号
     void clientConnected(const QString& clientAddress);    ///< 客户端连接信号
@@ -83,7 +84,7 @@ private slots:
     // 从ServerWorker转发的信号处理
     void onWorkerServerStarted(quint16 port);
     void onWorkerServerStopped();
-    void onWorkerServerError(const QString& error);
+    void onWorkerServerError(const RdError& error);
 
     // 新客户端连接处理
     void onNewClientConnection(qintptr socketDescriptor);
@@ -91,7 +92,7 @@ private slots:
     // ClientHandlerWorker信号处理
     void onClientHandlerDisconnected();
     void onClientHandlerAuthenticated();
-    void onClientHandlerError(const QString& error);
+    void onClientHandlerError(const RdError& error);
     void onClientHandlerMessageReceived(MessageType type, const QByteArray& data);
 
 private:

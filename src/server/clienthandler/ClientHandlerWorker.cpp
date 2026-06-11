@@ -652,7 +652,7 @@ void ClientHandlerWorker::onError(QAbstractSocket::SocketError error) {
     // 客户端主动断开（RemoteHostClosedError）是正常关闭流程，不视为服务端错误。
     // 其余错误才向上通知，避免 MainWindow 对正常断连弹窗警告。
     if ( error != QAbstractSocket::RemoteHostClosedError ) {
-        emit errorOccurred(errorString);
+        emit errorOccurred(RdError(ErrorCode::NetworkDisconnected, errorString, "ClientHandlerWorker"));
     }
 
     // 对于严重错误，强制断开连接

@@ -6,6 +6,7 @@
 #include <QtCore/QDateTime>
 #include <QtCore/QMutex>
 #include <QtCore/QTimer>
+#include "error/RdError.h"
 #include <QtNetwork/QAbstractSocket>
 #include <QtNetwork/QSslSocket>
 #include <QtNetwork/QSslCertificate>
@@ -119,7 +120,7 @@ signals:
      * @brief 发生错误信号
      * @param error 错误信息
      */
-    void errorOccurred(const QString& error);
+    void errorOccurred(const RdError& error);
 
     /**
      * @brief 接收到剪贴板文本信号（更新服务器端剪贴板）

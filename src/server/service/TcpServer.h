@@ -6,6 +6,7 @@
 #include <QtNetwork/QSslKey>
 #include "../../common/core/network/Protocol.h"
 #include "../../common/core/config/NetworkConstants.h"
+#include "error/RdError.h"
 
 class QHostAddress;
 class InputSimulator;
@@ -34,7 +35,7 @@ public:
 signals:
     void serverStopped();
     void newClientConnection(qintptr socketDescriptor);
-    void errorOccurred(const QString& error);
+    void errorOccurred(const RdError& error);
 
 protected:
     void incomingConnection(qintptr socketDescriptor) override;

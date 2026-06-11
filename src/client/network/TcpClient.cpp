@@ -237,7 +237,7 @@ void TcpClient::onError(QAbstractSocket::SocketError error) {
         << "Original message:" << originalError
         << "Translated message:" << errorMsg;
 
-    emit errorOccurred(errorMsg);
+    emit errorOccurred(RdError(ErrorCode::NetworkConnectionFailed, errorMsg, "TcpClient"));
 }
 
 void TcpClient::onReadyRead() {
@@ -315,7 +315,7 @@ void TcpClient::handleHeartbeat() {
 
 void TcpClient::checkHeartbeat() {
     if ( m_lastHeartbeat.secsTo(QDateTime::currentDateTime()) > NetworkConstants::HEARTBEAT_TIMEOUT / 1000 ) {
-        emit errorOccurred("心跳超时");
+        emit errorOccurred(RdError(ErrorCode::NetworkHeartbeatTimeout, "心跳超时", "TcpClient"));
         disconnectFromHost();
     }
 }

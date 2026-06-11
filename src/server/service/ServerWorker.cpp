@@ -106,7 +106,7 @@ bool ServerWorker::startServer(quint16 port) {
 
         qCDebug(lcServer) << "服务器启动成功，端口:" << m_currentPort;
     } else {
-        emit serverError(tr("服务器启动失败"));
+        emit serverError(RdError(ErrorCode::ServerStartFailed, tr("服务器启动失败"), "ServerWorker"));
         qCDebug(lcServer) << "服务器启动失败";
     }
 
@@ -200,9 +200,9 @@ void ServerWorker::onServerStopped() {
     emit serverStopped();
 }
 
-void ServerWorker::onServerError(const QString& error) {
-    qCDebug(lcServer) << "TCP服务器错误:" << error;
-    emit serverError(error);
+void ServerWorker::onServerError(const RdError& error) {
+    qCDebug(lcServer) << "TCP服务器错误:" << error.logLabel();
+    emit serverError(RdError(ErrorCode::ServerBindFailed, error.logLabel(), "ServerWorker"));
 }
 
 void ServerWorker::onStopTimeout() {

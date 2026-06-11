@@ -6,6 +6,7 @@
 #include <QtCore/QMutex>
 #include <QtCore/QHash>
 #include <QtCore/QPointer>
+#include "error/RdError.h"
 #include <QtCore/QDateTime>
 #include <memory>
 #include "Worker.h"
@@ -292,7 +293,7 @@ signals:
      * @param name 线程名称
      * @param error 错误信息
      */
-    void threadError(const QString& name, const QString& error);
+    void threadError(const RdError& error);
 
     /**
      * @brief 线程重启信号
@@ -332,7 +333,7 @@ private slots:
      * @brief 处理工作线程错误
      * @param error 错误信息
      */
-    void onWorkerError(const QString& error);
+    void onWorkerError(const RdError& error);
 
     /**
      * @brief 性能监控定时器处理

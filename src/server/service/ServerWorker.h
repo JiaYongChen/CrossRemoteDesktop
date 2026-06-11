@@ -6,6 +6,7 @@
 #include <QtCore/QObject>
 #include <QtCore/QMutex>
 #include <QtNetwork/QSslCertificate>
+#include "error/RdError.h"
 #include <QtNetwork/QSslKey>
 
 class TcpServer;
@@ -55,7 +56,7 @@ signals:
     // 服务器状态信号
     void serverStarted(quint16 port);  ///< 服务器启动成功信号
     void serverStopped();              ///< 服务器停止信号
-    void serverError(const QString& error); ///< 服务器错误信号
+    void serverError(const RdError& error); ///< 服务器错误信号
 
     // 新客户端连接信号（从TcpServer转发）
     void newClientConnection(qintptr socketDescriptor); ///< 新客户端连接信号
@@ -95,7 +96,7 @@ private slots:
     // 服务器事件处理
     void onNewConnection(qintptr socketDescriptor);
     void onServerStopped();
-    void onServerError(const QString& error);
+    void onServerError(const RdError& error);
     void onStopTimeout();
 
 private:

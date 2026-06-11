@@ -60,7 +60,7 @@ QString SessionManager::connectionId() const {
 void SessionManager::startSession() {
     if ( !m_connectionManager || !m_connectionManager->isAuthenticated() ) {
         qCWarning(lcClient) << "SessionManager::startSession() - Cannot start session, not authenticated";
-        emit sessionError(tr("无法启动会话 - 未认证"));
+        emit sessionError(RdError(ErrorCode::SessionNotAuthenticated, tr("无法启动会话 - 未认证"), "SessionManager"));
         return;
     }
 
@@ -472,8 +472,8 @@ void SessionManager::createDecodePipeline() {
         qCInfo(lcClient) << "SessionManager: DecodeWorker stopped for" << m_connectionId;
     });
 
-    connect(m_decodeWorker, &DecodeWorker::decodeError, this, [this](const QString& msg) {
-        qCWarning(lcClient) << "SessionManager: Decode error for" << m_connectionId << ":" << msg;
+    connect(m_decodeWorker, &DecodeWorker::decodeError, this, [this](const RdError& e) {
+        qCWarning(lcClient) << "SessionManager: Decode error for" << m_connectionId << ":" << e.logLabel();
     });
 
     // 让 worker 拥有线程（通过 parent），destroyDecodePipeline 中 delete worker 时自动清理

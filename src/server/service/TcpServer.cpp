@@ -41,7 +41,7 @@ bool TcpServer::startServer(quint16 port, const QHostAddress& address) {
     if ( m_sslCertificate.isNull() || m_sslPrivateKey.isNull() ) {
         if ( !generateSelfSignedCertificate() ) {
             qCCritical(lcServer) << "Failed to generate TLS certificate";
-            emit errorOccurred("Failed to generate TLS certificate");
+            emit errorOccurred(RdError(ErrorCode::NetworkTlsError, "Failed to generate TLS certificate", "TcpServer"));
             return false;
         }
         qCInfo(lcServer) << "TLS self-signed certificate generated successfully";
@@ -55,7 +55,7 @@ bool TcpServer::startServer(quint16 port, const QHostAddress& address) {
 
     if ( !listen(address, port) ) {
         qCWarning(lcServer) << "Failed to start server:" << errorString();
-        emit errorOccurred(errorString());
+        emit errorOccurred(RdError(ErrorCode::ServerBindFailed, errorString(), "TcpServer"));
         return false;
     }
 

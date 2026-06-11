@@ -81,7 +81,7 @@ void ScreenCapture::startCapture() {
     // 初始化线程架构
     if ( !initializeThreads() ) {
         qCCritical(lcScreenCaptureManager) << "线程初始化失败，无法启动捕获";
-        emit captureError("线程初始化失败");
+        emit captureError(RdError(ErrorCode::CaptureInitFailed, "线程初始化失败", "ScreenCapture"));
         return;
     }
 
@@ -116,12 +116,12 @@ void ScreenCapture::startCapture() {
             qCInfo(lcScreenCaptureManager) << "使用ThreadManager启动ScreenCaptureWorker线程成功，已连接直接信号";
         } else {
             qCCritical(lcScreenCaptureManager) << "ThreadManager启动ScreenCaptureWorker线程失败";
-            emit captureError("线程启动失败");
+            emit captureError(RdError(ErrorCode::CaptureStartFailed, "线程启动失败", "ScreenCapture"));
             cleanupThreads();
         }
     } else {
         qCCritical(lcScreenCaptureManager) << "ScreenCaptureWorker线程不存在";
-        emit captureError("Worker线程不存在");
+        emit captureError(RdError(ErrorCode::CaptureWorkerError, "Worker线程不存在", "ScreenCapture"));
         cleanupThreads();
     }
 }
@@ -281,11 +281,11 @@ void ScreenCapture::onThreadStopped(const QString& name) {
     }
 }
 
-void ScreenCapture::onThreadError(const QString& name, const QString& error) {
-    qCCritical(lcScreenCaptureManager) << "线程错误 [" << name << "]: " << error;
+void ScreenCapture::onThreadError(const RdError& error) {
+    qCCritical(lcScreenCaptureManager) << "线程错误 [" << error.source << "]: " << error.message;
 
     // 如果是ScreenCaptureWorker线程出错，尝试重启
-    if ( name == "ScreenCaptureWorker" ) {
+    if ( error.source == "ScreenCaptureWorker" ) {
         qCWarning(lcScreenCaptureManager) << "ScreenCaptureWorker线程出错，尝试重启线程";
 
         // 停止当前捕获
@@ -346,10 +346,10 @@ ScreenCapture::PerformanceStats ScreenCapture::getPerformanceStats() const {
 }
 
 
-void ScreenCapture::onCaptureError(const QString& error) {
+void ScreenCapture::onCaptureError(const RdError& error) {
     // 处理捕获错误
-    qCWarning(lcScreenCaptureManager) << "捕获错误: " << error;
-    emit captureError(error);
+    qCWarning(lcScreenCaptureManager) << "捕获错误: " << error.logLabel();
+    emit captureError(RdError(ErrorCode::CaptureWorkerError, error.message, "ScreenCapture"));
 }
 
 // 统一配置管理方法实现

@@ -6,6 +6,7 @@
 #include <QtCore/QVariant>
 #include <QtCore/QPointer>
 #include <QtGui/QImage>
+#include "error/RdError.h"
 #include <memory>
 #include <atomic>
 #include "CaptureConfig.h"
@@ -58,7 +59,7 @@ signals:
      * @brief 捕获错误信号
      * @param error 错误描述
      */
-    void captureError(const QString& error);
+    void captureError(const RdError& error);
 
     /**
      * @brief 性能统计更新信号
@@ -71,7 +72,7 @@ private slots:
      * @brief 处理捕获错误
      * @param error 错误信息
      */
-    void onCaptureError(const QString& error);
+    void onCaptureError(const RdError& error);
 
     /**
      * @brief 更新性能统计
@@ -95,7 +96,7 @@ private slots:
      * @param name 线程名称
      * @param error 错误信息
      */
-    void onThreadError(const QString& name, const QString& error);
+    void onThreadError(const RdError& error);
     
     /**
      * @brief 处理线程重启信号

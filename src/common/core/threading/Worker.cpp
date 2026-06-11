@@ -233,7 +233,7 @@ void Worker::endPerformanceTiming() {
 
 void Worker::emitError(const QString& error) {
     qCDebug(lcThreading) << "Worker error in" << m_name << ":" << error;
-    emit errorOccurred(error);
+    emit errorOccurred(RdError(ErrorCode::Unknown, error, m_name));
 }
 
 void Worker::setDidWork(bool didWork) {

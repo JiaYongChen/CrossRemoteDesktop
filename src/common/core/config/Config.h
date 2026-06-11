@@ -6,6 +6,7 @@
 #include <QtCore/QString>
 #include <QtCore/QStringList>
 #include <QtCore/QSize>
+#include "error/RdError.h"
 #include <QtCore/QPoint>
 #include <QtCore/QRect>
 #include <QtGui/QColor>
@@ -177,7 +178,7 @@ signals:
     void configSaved();
     void configReloaded();
     void fileChanged(const QString &filePath);
-    void errorOccurred(const QString &error);
+    void errorOccurred(const RdError &error);
     
 public slots:
     void onFileChanged(const QString &filePath);

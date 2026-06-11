@@ -6,6 +6,7 @@
 #include <atomic>
 #include <chrono>
 #include "../../common/core/network/Protocol.h"
+#include "error/RdError.h"
 #include "../../common/core/threading/ThreadSafeQueue.h"
 #include "../core/FrameSlot.h"
 #include "../core/TripleBuffer.h"
@@ -53,7 +54,7 @@ public:
     bool isRunning() const { return m_running.load(); }
 
 signals:
-    void decodeError(const QString& message);
+    void decodeError(const RdError& message);
     void stopped();
 
 public slots:

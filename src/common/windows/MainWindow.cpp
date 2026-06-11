@@ -806,10 +806,10 @@ void MainWindow::onServerStopped() {
     }
 }
 
-void MainWindow::onServerError(const QString& error) {
-    qCWarning(lcApp) << "MainWindow::onServerError() called with error:" << error;
+void MainWindow::onServerError(const RdError& error) {
+    qCWarning(lcApp) << "MainWindow::onServerError() called with error:" << error.logLabel();
     updateServerStatus(tr("服务器启动失败"));
-    QMessageBox::warning(this, tr("服务器错误"), error);
+    QMessageBox::warning(this, tr("服务器错误"), error.logLabel());
 }
 
 void MainWindow::onClientConnected(const QString& clientId) {

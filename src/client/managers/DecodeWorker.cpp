@@ -86,7 +86,7 @@ void DecodeWorker::processOneFrame() {
     if (!loaded || m_decodeBuffer.isNull()) {
         qCWarning(lcClient) << "DecodeWorker::processOneFrame() - JPEG decode failed, size:"
                             << screenData.imageData.size();
-        emit decodeError(QStringLiteral("JPEG 解码失败"));
+        emit decodeError(RdError(ErrorCode::DecodeFailed, QStringLiteral("JPEG 解码失败"), "DecodeWorker"));
         return;
     }
 

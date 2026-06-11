@@ -707,13 +707,13 @@ void ThreadManager::onWorkerResumed() {
     }
 }
 
-void ThreadManager::onWorkerError(const QString& error) {
+void ThreadManager::onWorkerError(const RdError& error) {
     Worker* worker = qobject_cast<Worker*>(sender());
     if ( !worker ) return;
 
     QString name = getThreadNameByWorker(worker);
     if ( !name.isEmpty() ) {
-        emit threadError(name, error);
+        emit threadError(RdError(ErrorCode::ThreadStartFailed, error.message, name));
     }
 }
 

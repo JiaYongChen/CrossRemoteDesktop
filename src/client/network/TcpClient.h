@@ -6,6 +6,7 @@
 #include <QtNetwork/QSslError>
 #include "../common/core/network/Protocol.h"
 #include "../common/core/config/NetworkConstants.h"
+#include "error/RdError.h"
 
 class QSslSocket;
 class QTimer;
@@ -45,7 +46,7 @@ public:
 signals:
     void connected();
     void disconnected();
-    void errorOccurred(const QString& error);
+    void errorOccurred(const RdError& error);
 
     // 通用消息接收信号 - 由 ConnectionManager 处理具体业务逻辑
     void messageReceived(MessageType type, const QByteArray& payload);

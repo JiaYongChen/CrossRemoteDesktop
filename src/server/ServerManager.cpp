@@ -280,14 +280,14 @@ void ServerManager::onWorkerServerStopped() {
     emit serverStopped();
 }
 
-void ServerManager::onWorkerServerError(const QString& error) {
-    qCDebug(lcServerManager) << "onWorkerServerError():" << error;
+void ServerManager::onWorkerServerError(const RdError& error) {
+    qCDebug(lcServerManager) << "onWorkerServerError():" << error.logLabel();
     {
         QMutexLocker stateLock(&m_stateMutex);
         m_isServerRunning = false;
         m_currentPort = 0;
     }
-    emit serverError(error);
+    emit serverError(RdError(ErrorCode::ServerWorkerError, error.message, "ServerManager"));
 }
 
 void ServerManager::setupWorkerConnections() {
@@ -700,9 +700,9 @@ void ServerManager::onClientHandlerAuthenticated() {
     emit clientAuthenticated(clientAddress);
 }
 
-void ServerManager::onClientHandlerError(const QString& error) {
-    qCCritical(lcServerManager) << "ServerManager::onClientHandlerError() - Client error:" << error;
-    emit serverError(error);
+void ServerManager::onClientHandlerError(const RdError& error) {
+    qCCritical(lcServerManager) << "ServerManager::onClientHandlerError() - Client error:" << error.logLabel();
+    emit serverError(RdError(ErrorCode::ServerWorkerError, error.logLabel(), "ServerManager"));
 }
 
 void ServerManager::onClientHandlerMessageReceived(MessageType type, const QByteArray& data) {

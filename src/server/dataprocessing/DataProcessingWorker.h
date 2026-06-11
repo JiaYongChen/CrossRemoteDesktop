@@ -6,6 +6,7 @@
 #include "../dataflow/QueueManager.h"
 #include "DataProcessing.h"
 #include "DataProcessingConfig.h"
+#include "error/RdError.h"
 
 #include <QtCore/QObject>
 #include <QtCore/QTimer>
@@ -169,7 +170,7 @@ private slots:
      * @param type 队列类型
      * @param error 错误消息
      */
-    void onQueueError(QueueManager::QueueType type, const QString& error);
+    void onQueueError(const RdError& error);
 
 signals:
     /**
@@ -186,7 +187,7 @@ signals:
      * @brief 处理错误信号
      * @param error 错误消息
      */
-    void processingError(const QString& error);
+    void processingError(const RdError& error);
 
     /**
      * @brief 处理警告信号
