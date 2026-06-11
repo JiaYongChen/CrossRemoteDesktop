@@ -5,7 +5,6 @@
 
 /// Mock ConnectionManager — 重写 5 个 virtual 方法用于测试控制
 class MockConnectionManager : public ConnectionManager {
-    Q_OBJECT
 public:
     using ConnectionManager::ConnectionManager;
 

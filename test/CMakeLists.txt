@@ -302,3 +302,37 @@ add_rd_test(TARGET test_frame_transmission_latency  NAME FrameTransmissionLatenc
     EXTRA_SOURCES ../src/common/core/network/ProtocolImpl.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Network threading_test_core
     TIMEOUT 30  LABELS performance latency network  NO_OPENGL)
+
+# SessionManager 单元测试
+add_rd_test(TARGET test_sessionmanager_logic  NAME SessionManagerLogicTest
+    SOURCES test_sessionmanager_logic.cpp
+    EXTRA_SOURCES
+        ../src/client/managers/SessionManager.cpp
+        ../src/client/managers/DecodeWorker.cpp
+        ../src/client/network/ConnectionManager.cpp
+        ../src/client/network/TcpClient.cpp
+        ../src/common/core/network/ProtocolImpl.cpp
+    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network common_test_core OpenSSL::SSL OpenSSL::Crypto
+    TIMEOUT 30  LABELS unit client session  NO_OPENGL)
+
+add_rd_test(TARGET test_sessionmanager_data  NAME SessionManagerDataTest
+    SOURCES test_sessionmanager_data.cpp
+    EXTRA_SOURCES
+        ../src/client/managers/SessionManager.cpp
+        ../src/client/managers/DecodeWorker.cpp
+        ../src/client/network/ConnectionManager.cpp
+        ../src/client/network/TcpClient.cpp
+        ../src/common/core/network/ProtocolImpl.cpp
+    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network common_test_core OpenSSL::SSL OpenSSL::Crypto
+    TIMEOUT 30  LABELS unit client session data  NO_OPENGL)
+
+add_rd_test(TARGET test_sessionmanager_lifecycle  NAME SessionManagerLifecycleTest
+    SOURCES test_sessionmanager_lifecycle.cpp
+    EXTRA_SOURCES
+        ../src/client/managers/SessionManager.cpp
+        ../src/client/managers/DecodeWorker.cpp
+        ../src/client/network/ConnectionManager.cpp
+        ../src/client/network/TcpClient.cpp
+        ../src/common/core/network/ProtocolImpl.cpp
+    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network common_test_core OpenSSL::SSL OpenSSL::Crypto
+    TIMEOUT 30  LABELS unit client session lifecycle  NO_OPENGL)

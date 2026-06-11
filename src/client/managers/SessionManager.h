@@ -28,6 +28,11 @@ class QOffscreenSurface;
 class SessionManager : public QObject {
     Q_OBJECT
 
+    // 测试友元（允许访问受保护构造函数和私有方法）
+    friend class TestSessionManagerLogic;
+    friend class TestSessionManagerData;
+    friend class TestSessionManagerLifecycle;
+
 public:
     struct PerformanceStats {
         double currentFPS;
