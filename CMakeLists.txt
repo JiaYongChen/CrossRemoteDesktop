@@ -57,47 +57,8 @@ endif()
 # 3) 支持多种Qt6安装方式：官方安装器、包管理器（Homebrew/vcpkg/apt等）、手动编译
 # 4) 确保架构一致性，避免混合不同架构的库文件
 
-# 检测操作系统和架构信息
-if(WIN32)
-    set(PLATFORM_NAME "Windows")
-    # Windows架构检测
-    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-        set(PLATFORM_ARCH "x64")
-    else()
-        set(PLATFORM_ARCH "x86")
-    endif()
-    # 检测ARM64 Windows
-    if(CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|aarch64")
-        set(PLATFORM_ARCH "ARM64")
-    endif()
-elseif(APPLE)
-    set(PLATFORM_NAME "macOS")
-    # macOS架构检测
-    execute_process(COMMAND uname -m OUTPUT_VARIABLE SYSTEM_ARCH OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if(SYSTEM_ARCH STREQUAL "arm64")
-        set(PLATFORM_ARCH "ARM64")
-    else()
-        set(PLATFORM_ARCH "x64")
-    endif()
-elseif(UNIX)
-    set(PLATFORM_NAME "Linux")
-    # Linux架构检测
-    execute_process(COMMAND uname -m OUTPUT_VARIABLE SYSTEM_ARCH OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if(SYSTEM_ARCH MATCHES "aarch64|arm64")
-        set(PLATFORM_ARCH "ARM64")
-    elseif(SYSTEM_ARCH MATCHES "armv7l|armhf")
-        set(PLATFORM_ARCH "ARM32")
-    elseif(SYSTEM_ARCH MATCHES "x86_64|amd64")
-        set(PLATFORM_ARCH "x64")
-    else()
-        set(PLATFORM_ARCH "x86")
-    endif()
-else()
-    set(PLATFORM_NAME "Unknown")
-    set(PLATFORM_ARCH "Unknown")
-endif()
-
-message(STATUS "[Qt6 Auto-Detection] Platform: ${PLATFORM_NAME}, Architecture: ${PLATFORM_ARCH}")
+# 平台/架构检测（独立模块，输出 RD_PLATFORM_NAME/ARCH 及 PLATFORM_NAME/ARCH 兼容别名）
+include(cmake/PlatformDetect.cmake)
 
 # 平台特定的Qt6路径配置
 if(APPLE)
