@@ -92,19 +92,15 @@ bool DataProcessingWorker::initialize() {
     qCDebug(lcDataProcessingWorker) << "初始化 DataProcessingWorker";
 
     try {
-        // 获取队列管理器实例
-        QueueManager* queueManager = QueueManager::instance();
-        if ( !queueManager ) {
-            qCCritical(lcDataProcessingWorker) << "无法获取队列管理器实例";
+        if ( !m_queueManager ) {
+            qCCritical(lcDataProcessingWorker) << "未设置队列管理器";
             return false;
         }
-        // 保存队列管理器指针，便于后续使用统一接口和断开信号连接
-        m_queueManager = queueManager;
 
         // 连接队列信号
-        connect(queueManager, &QueueManager::queueWarning,
+        connect(m_queueManager, &QueueManager::queueWarning,
             this, &DataProcessingWorker::onQueueWarning);
-        connect(queueManager, &QueueManager::queueError,
+        connect(m_queueManager, &QueueManager::queueError,
             this, &DataProcessingWorker::onQueueError);
 
         // 创建数据处理器

@@ -185,7 +185,7 @@ void TestThreadManager::cleanupTestCase()
 
 void TestThreadManager::init()
 {
-    m_threadManager = ThreadManager::instance();
+    m_threadManager = new ThreadManager(this);
     QVERIFY(m_threadManager != nullptr);
 }
 
@@ -237,13 +237,8 @@ void TestThreadManager::cleanup()
 
 void TestThreadManager::test_singleton()
 {
-    // 测试单例模式
-    ThreadManager* instance1 = ThreadManager::instance();
-    ThreadManager* instance2 = ThreadManager::instance();
-    
-    QVERIFY(instance1 != nullptr);
-    QVERIFY(instance2 != nullptr);
-    QCOMPARE(instance1, instance2);
+    // 测试 ThreadManager 创建（原单例已迁移至 DI）
+    QVERIFY(m_threadManager != nullptr);
 }
 
 void TestThreadManager::test_createThread()

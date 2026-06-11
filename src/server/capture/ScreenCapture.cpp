@@ -14,9 +14,10 @@
 #include <algorithm>
 
 
-ScreenCapture::ScreenCapture(QObject* parent)
+ScreenCapture::ScreenCapture(ThreadManager* threadMgr, QueueManager* queueMgr, QObject* parent)
     : QObject(parent)
-    , m_threadManager(ThreadManager::instance())
+    , m_threadManager(threadMgr)
+    , m_queueManager(queueMgr)
     , m_isCapturing(false)
     , m_statsTimer(new QTimer(this)) {
     qCDebug(lcScreenCaptureManager) << "ScreenCapture 多线程管理器构造函数调用";
@@ -28,13 +29,11 @@ ScreenCapture::ScreenCapture(QObject* parent)
     m_captureConfig.highScaleQuality = true;
     m_captureConfig.captureRect = QRect(); // 空矩形表示全屏
 
-    // 确保队列管理器初始化（测试环境可能未主动初始化）
-    if ( QueueManager::instance() ) {
-        // 队列容量 3：在低延迟（~50ms @ 60FPS）与足够缓冲间取得平衡。
-        // 小于并行编码批大小（4）→ 编码永远是瓶颈 → 丢弃发生在捕获侧（正确）。
-        QueueManager::instance()->initialize(3, 3);
+    // 确保队列管理器已初始化
+    if ( m_queueManager ) {
+        m_queueManager->initialize(3, 3);
     } else {
-        qCWarning(lcScreenCaptureManager) << "QueueManager::instance()返回空指针，队列功能不可用";
+        qCWarning(lcScreenCaptureManager) << "QueueManager 为空，队列功能不可用";
     }
 
     // 初始化性能统计
@@ -144,8 +143,8 @@ void ScreenCapture::stopCapture() {
     m_statsTimer->stop();
 
     // 优先停止队列以唤醒可能阻塞的生产者，确保后续线程停止不会卡住
-    if ( QueueManager::instance() ) {
-        QueueManager::instance()->stopAllQueues();
+    if ( m_queueManager ) {
+        m_queueManager->stopAllQueues();
     }
 
     // 通知Worker停止捕获
@@ -209,7 +208,7 @@ bool ScreenCapture::initializeThreads() {
     // 由ThreadManager创建并持有Worker对象（构造函数已无队列参数）
     bool success = m_threadManager->createThread(
         threadName,
-        std::unique_ptr<Worker>(new ScreenCaptureWorker(QueueManager::instance())),
+        std::unique_ptr<Worker>(new ScreenCaptureWorker(m_queueManager)),
         false,  // 不自动启动
         true,   // 自动重启
         3       // 最大重启次数

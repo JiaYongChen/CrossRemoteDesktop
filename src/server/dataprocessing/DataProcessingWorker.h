@@ -128,6 +128,10 @@ protected:
      */
     bool initialize() override;
 
+public:
+    /// 设置队列管理器（DI 注入，必须在 Worker 启动前调用）
+    void setQueueManager(QueueManager* qm) { m_queueManager = qm; }
+
     /**
      * @brief 清理工作线程
      */

@@ -5,16 +5,6 @@
 #include <QtCore/QLoggingCategory>
 #include "../logging/LoggingCategories.h" // 引入日志分类声明，使用lcThreading进行分类日志输出
 
-// 静态成员初始化
-ThreadManager* ThreadManager::s_instance = nullptr;
-
-ThreadManager* ThreadManager::instance() {
-    // 使用静态局部变量实现线程安全的单例，自动管理生命周期
-    static ThreadManager instance;
-    s_instance = &instance;
-    return s_instance;
-}
-
 ThreadManager::ThreadManager(QObject* parent)
     : QObject(parent)
     , m_monitoringTimer(new QTimer(this))

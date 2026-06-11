@@ -158,12 +158,10 @@ TestProducerConsumerIntegration::~TestProducerConsumerIntegration() {
 void TestProducerConsumerIntegration::initTestCase() {
     qCDebug(lcProducerConsumerTest) << "初始化生产者-消费者集成测试";
 
-    // 初始化线程管理器
-    m_threadManager = ThreadManager::instance();
+    // 创建线程管理器和队列管理器（DI 模式）
+    m_threadManager = new ThreadManager(this);
     QVERIFY(m_threadManager != nullptr);
-
-    // 初始化队列管理器
-    m_queueManager = QueueManager::instance();
+    m_queueManager = new QueueManager(this);
     QVERIFY(m_queueManager != nullptr);
 
     // 初始化队列管理器（FIFO+流水池，容量适配批处理4）
@@ -243,6 +241,7 @@ void TestProducerConsumerIntegration::test_basicProducerConsumer() {
 
     // 创建数据处理器（生产者）
     m_dataProcessor = new DataProcessingWorker();
+    m_dataProcessor->setQueueManager(m_queueManager);
     m_processingThread = new QThread();
     m_dataProcessor->moveToThread(m_processingThread);
 
@@ -406,6 +405,7 @@ void TestProducerConsumerIntegration::test_dataIntegrity() {
 
     // 创建数据处理器
     m_dataProcessor = new DataProcessingWorker();
+    m_dataProcessor->setQueueManager(m_queueManager);
     m_processingThread = new QThread();
     m_dataProcessor->moveToThread(m_processingThread);
 

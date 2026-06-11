@@ -35,6 +35,7 @@
 
 
 ClientHandlerWorker::ClientHandlerWorker(qintptr socketDescriptor,
+                                         QueueManager* queueMgr,
                                          const QSslCertificate& certificate,
                                          const QSslKey& privateKey,
                                          QObject* parent)
@@ -54,7 +55,7 @@ ClientHandlerWorker::ClientHandlerWorker(qintptr socketDescriptor,
     , m_bytesReceived(0)
     , m_bytesSent(0)
     , m_inputSimulator(nullptr)
-    , m_queueManager(nullptr) {
+    , m_queueManager(queueMgr) {
     qCDebug(lcClientHandlerWorker) << "ClientHandlerWorker 构造函数调用，套接字描述符:" << socketDescriptor;
     setName("ClientHandlerWorker");
 }
@@ -159,8 +160,6 @@ bool ClientHandlerWorker::initialize() {
         qCWarning(lcClientHandlerWorker) << "输入模拟器初始化失败，客户端:" << clientId();
     }
 
-    // 获取队列管理器
-    m_queueManager = QueueManager::instance();
     if ( !m_queueManager ) {
         qCWarning(lcClientHandlerWorker) << "无法获取队列管理器实例";
     }

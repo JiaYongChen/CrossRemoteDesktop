@@ -44,7 +44,6 @@ public:
      * @brief 获取单例实例
      * @return 队列管理器单例
      */
-    [[nodiscard]] static QueueManager* instance();
 
     /**
      * @brief 初始化队列管理器
@@ -202,8 +201,6 @@ private:
     QString getQueueName(QueueType type) const;
 
 private:
-    static QueueManager* s_instance;                                    ///< 单例实例
-    static QMutex s_instanceMutex;                                      ///< 单例互斥锁
 
     std::unique_ptr<ThreadSafeQueue<CapturedFrame>> m_captureQueue;     ///< 捕获队列
     std::unique_ptr<ThreadSafeQueue<ProcessedData>> m_processedQueue;   ///< 处理队列

@@ -17,6 +17,8 @@ QT_END_NAMESPACE
 
 class ConnectionDialog;
 class SettingsDialog;
+class ThreadManager;
+class QueueManager;
 class ServerManager;
 class ClientManager;
 
@@ -149,6 +151,8 @@ private:
     SettingsDialog *m_settingsDialog;
     
     // 管理器
+    ThreadManager *m_threadManager;
+    QueueManager *m_queueManager;
     ServerManager *m_serverManager;
     ClientManager *m_clientManager;
     

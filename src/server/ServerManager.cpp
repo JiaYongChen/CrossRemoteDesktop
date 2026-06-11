@@ -17,7 +17,7 @@
 
 ServerManager::ServerManager(QObject* parent, ThreadManager* threadMgr, QueueManager* queueMgr)
     : QObject(parent)
-    , m_threadManager(threadMgr ? threadMgr : ThreadManager::instance())
+    , m_threadManager(threadMgr)
     , m_isServerRunning(false)
     , m_currentPort(0)
     , m_screenCapture(nullptr)
@@ -27,13 +27,11 @@ ServerManager::ServerManager(QObject* parent, ThreadManager* threadMgr, QueueMan
     , m_currentClientThreadName() {
     qCDebug(lcServerManager) << "ServerManager::ServerManager() - Initializing ServerManager";
 
-    // Use injected QueueManager or fall back to singleton
-    m_queueManager = queueMgr ? queueMgr : QueueManager::instance();
-    // 队列容量 3：低延迟（~50ms @ 60FPS）与足够缓冲的平衡
+    m_queueManager = queueMgr;
     m_queueManager->initialize(3, 3);
 
-    // 创建屏幕捕获管理器（在主线程创建）
-    m_screenCapture = new ScreenCapture(this);
+    // 创建屏幕捕获管理器（在主线程创建，传递 DI）
+    m_screenCapture = new ScreenCapture(m_threadManager, m_queueManager, this);
 
     // 设置与ServerWorker的信号连接
     setupWorkerConnections();
@@ -555,6 +553,7 @@ void ServerManager::startWorkerThreads() {
         auto dataWorker = std::make_unique<DataProcessingWorker>();
         DataProcessingWorker* dataWorkerPtr = dataWorker.get();
         dataWorkerPtr->setProcessingConfig(processingConfig);
+        dataWorkerPtr->setQueueManager(m_queueManager);
         dataWorkerPtr->setMaxQueueSize(CoreConstants::Performance::MAX_QUEUE_SIZE);
         dataWorkerPtr->setProcessingTimeout(2000);
 
@@ -628,7 +627,7 @@ void ServerManager::onNewClientConnection(qintptr socketDescriptor) {
         cert = sw->sslCertificate();
         key = sw->sslPrivateKey();
     }
-    auto worker = std::make_unique<ClientHandlerWorker>(socketDescriptor, cert, key);
+    auto worker = std::make_unique<ClientHandlerWorker>(socketDescriptor, m_queueManager, cert, key);
 
     // 保存Worker裸指针（在move之前）
     m_currentClient = worker.get();

@@ -3,10 +3,6 @@
 #include <QtCore/QMutexLocker>
 
 
-// 静态成员初始化
-QueueManager* QueueManager::s_instance = nullptr;
-QMutex QueueManager::s_instanceMutex;
-
 QueueManager::QueueManager(QObject* parent)
     : QObject(parent)
     , m_statsTimer(new QTimer(this))
@@ -22,14 +18,6 @@ QueueManager::QueueManager(QObject* parent)
 QueueManager::~QueueManager() {
     qCDebug(lcQueueManager) << "QueueManager析构函数";
     cleanup();
-}
-
-QueueManager* QueueManager::instance() {
-    QMutexLocker locker(&s_instanceMutex);
-    if ( !s_instance ) {
-        s_instance = new QueueManager();
-    }
-    return s_instance;
 }
 
 bool QueueManager::initialize(int captureQueueSize, int processedQueueSize) {

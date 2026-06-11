@@ -15,6 +15,8 @@
 #include "../src/server/capture/ScreenCapture.h"
 #include "../src/server/capture/ScreenCaptureWorker.h"
 #include "../src/server/capture/CaptureConfig.h"
+#include "../src/server/dataflow/QueueManager.h"
+#include "../src/common/core/threading/ThreadManager.h"
 
 // 日志分类
 Q_LOGGING_CATEGORY(testScreenCaptureIntegration, "test.screencapture.integration")
@@ -37,13 +39,21 @@ public:
     TestScreenCaptureIntegration() = default;
     ~TestScreenCaptureIntegration() = default;
 
+private:
+    std::unique_ptr<ThreadManager> m_threadManager;
+    std::unique_ptr<QueueManager> m_queueManager;
+
 private slots:
     /**
      * @brief 测试初始化
      */
     void initTestCase() {
         qCDebug(testScreenCaptureIntegration, "开始ScreenCapture集成测试");
-        
+
+        m_threadManager = std::make_unique<ThreadManager>();
+        m_queueManager = std::make_unique<QueueManager>();
+        m_queueManager->initialize(10, 10);
+
         // 设置测试环境
         QCoreApplication::setAttribute(Qt::AA_UseOpenGLES, false);
     }
@@ -78,7 +88,7 @@ private slots:
         qCDebug(testScreenCaptureIntegration, "测试配置管理冗余");
         
         try {
-            ScreenCapture capture;
+            ScreenCapture capture(m_threadManager.get(), m_queueManager.get());
             
             // 测试帧率设置
             CaptureConfig cfg = capture.getCaptureConfig();
@@ -104,7 +114,7 @@ private slots:
         qCDebug(testScreenCaptureIntegration, "测试统计信息冗余");
         
         try {
-            ScreenCapture capture;
+            ScreenCapture capture(m_threadManager.get(), m_queueManager.get());
             
             // 测试统计信息获取（不启动实际捕获）
             auto stats = capture.getPerformanceStats();
@@ -132,7 +142,7 @@ private slots:
         qCDebug(testScreenCaptureIntegration, "测试队列管理冗余");
         
         try {
-            ScreenCapture capture;
+            ScreenCapture capture(m_threadManager.get(), m_queueManager.get());
             
             // 测试队列状态查询
             QVERIFY(!capture.isCapturing());
@@ -155,7 +165,7 @@ private slots:
         qCDebug(testScreenCaptureIntegration, "测试错误处理冗余");
         
         try {
-            ScreenCapture capture;
+            ScreenCapture capture(m_threadManager.get(), m_queueManager.get());
             
             // 测试捕获状态查询冗余
             bool isCapturing1 = capture.isCapturing();
@@ -187,7 +197,7 @@ private slots:
         try {
             // 测试对象创建和销毁
             {
-                ScreenCapture capture;
+                ScreenCapture capture(m_threadManager.get(), m_queueManager.get());
                 // 对象应该能够正常创建
                 QVERIFY(true);
             }

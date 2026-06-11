@@ -34,6 +34,7 @@ public:
      * @param parent 父对象
      */
     explicit ClientHandlerWorker(qintptr socketDescriptor,
+                                QueueManager* queueMgr,
                                 const QSslCertificate& certificate = QSslCertificate(),
                                 const QSslKey& privateKey = QSslKey(),
                                 QObject* parent = nullptr);

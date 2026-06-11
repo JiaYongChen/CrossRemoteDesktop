@@ -257,10 +257,10 @@ void TestScreenCaptureWorker::test_signalEmission()
 {
     m_worker.reset();
 
-    QueueManager* queueManager = QueueManager::instance();
+    auto queueManager = std::make_unique<QueueManager>();
     queueManager->initialize(120, 120);
 
-    m_worker = std::make_unique<ScreenCaptureWorker>(queueManager);
+    m_worker = std::make_unique<ScreenCaptureWorker>(queueManager.get());
     QVERIFY(m_worker != nullptr);
 
     CaptureConfig cfg = m_worker->getCurrentConfig();

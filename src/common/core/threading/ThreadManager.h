@@ -86,12 +86,6 @@ public:
     };
 
     /**
-     * @brief 获取单例实例
-     * @return ThreadManager单例实例
-     */
-    [[nodiscard]] static ThreadManager* instance();
-
-    /**
      * @brief 析构函数
      */
     ~ThreadManager();
@@ -394,8 +388,6 @@ private:
     void tryAutoRestart(const QString& name);
 
 private:
-    static ThreadManager* s_instance;       ///< 单例实例
-    
     mutable QMutex m_mutex;                 ///< 互斥锁
     QHash<QString, std::shared_ptr<ThreadInfo>> m_threads; ///< 线程信息映射
     

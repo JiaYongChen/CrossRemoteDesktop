@@ -3,6 +3,8 @@
 #include "SettingsDialog.h"
 #include "../../server/ServerManager.h"
 #include "../../client/ClientManager.h"
+#include "../../server/dataflow/QueueManager.h"
+#include "../core/threading/ThreadManager.h"
 #include "../../server/simulator/InputSimulator.h"
 #include "../core/config/UiConstants.h"
 #include "../core/config/MessageConstants.h"
@@ -71,8 +73,12 @@ MainWindow::MainWindow(QWidget* parent)
     createCentralWidget();
     createSystemTrayIcon();
 
+    // 创建核心基础设施（DI 注入链的起点）
+    m_threadManager = new ThreadManager(this);
+    m_queueManager = new QueueManager(this);
+
     // 创建管理器组件
-    m_serverManager = new ServerManager(this);
+    m_serverManager = new ServerManager(this, m_threadManager, m_queueManager);
     m_clientManager = new ClientManager(this);
 
     // 设置连接

@@ -37,6 +37,7 @@ class TestScreenCapture : public QObject
 private:
     std::unique_ptr<ScreenCapture> m_screenCapture;
     ThreadManager* m_threadManager;
+    QueueManager* m_queueManager;
     
 private slots:
     /**
@@ -141,12 +142,12 @@ void TestScreenCapture::initTestCase()
 {
     qCDebug(testScreenCapture, "开始ScreenCapture测试");
 
-    // 初始化线程管理器
-    m_threadManager = ThreadManager::instance();
+    // 创建线程管理器和队列管理器（DI 模式）
+    m_threadManager = new ThreadManager(this);
     QVERIFY(m_threadManager != nullptr);
-
-    // QueueManager 初始化（ScreenCapture 不再自行初始化，由测试负责）
-    bool qmInit = QueueManager::instance()->initialize(120, 120);
+    m_queueManager = new QueueManager(this);
+    QVERIFY(m_queueManager != nullptr);
+    bool qmInit = m_queueManager->initialize(120, 120);
     QVERIFY(qmInit);
 }
 
@@ -158,7 +159,7 @@ void TestScreenCapture::cleanupTestCase()
 void TestScreenCapture::init()
 {
     // 每个测试前创建新的ScreenCapture实例
-    m_screenCapture = std::make_unique<ScreenCapture>();
+    m_screenCapture = std::make_unique<ScreenCapture>(m_threadManager, m_queueManager);
     QVERIFY(m_screenCapture != nullptr);
 }
 
@@ -297,12 +298,8 @@ void TestScreenCapture::test_syncCapture()
 {
     qCDebug(testScreenCapture, "测试异步捕获功能（通过队列）");
     
-    // 获取捕获队列管理器并清空队列
-    QueueManager* queueManager = QueueManager::instance();
-    QVERIFY(queueManager != nullptr);
-    
     // 清空队列
-    queueManager->clearQueue(QueueManager::CaptureQueue);
+    m_queueManager->clearQueue(QueueManager::CaptureQueue);
     
     // 开始捕获
     m_screenCapture->startCapture();
@@ -319,7 +316,7 @@ void TestScreenCapture::test_syncCapture()
         waited += waitInterval;
         QCoreApplication::processEvents();
         
-        if (queueManager->dequeueCapturedFrame(tempFrame)) {
+        if (m_queueManager->dequeueCapturedFrame(tempFrame)) {
             frameReceived = true;
             break;
         }
@@ -402,7 +399,7 @@ void TestScreenCapture::test_memoryManagement()
     
     // 测试多次创建和销毁
     for (int i = 0; i < 10; ++i) {
-        auto tempCapture = std::make_unique<ScreenCapture>();
+        auto tempCapture = std::make_unique<ScreenCapture>(m_threadManager, m_queueManager);
         tempCapture->startCapture();
         QTest::qWait(50);
         tempCapture->stopCapture();

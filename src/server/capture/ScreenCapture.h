@@ -14,6 +14,7 @@
 // 前向声明
 class ScreenCaptureWorker;
 class ThreadManager;
+class QueueManager;
 class QTimer;
 
 /**
@@ -28,7 +29,7 @@ class ScreenCapture : public QObject
     Q_OBJECT
 
 public:
-    explicit ScreenCapture(QObject *parent = nullptr);
+    explicit ScreenCapture(ThreadManager* threadMgr, QueueManager* queueMgr, QObject *parent = nullptr);
     ~ScreenCapture();
 
     // 捕获控制方法
@@ -125,6 +126,7 @@ private:
 private:
     // 成员变量
     ThreadManager* m_threadManager;                                    ///< 线程管理器
+    QueueManager* m_queueManager;                                      ///< 队列管理器
     QPointer<ScreenCaptureWorker> m_captureWorker;                     ///< 非拥有指针，由ThreadManager管理生命周期
     
     // 状态控制
