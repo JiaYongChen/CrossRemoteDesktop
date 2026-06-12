@@ -75,6 +75,7 @@ void TcpClient::connectToHost(const QString& hostName, quint16 port) {
 
     m_hostName = hostName;
     m_port = port;
+    m_isConnected.store(false, std::memory_order_release);
 
     // 使用TLS加密连接
     m_socket->connectToHostEncrypted(hostName, port);
@@ -116,7 +117,7 @@ void TcpClient::abort() {
 }
 
 bool TcpClient::isConnected() const {
-    return m_socket && m_socket->state() == QAbstractSocket::ConnectedState;
+    return m_isConnected.load(std::memory_order_acquire);
 }
 
 QString TcpClient::serverAddress() const {
@@ -147,6 +148,8 @@ void TcpClient::onConnected() {
 void TcpClient::onEncrypted() {
     qCInfo(lcClient) << "TcpClient::onEncrypted - TLS handshake completed successfully";
 
+    m_isConnected.store(true, std::memory_order_release);
+
     // 设置TCP优化选项
     m_socket->setSocketOption(QAbstractSocket::KeepAliveOption, NetworkConstants::KEEP_ALIVE_ENABLED);
     m_socket->setSocketOption(QAbstractSocket::LowDelayOption, NetworkConstants::TCP_NODELAY_ENABLED);
@@ -170,11 +173,26 @@ void TcpClient::configureSsl() {
 }
 
 void TcpClient::onSslErrors(const QList<QSslError>& errors) {
-    // 忽略自签名证书错误（远程桌面内网场景）
+    // 仅忽略预期的自签名证书错误，其他 SSL 错误视为致命（防 MITM 攻击）
+    QList<QSslError> expectedErrors;
     for ( const QSslError& error : errors ) {
-        qCWarning(lcClient) << "TcpClient::onSslErrors - SSL error:" << error.errorString();
+        switch ( error.error() ) {
+            case QSslError::SelfSignedCertificate:
+            case QSslError::SelfSignedCertificateInChain:
+            case QSslError::HostNameMismatch:
+                qCDebug(lcClient) << "TcpClient: 忽略预期 SSL 错误:" << error.errorString();
+                expectedErrors.append(error);
+                break;
+            default:
+                qCWarning(lcClient) << "TcpClient: 致命 SSL 错误:" << error.errorString();
+                break;
+        }
     }
-    m_socket->ignoreSslErrors();
+    if ( !expectedErrors.isEmpty() ) {
+        m_socket->ignoreSslErrors(expectedErrors);
+        // Peer verification overridden — the expected errors above
+        m_socket->setPeerVerifyMode(QSslSocket::VerifyNone);
+    }
 }
 
 void TcpClient::onDisconnected() {
@@ -182,6 +200,8 @@ void TcpClient::onDisconnected() {
 
     // 停止心跳检查定时器
     m_heartbeatCheckTimer->stop();
+
+    m_isConnected.store(false, std::memory_order_release);
 
     // 清理接收缓冲区
     m_receiveBuffer.clear();

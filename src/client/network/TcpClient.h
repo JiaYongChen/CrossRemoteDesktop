@@ -7,6 +7,7 @@
 #include "../common/core/network/Protocol.h"
 #include "../common/core/config/NetworkConstants.h"
 #include "error/RdError.h"
+#include <atomic>
 
 class QSslSocket;
 class QTimer;
@@ -68,6 +69,9 @@ private:
     // 网络
     QSslSocket* m_socket;
     QByteArray m_receiveBuffer;
+
+    // 连接状态（原子变量，跨线程安全读取）
+    std::atomic<bool> m_isConnected{false};
 
     // 连接信息
     QString m_hostName;
