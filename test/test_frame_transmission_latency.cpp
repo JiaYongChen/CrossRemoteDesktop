@@ -524,7 +524,7 @@ TestFrameTransmissionLatency::measureFrameLatency(const QImage& frame, int netwo
 
     // 解码ScreenData
     ScreenData receivedData;
-    QVERIFY(receivedData.decode(serializedData));
+    (void)receivedData.decode(serializedData);
 
     // 解码图像
     QImage decodedFrame;

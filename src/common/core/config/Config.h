@@ -27,7 +27,6 @@ public:
         General,
         Connection,
         Display,
-        Audio,
         Security,
         Network,
         Performance,

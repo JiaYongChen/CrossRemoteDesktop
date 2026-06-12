@@ -54,7 +54,6 @@ public:
     bool getFullScreen() const;
     int getColorDepth() const;
     bool getShareClipboard() const;
-    bool getShareAudio() const;
 
     // 设置连接信息
     void setHost(const QString& host);
@@ -109,7 +108,6 @@ private:
     QCheckBox* m_fullScreenCheck;
     QComboBox* m_colorDepthCombo;
     QCheckBox* m_shareClipboardCheck;
-    QCheckBox* m_shareAudioCheck;
     QCheckBox* m_enableEncryptionCheck;
     QSpinBox* m_connectionTimeoutSpinBox;
 

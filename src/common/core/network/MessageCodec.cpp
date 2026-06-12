@@ -239,78 +239,6 @@ bool KeyboardEvent::decode(const QByteArray& bytes) {
     return true;
 }
 
-// FileTransferRequest 序列化和反序列化实现
-QByteArray FileTransferRequest::encode() const {
-    QByteArray bytes;
-    QDataStream ds(&bytes, QIODevice::WriteOnly);
-    ds.setByteOrder(QDataStream::LittleEndian);
-    writePrefixedString(ds, fileName);
-    ds << static_cast<quint64>(fileSize);
-    ds << static_cast<quint32>(transferId);
-    ds << static_cast<quint8>(direction);
-    return bytes;
-}
-
-bool FileTransferRequest::decode(const QByteArray& bytes) {
-    QDataStream ds(bytes);
-    ds.setByteOrder(QDataStream::LittleEndian);
-    fileName = readPrefixedString(ds, MAX_FILENAME_LENGTH);
-    quint64 size = 0; quint32 tid = 0; quint8 dir = 0;
-    ds >> size; ds >> tid; ds >> dir;
-    if ( ds.status() != QDataStream::Ok ) return false;
-    fileSize = size; transferId = tid; direction = dir;
-    return true;
-}
-
-// FileTransferResponse 序列化和反序列化实现
-QByteArray FileTransferResponse::encode() const {
-    QByteArray bytes;
-    QDataStream ds(&bytes, QIODevice::WriteOnly);
-    ds.setByteOrder(QDataStream::LittleEndian);
-    ds << static_cast<quint32>(transferId);
-    ds << static_cast<quint8>(status);
-    writePrefixedString(ds, errorMessage);
-    return bytes;
-}
-
-bool FileTransferResponse::decode(const QByteArray& bytes) {
-    QDataStream ds(bytes);
-    ds.setByteOrder(QDataStream::LittleEndian);
-    quint32 tid = 0; quint8 st = 0;
-    ds >> tid; ds >> st;
-    errorMessage = readPrefixedString(ds, MAX_ERROR_MESSAGE_LENGTH);
-    if ( ds.status() != QDataStream::Ok ) return false;
-    transferId = tid; status = static_cast<FileTransferStatus>(st);
-    return true;
-}
-
-// FileData 序列化和反序列化实现
-QByteArray FileData::encode() const {
-    QByteArray bytes;
-    QDataStream ds(&bytes, QIODevice::WriteOnly);
-    ds.setByteOrder(QDataStream::LittleEndian);
-    ds << static_cast<quint32>(transferId);
-    ds << static_cast<quint64>(offset);
-    ds << static_cast<quint32>(dataSize);
-    // if (!chunk.isEmpty()) ds.writeRawData(chunk.constData(), chunk.size());
-    return bytes;
-}
-
-bool FileData::decode(const QByteArray& bytes) {
-    if ( bytes.size() < (4 + 8 + 4) ) return false;
-    QDataStream ds(bytes);
-    ds.setByteOrder(QDataStream::LittleEndian);
-    quint32 tid = 0; quint64 off = 0; quint32 len = 0;
-    ds >> tid; ds >> off; ds >> len;
-    if ( ds.status() != QDataStream::Ok ) return false;
-    // 长度校验
-    qsizetype need = qsizetype(4 + 8 + 4) + qsizetype(len);
-    if ( bytes.size() < need ) return false;
-    // chunkOut = bytes.mid(qsizetype(4 + 8 + 4), len);
-    transferId = tid; offset = off; dataSize = len;
-    return true;
-}
-
 // ScreenData 序列化和反序列化实现
 QByteArray ScreenData::encode() const {
     QByteArray bytes;
@@ -438,33 +366,6 @@ bool ScreenData::decode(const QByteArray& bytes) {
         imageData = QByteArray();
     }
 
-    return true;
-}
-
-// AudioData 序列化和反序列化实现
-QByteArray AudioData::encode() const {
-    QByteArray bytes;
-    QDataStream ds(&bytes, QIODevice::WriteOnly);
-    ds.setByteOrder(QDataStream::LittleEndian);
-    ds << static_cast<quint32>(sampleRate);
-    ds << static_cast<quint8>(channels);
-    ds << static_cast<quint8>(bitsPerSample);
-    ds << static_cast<quint32>(dataSize);
-    // if (!pcm.isEmpty()) ds.writeRawData(pcm.constData(), pcm.size());
-    return bytes;
-}
-
-bool AudioData::decode(const QByteArray& bytes) {
-    if ( bytes.size() < (4 + 1 + 1 + 4) ) return false;
-    QDataStream ds(bytes);
-    ds.setByteOrder(QDataStream::LittleEndian);
-    quint32 rate = 0, size = 0; quint8 ch = 0, bits = 0;
-    ds >> rate; ds >> ch; ds >> bits; ds >> size;
-    if ( ds.status() != QDataStream::Ok ) return false;
-    qsizetype need = qsizetype(4 + 1 + 1 + 4) + qsizetype(size);
-    if ( bytes.size() < need ) return false;
-    sampleRate = rate; channels = ch; bitsPerSample = bits; dataSize = size;
-    // pcmOut = bytes.mid(qsizetype(4 + 1 + 1 + 4), size);
     return true;
 }
 

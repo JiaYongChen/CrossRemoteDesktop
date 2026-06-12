@@ -471,9 +471,6 @@ QString Config::getGroupKey(const QString &key, ConfigGroup group) const
     case ConfigGroup::Display:
         prefix = "Display/";
         break;
-    case ConfigGroup::Audio:
-        prefix = "Audio/";
-        break;
     case ConfigGroup::Security:
         prefix = "Security/";
         break;
@@ -510,8 +507,6 @@ QString Config::groupToString(ConfigGroup group)
         return "Network";
     case ConfigGroup::Display:
         return "Display";
-    case ConfigGroup::Audio:
-        return "Audio";
     case ConfigGroup::Security:
         return "Security";
     case ConfigGroup::Performance:

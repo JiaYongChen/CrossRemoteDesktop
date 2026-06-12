@@ -2,7 +2,6 @@
 #include "InputForwarder.h"
 #include "ConnectionLifecycle.h"
 #include "../managers/SessionManager.h"
-#include "../managers/FileTransferManager.h"
 #include "../../common/core/config/UiConstants.h"
 #include "RenderManager.h"
 #include "CursorManager.h"
@@ -134,9 +133,6 @@ bool ClientRemoteWindow::isInputEnabled() const {
 
 // ── Manager access ──
 
-FileTransferManager* ClientRemoteWindow::fileTransferManager() const {
-    return m_fileTransferManager;
-}
 
 RenderManager* ClientRemoteWindow::renderManager() const {
     return m_renderManager;
@@ -149,7 +145,6 @@ CursorManager* ClientRemoteWindow::cursorManager() const {
 // ── Initialization ──
 
 void ClientRemoteWindow::initializeManagers() {
-    m_fileTransferManager = new FileTransferManager(this, this);
     m_renderManager = new RenderManager(this, this);
     m_cursorManager = new CursorManager(this, this);
     m_clipboardManager = new ClipboardManager(this);
@@ -164,9 +159,6 @@ void ClientRemoteWindow::configureWindow() {
 }
 
 void ClientRemoteWindow::enableManagerFeatures() {
-    if (m_fileTransferManager) {
-        m_fileTransferManager->setEnabled(true);
-    }
 }
 
 void ClientRemoteWindow::setupUI() {
@@ -195,9 +187,6 @@ void ClientRemoteWindow::setupUI() {
 void ClientRemoteWindow::setupManagerConnections() {
     if (!m_sessionManager) return;
 
-    // Performance stats → overlay refresh
-    connect(m_sessionManager, &SessionManager::performanceStatsUpdated,
-        this, &ClientRemoteWindow::onPerformanceStatsUpdated);
 
     // Connection state → lifecycle manager
     connect(m_sessionManager, &SessionManager::connectionStateChanged,
@@ -243,10 +232,6 @@ void ClientRemoteWindow::setupManagerConnections() {
 
 void ClientRemoteWindow::paintEvent(QPaintEvent* event) {
     Q_UNUSED(event);
-    if (m_showPerformanceInfo) {
-        QPainter painter(this);
-        drawPerformanceInfo(painter);
-    }
 }
 
 void ClientRemoteWindow::resizeEvent(QResizeEvent* event) {
@@ -315,34 +300,6 @@ void ClientRemoteWindow::onConnectionError(const QString& error) {
 void ClientRemoteWindow::onScreenUpdated(const QImage& screen) {
     updateRemoteScreen(screen);
 }
-
-void ClientRemoteWindow::onPerformanceStatsUpdated() {
-    if (m_showPerformanceInfo) {
-        update();
-    }
-}
-
-// ── Performance overlay ──
-
-void ClientRemoteWindow::drawPerformanceInfo(QPainter& painter) {
-    painter.save();
-
-    QString sessionInfo = m_sessionManager ? m_sessionManager->getFormattedPerformanceInfo() : "No Session";
-    QStringList info;
-    info << sessionInfo;
-
-    double currentScale = m_renderManager ? m_renderManager->scaleFactor() : 1.0;
-    info << QString("Scale: %1%").arg(currentScale * 100, 0, 'f', 0);
-    info << QString("Render: OpenGL Direct");
-
-    QString infoText = info.join(" | ");
-    painter.setPen(Qt::white);
-    painter.drawText(10, 20, infoText);
-
-    painter.restore();
-}
-
-// ── Window resize from remote ──
 
 void ClientRemoteWindow::onWindowResizeRequested(const QSize& size) {
     if (size.isEmpty()) return;

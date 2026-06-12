@@ -24,7 +24,6 @@ ConnectionDialog::ConnectionDialog(QWidget* parent)
     , m_fullScreenCheck(nullptr)
     , m_colorDepthCombo(nullptr)
     , m_shareClipboardCheck(nullptr)
-    , m_shareAudioCheck(nullptr)
     , m_enableEncryptionCheck(nullptr)
     , m_connectionTimeoutSpinBox(nullptr)
     , m_connectButton(nullptr)
@@ -99,9 +98,6 @@ void ConnectionDialog::loadSettings() {
         if ( ui->clipboardCheckBox ) {
             ui->clipboardCheckBox->setChecked(m_settings->value("Connection/shareClipboard", true).toBool());
         }
-        if ( ui->audioCheckBox ) {
-            ui->audioCheckBox->setChecked(m_settings->value("Connection/shareAudio", false).toBool());
-        }
         if ( ui->savePasswordCheckBox ) {
             ui->savePasswordCheckBox->setChecked(m_settings->value("Connection/savePassword", false).toBool());
         }
@@ -125,8 +121,6 @@ void ConnectionDialog::saveSettings() {
     m_settings->setValue("Connection/fullScreen", getFullScreen());
     m_settings->setValue("Connection/colorDepth", getColorDepth());
     m_settings->setValue("Connection/shareClipboard", getShareClipboard());
-    m_settings->setValue("Connection/shareAudio", getShareAudio());
-
     if ( ui && ui->savePasswordCheckBox && ui->savePasswordCheckBox->isChecked() ) {
         m_settings->setValue("Connection/savePassword", true);
         // 注意：实际应用中应该加密保存密码
@@ -233,13 +227,6 @@ bool ConnectionDialog::getShareClipboard() const {
         return ui->clipboardCheckBox->isChecked();
     }
     return true;
-}
-
-bool ConnectionDialog::getShareAudio() const {
-    if ( ui && ui->audioCheckBox ) {
-        return ui->audioCheckBox->isChecked();
-    }
-    return false;
 }
 
 // 设置连接信息

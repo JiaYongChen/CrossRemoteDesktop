@@ -125,8 +125,7 @@ private:
     
     // 工具栏
     class QToolBar *m_mainToolBar;
-    class QToolBar *m_connectionToolBar;
-    
+
     // 动作
     class QAction *m_newConnectionAction;
     class QAction *m_connectAction;

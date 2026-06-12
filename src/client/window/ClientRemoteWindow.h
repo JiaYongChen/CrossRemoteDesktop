@@ -19,7 +19,6 @@ class QEvent;
 class QPainter;
 class GLTextureViewport;
 class SessionManager;
-class FileTransferManager;
 class RenderManager;
 class CursorManager;
 class ClipboardManager;
@@ -59,7 +58,6 @@ public:
     bool isInputEnabled() const;
 
     // Manager access
-    FileTransferManager* fileTransferManager() const;
     RenderManager* renderManager() const;
     CursorManager* cursorManager() const;
 
@@ -83,7 +81,6 @@ private slots:
     void onConnectionClosed();
     void onConnectionError(const QString& error);
     void onScreenUpdated(const QImage& screen);
-    void onPerformanceStatsUpdated();
     void onWindowResizeRequested(const QSize& size);
 
 private:
@@ -92,7 +89,6 @@ private:
     void enableManagerFeatures();
     void setupManagerConnections();
     void setupUI();
-    void drawPerformanceInfo(QPainter& painter);
 
     QString m_connectionId;
     SessionManager* m_sessionManager;
@@ -103,7 +99,6 @@ private:
     QString m_hostName;
 
     // Sub-managers (owned via Qt parent-child)
-    FileTransferManager* m_fileTransferManager = nullptr;
     RenderManager* m_renderManager = nullptr;
     CursorManager* m_cursorManager = nullptr;
     ClipboardManager* m_clipboardManager = nullptr;
@@ -112,7 +107,6 @@ private:
     InputForwarder* m_inputForwarder = nullptr;
     ConnectionLifecycle* m_connectionLifecycle = nullptr;
 
-    bool m_showPerformanceInfo = false;
 
     // GL texture viewport — sole render surface, fills entire widget
     GLTextureViewport* m_glViewport = nullptr;
