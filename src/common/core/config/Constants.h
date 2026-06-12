@@ -1,6 +1,5 @@
 #pragma once
 
-#include <QtCore/QObject>
 #include <QtCore/QString>
 #include <memory>
 
@@ -11,8 +10,7 @@
  * 使用命名空间和结构体提供更好的类型安全性和组织结构。
  *
  */
-class CoreConstants : public QObject {
-    Q_OBJECT
+struct CoreConstants {
 
 public:
     /**

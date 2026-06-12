@@ -12,18 +12,11 @@
 
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QMessageBox>
-#include <QtWidgets/QFileDialog>
-#include <QtWidgets/QInputDialog>
-#include <QtWidgets/QProgressBar>
-#include <QtWidgets/QSplitter>
 #include <QtWidgets/QListWidget>
-#include <QtWidgets/QStackedWidget>
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QHBoxLayout>
-#include <QtWidgets/QGridLayout>
 #include <QtWidgets/QPushButton>
-#include <QtWidgets/QGroupBox>
-#include <QtWidgets/QTextEdit>
+#include <QtWidgets/QSplitter>
 #include <QtWidgets/QSystemTrayIcon>
 #include <QtWidgets/QMenu>
 #include <QtGui/QAction>
@@ -36,12 +29,9 @@
 #include <QtCore/QSettings>
 #include <QtCore/QStandardPaths>
 #include <QtCore/QDir>
-#include <QtCore/QThread>
 #include <QtGui/QIcon>
-#include <QtGui/QPixmap>
 #include <QtGui/QCloseEvent>
 #include <QtCore/QEvent>
-#include <QtGui/QContextMenuEvent>
 #include <QtWidgets/QListWidgetItem>
 
 
@@ -940,8 +930,6 @@ void MainWindow::onAllConnectionsClosed() {
 }
 
 #ifdef Q_OS_MACOS
-#include "../server/simulator/MouseSimulatorMacOS.h"
-#include <ApplicationServices/ApplicationServices.h>
 
 bool MainWindow::checkMacOSAccessibilityPermission() {
     // 检查辅助功能权限
