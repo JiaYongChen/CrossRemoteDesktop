@@ -387,272 +387,165 @@ void GLTextureViewport::destroyPersistentPBOs() {
     m_pboAllocatedBytes = 0;
 }
 
-void GLTextureViewport::applyFrame(const QImage& image) {
-    // Core texture upload without GL context management.
-    // Called from uploadFrame() (with makeCurrent/doneCurrent) and from
-    // paintGL() (context already current). Sets m_textureDirty on success.
+bool GLTextureViewport::ensureTextureSize(const QImage& src, const GLPixelLayout& layout) {
+    if (src.size() == m_textureSize)
+        return false;
 
-    if ( image.isNull() || image.format() == QImage::Format_Invalid ) {
-        return;
+    if (m_textureId[0] != 0)
+        glDeleteTextures(2, m_textureId);
+
+    glGenTextures(2, m_textureId);
+    for (int i = 0; i < 2; ++i) {
+        glBindTexture(GL_TEXTURE_2D, m_textureId[i]);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, src.bytesPerLine() / layout.bytesPerPixel);
+        glTexImage2D(GL_TEXTURE_2D, 0, layout.internalFormat,
+                     src.width(), src.height(), 0,
+                     layout.format, layout.type, src.constBits());
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
     }
+    m_textureSize = src.size();
+    m_displayTexIndex.store(0);
+    updateRenderRect();
+    qCDebug(lcGLViewport) << "Texture recreated:" << m_textureSize;
+    return true;
+}
 
-    // Determine GL pixel layout from QImage format — avoids a mandatory
-    // RGBA8888 CPU copy for common formats like RGB888 (JPEG decode output).
+void GLTextureViewport::applyFrame(const QImage& image) {
+    if (image.isNull() || image.format() == QImage::Format_Invalid)
+        return;
+
     GLPixelLayout layout;
     QImage glImage;
-    const QImage* src = nullptr;
-    if ( chooseGLFormat(image.format(), layout) ) {
-        src = &image;  // zero-copy fast path
-    } else {
-        glImage = image.convertedTo(QImage::Format_RGBA8888);
-        chooseGLFormat(QImage::Format_RGBA8888, layout);
-        src = &glImage;
-    }
+    const QImage* src = chooseGLFormat(image.format(), layout) ? &image
+        : (glImage = image.convertedTo(QImage::Format_RGBA8888),
+           chooseGLFormat(QImage::Format_RGBA8888, layout), &glImage);
 
-    const bool sizeChanged = (src->size() != m_textureSize);
+    ensureTextureSize(*src, layout);
 
-    if ( sizeChanged ) {
-        // 纹理尺寸变更：重建双缓冲纹理
-        if ( m_textureId[0] != 0 ) {
-            glDeleteTextures(2, m_textureId);
-        }
+    const int rowBytes = src->bytesPerLine();
+    const int totalBytes = rowBytes * src->height();
 
-        glGenTextures(2, m_textureId);
-
-        // 用相同的参数和初始数据设置两个纹理
-        for (int i = 0; i < 2; ++i) {
-            glBindTexture(GL_TEXTURE_2D, m_textureId[i]);
-
-            // Set texture parameters
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-            // Allocate and upload texture data
-            // QImage always pads rows to 4-byte alignment
-            glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-            glPixelStorei(GL_UNPACK_ROW_LENGTH,
-                          src->bytesPerLine() / layout.bytesPerPixel);
-            glTexImage2D(GL_TEXTURE_2D, 0, layout.internalFormat,
-                         src->width(), src->height(), 0,
-                         layout.format, layout.type, src->constBits());
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-        }
-
-        m_textureSize = src->size();
-        m_displayTexIndex.store(0);
-        updateRenderRect();
-
-        qCDebug(lcGLViewport) << "Texture created:" << m_textureSize;
-    } else {
-        const int rowBytes = src->bytesPerLine();
-        const int totalBytes = rowBytes * src->height();
-
-        if ( m_usePbo ) {
-            // PBO 异步上传：同尺寸帧用 glMapBufferRange + INVALIDATE_BUFFER
-            // 单次驱动调用替代 allocate()+map() 两次往返。
-            QOpenGLBuffer& pbo = m_pbo[m_currentPbo];
-            pbo.bind();
-            auto* f = QOpenGLContext::currentContext()->extraFunctions();
-            const bool pboSizeChanged = (totalBytes != m_pboAllocatedBytes);
-            void* mapped = nullptr;
-            if ( pboSizeChanged ) {
-                pbo.allocate(nullptr, totalBytes);
-                m_pboAllocatedBytes = totalBytes;
-                mapped = pbo.map(QOpenGLBuffer::WriteOnly);
-            } else {
-                const GLbitfield access = GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT;
-                mapped = f->glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, totalBytes, access);
-            }
-            if ( mapped ) {
-                std::memcpy(mapped, src->constBits(), size_t(totalBytes));
-                if ( sizeChanged )
-                    pbo.unmap();
-                else
-                    f->glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
-                glBindTexture(GL_TEXTURE_2D, m_textureId[m_displayTexIndex.load()]);
-                glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-                glPixelStorei(GL_UNPACK_ROW_LENGTH, rowBytes / layout.bytesPerPixel);
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                                src->width(), src->height(),
-                                layout.format, layout.type, nullptr);
-                glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-            } else {
-                qCWarning(lcGLViewport) << "PBO map failed, falling back to direct upload once";
-                glBindTexture(GL_TEXTURE_2D, m_textureId[m_displayTexIndex.load()]);
-                glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-                glPixelStorei(GL_UNPACK_ROW_LENGTH, rowBytes / layout.bytesPerPixel);
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                                src->width(), src->height(),
-                                layout.format, layout.type, src->constBits());
-                glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-            }
-            pbo.release();
-            m_currentPbo = nextPboIndex(m_currentPbo);
+    if (m_usePbo) {
+        QOpenGLBuffer& pbo = m_pbo[m_currentPbo];
+        pbo.bind();
+        auto* f = QOpenGLContext::currentContext()->extraFunctions();
+        void* mapped = nullptr;
+        if (totalBytes != m_pboAllocatedBytes) {
+            pbo.allocate(nullptr, totalBytes);
+            m_pboAllocatedBytes = totalBytes;
+            mapped = pbo.map(QOpenGLBuffer::WriteOnly);
         } else {
-            // Direct upload (PBO disabled or unavailable)
-            glBindTexture(GL_TEXTURE_2D, m_textureId[m_displayTexIndex.load()]);
-            glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, rowBytes / layout.bytesPerPixel);
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                            src->width(), src->height(),
-                            layout.format, layout.type, src->constBits());
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+            mapped = f->glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, totalBytes,
+                                         GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
         }
+        if (mapped) {
+            std::memcpy(mapped, src->constBits(), size_t(totalBytes));
+            f->glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+        } else {
+            qCWarning(lcGLViewport) << "PBO map failed, fallback to direct upload";
+        }
+        glBindTexture(GL_TEXTURE_2D, m_textureId[m_displayTexIndex.load()]);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, rowBytes / layout.bytesPerPixel);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, src->width(), src->height(),
+                        layout.format, layout.type, mapped ? nullptr : src->constBits());
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+        pbo.release();
+        m_currentPbo = nextPboIndex(m_currentPbo);
+    } else {
+        glBindTexture(GL_TEXTURE_2D, m_textureId[m_displayTexIndex.load()]);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, rowBytes / layout.bytesPerPixel);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, src->width(), src->height(),
+                        layout.format, layout.type, src->constBits());
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
     }
 
     m_textureDirty = true;
 }
 
 GLsync GLTextureViewport::uploadFromWorker(const QImage& image) {
-    // Called from worker thread with a shared GL context already made current.
-    // Uploads decoded QImage directly to m_textureId via PBO (DMA async),
-    // then inserts a GLsync fence for the GUI thread to wait on in paintGL().
-    //
-    // This eliminates the PBO memcpy from the GUI thread critical path
-    // entirely — the worker thread pays the CPU cost instead, and the GUI
-    // thread only draws when the GPU signals the fence is complete.
-
-    if (image.isNull() || image.format() == QImage::Format_Invalid) {
+    if (image.isNull() || image.format() == QImage::Format_Invalid)
         return nullptr;
-    }
 
-    // Determine GL pixel layout from QImage format
     GLPixelLayout layout;
     QImage glImage;
-    const QImage* src = nullptr;
-    if (chooseGLFormat(image.format(), layout)) {
-        src = &image;  // zero-copy fast path
-    } else {
-        glImage = image.convertedTo(QImage::Format_RGBA8888);
-        chooseGLFormat(QImage::Format_RGBA8888, layout);
-        src = &glImage;
+    const QImage* src = chooseGLFormat(image.format(), layout) ? &image
+        : (glImage = image.convertedTo(QImage::Format_RGBA8888),
+           chooseGLFormat(QImage::Format_RGBA8888, layout), &glImage);
+
+    ensureTextureSize(*src, layout);
+
+    const int rowBytes = src->bytesPerLine();
+    const int totalBytes = rowBytes * src->height();
+
+    // Lazy init persistent PBOs on first same-size frame
+    if (m_usePbo && !m_usePersistentPbo && m_persistentId[0] == 0) {
+        const auto cfg = RenderConfig::load();
+        m_usePersistentPbo = cfg.gl.usePersistentPbo;
+        if (m_usePersistentPbo) createPersistentPBOs(totalBytes);
+    }
+    if (m_usePersistentPbo && totalBytes != m_pboAllocatedBytes) {
+        destroyPersistentPBOs();
+        createPersistentPBOs(totalBytes);
     }
 
-    const bool sizeChanged = (src->size() != m_textureSize);
-
-    if (sizeChanged) {
-        // 纹理尺寸变更：重建双缓冲纹理
-        if (m_textureId[0] != 0) {
-            glDeleteTextures(2, m_textureId);
-        }
-
-        glGenTextures(2, m_textureId);
-
-        // 用相同的参数和初始数据设置两个纹理
-        for (int i = 0; i < 2; ++i) {
-            glBindTexture(GL_TEXTURE_2D, m_textureId[i]);
-
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-            glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-            glPixelStorei(GL_UNPACK_ROW_LENGTH,
-                          src->bytesPerLine() / layout.bytesPerPixel);
-            glTexImage2D(GL_TEXTURE_2D, 0, layout.internalFormat,
-                         src->width(), src->height(), 0,
-                         layout.format, layout.type, src->constBits());
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-        }
-
-        m_textureSize = src->size();
-        m_displayTexIndex.store(0);
-        // m_textureDirty will be set by paintGL after fence is signaled
-    } else {
-        const int rowBytes = src->bytesPerLine();
-        const int totalBytes = rowBytes * src->height();
-
-        // Lazy init persistent PBOs on first same-size frame
-        if (m_usePbo && !m_usePersistentPbo && m_persistentId[0] == 0) {
-            const auto cfg = RenderConfig::load();
-            m_usePersistentPbo = cfg.gl.usePersistentPbo;
-            if (m_usePersistentPbo) {
-                createPersistentPBOs(totalBytes);
-            }
-        }
-
-        // Resize persistent PBOs if frame dimensions changed
-        if (m_usePersistentPbo && totalBytes != m_pboAllocatedBytes) {
-            destroyPersistentPBOs();
-            createPersistentPBOs(totalBytes);
-        }
-
-        if (m_usePersistentPbo && m_persistentPtr[m_sharedPboIndex]) {
-            // Fast persistent-mapped PBO path: direct memcpy, no alloc/map/unmap
-            std::memcpy(m_persistentPtr[m_sharedPboIndex], src->constBits(), size_t(totalBytes));
-
-            auto* f = QOpenGLContext::currentContext()->extraFunctions();
-            Q_ASSERT(f);
-            f->glBindBuffer(GL_PIXEL_UNPACK_BUFFER, m_persistentId[m_sharedPboIndex]);
-
-            glBindTexture(GL_TEXTURE_2D, m_textureId[1 - m_displayTexIndex.load()]);
-            glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, rowBytes / layout.bytesPerPixel);
-            // When a PBO is bound, the data pointer is interpreted as a byte
-            // offset into the PBO — nullptr means offset 0.
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                            src->width(), src->height(),
-                            layout.format, layout.type, nullptr);
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-
-            f->glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);  // unbind
-            m_sharedPboIndex = nextPboIndex(m_sharedPboIndex);
-        } else if (m_usePbo) {
-            // Traditional PBO async upload: single-call glMapBufferRange +
-            // INVALIDATE_BUFFER 替代 allocate()+map() 两次驱动往返。
-            QOpenGLBuffer& pbo = m_pbo[m_currentPbo];
-            pbo.bind();
-            auto* f2 = QOpenGLContext::currentContext()->extraFunctions();
-            const bool pboSizeChanged = (totalBytes != m_pboAllocatedBytes);
-            void* mapped = nullptr;
-            if (pboSizeChanged) {
-                pbo.allocate(nullptr, totalBytes);
-                m_pboAllocatedBytes = totalBytes;
-                mapped = pbo.map(QOpenGLBuffer::WriteOnly);
-            } else {
-                const GLbitfield access = GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT;
-                mapped = f2->glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, totalBytes, access);
-            }
-            if (mapped) {
-                std::memcpy(mapped, src->constBits(), size_t(totalBytes));
-                if (sizeChanged)
-                    pbo.unmap();
-                else
-                    f2->glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
-                glBindTexture(GL_TEXTURE_2D, m_textureId[1 - m_displayTexIndex.load()]);
-                glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-                glPixelStorei(GL_UNPACK_ROW_LENGTH,
-                              rowBytes / layout.bytesPerPixel);
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                                src->width(), src->height(),
-                                layout.format, layout.type, nullptr);
-                glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-            }
-            pbo.release();
-            m_currentPbo = nextPboIndex(m_currentPbo);
+    if (m_usePersistentPbo && m_persistentPtr[m_sharedPboIndex]) {
+        std::memcpy(m_persistentPtr[m_sharedPboIndex], src->constBits(), size_t(totalBytes));
+        auto* f = QOpenGLContext::currentContext()->extraFunctions();
+        Q_ASSERT(f);
+        f->glBindBuffer(GL_PIXEL_UNPACK_BUFFER, m_persistentId[m_sharedPboIndex]);
+        glBindTexture(GL_TEXTURE_2D, m_textureId[1 - m_displayTexIndex.load()]);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, rowBytes / layout.bytesPerPixel);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, src->width(), src->height(),
+                        layout.format, layout.type, nullptr);
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+        f->glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+        m_sharedPboIndex = nextPboIndex(m_sharedPboIndex);
+    } else if (m_usePbo) {
+        QOpenGLBuffer& pbo = m_pbo[m_currentPbo];
+        pbo.bind();
+        auto* f = QOpenGLContext::currentContext()->extraFunctions();
+        void* mapped = nullptr;
+        if (totalBytes != m_pboAllocatedBytes) {
+            pbo.allocate(nullptr, totalBytes);
+            m_pboAllocatedBytes = totalBytes;
+            mapped = pbo.map(QOpenGLBuffer::WriteOnly);
         } else {
-            // Direct upload (PBO disabled or unavailable)
-            glBindTexture(GL_TEXTURE_2D, m_textureId[1 - m_displayTexIndex.load()]);
-            glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-            glPixelStorei(GL_UNPACK_ROW_LENGTH,
-                          rowBytes / layout.bytesPerPixel);
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                            src->width(), src->height(),
-                            layout.format, layout.type, src->constBits());
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+            mapped = f->glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, totalBytes,
+                                         GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
         }
+        if (mapped) {
+            std::memcpy(mapped, src->constBits(), size_t(totalBytes));
+            f->glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+        }
+        glBindTexture(GL_TEXTURE_2D, m_textureId[1 - m_displayTexIndex.load()]);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, rowBytes / layout.bytesPerPixel);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, src->width(), src->height(),
+                        layout.format, layout.type, nullptr);
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+        pbo.release();
+        m_currentPbo = nextPboIndex(m_currentPbo);
+    } else {
+        glBindTexture(GL_TEXTURE_2D, m_textureId[1 - m_displayTexIndex.load()]);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, rowBytes / layout.bytesPerPixel);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, src->width(), src->height(),
+                        layout.format, layout.type, src->constBits());
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
     }
 
-    // Insert a GPU fence so the GUI thread can wait for the upload to
-    // complete before drawing the texture.
     auto* f = QOpenGLContext::currentContext()->extraFunctions();
     Q_ASSERT(f);
     GLsync fence = f->glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-    f->glFlush();  // ensure all commands are submitted to the GPU
-
+    f->glFlush();
     return fence;
 }
 

@@ -279,6 +279,10 @@ private:
     void createPersistentPBOs(int size);
     void destroyPersistentPBOs();
 
+    /// 确保双缓冲纹理尺寸匹配：尺寸变更时重建，无变更时无操作
+    /// @return true if size changed (textures were recreated)
+    bool ensureTextureSize(const QImage& src, const GLPixelLayout& layout);
+
     // Dirty-frame gating for paintGL
     bool m_textureDirty = false;
 
