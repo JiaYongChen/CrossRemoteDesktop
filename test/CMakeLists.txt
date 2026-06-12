@@ -223,6 +223,8 @@ add_rd_test(TARGET test_clientremotewindow  NAME ClientRemoteWindowTest
     SOURCES test_clientremotewindow.cpp
     EXTRA_SOURCES
         ../src/client/window/ClientRemoteWindow.cpp
+        ../src/client/window/InputForwarder.cpp
+        ../src/client/window/ConnectionLifecycle.cpp
         ../src/client/window/CursorManager.cpp
         ../src/client/managers/FileTransferManager.cpp
         ../src/client/window/RenderManager.cpp

@@ -3,35 +3,28 @@
 #include <QtWidgets/QWidget>
 #include <QtCore/Qt>
 #include <QtCore/QString>
-#include <QtCore/QStringList>
-#include <QtCore/QList>
-#include <QtCore/QDateTime>
 #include <QtCore/QPoint>
-#include <QtCore/QSize>
-#include <QtCore/QRect>
 #include "../network/ConnectionManager.h"
-#include "RenderManager.h"
 
-// Forward declarations to reduce compile dependencies
-class QWidget;
-class QTimer;
-class QPainter;
+// Forward declarations
 class QMouseEvent;
 class QKeyEvent;
 class QWheelEvent;
 class QPaintEvent;
 class QResizeEvent;
-class QDragEnterEvent;
-class QDropEvent;
 class QFocusEvent;
 class QCloseEvent;
+class QEnterEvent;
+class QEvent;
+class QPainter;
 class GLTextureViewport;
-
 class SessionManager;
 class FileTransferManager;
 class RenderManager;
 class CursorManager;
 class ClipboardManager;
+class InputForwarder;
+class ConnectionLifecycle;
 
 class ClientRemoteWindow : public QWidget {
     Q_OBJECT
@@ -46,11 +39,11 @@ public:
     // Window title management
     void updateWindowTitle(const QString& title);
 
-    // Connection state management
+    // Connection state (delegated to ConnectionLifecycle)
     void setConnectionState(ConnectionManager::ConnectionState state);
     ConnectionManager::ConnectionState connectionState() const;
 
-    // Screen display methods (delegated to GLTextureViewport)
+    // Screen display (delegated to GLTextureViewport)
     void setRemoteScreen(const QImage& image);
     void updateRemoteScreen(const QImage& screen);
 
@@ -61,11 +54,11 @@ public:
     void setFullScreen(bool fullScreen);
     bool isFullScreen() const;
 
-    // Input control
+    // Input control (delegated to InputForwarder)
     void setInputEnabled(bool enabled);
     bool isInputEnabled() const;
 
-    // Manager access methods
+    // Manager access
     FileTransferManager* fileTransferManager() const;
     RenderManager* renderManager() const;
     CursorManager* cursorManager() const;
@@ -74,79 +67,52 @@ public:
     GLTextureViewport* glViewport() const { return m_glViewport; }
 
     // Query whether the window is in closing flow
-    // Set when closeEvent is triggered; external callers (e.g. ClientManager)
-    // use this to decide whether to call close() again to avoid re-entry deadlock.
     bool isClosing() const;
 
 signals:
-    // Lifecycle events
     void windowClosed();
 
 protected:
     void closeEvent(QCloseEvent* event) override;
     void paintEvent(QPaintEvent* event) override;
-    void mousePressEvent(QMouseEvent* event) override;
-    void mouseReleaseEvent(QMouseEvent* event) override;
-    void mouseDoubleClickEvent(QMouseEvent* event) override;
-    void mouseMoveEvent(QMouseEvent* event) override;
-    void wheelEvent(QWheelEvent* event) override;
-    void keyPressEvent(QKeyEvent* event) override;
-    void keyReleaseEvent(QKeyEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
-    void focusInEvent(QFocusEvent* event) override;
-    void focusOutEvent(QFocusEvent* event) override;
     void enterEvent(QEnterEvent* event) override;
     void leaveEvent(QEvent* event) override;
 
 private slots:
     void onConnectionClosed();
     void onConnectionError(const QString& error);
-
     void onScreenUpdated(const QImage& screen);
     void onPerformanceStatsUpdated();
-
     void onWindowResizeRequested(const QSize& size);
 
 private:
-    void updateWindowTitle(); // Update title using cached host name
     void initializeManagers();
     void configureWindow();
     void enableManagerFeatures();
-
     void setupManagerConnections();
     void setupUI();
-
-    QPoint mapToRemote(const QPoint& localPoint) const;
-    QPoint mapFromRemote(const QPoint& remotePoint) const;
-    QRect mapToRemote(const QRect& viewRect) const;
-    QRect mapFromRemote(const QRect& remoteRect) const;
-
     void drawPerformanceInfo(QPainter& painter);
 
-    // Show disconnection dialog
-    void showDisconnectionDialog();
-
-private:
     QString m_connectionId;
     SessionManager* m_sessionManager;
-    ConnectionManager::ConnectionState m_connectionState;
     bool m_isFullScreen;
-
-    // Window closing flag
     bool m_isClosing;
 
-    // Cached host name, avoids cross-thread direct SessionManager access
+    // Cached host name for title display
     QString m_hostName;
 
-    bool m_inputEnabled;
-    QPoint m_lastMousePos;
+    // Sub-managers (owned via Qt parent-child)
+    FileTransferManager* m_fileTransferManager = nullptr;
+    RenderManager* m_renderManager = nullptr;
+    CursorManager* m_cursorManager = nullptr;
+    ClipboardManager* m_clipboardManager = nullptr;
 
-    FileTransferManager* m_fileTransferManager;
-    RenderManager* m_renderManager;
-    CursorManager* m_cursorManager;
-    ClipboardManager* m_clipboardManager;
+    // Extracted responsibilities (owned via Qt parent-child)
+    InputForwarder* m_inputForwarder = nullptr;
+    ConnectionLifecycle* m_connectionLifecycle = nullptr;
 
-    bool m_showPerformanceInfo;
+    bool m_showPerformanceInfo = false;
 
     // GL texture viewport — sole render surface, fills entire widget
     GLTextureViewport* m_glViewport = nullptr;
