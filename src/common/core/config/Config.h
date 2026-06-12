@@ -260,48 +260,6 @@ private:
     mutable QMutex m_mutex;
 };
 
-// 配置绑定类（用于自动同步配置和变量）
-template<typename T>
-class ConfigBinding : public QObject
-{
-public:
-    ConfigBinding(const QString &key, T *variable, const T &defaultValue = T(), Config::ConfigGroup group = Config::General, QObject *parent = nullptr)
-        : QObject(parent), m_key(key), m_variable(variable), m_defaultValue(defaultValue), m_group(group)
-    {
-        // 从配置加载初始值
-        *m_variable = Config::instance()->value(m_key, QVariant::fromValue(m_defaultValue), m_group).template value<T>();
-        
-        // 连接配置变化信号
-        connect(Config::instance(), &Config::valueChanged, this, &ConfigBinding::onConfigChanged);
-    }
-    
-    void updateConfig() {
-        Config::instance()->setValue(m_key, QVariant::fromValue(*m_variable), m_group);
-    }
-    
-private:
-    void onConfigChanged(const QString &key, const QVariant &value, Config::ConfigGroup group) {
-        if (key == m_key && group == m_group) {
-            *m_variable = value.template value<T>();
-        }
-    }
-    
-private:
-    QString m_key;
-    T *m_variable;
-    T m_defaultValue;
-    Config::ConfigGroup m_group;
-};
-
-// 便利宏
-#define CONFIG_VALUE(key, defaultValue, group) Config::instance()->value(key, defaultValue, group)
-#define CONFIG_SET_VALUE(key, value, group) Config::instance()->setValue(key, value, group)
-
-#define CONFIG_STRING(key, defaultValue, group) Config::instance()->getString(key, defaultValue, group)
-#define CONFIG_INT(key, defaultValue, group) Config::instance()->getInt(key, defaultValue, group)
-#define CONFIG_BOOL(key, defaultValue, group) Config::instance()->getBool(key, defaultValue, group)
-#define CONFIG_DOUBLE(key, defaultValue, group) Config::instance()->getDouble(key, defaultValue, group)
-
-#define CONFIG_BIND(type, key, variable, defaultValue, group) \
-    static ConfigBinding<type> _binding_##variable(key, &variable, defaultValue, group)
+// ConfigBinding<T> 模板类及 CONFIG_* 便利宏已移除（零引用死代码）。
+// 直接使用 Config::instance()->value() / setValue() 系列方法替代。
 
