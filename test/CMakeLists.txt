@@ -186,6 +186,7 @@ add_rd_test(TARGET test_session_latest_wins  NAME SessionLatestWinsTest
         ../src/client/network/ConnectionManager.cpp
         ../src/client/network/TcpClient.cpp
         ../src/common/core/network/ProtocolImpl.cpp
+        ../src/common/core/network/MessageCodec.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Network common_test_core OpenSSL::SSL OpenSSL::Crypto
     TIMEOUT 30  LABELS unit client queue  NO_OPENGL)
 
@@ -233,6 +234,7 @@ add_rd_test(TARGET test_clientremotewindow  NAME ClientRemoteWindowTest
         ../src/client/network/ConnectionManager.cpp
         ../src/client/network/TcpClient.cpp
         ../src/common/core/network/ProtocolImpl.cpp
+        ../src/common/core/network/MessageCodec.cpp
         ../src/common/clipboard/ClipboardManager.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network OpenSSL::SSL OpenSSL::Crypto common_test_core
     TIMEOUT 30  LABELS unit client window  NO_OPENGL)
@@ -252,13 +254,13 @@ add_rd_test(TARGET test_screen_capture_integration  NAME ScreenCaptureIntegratio
 
 add_rd_test(TARGET test_data_consistency  NAME DataConsistencyTest
     SOURCES test_data_consistency.cpp
-    EXTRA_SOURCES ../src/common/core/network/ProtocolImpl.cpp
+    EXTRA_SOURCES ../src/common/core/network/ProtocolImpl.cpp ../src/common/core/network/MessageCodec.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Network threading_test_core
     TIMEOUT 30  LABELS integration consistency network  NO_OPENGL)
 
 add_rd_test(TARGET test_screen_data_flow  NAME ScreenDataFlowTest
     SOURCES test_screen_data_flow.cpp
-    EXTRA_SOURCES ../src/common/core/network/ProtocolImpl.cpp
+    EXTRA_SOURCES ../src/common/core/network/ProtocolImpl.cpp ../src/common/core/network/MessageCodec.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network Qt6::Concurrent OpenSSL::SSL OpenSSL::Crypto common_test_core
     TIMEOUT 120  LABELS integration screen data flow network  NO_OPENGL)
 
@@ -276,6 +278,7 @@ add_rd_test(TARGET test_producer_consumer_integration  NAME ProducerConsumerInte
         ../src/server/simulator/MouseSimulator.cpp
         ../src/server/simulator/KeyboardSimulator.cpp
         ../src/common/core/network/ProtocolImpl.cpp
+        ../src/common/core/network/MessageCodec.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Network Qt6::Concurrent OpenSSL::SSL OpenSSL::Crypto capture_test_core
     TIMEOUT 300  LABELS integration producer consumer queue threading  NO_OPENGL)
 if(WIN32)
@@ -302,7 +305,7 @@ add_rd_test(TARGET test_close_event  NAME CloseEventTest
 # performance
 add_rd_test(TARGET test_frame_transmission_latency  NAME FrameTransmissionLatencyTest
     SOURCES test_frame_transmission_latency.cpp
-    EXTRA_SOURCES ../src/common/core/network/ProtocolImpl.cpp
+    EXTRA_SOURCES ../src/common/core/network/ProtocolImpl.cpp ../src/common/core/network/MessageCodec.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Network threading_test_core
     TIMEOUT 30  LABELS performance latency network  NO_OPENGL)
 
@@ -315,6 +318,7 @@ add_rd_test(TARGET test_sessionmanager_logic  NAME SessionManagerLogicTest
         ../src/client/network/ConnectionManager.cpp
         ../src/client/network/TcpClient.cpp
         ../src/common/core/network/ProtocolImpl.cpp
+        ../src/common/core/network/MessageCodec.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network common_test_core OpenSSL::SSL OpenSSL::Crypto
     TIMEOUT 30  LABELS unit client session  NO_OPENGL)
 
@@ -326,6 +330,7 @@ add_rd_test(TARGET test_sessionmanager_data  NAME SessionManagerDataTest
         ../src/client/network/ConnectionManager.cpp
         ../src/client/network/TcpClient.cpp
         ../src/common/core/network/ProtocolImpl.cpp
+        ../src/common/core/network/MessageCodec.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network common_test_core OpenSSL::SSL OpenSSL::Crypto
     TIMEOUT 30  LABELS unit client session data  NO_OPENGL)
 
@@ -337,5 +342,6 @@ add_rd_test(TARGET test_sessionmanager_lifecycle  NAME SessionManagerLifecycleTe
         ../src/client/network/ConnectionManager.cpp
         ../src/client/network/TcpClient.cpp
         ../src/common/core/network/ProtocolImpl.cpp
+        ../src/common/core/network/MessageCodec.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network common_test_core OpenSSL::SSL OpenSSL::Crypto
     TIMEOUT 30  LABELS unit client session lifecycle  NO_OPENGL)
