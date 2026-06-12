@@ -270,6 +270,7 @@ add_rd_test(TARGET test_producer_consumer_integration  NAME ProducerConsumerInte
         ../src/server/dataprocessing/DataProcessing.cpp
         ../src/server/capture/ScreenCapture.cpp
         ../src/server/clienthandler/ClientHandlerWorker.cpp
+        ../src/server/clienthandler/AuthHandler.cpp
         ../src/server/service/TcpServer.cpp
         ../src/server/simulator/InputSimulator.cpp
         ../src/server/simulator/MouseSimulator.cpp

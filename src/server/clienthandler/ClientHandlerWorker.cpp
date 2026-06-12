@@ -3,6 +3,7 @@
 #endif
 
 #include "ClientHandlerWorker.h"
+#include "AuthHandler.h"
 #include "../simulator/InputSimulator.h"
 #include "../dataflow/QueueManager.h"
 #include "../dataflow/DataFlowStructures.h"
@@ -46,7 +47,7 @@ ClientHandlerWorker::ClientHandlerWorker(qintptr socketDescriptor,
     , m_sslPrivateKey(privateKey)
     , m_clientPort(0)
     , m_isAuthenticated(false)
-    , m_failedAuthCount(0)
+    , m_authHandler(new AuthHandler())
     , m_connectionTime(QDateTime::currentDateTime())
     , m_lastHeartbeat(QDateTime::currentDateTime())
     , m_heartbeatSendTimer(nullptr)
@@ -385,17 +386,11 @@ QDateTime ClientHandlerWorker::connectionTime() const {
 }
 
 void ClientHandlerWorker::setExpectedPasswordDigest(const QByteArray& salt, const QByteArray& digest) {
-    // Guard with mutex: this Q_INVOKABLE may be called from the main thread
-    // while the worker thread reads these fields during authentication.
-    QMutexLocker locker(&m_clientInfoMutex);
-    m_expectedSalt = salt;
-    m_expectedDigest = digest;
+    m_authHandler->setExpectedPasswordDigest(salt, digest);
 }
 
 void ClientHandlerWorker::setPbkdf2Params(quint32 iterations, quint32 keyLength) {
-    QMutexLocker locker(&m_clientInfoMutex);
-    m_pbkdf2Iterations = iterations;
-    m_pbkdf2KeyLength = keyLength;
+    m_authHandler->setPbkdf2Params(iterations, keyLength);
 }
 
 void ClientHandlerWorker::sendMessage(MessageType type, const IMessageCodec& message) {
@@ -704,54 +699,37 @@ void ClientHandlerWorker::handleHandshakeRequest(const QByteArray& data) {
 void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
     qCDebug(lcClientHandlerWorker) << "处理认证请求";
 
-    // Rate limiting: if within backoff period from last failure, reject immediately
-    if ( m_failedAuthCount > 0 && m_lastFailedAuthTime.isValid() ) {
-        int requiredDelayMs = std::min(
-            AUTH_BASE_DELAY_MS * (1 << (m_failedAuthCount - 1)),
-            AUTH_MAX_DELAY_MS);
-        qint64 elapsedMs = m_lastFailedAuthTime.msecsTo(QDateTime::currentDateTime());
-        if ( elapsedMs < requiredDelayMs ) {
-            qCWarning(lcClientHandlerWorker) << "认证速率限制: 距上次失败仅" << elapsedMs
-                << "ms (需等待" << requiredDelayMs << "ms), 拒绝请求:" << clientId();
-            // Don't send response during backoff — silent drop to slow down brute force
-            return;
-        }
+    // 速率限制检查（委托给 AuthHandler）
+    if (m_authHandler->isRateLimited()) {
+        qCWarning(lcClientHandlerWorker) << "认证速率限制中，拒绝请求:" << clientId();
+        return;
     }
 
-    // 解析AuthenticationRequest结构体
     AuthenticationRequest authRequest;
-    if ( !authRequest.decode(data) ) {
+    if (!authRequest.decode(data)) {
         qCWarning(lcClientHandlerWorker) << "认证请求数据解析失败";
         sendAuthenticationResponse(AuthResult::INVALID_PASSWORD);
         return;
     }
 
-    QString username = authRequest.username;
-    QString passwordHash = authRequest.passwordHash;
-    quint32 authMethod = authRequest.authMethod;
+    // 委托认证逻辑给 AuthHandler
+    int result = m_authHandler->authenticate(
+        authRequest.username, authRequest.passwordHash, authRequest.authMethod);
 
-    qCDebug(lcClientHandlerWorker) << "认证请求 - 用户名:" << username << ", 认证方法:" << authMethod;
-
-    // 检查服务器是否设置了密码
-    // Take a snapshot under lock to avoid data race with setExpectedPasswordDigest()
-    QByteArray expectedDigest;
-    {
-        QMutexLocker locker(&m_clientInfoMutex);
-        expectedDigest = m_expectedDigest;
+    if (result == -1) {
+        // 需要发送 challenge
+        sendAuthChallenge();
+        return;
     }
-    if ( expectedDigest.isEmpty() ) {
-        // 服务器没有设置密码，允许任何用户直接认证成功
-        qCDebug(lcClientHandlerWorker) << "服务器未设置密码，允许用户" << username << "直接认证成功";
-        {
-            QMutexLocker locker(&m_clientInfoMutex);
-            m_isAuthenticated = true;
-        }
+
+    if (result == 0) {
+        // 认证成功
+        m_isAuthenticated = true;
 
         QString sessionId = generateSessionId();
         sendAuthenticationResponse(AuthResult::SUCCESS, sessionId);
 
-        // 启动光标位置更新定时器
-        if ( m_cursorUpdateTimer ) {
+        if (m_cursorUpdateTimer) {
             m_cursorUpdateTimer->start();
         }
 
@@ -760,58 +738,25 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
         return;
     }
 
-    // 检查认证方法
-    if ( authMethod == 1 ) { // PBKDF2认证
-        if ( passwordHash.isEmpty() ) {
-            // 客户端请求挑战参数，发送AuthChallenge
-            qCDebug(lcClientHandlerWorker) << "发送PBKDF2挑战参数";
-            sendAuthChallenge();
-            return;
-        } else {
-            // 客户端发送了计算好的hash，验证它
-            QByteArray clientDigest = QByteArray::fromHex(passwordHash.toUtf8());
-            if ( clientDigest == expectedDigest ) {
-                {
-                    QMutexLocker locker(&m_clientInfoMutex);
-                    m_isAuthenticated = true;
-                }
-
-                QString sessionId = generateSessionId();
-                sendAuthenticationResponse(AuthResult::SUCCESS, sessionId);
-
-                // 启动光标位置更新定时器
-                if ( m_cursorUpdateTimer ) {
-                    m_cursorUpdateTimer->start();
-                }
-
-                emit authenticated();
-                qCInfo(lcClientHandlerWorker) << "客户端认证成功: " << clientId();
-            } else {
-                m_failedAuthCount++;
-                m_lastFailedAuthTime = QDateTime::currentDateTime();
-                qCWarning(lcClientHandlerWorker) << "客户端认证失败:" << clientId()
-                    << "(失败次数:" << m_failedAuthCount << "/" << MAX_AUTH_FAILURES << ")";
-
-                if ( m_failedAuthCount >= MAX_AUTH_FAILURES ) {
-                    qCWarning(lcClientHandlerWorker) << "认证失败次数达到上限，断开连接:" << clientId();
-                    sendAuthenticationResponse(AuthResult::ACCESS_DENIED);
-                    forceDisconnect();
-                } else {
-                    // Exponential backoff: delay = base * 2^(failures-1), capped at max
-                    int delayMs = std::min(
-                        AUTH_BASE_DELAY_MS * (1 << (m_failedAuthCount - 1)),
-                        AUTH_MAX_DELAY_MS);
-                    qCInfo(lcClientHandlerWorker) << "认证速率限制: 延迟" << delayMs << "ms 后发送响应";
-                    QTimer::singleShot(delayMs, this, [this]() {
-                        sendAuthenticationResponse(AuthResult::INVALID_PASSWORD);
-                    });
-                }
-            }
-        }
-    } else {
-        qCWarning(lcClientHandlerWorker) << "不支持的认证方法: " << authMethod;
-        sendAuthenticationResponse(AuthResult::INVALID_PASSWORD);
+    if (result == 3) {
+        // 超过最大失败次数 → ACCESS_DENIED
+        qCWarning(lcClientHandlerWorker) << "认证失败次数达到上限，断开连接:" << clientId();
+        sendAuthenticationResponse(AuthResult::ACCESS_DENIED);
+        forceDisconnect();
+        return;
     }
+
+    // result == 2 → INVALID_PASSWORD（含回退延迟）
+    int failCount = m_authHandler->failedAuthCount();
+    constexpr int AUTH_BASE_DELAY_MS = 1000;
+    constexpr int AUTH_MAX_DELAY_MS = 30000;
+    int delayMs = std::min(
+        AUTH_BASE_DELAY_MS * (1 << (failCount - 1)),
+        AUTH_MAX_DELAY_MS);
+    qCInfo(lcClientHandlerWorker) << "认证速率限制: 延迟" << delayMs << "ms 后发送响应";
+    QTimer::singleShot(delayMs, this, [this]() {
+        sendAuthenticationResponse(AuthResult::INVALID_PASSWORD);
+    });
 }
 
 void ClientHandlerWorker::handleHeartbeat() {
@@ -999,28 +944,20 @@ void ClientHandlerWorker::sendAuthenticationResponse(AuthResult result, const QS
 
 void ClientHandlerWorker::sendAuthChallenge() {
     AuthChallenge challenge;
-    challenge.method = 1; // PBKDF2_SHA256
+    challenge.method = 1;
+    challenge.iterations = m_authHandler->pbkdf2Iterations();
+    challenge.keyLength = m_authHandler->pbkdf2KeyLength();
 
-    // Read PBKDF2 params and salt under lock (may be set from main thread)
-    QByteArray salt;
-    {
-        QMutexLocker locker(&m_clientInfoMutex);
-        challenge.iterations = m_pbkdf2Iterations;
-        challenge.keyLength = m_pbkdf2KeyLength;
-        salt = m_expectedSalt;
-    }
-
-    // 使用服务器预设的盐值，如果没有则生成新的
-    if ( salt.isEmpty() ) {
-        salt = QByteArray(16, 0); // 16字节盐值
-        for ( int i = 0; i < salt.size(); ++i ) {
+    QByteArray salt = m_authHandler->salt();
+    // Generate salt if not set (AuthHandler manages its own salt generation)
+    if (salt.isEmpty()) {
+        salt = QByteArray(16, 0);
+        for (int i = 0; i < salt.size(); ++i) {
             salt[i] = static_cast<char>(QRandomGenerator::global()->bounded(256));
         }
-        QMutexLocker locker(&m_clientInfoMutex);
-        m_expectedSalt = salt;
+        // Re-set via setExpectedPasswordDigest with the digest
+        m_authHandler->setExpectedPasswordDigest(salt, m_authHandler->expectedDigest());
     }
-
-    // 将盐值转换为十六进制字符串
     challenge.saltHex = QString::fromLatin1(salt.toHex());
 
     sendMessage(MessageType::AUTH_CHALLENGE, challenge);
