@@ -649,10 +649,6 @@ void SettingsDialog::onConnectionTimeoutChanged(int value) { Q_UNUSED(value); on
 void SettingsDialog::onAutoReconnectChanged(bool checked) { Q_UNUSED(checked); onSettingChanged(); }
 void SettingsDialog::onFrameRateChanged(int value) { Q_UNUSED(value); onSettingChanged(); }
 void SettingsDialog::onScalingModeChanged(int index) { Q_UNUSED(index); onSettingChanged(); }
-void SettingsDialog::onAudioEnabledChanged(bool checked) { Q_UNUSED(checked); onSettingChanged(); }
-void SettingsDialog::onAudioQualityChanged(int index) { Q_UNUSED(index); onSettingChanged(); }
-void SettingsDialog::onAudioDeviceChanged(int index) { Q_UNUSED(index); onSettingChanged(); }
-void SettingsDialog::onEncryptionChanged(bool checked) { Q_UNUSED(checked); onSettingChanged(); }
 void SettingsDialog::onPasswordPolicyChanged(int index) { Q_UNUSED(index); onSettingChanged(); }
 void SettingsDialog::onSessionTimeoutChanged(int value) { Q_UNUSED(value); onSettingChanged(); }
 void SettingsDialog::onLoggingLevelChanged(int index) { Q_UNUSED(index); onSettingChanged(); }

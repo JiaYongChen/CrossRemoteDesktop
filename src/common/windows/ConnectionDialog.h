@@ -81,8 +81,6 @@ private:
     void loadSettings();
     void saveSettings();
 
-    void createBasicTab();
-    void createAdvancedTab();
 
     void updateHistoryList();
     void selectHistoryItem(int index);

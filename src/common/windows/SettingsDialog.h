@@ -44,9 +44,6 @@ private slots:
     void onScalingModeChanged(int index);
 
     // 音频设置
-    void onAudioEnabledChanged(bool checked);
-    void onAudioQualityChanged(int index);
-    void onAudioDeviceChanged(int index);
 
     // 安全设置
     void onEncryptionChanged(bool checked);

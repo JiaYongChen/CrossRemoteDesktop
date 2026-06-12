@@ -132,13 +132,7 @@ void ConnectionDialog::saveSettings() {
 
 }
 
-void ConnectionDialog::createBasicTab() {
-    // 创建基本选项卡
-}
 
-void ConnectionDialog::createAdvancedTab() {
-    // 创建高级选项卡
-}
 
 bool ConnectionDialog::validateConnectionInfo() {
     // 验证连接信息
