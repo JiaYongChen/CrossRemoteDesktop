@@ -158,9 +158,6 @@ void ClientRemoteWindow::configureWindow() {
     setMouseTracking(true); // still needed even with event filter
 }
 
-void ClientRemoteWindow::enableManagerFeatures() {
-}
-
 void ClientRemoteWindow::setupUI() {
 #ifndef QT_NO_OPENGL
     m_glViewport = new GLTextureViewport(this);

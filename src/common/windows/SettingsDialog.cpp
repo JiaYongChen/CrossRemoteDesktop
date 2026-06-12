@@ -139,10 +139,6 @@ void SettingsDialog::setupGeneralPageComponents() {
     m_themeCombo = nullptr; // UI文件中暂时没有此组件
 }
 
-void SettingsDialog::createGeneralTab() {
-    // 这个函数现在不需要了，因为UI是通过.ui文件定义的
-    // 保留空实现以避免编译错误
-}
 
 void SettingsDialog::setupConnectionPageComponents() {
     // 获取UI文件中的组件引用
@@ -160,10 +156,6 @@ void SettingsDialog::setupConnectionPageComponents() {
     m_proxyPasswordEdit = nullptr;
 }
 
-void SettingsDialog::createConnectionTab() {
-    // 这个函数现在不需要了，因为UI是通过.ui文件定义的
-    // 保留空实现以避免编译错误
-}
 
 void SettingsDialog::setupDisplayPageComponents() {
     // 获取UI文件中的组件引用
@@ -182,10 +174,6 @@ void SettingsDialog::setupDisplayPageComponents() {
     m_enableFontSmoothingCheck = nullptr;
 }
 
-void SettingsDialog::createDisplayTab() {
-    // 这个函数现在不需要了，因为UI是通过.ui文件定义的
-    // 保留空实现以避免编译错误
-}
 
 void SettingsDialog::setupAudioPageComponents() {
     // 获取UI文件中的组件引用
@@ -202,10 +190,6 @@ void SettingsDialog::setupAudioPageComponents() {
     m_microphoneVolumeLabel = nullptr;
 }
 
-void SettingsDialog::createAudioTab() {
-    // 这个函数现在不需要了，因为UI是通过.ui文件定义的
-    // 保留空实现以避免编译错误
-}
 
 void SettingsDialog::setupSecurityPageComponents() {
     // 获取UI文件中的组件引用
@@ -221,10 +205,6 @@ void SettingsDialog::setupSecurityPageComponents() {
     m_trustedHostsEdit = nullptr;
 }
 
-void SettingsDialog::createSecurityTab() {
-    // 这个函数现在不需要了，因为UI是通过.ui文件定义的
-    // 保留空实现以避免编译错误
-}
 
 void SettingsDialog::setupAdvancedPageComponents() {
     // 获取UI文件中的组件引用
@@ -286,10 +266,6 @@ void SettingsDialog::setupAdvancedPageComponents() {
     }
 }
 
-void SettingsDialog::createAdvancedTab() {
-    // 这个函数现在不需要了，因为UI是通过.ui文件定义的
-    // 保留空实现以避免编译错误
-}
 
 void SettingsDialog::updateLanguageList() {
     if ( m_languageCombo ) {

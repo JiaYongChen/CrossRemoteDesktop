@@ -69,12 +69,6 @@ private:
     bool validateSettings();
     void showValidationError(const QString& message);
 
-    void createGeneralTab();
-    void createConnectionTab();
-    void createDisplayTab();
-    void createAudioTab();
-    void createSecurityTab();
-    void createAdvancedTab();
 
     void setupGeneralPageComponents();
     void setupConnectionPageComponents();

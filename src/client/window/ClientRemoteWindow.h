@@ -86,7 +86,6 @@ private slots:
 private:
     void initializeManagers();
     void configureWindow();
-    void enableManagerFeatures();
     void setupManagerConnections();
     void setupUI();
 
