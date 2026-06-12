@@ -125,8 +125,6 @@ private:
     class QComboBox* m_scalingModeCombo;
 
     // 音频设置选项卡
-    class QWidget* m_audioTab;
-    class QCheckBox* m_enableAudioCheck;
     class QComboBox* m_audioQualityCombo;
     class QComboBox* m_audioDeviceCombo;
     class QSlider* m_audioVolumeSlider;
@@ -209,15 +207,6 @@ private:
         QString scalingMode;
     } m_displaySettings;
 
-    struct AudioSettings {
-        bool enableAudio;
-        QString audioQuality;
-        QString audioDevice;
-        int audioVolume;
-        bool enableMicrophone;
-        QString microphoneDevice;
-        int microphoneVolume;
-    } m_audioSettings;
 
     struct SecuritySettings {
         bool enableEncryption;

@@ -203,7 +203,6 @@ void SettingsDialog::createDisplayTab() {
 
 void SettingsDialog::setupAudioPageComponents() {
     // 获取UI文件中的组件引用
-    m_enableAudioCheck = ui->enableAudioCheckBox;
     m_audioQualityCombo = ui->audioQualityComboBox;
     // m_audioBufferSpin = ui->audioBufferSpinBox;  // Component not found
 
