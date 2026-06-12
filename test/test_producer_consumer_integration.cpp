@@ -628,7 +628,7 @@ void TestProducerConsumerIntegration::test_queueStatistics() {
     for ( int i = 0; i < testItems; ++i ) {
         QImage image = createTestImage(100, 100, i);
         CapturedFrame frame = createTestFrame(i, image);
-        m_queueManager->enqueueCapturedFrame(frame);
+        QVERIFY(m_queueManager->enqueueCapturedFrame(frame));
     }
 
     // 获取更新后的统计信息（先强制刷新缓存）
@@ -642,7 +642,7 @@ void TestProducerConsumerIntegration::test_queueStatistics() {
     // 消费一些数据
     for ( int i = 0; i < 3; ++i ) {
         CapturedFrame frame;
-        m_queueManager->dequeueCapturedFrame(frame);
+        QVERIFY(m_queueManager->dequeueCapturedFrame(frame));
     }
 
     // 强制更新统计信息

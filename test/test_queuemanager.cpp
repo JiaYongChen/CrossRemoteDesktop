@@ -112,7 +112,7 @@ private slots:
         QVERIFY(m_qm->initialize(10, 10));
 
         for ( int i = 0; i < 5; ++i ) {
-            m_qm->enqueueCapturedFrame(makeFrame(static_cast<quint64>(i)));
+            (void)m_qm->enqueueCapturedFrame(makeFrame(static_cast<quint64>(i)));
         }
 
         m_qm->clearQueue(QueueManager::CaptureQueue);
@@ -145,7 +145,7 @@ private slots:
 
         QThread* producer = QThread::create([this, &produced]() {
             for ( int i = 0; i < COUNT; ++i ) {
-                m_qm->enqueueCapturedFrame(makeFrame(static_cast<quint64>(i + 1)));
+                (void)m_qm->enqueueCapturedFrame(makeFrame(static_cast<quint64>(i + 1)));
                 produced.fetch_add(1);
             }
         });

@@ -95,7 +95,7 @@ bool ServerManager::startServer(quint16 port, const QString& password) {
         // 启动线程
         if ( !m_threadManager->startThread("ServerWorker") ) {
             qCDebug(lcServerManager) << "Failed to start ServerWorker thread";
-            m_threadManager->destroyThread("ServerWorker");
+            (void)m_threadManager->destroyThread("ServerWorker");
             return false;
         }
 
@@ -113,8 +113,8 @@ bool ServerManager::startServer(quint16 port, const QString& password) {
         // 清理线程
         {
             QMutexLocker workerLock(&m_workerMutex);
-            m_threadManager->stopThread("ServerWorker");
-            m_threadManager->destroyThread("ServerWorker");
+            (void)m_threadManager->stopThread("ServerWorker");
+            (void)m_threadManager->destroyThread("ServerWorker");
         }
         return false;
     }
@@ -162,7 +162,7 @@ void ServerManager::stopServer() {
     // 在没有锁的情况下停止线程（不销毁，让程序退出时自动清理）
     if ( m_threadManager ) {
         qCDebug(lcServerManager) << "ServerManager::stopServer() - Stopping ServerWorker thread";
-        m_threadManager->stopThread("ServerWorker", false); // 异步停止，不等待完成
+        (void)m_threadManager->stopThread("ServerWorker", false); // 异步停止，不等待完成
         qCDebug(lcServerManager) << "ServerManager::stopServer() - ServerWorker thread stop request sent";
     }
     qCDebug(lcServerManager) << "ServerManager::stopServer() - Server stopped";
@@ -450,7 +450,7 @@ void ServerManager::gracefulShutdown() {
     // 同步停止ServerWorker线程（ServerWorker::cleanup 会统一停止并销毁相关工作线程）
     if ( m_threadManager ) {
         qCDebug(lcServerManager) << "ServerManager::gracefulShutdown() - Stopping ServerWorker thread";
-        m_threadManager->stopThread("ServerWorker", true); // 同步停止，等待完成
+        (void)m_threadManager->stopThread("ServerWorker", true); // 同步停止，等待完成
         qCDebug(lcServerManager) << "ServerManager::gracefulShutdown() - ServerWorker thread stopped";
     }
 
@@ -565,7 +565,7 @@ void ServerManager::startWorkerThreads() {
 
         if ( !m_threadManager->startThread(dataWorkerName) ) {
             qCCritical(lcServerManager) << "ServerManager::startWorkerThreads() - Failed to start DataProcessingWorker thread";
-            m_threadManager->destroyThread(dataWorkerName);
+            (void)m_threadManager->destroyThread(dataWorkerName);
             m_dataWorker = nullptr;
             return;
         }
@@ -728,7 +728,7 @@ void ServerManager::cleanupDisconnectedClient() {
     }
     // 在锁外调用 destroyThread，避免持锁时重入事件循环
     if ( !threadNameToDestroy.isEmpty() && m_threadManager ) {
-        m_threadManager->stopThread(threadNameToDestroy, false);
-        m_threadManager->destroyThread(threadNameToDestroy);
+        (void)m_threadManager->stopThread(threadNameToDestroy, false);
+        (void)m_threadManager->destroyThread(threadNameToDestroy);
     }
 }

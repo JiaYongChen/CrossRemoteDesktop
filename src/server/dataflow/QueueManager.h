@@ -100,7 +100,7 @@ public:
      * @param frame 要入队的捕获帧
      * @return true 入队成功，false 入队失败（队列满或已停止）
      */
-    bool enqueueCapturedFrame(const CapturedFrame& frame);
+    [[nodiscard]] bool enqueueCapturedFrame(const CapturedFrame& frame);
 
     /**
      * @brief 捕获队列出队（FIFO 逐帧出队）
@@ -111,14 +111,14 @@ public:
      * @param frame 用于接收出队帧的引用
      * @return true 出队成功，false 队列已停止
      */
-    bool dequeueCapturedFrame(CapturedFrame& frame);
+    [[nodiscard]] bool dequeueCapturedFrame(CapturedFrame& frame);
 
     /**
      * @brief 处理队列入队（非阻塞）
      * @param data 要入队的处理数据
      * @return true 入队成功，false 入队失败（队列满或已停止）
      */
-    bool enqueueProcessedData(const ProcessedData& data);
+    [[nodiscard]] bool enqueueProcessedData(const ProcessedData& data);
 
     /**
      * @brief 处理队列出队（FIFO 逐帧出队）
@@ -129,7 +129,7 @@ public:
      * @param data 用于接收出队数据的引用
      * @return true 出队成功，false 队列已停止
      */
-    bool dequeueProcessedData(ProcessedData& data);
+    [[nodiscard]] bool dequeueProcessedData(ProcessedData& data);
 
     /**
      * @brief 检查处理队列是否已满（流水池背压）

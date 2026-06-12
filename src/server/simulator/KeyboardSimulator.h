@@ -16,7 +16,7 @@ public:
     virtual ~KeyboardSimulator();
 
     // 初始化和清理
-    virtual bool initialize() = 0;
+    [[nodiscard]] virtual bool initialize() = 0;
     virtual void cleanup() = 0;
     bool isInitialized() const { return m_initialized; }
 

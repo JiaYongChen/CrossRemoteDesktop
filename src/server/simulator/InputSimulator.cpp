@@ -35,7 +35,7 @@ InputSimulator::InputSimulator(QObject* parent)
     qCWarning(lcInputSimulator) << "InputSimulator: Unsupported platform";
 #endif
 
-    initialize();
+    (void)initialize();
 }
 
 InputSimulator::~InputSimulator() {

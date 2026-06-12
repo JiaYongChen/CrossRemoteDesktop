@@ -19,7 +19,7 @@ public:
     ~InputSimulator();
 
     // 初始化和清理
-    bool initialize();
+    [[nodiscard]] bool initialize();
     void cleanup();
     bool isInitialized() const;
 

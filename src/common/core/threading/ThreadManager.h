@@ -117,7 +117,7 @@ public:
      * @param name 线程名称
      * @return true 启动成功，false 启动失败
      */
-    bool startThread(const QString& name);
+    [[nodiscard]] bool startThread(const QString& name);
 
     /**
      * @brief 停止指定线程
@@ -125,21 +125,21 @@ public:
      * @param waitForFinish 是否等待当前任务完成
      * @return true 停止成功，false 停止失败
      */
-    bool stopThread(const QString& name, bool waitForFinish = true);
+    [[nodiscard]] bool stopThread(const QString& name, bool waitForFinish = true);
 
     /**
      * @brief 暂停指定线程
      * @param name 线程名称
      * @return true 暂停成功，false 暂停失败
      */
-    bool pauseThread(const QString& name);
+    [[nodiscard]] bool pauseThread(const QString& name);
 
     /**
      * @brief 恢复指定线程
      * @param name 线程名称
      * @return true 恢复成功，false 恢复失败
      */
-    bool resumeThread(const QString& name);
+    [[nodiscard]] bool resumeThread(const QString& name);
 
     /**
      * @brief 重启指定线程
@@ -153,7 +153,7 @@ public:
      * @param name 线程名称
      * @return true 销毁成功，false 销毁失败
      */
-    bool destroyThread(const QString& name);
+    [[nodiscard]] bool destroyThread(const QString& name);
 
     /**
      * @brief 启动所有线程

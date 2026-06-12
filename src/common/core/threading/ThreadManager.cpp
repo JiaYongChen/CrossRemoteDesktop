@@ -92,7 +92,7 @@ bool ThreadManager::createThread(const QString& name,
     // 自动启动
     if ( autoStart ) {
         locker.unlock();
-        startThread(name);
+        (void)startThread(name);
     }
 
     return true;
@@ -276,7 +276,8 @@ bool ThreadManager::restartThread(const QString& name) {
     // 等待一小段时间确保线程完全停止
     QThread::msleep(100);
 
-    return startThread(name);
+    (void)startThread(name);
+    return true;
 }
 
 bool ThreadManager::destroyThread(const QString& name) {
@@ -386,7 +387,7 @@ void ThreadManager::startAllThreads() {
     for ( auto it = m_threads.begin(); it != m_threads.end(); ++it ) {
         const QString& name = it.key();
         locker.unlock();
-        startThread(name);
+        (void)startThread(name);
         locker.relock();
     }
 
@@ -431,7 +432,7 @@ void ThreadManager::stopAllThreads(bool waitForFinish) {
         // 异步停止：并行发送停止信号
         for ( const QString& name : threadNames ) {
             locker.unlock();
-            stopThread(name, false);
+            (void)stopThread(name, false);
             locker.relock();
         }
         qCDebug(lcThreading) << "Stop signals sent to all" << totalThreads << "threads";
@@ -444,7 +445,7 @@ void ThreadManager::pauseAllThreads() {
     for ( auto it = m_threads.begin(); it != m_threads.end(); ++it ) {
         const QString& name = it.key();
         locker.unlock();
-        pauseThread(name);
+        (void)pauseThread(name);
         locker.relock();
     }
 
@@ -457,7 +458,7 @@ void ThreadManager::resumeAllThreads() {
     for ( auto it = m_threads.begin(); it != m_threads.end(); ++it ) {
         const QString& name = it.key();
         locker.unlock();
-        resumeThread(name);
+        (void)resumeThread(name);
         locker.relock();
     }
 
@@ -785,7 +786,7 @@ void ThreadManager::tryAutoRestart(const QString& name) {
             QMetaObject::invokeMethod(cinfo->worker, "start", Qt::QueuedConnection);
         } else {
             // 如果线程已停止，则按原有流程重新启动线程
-            startThread(name);
+            (void)startThread(name);
         }
 
         const ThreadInfo* finfo = findThreadInfo(name);

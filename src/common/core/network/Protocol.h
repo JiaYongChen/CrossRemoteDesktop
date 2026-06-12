@@ -120,16 +120,16 @@ struct MessageHeader : public IMessageCodec {
     quint32 checksum;       // 校验和
     quint64 timestamp;      // 时间戳
 
-    QByteArray encode() const;
-    bool decode(const QByteArray& dataBuffer);
+    [[nodiscard]] QByteArray encode() const;
+    [[nodiscard]] bool decode(const QByteArray& dataBuffer);
 };
 
 //基础数据
 struct BaseMessage : public IMessageCodec {
     QByteArray data;
 
-    QByteArray encode() const;
-    bool decode(const QByteArray& dataBuffer);
+    [[nodiscard]] QByteArray encode() const;
+    [[nodiscard]] bool decode(const QByteArray& dataBuffer);
 };
 
 // 握手请求数据
@@ -142,9 +142,9 @@ struct HandshakeRequest : public IMessageCodec {
     QString clientOS;
 
     // 将当前结构体序列化为QByteArray（小端）
-    QByteArray encode() const;
+    [[nodiscard]] QByteArray encode() const;
     // 从QByteArray反序列化到当前结构体（小端）
-    bool decode(const QByteArray& dataBuffer);
+    [[nodiscard]] bool decode(const QByteArray& dataBuffer);
 };
 
 // 握手响应数据
@@ -157,8 +157,8 @@ struct HandshakeResponse : public IMessageCodec {
     QString serverName;
     QString serverOS;
 
-    QByteArray encode() const;
-    bool decode(const QByteArray& dataBuffer);
+    [[nodiscard]] QByteArray encode() const;
+    [[nodiscard]] bool decode(const QByteArray& dataBuffer);
 };
 
 // 认证请求数据
@@ -167,8 +167,8 @@ struct AuthenticationRequest : public IMessageCodec {
     QString passwordHash;
     quint32 authMethod;
 
-    QByteArray encode() const;
-    bool decode(const QByteArray& dataBuffer);
+    [[nodiscard]] QByteArray encode() const;
+    [[nodiscard]] bool decode(const QByteArray& dataBuffer);
 };
 
 // 认证响应数据
@@ -177,8 +177,8 @@ struct AuthenticationResponse : public IMessageCodec {
     QString sessionId;
     quint32 permissions;
 
-    QByteArray encode() const;
-    bool decode(const QByteArray& dataBuffer);
+    [[nodiscard]] QByteArray encode() const;
+    [[nodiscard]] bool decode(const QByteArray& dataBuffer);
 };
 
 // 认证挑战（阶段C：PBKDF2 握手参数）
@@ -188,8 +188,8 @@ struct AuthChallenge : public IMessageCodec {
     quint32 keyLength;   // 派生长度（字节），如 32
     QString saltHex;     // 盐（hex字符串）
 
-    QByteArray encode() const;
-    bool decode(const QByteArray& dataBuffer);
+    [[nodiscard]] QByteArray encode() const;
+    [[nodiscard]] bool decode(const QByteArray& dataBuffer);
 };
 
 // 鼠标事件数据
@@ -199,8 +199,8 @@ struct MouseEvent : public IMessageCodec {
     qint16 y;
     qint16 wheelDelta;
 
-    QByteArray encode() const;
-    bool decode(const QByteArray& dataBuffer);
+    [[nodiscard]] QByteArray encode() const;
+    [[nodiscard]] bool decode(const QByteArray& dataBuffer);
 };
 
 // 键盘事件数据
@@ -210,8 +210,8 @@ struct KeyboardEvent : public IMessageCodec {
     quint32 modifiers;
     QString text;
 
-    QByteArray encode() const;
-    bool decode(const QByteArray& dataBuffer);
+    [[nodiscard]] QByteArray encode() const;
+    [[nodiscard]] bool decode(const QByteArray& dataBuffer);
 };
 
 // 屏幕数据压缩类型标志
@@ -235,8 +235,8 @@ struct ScreenData : public IMessageCodec {
 
     ScreenData() : x(0), y(0), width(0), height(0), originalWidth(0), originalHeight(0), dataSize(0), flags(0), captureTimestamp(0) {}
 
-    QByteArray encode() const; // 附带数据体
-    bool decode(const QByteArray& dataBuffer);
+    [[nodiscard]] QByteArray encode() const; // 附带数据体
+    [[nodiscard]] bool decode(const QByteArray& dataBuffer);
 };
 
 // 音频数据
@@ -247,8 +247,8 @@ struct AudioData : public IMessageCodec {
     quint32 dataSize;
     // 实际音频数据跟在后面
 
-    QByteArray encode() const;
-    bool decode(const QByteArray& dataBuffer);
+    [[nodiscard]] QByteArray encode() const;
+    [[nodiscard]] bool decode(const QByteArray& dataBuffer);
 };
 
 // 光标类型消息（仅包含光标类型信息）
@@ -269,8 +269,8 @@ struct FileTransferRequest : public IMessageCodec {
     quint32 transferId;
     quint8 direction;
 
-    QByteArray encode() const;
-    bool decode(const QByteArray& dataBuffer);
+    [[nodiscard]] QByteArray encode() const;
+    [[nodiscard]] bool decode(const QByteArray& dataBuffer);
 };
 
 // 文件传输响应
@@ -279,8 +279,8 @@ struct FileTransferResponse : public IMessageCodec {
     FileTransferStatus status;
     QString errorMessage;
 
-    QByteArray encode() const;
-    bool decode(const QByteArray& dataBuffer);
+    [[nodiscard]] QByteArray encode() const;
+    [[nodiscard]] bool decode(const QByteArray& dataBuffer);
 };
 
 // 文件数据块
@@ -290,8 +290,8 @@ struct FileData : public IMessageCodec {
     quint32 dataSize;
     // 实际文件数据跟在后面
 
-    QByteArray encode() const;
-    bool decode(const QByteArray& dataBuffer);
+    [[nodiscard]] QByteArray encode() const;
+    [[nodiscard]] bool decode(const QByteArray& dataBuffer);
 };
 
 // 剪贴板数据类型

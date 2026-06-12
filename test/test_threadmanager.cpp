@@ -288,7 +288,7 @@ void TestThreadManager::test_startThread()
     QVERIFY(!threadInfo->name.isEmpty());
     
     // 测试完成后停止线程，避免在cleanup时出现"QThread仍在运行"的致命错误
-    m_threadManager->stopThread(threadName, true);
+    (void)m_threadManager->stopThread(threadName, true);
 }
 
 void TestThreadManager::test_stopThread()

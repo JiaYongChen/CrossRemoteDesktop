@@ -249,7 +249,7 @@ protected:
      *
      * @return true 初始化成功，false 初始化失败
      */
-    virtual bool initialize();
+    [[nodiscard]] virtual bool initialize();
 
     /**
      * @brief 清理工作线程
