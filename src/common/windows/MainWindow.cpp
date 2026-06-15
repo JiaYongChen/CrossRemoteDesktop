@@ -392,8 +392,10 @@ void MainWindow::startServer() {
     }
 #endif
 
-    // 使用ServerManager启动服务器（使用默认端口，避免与系统VNC冲突）
-    m_serverManager->startServer(UIConstants::DEFAULT_SERVER_PORT);
+    // 从 QSettings 读取监听端口，与 SettingsDialog 通信页保持一致
+    QSettings settings;
+    int port = settings.value("Server/listenPort", 5921).toInt();
+    m_serverManager->startServer(port);
 }
 
 void MainWindow::stopServer() {
