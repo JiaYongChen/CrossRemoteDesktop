@@ -641,6 +641,12 @@ QWidget#advancedPage {
                 </item>
                 <item row="0" column="1">
                  <widget class="QSpinBox" name="listenPortSpinBox">
+                  <property name="maximumSize">
+                   <size>
+                    <width>80</width>
+                    <height>16777215</height>
+                   </size>
+                  </property>
                   <property name="minimum">
                    <number>1</number>
                   </property>
