@@ -246,14 +246,24 @@ QPushButton#togglePasswordBtn {
     background-color: transparent;
     border: 1px solid #cfcfcf;
     border-radius: 4px;
-    width: 32px;
-    height: 32px;
-    font-size: 14px;
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
     color: #555555;
 }
 
 QPushButton#togglePasswordBtn:hover {
     background-color: #f0f0f0;
+}
+
+QPushButton#togglePasswordBtn[revealed="true"] {
+    background-color: #0078d4;
+    border-color: #0078d4;
+    color: #ffffff;
+}
+
+QPushButton#togglePasswordBtn[revealed="true"]:hover {
+    background-color: #106ebe;
 }
 
 /* --- 多行文本框（日志规则） --- */

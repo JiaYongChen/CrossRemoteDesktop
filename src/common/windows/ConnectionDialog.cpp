@@ -59,7 +59,9 @@ void ConnectionDialog::onTogglePasswordClicked()
 {
 	const bool isMasked = (ui->passwordLineEdit->echoMode() == QLineEdit::Password);
 	ui->passwordLineEdit->setEchoMode(isMasked ? QLineEdit::Normal : QLineEdit::Password);
-	ui->togglePasswordBtn->setText(isMasked ? QStringLiteral("\U0001F648") : QStringLiteral("\U0001F441"));
+	ui->togglePasswordBtn->setProperty("revealed", isMasked);
+	ui->togglePasswordBtn->style()->unpolish(ui->togglePasswordBtn);
+	ui->togglePasswordBtn->style()->polish(ui->togglePasswordBtn);
 }
 
 void ConnectionDialog::onFullScreenToggled(bool checked)
