@@ -100,6 +100,7 @@ private:
     
     void showConnectionDialog();
     void cleanupConnection(const QString &connectionId);
+    void updatePerformanceInfo();
 
 #ifdef Q_OS_MACOS
     // macOS 辅助功能权限检查

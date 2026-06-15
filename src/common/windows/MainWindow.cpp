@@ -11,6 +11,16 @@
 #include "../core/config/MessageConstants.h"
 #include "../core/logging/LoggingCategories.h"
 
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <psapi.h>
+#elif defined(Q_OS_LINUX)
+#include <unistd.h>
+#elif defined(Q_OS_MACOS)
+#include <mach/mach_init.h>
+#include <mach/task.h>
+#endif
+
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QListWidget>
@@ -26,6 +36,7 @@
 #include <QtWidgets/QMenuBar>
 #include <QtWidgets/QLabel>
 #include <QtCore/QTimer>
+#include <QtCore/QFile>
 #include <QtCore/QDateTime>
 #include <QtCore/QSettings>
 #include <QtCore/QStandardPaths>
@@ -173,6 +184,12 @@ void MainWindow::setupConnections() {
         connect(m_maximizeAction, &QAction::triggered, this, &QWidget::showMaximized);
         connect(m_restoreAction, &QAction::triggered, this, &QWidget::showNormal);
     }
+
+    // 性能信息定时更新（每 2 秒）
+    auto* perfTimer = new QTimer(this);
+    connect(perfTimer, &QTimer::timeout, this, &MainWindow::updatePerformanceInfo);
+    perfTimer->start(2000);
+    updatePerformanceInfo();
 }
 
 void MainWindow::loadSettings() {
@@ -304,7 +321,7 @@ void MainWindow::retranslateUi() {
     // 状态栏
     m_connectionStatusLabel->setText(tr("未连接"));
     m_serverStatusLabel->setText(tr("服务器已停止"));
-    m_performanceLabel->setText(tr("CPU: 0% | 内存: 0MB"));
+    updatePerformanceInfo();
     statusBar()->showMessage(tr("就绪"));
 
     // 欢迎页面
@@ -452,6 +469,114 @@ void MainWindow::exitApplication() {
 
     // 退出应用程序
     QApplication::quit();
+}
+
+// ===== 性能信息更新 =====
+
+#ifdef Q_OS_WIN
+namespace {
+    // 上一次 CPU 时间（FILETIME → ULONGLONG 以 100ns 为单位）
+    ULONGLONG g_prevKernelTime = 0;
+    ULONGLONG g_prevUserTime = 0;
+    ULONGLONG g_prevWallTime = 0;
+}
+
+static ULONGLONG fileTimeToU64(const FILETIME& ft) {
+    return (static_cast<ULONGLONG>(ft.dwHighDateTime) << 32) | ft.dwLowDateTime;
+}
+#endif
+
+void MainWindow::updatePerformanceInfo()
+{
+#ifdef Q_OS_WIN
+    FILETIME createTime, exitTime, kernelTime, userTime, currentTime;
+    GetProcessTimes(GetCurrentProcess(), &createTime, &exitTime, &kernelTime, &userTime);
+    GetSystemTimeAsFileTime(&currentTime);
+
+    const ULONGLONG nowKernel = fileTimeToU64(kernelTime);
+    const ULONGLONG nowUser   = fileTimeToU64(userTime);
+    const ULONGLONG nowWall   = fileTimeToU64(currentTime);
+
+    // 采集第一次数据后等待下一次再计算
+    if (g_prevWallTime == 0) {
+        g_prevKernelTime = nowKernel;
+        g_prevUserTime   = nowUser;
+        g_prevWallTime   = nowWall;
+
+        // 首次仍显示内存信息（已有数据）
+        PROCESS_MEMORY_COUNTERS_EX pmc;
+        pmc.cb = sizeof(pmc);
+        if (GetProcessMemoryInfo(GetCurrentProcess(), reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&pmc), sizeof(pmc))) {
+            const double memMB = static_cast<double>(pmc.WorkingSetSize) / (1024.0 * 1024.0);
+            m_performanceLabel->setText(tr("CPU: --% | 内存: %1 MB").arg(memMB, 0, 'f', 1));
+        }
+        return;
+    }
+
+    // 计算 CPU 使用率
+    const ULONGLONG deltaTime    = nowKernel + nowUser - g_prevKernelTime - g_prevUserTime;
+    const ULONGLONG deltaWall    = nowWall - g_prevWallTime;
+
+    g_prevKernelTime = nowKernel;
+    g_prevUserTime   = nowUser;
+    g_prevWallTime   = nowWall;
+
+    // 获取逻辑处理器数量
+    static DWORD numProcessors = 0;
+    if (numProcessors == 0) {
+        SYSTEM_INFO si;
+        GetSystemInfo(&si);
+        numProcessors = si.dwNumberOfProcessors;
+    }
+
+    const double cpuPercent = (deltaWall > 0)
+        ? (static_cast<double>(deltaTime) / static_cast<double>(deltaWall)) * 100.0
+        : 0.0;
+
+    // 获取内存使用（Working Set，单位 MB）
+    PROCESS_MEMORY_COUNTERS_EX pmc;
+    pmc.cb = sizeof(pmc);
+    double memMB = 0.0;
+    if (GetProcessMemoryInfo(GetCurrentProcess(), reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&pmc), sizeof(pmc))) {
+        memMB = static_cast<double>(pmc.WorkingSetSize) / (1024.0 * 1024.0);
+    }
+
+    m_performanceLabel->setText(tr("CPU: %1% | 内存: %2 MB")
+        .arg(cpuPercent, 0, 'f', 1)
+        .arg(memMB, 0, 'f', 1));
+
+#elif defined(Q_OS_LINUX)
+    // Linux: 读取 /proc/self/stat
+    QFile statFile("/proc/self/stat");
+    if (statFile.open(QIODevice::ReadOnly)) {
+        const QByteArray data = statFile.readAll();
+        const QList<QByteArray> fields = data.split(' ');
+        // 字段 13=utime, 14=stime (0-based: fields[13], fields[14])
+        if (fields.size() > 14) {
+            const long ticks = fields[13].toLong() + fields[14].toLong();
+            static long prevTicks = 0;
+            static qint64 prevMs = 0;
+            const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+            if (prevMs > 0) {
+                const double cpuPercent = (static_cast<double>(ticks - prevTicks) / sysconf(_SC_CLK_TCK))
+                    / (static_cast<double>(nowMs - prevMs) / 1000.0) * 100.0;
+                m_performanceLabel->setText(tr("CPU: %1%").arg(cpuPercent, 0, 'f', 1));
+            }
+            prevTicks = ticks;
+            prevMs = nowMs;
+        }
+    }
+
+#elif defined(Q_OS_MACOS)
+    // macOS: mach task_info
+    // 注：macOS 上精确 CPU 需要 proc_pid_rusage，此处简化
+    struct task_basic_info tbi;
+    mach_msg_type_number_t count = TASK_BASIC_INFO_COUNT;
+    if (task_info(mach_task_self(), TASK_BASIC_INFO, reinterpret_cast<task_info_t>(&tbi), &count) == KERN_SUCCESS) {
+        const double memMB = static_cast<double>(tbi.resident_size) / (1024.0 * 1024.0);
+        m_performanceLabel->setText(tr("内存: %1 MB").arg(memMB, 0, 'f', 1));
+    }
+#endif
 }
 
 void MainWindow::gracefulShutdown() {
