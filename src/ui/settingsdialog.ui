@@ -20,6 +20,302 @@
   <property name="modal">
    <bool>false</bool>
   </property>
+  <property name="styleSheet">
+   <string>/* ============================================================
+ * SettingsDialog — Fluent Design (WinUI) 浅色主题
+ * ============================================================ */
+
+/* --- 窗口 --- */
+QDialog#SettingsDialog {
+    background-color: #f3f3f3;
+    font-family: "Segoe UI Variable", "Segoe UI", "Microsoft YaHei", sans-serif;
+    font-size: 13px;
+    color: #1a1a1a;
+}
+
+/* --- 侧栏区域 --- */
+QWidget#sidebarWidget {
+    background-color: #f3f3f3;
+}
+
+/* --- 侧栏导航列表 --- */
+QListWidget#categoryListWidget {
+    background-color: #f3f3f3;
+    border: none;
+    outline: none;
+    font-size: 13px;
+    padding: 6px 4px;
+}
+
+QListWidget#categoryListWidget::item {
+    padding: 9px 12px;
+    margin: 1px 4px;
+    border-radius: 6px;
+    border-left: 3px solid transparent;
+    color: #424242;
+    font-weight: 400;
+}
+
+QListWidget#categoryListWidget::item:selected {
+    background-color: rgba(0, 0, 0, 0.06);
+    border-left: 3px solid #0078d4;
+    color: #1a1a1a;
+    font-weight: 600;
+}
+
+QListWidget#categoryListWidget::item:hover:!selected {
+    background-color: rgba(0, 0, 0, 0.03);
+}
+
+/* --- 内容区 --- */
+QWidget#mainContentWidget {
+    background-color: #fcfcfc;
+    border-left: 1px solid #e5e5e5;
+}
+
+/* --- 分组框 → 白色卡片 --- */
+QGroupBox {
+    background-color: #ffffff;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    margin-top: 8px;
+    padding: 18px 12px 12px 12px;
+    font-weight: 600;
+    font-size: 13px;
+    color: #1a1a1a;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 14px;
+    padding: 0 6px 0 6px;
+    color: #1a1a1a;
+}
+
+/* --- 标签 --- */
+QLabel {
+    color: #1a1a1a;
+    font-weight: 400;
+    font-size: 13px;
+}
+
+/* --- 下拉框 --- */
+QComboBox {
+    border: 1px solid #cfcfcf;
+    border-radius: 4px;
+    padding: 8px 12px;
+    background-color: #ffffff;
+    color: #1a1a1a;
+    font-size: 13px;
+    font-family: "Segoe UI", sans-serif;
+    min-width: 100px;
+}
+
+QComboBox:hover {
+    border-color: #999999;
+}
+
+QComboBox:focus {
+    border-color: #0078d4;
+}
+
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 24px;
+    border-left: 1px solid #e0e0e0;
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
+}
+
+QComboBox QAbstractItemView {
+    border: 1px solid #cfcfcf;
+    border-radius: 4px;
+    background-color: #ffffff;
+    selection-background-color: rgba(0, 120, 212, 0.12);
+    selection-color: #1a1a1a;
+    outline: none;
+}
+
+/* --- 数字输入框 --- */
+QSpinBox {
+    border: 1px solid #cfcfcf;
+    border-radius: 4px;
+    padding: 8px 12px;
+    background-color: #ffffff;
+    color: #1a1a1a;
+    font-size: 13px;
+    font-family: "Segoe UI", sans-serif;
+}
+
+QSpinBox:hover {
+    border-color: #999999;
+}
+
+QSpinBox:focus {
+    border-color: #0078d4;
+}
+
+/* --- 文本框 --- */
+QLineEdit {
+    border: 1px solid #cfcfcf;
+    border-radius: 4px;
+    padding: 8px 12px;
+    background-color: #ffffff;
+    color: #1a1a1a;
+    font-size: 13px;
+    font-family: "Segoe UI", sans-serif;
+}
+
+QLineEdit:hover {
+    border-color: #999999;
+}
+
+QLineEdit:focus {
+    border-color: #0078d4;
+}
+
+/* --- Toggle Switch (通过 QCheckBox::indicator 实现) --- */
+QCheckBox {
+    color: #1a1a1a;
+    font-size: 13px;
+    spacing: 10px;
+}
+
+QCheckBox::indicator {
+    width: 40px;
+    height: 20px;
+    border-radius: 10px;
+    background-color: #cccccc;
+    border: none;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #0078d4;
+}
+
+QCheckBox::indicator:hover {
+    background-color: #aaaaaa;
+}
+
+QCheckBox::indicator:checked:hover {
+    background-color: #106ebe;
+}
+
+/* --- 主要按钮（恢复默认值） --- */
+QPushButton#restoreDefaultsBtn {
+    background-color: #0078d4;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 20px;
+    font-size: 13px;
+    font-weight: 500;
+    min-width: 100px;
+    min-height: 32px;
+}
+
+QPushButton#restoreDefaultsBtn:hover {
+    background-color: #106ebe;
+}
+
+QPushButton#restoreDefaultsBtn:pressed {
+    background-color: #005a9e;
+}
+
+/* --- 辅助按钮（高级页 Enable Core Debug / Reset Rules） --- */
+QPushButton#presetDebugBtn,
+QPushButton#resetRulesBtn {
+    background-color: #f5f5f5;
+    border: 1px solid #d0d0d0;
+    border-radius: 4px;
+    padding: 5px 14px;
+    font-size: 12px;
+    font-weight: 400;
+    color: #333333;
+}
+
+QPushButton#presetDebugBtn:hover,
+QPushButton#resetRulesBtn:hover {
+    background-color: #e8e8e8;
+    border-color: #bcbcbc;
+}
+
+/* --- 密码切换按钮 --- */
+QPushButton#togglePasswordBtn {
+    background-color: transparent;
+    border: 1px solid #cfcfcf;
+    border-radius: 4px;
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+    color: #555555;
+}
+
+QPushButton#togglePasswordBtn:hover {
+    background-color: #f0f0f0;
+}
+
+/* --- 多行文本框（日志规则） --- */
+QTextEdit#logRulesTextEdit {
+    border: 1px solid #cfcfcf;
+    border-radius: 4px;
+    padding: 8px 12px;
+    background-color: #ffffff;
+    color: #1a1a1a;
+    font-family: "Consolas", "Cascadia Code", "Courier New", monospace;
+    font-size: 12px;
+}
+
+QTextEdit#logRulesTextEdit:focus {
+    border-color: #0078d4;
+}
+
+/* --- 按钮栏区域 --- */
+QWidget#buttonWidget {
+    background-color: #f3f3f3;
+    border-top: 1px solid #e5e5e5;
+}
+
+/* --- 滚动条 --- */
+QScrollBar:vertical {
+    width: 6px;
+    background-color: transparent;
+    margin: 0;
+}
+
+QScrollBar::handle:vertical {
+    background-color: #c0c0c0;
+    border-radius: 3px;
+    min-height: 30px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background-color: #a0a0a0;
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical {
+    background-color: transparent;
+}
+
+/* --- 堆叠页面透底 --- */
+QStackedWidget#settingsStackedWidget {
+    background-color: transparent;
+}
+
+/* --- 页面内各 QWidget 透底 --- */
+QWidget#generalPage,
+QWidget#serverPage,
+QWidget#advancedPage {
+    background-color: transparent;
+}</string>
+  </property>
   <layout class="QVBoxLayout" name="mainLayout">
    <property name="spacing">
     <number>0</number>
@@ -58,7 +354,7 @@
        <widget class="QWidget" name="sidebarWidget">
         <property name="maximumSize">
          <size>
-          <width>180</width>
+          <width>170</width>
           <height>16777215</height>
          </size>
         </property>
@@ -82,7 +378,7 @@
           <widget class="QListWidget" name="categoryListWidget">
            <property name="maximumSize">
             <size>
-             <width>180</width>
+             <width>170</width>
              <height>16777215</height>
             </size>
            </property>
@@ -119,16 +415,16 @@
           <number>10</number>
          </property>
          <property name="leftMargin">
-          <number>20</number>
+          <number>36</number>
          </property>
          <property name="topMargin">
-          <number>20</number>
+          <number>24</number>
          </property>
          <property name="rightMargin">
-          <number>20</number>
+          <number>36</number>
          </property>
          <property name="bottomMargin">
-          <number>20</number>
+          <number>24</number>
          </property>
          <item>
           <widget class="QStackedWidget" name="settingsStackedWidget">
@@ -370,13 +666,10 @@
                   <item>
                    <widget class="QPushButton" name="togglePasswordBtn">
                     <property name="text">
-                     <string>显示</string>
+                     <string>👁</string>
                     </property>
-                    <property name="maximumSize">
-                     <size>
-                      <width>60</width>
-                      <height>16777215</height>
-                     </size>
+                    <property name="toolTip">
+                     <string>显示/隐藏密码</string>
                     </property>
                    </widget>
                   </item>
@@ -584,7 +877,7 @@
         </property>
         <property name="minimumSize">
          <size>
-          <width>120</width>
+          <width>100</width>
           <height>32</height>
          </size>
         </property>
