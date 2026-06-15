@@ -41,10 +41,11 @@
           <item row="1" column="1">
            <layout class="QHBoxLayout" name="passwordLayout">
             <item><widget class="QLineEdit" name="passwordLineEdit"><property name="echoMode"><enum>QLineEdit::Password</enum></property><property name="placeholderText"><string>输入密码（可选）</string></property></widget></item>
-            <item><widget class="QPushButton" name="togglePasswordBtn"><property name="fixedWidth"><number>22</number></property><property name="fixedHeight"><number>22</number></property><property name="toolTip"><string>显示/隐藏密码</string></property><property name="styleSheet"><string>QPushButton#togglePasswordBtn {
+            <item><widget class="QPushButton" name="togglePasswordBtn"><property name="fixedWidth"><number>14</number></property><property name="fixedHeight"><number>14</number></property><property name="toolTip"><string>显示/隐藏密码</string></property><property name="styleSheet"><string>QPushButton#togglePasswordBtn {
 	background-color: transparent;
 	border: 1px solid #cfcfcf;
 	border-radius: 4px;
+	padding: 0;
 }
 QPushButton#togglePasswordBtn:hover {
 	background-color: #f0f0f0;

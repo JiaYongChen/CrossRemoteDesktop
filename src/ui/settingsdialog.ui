@@ -316,8 +316,9 @@ QPushButton#togglePasswordBtn {
     background-color: transparent;
     border: 1px solid #cfcfcf;
     border-radius: 4px;
-    width: 22px;
-    height: 22px;
+    width: 14px;
+    height: 14px;
+    padding: 0;
 }
 
 QPushButton#togglePasswordBtn:hover {
