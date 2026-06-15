@@ -3,14 +3,11 @@
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QFileDialog>
 #include <QtWidgets/QPushButton>
-#include <QtWidgets/QDialogButtonBox>
 #include <QtWidgets/QListWidget>
-#include <QtWidgets/QStackedWidget>
 #include <QtWidgets/QSpinBox>
 #include <QtWidgets/QLineEdit>
+#include <QtWidgets/QStackedWidget>
 #include <QtWidgets/QComboBox>
-#include <QtWidgets/QLabel>
-#include <QtWidgets/QSlider>
 #include <QtWidgets/QTextEdit>
 #include <QtCore/QStandardPaths>
 #include <QtCore/QDir>
@@ -41,31 +38,11 @@ void SettingsDialog::setupUI() {
     m_categoryListWidget = ui->categoryListWidget;
     m_settingsStackedWidget = ui->settingsStackedWidget;
 
-    // 获取按钮盒引用
-    m_buttonBox = ui->buttonBox;
-
-    // 获取标准按钮
-    m_okButton = m_buttonBox->button(QDialogButtonBox::Ok);
-    m_cancelButton = m_buttonBox->button(QDialogButtonBox::Cancel);
-    m_applyButton = m_buttonBox->button(QDialogButtonBox::Apply);
-    m_defaultsButton = m_buttonBox->button(QDialogButtonBox::RestoreDefaults);
-
-    // 创建额外的按钮
-    m_resetButton = new QPushButton(tr("重置"), nullptr);
-    m_importButton = new QPushButton(tr("导入"), nullptr);
-    m_exportButton = new QPushButton(tr("导出"), nullptr);
-
-    // 将额外按钮添加到按钮盒
-    m_buttonBox->addButton(m_resetButton, QDialogButtonBox::ActionRole);
-    m_buttonBox->addButton(m_importButton, QDialogButtonBox::ActionRole);
-    m_buttonBox->addButton(m_exportButton, QDialogButtonBox::ActionRole);
+    // 获取按钮引用
+    m_defaultsButton = ui->restoreDefaultsBtn;
 
     // 获取各个页面的组件引用
     setupGeneralPageComponents();
-    setupConnectionPageComponents();
-    setupDisplayPageComponents();
-    setupAudioPageComponents();
-    setupSecurityPageComponents();
     setupAdvancedPageComponents();
 
     // 连接分类列表的选择信号
@@ -77,42 +54,18 @@ void SettingsDialog::setupUI() {
 
     // 更新列表
     updateLanguageList();
-    updateThemeList();
-    updateAudioDeviceList();
 }
 
 void SettingsDialog::setupConnections() {
-    // 连接按钮盒的信号
-    connect(m_buttonBox, &QDialogButtonBox::accepted, this, &SettingsDialog::accept);
-    connect(m_buttonBox, &QDialogButtonBox::rejected, this, &SettingsDialog::reject);
-
-    // 连接Apply按钮（如果存在）
-    if ( QPushButton* applyButton = m_buttonBox->button(QDialogButtonBox::Apply) ) {
-        connect(applyButton, &QPushButton::clicked, this, &SettingsDialog::onApplyClicked);
-    }
-
-    // 连接端口设置信号
-    if ( ui->defaultPortSpinBox ) {
-        connect(ui->defaultPortSpinBox, QOverload<int>::of(&QSpinBox::valueChanged),
-            this, &SettingsDialog::onDefaultPortChanged);
-    }
-
-    // 连接帧率设置信号
-    if ( ui->frameRateSpinBox ) {
-        connect(ui->frameRateSpinBox, QOverload<int>::of(&QSpinBox::valueChanged),
-            this, &SettingsDialog::onFrameRateChanged);
+    // 连接恢复默认值按钮
+    if ( m_defaultsButton ) {
+        connect(m_defaultsButton, &QPushButton::clicked, this, &SettingsDialog::onDefaultsClicked);
     }
 
     // 连接语言选择信号
     if ( ui->languageComboBox ) {
         connect(ui->languageComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &SettingsDialog::onLanguageChanged);
-    }
-
-    // 连接缩放模式设置信号
-    if ( ui->scalingModeComboBox ) {
-        connect(ui->scalingModeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &SettingsDialog::onScalingModeChanged);
     }
 
     // 高级-日志：规则编辑变更
@@ -124,120 +77,10 @@ void SettingsDialog::setupConnections() {
         connect(ui->logLevelComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &SettingsDialog::onLoggingLevelChanged);
     }
-}
 
-void SettingsDialog::setupGeneralPageComponents() {
-    // 获取UI文件中的组件引用
-    m_languageCombo = ui->languageComboBox;
-    m_startWithSystemCheck = ui->autoStartCheckBox;
-    m_minimizeToTrayCheck = ui->minimizeToTrayCheckBox;
-    m_checkUpdatesCheck = ui->autoUpdateCheckBox;
-
-    // 注意：UI文件中可能没有主题选择和通知设置，需要检查
-    // 如果UI文件中没有这些组件，我们可以创建它们或者注释掉相关代码
-    m_showNotificationsCheck = nullptr; // UI文件中暂时没有此组件
-    m_themeCombo = nullptr; // UI文件中暂时没有此组件
-}
-
-
-void SettingsDialog::setupConnectionPageComponents() {
-    // 获取UI文件中的组件引用
-    m_defaultPortSpinBox = ui->defaultPortSpinBox;
-    m_connectionTimeoutSpinBox = ui->defaultTimeoutSpinBox;
-    m_autoReconnectCheck = ui->enableAutoReconnectCheckBox;
-    m_reconnectIntervalSpinBox = ui->retryIntervalSpinBox;
-    m_maxReconnectAttemptsSpinBox = ui->maxRetriesSpinBox;
-
-    // 这些组件在UI文件中可能没有定义，设置为nullptr
-    m_enableUPnPCheck = nullptr;
-    m_proxyHostEdit = nullptr;
-    m_proxyPortSpinBox = nullptr;
-    m_proxyUsernameEdit = nullptr;
-    m_proxyPasswordEdit = nullptr;
-}
-
-
-void SettingsDialog::setupDisplayPageComponents() {
-    // 获取UI文件中的组件引用
-    m_colorDepthCombo = ui->defaultColorDepthComboBox;
-    m_enableCursorCheck = ui->showCursorCheckBox;
-    m_frameRateSpinBox = ui->frameRateSpinBox;
-    m_scalingModeCombo = ui->scalingModeComboBox;
-    // m_qualitySlider = ui->defaultQualitySlider;  // Component not found
-    // m_adaptiveQualityCheck = ui->enableAdaptiveQualityCheckBox;  // Component not found
-    // m_fullScreenCheck = ui->defaultFullScreenCheckBox;  // Component not found
-
-    // 这些组件在UI文件中没有定义，设置为nullptr
-
-    m_enableWallpaperCheck = nullptr;
-    m_enableAnimationsCheck = nullptr;
-    m_enableFontSmoothingCheck = nullptr;
-}
-
-
-void SettingsDialog::setupAudioPageComponents() {
-    // 获取UI文件中的组件引用
-    m_audioQualityCombo = ui->audioQualityComboBox;
-    // m_audioBufferSpin = ui->audioBufferSpinBox;  // Component not found
-
-    // 这些组件在UI文件中没有定义，设置为nullptr
-    m_audioDeviceCombo = nullptr;
-    m_audioVolumeSlider = nullptr;
-    m_audioVolumeLabel = nullptr;
-    m_enableMicrophoneCheck = nullptr;
-    m_microphoneDeviceCombo = nullptr;
-    m_microphoneVolumeSlider = nullptr;
-    m_microphoneVolumeLabel = nullptr;
-}
-
-
-void SettingsDialog::setupSecurityPageComponents() {
-    // 获取UI文件中的组件引用
-    m_enableEncryptionCheck = ui->defaultEncryptionCheckBox;
-    m_requirePasswordCheck = ui->savePasswordsCheckBox;
-    m_sessionTimeoutSpinBox = ui->defaultTimeoutSpinBox;
-
-    // 这些组件在UI文件中可能没有定义，设置为nullptr
-    m_encryptionMethodCombo = nullptr;
-    m_passwordLengthSpinBox = nullptr;
-    m_passwordComplexityCheck = nullptr;
-    m_logSecurityEventsCheck = nullptr;
-    m_trustedHostsEdit = nullptr;
-}
-
-
-void SettingsDialog::setupAdvancedPageComponents() {
-    // 获取UI文件中的组件引用
-    m_loggingLevelCombo = ui->logLevelComboBox;
-    // 新增：日志规则编辑器（可能不存在，空指针容错）
-    m_loggingRulesEdit = findChild<QTextEdit*>("logRulesTextEdit");
-    // m_browseLogPathButton = ui->browseLogPathButton;  // Component not found in UI
-
-    // 这些组件在UI文件中可能没有定义，设置为nullptr
-    m_logFilePathEdit = nullptr;
-    m_maxLogFileSizeSpinBox = nullptr;
-    m_maxLogFilesSpinBox = nullptr;
-    m_performanceUpdateIntervalSpinBox = nullptr;
-    m_enableDebugModeCheck = nullptr;
-    m_customSettingsEdit = nullptr;
-
-    // 动态添加“规则预设”与“恢复默认规则”按钮到日志表单布局底部
-    if ( ui->loggingFormLayout ) {
-        QWidget* buttonBar = new QWidget(ui->advancedPage);
-        auto* h = new QHBoxLayout(buttonBar);
-        h->setContentsMargins(0, 0, 0, 0);
-        QPushButton* presetBtn = new QPushButton(tr("Enable Core Debug"), buttonBar);
-        presetBtn->setObjectName("presetDebugBtn");
-        QPushButton* resetBtn = new QPushButton(tr("Reset Rules"), buttonBar);
-        resetBtn->setObjectName("resetRulesBtn");
-        h->addWidget(presetBtn);
-        h->addWidget(resetBtn);
-        h->addStretch();
-        // 放在新的一行，横跨两列
-        ui->loggingFormLayout->setWidget(2, QFormLayout::SpanningRole, buttonBar);
-
-        // 预设核心调试规则（不直接应用，仅填入文本并标记更改）
-        connect(presetBtn, &QPushButton::clicked, this, [this]() {
+    // 高级-日志：预设调试规则按钮
+    if ( auto* btn = findChild<QPushButton*>("presetDebugBtn") ) {
+        connect(btn, &QPushButton::clicked, this, [this]() {
             if ( !m_loggingRulesEdit ) {
                 m_loggingRulesEdit = findChild<QTextEdit*>("logRulesTextEdit");
             }
@@ -252,9 +95,11 @@ void SettingsDialog::setupAdvancedPageComponents() {
                 onSettingChanged();
             }
         });
+    }
 
-        // 恢复默认（清空规则，由 Qt 默认规则或环境变量生效）
-        connect(resetBtn, &QPushButton::clicked, this, [this]() {
+    // 高级-日志：恢复默认规则按钮
+    if ( auto* btn = findChild<QPushButton*>("resetRulesBtn") ) {
+        connect(btn, &QPushButton::clicked, this, [this]() {
             if ( !m_loggingRulesEdit ) {
                 m_loggingRulesEdit = findChild<QTextEdit*>("logRulesTextEdit");
             }
@@ -264,6 +109,80 @@ void SettingsDialog::setupAdvancedPageComponents() {
             }
         });
     }
+}
+
+void SettingsDialog::setupGeneralPageComponents() {
+    // 获取UI文件中的组件引用
+    m_languageCombo = ui->languageComboBox;
+    m_startWithSystemCheck = ui->autoStartCheckBox;
+    m_minimizeToTrayCheck = nullptr;
+    m_checkUpdatesCheck = nullptr;
+    m_showNotificationsCheck = nullptr;
+    m_themeCombo = nullptr;
+}
+
+
+void SettingsDialog::setupConnectionPageComponents() {
+    m_defaultPortSpinBox = nullptr;
+    m_connectionTimeoutSpinBox = nullptr;
+    m_autoReconnectCheck = nullptr;
+    m_reconnectIntervalSpinBox = nullptr;
+    m_maxReconnectAttemptsSpinBox = nullptr;
+    m_enableUPnPCheck = nullptr;
+    m_proxyHostEdit = nullptr;
+    m_proxyPortSpinBox = nullptr;
+    m_proxyUsernameEdit = nullptr;
+    m_proxyPasswordEdit = nullptr;
+}
+
+
+void SettingsDialog::setupDisplayPageComponents() {
+    m_colorDepthCombo = nullptr;
+    m_enableCursorCheck = nullptr;
+    m_frameRateSpinBox = nullptr;
+    m_scalingModeCombo = nullptr;
+    m_enableWallpaperCheck = nullptr;
+    m_enableAnimationsCheck = nullptr;
+    m_enableFontSmoothingCheck = nullptr;
+}
+
+
+void SettingsDialog::setupAudioPageComponents() {
+    m_audioQualityCombo = nullptr;
+    m_audioDeviceCombo = nullptr;
+    m_audioVolumeSlider = nullptr;
+    m_audioVolumeLabel = nullptr;
+    m_enableMicrophoneCheck = nullptr;
+    m_microphoneDeviceCombo = nullptr;
+    m_microphoneVolumeSlider = nullptr;
+    m_microphoneVolumeLabel = nullptr;
+}
+
+
+void SettingsDialog::setupSecurityPageComponents() {
+    m_enableEncryptionCheck = nullptr;
+    m_requirePasswordCheck = nullptr;
+    m_sessionTimeoutSpinBox = nullptr;
+    m_encryptionMethodCombo = nullptr;
+    m_passwordLengthSpinBox = nullptr;
+    m_passwordComplexityCheck = nullptr;
+    m_logSecurityEventsCheck = nullptr;
+    m_trustedHostsEdit = nullptr;
+}
+
+
+void SettingsDialog::setupAdvancedPageComponents() {
+    // 获取UI文件中的组件引用
+    m_loggingLevelCombo = ui->logLevelComboBox;
+    m_loggingRulesEdit = findChild<QTextEdit*>("logRulesTextEdit");
+
+    // 这些组件已从UI中移除，设置为nullptr
+    m_logFilePathEdit = nullptr;
+    m_maxLogFileSizeSpinBox = nullptr;
+    m_maxLogFilesSpinBox = nullptr;
+    m_performanceUpdateIntervalSpinBox = nullptr;
+    m_enableDebugModeCheck = nullptr;
+    m_customSettingsEdit = nullptr;
 }
 
 
@@ -548,17 +467,6 @@ void SettingsDialog::changeEvent(QEvent* event) {
             const int idx = m_languageCombo->findData(currentLocale);
             if ( idx >= 0 ) m_languageCombo->setCurrentIndex(idx);
         }
-
-        // 重新翻译代码中创建的按钮
-        if ( m_resetButton ) m_resetButton->setText(tr("重置"));
-        if ( m_importButton ) m_importButton->setText(tr("导入"));
-        if ( m_exportButton ) m_exportButton->setText(tr("导出"));
-
-        // 高级页面中的代码创建按钮
-        if ( auto* btn = findChild<QPushButton*>("presetDebugBtn") )
-            btn->setText(tr("Enable Core Debug"));
-        if ( auto* btn = findChild<QPushButton*>("resetRulesBtn") )
-            btn->setText(tr("Reset Rules"));
     }
 }
 
@@ -615,22 +523,22 @@ void SettingsDialog::applySettings() {
 
 void SettingsDialog::resetToDefaults() {
     // 重置为默认值
-    m_languageCombo->setCurrentIndex(0);
-    m_themeCombo->setCurrentIndex(0);
-    m_startWithSystemCheck->setChecked(false);
-    m_minimizeToTrayCheck->setChecked(false);
-    m_showNotificationsCheck->setChecked(true);
-    m_checkUpdatesCheck->setChecked(true);
-    m_defaultPortSpinBox->setValue(3389);
-    m_connectionTimeoutSpinBox->setValue(30);
-    m_autoReconnectCheck->setChecked(false);
-    m_reconnectIntervalSpinBox->setValue(5);
-    m_maxReconnectAttemptsSpinBox->setValue(3);
-    m_enableUPnPCheck->setChecked(false);
-    m_proxyHostEdit->clear();
-    m_proxyPortSpinBox->setValue(8080);
-    m_proxyUsernameEdit->clear();
-    m_proxyPasswordEdit->clear();
+    if ( m_languageCombo ) m_languageCombo->setCurrentIndex(0);
+    if ( m_themeCombo ) m_themeCombo->setCurrentIndex(0);
+    if ( m_startWithSystemCheck ) m_startWithSystemCheck->setChecked(false);
+    if ( m_minimizeToTrayCheck ) m_minimizeToTrayCheck->setChecked(false);
+    if ( m_showNotificationsCheck ) m_showNotificationsCheck->setChecked(true);
+    if ( m_checkUpdatesCheck ) m_checkUpdatesCheck->setChecked(true);
+    if ( m_defaultPortSpinBox ) m_defaultPortSpinBox->setValue(3389);
+    if ( m_connectionTimeoutSpinBox ) m_connectionTimeoutSpinBox->setValue(30);
+    if ( m_autoReconnectCheck ) m_autoReconnectCheck->setChecked(false);
+    if ( m_reconnectIntervalSpinBox ) m_reconnectIntervalSpinBox->setValue(5);
+    if ( m_maxReconnectAttemptsSpinBox ) m_maxReconnectAttemptsSpinBox->setValue(3);
+    if ( m_enableUPnPCheck ) m_enableUPnPCheck->setChecked(false);
+    if ( m_proxyHostEdit ) m_proxyHostEdit->clear();
+    if ( m_proxyPortSpinBox ) m_proxyPortSpinBox->setValue(8080);
+    if ( m_proxyUsernameEdit ) m_proxyUsernameEdit->clear();
+    if ( m_proxyPasswordEdit ) m_proxyPasswordEdit->clear();
 
     m_settingsChanged = true;
 }
@@ -649,6 +557,7 @@ void SettingsDialog::onConnectionTimeoutChanged(int value) { Q_UNUSED(value); on
 void SettingsDialog::onAutoReconnectChanged(bool checked) { Q_UNUSED(checked); onSettingChanged(); }
 void SettingsDialog::onFrameRateChanged(int value) { Q_UNUSED(value); onSettingChanged(); }
 void SettingsDialog::onScalingModeChanged(int index) { Q_UNUSED(index); onSettingChanged(); }
+void SettingsDialog::onEncryptionChanged(bool checked) { Q_UNUSED(checked); onSettingChanged(); }
 void SettingsDialog::onPasswordPolicyChanged(int index) { Q_UNUSED(index); onSettingChanged(); }
 void SettingsDialog::onSessionTimeoutChanged(int value) { Q_UNUSED(value); onSettingChanged(); }
 void SettingsDialog::onLoggingLevelChanged(int index) { Q_UNUSED(index); onSettingChanged(); }
