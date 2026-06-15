@@ -712,9 +712,6 @@ QWidget#advancedPage {
                     <property name="minimumSize">
                      <size><width>0</width><height>32</height></size>
                     </property>
-                    <property name="maximumSize">
-                     <size><width>280</width><height>32</height></size>
-                    </property>
                     <property name="echoMode">
                      <enum>QLineEdit::Password</enum>
                     </property>
@@ -751,19 +748,6 @@ QWidget#advancedPage {
                      </sizepolicy>
                     </property>
                    </widget>
-                  </item>
-                  <item>
-                   <spacer name="passwordBtnSpacer">
-                    <property name="orientation">
-                     <enum>Qt::Vertical</enum>
-                    </property>
-                    <property name="sizeHint" stdset="0">
-                     <size>
-                      <width>0</width>
-                      <height>0</height>
-                     </size>
-                    </property>
-                   </spacer>
                   </item>
                  </layout>
                 </item>
