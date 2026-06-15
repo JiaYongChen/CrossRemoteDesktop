@@ -202,6 +202,33 @@ QCheckBox::indicator:checked:hover {
     background-color: #106ebe;
 }
 
+/* --- 开机自启 — 传统方框 checkbox --- */
+QCheckBox#autoStartCheckBox {
+    spacing: 8px;
+}
+
+QCheckBox#autoStartCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    background-color: #ffffff;
+    border: 2px solid #cccccc;
+}
+
+QCheckBox#autoStartCheckBox::indicator:checked {
+    background-color: #0078d4;
+    border-color: #0078d4;
+}
+
+QCheckBox#autoStartCheckBox::indicator:hover {
+    border-color: #999999;
+}
+
+QCheckBox#autoStartCheckBox::indicator:checked:hover {
+    background-color: #106ebe;
+    border-color: #106ebe;
+}
+
 /* --- 主要按钮（恢复默认值） --- */
 QPushButton#restoreDefaultsBtn {
     background-color: #0078d4;
