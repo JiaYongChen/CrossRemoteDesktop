@@ -6,6 +6,7 @@
 #include "../../server/dataflow/QueueManager.h"
 #include "../core/threading/ThreadManager.h"
 #include "../../server/simulator/InputSimulator.h"
+
 #include "../core/config/UiConstants.h"
 #include "../core/config/MessageConstants.h"
 #include "../core/logging/LoggingCategories.h"
@@ -497,17 +498,17 @@ void MainWindow::showConnectionDialog() {
 
     // 设置连接对话框的默认端口为当前服务器端口
     if ( m_serverManager && m_serverManager->isServerRunning() ) {
-        m_connectionDialog->setPort(m_serverManager->getCurrentPort());
+        m_connectionDialog->setDefaultPort(m_serverManager->getCurrentPort());
     } else {
         // 如果服务器未运行，使用设置中的默认端口
         QSettings settings;
         int defaultPort = settings.value("Connection/defaultPort", 5900).toInt();
-        m_connectionDialog->setPort(defaultPort);
+        m_connectionDialog->setDefaultPort(defaultPort);
     }
 
     if ( m_connectionDialog->exec() == QDialog::Accepted ) {
         // 处理连接请求
-        QString host = m_connectionDialog->getHost();
+        QString host = m_connectionDialog->getHostAddress();
         int port = m_connectionDialog->getPort();
 
         // 使用ClientManager连接到主机
