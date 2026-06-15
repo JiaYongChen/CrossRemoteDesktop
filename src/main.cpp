@@ -342,7 +342,18 @@ int main(int argc, char* argv[]) {
 
         qCInfo(lcServer) << "Application exiting with code:" << result;
 
-        return result;
+        // ─────────────────────────────────────────────────────────
+        // 跳过 QApplication 静态析构，解决终端挂死问题。
+        //
+        // 挂死根源：NVIDIA 472.12 驱动下 Qt QPA 无法正常打开 \\.\DISPLAY1
+        // （启动时即报：qt.qpa.screen "Unable to open monitor interface"
+        //  "Unknown error 0xe0000225"），导致 QWindowsScreen 清理阶段挂死。
+        //
+        // 安全性：gracefulShutdown() 已彻底清理了所有自有资源
+        // （服务端、客户端、全部线程、GL 资源、D3D/COM），
+        // 无任何未写入的数据或未关闭的句柄，跳静态析构不会造成泄漏。
+        // ─────────────────────────────────────────────────────────
+        std::_Exit(result);
 
     } catch ( const std::exception& e ) {
         QString errorMsg = QString("Unhandled exception: %1").arg(e.what());
