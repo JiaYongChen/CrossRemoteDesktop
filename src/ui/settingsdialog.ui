@@ -208,8 +208,6 @@ QLineEdit {
     color: #1a1a1a;
     font-size: 13px;
     font-family: "Segoe UI", sans-serif;
-    min-height: 18px;
-    max-height: 18px;
 }
 
 QLineEdit:hover {
@@ -725,6 +723,12 @@ QWidget#advancedPage {
                 </item>
                 <item row="0" column="1">
                  <widget class="QLineEdit" name="usernameEdit">
+                  <property name="minimumSize">
+                   <size><width>0</width><height>32</height></size>
+                  </property>
+                  <property name="maximumSize">
+                   <size><width>280</width><height>32</height></size>
+                  </property>
                   <property name="placeholderText">
                    <string>输入用户名</string>
                   </property>
@@ -741,6 +745,12 @@ QWidget#advancedPage {
                  <layout class="QHBoxLayout" name="passwordLayout">
                   <item>
                    <widget class="QLineEdit" name="passwordEdit">
+                    <property name="minimumSize">
+                     <size><width>0</width><height>32</height></size>
+                    </property>
+                    <property name="maximumSize">
+                     <size><width>280</width><height>32</height></size>
+                    </property>
                     <property name="echoMode">
                      <enum>QLineEdit::Password</enum>
                     </property>
