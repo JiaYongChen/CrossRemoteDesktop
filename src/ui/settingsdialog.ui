@@ -103,12 +103,11 @@ QLabel {
 QComboBox {
     border: 1px solid #cfcfcf;
     border-radius: 4px;
-    padding: 8px 12px;
+    padding: 5px 10px;
     background-color: #ffffff;
     color: #1a1a1a;
     font-size: 13px;
     font-family: "Segoe UI", sans-serif;
-    min-width: 100px;
 }
 
 QComboBox:hover {
@@ -122,10 +121,19 @@ QComboBox:focus {
 QComboBox::drop-down {
     subcontrol-origin: padding;
     subcontrol-position: top right;
-    width: 24px;
-    border-left: 1px solid #e0e0e0;
+    width: 22px;
+    border-left: 1px solid #b0b0b0;
     border-top-right-radius: 4px;
     border-bottom-right-radius: 4px;
+}
+
+QComboBox::down-arrow {
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid #555555;
+    margin-right: 6px;
 }
 
 QComboBox QAbstractItemView {
@@ -518,6 +526,12 @@ QWidget#advancedPage {
                 </item>
                 <item row="0" column="1">
                  <widget class="QComboBox" name="languageComboBox">
+                  <property name="maximumSize">
+                   <size>
+                    <width>140</width>
+                    <height>16777215</height>
+                   </size>
+                  </property>
                   <item>
                    <property name="text">
                     <string>简体中文</string>
@@ -780,6 +794,12 @@ QWidget#advancedPage {
                 </item>
                 <item row="0" column="1">
                  <widget class="QComboBox" name="logLevelComboBox">
+                  <property name="maximumSize">
+                   <size>
+                    <width>100</width>
+                    <height>16777215</height>
+                   </size>
+                  </property>
                   <item>
                    <property name="text">
                     <string>错误</string>
