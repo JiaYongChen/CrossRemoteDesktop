@@ -407,16 +407,10 @@ void MainWindow::stopServer() {
 }
 
 void MainWindow::showSettings() {
-    if ( !m_settingsDialog ) {
-        m_settingsDialog = new SettingsDialog(this);
-    }
-
-    if ( m_settingsDialog->exec() == QDialog::Accepted ) {
-        // 应用设置到ScreenCapture
-        if ( m_serverManager ) {
-            // m_serverManager->applyScreenCaptureSettings();
-        }
-    }
+	if (!m_settingsDialog) {
+		m_settingsDialog = new SettingsDialog(this);
+	}
+	m_settingsDialog->show();
 }
 
 void MainWindow::showAbout() {
@@ -496,14 +490,23 @@ void MainWindow::showConnectionDialog() {
         m_connectionDialog = new ConnectionDialog(this);
     }
 
-    // 设置连接对话框的默认端口为当前服务器端口
-    if ( m_serverManager && m_serverManager->isServerRunning() ) {
-        m_connectionDialog->setDefaultPort(m_serverManager->getCurrentPort());
+    // 预填默认端口（优先服务端运行端口，否则从 QSettings 读取）
+    int defaultPort = 5921;
+    if (m_serverManager && m_serverManager->isServerRunning()) {
+        defaultPort = m_serverManager->getCurrentPort();
     } else {
-        // 如果服务器未运行，使用设置中的默认端口
         QSettings settings;
-        int defaultPort = settings.value("Connection/defaultPort", 5900).toInt();
-        m_connectionDialog->setDefaultPort(defaultPort);
+        defaultPort = settings.value("Server/listenPort", 5921).toInt();
+    }
+    m_connectionDialog->setDefaultPort(defaultPort);
+
+    // 预填用户名
+    {
+        QSettings settings;
+        const QString username = settings.value("Server/username").toString();
+        if (!username.isEmpty()) {
+            m_connectionDialog->setUsername(username);
+        }
     }
 
     if ( m_connectionDialog->exec() == QDialog::Accepted ) {
