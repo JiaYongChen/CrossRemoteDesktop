@@ -43,18 +43,21 @@ ServerManager::~ServerManager() {
     // 使用分类日志，便于按模块过滤与定位
     qCDebug(lcServerManager) << "ServerManager::~ServerManager() - Destructor called";
 
-    // 停止屏幕捕获和数据处理
-    stopWorkerThreads();
-
-    // 清理客户端连接
-    cleanupDisconnectedClient();
-
-    // 只有在没有进行优雅关闭的情况下才调用gracefulShutdown
+    // 只有在没有进行优雅关闭的情况下才执行 tear-down
+    // 如果主事件循环已退出（QApplication 已返回），跨线程 BlockingQueuedConnection
+    // 会永远阻塞，因此仅在非优雅关闭路径中回退。
     if ( !m_gracefulShuttingDown.load() ) {
-        qCDebug(lcServerManager) << "ServerManager::~ServerManager() - Executing graceful shutdown";
+        qCDebug(lcServerManager) << "ServerManager::~ServerManager() - No prior graceful shutdown, cleaning up";
+
+        // 停止屏幕捕获和数据处理
+        stopWorkerThreads();
+
+        // 清理客户端连接
+        cleanupDisconnectedClient();
+
         gracefulShutdown();
     } else {
-        qCDebug(lcServerManager) << "ServerManager::~ServerManager() - Already in graceful shutdown, skipping";
+        qCDebug(lcServerManager) << "ServerManager::~ServerManager() - Already in graceful shutdown, skipping cleanup";
     }
 
     // 断开与ServerWorker的信号连接
@@ -453,6 +456,9 @@ void ServerManager::gracefulShutdown() {
         (void)m_threadManager->stopThread("ServerWorker", true); // 同步停止，等待完成
         qCDebug(lcServerManager) << "ServerManager::gracefulShutdown() - ServerWorker thread stopped";
     }
+
+    // 停止屏幕捕获和数据处理（事件循环仍在运行，BlockingQueuedConnection 安全）
+    stopWorkerThreads();
 
     // 到此为止：ServerWorker 与相关工作线程均已同步停止
     // 更新服务端运行状态
