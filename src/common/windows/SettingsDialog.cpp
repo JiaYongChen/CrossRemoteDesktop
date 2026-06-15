@@ -258,9 +258,6 @@ void SettingsDialog::onTogglePasswordClicked()
 {
 	const bool isMasked = (ui->passwordEdit->echoMode() == QLineEdit::Password);
 	ui->passwordEdit->setEchoMode(isMasked ? QLineEdit::Normal : QLineEdit::Password);
-	ui->togglePasswordBtn->setProperty("revealed", isMasked);
-	ui->togglePasswordBtn->style()->unpolish(ui->togglePasswordBtn);
-	ui->togglePasswordBtn->style()->polish(ui->togglePasswordBtn);
 }
 
 void SettingsDialog::onPresetDebugClicked()

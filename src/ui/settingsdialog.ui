@@ -314,25 +314,22 @@ QPushButton#resetRulesBtn:hover {
 /* --- 密码切换按钮 --- */
 QPushButton#togglePasswordBtn {
     background-color: transparent;
-    border: 1px solid #cfcfcf;
-    border-radius: 4px;
+    border: none;
     width: 14px;
     height: 14px;
+    min-width: 14px;
+    max-width: 14px;
+    min-height: 14px;
+    max-height: 14px;
     padding: 0;
 }
 
 QPushButton#togglePasswordBtn:hover {
-    background-color: #f0f0f0;
+    background-color: transparent;
 }
 
 QPushButton#togglePasswordBtn[revealed="true"] {
-    background-color: #0078d4;
-    border-color: #0078d4;
-    color: #ffffff;
-}
-
-QPushButton#togglePasswordBtn[revealed="true"]:hover {
-    background-color: #106ebe;
+    background-color: transparent;
 }
 
 /* --- 多行文本框（日志规则） --- */
