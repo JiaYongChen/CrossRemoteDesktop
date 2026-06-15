@@ -1,564 +1,293 @@
 #include "SettingsDialog.h"
 #include "ui_SettingsDialog.h"
-#include <QtWidgets/QMessageBox>
-#include <QtWidgets/QFileDialog>
-#include <QtWidgets/QPushButton>
-#include <QtWidgets/QListWidget>
-#include <QtWidgets/QSpinBox>
-#include <QtWidgets/QLineEdit>
-#include <QtWidgets/QStackedWidget>
-#include <QtWidgets/QComboBox>
-#include <QtWidgets/QTextEdit>
-#include <QtCore/QStandardPaths>
-#include <QtCore/QDir>
-#include <QtCore/QSettings>
-#include <QtCore/QEvent>
-#include <QtCore/QVariant>
 #include "common/core/config/Config.h"
 #include "common/core/TranslationUtils.h"
 #include "common/core/logging/LoggingCategories.h"
+#include "common/core/crypto/PasswordCrypto.h"
+
+#include <QtCore/QSettings>
+#include <QtCore/QEvent>
+#include <QtCore/QVariant>
+#include <QtCore/QByteArray>
+#include <QtWidgets/QListWidget>
+#include <QtWidgets/QStackedWidget>
+#include <QtWidgets/QComboBox>
+#include <QtWidgets/QSpinBox>
+#include <QtWidgets/QLineEdit>
+#include <QtWidgets/QCheckBox>
+#include <QtWidgets/QTextEdit>
+#include <QtWidgets/QPushButton>
 
 SettingsDialog::SettingsDialog(QWidget* parent)
-    : QDialog(parent)
-    , m_settings(new QSettings())
-    , ui(new Ui::SettingsDialog)
-    , m_settingsChanged(false) {
-    ui->setupUi(this);
-    setupUI();
-    setupConnections();
-    loadSettings();
+	: QDialog(parent)
+	, ui(new Ui::SettingsDialog)
+	, m_settings(new QSettings())
+{
+	ui->setupUi(this);
+	setupUI();
+	setupConnections();
+	loadSettings();
 }
 
-SettingsDialog::~SettingsDialog() {
-    delete ui;
+SettingsDialog::~SettingsDialog()
+{
+	delete ui;
 }
 
-void SettingsDialog::setupUI() {
-    // 获取UI文件中的组件引用
-    m_categoryListWidget = ui->categoryListWidget;
-    m_settingsStackedWidget = ui->settingsStackedWidget;
-
-    // 获取按钮引用
-    m_defaultsButton = ui->restoreDefaultsBtn;
-
-    // 获取各个页面的组件引用
-    setupGeneralPageComponents();
-    setupAdvancedPageComponents();
-
-    // 连接分类列表的选择信号
-    connect(m_categoryListWidget, &QListWidget::currentRowChanged,
-        m_settingsStackedWidget, &QStackedWidget::setCurrentIndex);
-
-    // 设置默认选中第一项
-    m_categoryListWidget->setCurrentRow(0);
-
-    // 更新列表
-    updateLanguageList();
+void SettingsDialog::setupUI()
+{
+	connect(ui->categoryListWidget, &QListWidget::currentRowChanged,
+			ui->settingsStackedWidget, &QStackedWidget::setCurrentIndex);
+	ui->categoryListWidget->setCurrentRow(0);
+	updateLanguageList();
 }
 
-void SettingsDialog::setupConnections() {
-    // 连接恢复默认值按钮
-    if ( m_defaultsButton ) {
-        connect(m_defaultsButton, &QPushButton::clicked, this, &SettingsDialog::onDefaultsClicked);
-    }
+void SettingsDialog::setupConnections()
+{
+	// 常规 — 语言
+	connect(ui->languageComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
+			this, &SettingsDialog::onLanguageChanged);
 
-    // 连接语言选择信号
-    if ( ui->languageComboBox ) {
-        connect(ui->languageComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &SettingsDialog::onLanguageChanged);
-    }
+	// 常规 — 开机自动启动
+	connect(ui->autoStartCheckBox, &QCheckBox::toggled,
+			this, &SettingsDialog::onAutoStartChanged);
 
-    // 高级-日志：规则编辑变更
-    if ( QTextEdit* rules = findChild<QTextEdit*>("logRulesTextEdit") ) {
-        connect(rules, &QTextEdit::textChanged, this, &SettingsDialog::onSettingChanged);
-    }
-    // 高级-日志：级别变更
-    if ( ui->logLevelComboBox ) {
-        connect(ui->logLevelComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &SettingsDialog::onLoggingLevelChanged);
-    }
+	// 通信 — 监听端口
+	connect(ui->listenPortSpinBox, QOverload<int>::of(&QSpinBox::valueChanged),
+			this, &SettingsDialog::onListenPortChanged);
 
-    // 高级-日志：预设调试规则按钮
-    if ( auto* btn = findChild<QPushButton*>("presetDebugBtn") ) {
-        connect(btn, &QPushButton::clicked, this, [this]() {
-            if ( !m_loggingRulesEdit ) {
-                m_loggingRulesEdit = findChild<QTextEdit*>("logRulesTextEdit");
-            }
-            if ( m_loggingRulesEdit ) {
-                const QString coreRules =
-                    "app.debug=true\n"
-                    "server*.debug=true\n"
-                    "client*.debug=true\n"
-                    "core.*.debug=true\n"
-                    "qt.network.ssl.warning=false";
-                m_loggingRulesEdit->setPlainText(coreRules);
-                onSettingChanged();
-            }
-        });
-    }
+	// 通信 — 用户名（editingFinished: 只在用户完成编辑时触发，避免每次按键都触发密码重加密）
+	connect(ui->usernameEdit, &QLineEdit::editingFinished,
+			this, &SettingsDialog::onUsernameChanged);
 
-    // 高级-日志：恢复默认规则按钮
-    if ( auto* btn = findChild<QPushButton*>("resetRulesBtn") ) {
-        connect(btn, &QPushButton::clicked, this, [this]() {
-            if ( !m_loggingRulesEdit ) {
-                m_loggingRulesEdit = findChild<QTextEdit*>("logRulesTextEdit");
-            }
-            if ( m_loggingRulesEdit ) {
-                m_loggingRulesEdit->clear();
-                onSettingChanged();
-            }
-        });
-    }
+	// 通信 — 密码
+	connect(ui->passwordEdit, &QLineEdit::editingFinished,
+			this, &SettingsDialog::onPasswordChanged);
+
+	// 通信 — 密码显示切换
+	connect(ui->togglePasswordBtn, &QPushButton::clicked,
+			this, &SettingsDialog::onTogglePasswordClicked);
+
+	// 高级 — 日志级别
+	connect(ui->logLevelComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
+			this, &SettingsDialog::onLogLevelChanged);
+
+	// 高级 — 日志规则
+	connect(ui->logRulesTextEdit, &QTextEdit::textChanged,
+			this, &SettingsDialog::onLogRulesChanged);
+
+	// 高级 — 预设/重置按钮
+	connect(ui->presetDebugBtn, &QPushButton::clicked,
+			this, &SettingsDialog::onPresetDebugClicked);
+	connect(ui->resetRulesBtn, &QPushButton::clicked,
+			this, &SettingsDialog::onResetRulesClicked);
+
+	// 底部 — 恢复默认值
+	connect(ui->restoreDefaultsBtn, &QPushButton::clicked,
+			this, &SettingsDialog::onRestoreDefaultsClicked);
 }
 
-void SettingsDialog::setupGeneralPageComponents() {
-    // 获取UI文件中的组件引用
-    m_languageCombo = ui->languageComboBox;
-    m_startWithSystemCheck = ui->autoStartCheckBox;
-    m_minimizeToTrayCheck = nullptr;
-    m_checkUpdatesCheck = nullptr;
-    m_showNotificationsCheck = nullptr;
-    m_themeCombo = nullptr;
+void SettingsDialog::updateLanguageList()
+{
+	ui->languageComboBox->clear();
+	ui->languageComboBox->addItem(tr("中文"), QVariant(QStringLiteral("zh_CN")));
+	ui->languageComboBox->addItem(tr("English"), QVariant(QStringLiteral("en_US")));
+
+	const QString currentLang = Config::instance()->value("language", "zh_CN").toString();
+	const int idx = ui->languageComboBox->findData(QVariant(currentLang));
+	if (idx >= 0) ui->languageComboBox->setCurrentIndex(idx);
 }
 
+void SettingsDialog::loadSettings()
+{
+	// 常规
+	const bool autoStart = m_settings->value("General/startWithSystem", false).toBool();
+	ui->autoStartCheckBox->setChecked(autoStart);
 
-void SettingsDialog::setupConnectionPageComponents() {
-    m_defaultPortSpinBox = nullptr;
-    m_connectionTimeoutSpinBox = nullptr;
-    m_autoReconnectCheck = nullptr;
-    m_reconnectIntervalSpinBox = nullptr;
-    m_maxReconnectAttemptsSpinBox = nullptr;
-    m_enableUPnPCheck = nullptr;
-    m_proxyHostEdit = nullptr;
-    m_proxyPortSpinBox = nullptr;
-    m_proxyUsernameEdit = nullptr;
-    m_proxyPasswordEdit = nullptr;
+	// 通信
+	const int listenPort = m_settings->value("Server/listenPort", 5921).toInt();
+	ui->listenPortSpinBox->setValue(listenPort);
+
+	const QString username = m_settings->value("Server/username").toString();
+	ui->usernameEdit->setText(username);
+
+	const QString encryptedPassword = m_settings->value("Server/password").toString();
+	m_cachedPassword = PasswordCrypto::decrypt(username, encryptedPassword);
+	ui->passwordEdit->setText(m_cachedPassword);
+
+	// 高级
+	const QString logLevel = m_settings->value("Logging/level", "info").toString().toLower();
+	int levelIdx = 2; // default: info
+	if (logLevel == "error" || logLevel == QStringLiteral("错误")) levelIdx = 0;
+	else if (logLevel == "warning" || logLevel == QStringLiteral("警告")) levelIdx = 1;
+	else if (logLevel == "debug" || logLevel == QStringLiteral("调试")) levelIdx = 3;
+	ui->logLevelComboBox->setCurrentIndex(levelIdx);
+
+	const QString logRules = m_settings->value("Logging/rules").toString();
+	ui->logRulesTextEdit->setPlainText(logRules);
 }
 
+// ===== 即时生效槽 =====
 
-void SettingsDialog::setupDisplayPageComponents() {
-    m_colorDepthCombo = nullptr;
-    m_enableCursorCheck = nullptr;
-    m_frameRateSpinBox = nullptr;
-    m_scalingModeCombo = nullptr;
-    m_enableWallpaperCheck = nullptr;
-    m_enableAnimationsCheck = nullptr;
-    m_enableFontSmoothingCheck = nullptr;
+void SettingsDialog::onLanguageChanged(int index)
+{
+	const QString lang = ui->languageComboBox->itemData(index).toString();
+	if (lang.isEmpty()) return;
+
+	Config::instance()->setValue("language", lang, Config::General);
+	m_settings->setValue("General/language", lang);
+	switchTranslation(*qApp, lang);
+	qCInfo(lcUI) << "SettingsDialog: language switched to" << lang;
 }
 
-
-void SettingsDialog::setupAudioPageComponents() {
-    m_audioQualityCombo = nullptr;
-    m_audioDeviceCombo = nullptr;
-    m_audioVolumeSlider = nullptr;
-    m_audioVolumeLabel = nullptr;
-    m_enableMicrophoneCheck = nullptr;
-    m_microphoneDeviceCombo = nullptr;
-    m_microphoneVolumeSlider = nullptr;
-    m_microphoneVolumeLabel = nullptr;
+void SettingsDialog::onAutoStartChanged(bool checked)
+{
+	m_settings->setValue("General/startWithSystem", checked);
+	qCInfo(lcUI) << "SettingsDialog: auto start set to" << checked;
 }
 
-
-void SettingsDialog::setupSecurityPageComponents() {
-    m_enableEncryptionCheck = nullptr;
-    m_requirePasswordCheck = nullptr;
-    m_sessionTimeoutSpinBox = nullptr;
-    m_encryptionMethodCombo = nullptr;
-    m_passwordLengthSpinBox = nullptr;
-    m_passwordComplexityCheck = nullptr;
-    m_logSecurityEventsCheck = nullptr;
-    m_trustedHostsEdit = nullptr;
+void SettingsDialog::onListenPortChanged(int value)
+{
+	m_settings->setValue("Server/listenPort", value);
+	qCInfo(lcUI) << "SettingsDialog: listen port set to" << value;
 }
 
+void SettingsDialog::onUsernameChanged()
+{
+	const QString oldUsername = m_settings->value("Server/username").toString();
+	const QString newUsername = ui->usernameEdit->text();
 
-void SettingsDialog::setupAdvancedPageComponents() {
-    // 获取UI文件中的组件引用
-    m_loggingLevelCombo = ui->logLevelComboBox;
-    m_loggingRulesEdit = findChild<QTextEdit*>("logRulesTextEdit");
+	if (newUsername == oldUsername) return;
 
-    // 这些组件已从UI中移除，设置为nullptr
-    m_logFilePathEdit = nullptr;
-    m_maxLogFileSizeSpinBox = nullptr;
-    m_maxLogFilesSpinBox = nullptr;
-    m_performanceUpdateIntervalSpinBox = nullptr;
-    m_enableDebugModeCheck = nullptr;
-    m_customSettingsEdit = nullptr;
+	// 如果已有密码，用旧用户名解密 → 新用户名重新加密
+	const QString oldEncrypted = m_settings->value("Server/password").toString();
+	if (!oldEncrypted.isEmpty() && !m_cachedPassword.isEmpty()) {
+		const QString newEncrypted = PasswordCrypto::encrypt(newUsername, m_cachedPassword);
+		m_settings->setValue("Server/password", newEncrypted);
+	}
+
+	m_settings->setValue("Server/username", newUsername);
+	qCInfo(lcUI) << "SettingsDialog: username changed";
 }
 
+void SettingsDialog::onPasswordChanged()
+{
+	const QString newPassword = ui->passwordEdit->text();
+	if (newPassword == m_cachedPassword) return;
 
-void SettingsDialog::updateLanguageList() {
-    if ( m_languageCombo ) {
-        m_languageCombo->clear();
-        m_languageCombo->addItem(tr("中文"), QVariant(QStringLiteral("zh_CN")));
-        m_languageCombo->addItem(tr("English"), QVariant(QStringLiteral("en_US")));
-        qCInfo(lcUI) << "updateLanguageList: items[0]=" << m_languageCombo->itemText(0)
-                      << "data=" << m_languageCombo->itemData(0).toString()
-                      << "items[1]=" << m_languageCombo->itemText(1)
-                      << "data=" << m_languageCombo->itemData(1).toString();
-    }
+	m_cachedPassword = newPassword;
+	const QString username = m_settings->value("Server/username").toString();
+
+	if (newPassword.isEmpty()) {
+		m_settings->remove("Server/password");
+	} else {
+		const QString encrypted = PasswordCrypto::encrypt(username, newPassword);
+		m_settings->setValue("Server/password", encrypted);
+	}
+	qCInfo(lcUI) << "SettingsDialog: password updated";
 }
 
-void SettingsDialog::updateThemeList() {
-    if ( m_themeCombo ) {
-        m_themeCombo->clear();
-        m_themeCombo->addItems({ tr("浅色"), tr("深色"), tr("自动") });
-    }
+void SettingsDialog::onLogLevelChanged(int index)
+{
+	static const char* levels[] = {"error", "warning", "info", "debug"};
+	if (index < 0 || index > 3) return;
+
+	m_settings->setValue("Logging/level", levels[index]);
+	Config::instance()->setValue("level", levels[index], Config::Logging);
+	qCInfo(lcUI) << "SettingsDialog: log level set to" << levels[index];
 }
 
-void SettingsDialog::updateAudioDeviceList() {
-    if ( m_audioDeviceCombo ) {
-        m_audioDeviceCombo->clear();
-        m_audioDeviceCombo->addItems({ tr("默认"), tr("系统音频") });
-    }
-
-    if ( m_microphoneDeviceCombo ) {
-        m_microphoneDeviceCombo->clear();
-        m_microphoneDeviceCombo->addItems({ tr("默认"), tr("系统麦克风") });
-    }
+void SettingsDialog::onLogRulesChanged()
+{
+	const QString rules = ui->logRulesTextEdit->toPlainText();
+	m_settings->setValue("Logging/rules", rules);
+	Config::instance()->setValue("rules", rules, Config::Logging);
+	applyLogRules();
 }
 
-void SettingsDialog::loadSettings() {
-    m_settings->beginGroup("General");
-    // Config 是翻译器的权威数据源，优先从 Config 读取以确保与当前界面语言一致
-    m_generalSettings.language = Config::instance()->value("language", "zh_CN").toString();
-    qCInfo(lcUI) << "loadSettings: Config language=" << m_generalSettings.language;
-    m_generalSettings.theme = m_settings->value("theme", "Light").toString();
-    m_generalSettings.startWithSystem = m_settings->value("startWithSystem", false).toBool();
-    m_generalSettings.minimizeToTray = m_settings->value("minimizeToTray", false).toBool();
-    m_generalSettings.showNotifications = m_settings->value("showNotifications", true).toBool();
-    m_generalSettings.checkUpdates = m_settings->value("checkUpdates", true).toBool();
-    m_settings->endGroup();
-
-    // Logging 设置
-    m_settings->beginGroup("Logging");
-    m_advancedSettings.loggingLevel = m_settings->value("level", "info").toString();
-    m_advancedSettings.loggingRules = m_settings->value("rules", "").toString();
-    m_settings->endGroup();
-
-    m_settings->beginGroup("Connection");
-    m_connectionSettings.defaultPort = m_settings->value("defaultPort", 3389).toInt();
-    m_connectionSettings.connectionTimeout = m_settings->value("connectionTimeout", 30).toInt();
-    m_connectionSettings.autoReconnect = m_settings->value("autoReconnect", false).toBool();
-    m_connectionSettings.reconnectInterval = m_settings->value("reconnectInterval", 5).toInt();
-    m_connectionSettings.maxReconnectAttempts = m_settings->value("maxReconnectAttempts", 3).toInt();
-    m_connectionSettings.enableUPnP = m_settings->value("enableUPnP", false).toBool();
-    m_connectionSettings.proxyHost = m_settings->value("proxyHost", "").toString();
-    m_connectionSettings.proxyPort = m_settings->value("proxyPort", 8080).toInt();
-    m_connectionSettings.proxyUsername = m_settings->value("proxyUsername", "").toString();
-    m_connectionSettings.proxyPassword = m_settings->value("proxyPassword", "").toString();
-    m_settings->endGroup();
-
-    m_settings->beginGroup("Display");
-    m_displaySettings.frameRate = m_settings->value("frameRate", 60).toInt();
-    m_displaySettings.colorDepth = m_settings->value("colorDepth", "32-bit").toString();
-    m_displaySettings.enableCursor = m_settings->value("enableCursor", true).toBool();
-    m_displaySettings.enableWallpaper = m_settings->value("enableWallpaper", false).toBool();
-    m_displaySettings.enableAnimations = m_settings->value("enableAnimations", false).toBool();
-    m_displaySettings.enableFontSmoothing = m_settings->value("enableFontSmoothing", true).toBool();
-    m_displaySettings.scalingMode = m_settings->value("scalingMode", "FitToWindow").toString();
-    m_settings->endGroup();
-
-    // 应用设置到UI
-    applySettingsToUI();
+void SettingsDialog::applyLogRules()
+{
+	const QByteArray envRules = qgetenv("QT_LOGGING_RULES");
+	if (envRules.isEmpty()) {
+		const QString rules = ui->logRulesTextEdit->toPlainText().trimmed();
+		if (!rules.isEmpty()) {
+			QLoggingCategory::setFilterRules(rules);
+		}
+	}
 }
 
-void SettingsDialog::saveSettings() {
-    if ( !m_settingsChanged ) {
-        return;
-    }
+// ===== 按钮槽 =====
 
-    // 从UI获取设置
-    getSettingsFromUI();
+void SettingsDialog::onRestoreDefaultsClicked()
+{
+	ui->languageComboBox->setCurrentIndex(0);
+	onLanguageChanged(0);
 
-    m_settings->beginGroup("General");
-    m_settings->setValue("language", m_generalSettings.language);
-    m_settings->setValue("theme", m_generalSettings.theme);
-    m_settings->setValue("startWithSystem", m_generalSettings.startWithSystem);
-    m_settings->setValue("minimizeToTray", m_generalSettings.minimizeToTray);
-    m_settings->setValue("showNotifications", m_generalSettings.showNotifications);
-    m_settings->setValue("checkUpdates", m_generalSettings.checkUpdates);
-    m_settings->endGroup();
+	ui->autoStartCheckBox->setChecked(false);
+	onAutoStartChanged(false);
 
-    // 保存 Logging 设置
-    m_settings->beginGroup("Logging");
-    m_settings->setValue("level", m_advancedSettings.loggingLevel);
-    m_settings->setValue("rules", m_advancedSettings.loggingRules);
-    m_settings->endGroup();
+	ui->listenPortSpinBox->setValue(5921);
+	onListenPortChanged(5921);
 
-    m_settings->beginGroup("Connection");
-    m_settings->setValue("defaultPort", m_connectionSettings.defaultPort);
-    m_settings->setValue("connectionTimeout", m_connectionSettings.connectionTimeout);
-    m_settings->setValue("autoReconnect", m_connectionSettings.autoReconnect);
-    m_settings->setValue("reconnectInterval", m_connectionSettings.reconnectInterval);
-    m_settings->setValue("maxReconnectAttempts", m_connectionSettings.maxReconnectAttempts);
-    m_settings->setValue("enableUPnP", m_connectionSettings.enableUPnP);
-    m_settings->setValue("proxyHost", m_connectionSettings.proxyHost);
-    m_settings->setValue("proxyPort", m_connectionSettings.proxyPort);
-    m_settings->setValue("proxyUsername", m_connectionSettings.proxyUsername);
-    m_settings->setValue("proxyPassword", m_connectionSettings.proxyPassword);
-    m_settings->endGroup();
+	ui->usernameEdit->clear();
+	ui->passwordEdit->clear();
+	m_cachedPassword.clear();
+	m_settings->remove("Server/username");
+	m_settings->remove("Server/password");
 
-    m_settings->beginGroup("Display");
-    m_settings->setValue("frameRate", m_displaySettings.frameRate);
-    m_settings->setValue("colorDepth", m_displaySettings.colorDepth);
-    m_settings->setValue("enableCursor", m_displaySettings.enableCursor);
-    m_settings->setValue("enableWallpaper", m_displaySettings.enableWallpaper);
-    m_settings->setValue("enableAnimations", m_displaySettings.enableAnimations);
-    m_settings->setValue("enableFontSmoothing", m_displaySettings.enableFontSmoothing);
-    m_settings->setValue("scalingMode", m_displaySettings.scalingMode);
-    m_settings->endGroup();
+	ui->logLevelComboBox->setCurrentIndex(2);
+	onLogLevelChanged(2);
 
-    m_settings->sync();
-    m_settingsChanged = false;
+	ui->logRulesTextEdit->clear();
+	m_settings->remove("Logging/rules");
+	Config::instance()->remove("rules", Config::Logging);
+
+	qCInfo(lcUI) << "SettingsDialog: restored to defaults";
 }
 
-void SettingsDialog::applySettingsToUI() {
-    // 通用设置
-    if ( m_languageCombo ) {
-        int langIndex = m_languageCombo->findData(QVariant(m_generalSettings.language));
-        qCInfo(lcUI) << "applySettingsToUI: loaded language=" << m_generalSettings.language
-                      << "findData result=" << langIndex;
-        if ( langIndex >= 0 ) m_languageCombo->setCurrentIndex(langIndex);
-    }
-
-    if ( m_themeCombo ) {
-        int themeIndex = m_themeCombo->findText(m_generalSettings.theme);
-        if ( themeIndex >= 0 ) m_themeCombo->setCurrentIndex(themeIndex);
-    }
-
-    if ( m_startWithSystemCheck ) m_startWithSystemCheck->setChecked(m_generalSettings.startWithSystem);
-    if ( m_minimizeToTrayCheck ) m_minimizeToTrayCheck->setChecked(m_generalSettings.minimizeToTray);
-    if ( m_showNotificationsCheck ) m_showNotificationsCheck->setChecked(m_generalSettings.showNotifications);
-    if ( m_checkUpdatesCheck ) m_checkUpdatesCheck->setChecked(m_generalSettings.checkUpdates);
-
-    // 连接设置
-    if ( m_defaultPortSpinBox ) m_defaultPortSpinBox->setValue(m_connectionSettings.defaultPort);
-    if ( m_connectionTimeoutSpinBox ) m_connectionTimeoutSpinBox->setValue(m_connectionSettings.connectionTimeout);
-    if ( m_autoReconnectCheck ) m_autoReconnectCheck->setChecked(m_connectionSettings.autoReconnect);
-    if ( m_reconnectIntervalSpinBox ) m_reconnectIntervalSpinBox->setValue(m_connectionSettings.reconnectInterval);
-    if ( m_maxReconnectAttemptsSpinBox ) m_maxReconnectAttemptsSpinBox->setValue(m_connectionSettings.maxReconnectAttempts);
-    if ( m_enableUPnPCheck ) m_enableUPnPCheck->setChecked(m_connectionSettings.enableUPnP);
-    if ( m_proxyHostEdit ) m_proxyHostEdit->setText(m_connectionSettings.proxyHost);
-    if ( m_proxyPortSpinBox ) m_proxyPortSpinBox->setValue(m_connectionSettings.proxyPort);
-    if ( m_proxyUsernameEdit ) m_proxyUsernameEdit->setText(m_connectionSettings.proxyUsername);
-    if ( m_proxyPasswordEdit ) m_proxyPasswordEdit->setText(m_connectionSettings.proxyPassword);
-
-    // 显示设置
-    if ( m_frameRateSpinBox ) m_frameRateSpinBox->setValue(m_displaySettings.frameRate);
-    if ( m_enableCursorCheck ) m_enableCursorCheck->setChecked(m_displaySettings.enableCursor);
-
-    // 设置缩放模式
-    if ( m_scalingModeCombo ) {
-        int scalingIndex = 0;
-        if ( m_displaySettings.scalingMode == "FitToWindow" ) scalingIndex = 0;
-        else if ( m_displaySettings.scalingMode == "ActualSize" ) scalingIndex = 1;
-        else if ( m_displaySettings.scalingMode == "FillWindow" ) scalingIndex = 2;
-        m_scalingModeCombo->setCurrentIndex(scalingIndex);
-    }
-
-    // 高级-日志：级别
-    if ( m_loggingLevelCombo ) {
-        // 将常见级别映射中文→英文值
-        const QString lvl = m_advancedSettings.loggingLevel.toLower();
-        int idx = 0; // 默认错误/警告/信息/调试 中，匹配到最近
-        if ( lvl == "error" || lvl == "错误" ) idx = 0;
-        else if ( lvl == "warning" || lvl == "警告" ) idx = 1;
-        else if ( lvl == "info" || lvl == "信息" ) idx = 2;
-        else if ( lvl == "debug" || lvl == "调试" ) idx = 3;
-        m_loggingLevelCombo->setCurrentIndex(idx);
-    }
-    if ( m_loggingRulesEdit ) {
-        m_loggingRulesEdit->setPlainText(m_advancedSettings.loggingRules);
-    }
+void SettingsDialog::onTogglePasswordClicked()
+{
+	const bool isMasked = (ui->passwordEdit->echoMode() == QLineEdit::Password);
+	ui->passwordEdit->setEchoMode(isMasked ? QLineEdit::Normal : QLineEdit::Password);
+	ui->togglePasswordBtn->setText(isMasked ? QStringLiteral("\U0001F648") : QStringLiteral("\U0001F441"));
 }
 
-void SettingsDialog::getSettingsFromUI() {
-    // 通用设置 - 添加空指针检查
-    if ( m_languageCombo ) m_generalSettings.language = m_languageCombo->currentData().toString();
-    if ( m_themeCombo ) m_generalSettings.theme = m_themeCombo->currentText();
-    if ( m_startWithSystemCheck ) m_generalSettings.startWithSystem = m_startWithSystemCheck->isChecked();
-    if ( m_minimizeToTrayCheck ) m_generalSettings.minimizeToTray = m_minimizeToTrayCheck->isChecked();
-    if ( m_showNotificationsCheck ) m_generalSettings.showNotifications = m_showNotificationsCheck->isChecked();
-    if ( m_checkUpdatesCheck ) m_generalSettings.checkUpdates = m_checkUpdatesCheck->isChecked();
-
-    // 连接设置 - 添加空指针检查
-    if ( m_defaultPortSpinBox ) m_connectionSettings.defaultPort = m_defaultPortSpinBox->value();
-    if ( m_connectionTimeoutSpinBox ) m_connectionSettings.connectionTimeout = m_connectionTimeoutSpinBox->value();
-    if ( m_autoReconnectCheck ) m_connectionSettings.autoReconnect = m_autoReconnectCheck->isChecked();
-    if ( m_reconnectIntervalSpinBox ) m_connectionSettings.reconnectInterval = m_reconnectIntervalSpinBox->value();
-    if ( m_maxReconnectAttemptsSpinBox ) m_connectionSettings.maxReconnectAttempts = m_maxReconnectAttemptsSpinBox->value();
-    if ( m_enableUPnPCheck ) m_connectionSettings.enableUPnP = m_enableUPnPCheck->isChecked();
-    if ( m_proxyHostEdit ) m_connectionSettings.proxyHost = m_proxyHostEdit->text();
-    if ( m_proxyPortSpinBox ) m_connectionSettings.proxyPort = m_proxyPortSpinBox->value();
-    if ( m_proxyUsernameEdit ) m_connectionSettings.proxyUsername = m_proxyUsernameEdit->text();
-    if ( m_proxyPasswordEdit ) m_connectionSettings.proxyPassword = m_proxyPasswordEdit->text();
-
-    // 显示设置 - 添加空指针检查
-    if ( m_frameRateSpinBox ) m_displaySettings.frameRate = m_frameRateSpinBox->value();
-    if ( m_enableCursorCheck ) m_displaySettings.enableCursor = m_enableCursorCheck->isChecked();
-
-    // 缩放模式设置
-    if ( m_scalingModeCombo ) {
-        int scalingIndex = m_scalingModeCombo->currentIndex();
-        switch ( scalingIndex ) {
-            case 0: m_displaySettings.scalingMode = "FitToWindow"; break;
-            case 1: m_displaySettings.scalingMode = "ActualSize"; break;
-            case 2: m_displaySettings.scalingMode = "FillWindow"; break;
-            default: m_displaySettings.scalingMode = "FitToWindow"; break;
-        }
-    }
-
-    // 高级-日志
-    if ( m_loggingLevelCombo ) {
-        switch ( m_loggingLevelCombo->currentIndex() ) {
-            case 0: m_advancedSettings.loggingLevel = "error"; break;
-            case 1: m_advancedSettings.loggingLevel = "warning"; break;
-            case 2: m_advancedSettings.loggingLevel = "info"; break;
-            case 3: m_advancedSettings.loggingLevel = "debug"; break;
-            default: m_advancedSettings.loggingLevel = "info"; break;
-        }
-    }
-    if ( m_loggingRulesEdit ) {
-        m_advancedSettings.loggingRules = m_loggingRulesEdit->toPlainText();
-    }
+void SettingsDialog::onPresetDebugClicked()
+{
+	const QString coreRules =
+		"lcApp.debug=true\n"
+		"lcServer.debug=true\n"
+		"lcClient.debug=true\n"
+		"lcUI.debug=true\n"
+		"lcProtocol.debug=true\n"
+		"core.*.debug=true\n"
+		"qt.network.ssl.warning=false";
+	ui->logRulesTextEdit->setPlainText(coreRules);
 }
 
-bool SettingsDialog::validateSettings() {
-    // 验证端口范围 - 添加空指针检查
-    if ( m_defaultPortSpinBox && (m_defaultPortSpinBox->value() < 1 || m_defaultPortSpinBox->value() > 65535) ) {
-        showValidationError(tr("无效的端口号"));
-        return false;
-    }
-
-    return true;
+void SettingsDialog::onResetRulesClicked()
+{
+	ui->logRulesTextEdit->clear();
 }
 
-void SettingsDialog::showValidationError(const QString& message) {
-    QMessageBox::warning(nullptr, tr("验证错误"), message);
+// ===== 语言切换事件 =====
+
+void SettingsDialog::changeEvent(QEvent* event)
+{
+	QDialog::changeEvent(event);
+	if (event->type() == QEvent::LanguageChange) {
+		const QString currentLocale = ui->languageComboBox->currentData().toString();
+
+		ui->retranslateUi(this);
+		updateLanguageList();
+
+		if (!currentLocale.isEmpty()) {
+			const int idx = ui->languageComboBox->findData(currentLocale);
+			if (idx >= 0) ui->languageComboBox->setCurrentIndex(idx);
+		}
+
+		if (ui->presetDebugBtn) ui->presetDebugBtn->setText(tr("Enable Core Debug"));
+		if (ui->resetRulesBtn) ui->resetRulesBtn->setText(tr("Reset Rules"));
+		if (ui->restoreDefaultsBtn) ui->restoreDefaultsBtn->setText(tr("恢复默认值"));
+	}
 }
-
-void SettingsDialog::accept() {
-    if ( validateSettings() ) {
-        applySettings();
-        QDialog::accept(); // 调用基类方法关闭对话框
-    }
-}
-
-void SettingsDialog::reject() {
-    // 如果有未保存的更改，可以在这里提示用户
-    QDialog::reject(); // 调用基类方法关闭对话框
-}
-
-void SettingsDialog::changeEvent(QEvent* event) {
-    QDialog::changeEvent(event);
-    if ( event->type() == QEvent::LanguageChange ) {
-        // 保存当前选中的 locale 代码
-        const QString currentLocale = m_languageCombo
-            ? m_languageCombo->currentData().toString() : QString();
-
-        // 刷新 .ui 文件中的字符串（标签、分组框标题等）
-        ui->retranslateUi(this);
-
-        // 重新填充语言下拉列表（翻译后的显示文本）
-        updateLanguageList();
-
-        // 恢复之前的选择
-        if ( m_languageCombo && !currentLocale.isEmpty() ) {
-            const int idx = m_languageCombo->findData(currentLocale);
-            if ( idx >= 0 ) m_languageCombo->setCurrentIndex(idx);
-        }
-    }
-}
-
-void SettingsDialog::onApplyClicked() {
-    if ( validateSettings() ) {
-        applySettings();
-    }
-}
-
-void SettingsDialog::onResetClicked() {
-    loadSettings();
-    m_settingsChanged = false;
-}
-
-void SettingsDialog::onDefaultsClicked() {
-    resetToDefaults();
-}
-
-void SettingsDialog::onImportClicked() {
-    QString fileName = QFileDialog::getOpenFileName(nullptr, tr("导入设置"), "", tr("设置文件 (*.ini)"));
-    if ( !fileName.isEmpty() ) {
-        // 导入设置逻辑
-    }
-}
-
-void SettingsDialog::onExportClicked() {
-    QString fileName = QFileDialog::getSaveFileName(nullptr, tr("导出设置"), "", tr("设置文件 (*.ini)"));
-    if ( !fileName.isEmpty() ) {
-        // 导出设置逻辑
-    }
-}
-
-void SettingsDialog::applySettings() {
-    getSettingsFromUI();
-    saveSettings();
-
-    // 同步语言设置到 Config 并触发运行时切换
-    qCInfo(lcUI) << "SettingsDialog::applySettings - switching language to:" << m_generalSettings.language;
-    Config::instance()->setValue("language", m_generalSettings.language, Config::General);
-    switchTranslation(*qApp, m_generalSettings.language);
-
-    // 应用到全局 Logger / Config
-    Config::instance()->setValue("level", m_advancedSettings.loggingLevel, Config::Logging);
-    Config::instance()->setValue("rules", m_advancedSettings.loggingRules, Config::Logging);
-    // 优先环境变量，不覆盖环境变量，只应用配置规则（若未设置环境变量）
-    const QByteArray envRules = qgetenv("QT_LOGGING_RULES");
-    if ( envRules.isEmpty() ) {
-        if ( !m_advancedSettings.loggingRules.trimmed().isEmpty() ) {
-            QLoggingCategory::setFilterRules(m_advancedSettings.loggingRules);
-        }
-    }
-    // 注意：QLoggingCategory不支持动态设置日志级别，需要通过环境变量或过滤规则设置
-}
-
-void SettingsDialog::resetToDefaults() {
-    // 重置为默认值
-    if ( m_languageCombo ) m_languageCombo->setCurrentIndex(0);
-    if ( m_themeCombo ) m_themeCombo->setCurrentIndex(0);
-    if ( m_startWithSystemCheck ) m_startWithSystemCheck->setChecked(false);
-    if ( m_minimizeToTrayCheck ) m_minimizeToTrayCheck->setChecked(false);
-    if ( m_showNotificationsCheck ) m_showNotificationsCheck->setChecked(true);
-    if ( m_checkUpdatesCheck ) m_checkUpdatesCheck->setChecked(true);
-    if ( m_defaultPortSpinBox ) m_defaultPortSpinBox->setValue(3389);
-    if ( m_connectionTimeoutSpinBox ) m_connectionTimeoutSpinBox->setValue(30);
-    if ( m_autoReconnectCheck ) m_autoReconnectCheck->setChecked(false);
-    if ( m_reconnectIntervalSpinBox ) m_reconnectIntervalSpinBox->setValue(5);
-    if ( m_maxReconnectAttemptsSpinBox ) m_maxReconnectAttemptsSpinBox->setValue(3);
-    if ( m_enableUPnPCheck ) m_enableUPnPCheck->setChecked(false);
-    if ( m_proxyHostEdit ) m_proxyHostEdit->clear();
-    if ( m_proxyPortSpinBox ) m_proxyPortSpinBox->setValue(8080);
-    if ( m_proxyUsernameEdit ) m_proxyUsernameEdit->clear();
-    if ( m_proxyPasswordEdit ) m_proxyPasswordEdit->clear();
-
-    m_settingsChanged = true;
-}
-
-// 通用设置变更处理函数
-void SettingsDialog::onSettingChanged() {
-    m_settingsChanged = true;
-}
-
-// 槽函数实现 - 使用通用处理函数
-void SettingsDialog::onLanguageChanged(int index) { Q_UNUSED(index); onSettingChanged(); }
-void SettingsDialog::onThemeChanged(int index) { Q_UNUSED(index); onSettingChanged(); }
-void SettingsDialog::onStartupBehaviorChanged(bool checked) { Q_UNUSED(checked); onSettingChanged(); }
-void SettingsDialog::onDefaultPortChanged(int value) { Q_UNUSED(value); onSettingChanged(); }
-void SettingsDialog::onConnectionTimeoutChanged(int value) { Q_UNUSED(value); onSettingChanged(); }
-void SettingsDialog::onAutoReconnectChanged(bool checked) { Q_UNUSED(checked); onSettingChanged(); }
-void SettingsDialog::onFrameRateChanged(int value) { Q_UNUSED(value); onSettingChanged(); }
-void SettingsDialog::onScalingModeChanged(int index) { Q_UNUSED(index); onSettingChanged(); }
-void SettingsDialog::onEncryptionChanged(bool checked) { Q_UNUSED(checked); onSettingChanged(); }
-void SettingsDialog::onPasswordPolicyChanged(int index) { Q_UNUSED(index); onSettingChanged(); }
-void SettingsDialog::onSessionTimeoutChanged(int value) { Q_UNUSED(value); onSettingChanged(); }
-void SettingsDialog::onLoggingLevelChanged(int index) { Q_UNUSED(index); onSettingChanged(); }
-void SettingsDialog::onLogFilePathChanged(const QString& text) { Q_UNUSED(text); onSettingChanged(); }
