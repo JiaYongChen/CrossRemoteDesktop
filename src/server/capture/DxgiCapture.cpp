@@ -95,7 +95,7 @@ bool DxgiCapture::createD3DDevice() {
             return false;
         }
     }
-    m_comInitialized = (comHr == S_OK);
+    m_comInitialized = !FAILED(comHr);  // S_OK 或 S_FALSE 均要求配对 CoUninitialize
 
     // Feature levels to try (we only need basic 2D, so 11.0 is fine)
     D3D_FEATURE_LEVEL featureLevels[] = {
