@@ -122,6 +122,7 @@ private:
 
     // State
     bool    m_initialized = false;
+    bool    m_comInitialized = false;  // 追踪 COM 是否由本类初始化（与 CoInitializeEx 配对）
     int     m_outputIndex = 0;
     QSize   m_desktopSize;
     QString m_lastError;
