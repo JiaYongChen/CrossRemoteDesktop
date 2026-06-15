@@ -474,9 +474,9 @@ void ServerManager::stopWorkerThreads() {
     if ( m_threadManager && m_threadManager->hasThread(dataWorkerName) ) {
         qCDebug(lcServerManager) << "ServerManager::stopWorkerThreads() - Stopping DataProcessingWorker thread";
 
-        // 先请求工作器清空队列
+        // 先请求工作器清空队列（DirectConnection：析构时事件循环已停止）
         if ( m_dataWorker ) {
-            QMetaObject::invokeMethod(m_dataWorker, "stopProcessingAndClearQueues", Qt::QueuedConnection);
+            QMetaObject::invokeMethod(m_dataWorker, "stopProcessingAndClearQueues", Qt::DirectConnection);
         }
 
         // 同步停止线程
