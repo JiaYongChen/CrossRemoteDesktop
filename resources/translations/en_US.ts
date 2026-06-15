@@ -42,12 +42,12 @@
     <message>
         <location filename="../../src/ui/connectiondialog.ui" line="26"/>
         <source>主机名:</source>
-        <translation type="unfinished"></translation>
+        <translation>Hostname:</translation>
     </message>
     <message>
         <location filename="../../src/ui/connectiondialog.ui" line="27"/>
         <source>可选的友好名称（如&quot;办公室电脑&quot;）</source>
-        <translation type="unfinished"></translation>
+        <translation>Optional friendly name (e.g. &quot;Office PC&quot;)</translation>
     </message>
     <message>
         <location filename="../../src/ui/connectiondialog.ui" line="28"/>
@@ -82,17 +82,17 @@
     <message>
         <location filename="../../src/ui/connectiondialog.ui" line="29"/>
         <source>IP 或主机名，可含端口如 192.168.1.100:5921</source>
-        <translation type="unfinished"></translation>
+        <translation>IP or hostname, optionally with port</translation>
     </message>
     <message>
         <location filename="../../src/ui/connectiondialog.ui" line="44"/>
         <source>👁</source>
-        <translation type="unfinished"></translation>
+        <translation>[TODO]</translation>
     </message>
     <message>
         <location filename="../../src/ui/connectiondialog.ui" line="44"/>
         <source>显示/隐藏密码</source>
-        <translation type="unfinished"></translation>
+        <translation>Show/Hide Password</translation>
     </message>
     <message>
         <location filename="../../src/ui/connectiondialog.ui" line="44"/>
@@ -116,7 +116,7 @@ QPushButton#togglePasswordBtn[revealed=&quot;true&quot;] {
     <message>
         <location filename="../../src/ui/connectiondialog.ui" line="68"/>
         <source>显示 &amp;&amp; 功能</source>
-        <translation type="unfinished"></translation>
+        <translation>Display &amp; Function</translation>
     </message>
     <message>
         <location filename="../../src/ui/connectiondialog.ui" line="71"/>
@@ -151,23 +151,23 @@ QPushButton#togglePasswordBtn[revealed=&quot;true&quot;] {
     <message>
         <location filename="../../src/ui/connectiondialog.ui" line="82"/>
         <source>窗口大小</source>
-        <translation type="unfinished"></translation>
+        <translation>Window Size</translation>
     </message>
     <message>
         <location filename="../../src/ui/connectiondialog.ui" line="84"/>
         <location filename="../../src/ui/connectiondialog.ui" line="86"/>
         <source> px</source>
-        <translation type="unfinished"></translation>
+        <translation>Fullscreen Mode</translation>
     </message>
     <message>
         <location filename="../../src/ui/connectiondialog.ui" line="85"/>
         <source>×</source>
-        <translation type="unfinished"></translation>
+        <translation>[TODO]</translation>
     </message>
     <message>
         <location filename="../../src/ui/connectiondialog.ui" line="91"/>
         <source>图像质量</source>
-        <translation type="unfinished"></translation>
+        <translation>Image Quality</translation>
     </message>
     <message>
         <location filename="../../src/ui/connectiondialog.ui" line="102"/>
@@ -177,7 +177,7 @@ QPushButton#togglePasswordBtn[revealed=&quot;true&quot;] {
     <message>
         <location filename="../../src/ui/connectiondialog.ui" line="110"/>
         <source>网络</source>
-        <translation type="unfinished"></translation>
+        <translation>Network</translation>
     </message>
     <message>
         <location filename="../../src/ui/connectiondialog.ui" line="98"/>
@@ -223,7 +223,7 @@ QPushButton#togglePasswordBtn[revealed=&quot;true&quot;] {
     <message>
         <location filename="../../src/common/windows/ConnectionDialog.cpp" line="78"/>
         <source>连接</source>
-        <translation type="unfinished">Connection</translation>
+        <translation>Connection</translation>
     </message>
     <message>
         <location filename="../../src/common/windows/ConnectionDialog.cpp" line="90"/>
@@ -243,22 +243,22 @@ QPushButton#togglePasswordBtn[revealed=&quot;true&quot;] {
         <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="81"/>
         <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="84"/>
         <source>%1 - %2</source>
-        <translation type="unfinished"></translation>
+        <translation>%1 - %2</translation>
     </message>
     <message>
         <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="99"/>
         <source>Connection Disconnected</source>
-        <translation type="unfinished">Connection Disconnected</translation>
+        <translation>Connection Disconnected</translation>
     </message>
     <message>
         <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="100"/>
         <source>Connection to remote host %1 has been disconnected.</source>
-        <translation type="unfinished">Connection to remote host %1 has been disconnected.</translation>
+        <translation>Connection to remote host %1 has been disconnected.</translation>
     </message>
     <message>
         <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="102"/>
         <source>The window will close.</source>
-        <translation type="unfinished">The window will close.</translation>
+        <translation>The window will close.</translation>
     </message>
 </context>
 <context>
@@ -280,7 +280,7 @@ QPushButton#togglePasswordBtn[revealed=&quot;true&quot;] {
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="116"/>
         <source>color: #666;</source>
-        <translation type="unfinished"></translation>
+        <translation>color: #666;</translation>
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="167"/>
@@ -389,7 +389,7 @@ QListWidget::item:hover {
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="400"/>
         <source>服务器(&amp;S)</source>
-        <translation type="unfinished"></translation>
+        <translation>Server(&amp;S)</translation>
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="409"/>
@@ -401,7 +401,7 @@ QListWidget::item:hover {
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="421"/>
         <source>视图(&amp;V)</source>
-        <translation type="unfinished"></translation>
+        <translation>View(&amp;V)</translation>
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="433"/>
@@ -413,7 +413,7 @@ QListWidget::item:hover {
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="455"/>
         <source>工具栏</source>
-        <translation type="unfinished"></translation>
+        <translation>Toolbar</translation>
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="488"/>
@@ -423,12 +423,12 @@ QListWidget::item:hover {
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="491"/>
         <source>创建新的远程桌面连接</source>
-        <translation type="unfinished"></translation>
+        <translation>Create New Remote Desktop Connection</translation>
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="494"/>
         <source>Ctrl+N</source>
-        <translation type="unfinished"></translation>
+        <translation>Ctrl+N</translation>
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="506"/>
@@ -438,7 +438,7 @@ QListWidget::item:hover {
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="509"/>
         <source>Ctrl+Shift+C</source>
-        <translation type="unfinished"></translation>
+        <translation>Ctrl+Shift+C</translation>
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="521"/>
@@ -453,7 +453,7 @@ QListWidget::item:hover {
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="527"/>
         <source>Ctrl+Shift+D</source>
-        <translation type="unfinished"></translation>
+        <translation>Ctrl+Shift+D</translation>
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="536"/>
@@ -469,7 +469,7 @@ QListWidget::item:hover {
         <location filename="../../src/ui/mainwindow.ui" line="542"/>
         <location filename="../../src/ui/mainwindow.ui" line="734"/>
         <source>Ctrl+Shift+S</source>
-        <translation type="unfinished"></translation>
+        <translation>Ctrl+Shift+S</translation>
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="554"/>
@@ -484,7 +484,7 @@ QListWidget::item:hover {
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="560"/>
         <source>Ctrl+Shift+T</source>
-        <translation type="unfinished"></translation>
+        <translation>Ctrl+Shift+T</translation>
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="569"/>
@@ -499,7 +499,7 @@ QListWidget::item:hover {
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="575"/>
         <source>Ctrl+P</source>
-        <translation type="unfinished"></translation>
+        <translation>Ctrl+P</translation>
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="590"/>
@@ -514,7 +514,7 @@ QListWidget::item:hover {
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="596"/>
         <source>F11</source>
-        <translation type="unfinished"></translation>
+        <translation>F11</translation>
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="605"/>
@@ -545,7 +545,7 @@ QListWidget::item:hover {
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="623"/>
         <source>Ctrl+Q</source>
-        <translation type="unfinished"></translation>
+        <translation>Ctrl+Q</translation>
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="635"/>
@@ -560,7 +560,7 @@ QListWidget::item:hover {
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="641"/>
         <source>Ctrl+R</source>
-        <translation type="unfinished"></translation>
+        <translation>Ctrl+R</translation>
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="650"/>
@@ -605,7 +605,7 @@ QListWidget::item:hover {
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="695"/>
         <source>Ctrl+T</source>
-        <translation type="unfinished"></translation>
+        <translation>Ctrl+T</translation>
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="713"/>
@@ -640,7 +640,7 @@ QListWidget::item:hover {
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="755"/>
         <source>Ctrl+Shift+R</source>
-        <translation type="unfinished"></translation>
+        <translation>Ctrl+Shift+R</translation>
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="767"/>
@@ -655,7 +655,7 @@ QListWidget::item:hover {
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="773"/>
         <source>Ctrl+=</source>
-        <translation type="unfinished"></translation>
+        <translation>Ctrl+=</translation>
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="785"/>
@@ -670,7 +670,7 @@ QListWidget::item:hover {
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="791"/>
         <source>Ctrl+-</source>
-        <translation type="unfinished"></translation>
+        <translation>Ctrl+-</translation>
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="803"/>
@@ -685,7 +685,7 @@ QListWidget::item:hover {
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="809"/>
         <source>Ctrl+0</source>
-        <translation type="unfinished"></translation>
+        <translation>Ctrl+0</translation>
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="821"/>
@@ -700,7 +700,7 @@ QListWidget::item:hover {
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="827"/>
         <source>Ctrl+1</source>
-        <translation type="unfinished"></translation>
+        <translation>Ctrl+1</translation>
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="838"/>
@@ -735,7 +735,7 @@ QListWidget::item:hover {
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="870"/>
         <source>F1</source>
-        <translation type="unfinished"></translation>
+        <translation>F1</translation>
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="879"/>
@@ -772,7 +772,7 @@ QListWidget::item:hover {
     <message>
         <location filename="../../src/common/windows/MainWindowLayout.cpp" line="32"/>
         <source>Ctrl+O</source>
-        <translation type="unfinished"></translation>
+        <translation>Ctrl+O</translation>
     </message>
     <message>
         <location filename="../../src/common/windows/MainWindow.cpp" line="282"/>
@@ -880,7 +880,7 @@ QListWidget::item:hover {
     <message>
         <location filename="../../src/common/windows/MainWindowLayout.cpp" line="209"/>
         <source>远程桌面</source>
-        <translation type="unfinished"></translation>
+        <translation>Remote Desktop</translation>
     </message>
     <message>
         <location filename="../../src/common/windows/MainWindow.cpp" line="377"/>
@@ -890,7 +890,7 @@ QListWidget::item:hover {
     <message>
         <location filename="../../src/common/windows/MainWindow.cpp" line="378"/>
         <source>&lt;p&gt;Qt远程桌面需要&lt;b&gt;辅助功能权限&lt;/b&gt;才能模拟鼠标和键盘输入。&lt;/p&gt;&lt;p&gt;请按照以下步骤授予权限：&lt;/p&gt;&lt;ol&gt;&lt;li&gt;打开&lt;b&gt;系统偏好设置&lt;/b&gt;&lt;/li&gt;&lt;li&gt;选择&lt;b&gt;安全性与隐私&lt;/b&gt;&lt;/li&gt;&lt;li&gt;点击&lt;b&gt;隐私&lt;/b&gt;标签&lt;/li&gt;&lt;li&gt;在左侧列表中选择&lt;b&gt;辅助功能&lt;/b&gt;&lt;/li&gt;&lt;li&gt;点击左下角的锁图标解锁&lt;/li&gt;&lt;li&gt;在右侧列表中勾选&lt;b&gt;CrossRemoteDesktop&lt;/b&gt;&lt;/li&gt;&lt;/ol&gt;&lt;p&gt;授予权限后，请重启应用程序。&lt;/p&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>[TODO]</translation>
     </message>
     <message>
         <location filename="../../src/common/windows/MainWindow.cpp" line="417"/>
@@ -925,12 +925,12 @@ QListWidget::item:hover {
     <message>
         <location filename="../../src/common/windows/MainWindow.cpp" line="583"/>
         <source>服务器启动失败</source>
-        <translation type="unfinished">Server failed to start</translation>
+        <translation>Server failed to start</translation>
     </message>
     <message>
         <location filename="../../src/common/windows/MainWindow.cpp" line="584"/>
         <source>服务器错误</source>
-        <translation type="unfinished">Server Error</translation>
+        <translation>Server Error</translation>
     </message>
     <message>
         <location filename="../../src/common/windows/MainWindow.cpp" line="589"/>
@@ -1391,62 +1391,62 @@ QWidget#advancedPage {
     <message>
         <location filename="../../src/ui/settingsdialog.ui" line="435"/>
         <source>通信</source>
-        <translation type="unfinished"></translation>
+        <translation>Communication</translation>
     </message>
     <message>
         <location filename="../../src/ui/settingsdialog.ui" line="491"/>
         <source>语言</source>
-        <translation type="unfinished"></translation>
+        <translation>Language</translation>
     </message>
     <message>
         <location filename="../../src/ui/settingsdialog.ui" line="539"/>
         <source>启动</source>
-        <translation type="unfinished"></translation>
+        <translation>Startup</translation>
     </message>
     <message>
         <location filename="../../src/ui/settingsdialog.ui" line="602"/>
         <source>网络</source>
-        <translation type="unfinished"></translation>
+        <translation>Network</translation>
     </message>
     <message>
         <location filename="../../src/ui/settingsdialog.ui" line="626"/>
         <source>监听端口:</source>
-        <translation type="unfinished"></translation>
+        <translation>Listen Port:</translation>
     </message>
     <message>
         <location filename="../../src/ui/settingsdialog.ui" line="649"/>
         <source>认证</source>
-        <translation type="unfinished"></translation>
+        <translation>Authentication</translation>
     </message>
     <message>
         <location filename="../../src/ui/settingsdialog.ui" line="673"/>
         <source>用户名:</source>
-        <translation type="unfinished">Username:</translation>
+        <translation>Username:</translation>
     </message>
     <message>
         <location filename="../../src/ui/settingsdialog.ui" line="680"/>
         <source>输入用户名</source>
-        <translation type="unfinished"></translation>
+        <translation>Enter Username</translation>
     </message>
     <message>
         <location filename="../../src/ui/settingsdialog.ui" line="687"/>
         <source>密码:</source>
-        <translation type="unfinished">Password:</translation>
+        <translation>Password:</translation>
     </message>
     <message>
         <location filename="../../src/ui/settingsdialog.ui" line="699"/>
         <source>输入密码</source>
-        <translation type="unfinished"></translation>
+        <translation>Enter Password</translation>
     </message>
     <message>
         <location filename="../../src/ui/settingsdialog.ui" line="706"/>
         <source>👁</source>
-        <translation type="unfinished"></translation>
+        <translation>[TODO]</translation>
     </message>
     <message>
         <location filename="../../src/ui/settingsdialog.ui" line="709"/>
         <source>显示/隐藏密码</source>
-        <translation type="unfinished"></translation>
+        <translation>Show/Hide Password</translation>
     </message>
     <message>
         <location filename="../../src/ui/settingsdialog.ui" line="753"/>
@@ -1486,25 +1486,25 @@ QWidget#advancedPage {
     <message>
         <location filename="../../src/ui/settingsdialog.ui" line="815"/>
         <source>例如:\nlcApp.debug=true\n*.info=true\nqt.network.ssl.warning=false</source>
-        <translation type="unfinished"></translation>
+        <translation>[TODO]</translation>
     </message>
     <message>
         <location filename="../../src/ui/settingsdialog.ui" line="913"/>
         <location filename="../../src/common/windows/SettingsDialog.cpp" line="293"/>
         <source>恢复默认值</source>
-        <translation type="unfinished"></translation>
+        <translation>Restore Defaults</translation>
     </message>
     <message>
         <location filename="../../src/ui/settingsdialog.ui" line="830"/>
         <location filename="../../src/common/windows/SettingsDialog.cpp" line="291"/>
         <source>Enable Core Debug</source>
-        <translation type="unfinished"></translation>
+        <translation>Enable Core Debug</translation>
     </message>
     <message>
         <location filename="../../src/ui/settingsdialog.ui" line="837"/>
         <location filename="../../src/common/windows/SettingsDialog.cpp" line="292"/>
         <source>Reset Rules</source>
-        <translation type="unfinished"></translation>
+        <translation>Reset Rules</translation>
     </message>
     <message>
         <location filename="../../src/common/windows/SettingsDialog.cpp" line="93"/>
