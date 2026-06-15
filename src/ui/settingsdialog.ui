@@ -691,7 +691,7 @@ QWidget#advancedPage {
                    <size><width>0</width><height>32</height></size>
                   </property>
                   <property name="maximumSize">
-                   <size><width>210</width><height>32</height></size>
+                   <size><width>200</width><height>32</height></size>
                   </property>
                   <property name="placeholderText">
                    <string>输入用户名</string>
@@ -713,7 +713,7 @@ QWidget#advancedPage {
                      <size><width>0</width><height>32</height></size>
                     </property>
                     <property name="maximumSize">
-                     <size><width>196</width><height>32</height></size>
+                     <size><width>176</width><height>32</height></size>
                     </property>
                     <property name="echoMode">
                      <enum>QLineEdit::Password</enum>
@@ -852,7 +852,7 @@ QWidget#advancedPage {
                   </property>
                   <property name="minimumSize">
                    <size>
-                    <width>210</width>
+                    <width>200</width>
                     <height>100</height>
                    </size>
                   </property>
