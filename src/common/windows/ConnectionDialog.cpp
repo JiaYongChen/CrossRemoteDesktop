@@ -14,7 +14,7 @@ ConnectionDialog::ConnectionDialog(QWidget* parent)
 	, m_defaultPort(UIConstants::DEFAULT_SERVER_PORT)
 {
 	ui->setupUi(this);
-	ui->togglePasswordBtn->setIcon(QIcon(":/icons/eye.svg"));
+	ui->togglePasswordBtn->setIcon(QIcon(":/icons/eye-off.svg"));
 	ui->togglePasswordBtn->setIconSize(QSize(14, 14));
 	setupConnections();
 	loadSettings();
@@ -63,9 +63,9 @@ void ConnectionDialog::onTogglePasswordClicked()
 {
 	const bool isMasked = (ui->passwordLineEdit->echoMode() == QLineEdit::Password);
 	ui->passwordLineEdit->setEchoMode(isMasked ? QLineEdit::Normal : QLineEdit::Password);
-	ui->togglePasswordBtn->setProperty("revealed", isMasked);
-	ui->togglePasswordBtn->style()->unpolish(ui->togglePasswordBtn);
-	ui->togglePasswordBtn->style()->polish(ui->togglePasswordBtn);
+	ui->togglePasswordBtn->setIcon(QIcon(isMasked
+		? ":/icons/eye.svg"
+		: ":/icons/eye-off.svg"));
 }
 
 void ConnectionDialog::onFullScreenToggled(bool checked)

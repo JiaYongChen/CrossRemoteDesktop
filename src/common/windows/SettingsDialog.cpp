@@ -26,7 +26,7 @@ SettingsDialog::SettingsDialog(QWidget* parent)
 	, m_settings(new QSettings())
 {
 	ui->setupUi(this);
-	ui->togglePasswordBtn->setIcon(QIcon(":/icons/eye.svg"));
+	ui->togglePasswordBtn->setIcon(QIcon(":/icons/eye-off.svg"));
 	ui->togglePasswordBtn->setIconSize(QSize(14, 14));
 	setupUI();
 	setupConnections();
@@ -258,9 +258,9 @@ void SettingsDialog::onTogglePasswordClicked()
 {
 	const bool isMasked = (ui->passwordEdit->echoMode() == QLineEdit::Password);
 	ui->passwordEdit->setEchoMode(isMasked ? QLineEdit::Normal : QLineEdit::Password);
-	ui->togglePasswordBtn->setProperty("revealed", isMasked);
-	ui->togglePasswordBtn->style()->unpolish(ui->togglePasswordBtn);
-	ui->togglePasswordBtn->style()->polish(ui->togglePasswordBtn);
+	ui->togglePasswordBtn->setIcon(QIcon(isMasked
+		? ":/icons/eye.svg"
+		: ":/icons/eye-off.svg"));
 }
 
 void SettingsDialog::onPresetDebugClicked()
