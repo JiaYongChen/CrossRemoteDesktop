@@ -3,6 +3,7 @@
 #include "common/core/config/Config.h"
 #include "common/core/TranslationUtils.h"
 #include "common/core/logging/LoggingCategories.h"
+#include "common/core/config/UiConstants.h"
 #include "common/core/crypto/PasswordCrypto.h"
 
 #include <QtCore/QSettings>
@@ -110,7 +111,7 @@ void SettingsDialog::loadSettings()
 	ui->autoStartCheckBox->setChecked(autoStart);
 
 	// 通信
-	const int listenPort = m_settings->value("Server/listenPort", 5921).toInt();
+	const int listenPort = m_settings->value("Server/listenPort", UIConstants::DEFAULT_SERVER_PORT).toInt();
 	ui->listenPortSpinBox->setValue(listenPort);
 
 	const QString username = m_settings->value("Server/username").toString();
@@ -231,8 +232,8 @@ void SettingsDialog::onRestoreDefaultsClicked()
 	ui->autoStartCheckBox->setChecked(false);
 	onAutoStartChanged(false);
 
-	ui->listenPortSpinBox->setValue(5921);
-	onListenPortChanged(5921);
+	ui->listenPortSpinBox->setValue(UIConstants::DEFAULT_SERVER_PORT);
+	onListenPortChanged(UIConstants::DEFAULT_SERVER_PORT);
 
 	ui->usernameEdit->clear();
 	ui->passwordEdit->clear();

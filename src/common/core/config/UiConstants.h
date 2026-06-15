@@ -20,7 +20,7 @@ public:
     static const int STATS_UPDATE_INTERVAL = 500;         ///< 统计更新间隔 500ms
 
     // ==================== 服务器端口常量 ====================
-    static const int DEFAULT_SERVER_PORT = 5901;          ///< 默认服务器端口
+    static const int DEFAULT_SERVER_PORT = 5921;          ///< 默认监听端口
 
 private:
     UIConstants() = delete; // 禁止实例化

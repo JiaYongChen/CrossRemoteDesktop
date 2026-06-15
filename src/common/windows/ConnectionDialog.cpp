@@ -1,6 +1,7 @@
 #include "ConnectionDialog.h"
 #include "ui_ConnectionDialog.h"
 #include "../core/config/MessageConstants.h"
+#include "../core/config/UiConstants.h"
 
 #include <QtWidgets/QMessageBox>
 #include <QtCore/QSettings>
@@ -9,7 +10,7 @@ ConnectionDialog::ConnectionDialog(QWidget* parent)
 	: QDialog(parent)
 	, ui(new Ui::ConnectionDialog)
 	, m_settings(new QSettings())
-	, m_defaultPort(5921)
+	, m_defaultPort(UIConstants::DEFAULT_SERVER_PORT)
 {
 	ui->setupUi(this);
 	setupConnections();

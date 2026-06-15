@@ -394,7 +394,7 @@ void MainWindow::startServer() {
 
     // 从 QSettings 读取监听端口，与 SettingsDialog 通信页保持一致
     QSettings settings;
-    int port = settings.value("Server/listenPort", 5921).toInt();
+    int port = settings.value("Server/listenPort", UIConstants::DEFAULT_SERVER_PORT).toInt();
     m_serverManager->startServer(port);
 }
 
@@ -493,12 +493,12 @@ void MainWindow::showConnectionDialog() {
     }
 
     // 预填默认端口（优先服务端运行端口，否则从 QSettings 读取）
-    int defaultPort = 5921;
+    int defaultPort = UIConstants::DEFAULT_SERVER_PORT;
     if (m_serverManager && m_serverManager->isServerRunning()) {
         defaultPort = m_serverManager->getCurrentPort();
     } else {
         QSettings settings;
-        defaultPort = settings.value("Server/listenPort", 5921).toInt();
+        defaultPort = settings.value("Server/listenPort", UIConstants::DEFAULT_SERVER_PORT).toInt();
     }
     m_connectionDialog->setDefaultPort(defaultPort);
 
