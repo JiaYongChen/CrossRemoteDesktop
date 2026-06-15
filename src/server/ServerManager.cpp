@@ -63,9 +63,9 @@ ServerManager::~ServerManager() {
     // 断开与ServerWorker的信号连接
     disconnectWorkerSignals();
 
-    // 清理屏幕捕获
+    // 清理屏幕捕获（析构时事件循环已停止，deleteLater 不生效）
     if ( m_screenCapture ) {
-        m_screenCapture->deleteLater();
+        delete m_screenCapture;
         m_screenCapture = nullptr;
     }
 
