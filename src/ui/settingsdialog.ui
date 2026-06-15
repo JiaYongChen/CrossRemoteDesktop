@@ -246,9 +246,9 @@ QPushButton#togglePasswordBtn {
     background-color: transparent;
     border: 1px solid #cfcfcf;
     border-radius: 4px;
-    width: 24px;
-    height: 24px;
-    font-size: 12px;
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
     color: #555555;
 }
 
