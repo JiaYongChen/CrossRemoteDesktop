@@ -5,6 +5,7 @@
 
 #include <QtWidgets/QMessageBox>
 #include <QtCore/QSettings>
+#include <QtGui/QIcon>
 
 ConnectionDialog::ConnectionDialog(QWidget* parent)
 	: QDialog(parent)
@@ -13,6 +14,8 @@ ConnectionDialog::ConnectionDialog(QWidget* parent)
 	, m_defaultPort(UIConstants::DEFAULT_SERVER_PORT)
 {
 	ui->setupUi(this);
+	ui->togglePasswordBtn->setIcon(QIcon(":/icons/eye.svg"));
+	ui->togglePasswordBtn->setIconSize(QSize(14, 14));
 	setupConnections();
 	loadSettings();
 	retranslateButtons();

@@ -18,6 +18,7 @@
 #include <QtWidgets/QCheckBox>
 #include <QtWidgets/QTextEdit>
 #include <QtWidgets/QPushButton>
+#include <QtGui/QIcon>
 
 SettingsDialog::SettingsDialog(QWidget* parent)
 	: QDialog(parent)
@@ -25,6 +26,8 @@ SettingsDialog::SettingsDialog(QWidget* parent)
 	, m_settings(new QSettings())
 {
 	ui->setupUi(this);
+	ui->togglePasswordBtn->setIcon(QIcon(":/icons/eye.svg"));
+	ui->togglePasswordBtn->setIconSize(QSize(14, 14));
 	setupUI();
 	setupConnections();
 	loadSettings();
