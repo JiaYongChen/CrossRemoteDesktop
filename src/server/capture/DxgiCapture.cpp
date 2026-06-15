@@ -6,6 +6,7 @@
 #include <dxgi.h>
 #include <d3d11.h>
 #include <dxgi1_2.h>
+#include <objbase.h>  // CoInitializeEx, CoUninitialize, RPC_E_CHANGED_MODE
 
 // Link libraries (redundant with CMake, but helps IDE intellisense)
 #pragma comment(lib, "d3d11.lib")
@@ -67,6 +68,28 @@ bool DxgiCapture::reinitialize() {
 }
 
 bool DxgiCapture::createD3DDevice() {
+    // ─────────────────────────────────────────────────────────
+    // 显式初始化 COM 公寓（Apartment）。
+    //
+    // D3D11CreateDevice 内部依赖 COM，若线程尚未初始化 COM，
+    // 系统会隐式初始化但不会自动配对 CoUninitialize。
+    // 缺少显式反初始化会导致 COM 后台线程残留，阻塞
+    // QApplication 析构阶段的 QPA 屏幕子系统清理（\\.\DISPLAY1），
+    // 最终造成终端窗口挂死不退出。
+    // ─────────────────────────────────────────────────────────
+    HRESULT comHr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    if (FAILED(comHr)) {
+        // RPC_E_CHANGED_MODE：COM 已被其他组件以不同线程模型初始化。
+        // COM 仍然可用，不应视为致命错误。
+        if (comHr != RPC_E_CHANGED_MODE) {
+            m_lastError = QString("CoInitializeEx failed: HRESULT 0x%1")
+                .arg(static_cast<unsigned long>(comHr), 8, 16, QChar('0'));
+            qCCritical(lcDxgiCapture) << m_lastError;
+            return false;
+        }
+    }
+    m_comInitialized = (comHr == S_OK);
+
     // Feature levels to try (we only need basic 2D, so 11.0 is fine)
     D3D_FEATURE_LEVEL featureLevels[] = {
         D3D_FEATURE_LEVEL_11_0,
