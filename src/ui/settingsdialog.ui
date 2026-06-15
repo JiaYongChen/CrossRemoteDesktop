@@ -696,6 +696,12 @@ QWidget#advancedPage {
                 <string>认证</string>
                </property>
                <layout class="QFormLayout" name="serverAuthFormLayout">
+                <property name="fieldGrowthPolicy">
+                 <enum>QFormLayout::ExpandingFieldsGrow</enum>
+                </property>
+                <property name="labelAlignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                </property>
                 <property name="horizontalSpacing">
                  <number>10</number>
                 </property>
@@ -747,6 +753,9 @@ QWidget#advancedPage {
                    <widget class="QLineEdit" name="passwordEdit">
                     <property name="minimumSize">
                      <size><width>0</width><height>32</height></size>
+                    </property>
+                    <property name="maximumSize">
+                     <size><width>280</width><height>32</height></size>
                     </property>
                     <property name="echoMode">
                      <enum>QLineEdit::Password</enum>
