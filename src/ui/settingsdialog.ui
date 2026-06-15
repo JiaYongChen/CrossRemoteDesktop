@@ -162,6 +162,43 @@ QSpinBox:focus {
     border-color: #0078d4;
 }
 
+QSpinBox::up-button {
+    subcontrol-origin: border;
+    subcontrol-position: top right;
+    width: 20px;
+    border-left: 1px solid #cfcfcf;
+    border-bottom: 1px solid #cfcfcf;
+    border-top-right-radius: 4px;
+}
+
+QSpinBox::up-button:hover {
+    background-color: #e8e8e8;
+}
+
+QSpinBox::up-arrow {
+    image: url(:/icons/spin-up.svg);
+    width: 8px;
+    height: 8px;
+}
+
+QSpinBox::down-button {
+    subcontrol-origin: border;
+    subcontrol-position: bottom right;
+    width: 20px;
+    border-left: 1px solid #cfcfcf;
+    border-bottom-right-radius: 4px;
+}
+
+QSpinBox::down-button:hover {
+    background-color: #e8e8e8;
+}
+
+QSpinBox::down-arrow {
+    image: url(:/icons/spin-down.svg);
+    width: 8px;
+    height: 8px;
+}
+
 /* --- 文本框 --- */
 QLineEdit {
     border: 1px solid #cfcfcf;

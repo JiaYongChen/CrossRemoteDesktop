@@ -3,6 +3,8 @@
         <!-- 应用程序图标 -->
     <file>icons/app.svg</file>
     <file>icons/dropdown-arrow.svg</file>
+    <file>icons/spin-up.svg</file>
+    <file>icons/spin-down.svg</file>
 
         
     <!-- 工具栏/常用图标（按代码引用保留） -->
