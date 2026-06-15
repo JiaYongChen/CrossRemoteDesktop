@@ -41,23 +41,30 @@ bool DxgiCapture::initialize(int outputIndex) {
 }
 
 void DxgiCapture::shutdown() {
-    // Idempotent: skip silently when already shut down.
-    // (ScreenCaptureWorker calls both shutdown() then reset() which invokes
-    //  the destructor, which calls shutdown() again — avoid duplicate logs.)
-    if ( !m_initialized && !m_device && !m_duplication ) {
-        return;
+    // Idempotent: only release COM objects if we hold any
+    if ( m_initialized || m_device || m_duplication ) {
+        // Release in reverse order of creation
+        m_stagingTexture.Reset();
+        m_duplication.Reset();
+        m_context.Reset();
+        m_device.Reset();
+
+        m_initialized = false;
+        m_desktopSize = QSize();
+
+        qCDebug(lcDxgiCapture) << "DXGI capture engine shut down";
     }
 
-    // Release in reverse order of creation
-    m_stagingTexture.Reset();
-    m_duplication.Reset();
-    m_context.Reset();
-    m_device.Reset();
-
-    m_initialized = false;
-    m_desktopSize = QSize();
-
-    qCDebug(lcDxgiCapture) << "DXGI capture engine shut down";
+    // ─────────────────────────────────────────────────────────
+    // 配对 CoInitializeEx：在所有 D3D/DXGI COM 对象释放后调用。
+    //
+    // m_comInitialized 仅在 CoInitializeEx 返回 S_OK 时为 true，
+    // 避免错误反初始化由 Qt 或系统初始化的 COM 公寓。
+    // ─────────────────────────────────────────────────────────
+    if ( m_comInitialized ) {
+        CoUninitialize();
+        m_comInitialized = false;
+    }
 }
 
 bool DxgiCapture::reinitialize() {
