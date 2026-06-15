@@ -748,9 +748,6 @@ QWidget#advancedPage {
                     <property name="minimumSize">
                      <size><width>0</width><height>32</height></size>
                     </property>
-                    <property name="maximumSize">
-                     <size><width>280</width><height>32</height></size>
-                    </property>
                     <property name="echoMode">
                      <enum>QLineEdit::Password</enum>
                     </property>
