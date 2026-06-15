@@ -89,6 +89,9 @@ void SettingsDialog::setupConnections()
 
 void SettingsDialog::updateLanguageList()
 {
+	// 阻止信号避免 setCurrentIndex 触发 onLanguageChanged 造成死循环
+	ui->languageComboBox->blockSignals(true);
+
 	ui->languageComboBox->clear();
 	ui->languageComboBox->addItem(tr("中文"), QVariant(QStringLiteral("zh_CN")));
 	ui->languageComboBox->addItem(tr("English"), QVariant(QStringLiteral("en_US")));
@@ -96,6 +99,8 @@ void SettingsDialog::updateLanguageList()
 	const QString currentLang = Config::instance()->value("language", "zh_CN").toString();
 	const int idx = ui->languageComboBox->findData(QVariant(currentLang));
 	if (idx >= 0) ui->languageComboBox->setCurrentIndex(idx);
+
+	ui->languageComboBox->blockSignals(false);
 }
 
 void SettingsDialog::loadSettings()
@@ -284,8 +289,13 @@ void SettingsDialog::changeEvent(QEvent* event)
 		updateLanguageList();
 
 		if (!currentLocale.isEmpty()) {
+			// 静默恢复选中项（updateLanguageList 已设置正确索引，此处补充防御）
 			const int idx = ui->languageComboBox->findData(currentLocale);
-			if (idx >= 0) ui->languageComboBox->setCurrentIndex(idx);
+			if (idx >= 0) {
+				ui->languageComboBox->blockSignals(true);
+				ui->languageComboBox->setCurrentIndex(idx);
+				ui->languageComboBox->blockSignals(false);
+			}
 		}
 
 		if (ui->presetDebugBtn) ui->presetDebugBtn->setText(tr("Enable Core Debug"));
