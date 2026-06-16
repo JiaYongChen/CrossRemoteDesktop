@@ -40,8 +40,10 @@ bool NvJpegDecoder::probeAvailability() {
     }
 
     // 2. 尝试加载 CUDA Runtime DLL（多版本，新版本优先）
+    // 注: CUDA 12.x DLL 名称为 cudart64_12.dll (仅主版本号)
+    //      CUDA 11.x DLL 名称为 cudart64_110.dll (主+次版本号)
     static const char* kCudaNames[] = {
-        "cudart64_120",  // CUDA 12.0
+        "cudart64_12",   // CUDA 12.x
         "cudart64_110",  // CUDA 11.0
     };
     bool cudaLoaded = false;
@@ -54,7 +56,7 @@ bool NvJpegDecoder::probeAvailability() {
     }
     if (!cudaLoaded) {
         qCDebug(lcClient) << "NvJpegDecoder: CUDA Runtime DLL not found"
-                          << "(tried cudart64_120, cudart64_110)";
+                          << "(tried cudart64_12, cudart64_110)";
         return false;
     }
 

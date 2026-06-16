@@ -25,7 +25,7 @@ function(rd_setup_nvjpeg)
 
     # ── Tier 1: third_party 缓存 ─────────────────────────────────────────
     set(_NJP_DLL "${_NJP_BIN}/nvjpeg64_12.dll")
-    set(_CUDA_DLL "${_NJP_BIN}/cudart64_120.dll")
+    set(_CUDA_DLL "${_NJP_BIN}/cudart64_12.dll")
 
     if(EXISTS "${_NJP_DLL}" AND EXISTS "${_CUDA_DLL}")
         message(STATUS "[nvJPEG] Using cached DLLs from third_party/nvjpeg/ (CUDA 12.x)")
@@ -83,9 +83,9 @@ function(rd_setup_nvjpeg)
         file(COPY "${_CUDA_BIN}/nvjpeg64_11.dll" DESTINATION "${_NJP_BIN}")
     endif()
 
-    # 复制 CUDA Runtime DLL（优先 12.0，其次 11.0）
-    if(EXISTS "${_CUDA_BIN}/cudart64_120.dll")
-        file(COPY "${_CUDA_BIN}/cudart64_120.dll" DESTINATION "${_NJP_BIN}")
+    # 复制 CUDA Runtime DLL（优先 12.x，其次 11.x）
+    if(EXISTS "${_CUDA_BIN}/cudart64_12.dll")
+        file(COPY "${_CUDA_BIN}/cudart64_12.dll" DESTINATION "${_NJP_BIN}")
     endif()
     if(EXISTS "${_CUDA_BIN}/cudart64_110.dll")
         file(COPY "${_CUDA_BIN}/cudart64_110.dll" DESTINATION "${_NJP_BIN}")
