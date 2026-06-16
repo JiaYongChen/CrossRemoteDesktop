@@ -80,12 +80,6 @@ public:
     void setProcessingTimeout(int timeoutMs);
 
     /**
-     * @brief 设置最大处理队列大小
-     * @param maxSize 最大队列大小
-     */
-    void setMaxQueueSize(int maxSize);
-
-    /**
      * @brief 获取详细的性能指标
      * @return 性能指标结构
      */
@@ -269,7 +263,6 @@ private:
 
     // 配置参数
     int m_processingTimeout;                                            ///< 处理超时时间（毫秒）
-    int m_maxQueueSize;                                                 ///< 最大队列大小
     int m_statsUpdateInterval;                                          ///< 统计更新间隔（毫秒）
 
     // 并行处理

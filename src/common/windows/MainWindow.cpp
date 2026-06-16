@@ -86,6 +86,11 @@ MainWindow::MainWindow(QWidget* parent)
     // 设置连接
     setupConnections();
 
+    // 预创建设置对话框，避免首次点击时 UI 线程阻塞
+    // （样式表解析 + 密码解密等操作集中在启动阶段完成）
+    m_settingsDialog = new SettingsDialog(this);
+    m_settingsDialog->hide();
+
     // 加载设置
     loadSettings();
 
@@ -426,10 +431,9 @@ void MainWindow::stopServer() {
 }
 
 void MainWindow::showSettings() {
-	if (!m_settingsDialog) {
-		m_settingsDialog = new SettingsDialog(this);
-	}
 	m_settingsDialog->show();
+	m_settingsDialog->raise();
+	m_settingsDialog->activateWindow();
 }
 
 void MainWindow::showAbout() {

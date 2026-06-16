@@ -24,7 +24,6 @@ DataProcessingWorker::DataProcessingWorker(QObject* parent)
     , m_processingRate(0.0)
     , m_lastStatsUpdate(0)
     , m_processingTimeout(DEFAULT_PROCESSING_TIMEOUT)
-    , m_maxQueueSize(100)
     , m_statsUpdateInterval(DEFAULT_STATS_INTERVAL)
     , m_maxParallelTasks(QThread::idealThreadCount())
     , m_activeParallelTasks(0) {
@@ -77,15 +76,6 @@ double DataProcessingWorker::getAverageProcessingLatency() const {
 void DataProcessingWorker::setProcessingTimeout(int timeoutMs) {
     qCDebug(lcDataProcessingWorker) << "设置处理超时时间:" << timeoutMs << "毫秒";
     m_processingTimeout = timeoutMs;
-}
-
-void DataProcessingWorker::setMaxQueueSize(int maxSize) {
-    qCDebug(lcDataProcessingWorker) << "设置最大队列大小:" << maxSize;
-    m_maxQueueSize = maxSize;
-
-    if ( m_queueManager ) {
-        m_queueManager->setQueueMaxSize(QueueManager::CaptureQueue, maxSize);
-    }
 }
 
 bool DataProcessingWorker::initialize() {
