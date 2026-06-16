@@ -560,7 +560,6 @@ void ServerManager::startWorkerThreads() {
         DataProcessingWorker* dataWorkerPtr = dataWorker.get();
         dataWorkerPtr->setProcessingConfig(processingConfig);
         dataWorkerPtr->setQueueManager(m_queueManager);
-        dataWorkerPtr->setMaxQueueSize(CoreConstants::Performance::MAX_QUEUE_SIZE);
         dataWorkerPtr->setProcessingTimeout(2000);
 
         if ( !m_threadManager->createThread(dataWorkerName, std::move(dataWorker), false, true, 3) ) {
