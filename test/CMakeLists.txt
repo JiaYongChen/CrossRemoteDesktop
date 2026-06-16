@@ -187,6 +187,8 @@ add_rd_test(TARGET test_session_latest_wins  NAME SessionLatestWinsTest
     EXTRA_SOURCES
         ../src/client/managers/SessionManager.cpp
         ../src/client/managers/DecodeWorker.cpp
+        ../src/client/decode/TurboJpegDecoder.cpp
+        ../src/client/decode/NvJpegDecoder.cpp
         ../src/client/network/ConnectionManager.cpp
         ../src/client/network/TcpClient.cpp
         ../src/common/core/network/ProtocolImpl.cpp
@@ -234,6 +236,8 @@ add_rd_test(TARGET test_clientremotewindow  NAME ClientRemoteWindowTest
         ../src/client/window/RenderManager.cpp
         ../src/client/managers/SessionManager.cpp
         ../src/client/managers/DecodeWorker.cpp
+        ../src/client/decode/TurboJpegDecoder.cpp
+        ../src/client/decode/NvJpegDecoder.cpp
         ../src/client/network/ConnectionManager.cpp
         ../src/client/network/TcpClient.cpp
         ../src/common/core/network/ProtocolImpl.cpp
@@ -318,6 +322,8 @@ add_rd_test(TARGET test_sessionmanager_logic  NAME SessionManagerLogicTest
     EXTRA_SOURCES
         ../src/client/managers/SessionManager.cpp
         ../src/client/managers/DecodeWorker.cpp
+        ../src/client/decode/TurboJpegDecoder.cpp
+        ../src/client/decode/NvJpegDecoder.cpp
         ../src/client/network/ConnectionManager.cpp
         ../src/client/network/TcpClient.cpp
         ../src/common/core/network/ProtocolImpl.cpp
@@ -330,6 +336,8 @@ add_rd_test(TARGET test_sessionmanager_data  NAME SessionManagerDataTest
     EXTRA_SOURCES
         ../src/client/managers/SessionManager.cpp
         ../src/client/managers/DecodeWorker.cpp
+        ../src/client/decode/TurboJpegDecoder.cpp
+        ../src/client/decode/NvJpegDecoder.cpp
         ../src/client/network/ConnectionManager.cpp
         ../src/client/network/TcpClient.cpp
         ../src/common/core/network/ProtocolImpl.cpp
@@ -342,6 +350,8 @@ add_rd_test(TARGET test_sessionmanager_lifecycle  NAME SessionManagerLifecycleTe
     EXTRA_SOURCES
         ../src/client/managers/SessionManager.cpp
         ../src/client/managers/DecodeWorker.cpp
+        ../src/client/decode/TurboJpegDecoder.cpp
+        ../src/client/decode/NvJpegDecoder.cpp
         ../src/client/network/ConnectionManager.cpp
         ../src/client/network/TcpClient.cpp
         ../src/common/core/network/ProtocolImpl.cpp

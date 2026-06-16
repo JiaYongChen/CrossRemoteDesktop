@@ -5,6 +5,8 @@
 #include <QtGui/QOpenGLExtraFunctions>
 #endif
 #include <QtCore/QThread>
+#include "../decode/TurboJpegDecoder.h"
+#include "../decode/NvJpegDecoder.h"
 
 // ---- 构造/析构/基础方法 ----
 
@@ -14,10 +16,7 @@ DecodeWorker::DecodeWorker(QObject* parent)
 
 DecodeWorker::~DecodeWorker() {
     requestStop();
-    if (m_tjDecompress) {
-        tjDestroy(m_tjDecompress);
-        m_tjDecompress = nullptr;
-    }
+    // m_decoder 通过 unique_ptr 自动析构（释放 tjhandle 或 nvJPEG 句柄）
 #ifndef QT_NO_OPENGL
     // 仅当 cleanupGL() 未被预先调用（destroyDecodePipeline 的正常路径）时执行兜底清理。
     // 此时 DecodeThread 已停止，调用者确保已无跨线程事件风险。
@@ -49,8 +48,14 @@ void DecodeWorker::setFrameBuffer(TripleBuffer<FrameSlot>* buffer) {
 
 void DecodeWorker::start() {
     m_running.store(true);
-    // 直接调用 workLoop() 替代 QTimer::singleShot(0,...)。
-    // workLoop() 本身就是阻塞式 while 循环，无需额外事件循环延迟。
+    // 运行时选择最优解码器：nvJPEG（GPU）→ libjpeg-turbo（CPU）降级
+    auto nvDecoder = std::make_unique<NvJpegDecoder>();
+    if (nvDecoder->isAvailable()) {
+        m_decoder = std::move(nvDecoder);
+    } else {
+        m_decoder = std::make_unique<TurboJpegDecoder>();
+    }
+    qCInfo(lcClient) << "DecodeWorker: using decoder" << m_decoder->name();
     // start() 通过 QueuedConnection 调用，已在正确的线程上下文中。
     workLoop();
 }
@@ -93,51 +98,36 @@ bool DecodeWorker::processOneFrame() {
     const ScreenData& screenData = task.screenData;
     QSize remoteSize = task.remoteSize;
 
-    // 1. turbojpeg 解码（计时）
+    // 1. JPEG 解码（通过 IDecoder 接口，计时）
     const auto decodeStart = steady_clock::now();
 
-    // 懒初始化 turbojpeg 解压句柄（线程局部，复用）
-    if (!m_tjDecompress) {
-        m_tjDecompress = tjInitDecompress();
-        if (!m_tjDecompress) {
-            qCWarning(lcClient) << "DecodeWorker: tjInitDecompress failed";
-            emit decodeError(RdError(ErrorCode::DecodeFailed, QStringLiteral("turbojpeg 初始化失败"), "DecodeWorker"));
+    if (!m_decoder) {
+        qCWarning(lcClient) << "DecodeWorker: no decoder available";
+        emit decodeError(RdError(ErrorCode::DecodeFailed,
+            QStringLiteral("解码器未初始化"), "DecodeWorker"));
+        return true;
+    }
+
+    int jpegWidth = 0, jpegHeight = 0;
+    if (!m_decoder->decode(screenData.imageData, m_decodeBuffer,
+                           &jpegWidth, &jpegHeight)) {
+        // NvJpegDecoder 可能因骨架未实现而失败——
+        // 降级到 TurboJpegDecoder 并重试
+        if (strcmp(m_decoder->name(), "nvJPEG") == 0) {
+            qCWarning(lcClient) << "nvJPEG decode failed, falling back to libjpeg-turbo";
+            m_decoder = std::make_unique<TurboJpegDecoder>();
+            if (!m_decoder->decode(screenData.imageData, m_decodeBuffer,
+                                  &jpegWidth, &jpegHeight)) {
+                emit decodeError(RdError(ErrorCode::DecodeFailed,
+                    QStringLiteral("JPEG 解码失败（回退后）"), "DecodeWorker"));
+                return true;
+            }
+        } else {
+            qCWarning(lcClient) << "DecodeWorker: decode failed";
+            emit decodeError(RdError(ErrorCode::DecodeFailed,
+                QStringLiteral("JPEG 解码失败"), "DecodeWorker"));
             return true;
         }
-    }
-
-    // 读取 JPEG 头部获取图像尺寸
-    int jpegWidth = 0, jpegHeight = 0, jpegSubsamp = 0, jpegColorspace = 0;
-    if (tjDecompressHeader3(m_tjDecompress,
-            reinterpret_cast<const unsigned char*>(screenData.imageData.constData()),
-            static_cast<unsigned long>(screenData.imageData.size()),
-            &jpegWidth, &jpegHeight, &jpegSubsamp, &jpegColorspace) != 0) {
-        qCWarning(lcClient) << "DecodeWorker: tjDecompressHeader3 failed:"
-                            << tjGetErrorStr2(m_tjDecompress)
-                            << "size:" << screenData.imageData.size();
-        emit decodeError(RdError(ErrorCode::DecodeFailed, QStringLiteral("JPEG 头部解析失败"), "DecodeWorker"));
-        return true;
-    }
-
-    // 复用解码缓冲区，仅在尺寸不匹配时重建
-    if (m_decodeBuffer.isNull()
-        || m_decodeBuffer.width() != jpegWidth
-        || m_decodeBuffer.height() != jpegHeight) {
-        m_decodeBuffer = QImage(jpegWidth, jpegHeight, QImage::Format_RGB888);
-    }
-
-    // turbojpeg 解压到 QImage 像素缓冲区（零拷贝）
-    if (tjDecompress2(m_tjDecompress,
-            reinterpret_cast<const unsigned char*>(screenData.imageData.constData()),
-            static_cast<unsigned long>(screenData.imageData.size()),
-            m_decodeBuffer.bits(),
-            jpegWidth, 0, jpegHeight, TJPF_RGB, TJFLAG_FASTDCT) != 0) {
-        qCWarning(lcClient) << "DecodeWorker: tjDecompress2 failed:"
-                            << tjGetErrorStr2(m_tjDecompress)
-                            << "size:" << screenData.imageData.size()
-                            << "dimensions:" << jpegWidth << "x" << jpegHeight;
-        emit decodeError(RdError(ErrorCode::DecodeFailed, QStringLiteral("JPEG 解码失败"), "DecodeWorker"));
-        return true;
     }
 
     const auto decodeUs = duration_cast<microseconds>(
@@ -303,10 +293,7 @@ void DecodeWorker::moveGLToThread(QThread* target) {
 void DecodeWorker::cleanupGL() {
     m_glUploadReady = false;
     m_glViewport = nullptr;
-    if (m_tjDecompress) {
-        tjDestroy(m_tjDecompress);
-        m_tjDecompress = nullptr;
-    }
+    m_decoder.reset();
     delete m_glContext;
     m_glContext = nullptr;
     delete m_glSurface;

@@ -11,7 +11,8 @@
 #include "../core/FrameSlot.h"
 #include "../core/TripleBuffer.h"
 
-#include <turbojpeg.h>
+#include <memory>
+#include "../decode/IDecoder.h"
 
 #ifndef QT_NO_OPENGL
 #include <QtGui/QOpenGLContext>
@@ -87,8 +88,7 @@ private:
 
     TripleBuffer<FrameSlot>* m_frameBuffer = nullptr;
 
-    // turbojpeg 解压句柄（懒初始化，cleanupGL 中销毁）
-    tjhandle m_tjDecompress = nullptr;
+    std::unique_ptr<IDecoder> m_decoder;  ///< 解码器（运行时选择 TurboJpegDecoder 或 NvJpegDecoder）
 
     // JPEG 解码缓冲区复用
     QImage m_decodeBuffer;
