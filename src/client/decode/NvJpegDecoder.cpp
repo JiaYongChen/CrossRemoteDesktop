@@ -20,19 +20,41 @@ NvJpegDecoder::~NvJpegDecoder() {
 // ---- 可用性探测 ----
 
 bool NvJpegDecoder::probeAvailability() {
-    // 1. 加载 nvJPEG DLL
-    m_nvjpegLib.setFileName("nvjpeg64_12");
-    if (!m_nvjpegLib.load()) {
-        qCDebug(lcClient) << "NvJpegDecoder: nvjpeg64_12.dll not found"
-                          << "— GPU JPEG decode unavailable";
+    // 1. 尝试加载 nvJPEG DLL（多版本，新版本优先）
+    static const char* kNvJpegNames[] = {
+        "nvjpeg64_12",   // CUDA 12.x
+        "nvjpeg64_11",   // CUDA 11.x
+    };
+    bool nvjpegLoaded = false;
+    for (const char* name : kNvJpegNames) {
+        m_nvjpegLib.setFileName(QString::fromLatin1(name));
+        if (m_nvjpegLib.load()) {
+            nvjpegLoaded = true;
+            break;
+        }
+    }
+    if (!nvjpegLoaded) {
+        qCDebug(lcClient) << "NvJpegDecoder: nvJPEG DLL not found"
+                          << "(tried nvjpeg64_12, nvjpeg64_11)";
         return false;
     }
 
-    // 2. 加载 CUDA Runtime DLL
-    m_cudaLib.setFileName("cudart64_120");
-    if (!m_cudaLib.load()) {
-        qCDebug(lcClient) << "NvJpegDecoder: cudart64_120.dll not found"
-                          << "— GPU JPEG decode unavailable";
+    // 2. 尝试加载 CUDA Runtime DLL（多版本，新版本优先）
+    static const char* kCudaNames[] = {
+        "cudart64_120",  // CUDA 12.0
+        "cudart64_110",  // CUDA 11.0
+    };
+    bool cudaLoaded = false;
+    for (const char* name : kCudaNames) {
+        m_cudaLib.setFileName(QString::fromLatin1(name));
+        if (m_cudaLib.load()) {
+            cudaLoaded = true;
+            break;
+        }
+    }
+    if (!cudaLoaded) {
+        qCDebug(lcClient) << "NvJpegDecoder: CUDA Runtime DLL not found"
+                          << "(tried cudart64_120, cudart64_110)";
         return false;
     }
 
