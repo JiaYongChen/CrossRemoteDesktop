@@ -18,14 +18,13 @@ private slots:
         // (used in RenderConfig::load()) reads from the same format.
         QSettings::setDefaultFormat(QSettings::IniFormat);
     }
-    void testDefaultsVSyncOffAndPboOn() {
+    void testDefaultsVSyncOnAndPboOn() {
         // Fresh scope, no prior values.
         QSettings s;
         s.clear();
         s.sync();
         const auto cfg = RenderConfig::load();
-        // 远程桌面优先低延迟，默认关闭 V-Sync
-        QVERIFY(!cfg.gl.vsyncEnabled);
+        QVERIFY(cfg.gl.vsyncEnabled);
         QVERIFY(cfg.gl.usePbo);
         QVERIFY(cfg.gl.usePersistentPbo);
     }

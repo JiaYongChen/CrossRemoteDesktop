@@ -16,7 +16,7 @@ struct ClientFrame {
 };
 
 struct GL {
-    bool vsyncEnabled = false;   ///< 远程桌面优先低延迟，默认关闭 V-Sync
+    bool vsyncEnabled = true;
     bool usePbo = true;
     bool usePersistentPbo = true;
 };
@@ -40,7 +40,7 @@ inline Client load() {
     else
         cfg.frame.dropPolicy = FrameDropPolicy::LatestOnly;
     cfg.frame.queueCapacity = settings.value(QStringLiteral("QueueCapacity"), 5).toInt();
-    cfg.gl.vsyncEnabled = settings.value(QStringLiteral("VSync"), false).toBool();
+    cfg.gl.vsyncEnabled = settings.value(QStringLiteral("VSync"), true).toBool();
     cfg.gl.usePbo = settings.value(QStringLiteral("UsePbo"), true).toBool();
     cfg.gl.usePersistentPbo = settings.value(QStringLiteral("UsePersistentPbo"), true).toBool();
     settings.endGroup();
