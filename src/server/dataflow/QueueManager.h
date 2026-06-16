@@ -92,42 +92,44 @@ public:
     // ==================== 统一的入队和出队接口 ====================
 
     /**
-     * @brief 捕获队列入队（非阻塞）
+     * @brief 捕获队列入队（Drain-to-Latest）
      *
-     * 队列满时丢弃新帧（不弹旧帧）。DXGI 不缓冲历史帧，
-     * CQ 满时背压无意义——丢弃是唯一合理选择。
+     * 队列满时清空所有旧帧，仅保留最新帧入队。
+     * 实时流场景下优先保证低延迟，旧帧的显示价值已被新帧替代。
      *
      * @param frame 要入队的捕获帧
-     * @return true 入队成功，false 入队失败（队列满或已停止）
+     * @return true 入队成功（drain 后始终成功，除非队列未初始化或帧无效）
      */
     [[nodiscard]] bool enqueueCapturedFrame(const CapturedFrame& frame);
 
     /**
      * @brief 捕获队列出队（FIFO 逐帧出队）
      *
-     * 流水池模型下改为逐帧 FIFO 出队（不再排空至最新），
-     * 配合大容量队列(120)吸收短暂波动，不丢帧。
+     * Drain-to-Latest 模型下逐帧出队。队列深度由 maxSize=3 控制，
+     * 正常运行时队列接近空，波动时 drain 机制丢弃旧帧保证低延迟。
      *
      * @param frame 用于接收出队帧的引用
-     * @return true 出队成功，false 队列已停止
+     * @return true 出队成功，false 队列为空
      */
     [[nodiscard]] bool dequeueCapturedFrame(CapturedFrame& frame);
 
     /**
-     * @brief 处理队列入队（非阻塞）
+     * @brief 处理队列入队（Drain-to-Latest）
+     *
+     * 队列满时清空所有旧帧，仅保留最新帧入队。
+     *
      * @param data 要入队的处理数据
-     * @return true 入队成功，false 入队失败（队列满或已停止）
+     * @return true 入队成功
      */
     [[nodiscard]] bool enqueueProcessedData(const ProcessedData& data);
 
     /**
      * @brief 处理队列出队（FIFO 逐帧出队）
      *
-     * 流水池模型下改为逐帧 FIFO 出队（不再排空至最新），
-     * 保证画面连续性的同时靠大容量队列控制延迟上限。
+     * Drain-to-Latest 模型下逐帧出队，发送端每轮取 1-6 帧(MAX_SEND_BATCH)。
      *
      * @param data 用于接收出队数据的引用
-     * @return true 出队成功，false 队列已停止
+     * @return true 出队成功，false 队列为空
      */
     [[nodiscard]] bool dequeueProcessedData(ProcessedData& data);
 
