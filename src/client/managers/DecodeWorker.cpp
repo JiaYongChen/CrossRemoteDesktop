@@ -36,7 +36,11 @@ bool DecodeWorker::enqueueFrame(ScreenData screenData, const QSize& remoteSize) 
     task.screenData = std::move(screenData);
     task.remoteSize = remoteSize;
     task.enqueueTs = std::chrono::steady_clock::now();  // 诊断：入队时刻
-    return m_queue.tryEnqueue(std::move(task));
+    const int dropped = m_queue.tryEnqueueDrainToLatest(std::move(task));
+    if (dropped > 0) {
+        qCDebug(lcClient) << "DecodeQueue drained:" << dropped << "old frames dropped";
+    }
+    return true;
 }
 
 void DecodeWorker::setFrameBuffer(TripleBuffer<FrameSlot>* buffer) {
