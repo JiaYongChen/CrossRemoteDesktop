@@ -261,10 +261,13 @@ bool QueueManager::enqueueCapturedFrame(const CapturedFrame& frame) {
         return false;
     }
 
-    // 非阻塞入队：队列满时丢弃新帧（不弹旧帧）。
-    // DXGI 不缓冲历史帧，CQ 满时背压无意义——GPU 侧帧已丢失。
-    // 大容量(120)使 CQ 满仅发生在极端编码落后场景，正常波动不影响。
-    return m_captureQueue->tryEnqueue(frame);
+    // Drain-to-Latest：队列满时清空所有旧帧，仅保留最新帧。
+    // 实时流场景下优先保证低延迟，旧帧的显示价值已被新帧替代。
+    const int dropped = m_captureQueue->tryEnqueueDrainToLatest(frame);
+    if ( dropped > 0 ) {
+        qCDebug(lcQueueManager) << "CaptureQueue drained:" << dropped << "old frames dropped";
+    }
+    return true;
 }
 
 bool QueueManager::dequeueCapturedFrame(CapturedFrame& frame) {
@@ -293,8 +296,12 @@ bool QueueManager::enqueueProcessedData(const ProcessedData& data) {
         return false;
     }
 
-    // 非阻塞入队：队列满时返回 false，调用方自行决定丢弃或重试
-    return m_processedQueue->tryEnqueue(data);
+    // Drain-to-Latest：队列满时清空所有旧帧，仅保留最新帧。
+    const int dropped = m_processedQueue->tryEnqueueDrainToLatest(data);
+    if ( dropped > 0 ) {
+        qCDebug(lcQueueManager) << "ProcessedQueue drained:" << dropped << "old frames dropped";
+    }
+    return true;
 }
 
 bool QueueManager::dequeueProcessedData(ProcessedData& data) {
