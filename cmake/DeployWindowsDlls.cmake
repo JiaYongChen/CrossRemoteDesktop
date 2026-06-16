@@ -5,7 +5,7 @@
 #   include(cmake/DeployWindowsDlls.cmake)
 #   rd_deploy_windows_runtime(CrossRemoteDesktop)
 #
-# 依赖: QT6_ROOT_DIR (SetupQt6.cmake), OPENSSL_TP_BIN (SetupOpenSSL.cmake)
+# 依赖: QT6_ROOT_DIR (SetupQt6.cmake), OPENSSL_TP_BIN (SetupOpenSSL.cmake), TURBOJPEG_TP_BIN (SetupLibJpegTurbo.cmake)
 
 function(rd_deploy_windows_runtime _target)
     if(NOT WIN32)
@@ -82,6 +82,17 @@ function(rd_deploy_windows_runtime _target)
                 "${OPENSSL_TP_BIN}/${_crypto_src}"
                 "${_out_dir}/libcrypto-3-x64.dll"
             COMMENT "Copying OpenSSL DLLs"
+        )
+    endif()
+
+    # ── TurboJPEG DLL ──
+    if(DEFINED TURBOJPEG_TP_BIN AND EXISTS "${TURBOJPEG_TP_BIN}/turbojpeg.dll")
+        set(_tj_src "$<IF:$<CONFIG:Debug>,turbojpegD.dll,turbojpeg.dll>")
+        add_custom_command(TARGET ${_target} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${TURBOJPEG_TP_BIN}/${_tj_src}"
+                "${_out_dir}/turbojpeg.dll"
+            COMMENT "Copying TurboJPEG DLL"
         )
     endif()
 

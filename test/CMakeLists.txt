@@ -43,6 +43,7 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/common/core/threading
     ${CMAKE_CURRENT_SOURCE_DIR}/../include
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${TURBOJPEG_INCLUDE_DIR}
 )
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../build/test)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../build/test)
@@ -56,6 +57,9 @@ if(WIN32 AND QT6_ROOT_DIR)
     set(_test_path_value "${_qt_bindir}")
     if(OPENSSL_TP_BIN)
         string(APPEND _test_path_value "\;${OPENSSL_TP_BIN}")
+    endif()
+    if(TURBOJPEG_TP_BIN)
+        string(APPEND _test_path_value "\;${TURBOJPEG_TP_BIN}")
     endif()
     string(REPLACE ";" "\;" _sys_path_escaped "$ENV{PATH}")
     string(APPEND _test_path_value "\;${_sys_path_escaped}")
@@ -187,7 +191,7 @@ add_rd_test(TARGET test_session_latest_wins  NAME SessionLatestWinsTest
         ../src/client/network/TcpClient.cpp
         ../src/common/core/network/ProtocolImpl.cpp
         ../src/common/core/network/MessageCodec.cpp
-    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Network common_test_core OpenSSL::SSL OpenSSL::Crypto
+    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Network common_test_core OpenSSL::SSL OpenSSL::Crypto LibJpegTurbo::turbojpeg
     TIMEOUT 30  LABELS unit client queue  NO_OPENGL)
 
 add_rd_test(TARGET test_triple_buffer_swap  NAME TripleBufferSwapTest
@@ -235,7 +239,7 @@ add_rd_test(TARGET test_clientremotewindow  NAME ClientRemoteWindowTest
         ../src/common/core/network/ProtocolImpl.cpp
         ../src/common/core/network/MessageCodec.cpp
         ../src/common/clipboard/ClipboardManager.cpp
-    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network OpenSSL::SSL OpenSSL::Crypto common_test_core
+    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network OpenSSL::SSL OpenSSL::Crypto common_test_core LibJpegTurbo::turbojpeg
     TIMEOUT 30  LABELS unit client window  NO_OPENGL)
 
 # unit / server worker
@@ -278,7 +282,7 @@ add_rd_test(TARGET test_producer_consumer_integration  NAME ProducerConsumerInte
         ../src/server/simulator/KeyboardSimulator.cpp
         ../src/common/core/network/ProtocolImpl.cpp
         ../src/common/core/network/MessageCodec.cpp
-    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Network Qt6::Concurrent OpenSSL::SSL OpenSSL::Crypto capture_test_core
+    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Network Qt6::Concurrent OpenSSL::SSL OpenSSL::Crypto capture_test_core LibJpegTurbo::turbojpeg
     TIMEOUT 300  LABELS integration producer consumer queue threading  NO_OPENGL)
 if(WIN32)
     target_sources(test_producer_consumer_integration PRIVATE
@@ -318,7 +322,7 @@ add_rd_test(TARGET test_sessionmanager_logic  NAME SessionManagerLogicTest
         ../src/client/network/TcpClient.cpp
         ../src/common/core/network/ProtocolImpl.cpp
         ../src/common/core/network/MessageCodec.cpp
-    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network common_test_core OpenSSL::SSL OpenSSL::Crypto
+    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network common_test_core OpenSSL::SSL OpenSSL::Crypto LibJpegTurbo::turbojpeg
     TIMEOUT 30  LABELS unit client session  NO_OPENGL)
 
 add_rd_test(TARGET test_sessionmanager_data  NAME SessionManagerDataTest
@@ -330,7 +334,7 @@ add_rd_test(TARGET test_sessionmanager_data  NAME SessionManagerDataTest
         ../src/client/network/TcpClient.cpp
         ../src/common/core/network/ProtocolImpl.cpp
         ../src/common/core/network/MessageCodec.cpp
-    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network common_test_core OpenSSL::SSL OpenSSL::Crypto
+    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network common_test_core OpenSSL::SSL OpenSSL::Crypto LibJpegTurbo::turbojpeg
     TIMEOUT 30  LABELS unit client session data  NO_OPENGL)
 
 add_rd_test(TARGET test_sessionmanager_lifecycle  NAME SessionManagerLifecycleTest
@@ -342,7 +346,7 @@ add_rd_test(TARGET test_sessionmanager_lifecycle  NAME SessionManagerLifecycleTe
         ../src/client/network/TcpClient.cpp
         ../src/common/core/network/ProtocolImpl.cpp
         ../src/common/core/network/MessageCodec.cpp
-    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network common_test_core OpenSSL::SSL OpenSSL::Crypto
+    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network common_test_core OpenSSL::SSL OpenSSL::Crypto LibJpegTurbo::turbojpeg
     TIMEOUT 30  LABELS unit client session lifecycle  NO_OPENGL)
 
 # smoke / network components

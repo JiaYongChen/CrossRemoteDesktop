@@ -42,16 +42,31 @@ cmake --build build --target run_performance_tests
 ## 依赖
 
 - **Qt 6.9+**: Core, Widgets, Network, Gui, OpenGL, OpenGLWidgets, Concurrent, Svg（Test 仅测试目录使用）
-- **OpenSSL 3.6.2**: 通过 `cmake/SetupOpenSSL.cmake` 管理，预构建产物存放于 `third_party/openssl/`（已提交到 git）。
+- **OpenSSL**: vcpkg 管理。`cmake/SetupOpenSSL.cmake` 优先检测 `third_party/openssl/` 预编译缓存（已提交 git），缺失时自动调用 vcpkg 下载并缓存。
+- **libjpeg-turbo**: vcpkg 管理。`cmake/SetupLibJpegTurbo.cmake` 同上三级机制（缓存→vcpkg 下载→报错指引）。
 - **C++20** 必需，CMake 3.16+
+
+### 第三方库管理
+
+项目使用 [vcpkg](https://github.com/microsoft/vcpkg) 作为第三方库获取工具。构建时 CMake 先检测 `third_party/<lib>/` 是否有预编译缓存（已提交 git，支持离线构建），缺失时自动调用 vcpkg 下载并将产物缓存到 `third_party/`。
+
+**前置条件**：需设置 `VCPKG_ROOT` 环境变量指向 vcpkg 安装目录。
+```bash
+git clone https://github.com/microsoft/vcpkg.git C:/vcpkg
+C:/vcpkg/bootstrap-vcpkg.bat
+setx VCPKG_ROOT C:/vcpkg
+```
+
+**缓存更新**：第一次 vcpkg 下载后，将 `third_party/<lib>/` 的变更提交 git 供团队/CI 离线使用。
 
 ### CMake 模块结构
 
-根 CMakeLists.txt（130 行）通过 `include()` 引入 6 个模块化 .cmake 文件：
+根 CMakeLists.txt 通过 `include()` 引入 6 个模块化 .cmake 文件 + vcpkg 兜底逻辑：
 
 ```
 cmake/
-├── SetupOpenSSL.cmake        # OpenSSL 检测/编译
+├── SetupOpenSSL.cmake        # OpenSSL 检测 + vcpkg 兜底
+├── SetupLibJpegTurbo.cmake   # libjpeg-turbo 检测 + vcpkg 兜底
 ├── PlatformDetect.cmake      # OS/架构自动识别
 ├── SetupQt6.cmake            # Qt6 路径搜索 + 架构验证
 ├── FilterAppleOpenGL.cmake   # macOS AGL/OpenGL 过滤

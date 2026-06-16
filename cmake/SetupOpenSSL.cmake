@@ -1,331 +1,197 @@
-# SetupOpenSSL.cmake — Detect or auto-build OpenSSL into third_party/
+# SetupOpenSSL.cmake
+# ──────────────────────────────────────────────────────────────────────────
+# 三级机制:
+#  1. 检测 third_party/openssl/ 预编译库 → 直接用（离线，秒级）
+#  2. 缺失时调用 vcpkg 下载预编译包 → 缓存到 third_party/openssl/
+#  3. vcpkg 不可用 → FATAL_ERROR 提示用户
 #
-# 1. Check third_party/openssl/{include,lib/<platform>,bin/<platform>}
-# 2. Found  → create imported targets OpenSSL::SSL, OpenSSL::Crypto
-# 3. Absent → download source, build with Perl/nmake (Win) or make (Unix)
-#
-# Windows special: if Release exists but Debug missing, D-suffix copies are
-# created from Release (DLL import libs have no CRT code — safe to share).
-#
-# Requires PLATFORM_NAME and PLATFORM_ARCH from parent CMakeLists.txt.
-#
-# Output: OpenSSL::SSL, OpenSSL::Crypto (imported, per-config)
-#         OPENSSL_INCLUDE_DIR, OPENSSL_TP_BIN
+# 输出: OpenSSL::SSL, OpenSSL::Crypto (imported, per-config)
+#        OPENSSL_INCLUDE_DIR, OPENSSL_TP_BIN
+# ──────────────────────────────────────────────────────────────────────────
 
-set(OPENSSL_VERSION     "3.6.2")
-set(OPENSSL_THIRD_PARTY "${CMAKE_SOURCE_DIR}/third_party/openssl")
-set(OPENSSL_TP_INCLUDE  "${OPENSSL_THIRD_PARTY}/include")
-set(OPENSSL_TP_LIB      "${OPENSSL_THIRD_PARTY}/lib/${PLATFORM_NAME}-${PLATFORM_ARCH}")
-set(OPENSSL_TP_BIN      "${OPENSSL_THIRD_PARTY}/bin/${PLATFORM_NAME}-${PLATFORM_ARCH}")
+set(_SSL_TP   "${CMAKE_SOURCE_DIR}/third_party/openssl")
+set(_SSL_INC  "${_SSL_TP}/include")
+set(_SSL_LIB  "${_SSL_TP}/lib/${PLATFORM_NAME}-${PLATFORM_ARCH}")
+set(_SSL_BIN  "${_SSL_TP}/bin/${PLATFORM_NAME}-${PLATFORM_ARCH}")
 
+# ── 平台特定文件名 ──────────────────────────────────────────────────────
 if(WIN32)
-    set(_SSL_REL    "libssl.lib")
-    set(_SSL_DBG    "libsslD.lib")
-    set(_CRYPTO_REL "libcrypto.lib")
-    set(_CRYPTO_DBG "libcryptoD.lib")
-    set(_SSL_DLL_REL    "libssl-3-x64.dll")
-    set(_SSL_DLL_DBG    "libssl-3-x64D.dll")
-    set(_CRYPTO_DLL_REL "libcrypto-3-x64.dll")
-    set(_CRYPTO_DLL_DBG "libcrypto-3-x64D.dll")
+    set(_SSL_REL_LIB     "libssl.lib")
+    set(_SSL_DBG_LIB     "libsslD.lib")
+    set(_CRYPTO_REL_LIB  "libcrypto.lib")
+    set(_CRYPTO_DBG_LIB  "libcryptoD.lib")
+    set(_SSL_REL_DLL     "libssl-3-x64.dll")
+    set(_SSL_DBG_DLL     "libssl-3-x64D.dll")
+    set(_CRYPTO_REL_DLL  "libcrypto-3-x64.dll")
+    set(_CRYPTO_DBG_DLL  "libcrypto-3-x64D.dll")
+    set(_TRIPLET         "x64-windows")
 else()
-    set(_SSL_REL    "libssl.a")
-    set(_SSL_DBG    "libsslD.a")
-    set(_CRYPTO_REL "libcrypto.a")
-    set(_CRYPTO_DBG "libcryptoD.a")
-endif()
-
-# -- Helper: create imported targets --------------------------------------
-macro(_openssl_create_targets)
-    set(OPENSSL_INCLUDE_DIR "${OPENSSL_TP_INCLUDE}")
-    if(NOT TARGET OpenSSL::SSL)
-        add_library(OpenSSL::SSL UNKNOWN IMPORTED GLOBAL)
-        set_target_properties(OpenSSL::SSL PROPERTIES
-            INTERFACE_INCLUDE_DIRECTORIES    "${OPENSSL_TP_INCLUDE}"
-            IMPORTED_LOCATION_DEBUG          "${OPENSSL_TP_LIB}/${_SSL_DBG}"
-            IMPORTED_LOCATION_RELEASE        "${OPENSSL_TP_LIB}/${_SSL_REL}"
-            IMPORTED_LOCATION_RELWITHDEBINFO "${OPENSSL_TP_LIB}/${_SSL_REL}"
-            IMPORTED_LOCATION_MINSIZEREL     "${OPENSSL_TP_LIB}/${_SSL_REL}"
-        )
-    endif()
-    if(NOT TARGET OpenSSL::Crypto)
-        add_library(OpenSSL::Crypto UNKNOWN IMPORTED GLOBAL)
-        set_target_properties(OpenSSL::Crypto PROPERTIES
-            INTERFACE_INCLUDE_DIRECTORIES    "${OPENSSL_TP_INCLUDE}"
-            IMPORTED_LOCATION_DEBUG          "${OPENSSL_TP_LIB}/${_CRYPTO_DBG}"
-            IMPORTED_LOCATION_RELEASE        "${OPENSSL_TP_LIB}/${_CRYPTO_REL}"
-            IMPORTED_LOCATION_RELWITHDEBINFO "${OPENSSL_TP_LIB}/${_CRYPTO_REL}"
-            IMPORTED_LOCATION_MINSIZEREL     "${OPENSSL_TP_LIB}/${_CRYPTO_REL}"
-        )
-    endif()
-endmacro()
-
-# ==========================================================================
-# Windows: create Debug copies from Release if only Release exists.
-# OpenSSL uses DLL linking — import libs are thin stubs with no CRT code.
-# ==========================================================================
-if(WIN32
-   AND EXISTS "${OPENSSL_TP_INCLUDE}/openssl/ssl.h"
-   AND EXISTS "${OPENSSL_TP_LIB}/${_SSL_REL}"
-   AND EXISTS "${OPENSSL_TP_LIB}/${_CRYPTO_REL}")
-    foreach(_pair "${_SSL_REL};${_SSL_DBG}" "${_CRYPTO_REL};${_CRYPTO_DBG}")
-        list(GET _pair 0 _src)
-        list(GET _pair 1 _dst)
-        if(NOT EXISTS "${OPENSSL_TP_LIB}/${_dst}")
-            execute_process(COMMAND ${CMAKE_COMMAND} -E copy
-                "${OPENSSL_TP_LIB}/${_src}" "${OPENSSL_TP_LIB}/${_dst}")
+    set(_SSL_REL_LIB     "libssl.a")
+    set(_SSL_DBG_LIB     "libsslD.a")
+    set(_CRYPTO_REL_LIB  "libcrypto.a")
+    set(_CRYPTO_DBG_LIB  "libcryptoD.a")
+    if(APPLE)
+        if(PLATFORM_ARCH STREQUAL "ARM64")
+            set(_TRIPLET "arm64-osx")
+        else()
+            set(_TRIPLET "x64-osx")
         endif()
-    endforeach()
-    foreach(_pair "${_SSL_DLL_REL};${_SSL_DLL_DBG}" "${_CRYPTO_DLL_REL};${_CRYPTO_DLL_DBG}")
-        list(GET _pair 0 _src)
-        list(GET _pair 1 _dst)
-        if(EXISTS "${OPENSSL_TP_BIN}/${_src}" AND NOT EXISTS "${OPENSSL_TP_BIN}/${_dst}")
-            execute_process(COMMAND ${CMAKE_COMMAND} -E copy
-                "${OPENSSL_TP_BIN}/${_src}" "${OPENSSL_TP_BIN}/${_dst}")
+    else()
+        if(PLATFORM_ARCH STREQUAL "ARM64")
+            set(_TRIPLET "arm64-linux")
+        else()
+            set(_TRIPLET "x64-linux")
         endif()
-    endforeach()
+    endif()
 endif()
 
-# ==========================================================================
-# 1) Use pre-built if all artifacts exist
-# ==========================================================================
-set(_ok TRUE)
-if(NOT EXISTS "${OPENSSL_TP_INCLUDE}/openssl/ssl.h")
-    set(_ok FALSE)
+# ══════════════════════════════════════════════════════════════════════════
+# 1) 检查预编译库是否完整
+# ══════════════════════════════════════════════════════════════════════════
+set(_READY TRUE)
+if(NOT EXISTS "${_SSL_INC}/openssl/ssl.h")
+    set(_READY FALSE)
 endif()
-foreach(_f "${_SSL_DBG}" "${_SSL_REL}" "${_CRYPTO_DBG}" "${_CRYPTO_REL}")
-    if(NOT EXISTS "${OPENSSL_TP_LIB}/${_f}")
-        set(_ok FALSE)
+foreach(_f "${_SSL_REL_LIB}" "${_SSL_DBG_LIB}" "${_CRYPTO_REL_LIB}" "${_CRYPTO_DBG_LIB}")
+    if(NOT EXISTS "${_SSL_LIB}/${_f}")
+        set(_READY FALSE)
     endif()
 endforeach()
 if(WIN32)
-    foreach(_f "${_SSL_DLL_DBG}" "${_SSL_DLL_REL}" "${_CRYPTO_DLL_DBG}" "${_CRYPTO_DLL_REL}")
-        if(NOT EXISTS "${OPENSSL_TP_BIN}/${_f}")
-            set(_ok FALSE)
+    foreach(_f "${_SSL_REL_DLL}" "${_SSL_DBG_DLL}" "${_CRYPTO_REL_DLL}" "${_CRYPTO_DBG_DLL}")
+        if(NOT EXISTS "${_SSL_BIN}/${_f}")
+            set(_READY FALSE)
         endif()
     endforeach()
 endif()
 
-if(_ok)
-    message(STATUS "[OpenSSL] Using pre-built from ${OPENSSL_THIRD_PARTY}")
-    _openssl_create_targets()
-    return()
-endif()
+# ══════════════════════════════════════════════════════════════════════════
+# 2) 缺失 → vcpkg 自动下载预编译包
+# ══════════════════════════════════════════════════════════════════════════
+if(NOT _READY)
+    if(NOT DEFINED ENV{VCPKG_ROOT})
+        message(FATAL_ERROR
+            "[OpenSSL] third_party/openssl/ 预编译库不完整，且 VCPKG_ROOT 未设置。\n"
+            "  方案1: 安装 vcpkg\n"
+            "    git clone https://github.com/microsoft/vcpkg.git C:/vcpkg\n"
+            "    cd C:/vcpkg && bootstrap-vcpkg.bat\n"
+            "    setx VCPKG_ROOT C:/vcpkg\n"
+            "  方案2: 手动放置 OpenSSL 预编译库到 ${_SSL_LIB}/")
+    endif()
 
-# ==========================================================================
-# 2) Download source and build
-# ==========================================================================
-message(STATUS "[OpenSSL] Pre-built not found — downloading v${OPENSSL_VERSION}...")
+    message(STATUS "[OpenSSL] 预编译库缺失，vcpkg 自动下载（${_TRIPLET}）...")
 
-set(_DL_DIR   "${CMAKE_BINARY_DIR}/_deps/openssl-download")
-set(_SRC_DIR  "${CMAKE_BINARY_DIR}/_deps/openssl-src")
-set(_TARBALL  "${_DL_DIR}/openssl-${OPENSSL_VERSION}.tar.gz")
+    set(_VCPKG "$ENV{VCPKG_ROOT}/vcpkg.exe")
+    if(NOT EXISTS "${_VCPKG}")
+        message(FATAL_ERROR
+            "[OpenSSL] vcpkg.exe 未找到: ${_VCPKG}\n"
+            "  请确认 VCPKG_ROOT 环境变量指向正确的 vcpkg 安装目录。")
+    endif()
 
-# Download
-if(NOT EXISTS "${_TARBALL}")
-    file(MAKE_DIRECTORY "${_DL_DIR}")
-    set(_BASE "https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/openssl-${OPENSSL_VERSION}.tar.gz")
-    set(_URLS "${_BASE}" "https://ghfast.top/${_BASE}")
-    set(_dl_ok FALSE)
-    foreach(_url IN LISTS _URLS)
-        message(STATUS "[OpenSSL] Trying ${_url}")
-        file(DOWNLOAD "${_url}" "${_TARBALL}" STATUS _st SHOW_PROGRESS TIMEOUT 120)
-        list(GET _st 0 _code)
-        if(_code EQUAL 0)
-            file(SIZE "${_TARBALL}" _sz)
-            if(_sz GREATER 100000)
-                set(_dl_ok TRUE)
-                break()
+    set(_INSTALL_DIR "${CMAKE_BINARY_DIR}/_vcpkg_openssl")
+
+    execute_process(
+        COMMAND "${_VCPKG}" install "openssl:${_TRIPLET}"
+                "--x-install-root=${_INSTALL_DIR}"
+        RESULT_VARIABLE _rc
+        TIMEOUT 600
+    )
+    if(NOT _rc EQUAL 0)
+        message(FATAL_ERROR
+            "[OpenSSL] vcpkg install openssl:${_TRIPLET} 失败 (exit=${_rc})。\n"
+            "  请检查网络连接或手动放置预编译库到 ${_SSL_LIB}/")
+    endif()
+
+    # ── 复制产物到 third_party/openssl/ ──
+    set(_SRC "${_INSTALL_DIR}/${_TRIPLET}")
+
+    # 头文件
+    file(MAKE_DIRECTORY "${_SSL_INC}/openssl")
+    file(COPY "${_SRC}/include/openssl/" DESTINATION "${_SSL_INC}/openssl")
+
+    # 静态库 / 导入库
+    file(MAKE_DIRECTORY "${_SSL_LIB}")
+    # vcpkg 的 openssl port 只生成一个导入库 openssl.lib（同时包含 ssl + crypto）
+    # 我们需要复制两份命名为 libssl.lib 和 libcrypto.lib
+    if(WIN32)
+        # Release
+        file(COPY "${_SRC}/lib/openssl.lib" DESTINATION "${_SSL_LIB}")
+        file(RENAME "${_SSL_LIB}/openssl.lib" "${_SSL_LIB}/${_SSL_REL_LIB}")
+        file(COPY "${_SSL_LIB}/${_SSL_REL_LIB}" "${_SSL_LIB}/${_CRYPTO_REL_LIB}")
+        # Debug
+        file(COPY "${_SRC}/debug/lib/openssl.lib" DESTINATION "${_SSL_LIB}")
+        file(RENAME "${_SSL_LIB}/openssl.lib" "${_SSL_LIB}/${_SSL_DBG_LIB}")
+        file(COPY "${_SSL_LIB}/${_SSL_DBG_LIB}" "${_SSL_LIB}/${_CRYPTO_DBG_LIB}")
+
+        # DLL
+        file(MAKE_DIRECTORY "${_SSL_BIN}")
+        # 用 glob 获取实际 DLL 名称（版本号可能变化）
+        file(GLOB _ssl_dll  "${_SRC}/bin/libssl-*.dll")
+        file(GLOB _crypto_dll "${_SRC}/bin/libcrypto-*.dll")
+        file(GLOB _ssl_dbg_dll  "${_SRC}/debug/bin/libssl-*.dll")
+        file(GLOB _crypto_dbg_dll "${_SRC}/debug/bin/libcrypto-*.dll")
+
+        if(_ssl_dll AND _crypto_dll)
+            file(COPY ${_ssl_dll} DESTINATION "${_SSL_BIN}")
+            file(COPY ${_crypto_dll} DESTINATION "${_SSL_BIN}")
+        endif()
+        if(_ssl_dbg_dll AND _crypto_dbg_dll)
+            # 重命名为 D 后缀
+            get_filename_component(_sn "${_ssl_dbg_dll}" NAME)
+            get_filename_component(_cn "${_crypto_dbg_dll}" NAME)
+            file(COPY ${_ssl_dbg_dll} DESTINATION "${_SSL_BIN}")
+            file(COPY ${_crypto_dbg_dll} DESTINATION "${_SSL_BIN}")
+            # 重命名: libssl-3-x64.dll → libssl-3-x64D.dll
+            string(REGEX REPLACE "\\.dll$" "D.dll" _sn_d "${_sn}")
+            string(REGEX REPLACE "\\.dll$" "D.dll" _cn_d "${_cn}")
+            if(EXISTS "${_SSL_BIN}/${_sn}" AND NOT _sn STREQUAL _sn_d)
+                file(RENAME "${_SSL_BIN}/${_sn}" "${_SSL_BIN}/${_sn_d}")
+            endif()
+            if(EXISTS "${_SSL_BIN}/${_cn}" AND NOT _cn STREQUAL _cn_d)
+                file(RENAME "${_SSL_BIN}/${_cn}" "${_SSL_BIN}/${_cn_d}")
             endif()
         endif()
-        file(REMOVE "${_TARBALL}")
-    endforeach()
-    if(NOT _dl_ok)
-        message(FATAL_ERROR "[OpenSSL] Download failed. Place openssl-${OPENSSL_VERSION}.tar.gz at: ${_TARBALL}")
-    endif()
-endif()
-
-# Extract
-if(NOT EXISTS "${_SRC_DIR}/Configure")
-    message(STATUS "[OpenSSL] Extracting...")
-    execute_process(COMMAND ${CMAKE_COMMAND} -E tar xzf "${_TARBALL}"
-                    WORKING_DIRECTORY "${_DL_DIR}" RESULT_VARIABLE _r)
-    if(NOT _r EQUAL 0)
-        message(FATAL_ERROR "[OpenSSL] Extract failed")
-    endif()
-    file(GLOB _dirs "${_DL_DIR}/openssl-*")
-    list(GET _dirs 0 _dir)
-    if(EXISTS "${_SRC_DIR}")
-        file(REMOVE_RECURSE "${_SRC_DIR}")
-    endif()
-    file(RENAME "${_dir}" "${_SRC_DIR}")
-endif()
-
-# -- Prerequisites ---------------------------------------------------------
-# Perl (Strawberry on Windows; Git perl lacks required modules)
-if(WIN32)
-    find_program(_PERL perl PATHS "C:/Strawberry/perl/bin" NO_DEFAULT_PATH)
-    if(NOT _PERL)
-        find_program(_PERL perl)
-        if(_PERL AND _PERL MATCHES "Git")
-            message(FATAL_ERROR
-                "[OpenSSL] Git perl (${_PERL}) lacks required modules.\n"
-                "  Install Strawberry Perl: https://strawberryperl.com/\n"
-                "  Or place pre-built libs in: ${OPENSSL_TP_LIB}/")
-        endif()
-    endif()
-else()
-    find_program(_PERL perl)
-endif()
-if(NOT _PERL)
-    message(FATAL_ERROR "[OpenSSL] Perl not found (required to build from source)")
-endif()
-
-include(ProcessorCount)
-ProcessorCount(_NPROC)
-if(_NPROC EQUAL 0)
-    set(_NPROC 4)
-endif()
-
-if(WIN32)
-    get_filename_component(_CL "${CMAKE_CXX_COMPILER}" REALPATH)
-    string(REPLACE "\\" "/" _CL "${_CL}")
-    string(REGEX REPLACE "/VC/Tools/.*" "" _VS "${_CL}")
-    set(_VCVARS "${_VS}/VC/Auxiliary/Build/vcvarsall.bat")
-    if(NOT EXISTS "${_VCVARS}")
-        message(FATAL_ERROR "[OpenSSL] vcvarsall.bat not found: ${_VCVARS}")
-    endif()
-else()
-    if(APPLE)
-        if(PLATFORM_ARCH STREQUAL "ARM64")
-            set(_TARGET "darwin64-arm64-cc")
-        else()
-            set(_TARGET "darwin64-x86_64-cc")
-        endif()
     else()
-        if(PLATFORM_ARCH STREQUAL "ARM64")
-            set(_TARGET "linux-aarch64")
-        else()
-            set(_TARGET "linux-x86_64")
-        endif()
+        # Unix: vcpkg 默认编译静态库
+        file(COPY "${_SRC}/lib/libssl.a" DESTINATION "${_SSL_LIB}")
+        file(RENAME "${_SSL_LIB}/libssl.a" "${_SSL_LIB}/${_SSL_REL_LIB}")
+        file(COPY "${_SSL_LIB}/${_SSL_REL_LIB}" "${_SSL_LIB}/${_CRYPTO_REL_LIB}")
+        file(COPY "${_SRC}/debug/lib/libssl.a" DESTINATION "${_SSL_LIB}")
+        file(RENAME "${_SSL_LIB}/libssl.a" "${_SSL_LIB}/${_SSL_DBG_LIB}")
+        file(COPY "${_SSL_LIB}/${_SSL_DBG_LIB}" "${_SSL_LIB}/${_CRYPTO_DBG_LIB}")
     endif()
-    find_program(_MAKE make)
-    if(NOT _MAKE)
-        message(FATAL_ERROR "[OpenSSL] make not found")
-    endif()
+
+    # 清理临时目录
+    file(REMOVE_RECURSE "${_INSTALL_DIR}")
+
+    message(STATUS "[OpenSSL] 已缓存到 ${_SSL_TP}（请提交 git 供离线使用）")
 endif()
 
-# -- Helper: build one config and install artifacts ------------------------
-function(_openssl_build CONFIG SSL_DEST CRYPTO_DEST)
-    set(_BD "${CMAKE_BINARY_DIR}/_deps/openssl-build-${CONFIG}")
-    if(NOT EXISTS "${_BD}/Configure")
-        message(STATUS "[OpenSSL] Copying source for ${CONFIG}...")
-        if(EXISTS "${_BD}")
-            file(REMOVE_RECURSE "${_BD}")
-        endif()
-        execute_process(COMMAND ${CMAKE_COMMAND} -E copy_directory "${_SRC_DIR}" "${_BD}"
-                        RESULT_VARIABLE _r)
-        if(NOT _r EQUAL 0)
-            message(FATAL_ERROR "[OpenSSL] Copy failed for ${CONFIG}")
-        endif()
-    endif()
+# ══════════════════════════════════════════════════════════════════════════
+# 3) 创建 imported targets
+# ══════════════════════════════════════════════════════════════════════════
+message(STATUS "[OpenSSL] Using ${_SSL_TP}")
 
-    if(CONFIG STREQUAL "Debug")
-        set(_dbg "--debug")
-    else()
-        set(_dbg "")
-    endif()
+set(OPENSSL_INCLUDE_DIR "${_SSL_INC}")
+set(OPENSSL_TP_BIN      "${_SSL_BIN}")
 
-    message(STATUS "[OpenSSL] Building ${CONFIG} (may take several minutes)...")
-
-    if(WIN32)
-        string(REPLACE "/" "\\" _BD_WIN "${_BD}")
-        string(REPLACE "/" "\\" _VCVARS_WIN "${_VCVARS}")
-        if(_dbg)
-            set(_conf "perl Configure VC-WIN64A no-asm ${_dbg}")
-        else()
-            set(_conf "perl Configure VC-WIN64A no-asm")
-        endif()
-        set(_BAT "${CMAKE_BINARY_DIR}/_deps/openssl-${CONFIG}.bat")
-        file(WRITE "${_BAT}"
-            "@echo off\r\n"
-            "set \"PATH=C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer;%PATH%\"\r\n"
-            "call \"${_VCVARS_WIN}\" x64\r\n"
-            "if errorlevel 1 exit /b 1\r\n"
-            "cd /d \"${_BD_WIN}\"\r\n"
-            "${_conf}\r\n"
-            "if errorlevel 1 exit /b 1\r\n"
-            "nmake build_libs\r\n"
-            "if errorlevel 1 exit /b 1\r\n")
-        execute_process(COMMAND cmd /c "${_BAT}"
-                        RESULT_VARIABLE _r OUTPUT_VARIABLE _o ERROR_VARIABLE _e)
-    else()
-        set(_args ${_TARGET} no-asm no-shared)
-        if(_dbg)
-            list(APPEND _args ${_dbg})
-        endif()
-        execute_process(COMMAND ${_PERL} Configure ${_args}
-                        WORKING_DIRECTORY "${_BD}" RESULT_VARIABLE _r ERROR_VARIABLE _e)
-        if(NOT _r EQUAL 0)
-            message(FATAL_ERROR "[OpenSSL] ${CONFIG} configure failed:\n${_e}")
-        endif()
-        execute_process(COMMAND ${_MAKE} -j${_NPROC} build_libs
-                        WORKING_DIRECTORY "${_BD}" RESULT_VARIABLE _r ERROR_VARIABLE _e)
-    endif()
-    if(NOT _r EQUAL 0)
-        message(FATAL_ERROR "[OpenSSL] ${CONFIG} build failed:\n${_e}")
-    endif()
-
-    # Install libs
-    file(MAKE_DIRECTORY "${OPENSSL_TP_LIB}")
-    if(WIN32)
-        set(_ext ".lib")
-    else()
-        set(_ext ".a")
-    endif()
-    execute_process(COMMAND ${CMAKE_COMMAND} -E copy "${_BD}/libssl${_ext}"    "${OPENSSL_TP_LIB}/${SSL_DEST}")
-    execute_process(COMMAND ${CMAKE_COMMAND} -E copy "${_BD}/libcrypto${_ext}" "${OPENSSL_TP_LIB}/${CRYPTO_DEST}")
-
-    # Install DLLs (Windows)
-    if(WIN32 AND EXISTS "${_BD}/libssl-3-x64.dll")
-        file(MAKE_DIRECTORY "${OPENSSL_TP_BIN}")
-        if(CONFIG STREQUAL "Debug")
-            set(_sdll "${_SSL_DLL_DBG}")
-            set(_cdll "${_CRYPTO_DLL_DBG}")
-        else()
-            set(_sdll "${_SSL_DLL_REL}")
-            set(_cdll "${_CRYPTO_DLL_REL}")
-        endif()
-        execute_process(COMMAND ${CMAKE_COMMAND} -E copy "${_BD}/libssl-3-x64.dll"    "${OPENSSL_TP_BIN}/${_sdll}")
-        execute_process(COMMAND ${CMAKE_COMMAND} -E copy "${_BD}/libcrypto-3-x64.dll" "${OPENSSL_TP_BIN}/${_cdll}")
-    endif()
-    message(STATUS "[OpenSSL]   ${CONFIG} installed")
-endfunction()
-
-# Build each config if missing
-if(NOT EXISTS "${OPENSSL_TP_LIB}/${_SSL_DBG}" OR NOT EXISTS "${OPENSSL_TP_LIB}/${_CRYPTO_DBG}")
-    _openssl_build("Debug" "${_SSL_DBG}" "${_CRYPTO_DBG}")
+if(NOT TARGET OpenSSL::SSL)
+    add_library(OpenSSL::SSL UNKNOWN IMPORTED GLOBAL)
+    set_target_properties(OpenSSL::SSL PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES    "${_SSL_INC}"
+        IMPORTED_LOCATION_DEBUG          "${_SSL_LIB}/${_SSL_DBG_LIB}"
+        IMPORTED_LOCATION_RELEASE        "${_SSL_LIB}/${_SSL_REL_LIB}"
+        IMPORTED_LOCATION_RELWITHDEBINFO "${_SSL_LIB}/${_SSL_REL_LIB}"
+        IMPORTED_LOCATION_MINSIZEREL     "${_SSL_LIB}/${_SSL_REL_LIB}"
+    )
 endif()
-if(NOT EXISTS "${OPENSSL_TP_LIB}/${_SSL_REL}" OR NOT EXISTS "${OPENSSL_TP_LIB}/${_CRYPTO_REL}")
-    _openssl_build("Release" "${_SSL_REL}" "${_CRYPTO_REL}")
+if(NOT TARGET OpenSSL::Crypto)
+    add_library(OpenSSL::Crypto UNKNOWN IMPORTED GLOBAL)
+    set_target_properties(OpenSSL::Crypto PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES    "${_SSL_INC}"
+        IMPORTED_LOCATION_DEBUG          "${_SSL_LIB}/${_CRYPTO_DBG_LIB}"
+        IMPORTED_LOCATION_RELEASE        "${_SSL_LIB}/${_CRYPTO_REL_LIB}"
+        IMPORTED_LOCATION_RELWITHDEBINFO "${_SSL_LIB}/${_CRYPTO_REL_LIB}"
+        IMPORTED_LOCATION_MINSIZEREL     "${_SSL_LIB}/${_CRYPTO_REL_LIB}"
+    )
 endif()
-
-# Install headers (generated during Configure, use a build dir)
-if(NOT EXISTS "${OPENSSL_TP_INCLUDE}/openssl/ssl.h")
-    file(MAKE_DIRECTORY "${OPENSSL_TP_INCLUDE}")
-    set(_hsrc "${CMAKE_BINARY_DIR}/_deps/openssl-build-Release")
-    if(NOT EXISTS "${_hsrc}/include/openssl/ssl.h")
-        set(_hsrc "${CMAKE_BINARY_DIR}/_deps/openssl-build-Debug")
-    endif()
-    if(NOT EXISTS "${_hsrc}/include/openssl/ssl.h")
-        message(FATAL_ERROR "[OpenSSL] Generated headers not found")
-    endif()
-    file(COPY "${_hsrc}/include/openssl" DESTINATION "${OPENSSL_TP_INCLUDE}")
-endif()
-
-# Install license
-if(EXISTS "${_SRC_DIR}/LICENSE.txt")
-    file(COPY "${_SRC_DIR}/LICENSE.txt" DESTINATION "${OPENSSL_THIRD_PARTY}")
-endif()
-
-message(STATUS "[OpenSSL] Installed to ${OPENSSL_THIRD_PARTY}")
-_openssl_create_targets()
