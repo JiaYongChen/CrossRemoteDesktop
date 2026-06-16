@@ -83,7 +83,7 @@ public:
      */
     struct Performance {
         static constexpr int THREAD_POOL_SIZE = 4;                      ///< 线程池大小
-        static constexpr int MAX_QUEUE_SIZE = 1000;                     ///< 最大队列大小
+        static constexpr int MAX_QUEUE_SIZE = 3;                       ///< 队列最大容量（Drain-to-Latest 策略下保持低值）
         static constexpr int STATS_UPDATE_INTERVAL_MS = 1000;           ///< 统计更新间隔 1s
         static constexpr int MEMORY_WARNING_THRESHOLD_MB = 512;          ///< 内存警告阈值 512MB
         static constexpr int CPU_USAGE_THRESHOLD_PERCENT = 80;          ///< CPU使用率阈值 80%
