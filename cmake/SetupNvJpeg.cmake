@@ -33,15 +33,6 @@ function(rd_setup_nvjpeg)
         return()
     endif()
 
-    # Also check CUDA 11.x cache
-    set(_NJP_DLL_11 "${_NJP_BIN}/nvjpeg64_11.dll")
-    set(_CUDA_DLL_11 "${_NJP_BIN}/cudart64_110.dll")
-    if(EXISTS "${_NJP_DLL_11}" AND EXISTS "${_CUDA_DLL_11}")
-        message(STATUS "[nvJPEG] Using cached DLLs from third_party/nvjpeg/ (CUDA 11.x)")
-        set(NVJPEG_TP_BIN "${_NJP_BIN}" PARENT_SCOPE)
-        return()
-    endif()
-
     # ── Tier 2: 从 CUDA Toolkit 安装中查找 ─────────────────────────────
     set(_CUDA_BIN "")
 
@@ -57,7 +48,7 @@ function(rd_setup_nvjpeg)
         if(_CUDA_DIRS)
             list(SORT _CUDA_DIRS COMPARE NATURAL ORDER DESCENDING)
             foreach(_dir ${_CUDA_DIRS})
-                if(EXISTS "${_dir}/bin/nvjpeg64_12.dll" OR EXISTS "${_dir}/bin/nvjpeg64_11.dll")
+                if(EXISTS "${_dir}/bin/nvjpeg64_12.dll")
                     set(_CUDA_BIN "${_dir}/bin")
                     break()
                 endif()
@@ -75,20 +66,11 @@ function(rd_setup_nvjpeg)
     # ── 从 CUDA Toolkit 复制 DLL 到 third_party 缓存 ──────────────────
     file(MAKE_DIRECTORY "${_NJP_BIN}")
 
-    # 复制 nvJPEG DLL（优先 12.x，其次 11.x）
     if(EXISTS "${_CUDA_BIN}/nvjpeg64_12.dll")
         file(COPY "${_CUDA_BIN}/nvjpeg64_12.dll" DESTINATION "${_NJP_BIN}")
     endif()
-    if(EXISTS "${_CUDA_BIN}/nvjpeg64_11.dll")
-        file(COPY "${_CUDA_BIN}/nvjpeg64_11.dll" DESTINATION "${_NJP_BIN}")
-    endif()
-
-    # 复制 CUDA Runtime DLL（优先 12.x，其次 11.x）
     if(EXISTS "${_CUDA_BIN}/cudart64_12.dll")
         file(COPY "${_CUDA_BIN}/cudart64_12.dll" DESTINATION "${_NJP_BIN}")
-    endif()
-    if(EXISTS "${_CUDA_BIN}/cudart64_110.dll")
-        file(COPY "${_CUDA_BIN}/cudart64_110.dll" DESTINATION "${_NJP_BIN}")
     endif()
 
     set(NVJPEG_TP_BIN "${_NJP_BIN}" PARENT_SCOPE)

@@ -22,8 +22,8 @@ NvJpegDecoder::~NvJpegDecoder() {
 bool NvJpegDecoder::probeAvailability() {
     // 1. 尝试加载 nvJPEG DLL（多版本，新版本优先）
     static const char* kNvJpegNames[] = {
+        "nvjpeg64_13",   // CUDA 13.x
         "nvjpeg64_12",   // CUDA 12.x
-        "nvjpeg64_11",   // CUDA 11.x
     };
     bool nvjpegLoaded = false;
     for (const char* name : kNvJpegNames) {
@@ -35,16 +35,17 @@ bool NvJpegDecoder::probeAvailability() {
     }
     if (!nvjpegLoaded) {
         qCDebug(lcClient) << "NvJpegDecoder: nvJPEG DLL not found"
-                          << "(tried nvjpeg64_12, nvjpeg64_11)";
+                          << "(tried nvjpeg64_13, nvjpeg64_12)";
         return false;
     }
 
     // 2. 尝试加载 CUDA Runtime DLL（多版本，新版本优先）
-    // 注: CUDA 12.x DLL 名称为 cudart64_12.dll (仅主版本号)
-    //      CUDA 11.x DLL 名称为 cudart64_110.dll (主+次版本号)
+    // 注: CUDA 13.x DLL 名称为 cudart64_13.dll (仅主版本号)
+    //      CUDA 12.x DLL 名称为 cudart64_12.dll (仅主版本号)
+    //      CUDA 11.x DLL 名称为 cudart64_11.dll (仅主版本号)
     static const char* kCudaNames[] = {
+        "cudart64_13",   // CUDA 13.x
         "cudart64_12",   // CUDA 12.x
-        "cudart64_110",  // CUDA 11.0
     };
     bool cudaLoaded = false;
     for (const char* name : kCudaNames) {
@@ -56,7 +57,7 @@ bool NvJpegDecoder::probeAvailability() {
     }
     if (!cudaLoaded) {
         qCDebug(lcClient) << "NvJpegDecoder: CUDA Runtime DLL not found"
-                          << "(tried cudart64_12, cudart64_110)";
+                          << "(tried cudart64_13, cudart64_12)";
         return false;
     }
 
