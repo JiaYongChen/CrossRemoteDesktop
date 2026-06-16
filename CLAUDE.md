@@ -164,6 +164,10 @@ ConnectionManager (TCP) → SessionManager (状态管理) → ClientRemoteWindow
 - `src/common/core/config/MessageConstants.h` — UI 消息
 - `src/common/core/config/UiConstants.h` — UI 尺寸
 
+## Git 提交规范
+
+- **禁止在 commit message 末尾追加 `Co-Authored-By` 署名**，所有提交信息仅包含用户指定的内容。
+
 ## 日志规范
 
 **所有日志必须使用分类流式宏：**
