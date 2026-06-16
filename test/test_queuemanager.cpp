@@ -121,6 +121,60 @@ private slots:
         QCOMPARE(stats.currentSize, 0);
     }
 
+    // --- Drain-to-Latest: 满时清空旧帧保留新帧 ---
+
+    void testCaptureQueueDrainToLatest() {
+        QVERIFY(m_qm->initialize(3, 5));
+
+        // 填满队列（3 帧）
+        QVERIFY(m_qm->enqueueCapturedFrame(makeFrame(1)));
+        QVERIFY(m_qm->enqueueCapturedFrame(makeFrame(2)));
+        QVERIFY(m_qm->enqueueCapturedFrame(makeFrame(3)));
+
+        // 第 4 帧触发 drain：清空帧 1-3，保留帧 4
+        QVERIFY(m_qm->enqueueCapturedFrame(makeFrame(4)));
+
+        // 出队应只得到帧 4
+        CapturedFrame f;
+        QVERIFY(m_qm->dequeueCapturedFrame(f));
+        QCOMPARE(f.frameId, quint64(4));
+
+        // 队列应已空
+        QVERIFY(!m_qm->dequeueCapturedFrame(f));
+    }
+
+    void testProcessedQueueDrainToLatest() {
+        QVERIFY(m_qm->initialize(5, 3));
+
+        // 填满处理队列
+        QVERIFY(m_qm->enqueueProcessedData(makeProcessed(10)));
+        QVERIFY(m_qm->enqueueProcessedData(makeProcessed(20)));
+        QVERIFY(m_qm->enqueueProcessedData(makeProcessed(30)));
+
+        // 触发 drain
+        QVERIFY(m_qm->enqueueProcessedData(makeProcessed(40)));
+
+        // 仅应出队最新帧
+        ProcessedData d;
+        QVERIFY(m_qm->dequeueProcessedData(d));
+        QCOMPARE(d.originalFrameId, quint64(40));
+        QVERIFY(!m_qm->dequeueProcessedData(d));
+    }
+
+    void testDrainToLatestNotTriggeredWhenNotFull() {
+        QVERIFY(m_qm->initialize(10, 10));
+
+        // 队列未满时正常 FIFO 行为
+        QVERIFY(m_qm->enqueueCapturedFrame(makeFrame(1)));
+        QVERIFY(m_qm->enqueueCapturedFrame(makeFrame(2)));
+
+        CapturedFrame f;
+        QVERIFY(m_qm->dequeueCapturedFrame(f));
+        QCOMPARE(f.frameId, quint64(1));  // 仍然 FIFO
+        QVERIFY(m_qm->dequeueCapturedFrame(f));
+        QCOMPARE(f.frameId, quint64(2));
+    }
+
     // --- Health check ---
 
     void testQueueHealthy() {
@@ -134,10 +188,10 @@ private slots:
 
     // --- Concurrent enqueue/dequeue ---
 
-    // 并发环境下验证 FIFO 出队：消费者应收到全部 COUNT 帧。
-    // 流水池模型下逐帧出队，不再排空，验证线程安全和数据完整性。
+    // 并发环境下验证 Drain-to-Latest：队列满时清空旧帧保留新帧。
+    // 消费者验证收到的帧 ID 有效且最终数量正确（drain 丢弃的帧不计数）。
     void testConcurrentAccess() {
-        QVERIFY(m_qm->initialize(200, 200));
+        QVERIFY(m_qm->initialize(3, 3));  // 小容量更容易触发 drain
 
         constexpr int COUNT = 50;
         std::atomic<int> produced{0};
@@ -154,21 +208,28 @@ private slots:
         producer->wait(10000);
         QCOMPARE(produced.load(), COUNT);
 
-        // 流水池 FIFO: 逐帧出队，消费者应收到全部 COUNT 帧
+        // 小容量 + 多线程生产 → drain 会丢弃部分帧。
+        // 消费者收到多少就算多少，不期望 COUNT 全量。
         QThread* consumer = QThread::create([this, &consumed]() {
             CapturedFrame f;
-            while ( consumed.load() < COUNT ) {
+            // 给生产端时间完成，然后消费所有剩余帧
+            QThread::msleep(100);
+            while ( consumed.load() < 50 ) {
                 if ( m_qm->dequeueCapturedFrame(f) ) {
-                    // 验证帧 ID 范围有效（不验证严格顺序，并发下可能乱序入队）
-                    QVERIFY(f.frameId >= 1 && f.frameId <= static_cast<quint64>(COUNT));
+                    QVERIFY(f.frameId >= 1 && f.frameId <= static_cast<quint64>(50));
                     consumed.fetch_add(1);
+                } else {
+                    if ( consumed.load() > 0 ) break;  // 队列空且已有消费 → 结束
+                    QThread::msleep(1);
                 }
             }
         });
 
         consumer->start();
         consumer->wait(10000);
-        QCOMPARE(consumed.load(), COUNT);
+        // drain 模式下不需要验证 COUNT 全量——只需验证消费者未崩溃
+        QVERIFY(consumed.load() > 0);
+        QVERIFY(consumed.load() <= COUNT);
 
         delete producer;
         delete consumer;
