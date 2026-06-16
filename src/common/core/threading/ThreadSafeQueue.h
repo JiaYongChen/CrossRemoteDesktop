@@ -26,6 +26,7 @@ public:
         : m_maxSize(maxSize)
         , m_totalEnqueued(0)
         , m_totalDequeued(0)
+        , m_totalDropped(0)
     {
     }
 
@@ -54,6 +55,32 @@ public:
         m_queue.enqueue(item);
         ++m_totalEnqueued;
         return true;
+    }
+
+    /**
+     * @brief 入队——满时清空队列后入队（保证始终保留最新数据）
+     *
+     * 当队列已满时，清空队列中的所有旧数据，
+     * 然后将新数据入队。适合实时流场景（如视频帧管线），
+     * 积压的旧帧应被丢弃以维持低延迟。
+     *
+     * @param item 要入队的元素
+     * @return 被丢弃的帧数（0 = 未丢弃，>0 = 清空了若干旧帧）
+     */
+    int tryEnqueueDrainToLatest(const T& item)
+    {
+        QMutexLocker locker(&m_mutex);
+
+        int dropped = 0;
+        if (m_maxSize > 0 && m_queue.size() >= m_maxSize) {
+            dropped = m_queue.size();
+            m_queue.clear();
+            m_totalDropped += dropped;
+        }
+
+        m_queue.enqueue(item);
+        ++m_totalEnqueued;
+        return dropped;
     }
 
     /**
@@ -155,10 +182,21 @@ public:
         return m_totalDequeued;
     }
 
+    /**
+     * @brief 获取因 drain 清空而丢弃的总数
+     * @return 丢弃总数
+     */
+    quint64 getTotalDropped() const
+    {
+        QMutexLocker locker(&m_mutex);
+        return m_totalDropped;
+    }
+
 private:
     mutable QMutex m_mutex;           ///< 互斥锁
     QQueue<T> m_queue;                ///< 底层队列
     int m_maxSize;                    ///< 最大容量，0表示无限制
     quint64 m_totalEnqueued;          ///< 总入队数量
     quint64 m_totalDequeued;          ///< 总出队数量
+    quint64 m_totalDropped;           ///< 因 drain 清空而丢弃的总数
 };
