@@ -19,6 +19,8 @@
 #include "../core/TripleBuffer.h"
 #include "../core/FrameSlot.h"
 
+class IDecoder;
+
 /**
  * @brief OpenGL viewport that renders remote desktop frames via direct texture upload.
  *
@@ -160,7 +162,19 @@ public:
      * @param image Decoded frame (any QImage::Format, converted internally).
      * @return GLsync fence for the GUI thread to wait on, or nullptr on failure.
      */
-    GLsync uploadFromWorker(const QImage& image);
+    /// @param image 解码后的帧（任意 QImage::Format）。
+    /// @param decoder 可选解码器指针——供未来零拷贝 PBO 路径使用。
+    [[nodiscard]] GLsync uploadFromWorker(const QImage& image, IDecoder* decoder = nullptr);
+
+    /// 零拷贝 JPEG → PBO 上传（跳过 CPU QImage 中转）
+    /// 解码器将 JPEG 直接解码到已映射的 PBO 指针，然后提交为 GL 纹理。
+    /// @param jpegData 原始 JPEG 字节
+    /// @param decoder 支持 decodeToPBO 的解码器
+    /// @param width 图像宽度
+    /// @param height 图像高度
+    /// @return GLsync fence，或 nullptr（回退到 CPU 路径）
+    [[nodiscard]] GLsync uploadJPEGDirect(const QByteArray& jpegData, IDecoder* decoder,
+                                          int width, int height);
 
     /// 生产者背压：返回 paintGL 因 fence 未就绪而连续跳过的帧数。
     /// 生产者可据此降低上传频率，避免 GPU 队列无限积压。

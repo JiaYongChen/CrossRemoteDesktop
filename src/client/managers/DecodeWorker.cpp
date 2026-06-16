@@ -184,7 +184,18 @@ bool DecodeWorker::processOneFrame() {
                 slot->uploadFence = nullptr;
             }
             const auto glStart = steady_clock::now();
-            GLsync fence = m_glViewport->uploadFromWorker(image);
+            // 尝试零拷贝 PBO 路径（nvJPEG 直接写 PBO，跳过 CPU QImage）
+            GLsync fence = nullptr;
+            const bool tryZeroCopy = (strcmp(m_decoder->name(), "nvJPEG") == 0);
+            if (tryZeroCopy) {
+                fence = m_glViewport->uploadJPEGDirect(
+                    screenData.imageData, m_decoder.get(),
+                    jpegWidth, jpegHeight);
+            }
+            if (!fence) {
+                // 回退：标准 CPU 路径（QImage → memcpy → PBO → GL 纹理）
+                fence = m_glViewport->uploadFromWorker(image);
+            }
             glUploadUs = duration_cast<microseconds>(
                 steady_clock::now() - glStart).count();
             if (fence) {

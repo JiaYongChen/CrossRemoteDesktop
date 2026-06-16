@@ -1,6 +1,7 @@
 #ifndef QT_NO_OPENGL
 
 #include "GLTextureViewport.h"
+#include "../decode/IDecoder.h"
 #include "../../common/core/logging/LoggingCategories.h"
 #include "../../common/core/config/RenderConfig.h"
 
@@ -469,7 +470,8 @@ void GLTextureViewport::applyFrame(const QImage& image) {
     m_textureDirty = true;
 }
 
-GLsync GLTextureViewport::uploadFromWorker(const QImage& image) {
+GLsync GLTextureViewport::uploadFromWorker(const QImage& image, IDecoder* decoder) {
+    Q_UNUSED(decoder);  // 保留供未来零拷贝扩展
     if (image.isNull() || image.format() == QImage::Format_Invalid)
         return nullptr;
 
@@ -544,6 +546,48 @@ GLsync GLTextureViewport::uploadFromWorker(const QImage& image) {
 
     auto* f = QOpenGLContext::currentContext()->extraFunctions();
     Q_ASSERT(f);
+    GLsync fence = f->glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+    f->glFlush();
+    return fence;
+}
+
+GLsync GLTextureViewport::uploadJPEGDirect(
+    const QByteArray& jpegData, IDecoder* decoder,
+    int width, int height)
+{
+    if (!decoder || !m_usePbo || !m_persistentPtr[m_sharedPboIndex]) {
+        return nullptr;  // 回退：调用方应使用 uploadFromWorker + QImage
+    }
+
+    // 确认尺寸匹配（否则需要重建纹理，回退到标准路径）
+    const QSize newSize(width, height);
+    if (newSize != m_textureSize) {
+        return nullptr;
+    }
+
+    constexpr int kRGB = 3;
+    if (!decoder->decodeToPBO(jpegData,
+                               static_cast<unsigned char*>(m_persistentPtr[m_sharedPboIndex]),
+                               width, height, kRGB)) {
+        return nullptr;  // 解码器不支持零拷贝（TurboJpegDecoder 永远返回 false）
+    }
+
+    // 从 PBO 提交到 GL 纹理
+    auto* f = QOpenGLContext::currentContext()->extraFunctions();
+    if (!f) return nullptr;
+
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, m_persistentId[m_sharedPboIndex]);
+    const GLenum target = GL_TEXTURE_2D;
+    const GLuint tid = m_textureId[1 - m_displayTexIndex.load()];
+    glBindTexture(target, tid);
+    glTexSubImage2D(target, 0, 0, 0, width, height,
+                    GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+
+    m_textureDirty = true;
+    m_sharedPboIndex = 1 - m_sharedPboIndex;
+
+    // 创建 fence 供 GUI 线程等待
     GLsync fence = f->glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
     f->glFlush();
     return fence;
