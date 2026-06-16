@@ -101,7 +101,7 @@ GLTextureViewport::GLTextureViewport(QWidget* parent)
 
     // Frame-polling timer — only active when VSync is off and a frame buffer
     // is attached. 16ms (60fps) is the default cadence.
-    m_pollTimer->setInterval(16);
+    m_pollTimer->setInterval(8);  // VSync 关闭时以 120fps 轮询，减小帧延迟抖动
     m_pollTimer->setTimerType(Qt::PreciseTimer);
     connect(m_pollTimer, &QTimer::timeout, this, [this]() { update(); });
 }
