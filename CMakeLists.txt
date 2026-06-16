@@ -45,7 +45,10 @@ include(cmake/SetupOpenSSL.cmake)       # → OpenSSL::SSL, OpenSSL::Crypto
 include(cmake/SetupLibJpegTurbo.cmake)  # → LibJpegTurbo::turbojpeg
 include(cmake/SetupQt6.cmake)           # → Qt6::*, QT6_ROOT_DIR
 include(cmake/FilterAppleOpenGL.cmake)  # → rd_filter_apple_opengl()
+include(cmake/SetupNvJpeg.cmake)        # → rd_setup_nvjpeg(), NVJPEG_TP_BIN
 include(cmake/DeployWindowsDlls.cmake)  # → rd_deploy_windows_runtime()
+
+rd_setup_nvjpeg()
 
 # 清理 AGL/OpenGL 传播
 rd_filter_apple_opengl(Qt6::Gui)
