@@ -11,6 +11,8 @@
 #include "../core/FrameSlot.h"
 #include "../core/TripleBuffer.h"
 
+#include <turbojpeg.h>
+
 #ifndef QT_NO_OPENGL
 #include <QtGui/QOpenGLContext>
 #include <QtGui/QOffscreenSurface>
@@ -64,11 +66,13 @@ private slots:
     void workLoop();
 
 private:
-    void processOneFrame();
+    /// @return true 表示处理了一帧，false 表示队列为空（用于调用方空闲退避）
+    bool processOneFrame();
 
     struct DecodeTask {
         ScreenData screenData;
         QSize      remoteSize;
+        std::chrono::steady_clock::time_point enqueueTs;  ///< 入队时刻（诊断：队列等待计时起点）
     };
 
     ThreadSafeQueue<DecodeTask> m_queue{3};
@@ -82,6 +86,9 @@ private:
 #endif
 
     TripleBuffer<FrameSlot>* m_frameBuffer = nullptr;
+
+    // turbojpeg 解压句柄（懒初始化，cleanupGL 中销毁）
+    tjhandle m_tjDecompress = nullptr;
 
     // JPEG 解码缓冲区复用
     QImage m_decodeBuffer;

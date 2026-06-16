@@ -5,7 +5,7 @@
 #include <QtCore/QThread>
 #include <QtCore/QIODevice>
 #include <QtCore/QBuffer>
-#include <QtGui/QImageWriter>
+#include <turbojpeg.h>
 #include <QtConcurrent/QtConcurrent>
 #include <cstring>
 #include <algorithm>
@@ -357,58 +357,56 @@ ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, qui
             }
         }
 
-        // 确保图像格式为 RGB888，这是 JPEG 格式推荐的格式
-        // 在Windows下，Format_RGB32 更常用且兼容性更好
+        // 转换为 RGB888 格式（turbojpeg 原生 TJPF_RGB）
         QImage convertedImage = workingImage;
-        if ( workingImage.format() != QImage::Format_RGB32 && workingImage.format() != QImage::Format_RGB888 ) {
-            qCDebug(lcDataProcessingWorker) << "转换图像格式，原格式:" << workingImage.format() 
-                << "目标格式: RGB32，帧ID:" << frameId;
-            convertedImage = workingImage.convertToFormat(QImage::Format_RGB32);
-            
+        if ( workingImage.format() != QImage::Format_RGB888 ) {
+            convertedImage = workingImage.convertToFormat(QImage::Format_RGB888);
             if ( convertedImage.isNull() ) {
                 qCWarning(lcDataProcessingWorker) << "图像格式转换失败，帧ID:" << frameId;
                 return result;
             }
         }
 
-        // 使用 QBuffer 将图像编码为 JPEG 格式
-        QByteArray jpegData;
-        QBuffer buffer(&jpegData);
-        
-        if ( !buffer.open(QIODevice::WriteOnly) ) {
-            qCWarning(lcDataProcessingWorker) << "无法打开QBuffer，帧ID:" << frameId;
-            return result;
-        }
-
         // 每 100 帧输出一次编码信息，避免刷屏
         if ( frameId <= 3 || frameId % 100 == 0 ) {
-            qCDebug(lcDataProcessingWorker) << "编码JPEG，帧ID:" << frameId
+            qCDebug(lcDataProcessingWorker) << "编码JPEG(turbo)，帧ID:" << frameId
                 << "原始尺寸:" << image.size()
                 << "处理后尺寸:" << convertedImage.size()
                 << "缩放因子:" << scaleFactor
                 << "质量:" << quality;
         }
 
-        // 使用传入的JPEG质量参数
-        bool saveSuccess = convertedImage.save(&buffer, "JPG", quality);
-        buffer.close();
-        
-        if ( !saveSuccess ) {
-            // 第一次诊断输出，记录更详细的错误信息
-            static bool diagnosticPrinted = false;
-            if ( !diagnosticPrinted ) {
-                qCWarning(lcDataProcessingWorker) << "JPEG编码失败诊断信息:";
-                qCWarning(lcDataProcessingWorker) << "  图像尺寸:" << convertedImage.size();
-                qCWarning(lcDataProcessingWorker) << "  图像格式:" << convertedImage.format();
-                qCWarning(lcDataProcessingWorker) << "  支持的图像格式:" 
-                    << QImageWriter::supportedImageFormats();
-                diagnosticPrinted = true;
+        // 线程局部 turbojpeg 压缩器句柄（每个 QtConcurrent 工作线程一个，复用）
+        thread_local tjhandle tjCompress = nullptr;
+        if ( !tjCompress ) {
+            tjCompress = tjInitCompress();
+            if ( !tjCompress ) {
+                qCWarning(lcDataProcessingWorker) << "tjInitCompress 失败，帧ID:" << frameId;
+                return result;
             }
-            
-            qCWarning(lcDataProcessingWorker) << "无法将图像编码为JPEG格式，帧ID:" << frameId
-                << "图像尺寸:" << convertedImage.size() << "格式:" << convertedImage.format();
+        }
+
+        unsigned char* jpegBuf = nullptr;
+        unsigned long jpegSize = 0;
+        const int tjRet = tjCompress2(tjCompress,
+            convertedImage.constBits(),
+            convertedImage.width(),
+            0,  // pitch（0 = width × pixelSize，RGB888 自动计算）
+            convertedImage.height(),
+            TJPF_RGB,
+            &jpegBuf, &jpegSize,
+            TJSAMP_444,       // 无色度子采样，最佳质量
+            quality,
+            TJFLAG_FASTDCT);  // 快速 DCT 算法
+
+        if ( tjRet != 0 ) {
+            qCWarning(lcDataProcessingWorker) << "tjCompress2 失败:" << tjGetErrorStr2(tjCompress)
+                                               << "帧ID:" << frameId;
             return result;
         }
+
+        QByteArray jpegData(reinterpret_cast<const char*>(jpegBuf), static_cast<int>(jpegSize));
+        tjFree(jpegBuf);
 
         if ( jpegData.isEmpty() ) {
             qCWarning(lcDataProcessingWorker) << "JPEG编码结果为空，帧ID:" << frameId;

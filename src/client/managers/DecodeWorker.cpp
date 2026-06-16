@@ -4,8 +4,6 @@
 #include "../window/GLTextureViewport.h"
 #include <QtGui/QOpenGLExtraFunctions>
 #endif
-#include <QtCore/QBuffer>
-#include <QtGui/QImageReader>
 #include <QtCore/QThread>
 
 // ---- 构造/析构/基础方法 ----
@@ -16,6 +14,10 @@ DecodeWorker::DecodeWorker(QObject* parent)
 
 DecodeWorker::~DecodeWorker() {
     requestStop();
+    if (m_tjDecompress) {
+        tjDestroy(m_tjDecompress);
+        m_tjDecompress = nullptr;
+    }
 #ifndef QT_NO_OPENGL
     // 仅当 cleanupGL() 未被预先调用（destroyDecodePipeline 的正常路径）时执行兜底清理。
     // 此时 DecodeThread 已停止，调用者确保已无跨线程事件风险。
@@ -33,6 +35,7 @@ bool DecodeWorker::enqueueFrame(ScreenData screenData, const QSize& remoteSize) 
     DecodeTask task;
     task.screenData = std::move(screenData);
     task.remoteSize = remoteSize;
+    task.enqueueTs = std::chrono::steady_clock::now();  // 诊断：入队时刻
     return m_queue.tryEnqueue(std::move(task));
 }
 
@@ -58,7 +61,10 @@ void DecodeWorker::workLoop() {
     qCInfo(lcClient) << "DecodeWorker::workLoop() - Starting decode loop";
 
     while (m_running.load()) {
-        processOneFrame();
+        if (!processOneFrame()) {
+            // 队列为空时空闲退避，避免忙等吃满 CPU
+            QThread::msleep(1);
+        }
     }
 
     qCInfo(lcClient) << "DecodeWorker::workLoop() - Decode loop ended";
@@ -67,28 +73,71 @@ void DecodeWorker::workLoop() {
 
 // ---- processOneFrame: JPEG 解码 + GL 上传 + TripleBuffer 写入 ----
 
-void DecodeWorker::processOneFrame() {
+bool DecodeWorker::processOneFrame() {
     DecodeTask task;
     if (!m_queue.tryDequeue(task)) {
-        return;  // 队列已停止
+        return false;  // 队列为空
     }
+
+    using namespace std::chrono;
+    const auto dequeueTs = steady_clock::now();
+
+    // 诊断：队列等待时间（入队 → 出队）
+    const auto queueWaitUs = duration_cast<microseconds>(
+        dequeueTs - task.enqueueTs).count();
 
     const ScreenData& screenData = task.screenData;
     QSize remoteSize = task.remoteSize;
 
-    // 1. JPEG 解码
-    QBuffer buffer(const_cast<QByteArray*>(&screenData.imageData));
-    buffer.open(QIODevice::ReadOnly);
-    QImageReader reader(&buffer, "JPEG");
-    reader.setAutoTransform(true);
-    const bool loaded = reader.read(&m_decodeBuffer);
+    // 1. turbojpeg 解码（计时）
+    const auto decodeStart = steady_clock::now();
 
-    if (!loaded || m_decodeBuffer.isNull()) {
-        qCWarning(lcClient) << "DecodeWorker::processOneFrame() - JPEG decode failed, size:"
-                            << screenData.imageData.size();
-        emit decodeError(RdError(ErrorCode::DecodeFailed, QStringLiteral("JPEG 解码失败"), "DecodeWorker"));
-        return;
+    // 懒初始化 turbojpeg 解压句柄（线程局部，复用）
+    if (!m_tjDecompress) {
+        m_tjDecompress = tjInitDecompress();
+        if (!m_tjDecompress) {
+            qCWarning(lcClient) << "DecodeWorker: tjInitDecompress failed";
+            emit decodeError(RdError(ErrorCode::DecodeFailed, QStringLiteral("turbojpeg 初始化失败"), "DecodeWorker"));
+            return true;
+        }
     }
+
+    // 读取 JPEG 头部获取图像尺寸
+    int jpegWidth = 0, jpegHeight = 0, jpegSubsamp = 0, jpegColorspace = 0;
+    if (tjDecompressHeader3(m_tjDecompress,
+            reinterpret_cast<const unsigned char*>(screenData.imageData.constData()),
+            static_cast<unsigned long>(screenData.imageData.size()),
+            &jpegWidth, &jpegHeight, &jpegSubsamp, &jpegColorspace) != 0) {
+        qCWarning(lcClient) << "DecodeWorker: tjDecompressHeader3 failed:"
+                            << tjGetErrorStr2(m_tjDecompress)
+                            << "size:" << screenData.imageData.size();
+        emit decodeError(RdError(ErrorCode::DecodeFailed, QStringLiteral("JPEG 头部解析失败"), "DecodeWorker"));
+        return true;
+    }
+
+    // 复用解码缓冲区，仅在尺寸不匹配时重建
+    if (m_decodeBuffer.isNull()
+        || m_decodeBuffer.width() != jpegWidth
+        || m_decodeBuffer.height() != jpegHeight) {
+        m_decodeBuffer = QImage(jpegWidth, jpegHeight, QImage::Format_RGB888);
+    }
+
+    // turbojpeg 解压到 QImage 像素缓冲区（零拷贝）
+    if (tjDecompress2(m_tjDecompress,
+            reinterpret_cast<const unsigned char*>(screenData.imageData.constData()),
+            static_cast<unsigned long>(screenData.imageData.size()),
+            m_decodeBuffer.bits(),
+            jpegWidth, 0, jpegHeight, TJPF_RGB, TJFLAG_FASTDCT) != 0) {
+        qCWarning(lcClient) << "DecodeWorker: tjDecompress2 failed:"
+                            << tjGetErrorStr2(m_tjDecompress)
+                            << "size:" << screenData.imageData.size()
+                            << "dimensions:" << jpegWidth << "x" << jpegHeight;
+        emit decodeError(RdError(ErrorCode::DecodeFailed, QStringLiteral("JPEG 解码失败"), "DecodeWorker"));
+        return true;
+    }
+
+    const auto decodeUs = duration_cast<microseconds>(
+        steady_clock::now() - decodeStart).count();
 
     QImage& image = m_decodeBuffer;
 
@@ -102,18 +151,20 @@ void DecodeWorker::processOneFrame() {
     ++m_frameId;
 
     // 4. 获取 TripleBuffer 写槽
-    if (!m_frameBuffer) return;
+    if (!m_frameBuffer) return true;
 
     FrameSlot* slot = nullptr;
     int idx = m_frameBuffer->acquireWrite(slot);
-    if (!slot) return;
+    if (!slot) return true;
 
     slot->remoteSize = remoteSize;
-    slot->arrivalTs = std::chrono::steady_clock::now();
+    slot->arrivalTs = steady_clock::now();
     slot->frameId = static_cast<quint64>(m_frameId);
 
+    qint64 glUploadUs = 0;
+
 #ifndef QT_NO_OPENGL
-    // 5. GL 纹理上传（从 SessionManager 迁移的逻辑）
+    // 5. GL 纹理上传（计时）
     static int s_glUploadDiagCount = 0;
     if (m_glUploadReady && m_glContext && m_glSurface && m_glViewport) {
         // GPU 生产者背压：paintGL 连续跳过 >=3 帧时隔帧跳过
@@ -138,7 +189,10 @@ void DecodeWorker::processOneFrame() {
                 if (f) f->glDeleteSync(slot->uploadFence);
                 slot->uploadFence = nullptr;
             }
+            const auto glStart = steady_clock::now();
             GLsync fence = m_glViewport->uploadFromWorker(image);
+            glUploadUs = duration_cast<microseconds>(
+                steady_clock::now() - glStart).count();
             if (fence) {
                 slot->uploadFence = fence;
             }
@@ -165,12 +219,41 @@ void DecodeWorker::processOneFrame() {
     // 6. 提交到 TripleBuffer
     m_frameBuffer->commitWrite(idx);
 
+    // 7. 诊断：每 30 帧汇总输出三阶段耗时
+    static int s_diagFrameCount = 0;
+    static qint64 s_queueWaitAccumUs = 0, s_queueWaitMaxUs = 0;
+    static qint64 s_decodeAccumUs = 0, s_decodeMaxUs = 0;
+    static qint64 s_glUploadAccumUs = 0, s_glUploadMaxUs = 0;
+    s_queueWaitAccumUs += queueWaitUs;
+    s_queueWaitMaxUs = std::max(s_queueWaitMaxUs, queueWaitUs);
+    s_decodeAccumUs += decodeUs;
+    s_decodeMaxUs = std::max(s_decodeMaxUs, decodeUs);
+    s_glUploadAccumUs += glUploadUs;
+    s_glUploadMaxUs = std::max(s_glUploadMaxUs, glUploadUs);
+
+    if (++s_diagFrameCount >= 30) {
+        qCInfo(lcRefreshMetrics)
+            << "[DecodeWorker 诊断] 近30帧耗时 (avg/max):"
+            << "队列等待:" << (s_queueWaitAccumUs / 30 / 1000.0) << "/"
+            << (s_queueWaitMaxUs / 1000.0) << "ms"
+            << "JPEG解码:" << (s_decodeAccumUs / 30 / 1000.0) << "/"
+            << (s_decodeMaxUs / 1000.0) << "ms"
+            << "GL上传:" << (s_glUploadAccumUs / 30 / 1000.0) << "/"
+            << (s_glUploadMaxUs / 1000.0) << "ms";
+        s_diagFrameCount = 0;
+        s_queueWaitAccumUs = 0; s_queueWaitMaxUs = 0;
+        s_decodeAccumUs = 0; s_decodeMaxUs = 0;
+        s_glUploadAccumUs = 0; s_glUploadMaxUs = 0;
+    }
+
 #ifndef QT_NO_OPENGL
-    // 7. 请求 GUI 线程重绘
+    // 8. 请求 GUI 线程重绘
     if (m_glViewport) {
         m_glViewport->requestRepaint();
     }
 #endif
+
+    return true;  // 成功处理一帧
 }
 
 // ---- GL 方法 ----
@@ -216,6 +299,10 @@ void DecodeWorker::moveGLToThread(QThread* target) {
 void DecodeWorker::cleanupGL() {
     m_glUploadReady = false;
     m_glViewport = nullptr;
+    if (m_tjDecompress) {
+        tjDestroy(m_tjDecompress);
+        m_tjDecompress = nullptr;
+    }
     delete m_glContext;
     m_glContext = nullptr;
     delete m_glSurface;

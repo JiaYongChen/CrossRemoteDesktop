@@ -638,17 +638,22 @@ void GLTextureViewport::paintGL() {
                 // finished the DMA transfer.
                 auto* f = context()->extraFunctions();
                 Q_ASSERT(f);
+                // 诊断：测量 fence 等待耗时
+                const auto fenceStart = std::chrono::steady_clock::now();
                 // timeout=2ms: 给 GPU DMA 上传一个短暂的完成窗口，
                 // 避免零超时导致差几微秒的帧被直接丢弃。
                 const GLenum result = f->glClientWaitSync(
                     slot->uploadFence, GL_SYNC_FLUSH_COMMANDS_BIT, 2000000);
+                const auto fenceUs = std::chrono::duration_cast<std::chrono::microseconds>(
+                    std::chrono::steady_clock::now() - fenceStart).count();
                 static int s_fenceDiagCount = 0;
                 ++s_fenceDiagCount;
-                if ( s_fenceDiagCount <= 3 || s_fenceDiagCount % 100 == 0 )
+                if ( s_fenceDiagCount <= 3 || s_fenceDiagCount % 30 == 0 )
                     qCDebug(lcGLViewport) << "paintGL fence #" << s_fenceDiagCount << "result:" << result
                         << (result == GL_ALREADY_SIGNALED ? "SIGNALED" :
                             result == GL_CONDITION_SATISFIED ? "SATISFIED" :
-                            result == GL_TIMEOUT_EXPIRED ? "TIMEOUT" : "OTHER");
+                            result == GL_TIMEOUT_EXPIRED ? "TIMEOUT" : "OTHER")
+                        << "wait:" << (fenceUs / 1000.0) << "ms";
 
                 static int s_consecutiveFenceTimeouts = 0;
                 if ( result == GL_ALREADY_SIGNALED ||

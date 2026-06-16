@@ -42,6 +42,7 @@ endif()
 # ============================================================================
 include(cmake/PlatformDetect.cmake)     # → RD_PLATFORM_NAME, RD_PLATFORM_ARCH
 include(cmake/SetupOpenSSL.cmake)       # → OpenSSL::SSL, OpenSSL::Crypto
+include(cmake/SetupLibJpegTurbo.cmake)  # → LibJpegTurbo::turbojpeg
 include(cmake/SetupQt6.cmake)           # → Qt6::*, QT6_ROOT_DIR
 include(cmake/FilterAppleOpenGL.cmake)  # → rd_filter_apple_opengl()
 include(cmake/DeployWindowsDlls.cmake)  # → rd_deploy_windows_runtime()
@@ -108,6 +109,7 @@ target_include_directories(CrossRemoteDesktop PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/common/core
     ${CMAKE_CURRENT_SOURCE_DIR}/src/client
     ${CMAKE_CURRENT_SOURCE_DIR}/src/server
+    ${TURBOJPEG_INCLUDE_DIR}
 )
 
 target_link_libraries(CrossRemoteDesktop PRIVATE
@@ -121,6 +123,7 @@ target_link_libraries(CrossRemoteDesktop PRIVATE
     Qt6::Svg
     OpenSSL::SSL
     OpenSSL::Crypto
+    LibJpegTurbo::turbojpeg
 )
 
 # ── Windows: D3D11 + DXGI + 子系统 + DLL 部署 ──
