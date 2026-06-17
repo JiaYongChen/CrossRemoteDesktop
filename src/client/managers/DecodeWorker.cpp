@@ -7,6 +7,7 @@
 #include <QtCore/QThread>
 #include "../decode/TurboJpegDecoder.h"
 #include "../decode/NvJpegDecoder.h"
+#include "../decode/OpenCLDecoder.h"
 
 // ---- 构造/析构/基础方法 ----
 
@@ -48,15 +49,23 @@ void DecodeWorker::setFrameBuffer(TripleBuffer<FrameSlot>* buffer) {
 
 void DecodeWorker::start() {
     m_running.store(true);
-    // 运行时选择最优解码器：nvJPEG（GPU）→ libjpeg-turbo（CPU）降级
-    auto nvDecoder = std::make_unique<NvJpegDecoder>();
-    if (nvDecoder->isAvailable()) {
-        m_decoder = std::move(nvDecoder);
-    } else {
+
+    // 优先级链: nvJPEG (NVIDIA CC 5.0+) → OpenCL (跨GPU) → TurboJpeg (CPU)
+    auto nv = std::make_unique<NvJpegDecoder>();
+    if (nv->isAvailable()) {
+        m_decoder = std::move(nv);
+    }
+    if (!m_decoder) {
+        auto ocl = std::make_unique<OpenCLDecoder>();
+        if (ocl->isAvailable()) {
+            m_decoder = std::move(ocl);
+        }
+    }
+    if (!m_decoder) {
         m_decoder = std::make_unique<TurboJpegDecoder>();
     }
+
     qCInfo(lcClient) << "DecodeWorker: using decoder" << m_decoder->name();
-    // start() 通过 QueuedConnection 调用，已在正确的线程上下文中。
     workLoop();
 }
 
