@@ -687,7 +687,7 @@ void GLTextureViewport::paintGL() {
                 // timeout=2ms: 给 GPU DMA 上传一个短暂的完成窗口，
                 // 避免零超时导致差几微秒的帧被直接丢弃。
                 const GLenum result = f->glClientWaitSync(
-                    slot->uploadFence, GL_SYNC_FLUSH_COMMANDS_BIT, 2000000);
+                    slot->uploadFence, GL_SYNC_FLUSH_COMMANDS_BIT, 5000000 /* 5ms */);
                 const auto fenceUs = std::chrono::duration_cast<std::chrono::microseconds>(
                     std::chrono::steady_clock::now() - fenceStart).count();
                 static int s_fenceDiagCount = 0;
