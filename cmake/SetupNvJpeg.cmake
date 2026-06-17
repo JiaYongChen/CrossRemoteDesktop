@@ -30,8 +30,7 @@ function(rd_setup_nvjpeg)
     # 1) 检测 third_party 缓存
     # ══════════════════════════════════════════════════════════════════════════
     if(EXISTS "${_NJP_LIB}/nvjpeg.lib" AND EXISTS "${_NJP_LIB}/cudart.lib"
-       AND EXISTS "${_NJP_INC}/nvjpeg.h" AND EXISTS "${_NJP_INC}/cuda_runtime_api.h"
-       AND EXISTS "${_NJP_INC}/crt/host_defines.h")
+       AND EXISTS "${_NJP_INC}/nvjpeg.h" AND EXISTS "${_NJP_INC}/cuda_runtime_api.h")
         message(STATUS "[nvJPEG] Using cached SDK from third_party/nvjpeg/ (CUDA 12.x)")
         _rd_create_nvjpeg_targets("${_NJP_INC}" "${_NJP_LIB}" "${_NJP_BIN}")
         return()

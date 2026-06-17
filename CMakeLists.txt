@@ -134,6 +134,16 @@ if(TARGET NvJpeg::nvjpeg)
     target_link_libraries(CrossRemoteDesktop PRIVATE NvJpeg::nvjpeg NvJpeg::cudart)
     target_compile_definitions(CrossRemoteDesktop PRIVATE HAS_NVJPEG)
     message(STATUS "[nvJPEG] Linked to CrossRemoteDesktop")
+
+    # Delay-load: 首次调用 nvJPEG/CUDA 函数时才加载 DLL
+    # DLL 缺失时不会阻止 EXE 启动——probeGPU() 优雅返回 false
+    if(MSVC)
+        target_link_options(CrossRemoteDesktop PRIVATE
+            /DELAYLOAD:nvjpeg64_12.dll
+            /DELAYLOAD:cudart64_12.dll
+        )
+        target_link_libraries(CrossRemoteDesktop PRIVATE delayimp.lib)
+    endif()
 endif()
 
 # ── Windows: D3D11 + DXGI + 子系统 + DLL 部署 ──
