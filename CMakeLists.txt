@@ -129,6 +129,13 @@ target_link_libraries(CrossRemoteDesktop PRIVATE
     LibJpegTurbo::turbojpeg
 )
 
+# ── nvJPEG（可选：仅在 SDK 可用时链接）──
+if(TARGET NvJpeg::nvjpeg)
+    target_link_libraries(CrossRemoteDesktop PRIVATE NvJpeg::nvjpeg NvJpeg::cudart)
+    target_compile_definitions(CrossRemoteDesktop PRIVATE HAS_NVJPEG)
+    message(STATUS "[nvJPEG] Linked to CrossRemoteDesktop")
+endif()
+
 # ── Windows: D3D11 + DXGI + 子系统 + DLL 部署 ──
 if(WIN32)
     target_link_libraries(CrossRemoteDesktop PRIVATE d3d11.lib dxgi.lib)
