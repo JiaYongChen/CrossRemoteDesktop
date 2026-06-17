@@ -148,7 +148,7 @@
 #endif
 #include "builtin_types.h"
 
-#include "cuda_device_runtime_api.h"
+//#include "cuda_device_runtime_api.h"  // 不需要设备端运行时 API
 
 #if defined(CUDA_API_PER_THREAD_DEFAULT_STREAM) || defined(__CUDA_API_VERSION_INTERNAL)
     #define __CUDART_API_PER_THREAD_DEFAULT_STREAM

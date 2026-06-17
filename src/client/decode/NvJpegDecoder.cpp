@@ -88,7 +88,7 @@ bool NvJpegDecoder::decode(const QByteArray& jpegData, QImage& output,
     if (!m_dBuffer || m_dBufferSize < need) {
         if (m_dBuffer) cudaFree(m_dBuffer);
         const size_t ap = ((static_cast<size_t>(w) * kRGB + 3) / 4) * 4;
-        if (cudaMalloc(&m_dBuffer, ap * h) != cudaSuccess) {
+        if (cudaMalloc(reinterpret_cast<void**>(&m_dBuffer), ap * h) != cudaSuccess) {
             m_dBuffer = nullptr; m_dBufferSize = 0; return false;
         }
         m_dBufferSize = ap * h;
