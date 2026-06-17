@@ -166,7 +166,7 @@ inline __device__  cudaError_t CUDARTAPI __cudaCDP2OccupancyMaxActiveBlocksPerMu
 #if !defined(__CUDA_ARCH__) || (__CUDA_ARCH__ >= 350)   // Visible to SM>=3.5 and "__host__ __device__" only
 
 #include "driver_types.h"
-#include "crt/host_defines.h"
+#include "host_defines.h"
 
 #define cudaStreamGraphTailLaunch             (cudaStream_t)0x0100000000000000
 #define cudaStreamGraphFireAndForget          (cudaStream_t)0x0200000000000000
