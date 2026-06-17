@@ -188,7 +188,7 @@ add_rd_test(TARGET test_session_latest_wins  NAME SessionLatestWinsTest
         ../src/client/managers/SessionManager.cpp
         ../src/client/managers/DecodeWorker.cpp
         ../src/client/decode/TurboJpegDecoder.cpp
-        ../src/client/decode/NvJpegDecoder.cpp
+
         ../src/client/decode/OpenCLDecoder.cpp
         ../src/client/network/ConnectionManager.cpp
         ../src/client/network/TcpClient.cpp
@@ -238,7 +238,7 @@ add_rd_test(TARGET test_clientremotewindow  NAME ClientRemoteWindowTest
         ../src/client/managers/SessionManager.cpp
         ../src/client/managers/DecodeWorker.cpp
         ../src/client/decode/TurboJpegDecoder.cpp
-        ../src/client/decode/NvJpegDecoder.cpp
+
         ../src/client/decode/OpenCLDecoder.cpp
         ../src/client/network/ConnectionManager.cpp
         ../src/client/network/TcpClient.cpp
@@ -325,7 +325,7 @@ add_rd_test(TARGET test_sessionmanager_logic  NAME SessionManagerLogicTest
         ../src/client/managers/SessionManager.cpp
         ../src/client/managers/DecodeWorker.cpp
         ../src/client/decode/TurboJpegDecoder.cpp
-        ../src/client/decode/NvJpegDecoder.cpp
+
         ../src/client/decode/OpenCLDecoder.cpp
         ../src/client/network/ConnectionManager.cpp
         ../src/client/network/TcpClient.cpp
@@ -340,7 +340,7 @@ add_rd_test(TARGET test_sessionmanager_data  NAME SessionManagerDataTest
         ../src/client/managers/SessionManager.cpp
         ../src/client/managers/DecodeWorker.cpp
         ../src/client/decode/TurboJpegDecoder.cpp
-        ../src/client/decode/NvJpegDecoder.cpp
+
         ../src/client/decode/OpenCLDecoder.cpp
         ../src/client/network/ConnectionManager.cpp
         ../src/client/network/TcpClient.cpp
@@ -355,7 +355,7 @@ add_rd_test(TARGET test_sessionmanager_lifecycle  NAME SessionManagerLifecycleTe
         ../src/client/managers/SessionManager.cpp
         ../src/client/managers/DecodeWorker.cpp
         ../src/client/decode/TurboJpegDecoder.cpp
-        ../src/client/decode/NvJpegDecoder.cpp
+
         ../src/client/decode/OpenCLDecoder.cpp
         ../src/client/network/ConnectionManager.cpp
         ../src/client/network/TcpClient.cpp
