@@ -6,7 +6,9 @@
 #endif
 #include <QtCore/QThread>
 #include "../decode/TurboJpegDecoder.h"
+#ifdef HAS_NVJPEG
 #include "../decode/NvJpegDecoder.h"
+#endif
 #include "../decode/OpenCLDecoder.h"
 
 // ---- 构造/析构/基础方法 ----
@@ -51,10 +53,12 @@ void DecodeWorker::start() {
     m_running.store(true);
 
     // 优先级链: nvJPEG (NVIDIA CC 5.0+) → OpenCL (跨GPU) → TurboJpeg (CPU)
+#ifdef HAS_NVJPEG
     auto nv = std::make_unique<NvJpegDecoder>();
     if (nv->isAvailable()) {
         m_decoder = std::move(nv);
     }
+#endif
     if (!m_decoder) {
         auto ocl = std::make_unique<OpenCLDecoder>();
         if (ocl->isAvailable()) {

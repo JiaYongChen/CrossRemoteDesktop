@@ -22,8 +22,11 @@ function(rd_setup_cuda)
         if(NOT TARGET Cuda::cudart)
             add_library(Cuda::cudart UNKNOWN IMPORTED GLOBAL)
             set_target_properties(Cuda::cudart PROPERTIES
-                IMPORTED_IMPLIB                "${_LIB}/cudart.lib"
-                INTERFACE_INCLUDE_DIRECTORIES  "${_INC}"
+                IMPORTED_LOCATION_DEBUG          "${_LIB}/cudart.lib"
+                IMPORTED_LOCATION_RELEASE        "${_LIB}/cudart.lib"
+                IMPORTED_LOCATION_RELWITHDEBINFO "${_LIB}/cudart.lib"
+                IMPORTED_LOCATION_MINSIZEREL     "${_LIB}/cudart.lib"
+                INTERFACE_INCLUDE_DIRECTORIES    "${_INC}"
             )
         endif()
         set(CUDA_AVAILABLE TRUE PARENT_SCOPE)
@@ -37,8 +40,11 @@ function(rd_setup_cuda)
         if(NOT TARGET Cuda::nvjpeg)
             add_library(Cuda::nvjpeg UNKNOWN IMPORTED GLOBAL)
             set_target_properties(Cuda::nvjpeg PROPERTIES
-                IMPORTED_IMPLIB                "${_LIB}/nvjpeg.lib"
-                INTERFACE_INCLUDE_DIRECTORIES  "${_INC}"
+                IMPORTED_LOCATION_DEBUG          "${_LIB}/nvjpeg.lib"
+                IMPORTED_LOCATION_RELEASE        "${_LIB}/nvjpeg.lib"
+                IMPORTED_LOCATION_RELWITHDEBINFO "${_LIB}/nvjpeg.lib"
+                IMPORTED_LOCATION_MINSIZEREL     "${_LIB}/nvjpeg.lib"
+                INTERFACE_INCLUDE_DIRECTORIES    "${_INC}"
             )
         endif()
         set(NVJPEG_AVAILABLE TRUE PARENT_SCOPE)
