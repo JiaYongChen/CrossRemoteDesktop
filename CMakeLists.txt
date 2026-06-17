@@ -46,9 +46,11 @@ include(cmake/SetupLibJpegTurbo.cmake)  # → LibJpegTurbo::turbojpeg
 include(cmake/SetupQt6.cmake)           # → Qt6::*, QT6_ROOT_DIR
 include(cmake/FilterAppleOpenGL.cmake)  # → rd_filter_apple_opengl()
 include(cmake/SetupNvJpeg.cmake)        # → rd_setup_nvjpeg(), NvJpeg::nvjpeg
+include(cmake/SetupOpenCL.cmake)        # → rd_setup_opencl(), OpenCL::OpenCL
 include(cmake/DeployWindowsDlls.cmake)  # → rd_deploy_windows_runtime()
 
 rd_setup_nvjpeg()
+rd_setup_opencl()
 
 # 清理 AGL/OpenGL 传播
 rd_filter_apple_opengl(Qt6::Gui)
@@ -138,6 +140,13 @@ if(TARGET NvJpeg::nvjpeg)
         target_link_libraries(CrossRemoteDesktop PRIVATE delayimp.lib)
     endif()
     message(STATUS "[nvJPEG] Linked — GPU decode available at runtime")
+endif()
+
+# ── OpenCL（编译时链接 OpenCL.lib，运行时 DLL 由 GPU 驱动提供）──
+if(OPENCL_AVAILABLE)
+    target_link_libraries(CrossRemoteDesktop PRIVATE OpenCL::OpenCL)
+    target_compile_definitions(CrossRemoteDesktop PRIVATE HAS_OPENCL)
+    message(STATUS "[OpenCL] Linked to CrossRemoteDesktop")
 endif()
 
 # ── Windows: D3D11 + DXGI + 子系统 + DLL 部署 ──
