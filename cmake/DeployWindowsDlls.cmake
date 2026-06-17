@@ -97,26 +97,13 @@ function(rd_deploy_windows_runtime _target)
     endif()
 
     # ── nvJPEG DLL（GPU JPEG 解码）──
-    if(DEFINED NVJPEG_TP_BIN AND EXISTS "${NVJPEG_TP_BIN}/nvjpeg64_12.dll")
+    if(DEFINED CUDA_TP_BIN AND EXISTS "${CUDA_TP_BIN}/nvjpeg64_12.dll")
         add_custom_command(TARGET ${_target} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${NVJPEG_TP_BIN}/nvjpeg64_12.dll"
-                "${_out_dir}/"
+                "${CUDA_TP_BIN}/nvjpeg64_12.dll"
+                "${_out_dir}/nvjpeg64_12.dll"
             COMMENT "Copying nvJPEG DLL"
         )
-    endif()
-
-    # ── nvJPEG GPU 解码 DLL（运行时 QLibrary 加载）──
-    if(DEFINED NVJPEG_TP_BIN AND EXISTS "${NVJPEG_TP_BIN}")
-        file(GLOB _nvjpeg_dlls "${NVJPEG_TP_BIN}/*.dll")
-        foreach(_dll ${_nvjpeg_dlls})
-            get_filename_component(_dll_name "${_dll}" NAME)
-            add_custom_command(TARGET ${_target} POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                    "${_dll}" "${_out_dir}/"
-                COMMENT "Copying nvJPEG DLL: ${_dll_name}"
-            )
-        endforeach()
     endif()
 
     # ── Qt TLS 插件 ──
