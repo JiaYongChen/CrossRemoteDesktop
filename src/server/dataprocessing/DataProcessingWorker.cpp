@@ -385,7 +385,7 @@ ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, qui
             convertedImage.height(),
             TJPF_RGB,
             &jpegBuf, &jpegSize,
-            TJSAMP_444,       // 无色度子采样，最佳质量
+            TJSAMP_420,       // 4:2:0 色度子采样——视觉无差异，体积 -55%
             quality,
             TJFLAG_FASTDCT);  // 快速 DCT 算法
 
