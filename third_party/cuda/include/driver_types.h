@@ -56,7 +56,7 @@
 #endif
 
 #ifndef __DOXYGEN_ONLY__
-#include "host_defines.h"
+#include "crt/host_defines.h"
 #endif
 #include "vector_types.h"
 

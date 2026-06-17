@@ -80,7 +80,7 @@ typedef unsigned size_t;
 *                                                                              *
 *******************************************************************************/
 
-#include "host_config.h"
+#include "crt/host_config.h"
 
 /*******************************************************************************
 *                                                                              *
@@ -97,7 +97,7 @@ typedef unsigned size_t;
 #include "driver_functions.h"
 #undef EXCLUDE_FROM_RTC
 #endif /* !__CUDACC_RTC__ */
-#include "host_defines.h"
+#include "crt/host_defines.h"
 #ifdef __CUDACC_RTC__
 #include "target"
 #endif  /* defined(__CUDACC_RTC__) */
@@ -109,14 +109,14 @@ typedef unsigned size_t;
 
 #if defined(__CUDACC_RTC__)
 #include "nvrtc_device_runtime.h"
-#include "device_functions.h"
-#include "common_functions.h"
+#include "crt/device_functions.h"
+#include "crt/common_functions.h"
 #include "device_launch_parameters.h"
 
 #else /* !__CUDACC_RTC__ */
 #define EXCLUDE_FROM_RTC
-#include "common_functions.h"
-#include "device_functions.h"
+#include "crt/common_functions.h"
+#include "crt/device_functions.h"
 #include "device_launch_parameters.h"
 
 #if defined(__CUDACC_EXTENDED_LAMBDA__)

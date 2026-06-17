@@ -51,7 +51,7 @@
 #define __DRIVER_FUNCTIONS_H__
 
 #include "builtin_types.h"
-#include "host_defines.h"
+#include "crt/host_defines.h"
 #include "driver_types.h"
 
 /**
