@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/opencl">
+        <file>jpeg_decode.cl</file>
+    </qresource>
+</RCC>

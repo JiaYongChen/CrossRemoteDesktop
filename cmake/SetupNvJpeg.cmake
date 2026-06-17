@@ -17,7 +17,10 @@ function(rd_setup_nvjpeg)
         if(NOT TARGET NvJpeg::nvjpeg)
             add_library(NvJpeg::nvjpeg UNKNOWN IMPORTED GLOBAL)
             set_target_properties(NvJpeg::nvjpeg PROPERTIES
-                IMPORTED_IMPLIB   "${_LIB}/nvjpeg.lib"
+                IMPORTED_LOCATION_DEBUG          "${_LIB}/nvjpeg.lib"
+                IMPORTED_LOCATION_RELEASE        "${_LIB}/nvjpeg.lib"
+                IMPORTED_LOCATION_RELWITHDEBINFO "${_LIB}/nvjpeg.lib"
+                IMPORTED_LOCATION_MINSIZEREL     "${_LIB}/nvjpeg.lib"
             )
         endif()
         set(NVJPEG_TP_BIN "${_BIN}" PARENT_SCOPE)

@@ -106,6 +106,7 @@ file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS
 qt_add_executable(CrossRemoteDesktop WIN32
     ${PROJECT_SOURCES}
     resources/resources.qrc
+    src/client/decode/kernels/kernels.qrc
 )
 
 target_include_directories(CrossRemoteDesktop PRIVATE
