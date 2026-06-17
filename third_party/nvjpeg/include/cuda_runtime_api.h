@@ -144,7 +144,7 @@
 #endif
 
 #ifndef __DOXYGEN_ONLY__
-#include "crt/host_defines.h"
+#include "host_defines.h"
 #endif
 #include "builtin_types.h"
 
