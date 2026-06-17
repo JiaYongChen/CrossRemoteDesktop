@@ -2,18 +2,358 @@
 <ui version="4.0">
  <class>ConnectionDialog</class>
  <widget class="QDialog" name="ConnectionDialog">
-  <property name="geometry"><rect><x>0</x><y>0</y><width>480</width><height>520</height></rect></property>
+  <property name="geometry"><rect><x>0</x><y>0</y><width>520</width><height>540</height></rect></property>
   <property name="windowTitle"><string>远程桌面连接</string></property>
+  <property name="minimumSize">
+   <size>
+    <width>440</width>
+    <height>460</height>
+   </size>
+  </property>
   <property name="windowIcon"><iconset resource="../../resources/resources.qrc"><normaloff>:/icons/connect.svg</normaloff>:/icons/connect.svg</iconset></property>
+  <property name="styleSheet">
+   <string>/* ============================================================
+ * ConnectionDialog — Fluent Design (WinUI) 浅色主题
+ * ============================================================ */
+
+/* --- 窗口 --- */
+QDialog#ConnectionDialog {
+    background-color: #f3f3f3;
+    font-family: "Segoe UI Variable", "Segoe UI", "Microsoft YaHei", sans-serif;
+    font-size: 13px;
+    color: #1a1a1a;
+}
+
+/* --- 标签页容器（继承对话框背景） --- */
+QWidget#tabContainer {
+    background-color: transparent;
+}
+
+/* --- 标签页容器（标签栏区域背景） --- */
+QTabWidget {
+    background-color: transparent;
+}
+
+/* --- 标签页内容区 --- */
+QTabWidget::pane {
+    background-color: #fcfcfc;
+    border: none;
+    border-top: 1px solid #e0e0e0;
+    top: -1px;
+    padding: 24px 28px;
+}
+
+/* --- 标签栏 --- */
+QTabBar::tab {
+    background-color: transparent;
+    color: #666666;
+    padding: 10px 20px;
+    border: none;
+    border-bottom: 3px solid transparent;
+    font-size: 13px;
+    font-weight: 400;
+}
+
+QTabBar::tab:selected {
+    color: #1a1a1a;
+    font-weight: 600;
+    border-bottom: 3px solid #0078d4;
+}
+
+QTabBar::tab:hover:!selected {
+    color: #1a1a1a;
+}
+
+/* --- 分组框 → 白色卡片 --- */
+QGroupBox {
+    background-color: #ffffff;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    margin-top: 8px;
+    padding: 18px 12px 12px 12px;
+    font-weight: 600;
+    font-size: 13px;
+    color: #1a1a1a;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 14px;
+    padding: 0 6px 0 6px;
+    color: #1a1a1a;
+}
+
+/* --- 标签 --- */
+QLabel {
+    color: #1a1a1a;
+    font-weight: 400;
+    font-size: 13px;
+}
+
+/* --- 下拉框 --- */
+QComboBox {
+    border: 1px solid #cfcfcf;
+    border-radius: 4px;
+    padding: 5px 10px;
+    background-color: #ffffff;
+    color: #1a1a1a;
+    font-size: 13px;
+    font-family: "Segoe UI", sans-serif;
+}
+
+QComboBox:hover {
+    border-color: #999999;
+}
+
+QComboBox:focus {
+    border-color: #0078d4;
+}
+
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 24px;
+    border: none;
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
+}
+
+QComboBox::down-arrow {
+    image: url(:/icons/dropdown-arrow.svg);
+    width: 12px;
+    height: 12px;
+    margin-right: 6px;
+}
+
+QComboBox QAbstractItemView {
+    border: 1px solid #cfcfcf;
+    border-radius: 4px;
+    background-color: #ffffff;
+    selection-background-color: rgba(0, 120, 212, 0.12);
+    selection-color: #1a1a1a;
+    outline: none;
+}
+
+/* --- 数字输入框 --- */
+QSpinBox {
+    border: 1px solid #cfcfcf;
+    border-radius: 4px;
+    padding: 8px 12px;
+    background-color: #ffffff;
+    color: #1a1a1a;
+    font-size: 13px;
+    font-family: "Segoe UI", sans-serif;
+}
+
+QSpinBox:hover {
+    border-color: #999999;
+}
+
+QSpinBox:focus {
+    border-color: #0078d4;
+}
+
+QSpinBox::up-button {
+    subcontrol-origin: border;
+    subcontrol-position: top right;
+    width: 20px;
+    border-left: 1px solid #cfcfcf;
+    border-bottom: 1px solid #cfcfcf;
+    border-top-right-radius: 4px;
+}
+
+QSpinBox::up-button:hover {
+    background-color: #e8e8e8;
+}
+
+QSpinBox::up-arrow {
+    image: url(:/icons/spin-up.svg);
+    width: 8px;
+    height: 8px;
+}
+
+QSpinBox::down-button {
+    subcontrol-origin: border;
+    subcontrol-position: bottom right;
+    width: 20px;
+    border-left: 1px solid #cfcfcf;
+    border-bottom-right-radius: 4px;
+}
+
+QSpinBox::down-button:hover {
+    background-color: #e8e8e8;
+}
+
+QSpinBox::down-arrow {
+    image: url(:/icons/spin-down.svg);
+    width: 8px;
+    height: 8px;
+}
+
+/* --- 文本框 --- */
+QLineEdit {
+    border: 1px solid #cfcfcf;
+    border-radius: 4px;
+    padding: 8px 12px;
+    background-color: #ffffff;
+    color: #1a1a1a;
+    font-size: 13px;
+    font-family: "Segoe UI", sans-serif;
+}
+
+QLineEdit:hover {
+    border-color: #999999;
+}
+
+QLineEdit:focus {
+    border-color: #0078d4;
+}
+
+/* --- 复选框（传统方框样式） --- */
+QCheckBox {
+    color: #1a1a1a;
+    font-size: 13px;
+    spacing: 8px;
+}
+
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    background-color: #ffffff;
+    border: 2px solid #cccccc;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #0078d4;
+    border-color: #0078d4;
+}
+
+QCheckBox::indicator:hover {
+    border-color: #999999;
+}
+
+QCheckBox::indicator:checked:hover {
+    background-color: #106ebe;
+    border-color: #106ebe;
+}
+
+/* --- 滑块（图像质量） --- */
+QSlider::groove:horizontal {
+    background-color: #e0e0e0;
+    height: 4px;
+    border-radius: 2px;
+}
+
+QSlider::sub-page:horizontal {
+    background-color: #0078d4;
+    height: 4px;
+    border-radius: 2px;
+}
+
+QSlider::handle:horizontal {
+    background-color: #ffffff;
+    border: 2px solid #0078d4;
+    width: 16px;
+    height: 16px;
+    margin: -6px 0;
+    border-radius: 8px;
+}
+
+QSlider::handle:horizontal:hover {
+    background-color: #f0f0f0;
+    border-color: #106ebe;
+}
+
+/* --- 底部按钮栏（对话框按钮） --- */
+QDialogButtonBox QPushButton {
+    background-color: #0078d4;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 20px;
+    font-size: 13px;
+    font-weight: 500;
+    min-width: 90px;
+    min-height: 32px;
+}
+
+QDialogButtonBox QPushButton:hover {
+    background-color: #106ebe;
+}
+
+QDialogButtonBox QPushButton:pressed {
+    background-color: #005a9e;
+}
+
+/* --- 密码切换按钮 --- */
+QPushButton#togglePasswordBtn {
+    background-color: transparent;
+    border: none;
+    width: 14px;
+    height: 14px;
+    min-width: 14px;
+    max-width: 14px;
+    min-height: 14px;
+    max-height: 14px;
+    padding: 0;
+}
+
+QPushButton#togglePasswordBtn:hover {
+    background-color: transparent;
+}
+
+/* --- 滚动条 --- */
+QScrollBar:vertical {
+    width: 6px;
+    background-color: transparent;
+    margin: 0;
+}
+
+QScrollBar::handle:vertical {
+    background-color: #c0c0c0;
+    border-radius: 3px;
+    min-height: 30px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background-color: #a0a0a0;
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical {
+    background-color: transparent;
+}
+
+/* --- 标签页内 QWidget 透底 --- */
+QWidget#connectionTab,
+QWidget#optionsTab,
+QWidget#advancedTab {
+    background-color: transparent;
+}</string>
+  </property>
   <property name="modal"><bool>true</bool></property>
   <layout class="QVBoxLayout" name="verticalLayout">
-   <property name="spacing"><number>10</number></property>
-   <property name="leftMargin"><number>15</number></property>
-   <property name="topMargin"><number>15</number></property>
-   <property name="rightMargin"><number>15</number></property>
-   <property name="bottomMargin"><number>15</number></property>
+   <property name="spacing"><number>0</number></property>
+   <property name="leftMargin"><number>0</number></property>
+   <property name="topMargin"><number>0</number></property>
+   <property name="rightMargin"><number>0</number></property>
+   <property name="bottomMargin"><number>0</number></property>
    <item>
-    <widget class="QTabWidget" name="tabWidget">
+    <widget class="QWidget" name="tabContainer">
+     <layout class="QVBoxLayout" name="tabContainerLayout">
+      <property name="spacing"><number>0</number></property>
+      <property name="leftMargin"><number>24</number></property>
+      <property name="topMargin"><number>16</number></property>
+      <property name="rightMargin"><number>24</number></property>
+      <property name="bottomMargin"><number>16</number></property>
+      <item>
+       <widget class="QTabWidget" name="tabWidget">
      <property name="currentIndex"><number>0</number></property>
      <widget class="QWidget" name="connectionTab">
       <attribute name="title"><string>连接信息</string></attribute>
@@ -42,7 +382,7 @@
            <layout class="QHBoxLayout" name="passwordLayout">
             <item><widget class="QLineEdit" name="passwordLineEdit"><property name="minimumSize"><size><width>0</width><height>32</height></size></property><property name="maximumSize"><size><width>176</width><height>32</height></size></property><property name="echoMode"><enum>QLineEdit::Password</enum></property><property name="placeholderText"><string>输入密码（可选）</string></property></widget></item>
             <item><spacer name="passwordSpacing"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeType"><enum>QSizePolicy::Fixed</enum></property><property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property></spacer></item>
-            <item><widget class="QPushButton" name="togglePasswordBtn"><property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="fixedWidth"><number>14</number></property><property name="fixedHeight"><number>14</number></property><property name="toolTip"><string>显示/隐藏密码</string></property><property name="styleSheet"><string>QPushButton#togglePasswordBtn { background-color: transparent; border: none; padding: 0; min-width: 14px; max-width: 14px; min-height: 14px; max-height: 14px; } QPushButton#togglePasswordBtn:hover { background-color: transparent; }</string></property></widget></item>
+            <item><widget class="QPushButton" name="togglePasswordBtn"><property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="fixedWidth"><number>14</number></property><property name="fixedHeight"><number>14</number></property><property name="toolTip"><string>显示/隐藏密码</string></property></widget></item>
            </layout>
           </item>
          </layout>
@@ -112,17 +452,24 @@
        <item><spacer name="advancedSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer></item>
       </layout>
      </widget>
+       </widget>
+      </item>
+     </layout>
     </widget>
    </item>
    <item>
     <layout class="QHBoxLayout" name="buttonLayout">
+     <property name="spacing"><number>8</number></property>
+     <property name="leftMargin"><number>24</number></property>
+     <property name="topMargin"><number>12</number></property>
+     <property name="rightMargin"><number>24</number></property>
+     <property name="bottomMargin"><number>16</number></property>
      <item><spacer name="buttonSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
      <item><widget class="QDialogButtonBox" name="buttonBox"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="standardButtons"><set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set></property></widget></item>
     </layout>
    </item>
   </layout>
  </widget>
- <resources><include location="../../resources/resources.qrc"/></resources>
  <connections>
   <connection><sender>buttonBox</sender><signal>accepted()</signal><receiver>ConnectionDialog</receiver><slot>accept()</slot></connection>
   <connection><sender>buttonBox</sender><signal>rejected()</signal><receiver>ConnectionDialog</receiver><slot>reject()</slot></connection>
