@@ -45,11 +45,11 @@ include(cmake/SetupOpenSSL.cmake)       # → OpenSSL::SSL, OpenSSL::Crypto
 include(cmake/SetupLibJpegTurbo.cmake)  # → LibJpegTurbo::turbojpeg
 include(cmake/SetupQt6.cmake)           # → Qt6::*, QT6_ROOT_DIR
 include(cmake/FilterAppleOpenGL.cmake)  # → rd_filter_apple_opengl()
-include(cmake/SetupNvJpeg.cmake)        # → rd_setup_nvjpeg(), NvJpeg::nvjpeg
+include(cmake/SetupCuda.cmake)          # → rd_setup_cuda(), Cuda::cudart, Cuda::nvjpeg
 include(cmake/SetupOpenCL.cmake)        # → rd_setup_opencl(), OpenCL::OpenCL
 include(cmake/DeployWindowsDlls.cmake)  # → rd_deploy_windows_runtime()
 
-rd_setup_nvjpeg()
+rd_setup_cuda()
 rd_setup_opencl()
 
 # 清理 AGL/OpenGL 传播
@@ -132,15 +132,12 @@ target_link_libraries(CrossRemoteDesktop PRIVATE
     LibJpegTurbo::turbojpeg
 )
 
-# ── nvJPEG（编译时链接 nvjpeg.lib，CUDA 函数运行时 QLibrary 加载）──
-if(TARGET NvJpeg::nvjpeg)
-    target_link_libraries(CrossRemoteDesktop PRIVATE NvJpeg::nvjpeg)
+# ── CUDA + nvJPEG（编译时直接链接，运行时 DLL 必须存在）──
+if(CUDA_AVAILABLE AND NVJPEG_AVAILABLE)
+    target_link_libraries(CrossRemoteDesktop PRIVATE
+        Cuda::cudart Cuda::nvjpeg)
     target_compile_definitions(CrossRemoteDesktop PRIVATE HAS_NVJPEG)
-    if(MSVC)
-        target_link_options(CrossRemoteDesktop PRIVATE /DELAYLOAD:nvjpeg64_12.dll)
-        target_link_libraries(CrossRemoteDesktop PRIVATE delayimp.lib)
-    endif()
-    message(STATUS "[nvJPEG] Linked — GPU decode available at runtime")
+    message(STATUS "[CUDA] Linked — GPU decode available")
 endif()
 
 # ── OpenCL（编译时链接 OpenCL.lib，运行时 DLL 由 GPU 驱动提供）──
