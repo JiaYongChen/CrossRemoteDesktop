@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DataFlowStructures.h"
+#include "../../common/core/config/Constants.h"
 #include "../../common/core/threading/ThreadSafeQueue.h"
 #include <QtCore/QObject>
 #include <QtCore/QTimer>
@@ -51,7 +52,9 @@ public:
      * @param processedQueueSize 处理队列最大大小（0表示无限制）
      * @return true 初始化成功，false 初始化失败
      */
-    bool initialize(int captureQueueSize = 1, int processedQueueSize = 1);  // Drain-to-Latest: maxSize=1 最低延迟
+    bool initialize(
+        int captureQueueSize   = CoreConstants::Performance::MAX_QUEUE_SIZE,
+        int processedQueueSize = CoreConstants::Performance::MAX_QUEUE_SIZE);
 
     /**
      * @brief 清理队列管理器

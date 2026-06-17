@@ -28,7 +28,9 @@ ServerManager::ServerManager(QObject* parent, ThreadManager* threadMgr, QueueMan
     qCDebug(lcServerManager) << "ServerManager::ServerManager() - Initializing ServerManager";
 
     m_queueManager = queueMgr;
-    m_queueManager->initialize(1, 1);
+    m_queueManager->initialize(
+        CoreConstants::Performance::MAX_QUEUE_SIZE,
+        CoreConstants::Performance::MAX_QUEUE_SIZE);
 
     // 创建屏幕捕获管理器（在主线程创建，传递 DI）
     m_screenCapture = new ScreenCapture(m_threadManager, m_queueManager, this);

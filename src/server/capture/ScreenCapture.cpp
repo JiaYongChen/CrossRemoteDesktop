@@ -30,8 +30,10 @@ ScreenCapture::ScreenCapture(ThreadManager* threadMgr, QueueManager* queueMgr, Q
     m_captureConfig.captureRect = QRect(); // 空矩形表示全屏
 
     // 确保队列管理器已初始化
-    if ( m_queueManager ) {
-        qCWarning(lcScreenCaptureManager) << "QueueManager 为空，队列功能不可用";
+    if ( !m_queueManager ) {
+        qCCritical(lcScreenCaptureManager) << "QueueManager 为空，队列功能不可用";
+        emit captureError(RdError(ErrorCode::CaptureInitFailed, "QueueManager 为空", "ScreenCapture"));
+        return;
     }
 
     // 初始化性能统计
