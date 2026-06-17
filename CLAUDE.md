@@ -2,7 +2,7 @@
 
 本文件为 Claude Code (claude.ai/code) 在本仓库中工作时提供指导。
 
-> 最后更新：2026-06-12（经过 14 轮深度优化重构）
+> 最后更新：2026-06-17
 
 ## 构建命令
 
@@ -42,31 +42,28 @@ cmake --build build --target run_performance_tests
 ## 依赖
 
 - **Qt 6.9+**: Core, Widgets, Network, Gui, OpenGL, OpenGLWidgets, Concurrent, Svg（Test 仅测试目录使用）
-- **OpenSSL**: vcpkg 管理。`cmake/SetupOpenSSL.cmake` 优先检测 `third_party/openssl/` 预编译缓存（已提交 git），缺失时自动调用 vcpkg 下载并缓存。
-- **libjpeg-turbo**: vcpkg 管理。`cmake/SetupLibJpegTurbo.cmake` 同上三级机制（缓存→vcpkg 下载→报错指引）。
+- **OpenSSL**: 缓存于 `third_party/openssl/`，开发者通过 vcpkg 获取。
+- **libjpeg-turbo**: 同上，缓存于 `third_party/libjpeg-turbo/`。
+- **nvJPEG**（可选）: CUDA 12.x SDK 缓存于 `third_party/nvjpeg/`。缺失时自动跳过，运行时降级为 CPU 解码。开发者通过 CUDA Toolkit 获取。
 - **C++20** 必需，CMake 3.16+
 
 ### 第三方库管理
 
-项目使用 [vcpkg](https://github.com/microsoft/vcpkg) 作为第三方库获取工具。构建时 CMake 先检测 `third_party/<lib>/` 是否有预编译缓存（已提交 git，支持离线构建），缺失时自动调用 vcpkg 下载并将产物缓存到 `third_party/`。
+项目使用 [vcpkg](https://github.com/microsoft/vcpkg) 作为开发者获取预编译包的工具。**CMake 构建时不调用 vcpkg**——所有产物缓存于 `third_party/` 并提交 git，构建时直接使用，支持 `git clone` 后离线构建。
 
-**前置条件**：需设置 `VCPKG_ROOT` 环境变量指向 vcpkg 安装目录。
-```bash
-git clone https://github.com/microsoft/vcpkg.git C:/vcpkg
-C:/vcpkg/bootstrap-vcpkg.bat
-setx VCPKG_ROOT C:/vcpkg
-```
+**开发者流程**：vcpkg 下载 → 按约定重组到 `third_party/<lib>/` → 提交 git。
 
-**缓存更新**：第一次 vcpkg 下载后，将 `third_party/<lib>/` 的变更提交 git 供团队/CI 离线使用。
+**前置条件**：需设置 `VCPKG_ROOT` 环境变量。
 
 ### CMake 模块结构
 
-根 CMakeLists.txt 通过 `include()` 引入 6 个模块化 .cmake 文件 + vcpkg 兜底逻辑：
+根 CMakeLists.txt 通过 `include()` 引入 7 个模块化 .cmake 文件：
 
 ```
 cmake/
-├── SetupOpenSSL.cmake        # OpenSSL 检测 + vcpkg 兜底
-├── SetupLibJpegTurbo.cmake   # libjpeg-turbo 检测 + vcpkg 兜底
+├── SetupOpenSSL.cmake        # OpenSSL — 直接使用 third_party/ 缓存
+├── SetupLibJpegTurbo.cmake   # libjpeg-turbo — 直接使用 third_party/ 缓存
+├── SetupNvJpeg.cmake         # nvJPEG（可选）— third_party/ 缓存，缺失时自动跳过
 ├── PlatformDetect.cmake      # OS/架构自动识别
 ├── SetupQt6.cmake            # Qt6 路径搜索 + 架构验证
 ├── FilterAppleOpenGL.cmake   # macOS AGL/OpenGL 过滤

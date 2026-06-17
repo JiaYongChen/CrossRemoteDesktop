@@ -123,7 +123,7 @@ bool NvJpegDecoder::decode(
     if (!m_dBuffer || m_dBufferSize < needed) {
         if (m_dBuffer) cudaFree(m_dBuffer);
         const size_t alignedPitch = ((static_cast<size_t>(w) * kRGB + 3) / 4) * 4;
-        if (cudaMalloc(&m_dBuffer, alignedPitch * h) != cudaSuccess) {
+        if (cudaMalloc(reinterpret_cast<void**>(&m_dBuffer), alignedPitch * h) != cudaSuccess) {
             qCWarning(lcClient) << "NvJpegDecoder: cudaMalloc failed";
             m_dBuffer = nullptr;
             m_dBufferSize = 0;
@@ -189,7 +189,7 @@ bool NvJpegDecoder::decodeToPBO(
     constexpr int kRGB = 3;
     const size_t needed = static_cast<size_t>(width) * height * kRGB;
     unsigned char* tmp = nullptr;
-    if (cudaMalloc(&tmp, needed) != cudaSuccess) return false;
+    if (cudaMalloc(reinterpret_cast<void**>(&tmp), needed) != cudaSuccess) return false;
 
     // 3. 解码
     nvjpegImage_t dst{};

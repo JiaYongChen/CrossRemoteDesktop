@@ -1,9 +1,7 @@
 # SetupLibJpegTurbo.cmake
 # ──────────────────────────────────────────────────────────────────────────
-# 三级机制:
-#  1. 检测 third_party/libjpeg-turbo/ 预编译库 → 直接用（离线）
-#  2. 缺失时调用 vcpkg 下载预编译包 → 缓存到 third_party/libjpeg-turbo/
-#  3. vcpkg 不可用 → FATAL_ERROR 提示用户
+# 直接从 third_party/libjpeg-turbo/ 预编译缓存读取（已提交 git）
+# 缓存缺失时 FATAL_ERROR —— 开发者应通过 vcpkg 获取后缓存到 third_party/
 #
 # Windows: x64-windows triplet → turbojpeg.dll + turbojpeg.lib（导入库）
 # Unix:    静态库 libturbojpeg.a
@@ -21,119 +19,50 @@ if(WIN32)
     set(_TJ_IMPLIB      "turbojpeg.lib")       # 导入库（Debug/Release 相同）
     set(_TJ_DLL_REL     "turbojpeg.dll")
     set(_TJ_DLL_DBG     "turbojpegD.dll")
-    set(_TRIPLET        "x64-windows")
     set(_TJ_BIN         "${_TJ_TP}/bin/${PLATFORM_NAME}-${PLATFORM_ARCH}")
 else()
     set(_TJ_FILE "libturbojpeg.a")
-    if(APPLE)
-        if(PLATFORM_ARCH STREQUAL "ARM64")
-            set(_TRIPLET "arm64-osx")
-        else()
-            set(_TRIPLET "x64-osx")
-        endif()
-    else()
-        if(PLATFORM_ARCH STREQUAL "ARM64")
-            set(_TRIPLET "arm64-linux")
-        else()
-            set(_TRIPLET "x64-linux")
-        endif()
-    endif()
 endif()
 
 # ══════════════════════════════════════════════════════════════════════════
-# 1) 检查预编译库是否完整
+# 1) 检查预编译缓存是否完整
 # ══════════════════════════════════════════════════════════════════════════
-set(_READY TRUE)
+set(_MISSING "")
 if(NOT EXISTS "${_TJ_INC}/turbojpeg.h")
-    set(_READY FALSE)
+    list(APPEND _MISSING "  - 头文件: ${_TJ_INC}/turbojpeg.h")
 endif()
 if(WIN32)
     if(NOT EXISTS "${_TJ_LIB}/${_TJ_IMPLIB}")
-        set(_READY FALSE)
+        list(APPEND _MISSING "  - 导入库: ${_TJ_LIB}/${_TJ_IMPLIB}")
     endif()
-    if(NOT EXISTS "${_TJ_BIN}/${_TJ_DLL_REL}" OR NOT EXISTS "${_TJ_BIN}/${_TJ_DLL_DBG}")
-        set(_READY FALSE)
+    if(NOT EXISTS "${_TJ_BIN}/${_TJ_DLL_REL}")
+        list(APPEND _MISSING "  - DLL(Release): ${_TJ_BIN}/${_TJ_DLL_REL}")
+    endif()
+    if(NOT EXISTS "${_TJ_BIN}/${_TJ_DLL_DBG}")
+        list(APPEND _MISSING "  - DLL(Debug): ${_TJ_BIN}/${_TJ_DLL_DBG}")
     endif()
 else()
     if(NOT EXISTS "${_TJ_LIB}/${_TJ_FILE}")
-        set(_READY FALSE)
+        list(APPEND _MISSING "  - 库文件: ${_TJ_LIB}/${_TJ_FILE}")
     endif()
 endif()
 
-# ══════════════════════════════════════════════════════════════════════════
-# 2) 缺失 → vcpkg 自动下载预编译包
-# ══════════════════════════════════════════════════════════════════════════
-if(NOT _READY)
-    if(NOT DEFINED ENV{VCPKG_ROOT})
-        message(FATAL_ERROR
-            "[libjpeg-turbo] third_party/libjpeg-turbo/ 预编译库不完整，且 VCPKG_ROOT 未设置。\n"
-            "  方案1: 安装 vcpkg\n"
-            "    git clone https://github.com/microsoft/vcpkg.git C:/vcpkg\n"
-            "    cd C:/vcpkg && bootstrap-vcpkg.bat\n"
-            "    setx VCPKG_ROOT C:/vcpkg\n"
-            "  方案2: 手动放置 libjpeg-turbo 预编译库到 ${_TJ_LIB}/")
-    endif()
-
-    message(STATUS "[libjpeg-turbo] 预编译库缺失，vcpkg 自动下载（${_TRIPLET}）...")
-
-    set(_VCPKG "$ENV{VCPKG_ROOT}/vcpkg.exe")
-    if(NOT EXISTS "${_VCPKG}")
-        message(FATAL_ERROR
-            "[libjpeg-turbo] vcpkg.exe 未找到: ${_VCPKG}\n"
-            "  请确认 VCPKG_ROOT 环境变量指向正确的 vcpkg 安装目录。")
-    endif()
-
-    set(_INSTALL_DIR "${CMAKE_BINARY_DIR}/_vcpkg_turbojpeg")
-
-    execute_process(
-        COMMAND "${_VCPKG}" install "libjpeg-turbo:${_TRIPLET}"
-                "--x-install-root=${_INSTALL_DIR}"
-        RESULT_VARIABLE _rc
-        TIMEOUT 600
-    )
-    if(NOT _rc EQUAL 0)
-        message(FATAL_ERROR
-            "[libjpeg-turbo] vcpkg install libjpeg-turbo:${_TRIPLET} 失败 (exit=${_rc})。\n"
-            "  请检查网络连接或手动放置预编译库到 ${_TJ_LIB}/")
-    endif()
-
-    # ── 复制产物到 third_party/libjpeg-turbo/ ──
-    set(_SRC "${_INSTALL_DIR}/${_TRIPLET}")
-
-    # 头文件
-    file(MAKE_DIRECTORY "${_TJ_INC}")
-    file(COPY "${_SRC}/include/" DESTINATION "${_TJ_INC}")
-
-    if(WIN32)
-        # 导入库（Release 和 Debug 各一份，内容相同但分开存放供 CMake 区分）
-        file(MAKE_DIRECTORY "${_TJ_LIB}")
-        file(COPY "${_SRC}/lib/turbojpeg.lib" DESTINATION "${_TJ_LIB}")
-
-        # DLL: vcpkg 的 Release/Debug DLL 同名，按项目惯例用 D 后缀区分
-        file(MAKE_DIRECTORY "${_TJ_BIN}")
-        # 先复制 Debug → 重命名为 turbojpegD.dll
-        if(EXISTS "${_SRC}/debug/bin/turbojpeg.dll")
-            file(COPY "${_SRC}/debug/bin/turbojpeg.dll" DESTINATION "${_TJ_BIN}")
-            file(RENAME "${_TJ_BIN}/turbojpeg.dll" "${_TJ_BIN}/${_TJ_DLL_DBG}")
-        endif()
-        # 再复制 Release → 保持 turbojpeg.dll（不会覆盖已重命名的 Debug）
-        if(EXISTS "${_SRC}/bin/turbojpeg.dll")
-            file(COPY "${_SRC}/bin/turbojpeg.dll" DESTINATION "${_TJ_BIN}")
-        endif()
-    else()
-        file(MAKE_DIRECTORY "${_TJ_LIB}")
-        file(COPY "${_SRC}/lib/libturbojpeg.a" DESTINATION "${_TJ_LIB}")
-        file(RENAME "${_TJ_LIB}/libturbojpeg.a" "${_TJ_LIB}/${_TJ_FILE}")
-    endif()
-
-    # 清理临时目录
-    file(REMOVE_RECURSE "${_INSTALL_DIR}")
-
-    message(STATUS "[libjpeg-turbo] 已缓存到 ${_TJ_TP}（请提交 git 供离线使用）")
+if(_MISSING)
+    string(JOIN "\n" _missing_list ${_MISSING})
+    message(FATAL_ERROR
+        "[libjpeg-turbo] third_party/libjpeg-turbo/ 预编译缓存不完整，缺少以下文件:\n"
+        "${_missing_list}\n\n"
+        "  请通过 vcpkg 下载预编译包并缓存到 third_party/libjpeg-turbo/:\n"
+        "    vcpkg install libjpeg-turbo:x64-windows\n"
+        "  然后将产物按以下结构重组并提交 git:\n"
+        "    third_party/libjpeg-turbo/\n"
+        "      include/             ← 头文件\n"
+        "      lib/Windows-x64/      ← 导入库 (turbojpeg.lib)\n"
+        "      bin/Windows-x64/      ← DLL (turbojpeg.dll, turbojpegD.dll)")
 endif()
 
 # ══════════════════════════════════════════════════════════════════════════
-# 3) 创建 imported target
+# 2) 创建 imported target
 # ══════════════════════════════════════════════════════════════════════════
 message(STATUS "[libjpeg-turbo] Using ${_TJ_TP}")
 
