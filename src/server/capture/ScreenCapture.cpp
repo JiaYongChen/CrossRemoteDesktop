@@ -31,8 +31,6 @@ ScreenCapture::ScreenCapture(ThreadManager* threadMgr, QueueManager* queueMgr, Q
 
     // 确保队列管理器已初始化
     if ( m_queueManager ) {
-        m_queueManager->initialize(3, 3);
-    } else {
         qCWarning(lcScreenCaptureManager) << "QueueManager 为空，队列功能不可用";
     }
 
