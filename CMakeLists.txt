@@ -45,7 +45,7 @@ include(cmake/SetupOpenSSL.cmake)       # → OpenSSL::SSL, OpenSSL::Crypto
 include(cmake/SetupLibJpegTurbo.cmake)  # → LibJpegTurbo::turbojpeg
 include(cmake/SetupQt6.cmake)           # → Qt6::*, QT6_ROOT_DIR
 include(cmake/FilterAppleOpenGL.cmake)  # → rd_filter_apple_opengl()
-include(cmake/SetupNvJpeg.cmake)        # → rd_setup_nvjpeg(), NVJPEG_TP_BIN
+include(cmake/SetupNvJpeg.cmake)        # → rd_setup_nvjpeg(), NvJpeg::nvjpeg
 include(cmake/DeployWindowsDlls.cmake)  # → rd_deploy_windows_runtime()
 
 rd_setup_nvjpeg()
@@ -129,21 +129,15 @@ target_link_libraries(CrossRemoteDesktop PRIVATE
     LibJpegTurbo::turbojpeg
 )
 
-# ── nvJPEG（可选：仅在 SDK 可用时链接）──
+# ── nvJPEG（编译时链接 nvjpeg.lib，CUDA 函数运行时 QLibrary 加载）──
 if(TARGET NvJpeg::nvjpeg)
-    target_link_libraries(CrossRemoteDesktop PRIVATE NvJpeg::nvjpeg NvJpeg::cudart)
+    target_link_libraries(CrossRemoteDesktop PRIVATE NvJpeg::nvjpeg)
     target_compile_definitions(CrossRemoteDesktop PRIVATE HAS_NVJPEG)
-    message(STATUS "[nvJPEG] Linked to CrossRemoteDesktop")
-
-    # Delay-load: 首次调用 nvJPEG/CUDA 函数时才加载 DLL
-    # DLL 缺失时不会阻止 EXE 启动——probeGPU() 优雅返回 false
     if(MSVC)
-        target_link_options(CrossRemoteDesktop PRIVATE
-            /DELAYLOAD:nvjpeg64_12.dll
-            /DELAYLOAD:cudart64_12.dll
-        )
+        target_link_options(CrossRemoteDesktop PRIVATE /DELAYLOAD:nvjpeg64_12.dll)
         target_link_libraries(CrossRemoteDesktop PRIVATE delayimp.lib)
     endif()
+    message(STATUS "[nvJPEG] Linked — GPU decode available at runtime")
 endif()
 
 # ── Windows: D3D11 + DXGI + 子系统 + DLL 部署 ──
