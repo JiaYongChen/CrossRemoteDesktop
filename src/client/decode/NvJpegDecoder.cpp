@@ -3,48 +3,20 @@
 
 #ifdef HAS_NVJPEG
 
-static constexpr int CUDA_SUCCESS = 0;
-static constexpr int CUDA_MEMCPY_DEVICE_TO_HOST  = 2;
-static constexpr int CUDA_MEMCPY_DEVICE_TO_DEVICE = 3;
-static constexpr int CU_ATTR_CC_MAJOR = 75;
-static constexpr int CU_ATTR_CC_MINOR = 76;
-
-// ── probeGPU: QLibrary 加载 CUDA，检查设备 ───────────────────────────────
+// ── probeGPU: 直接调用 CUDA Runtime API 检查设备 ───────────────────────────
 
 bool NvJpegDecoder::probeGPU() {
-    // 加载 cudart64_12.dll（由 NVIDIA 驱动安装在 System32）
-    m_cudaLib.setFileName("cudart64_12");
-    if (!m_cudaLib.load()) {
-        qCDebug(lcClient) << "NvJpegDecoder: cudart64_12.dll not found";
-        return false;
-    }
-
-    fnGetDeviceCount = reinterpret_cast<Fn_GetDeviceCount>(m_cudaLib.resolve("cudaGetDeviceCount"));
-    fnGetDevice      = reinterpret_cast<Fn_GetDevice>(m_cudaLib.resolve("cudaGetDevice"));
-    fnDeviceGetAttr  = reinterpret_cast<Fn_DeviceGetAttr>(m_cudaLib.resolve("cudaDeviceGetAttribute"));
-    fnMalloc         = reinterpret_cast<Fn_Malloc>(m_cudaLib.resolve("cudaMalloc"));
-    fnFree           = reinterpret_cast<Fn_Free>(m_cudaLib.resolve("cudaFree"));
-    fnMemcpy         = reinterpret_cast<Fn_Memcpy>(m_cudaLib.resolve("cudaMemcpy"));
-    fnStreamCreate   = reinterpret_cast<Fn_StreamCreate>(m_cudaLib.resolve("cudaStreamCreate"));
-    fnStreamDestroy  = reinterpret_cast<Fn_StreamDestroy>(m_cudaLib.resolve("cudaStreamDestroy"));
-    fnStreamSync     = reinterpret_cast<Fn_StreamSync>(m_cudaLib.resolve("cudaStreamSynchronize"));
-
-    if (!fnGetDeviceCount) {
-        qCDebug(lcClient) << "NvJpegDecoder: CUDA symbols not resolved";
-        return false;
-    }
-
     int count = 0;
-    if (fnGetDeviceCount(&count) != 0 || count == 0) {
+    if (cudaGetDeviceCount(&count) != cudaSuccess || count == 0) {
         qCDebug(lcClient) << "NvJpegDecoder: no CUDA devices";
         return false;
     }
 
     int device = 0;
-    fnGetDevice(&device);
+    cudaGetDevice(&device);
     int major = 0, minor = 0;
-    fnDeviceGetAttr(&major, CU_ATTR_CC_MAJOR, device);
-    fnDeviceGetAttr(&minor, CU_ATTR_CC_MINOR, device);
+    cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, device);
+    cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, device);
 
     if (major < 5) {
         qCDebug(lcClient) << "NvJpegDecoder: GPU CC" << major << "." << minor
@@ -70,7 +42,6 @@ NvJpegDecoder::~NvJpegDecoder() { releaseResources(); }
 bool NvJpegDecoder::ensureInitialized() {
     if (m_initialized) return true;
 
-    // 此时首次调用 nvJPEG 函数 → Delay-Load 触发 nvjpeg64_12.dll 加载
     if (nvjpegCreateSimple(&m_handle) != NVJPEG_STATUS_SUCCESS) {
         qCWarning(lcClient) << "NvJpegDecoder: nvjpegCreateSimple failed";
         return false;
@@ -79,7 +50,7 @@ bool NvJpegDecoder::ensureInitialized() {
         nvjpegDestroy(m_handle); m_handle = nullptr;
         return false;
     }
-    if (fnStreamCreate(&m_stream) != 0) {
+    if (cudaStreamCreate(reinterpret_cast<cudaStream_t*>(&m_stream)) != cudaSuccess) {
         nvjpegJpegStateDestroy(m_state); m_state = nullptr;
         nvjpegDestroy(m_handle); m_handle = nullptr;
         return false;
@@ -89,10 +60,10 @@ bool NvJpegDecoder::ensureInitialized() {
 }
 
 void NvJpegDecoder::releaseResources() {
-    if (m_stream)  { fnStreamDestroy(m_stream);  m_stream = nullptr; }
+    if (m_stream)  { cudaStreamDestroy(static_cast<cudaStream_t>(m_stream)); m_stream = nullptr; }
     if (m_state)   { nvjpegJpegStateDestroy(m_state); m_state = nullptr; }
     if (m_handle)  { nvjpegDestroy(m_handle); m_handle = nullptr; }
-    if (m_dBuffer) { fnFree(m_dBuffer); m_dBuffer = nullptr; m_dBufferSize = 0; }
+    if (m_dBuffer) { cudaFree(m_dBuffer); m_dBuffer = nullptr; m_dBufferSize = 0; }
     m_initialized = false;
 }
 
@@ -115,9 +86,9 @@ bool NvJpegDecoder::decode(const QByteArray& jpegData, QImage& output,
     constexpr int kRGB = 3;
     const size_t need = static_cast<size_t>(w) * h * kRGB;
     if (!m_dBuffer || m_dBufferSize < need) {
-        if (m_dBuffer) fnFree(m_dBuffer);
+        if (m_dBuffer) cudaFree(m_dBuffer);
         const size_t ap = ((static_cast<size_t>(w) * kRGB + 3) / 4) * 4;
-        if (fnMalloc(reinterpret_cast<void**>(&m_dBuffer), ap * h) != 0) {
+        if (cudaMalloc(&m_dBuffer, ap * h) != cudaSuccess) {
             m_dBuffer = nullptr; m_dBufferSize = 0; return false;
         }
         m_dBufferSize = ap * h;
@@ -127,13 +98,14 @@ bool NvJpegDecoder::decode(const QByteArray& jpegData, QImage& output,
     dst.channel[0] = m_dBuffer;
     dst.pitch[0]   = static_cast<size_t>(w) * kRGB;
 
-    if (nvjpegDecode(m_handle, m_state, src, len, NVJPEG_OUTPUT_RGBI, &dst, m_stream) != 0)
+    if (nvjpegDecode(m_handle, m_state, src, len, NVJPEG_OUTPUT_RGBI, &dst,
+                     static_cast<cudaStream_t>(m_stream)) != 0)
         return false;
-    fnStreamSync(m_stream);
+    cudaStreamSynchronize(static_cast<cudaStream_t>(m_stream));
 
     if (output.isNull() || output.width() != w || output.height() != h)
         output = QImage(w, h, QImage::Format_RGB888);
-    fnMemcpy(output.bits(), m_dBuffer, need, CUDA_MEMCPY_DEVICE_TO_HOST);
+    cudaMemcpy(output.bits(), m_dBuffer, need, cudaMemcpyDeviceToHost);
 
     *outWidth = w; *outHeight = h;
     return true;
@@ -158,18 +130,19 @@ bool NvJpegDecoder::decodeToPBO(const QByteArray& jpegData, unsigned char* pboPt
     constexpr int kRGB = 3;
     const size_t need = static_cast<size_t>(width) * height * kRGB;
     unsigned char* tmp = nullptr;
-    if (fnMalloc(reinterpret_cast<void**>(&tmp), need) != 0) return false;
+    if (cudaMalloc(reinterpret_cast<void**>(&tmp), need) != cudaSuccess) return false;
 
     nvjpegImage_t dst{};
     dst.channel[0] = tmp;
     dst.pitch[0]   = static_cast<size_t>(width) * kRGB;
 
-    if (nvjpegDecode(m_handle, m_state, src, len, NVJPEG_OUTPUT_RGBI, &dst, m_stream) != 0) {
-        fnFree(tmp); return false;
+    if (nvjpegDecode(m_handle, m_state, src, len, NVJPEG_OUTPUT_RGBI, &dst,
+                     static_cast<cudaStream_t>(m_stream)) != 0) {
+        cudaFree(tmp); return false;
     }
-    fnStreamSync(m_stream);
-    fnMemcpy(pboPtr, tmp, need, CUDA_MEMCPY_DEVICE_TO_DEVICE);
-    fnFree(tmp);
+    cudaStreamSynchronize(static_cast<cudaStream_t>(m_stream));
+    cudaMemcpy(pboPtr, tmp, need, cudaMemcpyDeviceToDevice);
+    cudaFree(tmp);
     return true;
 }
 
