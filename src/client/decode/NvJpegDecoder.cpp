@@ -2,6 +2,7 @@
 #include "../../common/core/logging/LoggingCategories.h"
 
 #ifdef HAS_NVJPEG
+#include "TurboJpegDecoder.h"
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 后端名称映射（诊断用）
@@ -62,7 +63,7 @@ bool NvJpegDecoder::tryBackend(nvjpegBackend_t backend, unsigned int flags) {
     }
 
     // 2. HARDWARE 后端额外校验：确认硬件引擎可用
-    // nvjpegGetHardwareDecoderInfo 在 CUDA 12.x 中引入，11.4 不可用
+    // nvjpegGetHardwareDecoderInfo 在 CUDA 12.x 中引入
     if (backend == NVJPEG_BACKEND_HARDWARE) {
 #if NVJPEG_VER_MAJOR >= 12
         unsigned int engines = 0, cores = 0;
@@ -192,82 +193,91 @@ NvJpegDecoder::~NvJpegDecoder() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// decode — 无 CPU 路径，始终返回 false
+// decode — GPU 路径优先，失败回退 TurboJpegDecoder
 // ═══════════════════════════════════════════════════════════════════════════════
 
-bool NvJpegDecoder::decode(const QByteArray&, QImage&, int*, int*) {
-    return false;  // 无 CPU 路径，由上层回退 TurboJpegDecoder
+bool NvJpegDecoder::decode(const QByteArray& jpegData,
+                            int* outWidth, int* outHeight,
+                            GLsync* outFence, QImage* outImage) {
+    Q_UNUSED(outImage);
+
+    // 1. 尝试 GPU 路径
+    GLsync fence = nullptr;
+    int w = 0, h = 0;
+    if (m_available && m_target && decodeGpu(jpegData, &w, &h, &fence)) {
+        *outWidth = w;
+        *outHeight = h;
+        *outFence = fence;
+        return true;
+    }
+
+    // 2. 回退：惰性构造 TurboJpegDecoder
+    if (!m_fallbackDecoder) {
+        m_fallbackDecoder = std::make_unique<TurboJpegDecoder>();
+    }
+    if (m_target) {
+        m_fallbackDecoder->setDecodeTarget(m_target);
+    }
+
+    return m_fallbackDecoder->decode(jpegData, outWidth, outHeight, outFence, outImage);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// decodeToPBO — GPU 解码 → D2D 直写 PBO
+// decodeGpu — GPU 解码核心路径（mapWriteBuffer → nvjpegDecode → D2D → commitWriteBuffer）
 // ═══════════════════════════════════════════════════════════════════════════════
 
-bool NvJpegDecoder::decodeToPBO(const QByteArray& jpegData, unsigned char* pboPtr,
-                                int width, int height, int pixelSize) {
-    Q_UNUSED(pixelSize);
-    if (!m_available) return false;
-
+bool NvJpegDecoder::decodeGpu(const QByteArray& jpegData,
+                               int* outWidth, int* outHeight,
+                               GLsync* outFence) {
     const auto* src = reinterpret_cast<const unsigned char*>(jpegData.constData());
     const size_t len = static_cast<size_t>(jpegData.size());
 
-    // 1. 解析 JPEG 头，获取宽高和通道数
+    // 1. 解析 JPEG 头
     int nComp = 0, wArr[4] = {}, hArr[4] = {};
     nvjpegChromaSubsampling_t sub{};
     if (nvjpegGetImageInfo(m_handle, src, len, &nComp, &sub, wArr, hArr)
         != NVJPEG_STATUS_SUCCESS) {
-        qCWarning(lcClient) << "NvJpegDecoder: nvjpegGetImageInfo failed";
         return false;
     }
 
-    // 2. 校验尺寸
-    if (wArr[0] != width || hArr[0] != height) {
-        qCWarning(lcClient) << "NvJpegDecoder: size mismatch — JPEG"
-                            << wArr[0] << "x" << hArr[0]
-                            << "expected" << width << "x" << height;
-        return false;
-    }
+    const int w = wArr[0], h = hArr[0];
 
-    // 3. 确保临时设备缓冲区足够大（仅尺寸变化时重新分配）
+    // 2. 通过 target 获取 PBO 映射指针
+    unsigned char* dst = m_target->mapWriteBuffer(w, h);
+    if (!dst) return false;
+
+    // 3. 确保临时设备缓冲区
     constexpr int kRGB = 3;
-    const size_t need = static_cast<size_t>(width) * height * kRGB;
+    const size_t need = static_cast<size_t>(w) * h * kRGB;
     if (!m_tmpBuf || m_tmpBufSize < need) {
         if (m_tmpBuf) cudaFree(m_tmpBuf);
         if (cudaMalloc(reinterpret_cast<void**>(&m_tmpBuf), need) != cudaSuccess) {
             m_tmpBuf = nullptr;
             m_tmpBufSize = 0;
-            qCWarning(lcClient) << "NvJpegDecoder: cudaMalloc tmpBuf failed, size:" << need;
             return false;
         }
         m_tmpBufSize = need;
     }
 
-    // 4. 构建 nvjpegImage_t — 输出到临时缓冲区
-    nvjpegImage_t dst{};
-    dst.channel[0] = m_tmpBuf;
-    dst.pitch[0]   = static_cast<size_t>(width) * kRGB;
+    // 4. nvJPEG 异步 GPU 解码
+    nvjpegImage_t imgDst{};
+    imgDst.channel[0] = m_tmpBuf;
+    imgDst.pitch[0]   = static_cast<size_t>(w) * kRGB;
+    if (nvjpegDecode(m_handle, m_state, src, len,
+                     NVJPEG_OUTPUT_RGBI, &imgDst, m_stream) != NVJPEG_STATUS_SUCCESS) {
+        return false;
+    }
+    cudaStreamSynchronize(m_stream);
 
-    // 5. 异步 GPU 解码
-    nvjpegStatus_t ret = nvjpegDecode(m_handle, m_state, src, len,
-                                      NVJPEG_OUTPUT_RGBI, &dst, m_stream);
-    if (ret != NVJPEG_STATUS_SUCCESS) {
-        qCWarning(lcClient) << "NvJpegDecoder: nvjpegDecode failed, code:" << int(ret)
-                            << "backend:" << backendName(m_backend);
+    // 5. D2D 拷贝到 PBO
+    if (cudaMemcpy(dst, m_tmpBuf, need, cudaMemcpyDeviceToDevice) != cudaSuccess) {
         return false;
     }
 
-    // 6. 等待 GPU 完成
-    if (cudaStreamSynchronize(m_stream) != cudaSuccess) {
-        qCWarning(lcClient) << "NvJpegDecoder: cudaStreamSynchronize failed";
-        return false;
-    }
-
-    // 7. D2D 拷贝到 PBO
-    if (cudaMemcpy(pboPtr, m_tmpBuf, need, cudaMemcpyDeviceToDevice) != cudaSuccess) {
-        qCWarning(lcClient) << "NvJpegDecoder: cudaMemcpy D2D to PBO failed";
-        return false;
-    }
-
+    // 6. 提交 PBO 写入
+    *outFence = m_target->commitWriteBuffer();
+    *outWidth = w;
+    *outHeight = h;
     return true;
 }
 
@@ -275,8 +285,7 @@ bool NvJpegDecoder::decodeToPBO(const QByteArray& jpegData, unsigned char* pboPt
 
 // ── stub 实现（无 CUDA SDK 时编译通过）────────────────────────────────────────
 
-bool NvJpegDecoder::decode(const QByteArray&, QImage&, int*, int*) { return false; }
-bool NvJpegDecoder::decodeToPBO(const QByteArray&, unsigned char*,
-                                int, int, int) { return false; }
+bool NvJpegDecoder::decode(const QByteArray&, int*, int*,
+                           GLsync*, QImage*) { return false; }
 
 #endif // HAS_NVJPEG

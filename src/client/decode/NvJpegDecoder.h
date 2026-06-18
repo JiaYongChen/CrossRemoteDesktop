@@ -1,10 +1,13 @@
 #pragma once
 
 #include "IDecoder.h"
+#include <memory>
 
 #ifdef HAS_NVJPEG
 #include <cuda_runtime_api.h>
 #include <nvjpeg.h>
+
+class TurboJpegDecoder;
 
 /**
  * @brief nvJPEG GPU 解码器（Full API）
@@ -13,8 +16,8 @@
  * 使用 Full API（nvjpegCreateEx + BufferDevice + StateAttach）
  * 减少运行时 cudaMalloc 碎片。
  *
- * - decode()      : 始终返回 false（无 CPU 路径）
- * - decodeToPBO() : GPU 解码 → D2D 直写 PBO（核心路径）
+ * - decode() : GPU 路径（mapWriteBuffer → nvjpegDecode → D2D → commitWriteBuffer），
+ *             失败时内部惰性回退 TurboJpegDecoder
  */
 class NvJpegDecoder : public IDecoder {
 public:
@@ -26,9 +29,8 @@ public:
 
     // ── IDecoder 接口 ──
     [[nodiscard]] bool isAvailable() const override { return m_available; }
-    [[nodiscard]] bool decode(const QByteArray&, QImage&, int*, int*) override;
-    [[nodiscard]] bool decodeToPBO(const QByteArray&, unsigned char*,
-                                   int, int, int) override;
+    [[nodiscard]] bool decode(const QByteArray&, int*, int*,
+                               GLsync*, QImage* = nullptr) override;
     [[nodiscard]] const char* name() const override { return "nvJPEG"; }
 
 private:
@@ -48,6 +50,10 @@ private:
     /// @brief 释放所有 GPU 资源（handle/state/buffer/stream/tmpBuf）
     void releaseResources();
 
+    /// @brief GPU 解码核心路径（mapWriteBuffer → nvjpegDecode → D2D → commitWriteBuffer）
+    bool decodeGpu(const QByteArray& jpegData, int* outWidth, int* outHeight,
+                   GLsync* outFence);
+
     // ── 资源 ──
     nvjpegHandle_t       m_handle   = nullptr;  ///< nvJPEG 库句柄
     nvjpegJpegState_t    m_state    = nullptr;  ///< 解码状态
@@ -59,6 +65,8 @@ private:
 
     nvjpegBackend_t      m_backend    = NVJPEG_BACKEND_DEFAULT;  ///< 选定的后端
     bool                 m_available  = false;                   ///< 解码器是否可用
+
+    std::unique_ptr<TurboJpegDecoder> m_fallbackDecoder;  ///< GPU 失败时惰性回退
 };
 
 #else // !HAS_NVJPEG
@@ -70,9 +78,8 @@ public:
     ~NvJpegDecoder() override = default;
 
     [[nodiscard]] bool isAvailable() const override { return false; }
-    [[nodiscard]] bool decode(const QByteArray&, QImage&, int*, int*) override { return false; }
-    [[nodiscard]] bool decodeToPBO(const QByteArray&, unsigned char*,
-                                   int, int, int) override { return false; }
+    [[nodiscard]] bool decode(const QByteArray&, int*, int*,
+                               GLsync*, QImage* = nullptr) override { return false; }
     [[nodiscard]] const char* name() const override { return "nvJPEG"; }
 };
 
