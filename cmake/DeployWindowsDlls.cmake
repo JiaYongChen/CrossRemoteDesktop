@@ -97,11 +97,11 @@ function(rd_deploy_windows_runtime _target)
     endif()
 
     # ── nvJPEG DLL（GPU JPEG 解码）──
-    if(DEFINED NVJPEG_TP_BIN AND EXISTS "${NVJPEG_TP_BIN}/nvjpeg64_11.dll")
+    if(DEFINED NVJPEG_TP_BIN AND EXISTS "${NVJPEG_TP_BIN}/nvjpeg64_12.dll")
         add_custom_command(TARGET ${_target} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${NVJPEG_TP_BIN}/nvjpeg64_11.dll"
-                "${_out_dir}/nvjpeg64_11.dll"
+                "${NVJPEG_TP_BIN}/nvjpeg64_12.dll"
+                "${_out_dir}/nvjpeg64_12.dll"
             COMMENT "Copying nvJPEG DLL"
         )
     endif()

@@ -52,8 +52,8 @@ function(rd_setup_nvjpeg)
     endif()
 
     # ── 运行时 DLL ──
-    if(NOT EXISTS "${_BIN}/nvjpeg64_11.dll")
-        list(APPEND _MISSING "  - DLL: ${_BIN}/nvjpeg64_11.dll")
+    if(NOT EXISTS "${_BIN}/nvjpeg64_12.dll")
+        list(APPEND _MISSING "  - DLL: ${_BIN}/nvjpeg64_12.dll")
     endif()
 
     if(_MISSING)
@@ -64,7 +64,7 @@ function(rd_setup_nvjpeg)
             "  请从 CUDA Toolkit 提取必要文件并缓存到 third_party/nvjpeg/:\n"
             "    - include/     ← 11 个 nvJPEG + CUDA Runtime 头文件\n"
             "    - lib/Windows-x64/  ← cudart.lib + nvjpeg.lib（导入库）\n"
-            "    - bin/Windows-x64/  ← nvjpeg64_11.dll（运行时 DLL）")
+            "    - bin/Windows-x64/  ← nvjpeg64_12.dll（运行时 DLL）")
     endif()
 
     # ══════════════════════════════════════════════════════════════════════════
