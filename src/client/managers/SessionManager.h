@@ -20,6 +20,8 @@ class DecodeWorker;
 
 class QTimer;
 
+class GpuDecodeTarget;
+
 #ifndef QT_NO_OPENGL
 class GLTextureViewport;
 class QOpenGLContext;
@@ -104,6 +106,9 @@ public:
     /// 设置解码管线使用的 GL 上下文（在 DecodeWorker 创建时使用）
     void setGLContextForDecode(QOpenGLContext* context);
 
+    /// Set the GpuDecodeTarget reference for DecodeWorker-side PBO/texture operations.
+    void setDecodeTarget(GpuDecodeTarget* target);
+
     /// Set the GLTextureViewport reference for worker-side frame upload.
     void setGLViewportForUpload(GLTextureViewport* vp) { m_glViewportForUpload = vp; }
 #endif
@@ -186,6 +191,7 @@ private:
 #ifndef QT_NO_OPENGL
     GLTextureViewport* m_glViewportForUpload = nullptr;
     QOpenGLContext* m_pendingGLContext = nullptr;
+    GpuDecodeTarget* m_decodeTarget = nullptr;
 #endif
 };
 

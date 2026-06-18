@@ -5,6 +5,7 @@
 #include "./window/RenderManager.h"
 #ifndef QT_NO_OPENGL
 #include "./window/GLTextureViewport.h"
+#include "./decode/GpuDecodeTarget.h"
 #endif
 #include "../common/core/config/UiConstants.h"
 #include "../common/core/logging/LoggingCategories.h"
@@ -305,8 +306,12 @@ QString ClientManager::connectToHost(const QString& host, int port) {
 
             QObject::connect(gl, &GLTextureViewport::glContextReady,
                 instance->sessionManager,
-                [sm = instance->sessionManager.data()](QOpenGLContext* ctx) {
+                [sm = instance->sessionManager.data(), gl](QOpenGLContext* ctx) {
                     sm->setGLContextForDecode(ctx);
+                    GpuDecodeTarget* target = gl->decodeTarget();
+                    if (target) {
+                        sm->setDecodeTarget(target);
+                    }
                 }, Qt::QueuedConnection);
 
             // Guard against signal race: if initializeGL() already fired
@@ -314,6 +319,10 @@ QString ClientManager::connectToHost(const QString& host, int port) {
             // the signal was lost — set directly.
             if (gl->context() && gl->context()->isValid()) {
                 instance->sessionManager->setGLContextForDecode(gl->context());
+                GpuDecodeTarget* target = gl->decodeTarget();
+                if (target) {
+                    instance->sessionManager->setDecodeTarget(target);
+                }
             }
         }
     }

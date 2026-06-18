@@ -211,18 +211,21 @@ add_rd_test(TARGET test_render_config  NAME RenderConfigTest
 add_rd_test(TARGET test_render_surface  NAME RenderSurfaceTest
     SOURCES test_render_surface.cpp
     EXTRA_SOURCES ../src/client/window/GLTextureViewport.cpp
+                  ../src/client/decode/GpuDecodeTarget.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets common_test_core
     TIMEOUT 30  LABELS unit client render)
 
 add_rd_test(TARGET test_gl_upload_formats  NAME GLUploadFormatsTest
     SOURCES test_gl_upload_formats.cpp
     EXTRA_SOURCES ../src/client/window/GLTextureViewport.cpp
+                  ../src/client/decode/GpuDecodeTarget.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::OpenGL Qt6::OpenGLWidgets common_test_core
     TIMEOUT 30  LABELS unit client gl)
 
 add_rd_test(TARGET test_gl_worker_upload  NAME GLWorkerUploadTest
     SOURCES test_gl_worker_upload.cpp
     EXTRA_SOURCES ../src/client/window/GLTextureViewport.cpp
+                  ../src/client/decode/GpuDecodeTarget.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::OpenGL Qt6::OpenGLWidgets common_test_core
     TIMEOUT 30  LABELS unit client gl)
 

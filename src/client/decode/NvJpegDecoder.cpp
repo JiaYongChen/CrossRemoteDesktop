@@ -3,6 +3,7 @@
 
 #ifdef HAS_NVJPEG
 #include "TurboJpegDecoder.h"
+#include "IDecodeTarget.h"
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 后端名称映射（诊断用）

@@ -86,7 +86,7 @@ ConnectionManager::ConnectionState ClientRemoteWindow::connectionState() const {
 void ClientRemoteWindow::setRemoteScreen(const QImage& image) {
 #ifndef QT_NO_OPENGL
     if (m_glViewport) {
-        m_glViewport->uploadFrame(image);
+        m_glViewport->setRemoteScreen(image);
     }
 #else
     Q_UNUSED(image)

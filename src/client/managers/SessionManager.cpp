@@ -463,6 +463,11 @@ void SessionManager::createDecodePipeline() {
             w->initializeGL(ctx);
         }, Qt::QueuedConnection);
     }
+    // 注入 GpuDecodeTarget（提供 worker GL 上下文，用于 PBO/纹理操作）
+    if (m_decodeTarget) {
+        m_decodeWorker->setDecodeTarget(m_decodeTarget);
+    }
+
     // setGLViewport 不需要 GL 上下文，直接设置即可
     m_decodeWorker->setGLViewport(m_glViewportForUpload);
 #endif
@@ -532,6 +537,10 @@ void SessionManager::destroyDecodePipeline() {
 #ifndef QT_NO_OPENGL
 void SessionManager::setGLContextForDecode(QOpenGLContext* context) {
     m_pendingGLContext = context;
+}
+
+void SessionManager::setDecodeTarget(GpuDecodeTarget* target) {
+    m_decodeTarget = target;
 }
 #endif
 

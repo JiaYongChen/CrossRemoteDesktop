@@ -24,9 +24,9 @@ DecodeWorker::~DecodeWorker() {
 #ifndef QT_NO_OPENGL
     // 仅当 cleanupGL() 未被预先调用（destroyDecodePipeline 的正常路径）时执行兜底清理。
     // 此时 DecodeThread 已停止，调用者确保已无跨线程事件风险。
-    delete m_glContext;
+    // m_glContext / m_glSurface 现在由 GpuDecodeTarget 管理生命周期。
+    // cleanupGL() 已将其置空（正常路径）；此处仅防异常路径下的悬空指针。
     m_glContext = nullptr;
-    delete m_glSurface;
     m_glSurface = nullptr;
 #endif
 }
