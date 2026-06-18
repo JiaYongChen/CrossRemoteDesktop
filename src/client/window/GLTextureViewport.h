@@ -19,7 +19,7 @@
 #include "../core/TripleBuffer.h"
 #include "../core/FrameSlot.h"
 
-class IDecoder;
+class GpuDecodeTarget;
 
 /**
  * @brief OpenGL viewport that renders remote desktop frames via direct texture upload.
@@ -59,26 +59,25 @@ public:
     ~GLTextureViewport() override;
 
     /**
-     * @brief Convenience wrapper — equivalent to uploadFrame(image).
+     * @brief Convenience wrapper — delegates to GpuDecodeTarget.
      *
      * Provided for API compatibility: setRemoteScreen + setRemoteSize
      * replaces the old RenderManager::setRemoteScreen flow.
      */
-    void setRemoteScreen(const QImage& image) { uploadFrame(image); }
+    void setRemoteScreen(const QImage& image);
 
     /**
-     * @brief Upload a decoded frame to the GPU texture.
+     * @brief Attach an external GpuDecodeTarget for PBO/texture management.
      *
-     * If the image size matches the current texture, uses glTexSubImage2D
-     * (fast path). Otherwise, recreates the texture with glTexImage2D.
-     *
-     * @param image Decoded frame (any QImage::Format, converted internally)
+     * When set, this viewport delegates all PBO/texture operations to the
+     * target. Ownership remains with the caller.
      */
-    void uploadFrame(const QImage& image);
+    void attachDecodeTarget(GpuDecodeTarget* target);
 
-    /// Upload with an attached arrival timestamp to measure end-to-glass latency.
-    void uploadFrame(const QImage& image,
-                     std::chrono::steady_clock::time_point arrivalTs);
+    /**
+     * @brief Get the attached GpuDecodeTarget, or nullptr if none.
+     */
+    GpuDecodeTarget* decodeTarget() const { return m_decodeTarget; }
 
     /// Rebuild surface format with the given VSync setting.
     /// Note: QOpenGLWidget rebuilds its context when format changes, so a
@@ -104,7 +103,7 @@ public:
     /**
      * @brief Check if a texture has been uploaded.
      */
-    bool hasTexture() const { return m_textureId[0] != 0; }
+    bool hasTexture() const;
 
     /**
      * @brief Get the current texture dimensions.
@@ -150,31 +149,6 @@ public:
      * any newly committed frame. Set to nullptr to detach.
      */
     void attachFrameBuffer(TripleBuffer<FrameSlot>* buffer);
-
-    /**
-     * @brief Upload decoded frame data directly to the GPU texture via PBO.
-     *
-     * Designed to be called from a worker thread that has made a shared
-     * OpenGL context current. Uses m_textureId and m_pbo[] which are
-     * automatically shared because the worker's context was created with
-     * setShareContext().
-     *
-     * @param image Decoded frame (any QImage::Format, converted internally).
-     * @return GLsync fence for the GUI thread to wait on, or nullptr on failure.
-     */
-    /// @param image 解码后的帧（任意 QImage::Format）。
-    /// @param decoder 可选解码器指针——供未来零拷贝 PBO 路径使用。
-    [[nodiscard]] GLsync uploadFromWorker(const QImage& image, IDecoder* decoder = nullptr);
-
-    /// 零拷贝 JPEG → PBO 上传（跳过 CPU QImage 中转）
-    /// 解码器将 JPEG 直接解码到已映射的 PBO 指针，然后提交为 GL 纹理。
-    /// @param jpegData 原始 JPEG 字节
-    /// @param decoder 支持 decodeToPBO 的解码器
-    /// @param width 图像宽度
-    /// @param height 图像高度
-    /// @return GLsync fence，或 nullptr（回退到 CPU 路径）
-    [[nodiscard]] GLsync uploadJPEGDirect(const QByteArray& jpegData, IDecoder* decoder,
-                                          int width, int height);
 
     /// 生产者背压：返回 paintGL 因 fence 未就绪而连续跳过的帧数。
     /// 生产者可据此降低上传频率，避免 GPU 队列无限积压。
@@ -223,14 +197,6 @@ private:
     void updateRenderRect();
 
     /**
-     * @brief Upload texture data without GL context management.
-     *
-     * Called from uploadFrame() (with makeCurrent/doneCurrent wrap) and from
-     * paintGL() (context already current). Sets m_textureDirty=true on success.
-     */
-    void applyFrame(const QImage& image);
-
-    /**
      * @brief Start or stop the frame-polling timer based on VSync state.
      */
     void configurePollTimer();
@@ -249,14 +215,9 @@ private:
      */
     void CheckForNewFrameAfterPaint(int consumedSlot);
 
-    // OpenGL resources — double-buffered textures to eliminate
-    // worker/GUI read-write race on shared GL objects:
-    // - Worker writes to texture[1 - displayTexIndex] via shared context
-    // - GUI renders from texture[displayTexIndex]
-    // - After worker's fence is signaled, swap displayTexIndex atomically
-    GLuint m_textureId[2] = {0, 0};
-    std::atomic<int> m_displayTexIndex{0};
+    // OpenGL resources — managed by GpuDecodeTarget
     QOpenGLShaderProgram* m_shaderProgram = nullptr;
+    GpuDecodeTarget* m_decodeTarget = nullptr;
     QOpenGLBuffer m_vertexBuffer;
     QOpenGLVertexArrayObject m_vao;
 
@@ -274,28 +235,6 @@ private:
 
     // VSync toggle
     bool m_vsyncEnabled = true;
-
-    // PBO double-buffered async upload (traditional map/unmap path)
-    QOpenGLBuffer m_pbo[kPboCount] = {
-        QOpenGLBuffer(QOpenGLBuffer::PixelUnpackBuffer),
-        QOpenGLBuffer(QOpenGLBuffer::PixelUnpackBuffer),
-    };
-    int m_currentPbo = 0;        // GUI thread ring-buffer index
-    int m_pboAllocatedBytes = 0; // current PBO size
-    bool m_usePbo = true;
-
-    // Persistent mapped PBO (GL_ARB_buffer_storage)
-    bool m_usePersistentPbo = false;
-    void* m_persistentPtr[kPboCount] = {nullptr, nullptr};
-    GLuint m_persistentId[kPboCount] = {0, 0};
-    int m_sharedPboIndex = 0;    // worker thread ring-buffer index
-
-    void createPersistentPBOs(int size);
-    void destroyPersistentPBOs();
-
-    /// 确保双缓冲纹理尺寸匹配：尺寸变更时重建，无变更时无操作
-    /// @return true if size changed (textures were recreated)
-    bool ensureTextureSize(const QImage& src, const GLPixelLayout& layout);
 
     // Dirty-frame gating for paintGL
     bool m_textureDirty = false;
