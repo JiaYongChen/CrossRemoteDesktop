@@ -3,6 +3,10 @@
 #include <turbojpeg.h>
 #include <QtCore/QFile>
 
+#ifndef QT_NO_OPENGL
+#include "IDecodeTarget.h"
+#endif
+
 #ifdef HAS_OPENCL
 
 // ── probeGPU ──────────────────────────────────────────────────────────────
@@ -107,14 +111,25 @@ bool OpenCLDecoder::huffmanDecode(const QByteArray& jpegData, int* w, int* h) {
 
 // ── decode ────────────────────────────────────────────────────────────────
 
-bool OpenCLDecoder::decode(const QByteArray& jpegData, QImage& output,
-                           int* outWidth, int* outHeight) {
+#ifndef QT_NO_OPENGL
+bool OpenCLDecoder::decode(const QByteArray& jpegData,
+                            int* outWidth, int* outHeight,
+                            GLsync* outFence, QImage* outImage)
+#else
+bool OpenCLDecoder::decode(const QByteArray& jpegData,
+                            int* outWidth, int* outHeight,
+                            QImage* outImage)
+#endif
+{
+    if (!m_available) return false;
+
     int w = 0, h = 0;
     if (!huffmanDecode(jpegData, &w, &h)) return false;
-    int blocksW = w / 8, blocksH = h / 8, nBlocks = blocksW * blocksH;
 
+    int blocksW = w / 8, blocksH = h / 8, nBlocks = blocksW * blocksH;
     if (nBlocks == 0) return false;
 
+    // 按需重建 GPU 缓冲区
     if (m_lastWidth != w || m_lastHeight != h) {
         m_coefBuf = cl::Buffer(m_ctx, CL_MEM_READ_ONLY, nBlocks * 64 * sizeof(float));
         m_outBuf  = cl::Buffer(m_ctx, CL_MEM_READ_WRITE, w * h * 3);
@@ -132,44 +147,37 @@ bool OpenCLDecoder::decode(const QByteArray& jpegData, QImage& output,
         cl::NDRange(blocksW, blocksH), cl::NullRange);
     m_queue.finish();
 
-    if (output.isNull() || output.width() != w || output.height() != h)
-        output = QImage(w, h, QImage::Format_RGB888);
-    m_queue.enqueueReadBuffer(m_outBuf, CL_TRUE, 0, w * h * 3, output.bits());
+    *outWidth = w;
+    *outHeight = h;
 
-    *outWidth = w; *outHeight = h;
-    return true;
-}
-
-// ── decodeToPBO ───────────────────────────────────────────────────────────
-
-bool OpenCLDecoder::decodeToPBO(const QByteArray& jpegData, unsigned char* pboPtr,
-                                int width, int height, int pixelSize) {
-    Q_UNUSED(pixelSize);
-    int w = 0, h = 0;
-    if (!huffmanDecode(jpegData, &w, &h)) return false;
-    if (w != width || h != height) return false;
-
-    int blocksW = w / 8, blocksH = h / 8, nBlocks = blocksW * blocksH;
-    if (nBlocks == 0) return false;
-
-    if (m_lastWidth != w || m_lastHeight != h) {
-        m_coefBuf = cl::Buffer(m_ctx, CL_MEM_READ_ONLY, nBlocks * 64 * sizeof(float));
-        m_outBuf  = cl::Buffer(m_ctx, CL_MEM_READ_WRITE, w * h * 3);
-        m_lastWidth = w; m_lastHeight = h;
+#ifndef QT_NO_OPENGL
+    if (m_target) {
+        // 优先：OpenCL 直写 PBO（跳过 CPU 回读）
+        unsigned char* dst = m_target->mapWriteBuffer(w, h);
+        if (dst) {
+            m_queue.enqueueReadBuffer(m_outBuf, CL_TRUE, 0,
+                static_cast<size_t>(w) * h * 3, dst);
+            *outFence = m_target->commitWriteBuffer();
+            return true;
+        }
     }
+    *outFence = nullptr;
+#endif
 
-    m_queue.enqueueWriteBuffer(m_coefBuf, CL_TRUE, 0,
-        nBlocks * 64 * sizeof(float), m_coefHost.data());
+    // 回退：CPU 路径
+    QImage tmp(w, h, QImage::Format_RGB888);
+    m_queue.enqueueReadBuffer(m_outBuf, CL_TRUE, 0,
+        static_cast<size_t>(w) * h * 3, tmp.bits());
 
-    m_kernel.setArg(0, m_coefBuf);
-    m_kernel.setArg(1, m_outBuf);
-    m_kernel.setArg(2, w);
-    m_kernel.setArg(3, blocksW);
-    m_queue.enqueueNDRangeKernel(m_kernel, cl::NullRange,
-        cl::NDRange(blocksW, blocksH), cl::NullRange);
-    m_queue.finish();
+#ifndef QT_NO_OPENGL
+    if (m_target) {
+        *outFence = m_target->uploadPixels(tmp.bits(), w, h);
+    }
+#endif
 
-    m_queue.enqueueReadBuffer(m_outBuf, CL_TRUE, 0, w * h * 3, pboPtr);
+    if (outImage) {
+        *outImage = tmp;
+    }
     return true;
 }
 
@@ -191,7 +199,12 @@ void OpenCLDecoder::releaseResources() {
 
 OpenCLDecoder::OpenCLDecoder()  { m_available = false; }
 OpenCLDecoder::~OpenCLDecoder() {}
-bool OpenCLDecoder::decode(const QByteArray&, QImage&, int*, int*) { return false; }
-bool OpenCLDecoder::decodeToPBO(const QByteArray&, unsigned char*, int, int, int) { return false; }
+#ifndef QT_NO_OPENGL
+bool OpenCLDecoder::decode(const QByteArray&, int*, int*,
+                           GLsync*, QImage*) { return false; }
+#else
+bool OpenCLDecoder::decode(const QByteArray&, int*, int*,
+                           QImage*) { return false; }
+#endif
 
 #endif

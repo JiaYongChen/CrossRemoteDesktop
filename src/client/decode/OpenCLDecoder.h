@@ -16,8 +16,11 @@ public:
     ~OpenCLDecoder() override;
 
     [[nodiscard]] bool isAvailable() const override { return m_available; }
-    [[nodiscard]] bool decode(const QByteArray&, QImage&, int*, int*) override;
-    [[nodiscard]] bool decodeToPBO(const QByteArray&, unsigned char*, int, int, int) override;
+#ifndef QT_NO_OPENGL
+    [[nodiscard]] bool decode(const QByteArray&, int*, int*, GLsync*, QImage* = nullptr) override;
+#else
+    [[nodiscard]] bool decode(const QByteArray&, int*, int*, QImage*) override;
+#endif
     [[nodiscard]] const char* name() const override { return "OpenCL"; }
 
 private:
