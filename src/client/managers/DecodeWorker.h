@@ -20,6 +20,7 @@
 #endif
 
 class GLTextureViewport;
+class GpuDecodeTarget;
 
 class DecodeWorker : public QObject {
     Q_OBJECT
@@ -48,6 +49,9 @@ public:
 
     /// 设置 GLTextureViewport 引用
     void setGLViewport(GLTextureViewport* vp);
+
+    /// 设置 GPU 解码目标（构造后注入，用于获取 worker GL 上下文）
+    void setDecodeTarget(GpuDecodeTarget* target);
 #endif
 
     /// 停止队列
@@ -90,8 +94,7 @@ private:
 
     std::unique_ptr<IDecoder> m_decoder;  ///< 解码器（运行时选择 TurboJpegDecoder 或 NvJpegDecoder）
 
-    // JPEG 解码缓冲区复用
-    QImage m_decodeBuffer;
+    GpuDecodeTarget* m_decodeTarget = nullptr;  ///< GPU 解码目标（构造后注入，提供 worker GL 上下文）
 
     // 帧计数
     int m_frameId = 0;

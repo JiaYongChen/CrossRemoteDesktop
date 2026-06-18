@@ -2,6 +2,7 @@
 #include "../../common/core/logging/LoggingCategories.h"
 #ifndef QT_NO_OPENGL
 #include "../window/GLTextureViewport.h"
+#include "../decode/GpuDecodeTarget.h"
 #include <QtGui/QOpenGLExtraFunctions>
 #endif
 #include <QtCore/QThread>
@@ -70,6 +71,13 @@ void DecodeWorker::start() {
     }
 
     qCInfo(lcClient) << "DecodeWorker: using decoder" << m_decoder->name();
+
+#ifndef QT_NO_OPENGL
+    if (m_decodeTarget) {
+        m_decoder->setDecodeTarget(m_decodeTarget);
+    }
+#endif
+
     workLoop();
 }
 
@@ -111,7 +119,7 @@ bool DecodeWorker::processOneFrame() {
     const ScreenData& screenData = task.screenData;
     QSize remoteSize = task.remoteSize;
 
-    // 1. JPEG 解码（通过 IDecoder 接口，计时）
+    // 1. JPEG 解码 + GL 上传（统一入口，无分支）
     const auto decodeStart = steady_clock::now();
 
     if (!m_decoder) {
@@ -122,36 +130,36 @@ bool DecodeWorker::processOneFrame() {
     }
 
     int jpegWidth = 0, jpegHeight = 0;
-    if (!m_decoder->decode(screenData.imageData, m_decodeBuffer,
-                           &jpegWidth, &jpegHeight)) {
-        // NvJpegDecoder 可能因骨架未实现而失败——
-        // 降级到 TurboJpegDecoder 并重试
-        if (strcmp(m_decoder->name(), "nvJPEG") == 0) {
-            qCWarning(lcClient) << "nvJPEG decode failed, falling back to libjpeg-turbo";
-            m_decoder = std::make_unique<TurboJpegDecoder>();
-            if (!m_decoder->decode(screenData.imageData, m_decodeBuffer,
-                                  &jpegWidth, &jpegHeight)) {
-                emit decodeError(RdError(ErrorCode::DecodeFailed,
-                    QStringLiteral("JPEG 解码失败（回退后）"), "DecodeWorker"));
-                return true;
-            }
-        } else {
-            qCWarning(lcClient) << "DecodeWorker: decode failed";
-            emit decodeError(RdError(ErrorCode::DecodeFailed,
-                QStringLiteral("JPEG 解码失败"), "DecodeWorker"));
-            return true;
-        }
+#ifndef QT_NO_OPENGL
+    GLsync fence = nullptr;
+#endif
+    QImage fallbackImage;
+
+#ifndef QT_NO_OPENGL
+    if (!m_decoder->decode(screenData.imageData,
+                           &jpegWidth, &jpegHeight,
+                           &fence, &fallbackImage)) {
+        emit decodeError(RdError(ErrorCode::DecodeFailed,
+            QStringLiteral("JPEG 解码失败"), "DecodeWorker"));
+        return true;
     }
+#else
+    if (!m_decoder->decode(screenData.imageData,
+                           &jpegWidth, &jpegHeight,
+                           &fallbackImage)) {
+        emit decodeError(RdError(ErrorCode::DecodeFailed,
+            QStringLiteral("JPEG 解码失败"), "DecodeWorker"));
+        return true;
+    }
+#endif
 
     const auto decodeUs = duration_cast<microseconds>(
         steady_clock::now() - decodeStart).count();
 
-    QImage& image = m_decodeBuffer;
-
     // 2. 更新 remoteSize（如果没有服务器缩放标志，用实际解码尺寸）
     if (!(screenData.flags & static_cast<quint8>(ScreenDataFlags::SCALED))
         || screenData.originalWidth == 0) {
-        remoteSize = image.size();
+        remoteSize = QSize(jpegWidth, jpegHeight);
     }
 
     // 3. 帧计数
@@ -171,67 +179,14 @@ bool DecodeWorker::processOneFrame() {
     qint64 glUploadUs = 0;
 
 #ifndef QT_NO_OPENGL
-    // 5. GL 纹理上传（计时）
-    static int s_glUploadDiagCount = 0;
-    if (m_glUploadReady && m_glContext && m_glSurface && m_glViewport) {
-        // GPU 生产者背压：paintGL 连续跳过 >=3 帧时隔帧跳过
-        static int s_backoffCounter = 0;
-        const bool gpuOverloaded = m_glViewport->consecutiveSkips() >= 3;
-        const bool skipThisUpload = gpuOverloaded && (++s_backoffCounter % 2 == 0);
-        if (gpuOverloaded && s_backoffCounter <= 3) {
-            qCDebug(lcClient) << "GPU backpressure: skipping GL upload, skips="
-                              << m_glViewport->consecutiveSkips();
-        }
-
-        if (!skipThisUpload) {
-            ++s_glUploadDiagCount;
-            if (s_glUploadDiagCount <= 3 || s_glUploadDiagCount % 100 == 0) {
-                qCDebug(lcClient) << "DecodeWorker: GL upload #" << s_glUploadDiagCount
-                                  << "frame" << m_frameId;
-            }
-            m_glContext->makeCurrent(m_glSurface);
-            // 删除上一帧的 fence
-            if (slot->uploadFence) {
-                auto* f = m_glContext->extraFunctions();
-                if (f) f->glDeleteSync(slot->uploadFence);
-                slot->uploadFence = nullptr;
-            }
-            const auto glStart = steady_clock::now();
-            // 尝试零拷贝 PBO 路径（nvJPEG 直接写 PBO，跳过 CPU QImage）
-            GLsync fence = nullptr;
-            const bool tryZeroCopy = (strcmp(m_decoder->name(), "nvJPEG") == 0);
-            if (tryZeroCopy) {
-                fence = m_glViewport->uploadJPEGDirect(
-                    screenData.imageData, m_decoder.get(),
-                    jpegWidth, jpegHeight);
-            }
-            if (!fence) {
-                // 回退：标准 CPU 路径（QImage → memcpy → PBO → GL 纹理）
-                fence = m_glViewport->uploadFromWorker(image);
-            }
-            glUploadUs = duration_cast<microseconds>(
-                steady_clock::now() - glStart).count();
-            if (fence) {
-                slot->uploadFence = fence;
-            }
-            m_glContext->doneCurrent();
-        } else {
-            // 背压：跳过 GL 上传，保留 image 供 GUI 线程回退
-            slot->image = image;
-        }
-    } else {
-        static int s_glSkipDiagCount = 0;
-        if (++s_glSkipDiagCount <= 3) {
-            qCWarning(lcClient) << "DecodeWorker: GL upload skipped -"
-                                << "ready:" << m_glUploadReady
-                                << "ctx:" << (m_glContext != nullptr)
-                                << "surface:" << (m_glSurface != nullptr)
-                                << "viewport:" << (m_glViewport != nullptr);
-        }
-        slot->image = image;
+    // 5. GPU 上传结果（fence 已由解码器内部通过 target 生成）
+    if (fence) {
+        slot->uploadFence = fence;
+    } else if (!fallbackImage.isNull()) {
+        slot->image = fallbackImage;
     }
 #else
-    slot->image = image;
+    slot->image = fallbackImage;
 #endif
 
     // 6. 提交到 TripleBuffer
@@ -279,32 +234,17 @@ bool DecodeWorker::processOneFrame() {
 #ifndef QT_NO_OPENGL
 
 bool DecodeWorker::initializeGL(QOpenGLContext* shareContext) {
-    if (!shareContext) {
-        qCWarning(lcClient) << "DecodeWorker::initializeGL() - No share context provided";
+    Q_UNUSED(shareContext);
+    if (!m_decodeTarget || !m_decodeTarget->isReady()) {
+        qCWarning(lcClient) << "DecodeWorker::initializeGL() — decode target not ready";
         return false;
     }
 
-    m_glContext = new QOpenGLContext();
-    m_glContext->setShareContext(shareContext);
-    m_glContext->setFormat(shareContext->format());
-    if (!m_glContext->create()) {
-        qCWarning(lcClient) << "DecodeWorker::initializeGL() - Failed to create shared GL context";
-        delete m_glContext;
-        m_glContext = nullptr;
-        return false;
-    }
-
-    m_glSurface = new QOffscreenSurface();
-    m_glSurface->setFormat(m_glContext->format());
-    m_glSurface->create();
-
-    // 不再需要 moveToThread：此方法现在通过 QueuedConnection 在 DecodeThread 中执行，
-    // QOffscreenSurface 内部的 QWindow 原生资源直接创建在正确的线程中。
-    // 在非 GUI 线程创建 QOffscreenSurface 会产生 Qt 警告但功能正常。
-
+    m_glContext = m_decodeTarget->workerContext();
+    m_glSurface = m_decodeTarget->offscreenSurface();
     m_glUploadReady = true;
-    qCInfo(lcClient) << "DecodeWorker::initializeGL() - GL context ready on"
-                      << (this->thread() ? this->thread()->objectName() : "null");
+
+    qCInfo(lcClient) << "DecodeWorker::initializeGL() — using GpuDecodeTarget worker context";
     return true;
 }
 
@@ -318,15 +258,18 @@ void DecodeWorker::cleanupGL() {
     m_glUploadReady = false;
     m_glViewport = nullptr;
     m_decoder.reset();
-    delete m_glContext;
     m_glContext = nullptr;
-    delete m_glSurface;
     m_glSurface = nullptr;
-    qCInfo(lcClient) << "DecodeWorker::cleanupGL() - GL resources deleted on DecodeThread";
+    m_decodeTarget = nullptr;
+    qCInfo(lcClient) << "DecodeWorker::cleanupGL() — GL resources released";
 }
 
 void DecodeWorker::setGLViewport(GLTextureViewport* vp) {
     m_glViewport = vp;
+}
+
+void DecodeWorker::setDecodeTarget(GpuDecodeTarget* target) {
+    m_decodeTarget = target;
 }
 
 #endif
