@@ -16,14 +16,22 @@ public:
 
     [[nodiscard]] bool isAvailable() const override { return true; }
 
-    [[nodiscard]] bool decode(
-        const QByteArray& jpegData,
-        QImage& output,
-        int* outWidth,
-        int* outHeight) override;
+#ifndef QT_NO_OPENGL
+    [[nodiscard]] bool decode(const QByteArray& jpegData,
+                               int* outWidth,
+                               int* outHeight,
+                               GLsync* outFence,
+                               QImage* outImage = nullptr) override;
+#else
+    [[nodiscard]] bool decode(const QByteArray& jpegData,
+                               int* outWidth,
+                               int* outHeight,
+                               QImage* outImage) override;
+#endif
 
     [[nodiscard]] const char* name() const override { return "libjpeg-turbo"; }
 
 private:
     tjhandle m_handle = nullptr;
+    QImage   m_buffer;  ///< CPU 解码缓冲复用
 };
