@@ -1,5 +1,5 @@
 /*
- * Copyright 1993-2012 NVIDIA Corporation.  All rights reserved.
+ * Copyright 1993-2023 NVIDIA Corporation.  All rights reserved.
  *
  * NOTICE TO LICENSEE:
  *
@@ -58,6 +58,8 @@
 
 #include "driver_types.h"
 
+#ifndef __CUDACC_RTC_MINIMAL__
+
 /**
  * \addtogroup CUDART_TYPES
  *
@@ -105,58 +107,6 @@ enum __device_builtin__ cudaTextureReadMode
 {
     cudaReadModeElementType     = 0,  /**< Read texture as specified element type */
     cudaReadModeNormalizedFloat = 1   /**< Read texture as normalized float */
-};
-
-/**
- * CUDA texture reference
- */
-struct __device_builtin__ textureReference
-{
-    /**
-     * Indicates whether texture reads are normalized or not
-     */
-    int                          normalized;
-    /**
-     * Texture filter mode
-     */
-    enum cudaTextureFilterMode   filterMode;
-    /**
-     * Texture address mode for up to 3 dimensions
-     */
-    enum cudaTextureAddressMode  addressMode[3];
-    /**
-     * Channel descriptor for the texture reference
-     */
-    struct cudaChannelFormatDesc channelDesc;
-    /**
-     * Perform sRGB->linear conversion during texture read
-     */
-    int                          sRGB;
-    /**
-     * Limit to the anisotropy ratio
-     */
-    unsigned int                 maxAnisotropy;
-    /**
-     * Mipmap filter mode
-     */
-    enum cudaTextureFilterMode   mipmapFilterMode;
-    /**
-     * Offset applied to the supplied mipmap level
-     */
-    float                        mipmapLevelBias;
-    /**
-     * Lower end of the mipmap level range to clamp access to
-     */
-    float                        minMipmapLevelClamp;
-    /**
-     * Upper end of the mipmap level range to clamp access to
-     */
-    float                        maxMipmapLevelClamp;
-    /**
-     * Disable any trilinear filtering optimizations.
-     */
-    int                          disableTrilinearOptimization;
-    int                          __cudaReserved[14];
 };
 
 /**
@@ -212,6 +162,10 @@ struct __device_builtin__ cudaTextureDesc
      * Disable any trilinear filtering optimizations.
      */
     int                         disableTrilinearOptimization;
+    /**
+     * Enable seamless cube map filtering.
+     */
+    int                         seamlessCubemap;
 };
 
 /**
@@ -222,4 +176,5 @@ typedef __device_builtin__ unsigned long long cudaTextureObject_t;
 /** @} */
 /** @} */ /* END CUDART_TYPES */
 
+#endif  /* !__CUDACC_RTC_MINIMAL__ */
 #endif /* !__TEXTURE_TYPES_H__ */

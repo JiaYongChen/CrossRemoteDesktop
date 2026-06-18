@@ -1,5 +1,5 @@
 /*
- * Copyright 1993-2017 NVIDIA Corporation.  All rights reserved.
+ * Copyright 1993-2023 NVIDIA Corporation.  All rights reserved.
  *
  * NOTICE TO LICENSEE:
  *
@@ -60,6 +60,14 @@
 #if !defined(__HOST_DEFINES_H__)
 #define __HOST_DEFINES_H__
 
+#if defined(__CUDACC__) && !defined(__CUDACC_RTC__) && !defined(__CUDADEVRT_INTERNAL__) && !defined(_ALLOW_UNSUPPORTED_LIBCPP)
+#include <ctype.h>
+#if ((defined(_MSC_VER ) && (defined(_M_X64) || defined(_M_AMD64))) ||\
+     (defined(__x86_64__) || defined(__amd64__))) && defined(_LIBCPP_VERSION) && !(defined(__HORIZON__) || defined(__ANDROID__) || defined(__QNX__))
+#error "libc++ is not supported on x86 system"
+#endif
+#endif
+
 /* CUDA JIT mode (__CUDACC_RTC__) also uses GNU style attributes */
 #if defined(__GNUC__) || (defined(__PGIC__) && defined(__linux__)) || defined(__CUDA_LIBDEVICE__) || defined(__CUDACC_RTC__)
 
@@ -82,11 +90,16 @@
 #define __noinline__ \
         __attribute__((noinline))
 #endif /* __CUDACC__  || __CUDA_ARCH__ || __CUDA_LIBDEVICE__ */
-        
+
+#undef __forceinline__
 #define __forceinline__ \
         __inline__ __attribute__((always_inline))
+#define __inline_hint__ \
+        __attribute__((nv_inline_hint))
 #define __align__(n) \
         __attribute__((aligned(n)))
+#define __maxnreg__(a) \
+        __attribute__((maxnreg(a)))
 #define __thread__ \
         __thread
 #define __import__
@@ -120,8 +133,12 @@
         __declspec(noinline)
 #define __forceinline__ \
         __forceinline
+#define __inline_hint__ \
+        __declspec(nv_inline_hint)
 #define __align__(n) \
         __declspec(align(n))
+#define __maxnreg__(n) \
+        __declspec(maxnreg(n))
 #define __thread__ \
         __declspec(thread)
 #define __import__ \
@@ -196,6 +213,11 @@
 
 #endif /* __CUDACC__ || __CUDA_LIBDEVICE__ || __GNUC__  || _WIN64 */
 
+#if defined(__CUDACC__) || !defined(__grid_constant__)
+#define __grid_constant__ \
+        __location__(grid_constant)
+#endif /* defined(__CUDACC__) || !defined(__grid_constant__) */
+        
 #if defined(__CUDACC__) || !defined(__host__)
 #define __host__ \
         __location__(host)
@@ -220,7 +242,10 @@
 #define __managed__ \
         __location__(managed)
 #endif /* defined(__CUDACC__) || !defined(__managed__) */
-        
+#if defined(__CUDACC__) || !defined(__nv_pure__)
+#define __nv_pure__ \
+        __location__(nv_pure)
+#endif /* defined(__CUDACC__) || !defined(__nv_pure__) */  
 #if !defined(__CUDACC__)
 #define __device_builtin__
 #define __device_builtin_texture_type__
@@ -237,6 +262,18 @@
         __location__(cudart_builtin)
 #endif /* !defined(__CUDACC__) */
 
+#if defined(__CUDACC__) || !defined(__cluster_dims__)
+#if defined(_MSC_VER)        
+#define __cluster_dims__(...) \
+        __declspec(__cluster_dims__(__VA_ARGS__))
+        
+#else  /* !defined(_MSC_VER) */
+#define __cluster_dims__(...) \
+        __attribute__((cluster_dims(__VA_ARGS__)))
+#endif  /* defined(_MSC_VER) */
+#endif  /* defined(__CUDACC__) || !defined(__cluster_dims__) */
+
+#define __CUDA_ARCH_HAS_FEATURE__(_FEAT) __CUDA_ARCH_FEAT_##_FEAT
 
 #endif /* !__HOST_DEFINES_H__ */
 
