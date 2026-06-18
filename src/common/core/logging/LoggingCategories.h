@@ -87,6 +87,9 @@ Q_DECLARE_LOGGING_CATEGORY(lcClientManager)
 /// 会话管理器日志
 Q_DECLARE_LOGGING_CATEGORY(lcSessionManager)
 
+/// 会话模块日志（新架构：DecodePipeline / ProtocolSession / RemoteDesktopSession）
+Q_DECLARE_LOGGING_CATEGORY(lcSession)
+
 /// OpenGL纹理视口日志
 Q_DECLARE_LOGGING_CATEGORY(lcGLViewport)
 

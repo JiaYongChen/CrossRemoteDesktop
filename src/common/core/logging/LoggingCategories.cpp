@@ -84,6 +84,9 @@ Q_LOGGING_CATEGORY(lcClientManager, "client.manager", QtDebugMsg)
 /// 会话管理器日志
 Q_LOGGING_CATEGORY(lcSessionManager, "client.session", QtDebugMsg)
 
+/// 会话模块日志（新架构：DecodePipeline / ProtocolSession / RemoteDesktopSession）
+Q_LOGGING_CATEGORY(lcSession, "client.session", QtDebugMsg)
+
 /// OpenGL纹理视口日志
 Q_LOGGING_CATEGORY(lcGLViewport, "client.glviewport", QtDebugMsg)
 
