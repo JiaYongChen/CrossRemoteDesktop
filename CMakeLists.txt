@@ -45,11 +45,11 @@ include(cmake/SetupOpenSSL.cmake)       # → OpenSSL::SSL, OpenSSL::Crypto
 include(cmake/SetupLibJpegTurbo.cmake)  # → LibJpegTurbo::turbojpeg
 include(cmake/SetupQt6.cmake)           # → Qt6::*, QT6_ROOT_DIR
 include(cmake/FilterAppleOpenGL.cmake)  # → rd_filter_apple_opengl()
-include(cmake/SetupCuda.cmake)          # → rd_setup_cuda(), Cuda::cudart, Cuda::nvjpeg
+include(cmake/SetupNvJpeg.cmake)        # → rd_setup_nvjpeg(), Cuda::cudart, Cuda::nvjpeg
 include(cmake/SetupOpenCL.cmake)        # → rd_setup_opencl(), OpenCL::OpenCL
 include(cmake/DeployWindowsDlls.cmake)  # → rd_deploy_windows_runtime()
 
-rd_setup_cuda()
+rd_setup_nvjpeg()
 rd_setup_opencl()
 
 # 清理 AGL/OpenGL 传播
