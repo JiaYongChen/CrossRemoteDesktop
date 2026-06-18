@@ -62,7 +62,9 @@ bool NvJpegDecoder::tryBackend(nvjpegBackend_t backend, unsigned int flags) {
     }
 
     // 2. HARDWARE 后端额外校验：确认硬件引擎可用
+    // nvjpegGetHardwareDecoderInfo 在 CUDA 12.x 中引入，11.4 不可用
     if (backend == NVJPEG_BACKEND_HARDWARE) {
+#if NVJPEG_VER_MAJOR >= 12
         unsigned int engines = 0, cores = 0;
         nvjpegGetHardwareDecoderInfo(h, &engines, &cores);
         if (engines == 0) {
@@ -72,6 +74,9 @@ bool NvJpegDecoder::tryBackend(nvjpegBackend_t backend, unsigned int flags) {
         }
         qCInfo(lcClient) << "NvJpegDecoder: HARDWARE decoder —"
                           << engines << "engine(s)," << cores << "core(s)/engine";
+#else
+        qCInfo(lcClient) << "NvJpegDecoder: HARDWARE backend — engine info unavailable (CUDA 11.x)";
+#endif
     }
 
     // 3. 设置内存填充（减少内部分配碎片）
