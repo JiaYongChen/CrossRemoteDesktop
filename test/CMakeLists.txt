@@ -368,7 +368,7 @@ add_rd_test(TARGET test_sessionmanager_lifecycle  NAME SessionManagerLifecycleTe
 add_rd_test(TARGET test_nvjpegdecoder  NAME NvJpegDecoderTest
     SOURCES test_nvjpegdecoder.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui common_test_core
-    TIMEOUT 30  LABELS unit client decode  NO_OPENGL)
+    TIMEOUT 30  LABELS unit client decode)
 
 # smoke / network components
 add_rd_test(TARGET test_smoke_network  NAME SmokeNetworkTest

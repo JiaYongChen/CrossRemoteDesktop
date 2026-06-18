@@ -22,12 +22,6 @@ private slots:
     /// @brief decode() 始终返回 false
     void test_decode_returnsFalse();
 
-    /// @brief decodeToPBO() 不可用时返回 false
-    void test_decodeToPBO_unavailable_returnsFalse();
-
-    /// @brief decodeToPBO() 无效数据时返回 false
-    void test_decodeToPBO_invalidJpeg_returnsFalse();
-
     /// @brief name() 返回 "nvJPEG"
     void test_name_returnsNvJpeg();
 };
@@ -47,41 +41,14 @@ void TestNvJpegDecoder::test_constructor_availability() {
 
 void TestNvJpegDecoder::test_decode_returnsFalse() {
     NvJpegDecoder decoder;
-    QImage img;
     int w = 0, h = 0;
+    GLsync fence = nullptr;
     QByteArray dummy("not-a-jpeg");
 
     // decode() 始终返回 false（无 CPU 路径）
-    QVERIFY(!decoder.decode(dummy, img, &w, &h));
+    QVERIFY(!decoder.decode(dummy, &w, &h, &fence, nullptr));
 }
 
-void TestNvJpegDecoder::test_decodeToPBO_unavailable_returnsFalse() {
-#ifndef HAS_NVJPEG
-    NvJpegDecoder decoder;
-    QByteArray dummy;
-
-    // 不可用时 decodeToPBO() 应立即返回 false
-    QVERIFY(!decoder.decodeToPBO(dummy, nullptr, 1920, 1080, 3));
-#else
-    // 有 CUDA SDK 时依赖硬件，不做断言
-    QVERIFY(true);
-#endif
-}
-
-void TestNvJpegDecoder::test_decodeToPBO_invalidJpeg_returnsFalse() {
-#ifdef HAS_NVJPEG
-    NvJpegDecoder decoder;
-    if (!decoder.isAvailable()) {
-        QSKIP("No CUDA GPU available — skipping decode test");
-    }
-
-    // 随机字节不是有效 JPEG — 应返回 false
-    QByteArray invalidData(1024, '\x00');
-    QVERIFY(!decoder.decodeToPBO(invalidData, nullptr, 1920, 1080, 3));
-#else
-    QVERIFY(true);
-#endif
-}
 
 void TestNvJpegDecoder::test_name_returnsNvJpeg() {
     NvJpegDecoder decoder;
