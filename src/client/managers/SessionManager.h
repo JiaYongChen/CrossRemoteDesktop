@@ -1,7 +1,6 @@
 #pragma once
 
 #include <QtCore/QObject>
-#include <QtCore/QMutex>
 #include <QtGui/QPixmap>
 #include <QtGui/QImage>
 #include <QtCore/QDateTime>
@@ -165,10 +164,6 @@ private:
 
     // 远程桌面数据
     QSize m_remoteScreenSize;
-
-    // 帧数据缓存和线程安全
-    QByteArray m_previousFrameData;
-    mutable QMutex m_frameDataMutex;
 
     // Triple-buffered lock-free frame delivery (replaces QQueue+QMutex+signal)
     TripleBuffer<FrameSlot> m_frameBuffer;

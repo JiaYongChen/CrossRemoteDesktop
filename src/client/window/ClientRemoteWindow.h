@@ -19,7 +19,6 @@ class QEvent;
 class QPainter;
 class GLTextureViewport;
 class SessionManager;
-class RenderManager;
 class CursorManager;
 class ClipboardManager;
 class InputForwarder;
@@ -58,7 +57,6 @@ public:
     bool isInputEnabled() const;
 
     // Manager access
-    RenderManager* renderManager() const;
     CursorManager* cursorManager() const;
 
     // GL viewport access
@@ -81,7 +79,6 @@ private slots:
     void onConnectionClosed();
     void onConnectionError(const QString& error);
     void onScreenUpdated(const QImage& screen);
-    void onWindowResizeRequested(const QSize& size);
 
 private:
     void initializeManagers();
@@ -97,8 +94,10 @@ private:
     // Cached host name for title display
     QString m_hostName;
 
+    // Scale factor (replaces RenderManager scaling)
+    double m_scaleFactor = 1.0;
+
     // Sub-managers (owned via Qt parent-child)
-    RenderManager* m_renderManager = nullptr;
     CursorManager* m_cursorManager = nullptr;
     ClipboardManager* m_clipboardManager = nullptr;
 

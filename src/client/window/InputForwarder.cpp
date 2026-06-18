@@ -68,17 +68,6 @@ bool InputForwarder::eventFilter(QObject* obj, QEvent* event) {
 bool InputForwarder::handleKeyPress(QKeyEvent* event) {
     if (!m_sessionManager) return false;
 
-#ifndef QT_NO_OPENGL
-    // Toggle VSync with Ctrl+V (GL mode only)
-    if (event->key() == Qt::Key_V && (event->modifiers() & Qt::ControlModifier)) {
-        if (m_viewport) {
-            m_viewport->setVSyncEnabled(!m_viewport->isVSyncEnabled());
-            event->accept();
-            return true;
-        }
-    }
-#endif
-
     QMetaObject::invokeMethod(m_sessionManager, "sendKeyboardEvent",
         Qt::QueuedConnection,
         Q_ARG(int, event->key()),

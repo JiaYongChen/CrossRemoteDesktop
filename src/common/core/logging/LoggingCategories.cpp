@@ -84,9 +84,6 @@ Q_LOGGING_CATEGORY(lcClientManager, "client.manager", QtDebugMsg)
 /// 会话管理器日志
 Q_LOGGING_CATEGORY(lcSessionManager, "client.session", QtDebugMsg)
 
-/// 渲染管理器日志
-Q_LOGGING_CATEGORY(lcRenderManager, "client.render", QtDebugMsg)
-
 /// OpenGL纹理视口日志
 Q_LOGGING_CATEGORY(lcGLViewport, "client.glviewport", QtDebugMsg)
 

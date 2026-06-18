@@ -5,8 +5,6 @@
 #include "../network/ConnectionManager.h"
 
 class QWidget;
-class ClientRemoteWindow;
-class SessionManager;
 
 /// 连接生命周期管理 — 从 ClientRemoteWindow 分离出的连接状态+标题+断连对话框
 ///
@@ -16,8 +14,8 @@ class ConnectionLifecycle : public QObject {
 public:
     explicit ConnectionLifecycle(QObject* parent = nullptr);
 
-    /// 绑定目标窗口和会话管理器
-    void manage(ClientRemoteWindow* window, SessionManager* sm);
+    /// 绑定目标窗口
+    void manage(QWidget* window);
 
     /// 设置连接状态（触发标题更新 + 断连处理）
     void setConnectionState(ConnectionManager::ConnectionState state);
@@ -33,8 +31,7 @@ private:
     void updateWindowTitle();
     void showDisconnectionDialog();
 
-    ClientRemoteWindow* m_window = nullptr;
-    SessionManager* m_sessionManager = nullptr;
+    QWidget* m_window = nullptr;
     ConnectionManager::ConnectionState m_connectionState = ConnectionManager::Disconnected;
     QString m_hostName;
 };

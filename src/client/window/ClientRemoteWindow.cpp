@@ -3,7 +3,6 @@
 #include "ConnectionLifecycle.h"
 #include "../managers/SessionManager.h"
 #include "../../common/core/config/UiConstants.h"
-#include "RenderManager.h"
 #include "CursorManager.h"
 #include "../../common/clipboard/ClipboardManager.h"
 
@@ -38,7 +37,7 @@ ClientRemoteWindow::ClientRemoteWindow(SessionManager* sessionManager, QWidget* 
     m_inputForwarder->setSessionManager(m_sessionManager);
 
     m_connectionLifecycle = new ConnectionLifecycle(this);
-    m_connectionLifecycle->manage(this, m_sessionManager);
+    m_connectionLifecycle->manage(this);
 
     // ── Create sub-managers ──
     initializeManagers();
@@ -100,13 +99,13 @@ void ClientRemoteWindow::updateRemoteScreen(const QImage& screen) {
 // ── Scaling ──
 
 void ClientRemoteWindow::setScaleFactor(double factor) {
-    if (m_renderManager) {
-        m_renderManager->setScaleFactor(factor);
+    if (factor > 0.0) {
+        m_scaleFactor = factor;
     }
 }
 
 double ClientRemoteWindow::scaleFactor() const {
-    return m_renderManager ? m_renderManager->scaleFactor() : 1.0;
+    return m_scaleFactor;
 }
 
 // ── Full screen ──
@@ -134,10 +133,6 @@ bool ClientRemoteWindow::isInputEnabled() const {
 // ── Manager access ──
 
 
-RenderManager* ClientRemoteWindow::renderManager() const {
-    return m_renderManager;
-}
-
 CursorManager* ClientRemoteWindow::cursorManager() const {
     return m_cursorManager;
 }
@@ -145,7 +140,6 @@ CursorManager* ClientRemoteWindow::cursorManager() const {
 // ── Initialization ──
 
 void ClientRemoteWindow::initializeManagers() {
-    m_renderManager = new RenderManager(this, this);
     m_cursorManager = new CursorManager(this, this);
     m_clipboardManager = new ClipboardManager(this);
     m_clipboardManager->setEnabled(true);
@@ -165,10 +159,6 @@ void ClientRemoteWindow::setupUI() {
     m_glViewport->setGeometry(rect());
     m_glViewport->show();
     m_glViewport->raise();
-
-    if (m_renderManager) {
-        m_renderManager->setGLViewport(m_glViewport);
-    }
 
     // Wire viewport to InputForwarder for coordinate mapping
     if (m_inputForwarder) {
@@ -193,12 +183,6 @@ void ClientRemoteWindow::setupManagerConnections() {
     if (m_cursorManager) {
         connect(m_sessionManager, &SessionManager::remoteCursorTypeUpdated,
             m_cursorManager, &CursorManager::setRemoteCursorType);
-    }
-
-    // Render resize requests
-    if (m_renderManager) {
-        connect(m_renderManager, &RenderManager::windowResizeRequested,
-            this, &ClientRemoteWindow::onWindowResizeRequested);
     }
 
     // Clipboard sync
@@ -240,9 +224,6 @@ void ClientRemoteWindow::resizeEvent(QResizeEvent* event) {
     }
 #endif
 
-    if (m_renderManager) {
-        m_renderManager->onViewResized();
-    }
 }
 
 void ClientRemoteWindow::enterEvent(QEnterEvent* event) {
@@ -298,32 +279,3 @@ void ClientRemoteWindow::onScreenUpdated(const QImage& screen) {
     updateRemoteScreen(screen);
 }
 
-void ClientRemoteWindow::onWindowResizeRequested(const QSize& size) {
-    if (size.isEmpty()) return;
-
-    QWidget* parentWindow = window();
-    if (!parentWindow) return;
-
-    QSize currentViewportSize = this->size();
-    QSize extraSpace = parentWindow->size() - currentViewportSize;
-    QSize newWindowSize = size + extraSpace;
-
-    QScreen* screen = parentWindow->screen();
-    if (screen) {
-        QRect availableGeometry = screen->availableGeometry();
-        int maxWidth = static_cast<int>(availableGeometry.width() * 0.8);
-        int maxHeight = static_cast<int>(availableGeometry.height() * 0.8);
-
-        if (newWindowSize.width() > maxWidth || newWindowSize.height() > maxHeight) {
-            double scaleX = static_cast<double>(maxWidth) / newWindowSize.width();
-            double scaleY = static_cast<double>(maxHeight) / newWindowSize.height();
-            double scale = qMin(scaleX, scaleY);
-            newWindowSize = QSize(static_cast<int>(newWindowSize.width() * scale),
-                static_cast<int>(newWindowSize.height() * scale));
-        }
-        newWindowSize = newWindowSize.expandedTo(QSize(400, 300));
-    }
-
-    parentWindow->resize(newWindowSize);
-    qCDebug(lcClientRemoteWindow) << "Window resize requested:" << size << "→" << newWindowSize;
-}

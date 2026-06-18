@@ -2,7 +2,6 @@
 #include "./network/ConnectionManager.h"
 #include "./managers/SessionManager.h"
 #include "./window/ClientRemoteWindow.h"
-#include "./window/RenderManager.h"
 #ifndef QT_NO_OPENGL
 #include "./window/GLTextureViewport.h"
 #include "./decode/GpuDecodeTarget.h"

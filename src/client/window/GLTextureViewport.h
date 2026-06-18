@@ -62,7 +62,7 @@ public:
      * @brief Convenience wrapper — delegates to GpuDecodeTarget.
      *
      * Provided for API compatibility: setRemoteScreen + setRemoteSize
-     * replaces the old RenderManager::setRemoteScreen flow.
+     * replaces the old CPU-side screen update flow.
      */
     void setRemoteScreen(const QImage& image);
 
@@ -117,7 +117,7 @@ public:
      */
     QRectF renderRect() const;
 
-    // Coordinate mapping (replaces RenderManager's mapToRemote/mapFromRemote in GL mode)
+    // Coordinate mapping (local widget ↔ remote desktop coordinates)
 
     /**
      * @brief Map a widget-local point to remote desktop coordinates.

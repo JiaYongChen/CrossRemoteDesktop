@@ -1,5 +1,4 @@
 #include "ConnectionLifecycle.h"
-#include "ClientRemoteWindow.h"
 #include "../../common/core/config/MessageConstants.h"
 #include "../../common/core/logging/LoggingCategories.h"
 #include <QtWidgets/QMessageBox>
@@ -9,9 +8,8 @@ ConnectionLifecycle::ConnectionLifecycle(QObject* parent)
     : QObject(parent) {
 }
 
-void ConnectionLifecycle::manage(ClientRemoteWindow* window, SessionManager* sm) {
+void ConnectionLifecycle::manage(QWidget* window) {
     m_window = window;
-    m_sessionManager = sm;
 }
 
 void ConnectionLifecycle::setConnectionState(ConnectionManager::ConnectionState state) {

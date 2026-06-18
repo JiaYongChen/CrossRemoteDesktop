@@ -13,7 +13,6 @@
 #include <QtCore/QDataStream>
 #include <QtCore/QThread>
 #include <QtCore/QTimer>
-#include <QtCore/QMutexLocker>
 #include <QtGui/QImageReader>
 #include <algorithm>
 
@@ -279,13 +278,7 @@ void SessionManager::handleScreenData(const QByteArray& data) {
         }
     }
 
-    // 3. 缓存 JPEG 数据（保留兼容性）
-    {
-        QMutexLocker locker(&m_frameDataMutex);
-        m_previousFrameData = screenData.imageData;
-    }
-
-    // 4. 更新 remoteScreenSize（缩放场景）
+    // 3. 更新 remoteScreenSize（缩放场景）
     if (screenData.flags & static_cast<quint8>(ScreenDataFlags::SCALED)) {
         if (screenData.originalWidth > 0 && screenData.originalHeight > 0) {
             m_remoteScreenSize = QSize(screenData.originalWidth, screenData.originalHeight);
@@ -293,12 +286,12 @@ void SessionManager::handleScreenData(const QByteArray& data) {
     }
     // Note: 非缩放场景的尺寸更新移到了 DecodeWorker::processOneFrame() 中
 
-    // 5. 投递到解码线程（使用移动语义避免 imageData 深拷贝）
+    // 4. 投递到解码线程（使用移动语义避免 imageData 深拷贝）
     if (m_decodeWorker && m_decodeWorker->isRunning()) {
         // 在移动前捕获时间戳，用于端到端延迟诊断
         const quint64 captureTs = screenData.captureTimestamp;
         if (m_decodeWorker->enqueueFrame(std::move(screenData), m_remoteScreenSize)) {
-            // 6. FPS 统计（基于入队时间）
+            // 5. FPS 统计（基于入队时间）
             const auto now = std::chrono::steady_clock::now();
             if (m_lastFpsTime.time_since_epoch().count() != 0) {
                 const double instant = std::chrono::duration<double>(now - m_lastFpsTime).count();
@@ -370,26 +363,20 @@ void SessionManager::disconnectFromHost() {
 }
 
 void SessionManager::resetConnection() {
-    // 1) 清理帧数据缓存（QMutexLocker 保证线程安全）
-    {
-        QMutexLocker locker(&m_frameDataMutex);
-        m_previousFrameData.clear();
-    }
-
-    // 2) 清理帧时间队列
+    // 1) 清理帧时间队列
     m_lastFpsTime = {};
     m_smoothedFrameDuration = 0.0;
 
-    // 3) 重置远程屏幕尺寸
+    // 2) 重置远程屏幕尺寸
     m_remoteScreenSize = QSize();
 
-    // 4) 重置性能统计（包含 FPS、帧计数等）
+    // 3) 重置性能统计（包含 FPS、帧计数等）
     resetStats();
 
-    // 5) 重置 TripleBuffer 索引，防止 GUI 线程读取上一次连接的过时帧
+    // 4) 重置 TripleBuffer 索引，防止 GUI 线程读取上一次连接的过时帧
     m_frameBuffer.reset();
 
-    // 6) 通知外部（UI、RenderManager 等）连接已重置
+    // 5) 通知外部（UI 等）连接已重置
     emit connectionReset();
 
     qCInfo(lcClient) << "SessionManager::resetConnection() - Connection state reset complete";
