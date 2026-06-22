@@ -247,10 +247,13 @@ void MainWindow::closeEvent(QCloseEvent* event) {
     if ( m_clientMode ) {
         qCInfo(lcUI) << "MainWindow::closeEvent() - Client mode, closing main window and exiting application";
 
-        // 断开所有客户端连接
+        // 断开所有客户端连接（先断开 finished 信号，防止 close() 触发 removeOne 修改容器）
         for (auto* session : m_sessions) {
+            disconnect(session, &RemoteDesktopSession::finished, this, nullptr);
             session->close();
         }
+        qDeleteAll(m_sessions);
+        m_sessions.clear();
 
         // 接受关闭事件
         event->accept();
@@ -370,10 +373,13 @@ void MainWindow::connectToHost() {
 }
 
 void MainWindow::disconnectFromHost() {
-    if ( !m_sessions.isEmpty() ) {
+    if (!m_sessions.isEmpty()) {
         for (auto* session : m_sessions) {
+            disconnect(session, &RemoteDesktopSession::finished, this, nullptr);
             session->close();
         }
+        qDeleteAll(m_sessions);
+        m_sessions.clear();
     }
 }
 
@@ -453,10 +459,13 @@ void MainWindow::showAboutQt() {
 }
 
 void MainWindow::exitApplication() {
-    // 断开所有客户端连接
+    // 断开所有客户端连接（先断开 finished 信号，防止 close() 触发 removeOne 修改容器）
     for (auto* session : m_sessions) {
+        disconnect(session, &RemoteDesktopSession::finished, this, nullptr);
         session->close();
     }
+    qDeleteAll(m_sessions);
+    m_sessions.clear();
 
     // 停止服务器
     if ( m_serverManager && m_serverManager->isServerRunning() ) {
@@ -585,8 +594,11 @@ void MainWindow::gracefulShutdown() {
     if ( !m_sessions.isEmpty() ) {
         qCInfo(lcUI) << "MainWindow::gracefulShutdown() - Disconnecting all clients";
         for (auto* session : m_sessions) {
+            disconnect(session, &RemoteDesktopSession::finished, this, nullptr);
             session->close();
         }
+        qDeleteAll(m_sessions);
+        m_sessions.clear();
     }
 
     // 停止服务器（无论当前标记是否显示正在运行，均调用优雅关闭以保证最终态日志输出与资源释放的幂等性）
@@ -603,9 +615,7 @@ void MainWindow::gracefulShutdown() {
     if ( m_serverManager ) {
         disconnect(m_serverManager, nullptr, this, nullptr);
     }
-    for (auto* session : m_sessions) {
-        disconnect(session, nullptr, this, nullptr);
-    }
+    // 注：m_sessions 已在上面通过 qDeleteAll + clear() 清理完毕，无需再次遍历
 
     qCInfo(lcUI) << "MainWindow::gracefulShutdown() - Graceful shutdown complete";
 

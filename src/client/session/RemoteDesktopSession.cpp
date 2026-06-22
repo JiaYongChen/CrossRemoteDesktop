@@ -58,6 +58,9 @@ void RemoteDesktopSession::createNetworkComponents() {
 
     m_protocolSession = new ProtocolSession(m_connectionManager, m_decodePipeline);
     m_protocolSession->setConnectionId(m_connectionId);
+
+    // 设置父子关系：delete m_protocolSession 时级联删除 ConnectionManager → TcpClient
+    m_connectionManager->setParent(m_protocolSession);
 }
 
 void RemoteDesktopSession::createDecodePipeline() {
@@ -115,7 +118,8 @@ void RemoteDesktopSession::wireSignals() {
     connect(m_connectionManager, &ConnectionManager::connectionStateChanged,
         this, [this](ConnectionManager::ConnectionState state) {
             if (state == ConnectionManager::ConnectionState::Authenticated) {
-                m_protocolSession->startSession();
+                // 使用 QueuedConnection 将 startSession() 派发到 ProtocolSession 所在的 Network 线程
+                QMetaObject::invokeMethod(m_protocolSession, "startSession", Qt::QueuedConnection);
             } else if (state == ConnectionManager::ConnectionState::Error) {
                 emit errorOccurred(RdError(ErrorCode::NetworkConnectionFailed,
                     QStringLiteral("连接 %1:%2 失败").arg(m_host).arg(m_port),
@@ -170,16 +174,14 @@ void RemoteDesktopSession::close() {
 
     qCInfo(lcSession) << "RemoteDesktopSession::close() — starting for" << m_connectionId;
 
-    // 1. 停止解码管线
+    // 1. 停止解码管线（通过 BlockingQueuedConnection 在 Network 线程执行）
     if (m_decodePipeline) {
-        // 跨线程调用：DecodePipeline 归属 Network 线程，stop() 内部通过
-        // quit()+wait() 实现同步屏障，线程安全。
-        m_decodePipeline->stop();
+        QMetaObject::invokeMethod(m_decodePipeline, "stop", Qt::BlockingQueuedConnection);
     }
 
-    // 2. 断开连接
+    // 2. 断开连接（通过 BlockingQueuedConnection 在 Network 线程执行）
     if (m_protocolSession) {
-        m_protocolSession->disconnectFromHost();
+        QMetaObject::invokeMethod(m_protocolSession, "disconnectFromHost", Qt::BlockingQueuedConnection);
     }
 
     // 3. 停止 Network 线程
@@ -193,7 +195,16 @@ void RemoteDesktopSession::close() {
         }
     }
 
-    // 4. 关闭窗口
+    // 4. 删除网络层对象（线程已停止，安全删除）
+    //    ProtocolSession 是 ConnectionManager 的父对象，级联删除
+    delete m_protocolSession;
+    m_protocolSession = nullptr;
+    m_connectionManager = nullptr;  // 已被 ProtocolSession 级联删除
+
+    delete m_decodePipeline;
+    m_decodePipeline = nullptr;
+
+    // 5. 关闭窗口
     if (m_window && !m_window->isClosing()) {
         m_window->close();
     }

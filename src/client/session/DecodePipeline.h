@@ -38,7 +38,7 @@ public:
     void start();
 
     /// 停止管线（幂等）：停止 Worker → 清理 GL → 停线程 → 销毁 Worker
-    void stop();
+    Q_INVOKABLE void stop();
 
     /// 是否正在运行
     bool isRunning() const;

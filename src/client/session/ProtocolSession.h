@@ -30,7 +30,7 @@ public:
     void setConnectionId(const QString& id) { m_connectionId = id; }
 
     // ── 会话生命周期 ──
-    void startSession();
+    Q_INVOKABLE void startSession();
     void suspendSession();
     void resumeSession();
     void terminateSession();
@@ -54,7 +54,7 @@ public slots:
 
     // ── 连接控制 ──
     void connectToHost(const QString& host, int port);
-    void disconnectFromHost();
+    Q_INVOKABLE void disconnectFromHost();
 
     /// 重置连接状态
     void resetConnection();
