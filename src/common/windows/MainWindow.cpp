@@ -2,7 +2,8 @@
 #include "ConnectionDialog.h"
 #include "SettingsDialog.h"
 #include "../../server/ServerManager.h"
-#include "../../client/ClientManager.h"
+#include "../../client/session/RemoteDesktopSession.h"
+#include "../../client/network/ConnectionManager.h"
 #include "../../server/dataflow/QueueManager.h"
 #include "../core/threading/ThreadManager.h"
 #include "../../server/simulator/InputSimulator.h"
@@ -41,6 +42,7 @@
 #include <QtCore/QSettings>
 #include <QtCore/QStandardPaths>
 #include <QtCore/QDir>
+#include <QtCore/QUuid>
 #include <QtGui/QIcon>
 #include <QtGui/QCloseEvent>
 #include <QtCore/QEvent>
@@ -60,7 +62,6 @@ MainWindow::MainWindow(QWidget* parent)
     , m_connectionDialog(nullptr)
     , m_settingsDialog(nullptr)
     , m_serverManager(nullptr)
-    , m_clientManager(nullptr)
     , m_settings(nullptr)
     , m_clientMode(false)
     , m_isShuttingDown(false) {
@@ -81,7 +82,6 @@ MainWindow::MainWindow(QWidget* parent)
 
     // 创建管理器组件
     m_serverManager = new ServerManager(this, m_threadManager, m_queueManager);
-    m_clientManager = new ClientManager(this);
 
     // 设置连接
     setupConnections();
@@ -111,8 +111,10 @@ MainWindow::~MainWindow() {
         disconnect(m_serverManager, nullptr, this, nullptr);
     }
 
-    if ( m_clientManager ) {
-        disconnect(m_clientManager, nullptr, this, nullptr);
+    // 断开并清理所有会话
+    for (auto* session : m_sessions) {
+        disconnect(session, nullptr, this, nullptr);
+        session->close();
     }
 
     // 2. 清理系统托盘图标
@@ -171,15 +173,6 @@ void MainWindow::setupConnections() {
             this, &MainWindow::onClientDisconnected);
         connect(m_serverManager, &ServerManager::clientAuthenticated,
             this, &MainWindow::onClientAuthenticated);
-    }
-
-    // ClientManager信号连接
-    if ( m_clientManager ) {
-        // 连接ClientManager的信号
-        connect(m_clientManager, &ClientManager::connectionEstablished,
-            this, &MainWindow::onConnectionEstablished);
-        connect(m_clientManager, &ClientManager::allConnectionsClosed,
-            this, &MainWindow::onAllConnectionsClosed);
     }
 
     // 系统托盘连接
@@ -255,8 +248,8 @@ void MainWindow::closeEvent(QCloseEvent* event) {
         qCInfo(lcUI) << "MainWindow::closeEvent() - Client mode, closing main window and exiting application";
 
         // 断开所有客户端连接
-        if ( m_clientManager ) {
-            m_clientManager->disconnectAll();
+        for (auto* session : m_sessions) {
+            session->close();
         }
 
         // 接受关闭事件
@@ -377,8 +370,10 @@ void MainWindow::connectToHost() {
 }
 
 void MainWindow::disconnectFromHost() {
-    if ( m_clientManager && m_clientManager->hasActiveConnections() ) {
-        m_clientManager->disconnectAll();
+    if ( !m_sessions.isEmpty() ) {
+        for (auto* session : m_sessions) {
+            session->close();
+        }
     }
 }
 
@@ -459,8 +454,8 @@ void MainWindow::showAboutQt() {
 
 void MainWindow::exitApplication() {
     // 断开所有客户端连接
-    if ( m_clientManager ) {
-        m_clientManager->disconnectAll();
+    for (auto* session : m_sessions) {
+        session->close();
     }
 
     // 停止服务器
@@ -587,9 +582,11 @@ void MainWindow::gracefulShutdown() {
     qCInfo(lcUI) << "MainWindow::gracefulShutdown() - Starting graceful shutdown";
 
     // 断开所有客户端连接
-    if ( m_clientManager ) {
+    if ( !m_sessions.isEmpty() ) {
         qCInfo(lcUI) << "MainWindow::gracefulShutdown() - Disconnecting all clients";
-        m_clientManager->disconnectAll();
+        for (auto* session : m_sessions) {
+            session->close();
+        }
     }
 
     // 停止服务器（无论当前标记是否显示正在运行，均调用优雅关闭以保证最终态日志输出与资源释放的幂等性）
@@ -606,8 +603,8 @@ void MainWindow::gracefulShutdown() {
     if ( m_serverManager ) {
         disconnect(m_serverManager, nullptr, this, nullptr);
     }
-    if ( m_clientManager ) {
-        disconnect(m_clientManager, nullptr, this, nullptr);
+    for (auto* session : m_sessions) {
+        disconnect(session, nullptr, this, nullptr);
     }
 
     qCInfo(lcUI) << "MainWindow::gracefulShutdown() - Graceful shutdown complete";
@@ -645,29 +642,52 @@ void MainWindow::showConnectionDialog() {
         QString host = m_connectionDialog->getHostAddress();
         int port = m_connectionDialog->getPort();
 
-        // 使用ClientManager连接到主机
-        if ( m_clientManager ) {
-            QString connectionId = m_clientManager->connectToHost(host, port);
-        }
+        // 直接连接到主机
+        connectToHostDirectly(host, port);
     }
 }
 
 void MainWindow::connectToHostDirectly(const QString& host, int port) {
-    if ( m_clientManager ) {
-        // 连接到主机
-        QString connectionId = m_clientManager->connectToHost(host, port);
-    }
+    QString connectionId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    auto* session = new RemoteDesktopSession(host, port, connectionId, this);
+
+    connect(session, &RemoteDesktopSession::finished, this, [this, session](const QString& id) {
+        Q_UNUSED(id);
+        m_sessions.removeOne(session);
+        session->deleteLater();
+        if (m_sessions.isEmpty()) {
+            onAllConnectionsClosed();
+        }
+    });
+
+    connect(session, &RemoteDesktopSession::errorOccurred, this, [this](const RdError& err) {
+        qCWarning(lcSession) << "RemoteDesktopSession error:" << err.logLabel();
+        updateConnectionStatus(err.logLabel());
+    });
+
+    m_sessions.append(session);
+
+    // 添加到连接历史
+    addConnectionToHistory(host, port);
+
+    session->start();
 }
 
 void MainWindow::onConnectionEstablished(const QString& connectionId) {
     qCInfo(lcApp) << "MainWindow::onConnectionEstablished - Connection established for:" << connectionId;
 
-    // 获取连接信息并添加到历史
-    if ( m_clientManager ) {
-        QString host = m_clientManager->getCurrentHost(connectionId);
-        int port = m_clientManager->getCurrentPort(connectionId);
-        if ( !host.isEmpty() && port > 0 ) {
-            addConnectionToHistory(host, port);
+    // 从会话列表中查找对应会话以获取主机/端口信息
+    for (auto* session : m_sessions) {
+        if (session->connectionId() == connectionId) {
+            auto* cm = session->connectionManager();
+            if (cm) {
+                QString host = cm->currentHost();
+                int port = cm->currentPort();
+                if (!host.isEmpty() && port > 0) {
+                    addConnectionToHistory(host, port);
+                }
+            }
+            break;
         }
     }
 }

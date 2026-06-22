@@ -20,7 +20,7 @@ class SettingsDialog;
 class ThreadManager;
 class QueueManager;
 class ServerManager;
-class ClientManager;
+class RemoteDesktopSession;
 
 class MainWindow : public QMainWindow
 {
@@ -154,7 +154,7 @@ private:
     ThreadManager *m_threadManager;
     QueueManager *m_queueManager;
     ServerManager *m_serverManager;
-    ClientManager *m_clientManager;
+    QList<RemoteDesktopSession*> m_sessions;
     
     // 设置
     QSettings *m_settings;
