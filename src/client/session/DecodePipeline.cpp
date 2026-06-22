@@ -48,8 +48,8 @@ void DecodePipeline::start() {
     m_worker->setGLViewport(m_glViewportForUpload);
 #endif
 
-    // worker 拥有线程（通过 parent），delete worker 时自动清理
-    decodeThread->setParent(m_worker);
+    // 注意：不设置 decodeThread 的 parent（跨线程限制），
+    // 由 stop() 负责显式清理 decodeThread
 
     // 转发信号
     connect(m_worker, &DecodeWorker::decodeError, this, &DecodePipeline::decodeError);
@@ -95,9 +95,26 @@ void DecodePipeline::stop() {
         }
     }
 
-    // 5. 删除 worker
+    // 5. 删除 worker（可能会触发 ThreadSafeQueue 析构等清理）
     delete m_worker;
     m_worker = nullptr;
+
+    // 6. 等待线程退出（worker 已删除，线程应快速退出）
+    if (decodeThread && decodeThread->isRunning()) {
+        if (!decodeThread->wait(1000)) {
+            qCWarning(lcSession) << "DecodePipeline::stop() — thread still running after worker deleted, forcing";
+            decodeThread->requestInterruption();
+            decodeThread->quit();
+            decodeThread->wait(1000);
+        }
+    }
+
+    // 7. 清理线程（不设 parent 时需显式 delete）
+    if (decodeThread) {
+        delete decodeThread;
+        decodeThread = nullptr;
+    }
+
     m_running = false;
 
     qCInfo(lcSession) << "DecodePipeline::stop() — stopped for" << m_connectionId;

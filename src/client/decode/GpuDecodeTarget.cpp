@@ -142,6 +142,10 @@ GLsync GpuDecodeTarget::commitWriteBuffer() {
 
     const int width = m_pendingWidth;
     const int height = m_pendingHeight;
+
+    // 确保纹理已创建（首次调用时纹理 ID 可能为 0）
+    ensureTextureSize(width, height);
+
     const int targetIdx = 1 - m_displayTexIndex.load();
 
     if (m_usePersistent && m_persistentPboId[m_pboWriteIdx]) {
