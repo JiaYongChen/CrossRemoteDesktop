@@ -253,12 +253,16 @@ bool GpuDecodeTarget::ensurePboSize(int width, int height) {
     // 首次分配时尝试持久映射 PBO
     if (!m_usePersistent && m_persistentPboId[0] == 0) {
         const auto cfg = RenderConfig::load();
-        if (cfg.gl.usePersistentPbo) createPersistentPBOs(need);
+        if (cfg.gl.usePersistentPbo) {
+            createPersistentPBOs(need);
+            m_pboAllocatedBytes = need;  // 立即标记，防止下一个条件重复创建
+        }
     }
     if (m_usePersistent && need != m_pboAllocatedBytes) {
         // 尺寸变更 → 重建持久映射 PBO
         destroyPersistentPBOs();
         createPersistentPBOs(need);
+        m_pboAllocatedBytes = need;
     }
 
     if (!m_usePersistent) {

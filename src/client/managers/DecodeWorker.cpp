@@ -242,9 +242,16 @@ bool DecodeWorker::initializeGL(QOpenGLContext* shareContext) {
 
     m_glContext = m_decodeTarget->workerContext();
     m_glSurface = m_decodeTarget->offscreenSurface();
-    m_glUploadReady = true;
 
-    qCInfo(lcClient) << "DecodeWorker::initializeGL() — using GpuDecodeTarget worker context";
+    // 在工作线程上激活 GL 上下文——后续所有 GL 操作依赖此调用
+    if (!m_glContext->makeCurrent(m_glSurface)) {
+        qCWarning(lcClient) << "DecodeWorker::initializeGL() — failed to make GL context current";
+        m_glUploadReady = false;
+        return false;
+    }
+
+    m_glUploadReady = true;
+    qCInfo(lcClient) << "DecodeWorker::initializeGL() — worker GL context made current";
     return true;
 }
 
