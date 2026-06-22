@@ -2,7 +2,6 @@
 #include "DecodePipeline.h"
 #include "../network/ConnectionManager.h"
 #include "../../common/core/logging/LoggingCategories.h"
-#include "../../common/core/config/MessageConstants.h"
 
 ProtocolSession::ProtocolSession(ConnectionManager* connectionManager,
                                  DecodePipeline* pipeline,
@@ -35,6 +34,12 @@ void ProtocolSession::startSession() {
         qCWarning(lcSession) << "ProtocolSession::startSession() — not authenticated";
         emit sessionError(RdError(ErrorCode::SessionNotAuthenticated,
             tr("无法启动会话 - 未认证"), "ProtocolSession"));
+        return;
+    }
+    if (!m_pipeline) {
+        qCWarning(lcSession) << "ProtocolSession::startSession() — pipeline is null";
+        emit sessionError(RdError(ErrorCode::SessionNotAuthenticated,
+            tr("解码管线未初始化"), "ProtocolSession"));
         return;
     }
     m_sessionActive = true;
