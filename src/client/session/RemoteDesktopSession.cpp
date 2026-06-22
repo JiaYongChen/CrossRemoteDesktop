@@ -1,7 +1,6 @@
 #include "RemoteDesktopSession.h"
 #include "ProtocolSession.h"
 #include "DecodePipeline.h"
-#include "../network/TcpClient.h"
 #include "../network/ConnectionManager.h"
 #include "../window/ClientRemoteWindow.h"
 #ifndef QT_NO_OPENGL
@@ -9,14 +8,11 @@
 #include "../decode/GpuDecodeTarget.h"
 #endif
 #include "../window/InputForwarder.h"
-#include "../window/ConnectionLifecycle.h"
 #include "../window/CursorManager.h"
 #include "../../common/clipboard/ClipboardManager.h"
 #include "../../common/core/logging/LoggingCategories.h"
-#include "../../common/core/config/UiConstants.h"
 
 #include <QtCore/QThread>
-#include <QtCore/QUuid>
 #include <QtWidgets/QApplication>
 
 RemoteDesktopSession::RemoteDesktopSession(const QString& host, int port,
@@ -115,13 +111,21 @@ void RemoteDesktopSession::createWindow() {
 }
 
 void RemoteDesktopSession::wireSignals() {
-    // ── 认证成功钩子 ──
+    // ── 认证成功钩子 / 错误转发 ──
     connect(m_connectionManager, &ConnectionManager::connectionStateChanged,
         this, [this](ConnectionManager::ConnectionState state) {
             if (state == ConnectionManager::ConnectionState::Authenticated) {
                 m_protocolSession->startSession();
+            } else if (state == ConnectionManager::ConnectionState::Error) {
+                emit errorOccurred(RdError(ErrorCode::NetworkConnectionFailed,
+                    QStringLiteral("连接 %1:%2 失败").arg(m_host).arg(m_port),
+                    "RemoteDesktopSession"));
             }
         });
+
+    // ── 转发协议层错误 ──
+    connect(m_protocolSession, &ProtocolSession::sessionError,
+        this, &RemoteDesktopSession::errorOccurred);
 
     // ── 状态转发到 UI ──
     connect(m_protocolSession, &ProtocolSession::connectionStateChanged,
@@ -153,6 +157,7 @@ void RemoteDesktopSession::wireSignals() {
 }
 
 void RemoteDesktopSession::start() {
+    qCInfo(lcSession) << "RemoteDesktopSession::start() — connecting to" << m_host << ":" << m_port << "[" << m_connectionId << "]";
     m_networkThread->start();
     QMetaObject::invokeMethod(m_connectionManager,
         "connectToHost", Qt::QueuedConnection,
@@ -167,6 +172,8 @@ void RemoteDesktopSession::close() {
 
     // 1. 停止解码管线
     if (m_decodePipeline) {
+        // 跨线程调用：DecodePipeline 归属 Network 线程，stop() 内部通过
+        // quit()+wait() 实现同步屏障，线程安全。
         m_decodePipeline->stop();
     }
 
