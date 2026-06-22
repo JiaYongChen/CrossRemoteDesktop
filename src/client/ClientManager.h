@@ -10,7 +10,8 @@
 #include "./network/ConnectionManager.h"
 #include "./window/ClientRemoteWindow.h"
 
-class SessionManager;
+class ProtocolSession;
+class DecodePipeline;
 class QSettings;
 class ThreadManager;
 
@@ -30,15 +31,16 @@ private:
     // Shutdown phase helpers (called by shutdown())
     void shutdownPhase1_CloseWindowAndDisconnect();
     void shutdownPhase2_StopThread();
-    void shutdownPhase3_DeleteSessionManager();
+    void shutdownPhase3_DeleteProtocolComponents();
     void shutdownPhase4_DeleteWindow();
     void shutdownPhase5_DeleteThread();
 
 public:
-    QString connectionId;                           ///< 连接的唯一标识符
-    QPointer<SessionManager> sessionManager;       ///< 会话和远程桌面数据管理器
-    QPointer<ClientRemoteWindow> remoteDesktopWindow; ///< 远程桌面窗口
-    QThread* instanceThread = nullptr;               ///< SessionManager 所在的独立线程
+    QString connectionId;                               ///< 连接的唯一标识符
+    QPointer<ProtocolSession> protocolSession;          ///< 协议会话（编解码 + 路由）
+    QPointer<DecodePipeline> decodePipeline;            ///< 解码管线（帧缓冲 + GL 上传）
+    QPointer<ClientRemoteWindow> remoteDesktopWindow;   ///< 远程桌面窗口
+    QThread* instanceThread = nullptr;                  ///< 网络线程
     bool isBeingDeleted = false;                    ///< 标志位：防止 ClientManager 回调重复处理同一连接
     bool m_shutdownDone = false;                   ///< shutdown() 幂等保护：确保五阶段清理只执行一次
 
@@ -126,11 +128,11 @@ public:
     int getCurrentPort(const QString& connectionId) const;
 
     // 组件访问
-    SessionManager* sessionManager(const QString& connectionId) const;
+    ProtocolSession* protocolSession(const QString& connectionId) const;
     ClientRemoteWindow* remoteDesktopWindow(const QString& connectionId) const;
 
     // 窗口管理
-    ClientRemoteWindow* createRemoteDesktopWindow(SessionManager* sessionManager);
+    ClientRemoteWindow* createRemoteDesktopWindow(ProtocolSession* protocolSession);
     void closeAllRemoteDesktopWindows();
 
 signals:

@@ -1,5 +1,5 @@
 #include "InputForwarder.h"
-#include "../managers/SessionManager.h"
+#include "../session/ProtocolSession.h"
 #include <QtWidgets/QWidget>
 #include <QtGui/QMouseEvent>
 #include <QtGui/QKeyEvent>
@@ -66,9 +66,9 @@ bool InputForwarder::eventFilter(QObject* obj, QEvent* event) {
 }
 
 bool InputForwarder::handleKeyPress(QKeyEvent* event) {
-    if (!m_sessionManager) return false;
+    if (!m_protocolSession) return false;
 
-    QMetaObject::invokeMethod(m_sessionManager, "sendKeyboardEvent",
+    QMetaObject::invokeMethod(m_protocolSession, "sendKeyboardEvent",
         Qt::QueuedConnection,
         Q_ARG(int, event->key()),
         Q_ARG(int, static_cast<int>(event->modifiers())),
@@ -78,9 +78,9 @@ bool InputForwarder::handleKeyPress(QKeyEvent* event) {
 }
 
 bool InputForwarder::handleKeyRelease(QKeyEvent* event) {
-    if (!m_sessionManager) return false;
+    if (!m_protocolSession) return false;
 
-    QMetaObject::invokeMethod(m_sessionManager, "sendKeyboardEvent",
+    QMetaObject::invokeMethod(m_protocolSession, "sendKeyboardEvent",
         Qt::QueuedConnection,
         Q_ARG(int, event->key()),
         Q_ARG(int, static_cast<int>(event->modifiers())),
@@ -106,11 +106,11 @@ static int mouseEventTypeFromButtonDbl(Qt::MouseButton btn) {
 }
 
 bool InputForwarder::handleMousePress(QMouseEvent* event) {
-    if (!m_sessionManager) return false;
+    if (!m_protocolSession) return false;
     QPoint rp = mapToRemote(event->pos());
     int t = mouseEventTypeFromButton(event->button(), true);
     if (t != 0) {
-        QMetaObject::invokeMethod(m_sessionManager, "sendMouseEvent",
+        QMetaObject::invokeMethod(m_protocolSession, "sendMouseEvent",
             Qt::QueuedConnection, Q_ARG(int, rp.x()), Q_ARG(int, rp.y()), Q_ARG(int, t));
     }
     m_lastMousePos = event->pos();
@@ -118,20 +118,20 @@ bool InputForwarder::handleMousePress(QMouseEvent* event) {
 }
 
 bool InputForwarder::handleMouseRelease(QMouseEvent* event) {
-    if (!m_sessionManager) return false;
+    if (!m_protocolSession) return false;
     QPoint rp = mapToRemote(event->pos());
     int t = mouseEventTypeFromButton(event->button(), false);
     if (t != 0) {
-        QMetaObject::invokeMethod(m_sessionManager, "sendMouseEvent",
+        QMetaObject::invokeMethod(m_protocolSession, "sendMouseEvent",
             Qt::QueuedConnection, Q_ARG(int, rp.x()), Q_ARG(int, rp.y()), Q_ARG(int, t));
     }
     return false;
 }
 
 bool InputForwarder::handleMouseMove(QMouseEvent* event) {
-    if (!m_sessionManager) return false;
+    if (!m_protocolSession) return false;
     QPoint rp = mapToRemote(event->pos());
-    QMetaObject::invokeMethod(m_sessionManager, "sendMouseEvent",
+    QMetaObject::invokeMethod(m_protocolSession, "sendMouseEvent",
         Qt::QueuedConnection, Q_ARG(int, rp.x()), Q_ARG(int, rp.y()),
         Q_ARG(int, static_cast<int>(MouseEventType::MOVE)));
     m_lastMousePos = event->pos();
@@ -139,21 +139,21 @@ bool InputForwarder::handleMouseMove(QMouseEvent* event) {
 }
 
 bool InputForwarder::handleMouseDoubleClick(QMouseEvent* event) {
-    if (!m_sessionManager) return false;
+    if (!m_protocolSession) return false;
     QPoint rp = mapToRemote(event->pos());
     int t = mouseEventTypeFromButtonDbl(event->button());
     if (t != 0) {
-        QMetaObject::invokeMethod(m_sessionManager, "sendMouseEvent",
+        QMetaObject::invokeMethod(m_protocolSession, "sendMouseEvent",
             Qt::QueuedConnection, Q_ARG(int, rp.x()), Q_ARG(int, rp.y()), Q_ARG(int, t));
     }
     return false;
 }
 
 bool InputForwarder::handleWheel(QWheelEvent* event) {
-    if (!m_sessionManager) return false;
+    if (!m_protocolSession) return false;
     QPoint rp = mapToRemote(event->position().toPoint());
     int delta = event->angleDelta().y();
-    QMetaObject::invokeMethod(m_sessionManager, "sendWheelEvent",
+    QMetaObject::invokeMethod(m_protocolSession, "sendWheelEvent",
         Qt::QueuedConnection, Q_ARG(int, rp.x()), Q_ARG(int, rp.y()),
         Q_ARG(int, delta), Q_ARG(int, Qt::Vertical));
     return false;

@@ -11,7 +11,7 @@ class QWheelEvent;
 class QFocusEvent;
 class QEnterEvent;
 class QEvent;
-class SessionManager;
+class ProtocolSession;
 class GLTextureViewport;
 
 /// 输入事件转发器 — 从 ClientRemoteWindow 分离出的输入处理职责
@@ -27,8 +27,8 @@ public:
     /// 安装到目标窗口（作为事件过滤器）
     void installOn(QWidget* target);
 
-    /// 设置 SessionManager（用于事件转发）
-    void setSessionManager(SessionManager* sm) { m_sessionManager = sm; }
+    /// 设置 ProtocolSession（用于事件转发）
+    void setProtocolSession(ProtocolSession* sm) { m_protocolSession = sm; }
 
     /// 设置坐标映射提供方（GLTextureViewport）
     void setViewport(GLTextureViewport* vp) { m_viewport = vp; }
@@ -53,7 +53,7 @@ private:
     void handleEnter(QEnterEvent* event);
     void handleLeave(QEvent* event);
 
-    SessionManager* m_sessionManager = nullptr;
+    ProtocolSession* m_protocolSession = nullptr;
     GLTextureViewport* m_viewport = nullptr;
     bool m_enabled = true;
     QPoint m_lastMousePos{-1, -1};

@@ -1,7 +1,7 @@
 #include "ClientRemoteWindow.h"
 #include "InputForwarder.h"
 #include "ConnectionLifecycle.h"
-#include "../managers/SessionManager.h"
+#include "../session/ProtocolSession.h"
 #include "../../common/core/config/UiConstants.h"
 #include "CursorManager.h"
 #include "../../common/clipboard/ClipboardManager.h"
@@ -21,10 +21,10 @@
 #include <cmath>
 
 
-ClientRemoteWindow::ClientRemoteWindow(SessionManager* sessionManager, QWidget* parent)
+ClientRemoteWindow::ClientRemoteWindow(ProtocolSession* sessionManager, QWidget* parent)
     : QWidget(parent)
     , m_connectionId(sessionManager ? sessionManager->connectionId() : QString::number(0))
-    , m_sessionManager(sessionManager)
+    , m_protocolSession(sessionManager)
     , m_isFullScreen(false)
     , m_isClosing(false) {
 
@@ -34,7 +34,7 @@ ClientRemoteWindow::ClientRemoteWindow(SessionManager* sessionManager, QWidget* 
     // ── Create extracted components ──
     m_inputForwarder = new InputForwarder(this);
     m_inputForwarder->installOn(this);
-    m_inputForwarder->setSessionManager(m_sessionManager);
+    m_inputForwarder->setProtocolSession(m_protocolSession);
 
     m_connectionLifecycle = new ConnectionLifecycle(this);
     m_connectionLifecycle->manage(this);
@@ -47,7 +47,7 @@ ClientRemoteWindow::ClientRemoteWindow(SessionManager* sessionManager, QWidget* 
 
     setWindowTitle(tr("Remote Desktop"));
 
-    if (m_sessionManager) {
+    if (m_protocolSession) {
         setupManagerConnections();
     }
 }
@@ -172,41 +172,9 @@ void ClientRemoteWindow::setupUI() {
 }
 
 void ClientRemoteWindow::setupManagerConnections() {
-    if (!m_sessionManager) return;
-
-
-    // Connection state → lifecycle manager
-    connect(m_sessionManager, &SessionManager::connectionStateChanged,
-        this, &ClientRemoteWindow::setConnectionState);
-
-    // Cursor type → CursorManager
-    if (m_cursorManager) {
-        connect(m_sessionManager, &SessionManager::remoteCursorTypeUpdated,
-            m_cursorManager, &CursorManager::setRemoteCursorType);
-    }
-
-    // Clipboard sync
-    if (m_clipboardManager) {
-        connect(m_clipboardManager, &ClipboardManager::clipboardTextChanged,
-            this, [this](const QString& text) {
-            if (m_sessionManager) {
-                m_sessionManager->sendClipboardText(text);
-            }
-        });
-
-        connect(m_clipboardManager, &ClipboardManager::clipboardImageChanged,
-            this, [this](const QByteArray& imageData, quint32 width, quint32 height) {
-            if (m_sessionManager) {
-                m_sessionManager->sendClipboardImage(imageData, width, height);
-            }
-        });
-
-        connect(m_sessionManager, &SessionManager::clipboardTextReceived,
-            m_clipboardManager, &ClipboardManager::setText);
-
-        connect(m_sessionManager, &SessionManager::clipboardImageReceived,
-            m_clipboardManager, &ClipboardManager::setImageFromPng);
-    }
+    // 所有信号接线已由 RemoteDesktopSession::wireSignals() 集中管理
+    // 保留空壳以兼容现有调用点
+    Q_UNUSED(m_protocolSession);
 }
 
 // ── Event handlers ──

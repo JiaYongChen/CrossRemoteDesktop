@@ -18,7 +18,7 @@ class QEnterEvent;
 class QEvent;
 class QPainter;
 class GLTextureViewport;
-class SessionManager;
+class ProtocolSession;
 class CursorManager;
 class ClipboardManager;
 class InputForwarder;
@@ -28,7 +28,7 @@ class ClientRemoteWindow : public QWidget {
     Q_OBJECT
 
 public:
-    explicit ClientRemoteWindow(SessionManager* sessionManager, QWidget* parent = nullptr);
+    explicit ClientRemoteWindow(ProtocolSession* sessionManager, QWidget* parent = nullptr);
     ~ClientRemoteWindow();
 
     // Connection identification
@@ -87,7 +87,7 @@ private:
     void setupUI();
 
     QString m_connectionId;
-    SessionManager* m_sessionManager;
+    ProtocolSession* m_protocolSession;
     bool m_isFullScreen;
     bool m_isClosing;
 

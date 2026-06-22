@@ -237,7 +237,8 @@ add_rd_test(TARGET test_clientremotewindow  NAME ClientRemoteWindowTest
         ../src/client/window/InputForwarder.cpp
         ../src/client/window/ConnectionLifecycle.cpp
         ../src/client/window/CursorManager.cpp
-        ../src/client/managers/SessionManager.cpp
+        ../src/client/session/ProtocolSession.cpp
+        ../src/client/session/DecodePipeline.cpp
         ../src/client/managers/DecodeWorker.cpp
         ../src/client/decode/TurboJpegDecoder.cpp
 

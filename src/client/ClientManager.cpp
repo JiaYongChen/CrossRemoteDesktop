@@ -1,6 +1,7 @@
 #include "ClientManager.h"
 #include "./network/ConnectionManager.h"
-#include "./managers/SessionManager.h"
+#include "./session/ProtocolSession.h"
+#include "./session/DecodePipeline.h"
 #include "./window/ClientRemoteWindow.h"
 #ifndef QT_NO_OPENGL
 #include "./window/GLTextureViewport.h"
@@ -45,8 +46,8 @@ void ConnectionInstance::shutdown() {
         // Phase 2: Stop the worker thread gracefully
         shutdownPhase2_StopThread();
 
-        // Phase 3: Delete SessionManager (thread already stopped)
-        shutdownPhase3_DeleteSessionManager();
+        // Phase 3: Delete ProtocolSession (thread already stopped)
+        shutdownPhase3_DeleteProtocolComponents();
 
         // Phase 4: Schedule window deletion on main thread
         shutdownPhase4_DeleteWindow();
@@ -71,32 +72,29 @@ void ConnectionInstance::shutdownPhase1_CloseWindowAndDisconnect() {
         remoteDesktopWindow->disconnect();
     }
 
-    // 0. 先停止解码管线（消费者先停，再停生产者 SessionThread）
-    if ( sessionManager && !sessionManager.isNull() && instanceThread && instanceThread->isRunning() ) {
+    // 0. 先停止解码管线（消费者先停，再停生产者网络线程）
+    if ( decodePipeline && !decodePipeline.isNull() && instanceThread && instanceThread->isRunning() ) {
         qCDebug(lcClientManager) << "shutdown [PHASE-1] Stopping decode pipeline for" << connectionId;
-        QMetaObject::invokeMethod(sessionManager.data(), [sm = sessionManager.data()]() {
-            sm->destroyDecodePipeline();
+        QMetaObject::invokeMethod(decodePipeline.data(), [p = decodePipeline.data()]() {
+            p->stop();
         }, Qt::BlockingQueuedConnection);
     }
 
-    if ( sessionManager && !sessionManager.isNull() ) {
+    if ( protocolSession && !protocolSession.isNull() ) {
         qCDebug(lcClientManager) << "shutdown [PHASE-1] Disconnecting session for" << connectionId;
         Qt::ConnectionType connType = (instanceThread && instanceThread->isRunning())
             ? Qt::BlockingQueuedConnection
             : Qt::DirectConnection;
-        bool invoked = QMetaObject::invokeMethod(sessionManager, "disconnectFromHost", connType);
+        bool invoked = QMetaObject::invokeMethod(protocolSession, "disconnectFromHost", connType);
         if ( !invoked ) {
             qCWarning(lcClientManager) << "shutdown [PHASE-1] Failed to invoke disconnectFromHost for" << connectionId;
         }
 
         // Stop all child timers before moveToThread to prevent cross-thread timer delivery
         if ( instanceThread && instanceThread->isRunning() ) {
-            QMetaObject::invokeMethod(sessionManager.data(), [sm = sessionManager.data()]() {
-                const auto timers = sm->findChildren<QTimer*>();
+            QMetaObject::invokeMethod(protocolSession.data(), [ps = protocolSession.data()]() {
+                const auto timers = ps->findChildren<QTimer*>();
                 for ( QTimer* timer : timers ) {
-                    // Fix 2b: 跳过断开超时计时器，保留其继续运行。
-                    // 该计时器在 1s 后会调用 abort()，向服务端发送 TCP RST，
-                    // 确保服务端能立即感知连接断开并停止屏幕捕获。
                     if ( timer->objectName() == "disconnectTimeoutTimer" ) {
                         continue;
                     }
@@ -105,13 +103,11 @@ void ConnectionInstance::shutdownPhase1_CloseWindowAndDisconnect() {
             }, Qt::BlockingQueuedConnection);
         }
 
-        // 将 SessionManager 移回主线程。
-        // Lambda 由 BlockingQueuedConnection 在 SessionThread 中执行，
-        // moveToThread 只能从对象所在线程调用，因此必须在此处完成。
+        // 将 ProtocolSession 移回主线程
         if ( instanceThread && instanceThread->isRunning() ) {
             QThread* mainThread = QThread::currentThread();
-            QMetaObject::invokeMethod(sessionManager.data(), [sm = sessionManager.data(), mainThread]() {
-                sm->moveToThread(mainThread);
+            QMetaObject::invokeMethod(protocolSession.data(), [ps = protocolSession.data(), mainThread]() {
+                ps->moveToThread(mainThread);
             }, Qt::BlockingQueuedConnection);
         }
     }
@@ -145,19 +141,18 @@ void ConnectionInstance::shutdownPhase2_StopThread() {
     }
 }
 
-void ConnectionInstance::shutdownPhase3_DeleteSessionManager() {
-    if ( !sessionManager || sessionManager.isNull() ) {
+void ConnectionInstance::shutdownPhase3_DeleteProtocolComponents() {
+    if ( !protocolSession || protocolSession.isNull() ) {
         return;
     }
 
-    qCDebug(lcClientManager) << "shutdown [PHASE-3] Deleting SessionManager for" << connectionId;
+    qCDebug(lcClientManager) << "shutdown [PHASE-3] Deleting protocol components for" << connectionId;
 
-    // Deep-disconnect the entire object tree to prevent signal cascades during deletion:
-    //   delete SessionManager → auto-delete ConnectionManager
-    //     → auto-delete TcpClient → ~TcpClient() calls socket->abort()
-    //       → socket emits disconnected() → crash
-    sessionManager->disconnect();
-    const auto children = sessionManager->findChildren<QObject*>(Qt::FindDirectChildrenOnly);
+    // Deep-disconnect 整个对象树，防止删除时信号级联崩溃。
+    // ProtocolSession 是父对象，删除时会自动级联删除 ConnectionManager、
+    // DecodePipeline 及其子对象（TcpClient 等）。
+    protocolSession->disconnect();
+    const auto children = protocolSession->findChildren<QObject*>(Qt::FindDirectChildrenOnly);
     for ( QObject* child : children ) {
         child->disconnect();
         const auto grandchildren = child->findChildren<QObject*>();
@@ -166,8 +161,8 @@ void ConnectionInstance::shutdownPhase3_DeleteSessionManager() {
         }
     }
 
-    delete sessionManager.data();
-    qCDebug(lcClientManager) << "shutdown [PHASE-3] SessionManager deleted for" << connectionId;
+    delete protocolSession.data();
+    qCDebug(lcClientManager) << "shutdown [PHASE-3] Protocol components deleted for" << connectionId;
 }
 
 void ConnectionInstance::shutdownPhase4_DeleteWindow() {
@@ -194,18 +189,18 @@ void ConnectionInstance::shutdownPhase5_DeleteThread() {
 }
 
 bool ConnectionInstance::isValid() const {
-    return !connectionId.isEmpty() && !sessionManager.isNull();
+    return !connectionId.isEmpty() && !protocolSession.isNull();
 }
 
 QString ConnectionInstance::getConnectionState() const {
-    if ( sessionManager.isNull() ) {
+    if ( protocolSession.isNull() ) {
         return "Invalid";
     }
 
-    // 使用 SessionManager 的方法
-    if ( sessionManager->isAuthenticated() ) {
+    // 使用 ProtocolSession 的方法
+    if ( protocolSession->isAuthenticated() ) {
         return "Authenticated";
-    } else if ( sessionManager->isConnected() ) {
+    } else if ( protocolSession->isConnected() ) {
         return "Connected";
     } else {
         return "Disconnected";
@@ -213,19 +208,19 @@ QString ConnectionInstance::getConnectionState() const {
 }
 
 QString ConnectionInstance::getHost() const {
-    return sessionManager ? sessionManager->currentHost() : QString();
+    return protocolSession ? protocolSession->currentHost() : QString();
 }
 
 int ConnectionInstance::getPort() const {
-    return sessionManager ? sessionManager->currentPort() : 0;
+    return protocolSession ? protocolSession->currentPort() : 0;
 }
 
 bool ConnectionInstance::isConnected() const {
-    return sessionManager && sessionManager->isConnected();
+    return protocolSession && protocolSession->isConnected();
 }
 
 bool ConnectionInstance::isAuthenticated() const {
-    return sessionManager && sessionManager->isAuthenticated();
+    return protocolSession && protocolSession->isAuthenticated();
 }
 
 // ClientManager 方法实现
@@ -250,26 +245,35 @@ QString ClientManager::connectToHost(const QString& host, int port) {
     ConnectionInstance* instance = new ConnectionInstance(connectionId);
     qCDebug(lcClientManager) << "connectToHost(): generated connectionId" << connectionId;
 
-    // 创建 SessionManager 的独立线程
+    // 创建网络线程
     instance->instanceThread = new QThread(this);
-    instance->instanceThread->setObjectName(QString("SessionThread-%1").arg(connectionId));
-    qCDebug(lcClientManager) << "connectToHost(): created session thread for" << connectionId;
+    instance->instanceThread->setObjectName(QString("Network-%1").arg(connectionId));
+    qCDebug(lcClientManager) << "connectToHost(): created network thread for" << connectionId;
 
-    // 创建 SessionManager（不设置父对象，以便移动到线程）
-    instance->sessionManager = new SessionManager(connectionId);
+    // 创建网络组件（ProtocolSession 作为父对象，统一级联删除）
+    auto* connMgr = new ConnectionManager();
+    instance->decodePipeline = new DecodePipeline(connectionId);
+    instance->protocolSession = new ProtocolSession(connMgr, instance->decodePipeline);
+    instance->protocolSession->setConnectionId(connectionId);
 
-    // 将 SessionManager 移动到独立线程
-    instance->sessionManager->moveToThread(instance->instanceThread);
-    qCDebug(lcClientManager) << "connectToHost(): moved SessionManager to independent thread";
+    // 设置父子关系：ProtocolSession 删除时自动级联删除 ConnectionManager / DecodePipeline
+    connMgr->setParent(instance->protocolSession);
+    instance->decodePipeline->setParent(instance->protocolSession);
+
+    // 将网络组件移动到独立线程
+    connMgr->moveToThread(instance->instanceThread);
+    instance->decodePipeline->moveToThread(instance->instanceThread);
+    instance->protocolSession->moveToThread(instance->instanceThread);
+    qCDebug(lcClientManager) << "connectToHost(): moved network components to thread";
 
     // 创建远程桌面窗口（必须在主线程中，因为它是 QWidget）
-    instance->remoteDesktopWindow = createRemoteDesktopWindow(instance->sessionManager);
+    instance->remoteDesktopWindow = createRemoteDesktopWindow(instance->protocolSession);
     if ( !instance->remoteDesktopWindow ) {
         qCWarning(lcClientManager) << "connectToHost(): failed to create remote desktop window";
-        // 清理线程和 SessionManager
+        // 清理线程和组件（protocolSession 作为父对象级联删除 connMgr 和 decodePipeline）
         instance->instanceThread->quit();
         instance->instanceThread->wait();
-        delete instance->sessionManager;
+        delete instance->protocolSession;  // 级联删除 connMgr + decodePipeline
         delete instance->instanceThread;
         delete instance;
         return QString();
@@ -280,36 +284,36 @@ QString ClientManager::connectToHost(const QString& host, int port) {
 
     // 注意：ClientRemoteWindow 继承自 QWidget，GLTextureViewport 为其子控件。
     // QWidget 及其子类必须在主线程中创建和销毁，不能移动到其他线程。
-    // 因此我们不将 remoteDesktopWindow 移动到 session thread，保持在主线程中运行。
+    // 因此我们不将 remoteDesktopWindow 移动到网络线程，保持在主线程中运行。
     qCDebug(lcClientManager) << "connectToHost(): remoteDesktopWindow created and kept in main thread";
 
     // 启动线程
     instance->instanceThread->start();
-    qCDebug(lcClientManager) << "connectToHost(): session thread started";
+    qCDebug(lcClientManager) << "connectToHost(): network thread started";
 
     // 注册到连接表
     m_connections.insert(instance->connectionId, instance);
 
-    // Triple-buffered lock-free frame delivery: attach session's triple buffer
+    // Triple-buffered lock-free frame delivery: attach decode pipeline's triple buffer
     // to the GL viewport so paintGL() reads frames directly via atomics.
 #ifndef QT_NO_OPENGL
     {
         auto* gl = instance->remoteDesktopWindow->glViewport();
-        if ( gl && instance->sessionManager ) {
-            gl->attachFrameBuffer(instance->sessionManager->frameBuffer());
+        if ( gl && instance->decodePipeline ) {
+            gl->attachFrameBuffer(instance->decodePipeline->frameBuffer());
 
             // Wire worker-thread GL upload: when the GL context is ready,
-            // store it so createDecodePipeline() can initialize the DecodeWorker
-            // with a shared GL context for direct GPU texture upload.
-            instance->sessionManager->setGLViewportForUpload(gl);
+            // store it so the DecodeWorker can initialize with a shared GL context
+            // for direct GPU texture upload.
+            instance->decodePipeline->setGLViewport(gl);
 
             QObject::connect(gl, &GLTextureViewport::glContextReady,
-                instance->sessionManager,
-                [sm = instance->sessionManager.data(), gl](QOpenGLContext* ctx) {
-                    sm->setGLContextForDecode(ctx);
+                instance->protocolSession,
+                [pipeline = instance->decodePipeline.data(), gl](QOpenGLContext* ctx) {
+                    pipeline->setGLContext(ctx);
                     GpuDecodeTarget* target = gl->decodeTarget();
                     if (target) {
-                        sm->setDecodeTarget(target);
+                        pipeline->setDecodeTarget(target);
                     }
                 }, Qt::QueuedConnection);
 
@@ -317,30 +321,30 @@ QString ClientManager::connectToHost(const QString& host, int port) {
             // (e.g., during processEvents in createRemoteDesktopWindow),
             // the signal was lost — set directly.
             if (gl->context() && gl->context()->isValid()) {
-                instance->sessionManager->setGLContextForDecode(gl->context());
+                instance->decodePipeline->setGLContext(gl->context());
                 GpuDecodeTarget* target = gl->decodeTarget();
                 if (target) {
-                    instance->sessionManager->setDecodeTarget(target);
+                    instance->decodePipeline->setDecodeTarget(target);
                 }
             }
         }
     }
 #endif
 
-    // 连接到 SessionManager 的连接状态变化信号，监听认证成功和连接建立事件
-    connect(instance->sessionManager, &SessionManager::connectionStateChanged,
-        this, [this, sessionManager = instance->sessionManager](ConnectionManager::ConnectionState state) {
+    // 连接到 ProtocolSession 的连接状态变化信号，监听认证成功和连接建立事件
+    connect(instance->protocolSession, &ProtocolSession::connectionStateChanged,
+        this, [this, proto = instance->protocolSession](ConnectionManager::ConnectionState state) {
             switch (state) {
                 case ConnectionManager::ConnectionState::Connected:
                     // 连接建立成功
-                    qCDebug(lcClientManager) << "Connection established for" << sessionManager->connectionId();
-                    emit connectionEstablished(sessionManager->connectionId());
+                    qCDebug(lcClientManager) << "Connection established for" << proto->connectionId();
+                    emit connectionEstablished(proto->connectionId());
                     break;
                 case ConnectionManager::ConnectionState::Authenticated:
                     // 认证成功
-                    qCDebug(lcClientManager) << "Authentication successful for" << sessionManager->connectionId();
+                    qCDebug(lcClientManager) << "Authentication successful for" << proto->connectionId();
                     // 认证成功后启动会话 (跨线程调用，使用QueuedConnection)
-                    QMetaObject::invokeMethod(sessionManager, "startSession", Qt::QueuedConnection);
+                    QMetaObject::invokeMethod(proto, "startSession", Qt::QueuedConnection);
                     break;
                 default:
                     break;
@@ -348,8 +352,8 @@ QString ClientManager::connectToHost(const QString& host, int port) {
         }, Qt::QueuedConnection);
     qCDebug(lcClientManager) << "connectToHost(): connected to session state change signals";
 
-    // 使用 Qt::QueuedConnection 从主线程调用 SessionManager 的方法（跨线程调用）
-    QMetaObject::invokeMethod(instance->sessionManager,
+    // 使用 Qt::QueuedConnection 从主线程调用 ProtocolSession 的方法（跨线程调用）
+    QMetaObject::invokeMethod(instance->protocolSession,
         "connectToHost",
         Qt::QueuedConnection,
         Q_ARG(QString, host),
@@ -379,10 +383,10 @@ void ClientManager::disconnectFromHost(const QString& connectionId) {
     // 先从连接列表中移除
     m_connections.remove(connectionId);
     
-    if ( instance->sessionManager ) {
+    if ( instance->protocolSession ) {
         qCDebug(lcClientManager) << "disconnectFromHost(): [STEP-1] Requesting session disconnect for" << connectionId;
         // 使用 Qt::QueuedConnection 进行跨线程调用
-        QMetaObject::invokeMethod(instance->sessionManager,
+        QMetaObject::invokeMethod(instance->protocolSession,
             "disconnectFromHost",
             Qt::QueuedConnection);
     }
@@ -416,7 +420,7 @@ void ClientManager::disconnectAll() {
 QStringList ClientManager::getActiveConnectionIds() const {
     QStringList activeIds;
     for ( auto it = m_connections.begin(); it != m_connections.end(); ++it ) {
-        if ( it.value()->sessionManager && it.value()->sessionManager->isConnected() ) {
+        if ( it.value()->protocolSession && it.value()->protocolSession->isConnected() ) {
             activeIds.append(it.key());
         }
     }
@@ -451,9 +455,9 @@ int ClientManager::getCurrentPort(const QString& connectionId) const {
     return instance ? instance->getPort() : 0;
 }
 
-SessionManager* ClientManager::sessionManager(const QString& connectionId) const {
+ProtocolSession* ClientManager::protocolSession(const QString& connectionId) const {
     ConnectionInstance* instance = getConnectionInstance(connectionId);
-    return instance ? instance->sessionManager : nullptr;
+    return instance ? instance->protocolSession : nullptr;
 }
 
 ClientRemoteWindow* ClientManager::remoteDesktopWindow(const QString& connectionId) const {
@@ -461,14 +465,14 @@ ClientRemoteWindow* ClientManager::remoteDesktopWindow(const QString& connection
     return instance ? instance->remoteDesktopWindow : nullptr;
 }
 
-ClientRemoteWindow* ClientManager::createRemoteDesktopWindow(SessionManager* sessionManager) {
-    if ( !sessionManager ) {
-        qCDebug(lcClientManager) << "createRemoteDesktopWindow(): invalid sessionManager";
+ClientRemoteWindow* ClientManager::createRemoteDesktopWindow(ProtocolSession* protocolSession) {
+    if ( !protocolSession ) {
+        qCDebug(lcClientManager) << "createRemoteDesktopWindow(): invalid protocolSession";
         return nullptr;
     }
 
-    // 直接传入 SessionManager，构造函数会自动设置
-    ClientRemoteWindow* remoteDesktopWindow = new ClientRemoteWindow(sessionManager, nullptr);
+    // 直接传入 ProtocolSession，构造函数会自动设置
+    ClientRemoteWindow* remoteDesktopWindow = new ClientRemoteWindow(protocolSession, nullptr);
 
     remoteDesktopWindow->show();
     remoteDesktopWindow->raise();
@@ -498,7 +502,7 @@ void ClientManager::closeAllRemoteDesktopWindows() {
 }
 
 void ClientManager::onConnectionEstablished() {
-    SessionManager* sessionManager = qobject_cast<SessionManager*>(sender());
+    ProtocolSession* sessionManager = qobject_cast<ProtocolSession*>(sender());
     if ( !sessionManager ) {
         qCDebug(lcClientManager) << "onConnectionEstablished(): invalid sender";
         return;
@@ -509,7 +513,7 @@ void ClientManager::onConnectionEstablished() {
 }
 
 void ClientManager::onAuthenticated() {
-    SessionManager* sessionManager = qobject_cast<SessionManager*>(sender());
+    ProtocolSession* sessionManager = qobject_cast<ProtocolSession*>(sender());
     if ( !sessionManager ) {
         qCDebug(lcClientManager) << "onAuthenticated(): invalid sender";
         return;
@@ -521,7 +525,7 @@ void ClientManager::onAuthenticated() {
 }
 
 void ClientManager::onConnectionClosed() {
-    SessionManager* sessionManager = qobject_cast<SessionManager*>(sender());
+    ProtocolSession* sessionManager = qobject_cast<ProtocolSession*>(sender());
     if ( !sessionManager ) {
         qCDebug(lcClientManager) << "onConnectionClosed(): invalid sender";
         return;
@@ -567,7 +571,7 @@ void ClientManager::onConnectionClosed() {
 }
 
 void ClientManager::onConnectionError(const QString& error) {
-    SessionManager* sessionManager = qobject_cast<SessionManager*>(sender());
+    ProtocolSession* sessionManager = qobject_cast<ProtocolSession*>(sender());
     if ( !sessionManager ) {
         qCDebug(lcClientManager) << "onConnectionError(): invalid sender";
         return;
