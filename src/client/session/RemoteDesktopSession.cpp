@@ -174,29 +174,37 @@ void RemoteDesktopSession::close() {
 
     qCInfo(lcSession) << "RemoteDesktopSession::close() — starting for" << m_connectionId;
 
-    // 1. 停止解码管线（通过 BlockingQueuedConnection 在 Network 线程执行）
+    // 防止窗口关闭时递归调用
+    if (m_window) {
+        disconnect(m_window, &ClientRemoteWindow::windowClosed, this, &RemoteDesktopSession::close);
+    }
+
+    // 1. 停止解码管线（BlockingQueuedConnection 在 Network 线程执行）
     if (m_decodePipeline) {
         QMetaObject::invokeMethod(m_decodePipeline, "stop", Qt::BlockingQueuedConnection);
     }
 
-    // 2. 断开连接（通过 BlockingQueuedConnection 在 Network 线程执行）
-    if (m_protocolSession) {
-        QMetaObject::invokeMethod(m_protocolSession, "disconnectFromHost", Qt::BlockingQueuedConnection);
-    }
-
-    // 3. 停止 Network 线程
-    if (m_networkThread && m_networkThread->isRunning()) {
-        m_networkThread->quit();
-        if (!m_networkThread->wait(3000)) {
-            qCWarning(lcSession) << "Network thread quit timeout";
-            m_networkThread->requestInterruption();
-            m_networkThread->quit();
-            m_networkThread->wait(1000);
+    // 2. 将所有清理工作排队到 Network 线程自身执行
+    //    确保 socket 清理在 Network 线程进行，避免跨线程 timer/event 冲突
+    QMetaObject::invokeMethod(m_protocolSession, [this]() {
+        if (m_protocolSession) {
+            m_protocolSession->disconnectFromHost();
         }
+    }, Qt::QueuedConnection);
+
+    // 3. 给 Network 线程事件循环时间处理排队的 lambda
+    //    然后 quit + wait，此时 socket 已清理完毕，无跨线程冲突
+    QThread::msleep(50);
+
+    m_networkThread->quit();
+    if (!m_networkThread->wait(5000)) {
+        qCWarning(lcSession) << "Network thread quit timeout";
+        m_networkThread->requestInterruption();
+        m_networkThread->quit();
+        m_networkThread->wait(1000);
     }
 
-    // 4. 删除网络层对象（线程已停止，安全删除）
-    //    注意：ConnectionManager 无父对象，需要单独 delete
+    // 4. 线程已停止，安全删除
     delete m_connectionManager;
     m_connectionManager = nullptr;
     delete m_protocolSession;
