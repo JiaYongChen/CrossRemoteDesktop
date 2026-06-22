@@ -212,6 +212,16 @@ private:
     void cleanupGL();
 
     /**
+     * @brief 确保回退纹理存在且尺寸匹配（GpuDecodeTarget 不可用时使用）。
+     */
+    void ensureFallbackTexture(int width, int height);
+
+    /**
+     * @brief 将 QImage 数据上传到回退纹理。
+     */
+    void uploadFallbackTexture(const QImage& image);
+
+    /**
      * @brief paintGL 渲染完成后检查 TripleBuffer 是否有在绘制期间到达的新帧。
      *
      * 若有则立即通过 CAS + invokeMethod("update") 排队下一次 paint，
@@ -228,6 +238,10 @@ private:
 
     // Texture state
     QSize m_textureSize;
+
+    // 回退纹理（当 GpuDecodeTarget 不可用时）
+    GLuint m_fallbackTexture = 0;
+    QSize m_fallbackTexSize;
 
     // Logical remote screen size (for coordinate mapping)
     QSize m_remoteSize;

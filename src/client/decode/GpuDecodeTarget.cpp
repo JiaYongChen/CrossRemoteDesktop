@@ -183,7 +183,11 @@ GLsync GpuDecodeTarget::uploadPixels(const unsigned char* data,
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height,
                         GL_RGB, GL_UNSIGNED_BYTE, data);
 
-        auto* f = m_workerContext ? m_workerContext->extraFunctions() : nullptr;
+        // 使用当前上下文（Main GL context）创建 fence，而非 Worker context。
+        // uploadPixels() 从 paintGL 调用时，当前线程的 GL 上下文是 Main context，
+        // Worker context 未 makeCurrent，extraFunctions() 会触发断言。
+        auto* ctx = QOpenGLContext::currentContext();
+        auto* f = ctx ? ctx->extraFunctions() : nullptr;
         if (!f) return nullptr;
         GLsync fence = f->glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
         f->glFlush();

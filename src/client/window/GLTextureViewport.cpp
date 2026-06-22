@@ -283,6 +283,42 @@ void GLTextureViewport::cleanupGL() {
     m_shaderProgram = nullptr;
     m_glInitialized = false;
     m_textureSize = QSize();  // reset
+
+    // 清理回退纹理
+    if (m_fallbackTexture != 0) {
+        glDeleteTextures(1, &m_fallbackTexture);
+        m_fallbackTexture = 0;
+    }
+    m_fallbackTexSize = QSize();
+}
+
+void GLTextureViewport::ensureFallbackTexture(int width, int height) {
+    if (m_fallbackTexture != 0 && m_fallbackTexSize == QSize(width, height))
+        return;
+
+    if (m_fallbackTexture != 0) {
+        glDeleteTextures(1, &m_fallbackTexture);
+        m_fallbackTexture = 0;
+    }
+
+    glGenTextures(1, &m_fallbackTexture);
+    glBindTexture(GL_TEXTURE_2D, m_fallbackTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, width, height, 0,
+                 GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+    m_fallbackTexSize = QSize(width, height);
+}
+
+void GLTextureViewport::uploadFallbackTexture(const QImage& image) {
+    ensureFallbackTexture(image.width(), image.height());
+    // QImage 可能是 RGB888 或 ARGB32，需要转换
+    QImage rgb = image.convertToFormat(QImage::Format_RGB888);
+    glBindTexture(GL_TEXTURE_2D, m_fallbackTexture);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, rgb.width(), rgb.height(),
+                    GL_RGB, GL_UNSIGNED_BYTE, rgb.constBits());
 }
 
 void GLTextureViewport::attachDecodeTarget(GpuDecodeTarget* target) {
@@ -290,7 +326,7 @@ void GLTextureViewport::attachDecodeTarget(GpuDecodeTarget* target) {
 }
 
 bool GLTextureViewport::hasTexture() const {
-    return m_decodeTarget && m_decodeTarget->displayTexture() != 0;
+    return (m_decodeTarget && m_decodeTarget->displayTexture() != 0) || m_fallbackTexture != 0;
 }
 
 void GLTextureViewport::setRemoteScreen(const QImage& image) {
@@ -442,12 +478,31 @@ void GLTextureViewport::paintGL() {
                 }
             } else {
                 // No worker-side upload (fallback path): upload on GUI thread
-                // via GpuDecodeTarget.
-                if (m_decodeTarget && !slot->image.isNull()) {
-                    GLsync fence = m_decodeTarget->uploadPixels(slot->image.constBits(),
-                        slot->image.width(), slot->image.height()); Q_UNUSED(fence);
-                    m_decodeTarget->swapDisplay();
-                    m_textureDirty = true;
+                if (!slot->image.isNull()) {
+                    bool uploaded = false;
+                    // 优先使用 GpuDecodeTarget
+                    if (m_decodeTarget && m_decodeTarget->isReady()) {
+                        GLsync fence = m_decodeTarget->uploadPixels(
+                            slot->image.constBits(),
+                            slot->image.width(), slot->image.height());
+                        if (fence) {
+                            m_decodeTarget->swapDisplay();
+                            m_textureDirty = true;
+                            uploaded = true;
+                        }
+                    }
+                    // GpuDecodeTarget 不可用 → 使用自有回退纹理
+                    if (!uploaded) {
+                        uploadFallbackTexture(slot->image);
+                        m_textureDirty = true;
+                    }
+
+                    // 同步纹理尺寸（回退路径也需更新）
+                    const QSize imgSize(slot->image.width(), slot->image.height());
+                    if (imgSize != m_textureSize) {
+                        m_textureSize = imgSize;
+                        if (m_renderRect.isEmpty()) updateRenderRect();
+                    }
                 }
             }
             m_pendingArrivalTs = slot->arrivalTs;
@@ -473,17 +528,22 @@ void GLTextureViewport::paintGL() {
 
     static int s_renderCount = 0;
     ++s_renderCount;
+
+    // 选择纹理：回退纹理优先，否则使用 GpuDecodeTarget
+    GLuint texId = (m_fallbackTexture != 0) ? m_fallbackTexture
+                                             : (m_decodeTarget ? m_decodeTarget->displayTexture() : 0);
+
     if ( s_renderCount <= 3 || s_renderCount % 30 == 0 )
         qCDebug(lcGLViewport) << "paintGL rendering #" << s_renderCount
-            << "texId:" << m_decodeTarget->displayTexture()
+            << "texId:" << texId
             << "size:" << m_textureSize
             << "rect:" << m_renderRect;
 
     glClear(GL_COLOR_BUFFER_BIT);
 
-    if ( m_decodeTarget->displayTexture() == 0 || !m_shaderProgram || m_renderRect.isEmpty() ) {
+    if ( texId == 0 || !m_shaderProgram || m_renderRect.isEmpty() ) {
         if ( s_renderCount <= 3 )
-            qCWarning(lcGLViewport) << "paintGL render skip - texId:" << m_decodeTarget->displayTexture()
+            qCWarning(lcGLViewport) << "paintGL render skip - texId:" << texId
                 << "shader:" << (m_shaderProgram != nullptr)
                 << "rect:" << m_renderRect;
         CheckForNewFrameAfterPaint(m_consumedSlot);
@@ -500,7 +560,7 @@ void GLTextureViewport::paintGL() {
 
     m_shaderProgram->bind();
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, m_decodeTarget->displayTexture());
+    glBindTexture(GL_TEXTURE_2D, texId);
     m_shaderProgram->setUniformValue("uTexture", 0);
 
     QOpenGLVertexArrayObject::Binder vaoBinder(&m_vao);
