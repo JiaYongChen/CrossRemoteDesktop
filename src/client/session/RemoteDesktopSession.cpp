@@ -59,8 +59,8 @@ void RemoteDesktopSession::createNetworkComponents() {
     m_protocolSession = new ProtocolSession(m_connectionManager, m_decodePipeline);
     m_protocolSession->setConnectionId(m_connectionId);
 
-    // 设置父子关系：delete m_protocolSession 时级联删除 ConnectionManager → TcpClient
-    m_connectionManager->setParent(m_protocolSession);
+    // 注意：不设置父子关系，避免 moveToThread 时报错
+    // "Cannot move objects with a parent"
 }
 
 void RemoteDesktopSession::createDecodePipeline() {
@@ -196,11 +196,11 @@ void RemoteDesktopSession::close() {
     }
 
     // 4. 删除网络层对象（线程已停止，安全删除）
-    //    ProtocolSession 是 ConnectionManager 的父对象，级联删除
+    //    注意：ConnectionManager 无父对象，需要单独 delete
+    delete m_connectionManager;
+    m_connectionManager = nullptr;
     delete m_protocolSession;
     m_protocolSession = nullptr;
-    m_connectionManager = nullptr;  // 已被 ProtocolSession 级联删除
-
     delete m_decodePipeline;
     m_decodePipeline = nullptr;
 

@@ -46,7 +46,7 @@ public:
     ~ConnectionManager();
 
     // 连接控制
-    void connectToHost(const QString& host, int port);
+    Q_INVOKABLE void connectToHost(const QString& host, int port);
     void disconnectFromHost();
     void abort();
 
