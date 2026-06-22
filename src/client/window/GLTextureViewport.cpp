@@ -508,16 +508,18 @@ void GLTextureViewport::paintGL() {
 
     m_shaderProgram->release();
 
-    // 简易 paintGL FPS 统计（每 60 帧输出一次）
-    static int s_frameCount = 0;
-    static auto s_lastFpsTime = std::chrono::steady_clock::now();
-    if ( ++s_frameCount >= 60 ) {
-        auto now = std::chrono::steady_clock::now();
-        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - s_lastFpsTime).count();
-        qCDebug(lcRefreshMetrics) << "paintGL FPS:" << (60000.0 / elapsed) << "(" << elapsed << "ms for 60 frames)";
-        s_frameCount = 0;
-        s_lastFpsTime = now;
+    // FPS 统计（EMA 平滑，基于渲染时刻——用户实际看到的帧率）
+    const auto now = std::chrono::steady_clock::now();
+    if (m_lastPaintTime.time_since_epoch().count() != 0) {
+        const double instant = std::chrono::duration<double>(now - m_lastPaintTime).count();
+        if (m_smoothedFrameDuration == 0.0) {
+            m_smoothedFrameDuration = instant;
+        } else {
+            m_smoothedFrameDuration = kFpsAlpha * instant + (1.0 - kFpsAlpha) * m_smoothedFrameDuration;
+        }
+        m_currentFPS = (m_smoothedFrameDuration > 0.0) ? (1.0 / m_smoothedFrameDuration) : 0.0;
     }
+    m_lastPaintTime = now;
 
     using namespace std::chrono;
     if ( m_pendingArrivalTs.time_since_epoch().count() != 0 ) {

@@ -155,6 +155,11 @@ public:
     int consecutiveSkips() const { return m_consecutiveSkips.load(); }
 
     /**
+     * @brief 获取当前渲染帧率（FPS），基于 EMA 指数滑动平均平滑。
+     */
+    double currentFPS() const { return m_currentFPS; }
+
+    /**
      * @brief 在窗口隐藏前主动清理 GL 资源，避免 hide() 销毁原生窗口后
      *        makeCurrent() 崩溃（Windows 平台 QWindow 销毁使 GL 上下文不可用）。
      *
@@ -267,6 +272,12 @@ private:
     qint64  m_metricsLatencyAccumUs = 0;
     qint64  m_metricsLatencyMaxUs = 0;
     static constexpr quint64 kMetricsReportInterval = 10;  // frames
+
+    // FPS 统计（EMA 指数滑动平均，显示帧率）
+    double m_currentFPS = 0.0;
+    std::chrono::steady_clock::time_point m_lastPaintTime{};
+    double m_smoothedFrameDuration = 0.0;
+    static constexpr double kFpsAlpha = 0.1;
 };
 
 #endif // QT_NO_OPENGL
