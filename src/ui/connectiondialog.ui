@@ -6,8 +6,14 @@
   <property name="windowTitle"><string>远程桌面连接</string></property>
   <property name="minimumSize">
    <size>
-    <width>440</width>
-    <height>510</height>
+    <width>520</width>
+    <height>540</height>
+   </size>
+  </property>
+  <property name="maximumSize">
+   <size>
+    <width>520</width>
+    <height>540</height>
    </size>
   </property>
   <property name="windowIcon"><iconset resource="../../resources/resources.qrc"><normaloff>:/icons/connect.svg</normaloff>:/icons/connect.svg</iconset></property>
@@ -69,7 +75,7 @@ QGroupBox {
     background-color: #ffffff;
     border: 1px solid #e8e8e8;
     border-radius: 8px;
-    margin-top: 8px;
+    margin-top: 0px;
     padding: 18px 12px 12px 12px;
     font-weight: 600;
     font-size: 13px;
@@ -88,6 +94,10 @@ QLabel {
     color: #1a1a1a;
     font-weight: 400;
     font-size: 13px;
+}
+
+QLabel:disabled {
+    color: #a0a0a0;
 }
 
 /* --- 下拉框 --- */
@@ -151,6 +161,12 @@ QSpinBox:hover {
 
 QSpinBox:focus {
     border-color: #0078d4;
+}
+
+QSpinBox:disabled {
+    background-color: #f0f0f0;
+    color: #a0a0a0;
+    border-color: #e0e0e0;
 }
 
 QSpinBox::up-button {
@@ -441,6 +457,7 @@ QWidget#advancedTab {
      <property name="bottomMargin"><number>8</number></property>
      <item><spacer name="buttonSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
      <item><widget class="QDialogButtonBox" name="buttonBox"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="standardButtons"><set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set></property></widget></item>
+     <item><spacer name="buttonSpacerRight"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
     </layout>
    </item>
   </layout>
