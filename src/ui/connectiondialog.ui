@@ -377,33 +377,33 @@ QWidget#advancedTab {
           <property name="fieldGrowthPolicy"><enum>QFormLayout::ExpandingFieldsGrow</enum></property>
           <property name="labelAlignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property>
           <item row="0" column="0"><widget class="QLabel" name="colorDepthLabel"><property name="text"><string>颜色深度:</string></property></widget></item>
-          <item row="0" column="1"><widget class="QComboBox" name="colorDepthComboBox"><item><property name="text"><string>16位 (65K 颜色)</string></property></item><item><property name="text"><string>24位 (16M 颜色)</string></property></item><item><property name="text"><string>32位 (真彩色)</string></property></item></widget></item>
-          <item row="1" column="1"><widget class="QCheckBox" name="fullScreenCheckBox"><property name="text"><string>全屏模式</string></property></widget></item>
+          <item row="0" column="1"><widget class="QComboBox" name="colorDepthComboBox"><property name="minimumSize"><size><width>0</width><height>32</height></size></property><item><property name="text"><string>16位 (65K 颜色)</string></property></item><item><property name="text"><string>24位 (16M 颜色)</string></property></item><item><property name="text"><string>32位 (真彩色)</string></property></item></widget></item>
+          <item row="1" column="1"><widget class="QCheckBox" name="fullScreenCheckBox"><property name="minimumSize"><size><width>0</width><height>24</height></size></property><property name="text"><string>全屏模式</string></property></widget></item>
          </layout>
         </widget>
        </item>
        <item>
         <widget class="QGroupBox" name="windowSizeGroup"><property name="title"><string>窗口大小</string></property>
          <layout class="QHBoxLayout" name="windowSizeLayout">
-          <item><widget class="QSpinBox" name="windowWidthSpinBox"><property name="minimum"><number>320</number></property><property name="maximum"><number>3840</number></property><property name="value"><number>1024</number></property><property name="suffix"><string> px</string></property></widget></item>
+          <item><widget class="QSpinBox" name="windowWidthSpinBox"><property name="minimumSize"><size><width>0</width><height>32</height></size></property><property name="minimum"><number>320</number></property><property name="maximum"><number>3840</number></property><property name="value"><number>1024</number></property><property name="suffix"><string> px</string></property></widget></item>
           <item><widget class="QLabel" name="multiplyLabel"><property name="text"><string>×</string></property></widget></item>
-          <item><widget class="QSpinBox" name="windowHeightSpinBox"><property name="minimum"><number>200</number></property><property name="maximum"><number>2160</number></property><property name="value"><number>768</number></property><property name="suffix"><string> px</string></property></widget></item>
+          <item><widget class="QSpinBox" name="windowHeightSpinBox"><property name="minimumSize"><size><width>0</width><height>32</height></size></property><property name="minimum"><number>200</number></property><property name="maximum"><number>2160</number></property><property name="value"><number>768</number></property><property name="suffix"><string> px</string></property></widget></item>
          </layout>
         </widget>
        </item>
        <item>
         <widget class="QGroupBox" name="qualityGroup"><property name="title"><string>图像质量</string></property>
          <layout class="QHBoxLayout" name="qualityLayout">
-          <item><widget class="QSlider" name="qualitySlider"><property name="minimum"><number>1</number></property><property name="maximum"><number>100</number></property><property name="value"><number>85</number></property><property name="orientation"><enum>Qt::Horizontal</enum></property></widget></item>
+          <item><widget class="QSlider" name="qualitySlider"><property name="minimumSize"><size><width>0</width><height>30</height></size></property><property name="minimum"><number>1</number></property><property name="maximum"><number>100</number></property><property name="value"><number>85</number></property><property name="orientation"><enum>Qt::Horizontal</enum></property></widget></item>
          </layout>
         </widget>
        </item>
        <item>
         <widget class="QGroupBox" name="featuresGroup"><property name="title"><string>功能选项</string></property>
          <layout class="QVBoxLayout" name="featuresVLayout">
-          <item><widget class="QCheckBox" name="clipboardCheckBox"><property name="text"><string>启用剪贴板同步</string></property><property name="checked"><bool>true</bool></property></widget></item>
-          <item><widget class="QCheckBox" name="cursorCheckBox"><property name="text"><string>显示远程光标</string></property><property name="checked"><bool>true</bool></property></widget></item>
-          <item><widget class="QCheckBox" name="viewOnlyCheckBox"><property name="text"><string>仅查看模式（禁用输入）</string></property></widget></item>
+          <item><widget class="QCheckBox" name="clipboardCheckBox"><property name="minimumSize"><size><width>0</width><height>24</height></size></property><property name="text"><string>启用剪贴板同步</string></property><property name="checked"><bool>true</bool></property></widget></item>
+          <item><widget class="QCheckBox" name="cursorCheckBox"><property name="minimumSize"><size><width>0</width><height>24</height></size></property><property name="text"><string>显示远程光标</string></property><property name="checked"><bool>true</bool></property></widget></item>
+          <item><widget class="QCheckBox" name="viewOnlyCheckBox"><property name="minimumSize"><size><width>0</width><height>24</height></size></property><property name="text"><string>仅查看模式（禁用输入）</string></property></widget></item>
          </layout>
         </widget>
        </item>
@@ -419,10 +419,10 @@ QWidget#advancedTab {
           <property name="fieldGrowthPolicy"><enum>QFormLayout::ExpandingFieldsGrow</enum></property>
           <property name="labelAlignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property>
           <item row="0" column="0"><widget class="QLabel" name="timeoutLabel"><property name="text"><string>连接超时:</string></property></widget></item>
-          <item row="0" column="1"><widget class="QSpinBox" name="timeoutSpinBox"><property name="suffix"><string> 秒</string></property><property name="minimum"><number>5</number></property><property name="maximum"><number>300</number></property><property name="value"><number>30</number></property></widget></item>
-          <item row="1" column="1"><widget class="QCheckBox" name="autoReconnectCheckBox"><property name="text"><string>自动重连</string></property></widget></item>
+          <item row="0" column="1"><widget class="QSpinBox" name="timeoutSpinBox"><property name="minimumSize"><size><width>0</width><height>32</height></size></property><property name="suffix"><string> 秒</string></property><property name="minimum"><number>5</number></property><property name="maximum"><number>300</number></property><property name="value"><number>30</number></property></widget></item>
+          <item row="1" column="1"><widget class="QCheckBox" name="autoReconnectCheckBox"><property name="minimumSize"><size><width>0</width><height>24</height></size></property><property name="text"><string>自动重连</string></property></widget></item>
           <item row="2" column="0"><widget class="QLabel" name="reconnectIntervalLabel"><property name="enabled"><bool>false</bool></property><property name="text"><string>重连间隔:</string></property></widget></item>
-          <item row="2" column="1"><widget class="QSpinBox" name="reconnectIntervalSpinBox"><property name="enabled"><bool>false</bool></property><property name="suffix"><string> 秒</string></property><property name="minimum"><number>1</number></property><property name="maximum"><number>60</number></property><property name="value"><number>5</number></property></widget></item>
+          <item row="2" column="1"><widget class="QSpinBox" name="reconnectIntervalSpinBox"><property name="minimumSize"><size><width>0</width><height>32</height></size></property><property name="enabled"><bool>false</bool></property><property name="suffix"><string> 秒</string></property><property name="minimum"><number>1</number></property><property name="maximum"><number>60</number></property><property name="value"><number>5</number></property></widget></item>
          </layout>
         </widget>
        </item>
