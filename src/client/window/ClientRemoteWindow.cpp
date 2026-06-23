@@ -219,12 +219,6 @@ void ClientRemoteWindow::closeEvent(QCloseEvent* event) {
     m_isClosing = true;
     emit windowClosed();
 
-#ifndef QT_NO_OPENGL
-    if (m_glViewport) {
-        m_glViewport->cleanupGLResources();
-    }
-#endif
-
     event->accept();
     QWidget::closeEvent(event);
 }

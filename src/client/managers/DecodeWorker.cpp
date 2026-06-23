@@ -240,10 +240,18 @@ bool DecodeWorker::initializeGL(QOpenGLContext* shareContext) {
         return false;
     }
 
+    // 在当前（解码）线程上延迟创建工作线程 GL 上下文
+    // GpuDecodeTarget 的 ensureWorkerContext() 会在首次调用的线程上创建上下文，
+    // 此处主动触发避免 Main 线程的 paintGL 回退路径抢先创建
+    if (!m_decodeTarget->ensureWorkerContext()) {
+        qCWarning(lcClient) << "DecodeWorker::initializeGL() — failed to create worker GL context";
+        return false;
+    }
+
     m_glContext = m_decodeTarget->workerContext();
     m_glSurface = m_decodeTarget->offscreenSurface();
 
-    // 在工作线程上激活 GL 上下文——后续所有 GL 操作依赖此调用
+    // 激活上下文——后续所有 GL 操作依赖此调用
     if (!m_glContext->makeCurrent(m_glSurface)) {
         qCWarning(lcClient) << "DecodeWorker::initializeGL() — failed to make GL context current";
         m_glUploadReady = false;
@@ -251,7 +259,7 @@ bool DecodeWorker::initializeGL(QOpenGLContext* shareContext) {
     }
 
     m_glUploadReady = true;
-    qCInfo(lcClient) << "DecodeWorker::initializeGL() — worker GL context made current";
+    qCInfo(lcClient) << "DecodeWorker::initializeGL() — worker GL context ready on decode thread";
     return true;
 }
 
@@ -265,6 +273,18 @@ void DecodeWorker::cleanupGL() {
     m_glUploadReady = false;
     m_glViewport = nullptr;
     m_decoder.reset();
+
+    // 在线程退出前清理 GpuDecodeTarget 的 GL 资源（PBO/纹理）
+    // 此时 GL 上下文仍在当前线程，makeCurrent 安全
+    if (m_decodeTarget) {
+        m_decodeTarget->cleanup();
+    }
+
+    // 释放当前上下文（GpuDecodeTarget 持有所有权，我们只 release）
+    if (m_glContext) {
+        m_glContext->doneCurrent();
+    }
+
     m_glContext = nullptr;
     m_glSurface = nullptr;
     m_decodeTarget = nullptr;

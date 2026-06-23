@@ -159,15 +159,6 @@ public:
      */
     double currentFPS() const { return m_currentFPS; }
 
-    /**
-     * @brief 在窗口隐藏前主动清理 GL 资源，避免 hide() 销毁原生窗口后
-     *        makeCurrent() 崩溃（Windows 平台 QWindow 销毁使 GL 上下文不可用）。
-     *
-     * 应在 closeEvent 中、QWidget::closeEvent（触发 hide()）之前调用。
-     * 多次调用安全（幂等），析构函数也会检测并跳过重复清理。
-     */
-    void cleanupGLResources();
-
 signals:
     /**
      * @brief Emitted when the viewport is resized and render rect changes.
@@ -265,10 +256,6 @@ private:
     /// 防止重复排队 update()：仅在 paintGL 消费完上一帧后才允许新的 paint 事件。
     /// 生产者 (handleScreenData) 写入 true，paintGL 在消费后重置为 false。
     std::atomic<bool> m_needsRepaint{false};
-
-    /// GL 资源是否已通过 cleanupGLResources() 主动清理。
-    /// 析构函数检测此标记，避免在原生窗口已销毁后再次调用 makeCurrent() 导致崩溃。
-    bool m_glCleanedUp = false;
 
     // Triple-buffered lock-free frame delivery
     TripleBuffer<FrameSlot>* m_frameBuffer = nullptr;

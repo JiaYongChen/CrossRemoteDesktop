@@ -12,7 +12,6 @@
 #include "../../common/clipboard/ClipboardManager.h"
 #include "../../common/core/logging/LoggingCategories.h"
 
-#include <QtCore/QThread>
 #include <QtWidgets/QApplication>
 
 RemoteDesktopSession::RemoteDesktopSession(const QString& host, int port,
@@ -23,27 +22,15 @@ RemoteDesktopSession::RemoteDesktopSession(const QString& host, int port,
     , m_host(host)
     , m_port(port) {
 
-    // 1. 创建网络线程
-    m_networkThread = new QThread(this);
-    m_networkThread->setObjectName(QString("Network-%1").arg(m_connectionId));
+    // 所有网络对象在 Main 线程创建并保持——QSslSocket 的平台级回调绑定 Main 线程，
+    // Qt 异步 I/O 不阻塞 GUI；只有解码在独立 DecodeThread 进行。
 
-    // 2. 创建解码管线（Main 线程，稍后 moveToThread）
     createDecodePipeline();
-
-    // 3. 创建网络组件（Main 线程，稍后 moveToThread）
     createNetworkComponents();
-
-    // 4. 创建窗口（Main 线程，QWidget 约束）
     createWindow();
-
-    // 5. 信号接线
     wireSignals();
 
-    // 6. 将网络组件移到 Network 线程
-    //    ConnectionManager 内部自建 TcpClient（父子关系），一并移入
-    m_connectionManager->moveToThread(m_networkThread);
-    m_protocolSession->moveToThread(m_networkThread);
-    m_decodePipeline->moveToThread(m_networkThread);
+    // 不需要 Network 线程：TcpClient/ConnectionManager/ProtocolSession/DecodePipeline 全部在 Main 线程
 }
 
 RemoteDesktopSession::~RemoteDesktopSession() {
@@ -119,7 +106,7 @@ void RemoteDesktopSession::wireSignals() {
         this, [this](ConnectionManager::ConnectionState state) {
             if (state == ConnectionManager::ConnectionState::Authenticated) {
                 // 使用 QueuedConnection 将 startSession() 派发到 ProtocolSession 所在的 Network 线程
-                QMetaObject::invokeMethod(m_protocolSession, "startSession", Qt::QueuedConnection);
+                m_protocolSession->startSession();
             } else if (state == ConnectionManager::ConnectionState::Error) {
                 emit errorOccurred(RdError(ErrorCode::NetworkConnectionFailed,
                     QStringLiteral("连接 %1:%2 失败").arg(m_host).arg(m_port),
@@ -162,10 +149,8 @@ void RemoteDesktopSession::wireSignals() {
 
 void RemoteDesktopSession::start() {
     qCInfo(lcSession) << "RemoteDesktopSession::start() — connecting to" << m_host << ":" << m_port << "[" << m_connectionId << "]";
-    m_networkThread->start();
-    QMetaObject::invokeMethod(m_connectionManager,
-        "connectToHost", Qt::QueuedConnection,
-        Q_ARG(QString, m_host), Q_ARG(int, m_port));
+    // 网络对象在 Main 线程，直接调用即可
+    m_connectionManager->connectToHost(m_host, m_port);
 }
 
 void RemoteDesktopSession::close() {
@@ -174,45 +159,21 @@ void RemoteDesktopSession::close() {
 
     qCInfo(lcSession) << "RemoteDesktopSession::close() — starting for" << m_connectionId;
 
-    // 防止窗口关闭时递归调用
     if (m_window) {
         disconnect(m_window, &ClientRemoteWindow::windowClosed, this, &RemoteDesktopSession::close);
     }
 
-    // 1. 停止解码管线（BlockingQueuedConnection 在 Network 线程执行）
+    // 1. 停止解码管线（内部 quit+wait DecodeThread）
     if (m_decodePipeline) {
-        QMetaObject::invokeMethod(m_decodePipeline, "stop", Qt::BlockingQueuedConnection);
+        m_decodePipeline->stop();
     }
 
-    // 2. 将所有清理工作排队到 Network 线程自身执行
-    //    确保 socket 清理在 Network 线程进行，避免跨线程 timer/event 冲突
-    QMetaObject::invokeMethod(m_protocolSession, [this]() {
-        if (m_protocolSession) {
-            m_protocolSession->disconnectFromHost();
-        }
-    }, Qt::QueuedConnection);
-
-    // 3. 给 Network 线程事件循环时间处理排队的 lambda
-    //    然后 quit + wait，此时 socket 已清理完毕，无跨线程冲突
-    QThread::msleep(50);
-
-    m_networkThread->quit();
-    if (!m_networkThread->wait(5000)) {
-        qCWarning(lcSession) << "Network thread quit timeout";
-        m_networkThread->requestInterruption();
-        m_networkThread->quit();
-        m_networkThread->wait(1000);
+    // 2. 断开网络连接
+    if (m_protocolSession) {
+        m_protocolSession->disconnectFromHost();
     }
 
-    // 4. 线程已停止，安全删除
-    delete m_connectionManager;
-    m_connectionManager = nullptr;
-    delete m_protocolSession;
-    m_protocolSession = nullptr;
-    delete m_decodePipeline;
-    m_decodePipeline = nullptr;
-
-    // 5. 关闭窗口
+    // 3. 关闭窗口（由 closeEvent 触发时不重复调用——窗口已在关闭流程中）
     if (m_window && !m_window->isClosing()) {
         m_window->close();
     }

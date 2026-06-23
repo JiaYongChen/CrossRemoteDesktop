@@ -48,6 +48,8 @@ public:
     [[nodiscard]] bool isReady() const { return m_ready; }
     [[nodiscard]] QOpenGLContext* workerContext() const { return m_workerContext; }
     [[nodiscard]] QOffscreenSurface* offscreenSurface() const { return m_offSurface; }
+    /// 延迟创建工作线程 GL 上下文（在首次使用的线程上创建）
+    [[nodiscard]] bool ensureWorkerContext();
 
 private:
     bool ensureTextureSize(int width, int height);

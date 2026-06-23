@@ -4,6 +4,7 @@
 #include "../../common/core/logging/LoggingCategories.h"
 #include "../../common/core/config/RenderConfig.h"
 
+#include <QtCore/QThread>
 #include <QtGui/QOpenGLContext>
 #include <QtGui/QOffscreenSurface>
 #include <QtGui/QOpenGLExtraFunctions>
@@ -51,6 +52,17 @@ bool GpuDecodeTarget::initialize() {
         return false;
     }
 
+    // 工作线程 GL 上下文改为延迟创建——在首次使用的线程上创建，
+    // 避免 QOpenGLContext 跨线程 makeCurrent 的限制。
+    m_ready = true;
+    qCInfo(lcGLViewport) << "GpuDecodeTarget: 初始化完成";
+    return true;
+}
+
+bool GpuDecodeTarget::ensureWorkerContext() {
+    if (m_workerContext) return true;
+    if (!m_shareContext) return false;
+
     m_workerContext = new QOpenGLContext();
     m_workerContext->setShareContext(m_shareContext);
     m_workerContext->setFormat(m_shareContext->format());
@@ -69,15 +81,28 @@ bool GpuDecodeTarget::initialize() {
     initializeOpenGLFunctions();
     m_workerContext->doneCurrent();
 
-    m_ready = true;
-    qCInfo(lcGLViewport) << "GpuDecodeTarget: 初始化完成 — 工作线程 GL 上下文就绪";
+    qCInfo(lcGLViewport) << "GpuDecodeTarget: 工作线程 GL 上下文就绪（延迟创建）";
     return true;
 }
 
 void GpuDecodeTarget::cleanup() {
+    if (!m_workerContext || !m_offSurface) return;
     m_ready = false;
-    if (!m_workerContext) return;
 
+    qCDebug(lcGLViewport) << "GpuDecodeTarget::cleanup() — context thread:" << m_workerContext->thread()
+                          << "current thread:" << QThread::currentThread();
+
+    // 仅在上下文所属线程调用 makeCurrent（Qt 线程亲和性限制）
+    if (m_workerContext->thread() != QThread::currentThread()) {
+        qCDebug(lcGLViewport) << "GpuDecodeTarget::cleanup() — 跨线程清理，跳过 makeCurrent";
+        delete m_workerContext;
+        m_workerContext = nullptr;
+        delete m_offSurface;
+        m_offSurface = nullptr;
+        return;
+    }
+
+    qCDebug(lcGLViewport) << "GpuDecodeTarget::cleanup() — 同线程清理 GL 资源";
     m_workerContext->makeCurrent(m_offSurface);
 
     destroyPersistentPBOs();
@@ -105,6 +130,7 @@ void GpuDecodeTarget::cleanup() {
 
 unsigned char* GpuDecodeTarget::mapWriteBuffer(int width, int height) {
     if (!m_ready) return nullptr;
+    if (!ensureWorkerContext()) return nullptr;
 
     ensureTextureSize(width, height);
     if (!ensurePboSize(width, height)) return nullptr;

@@ -4,8 +4,6 @@
 #include <QtCore/QString>
 #include "error/RdError.h"
 
-class QThread;
-class TcpClient;
 class ConnectionManager;
 class ProtocolSession;
 class DecodePipeline;
@@ -14,9 +12,10 @@ class ClientRemoteWindow;
 /**
  * @brief 远程桌面会话 — 创建并组装一个连接的全部组件，管理完整生命周期
  *
- * 归属 Main 线程。构造时同步创建所有子组件并完成信号接线。
- * start() 启动 Network 线程并异步发起连接。
- * close() 逆序清理并自毁。
+ * 归属 Main 线程。所有网络对象（TcpClient/ConnectionManager/ProtocolSession）
+ * 和管线对象（DecodePipeline）均在 Main 线程创建和运行。
+ * QSslSocket 异步 I/O 不阻塞 GUI；仅解码在独立 DecodeThread 进行。
+ * close() 逆序清理。
  */
 class RemoteDesktopSession : public QObject {
     Q_OBJECT
@@ -26,10 +25,10 @@ public:
                                   QObject* parent = nullptr);
     ~RemoteDesktopSession() override;
 
-    /// 启动连接：启动 Network 线程 → 异步调用 connectToHost
+    /// 启动连接：直接调用 connectToHost（同线程，无需 invokeMethod）
     void start();
 
-    /// 优雅关闭（幂等）：停止管线 → 断开连接 → 停止线程 → 关闭窗口
+    /// 优雅关闭（幂等）：停止管线 → 断开连接 → 关闭窗口
     void close();
 
     QString connectionId() const { return m_connectionId; }
@@ -58,14 +57,13 @@ private:
     int     m_port;
     bool    m_closing = false;
 
-    // ── 网络层（Network 线程）──
-    QThread*           m_networkThread = nullptr;
+    // ── 网络层 ──
     ConnectionManager* m_connectionManager = nullptr;  // 内部自建 TcpClient
     ProtocolSession*   m_protocolSession = nullptr;
 
-    // ── 管线层（Network 线程）──
+    // ── 管线层 ──
     DecodePipeline* m_decodePipeline = nullptr;
 
-    // ── UI 层（Main 线程）──
+    // ── UI 层 ──
     ClientRemoteWindow* m_window = nullptr;
 };
