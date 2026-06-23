@@ -286,23 +286,6 @@ QDialogButtonBox QPushButton:pressed {
     background-color: #005a9e;
 }
 
-/* --- 密码切换按钮 --- */
-QPushButton#togglePasswordBtn {
-    background-color: transparent;
-    border: none;
-    width: 14px;
-    height: 14px;
-    min-width: 14px;
-    max-width: 14px;
-    min-height: 14px;
-    max-height: 14px;
-    padding: 0;
-}
-
-QPushButton#togglePasswordBtn:hover {
-    background-color: transparent;
-}
-
 /* --- 滚动条 --- */
 QScrollBar:vertical {
     width: 6px;
@@ -378,13 +361,7 @@ QWidget#advancedTab {
           <item row="0" column="0"><widget class="QLabel" name="usernameLabel"><property name="text"><string>用户名:</string></property></widget></item>
           <item row="0" column="1"><widget class="QLineEdit" name="usernameLineEdit"><property name="minimumSize"><size><width>0</width><height>32</height></size></property><property name="maximumSize"><size><width>200</width><height>32</height></size></property><property name="placeholderText"><string>输入用户名（可选）</string></property></widget></item>
           <item row="1" column="0"><widget class="QLabel" name="passwordLabel"><property name="text"><string>密码:</string></property></widget></item>
-          <item row="1" column="1">
-           <layout class="QHBoxLayout" name="passwordLayout">
-            <item><widget class="QLineEdit" name="passwordLineEdit"><property name="minimumSize"><size><width>0</width><height>32</height></size></property><property name="maximumSize"><size><width>176</width><height>32</height></size></property><property name="echoMode"><enum>QLineEdit::Password</enum></property><property name="placeholderText"><string>输入密码（可选）</string></property></widget></item>
-            <item><spacer name="passwordSpacing"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeType"><enum>QSizePolicy::Fixed</enum></property><property name="sizeHint" stdset="0"><size><width>0</width><height>0</height></size></property></spacer></item>
-            <item><widget class="QPushButton" name="togglePasswordBtn"><property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Fixed"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy></property><property name="fixedWidth"><number>14</number></property><property name="fixedHeight"><number>14</number></property><property name="toolTip"><string>显示/隐藏密码</string></property></widget></item>
-           </layout>
-          </item>
+          <item row="1" column="1"><widget class="QLineEdit" name="passwordLineEdit"><property name="minimumSize"><size><width>0</width><height>32</height></size></property><property name="maximumSize"><size><width>200</width><height>32</height></size></property><property name="echoMode"><enum>QLineEdit::Password</enum></property><property name="placeholderText"><string>输入密码（可选）</string></property></widget></item>
          </layout>
         </widget>
        </item>
