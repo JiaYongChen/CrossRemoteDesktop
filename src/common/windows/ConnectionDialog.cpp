@@ -74,7 +74,6 @@ void ConnectionDialog::onFullScreenToggled(bool checked)
 	ui->windowWidthSpinBox->setEnabled(!checked);
 	ui->windowHeightSpinBox->setEnabled(!checked);
 	ui->multiplyLabel->setEnabled(!checked);
-	ui->windowSizeGroup->setEnabled(!checked);
 }
 
 void ConnectionDialog::retranslateButtons()
