@@ -364,9 +364,9 @@ QWidget#advancedTab {
           <property name="fieldGrowthPolicy"><enum>QFormLayout::ExpandingFieldsGrow</enum></property>
           <property name="labelAlignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property>
           <item row="0" column="0"><widget class="QLabel" name="hostnameLabel"><property name="text"><string>主机名:</string></property></widget></item>
-          <item row="0" column="1"><widget class="QLineEdit" name="hostnameLineEdit"><property name="placeholderText"><string>可选的友好名称（如"办公室电脑"）</string></property></widget></item>
+          <item row="0" column="1"><widget class="QLineEdit" name="hostnameLineEdit"><property name="minimumSize"><size><width>0</width><height>32</height></size></property><property name="placeholderText"><string>可选的友好名称（如"办公室电脑"）</string></property></widget></item>
           <item row="1" column="0"><widget class="QLabel" name="hostLabel"><property name="text"><string>主机地址:</string></property></widget></item>
-          <item row="1" column="1"><widget class="QLineEdit" name="hostLineEdit"><property name="placeholderText"><string>IP 或主机名，可含端口如 192.168.1.100:5921</string></property></widget></item>
+          <item row="1" column="1"><widget class="QLineEdit" name="hostLineEdit"><property name="minimumSize"><size><width>0</width><height>32</height></size></property><property name="placeholderText"><string>IP 或主机名，可含端口如 192.168.1.100:5921</string></property></widget></item>
          </layout>
         </widget>
        </item>
