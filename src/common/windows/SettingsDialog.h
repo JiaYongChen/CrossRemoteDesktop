@@ -48,4 +48,5 @@ private:
 	Ui::SettingsDialog* ui;
 	QSettings* m_settings;
 	QString m_cachedPassword;
+	QAction* m_togglePasswordAction = nullptr;
 };

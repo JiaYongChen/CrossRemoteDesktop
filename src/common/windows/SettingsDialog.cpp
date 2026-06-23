@@ -26,8 +26,10 @@ SettingsDialog::SettingsDialog(QWidget* parent)
 	, m_settings(new QSettings())
 {
 	ui->setupUi(this);
-	ui->togglePasswordBtn->setIcon(QIcon(":/icons/eye-off.svg"));
-	ui->togglePasswordBtn->setIconSize(QSize(14, 14));
+	m_togglePasswordAction = ui->passwordEdit->addAction(
+		QIcon(":/icons/eye-off.svg"), QLineEdit::TrailingPosition);
+	connect(m_togglePasswordAction, &QAction::triggered,
+	        this, &SettingsDialog::onTogglePasswordClicked);
 	setupUI();
 	setupConnections();
 	loadSettings();
@@ -67,10 +69,6 @@ void SettingsDialog::setupConnections()
 	// 通信 — 密码
 	connect(ui->passwordEdit, &QLineEdit::editingFinished,
 			this, &SettingsDialog::onPasswordChanged);
-
-	// 通信 — 密码显示切换
-	connect(ui->togglePasswordBtn, &QPushButton::clicked,
-			this, &SettingsDialog::onTogglePasswordClicked);
 
 	// 高级 — 日志级别
 	connect(ui->logLevelComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
@@ -258,7 +256,7 @@ void SettingsDialog::onTogglePasswordClicked()
 {
 	const bool isMasked = (ui->passwordEdit->echoMode() == QLineEdit::Password);
 	ui->passwordEdit->setEchoMode(isMasked ? QLineEdit::Normal : QLineEdit::Password);
-	ui->togglePasswordBtn->setIcon(QIcon(isMasked
+	m_togglePasswordAction->setIcon(QIcon(isMasked
 		? ":/icons/eye.svg"
 		: ":/icons/eye-off.svg"));
 }

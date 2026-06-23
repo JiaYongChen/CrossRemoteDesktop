@@ -4,6 +4,7 @@
 #include "../core/config/UiConstants.h"
 
 #include <QtWidgets/QMessageBox>
+#include <QtWidgets/QPushButton>
 #include <QtCore/QSettings>
 #include <QtGui/QIcon>
 
@@ -14,8 +15,10 @@ ConnectionDialog::ConnectionDialog(QWidget* parent)
 	, m_defaultPort(UIConstants::DEFAULT_SERVER_PORT)
 {
 	ui->setupUi(this);
-	ui->togglePasswordBtn->setIcon(QIcon(":/icons/eye-off.svg"));
-	ui->togglePasswordBtn->setIconSize(QSize(14, 14));
+	m_togglePasswordAction = ui->passwordLineEdit->addAction(
+		QIcon(":/icons/eye-off.svg"), QLineEdit::TrailingPosition);
+	connect(m_togglePasswordAction, &QAction::triggered,
+	        this, &ConnectionDialog::onTogglePasswordClicked);
 	setupConnections();
 	loadSettings();
 	retranslateButtons();
@@ -28,8 +31,6 @@ ConnectionDialog::~ConnectionDialog()
 
 void ConnectionDialog::setupConnections()
 {
-	connect(ui->togglePasswordBtn, &QPushButton::clicked,
-	        this, &ConnectionDialog::onTogglePasswordClicked);
 	connect(ui->fullScreenCheckBox, &QCheckBox::toggled,
 	        this, &ConnectionDialog::onFullScreenToggled);
 }
@@ -63,7 +64,7 @@ void ConnectionDialog::onTogglePasswordClicked()
 {
 	const bool isMasked = (ui->passwordLineEdit->echoMode() == QLineEdit::Password);
 	ui->passwordLineEdit->setEchoMode(isMasked ? QLineEdit::Normal : QLineEdit::Password);
-	ui->togglePasswordBtn->setIcon(QIcon(isMasked
+	m_togglePasswordAction->setIcon(QIcon(isMasked
 		? ":/icons/eye.svg"
 		: ":/icons/eye-off.svg"));
 }

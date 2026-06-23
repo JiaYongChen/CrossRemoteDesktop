@@ -56,4 +56,5 @@ private:
 	Ui::ConnectionDialog* ui;
 	QSettings* m_settings;
 	int m_defaultPort;
+	QAction* m_togglePasswordAction = nullptr;
 };
