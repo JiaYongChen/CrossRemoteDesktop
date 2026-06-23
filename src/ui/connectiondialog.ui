@@ -40,7 +40,7 @@ QTabWidget::pane {
     border: none;
     border-top: 1px solid #e0e0e0;
     top: -1px;
-    padding: 14px 28px;
+    padding: 6px 28px;
 }
 
 /* --- 标签栏 --- */
@@ -271,11 +271,11 @@ QDialogButtonBox QPushButton {
     color: #ffffff;
     border: none;
     border-radius: 4px;
-    padding: 8px 20px;
+    padding: 6px 18px;
     font-size: 13px;
     font-weight: 500;
     min-width: 90px;
-    min-height: 32px;
+    min-height: 28px;
 }
 
 QDialogButtonBox QPushButton:hover {
@@ -332,9 +332,9 @@ QWidget#advancedTab {
      <layout class="QVBoxLayout" name="tabContainerLayout">
       <property name="spacing"><number>0</number></property>
       <property name="leftMargin"><number>24</number></property>
-      <property name="topMargin"><number>16</number></property>
+      <property name="topMargin"><number>0</number></property>
       <property name="rightMargin"><number>24</number></property>
-      <property name="bottomMargin"><number>16</number></property>
+      <property name="bottomMargin"><number>8</number></property>
       <item>
        <widget class="QTabWidget" name="tabWidget">
      <property name="currentIndex"><number>0</number></property>
@@ -436,9 +436,9 @@ QWidget#advancedTab {
     <layout class="QHBoxLayout" name="buttonLayout">
      <property name="spacing"><number>8</number></property>
      <property name="leftMargin"><number>24</number></property>
-     <property name="topMargin"><number>12</number></property>
+     <property name="topMargin"><number>8</number></property>
      <property name="rightMargin"><number>24</number></property>
-     <property name="bottomMargin"><number>16</number></property>
+     <property name="bottomMargin"><number>8</number></property>
      <item><spacer name="buttonSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
      <item><widget class="QDialogButtonBox" name="buttonBox"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="standardButtons"><set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set></property></widget></item>
     </layout>
