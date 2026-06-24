@@ -27,18 +27,34 @@ private:
     bool m_available = false;
 
 #ifdef HAS_OPENCL
+    // ── OpenCL 对象 ──
     cl::Context        m_ctx;
     cl::CommandQueue   m_queue;
     cl::Kernel         m_kernel;
     cl::Program        m_program;
-    cl::Buffer         m_coefBuf;
-    cl::Buffer         m_outBuf;
-    int                m_lastWidth = 0, m_lastHeight = 0;
-    std::vector<float> m_coefHost;
 
+    // ── GPU 缓冲区 ──
+    cl::Buffer m_coefBufY, m_coefBufCb, m_coefBufCr;
+    cl::Buffer m_qtblBuf;
+    cl::Buffer m_outBuf;
+
+    // ── 主机端系数缓冲区 ──
+    std::vector<short> m_coefY, m_coefCb, m_coefCr;
+    unsigned short m_qtblHost[3][64];   // 量化表（自然顺序）
+
+    // ── 图像/子采样维度 ──
+    int m_lastWidth = 0, m_lastHeight = 0;
+    int m_yBlocksW = 0, m_yBlocksH = 0;
+    int m_cbBlocksW = 0, m_cbBlocksH = 0;
+    int m_crBlocksW = 0, m_crBlocksH = 0;
+    int m_cbHRatio = 1, m_cbVRatio = 1;
+    int m_crHRatio = 1, m_crVRatio = 1;
+
+    // ── 方法 ──
     bool probeGPU();
     bool buildKernel();
+    [[nodiscard]] bool extractCoefficients(const QByteArray& jpegData,
+                                             int* outW, int* outH);
     void releaseResources();
-    bool huffmanDecode(const QByteArray& jpegData, int* w, int* h);
 #endif
 };
