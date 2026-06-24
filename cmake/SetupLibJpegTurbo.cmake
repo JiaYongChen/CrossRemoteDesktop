@@ -31,6 +31,17 @@ set(_MISSING "")
 if(NOT EXISTS "${_TJ_INC}/turbojpeg.h")
     list(APPEND _MISSING "  - 头文件: ${_TJ_INC}/turbojpeg.h")
 endif()
+if(NOT EXISTS "${_TJ_INC}/jpeglib.h")
+    list(APPEND _MISSING "  - 头文件: ${_TJ_INC}/jpeglib.h")
+endif()
+if(WIN32)
+    if(NOT EXISTS "${_TJ_LIB}/jpeg.lib")
+        list(APPEND _MISSING "  - 导入库: ${_TJ_LIB}/jpeg.lib")
+    endif()
+    if(NOT EXISTS "${_TJ_BIN}/jpeg62.dll")
+        list(APPEND _MISSING "  - DLL: ${_TJ_BIN}/jpeg62.dll")
+    endif()
+endif()
 if(WIN32)
     if(NOT EXISTS "${_TJ_LIB}/${_TJ_IMPLIB}")
         list(APPEND _MISSING "  - 导入库: ${_TJ_LIB}/${_TJ_IMPLIB}")
@@ -91,4 +102,18 @@ if(NOT TARGET LibJpegTurbo::turbojpeg)
             IMPORTED_LOCATION_MINSIZEREL     "${_TJ_LIB}/${_TJ_FILE}"
         )
     endif()
+endif()
+
+# ── 标准 libjpeg API（jpeg_read_header / jpeg_read_coefficients 等）──
+set(JPEG_TP_BIN "${_TJ_BIN}")
+
+if(NOT TARGET LibJpegTurbo::jpeg)
+    add_library(LibJpegTurbo::jpeg UNKNOWN IMPORTED GLOBAL)
+    set_target_properties(LibJpegTurbo::jpeg PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES    "${_TJ_INC}"
+        IMPORTED_LOCATION_DEBUG          "${_TJ_LIB}/jpeg.lib"
+        IMPORTED_LOCATION_RELEASE        "${_TJ_LIB}/jpeg.lib"
+        IMPORTED_LOCATION_RELWITHDEBINFO "${_TJ_LIB}/jpeg.lib"
+        IMPORTED_LOCATION_MINSIZEREL     "${_TJ_LIB}/jpeg.lib"
+    )
 endif()
