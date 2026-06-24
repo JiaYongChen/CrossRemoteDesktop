@@ -8,6 +8,7 @@
 #define CL_HPP_TARGET_OPENCL_VERSION 120
 #define CL_TARGET_OPENCL_VERSION 120
 #include <CL/cl2.hpp>
+#include <CL/cl_gl.h>
 #endif
 
 class OpenCLDecoder : public IDecoder {
@@ -36,7 +37,11 @@ private:
     // ── GPU 缓冲区 ──
     cl::Buffer m_coefBufY, m_coefBufCb, m_coefBufCr;
     cl::Buffer m_qtblBuf;
-    cl::Buffer m_outBuf;
+
+    // ── CL/GL interop ──
+    bool     m_interopAvailable = false;
+    cl_mem   m_interopBuf = nullptr;  // clCreateFromGLBuffer(PBO)，CL 内核直写
+    GLuint   m_lastPboId = 0;         // interop 缓冲关联的 PBO ID（变更时重建）
 
     // ── 主机端系数缓冲区 ──
     std::vector<short> m_coefY, m_coefCb, m_coefCr;
@@ -55,6 +60,7 @@ private:
     bool buildKernel();
     [[nodiscard]] bool extractCoefficients(const QByteArray& jpegData,
                                              int* outW, int* outH);
+    [[nodiscard]] bool setupInteropBuffer(GLuint pboId, int w, int h);
     void releaseResources();
 #endif
 };

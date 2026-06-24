@@ -1,15 +1,22 @@
 #include "OpenCLDecoder.h"
+#include "JpegCoefficientDecoder.h"
 #include "../../common/core/logging/LoggingCategories.h"
-#include <jpeglib.h>
 #include <cstring>
-#include <csetjmp>
 #include <QtCore/QFile>
 
-#ifndef QT_NO_OPENGL
 #include "IDecodeTarget.h"
-#endif
 
 #ifdef HAS_OPENCL
+
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>  // wglGetCurrentContext / wglGetCurrentDC
+#endif
 
 // ── probeGPU ──────────────────────────────────────────────────────────────
 
@@ -23,22 +30,58 @@ bool OpenCLDecoder::probeGPU() {
             return false;
         }
 
+        cl::Platform platform;
         std::vector<cl::Device> devices;
         for (auto& p : platforms) {
             p.getDevices(CL_DEVICE_TYPE_GPU, &devices);
-            if (!devices.empty()) break;
+            if (!devices.empty()) { platform = p; break; }
         }
         if (devices.empty()) {
             qCDebug(lcClient) << "OpenCLDecoder: no GPU devices";
             return false;
         }
 
-        m_ctx = cl::Context(devices);
-        m_queue = cl::CommandQueue(m_ctx, devices[0]);
-        std::string name = devices[0].getInfo<CL_DEVICE_NAME>();
-        qCInfo(lcClient) << "OpenCLDecoder: device" << QString::fromStdString(name);
+        cl::Device device = devices[0];
+        std::string devName = device.getInfo<CL_DEVICE_NAME>();
+        std::string devExts  = device.getInfo<CL_DEVICE_EXTENSIONS>();
 
-        // 2. 编译内核
+        // 2. 探测 CL/GL interop 支持（必须——无 interop 时走 CPU 解码更快）
+        const bool extGlSharing = (devExts.find("cl_khr_gl_sharing") != std::string::npos);
+        if (!extGlSharing) {
+            qCInfo(lcClient) << "OpenCLDecoder: cl_khr_gl_sharing 不支持 — 回退 CPU 解码";
+            return false;
+        }
+
+    #ifdef _WIN32
+        const HGLRC glCtx = wglGetCurrentContext();
+        const HDC   glDC  = wglGetCurrentDC();
+        if (!glCtx || !glDC) {
+            qCInfo(lcClient) << "OpenCLDecoder: 无当前 GL 上下文 — 回退 CPU 解码";
+            return false;
+        }
+
+        cl_context_properties props[] = {
+            CL_CONTEXT_PLATFORM, (cl_context_properties)platform(),
+            CL_GL_CONTEXT_KHR,   (cl_context_properties)glCtx,
+            CL_WGL_HDC_KHR,     (cl_context_properties)glDC,
+            0
+        };
+        m_ctx = cl::Context(devices, props);
+    #else
+        // Linux/macOS: 需要 GLX/EGL context，需要根据平台设置对应属性
+        // 暂时仅 Windows 已验证 interop 可用，其他平台留后续扩展点
+        qCInfo(lcClient) << "OpenCLDecoder: 非 Windows 平台 CL/GL interop 未实现 — 回退 CPU 解码";
+        return false;
+    #endif
+
+        m_interopAvailable = true;
+        qCInfo(lcClient) << "OpenCLDecoder: CL/GL interop 已启用 —"
+                         << QString::fromStdString(devName);
+
+        m_queue = cl::CommandQueue(m_ctx, device);
+        qCInfo(lcClient) << "OpenCLDecoder: device" << QString::fromStdString(devName);
+
+        // 3. 编译内核
         if (!buildKernel()) return false;
 
         return true;
@@ -90,146 +133,71 @@ bool OpenCLDecoder::buildKernel() {
     return true;
 }
 
-// ── libjpeg 错误处理：覆盖默认 exit() 行为 ──
-struct JpegErrorMgr {
-    jpeg_error_mgr pub;
-    jmp_buf setjmpBuf;
-};
-
-static void jpegErrorExit(j_common_ptr cinfo) {
-    auto* mgr = reinterpret_cast<JpegErrorMgr*>(cinfo->err);
-    longjmp(mgr->setjmpBuf, 1);
-}
-
 // ── extractCoefficients ───────────────────────────────────────────────────
+// 使用自定义 Huffman 解码器，零外部依赖，替代 libjpeg 虚拟数组方案
 
 bool OpenCLDecoder::extractCoefficients(const QByteArray& jpegData,
                                          int* outW, int* outH)
 {
-    // 1. 初始化 libjpeg 解压对象（自定义错误处理防止 exit()）
-    jpeg_decompress_struct cinfo;
-    JpegErrorMgr jerr;
-    cinfo.err = jpeg_std_error(&jerr.pub);
-    jerr.pub.error_exit = jpegErrorExit;
-
-    if (setjmp(jerr.setjmpBuf)) {
-        jpeg_destroy_decompress(&cinfo);
-        qCWarning(lcClient) << "OpenCLDecoder: libjpeg fatal error during coefficient extraction";
+    JpegCoeffResult r;
+    if (!jpeg_extract_coefficients(jpegData, r)) {
+        qCWarning(lcClient) << "OpenCLDecoder: jpeg_extract_coefficients failed";
         return false;
     }
 
-    jpeg_create_decompress(&cinfo);
+    *outW = r.width;
+    *outH = r.height;
 
-    jpeg_mem_src(&cinfo,
-                 reinterpret_cast<const unsigned char*>(jpegData.constData()),
-                 jpegData.size());
+    // 复制维度 → 成员变量
+    m_yBlocksW = r.yBlocksW;  m_yBlocksH = r.yBlocksH;
+    m_cbBlocksW = r.cbBlocksW; m_cbBlocksH = r.cbBlocksH;
+    m_crBlocksW = r.crBlocksW; m_crBlocksH = r.crBlocksH;
+    m_cbHRatio = r.cbHRatio; m_cbVRatio = r.cbVRatio;
+    m_crHRatio = r.crHRatio; m_crVRatio = r.crVRatio;
 
-    // 2. 读取 JPEG 头部
-    if (jpeg_read_header(&cinfo, TRUE) != JPEG_HEADER_OK) {
-        jpeg_destroy_decompress(&cinfo);
-        qCWarning(lcClient) << "OpenCLDecoder: jpeg_read_header failed";
+    // 复制量化表
+    for (int c = 0; c < 3; ++c)
+        for (int i = 0; i < 64; ++i)
+            m_qtblHost[c][i] = r.qtbl[c][i];
+
+    // 转移系数所有权（零拷贝——移动 vector）
+    m_coefY  = std::move(r.coefY);
+    m_coefCb = std::move(r.coefCb);
+    m_coefCr = std::move(r.coefCr);
+
+    qCDebug(lcClient) << "OpenCLDecoder: GPU path — image" << r.width << "x" << r.height
+                      << "nc:" << r.numComponents << "Y blocks:" << m_yBlocksW << "x" << m_yBlocksH
+                      << "Mcu:" << ((r.width+15)/16) << "x" << ((r.height+15)/16);
+
+    return true;
+}
+
+// ── setupInteropBuffer ─────────────────────────────────────────────────────
+
+bool OpenCLDecoder::setupInteropBuffer(GLuint pboId, int w, int h) {
+    if (m_interopBuf && m_lastPboId == pboId) {
+        return true;  // 已存在且未变更
+    }
+
+    // 释放旧 interop 缓冲
+    if (m_interopBuf) {
+        clReleaseMemObject(m_interopBuf);
+        m_interopBuf = nullptr;
+        m_lastPboId = 0;
+    }
+
+    cl_int err = 0;
+    m_interopBuf = clCreateFromGLBuffer(
+        m_ctx(), CL_MEM_WRITE_ONLY, pboId, &err);
+    if (err != CL_SUCCESS) {
+        qCWarning(lcClient) << "OpenCLDecoder: clCreateFromGLBuffer failed — err" << err;
+        m_interopBuf = nullptr;
         return false;
     }
 
-    *outW = cinfo.image_width;
-    *outH = cinfo.image_height;
-    int nc = cinfo.num_components;
-
-    // 3. 提取量化表（jpeglib v6a+ 已是自然顺序）
-    for (int c = 0; c < 3; c++)
-        for (int i = 0; i < 64; i++)
-            m_qtblHost[c][i] = 0;
-
-    for (int c = 0; c < nc; c++) {
-        int tbl_no = cinfo.comp_info[c].quant_tbl_no;
-        JQUANT_TBL* tbl = cinfo.quant_tbl_ptrs[tbl_no];
-        if (tbl) {
-            for (int i = 0; i < 64; i++)
-                m_qtblHost[c][i] = tbl->quantval[i];
-        }
-    }
-    // 灰度 JPEG：Cb/Cr 量化表复用 Y 的（值无关，系数全为零）
-    if (nc == 1) {
-        for (int i = 0; i < 64; i++) {
-            m_qtblHost[1][i] = m_qtblHost[0][i];
-            m_qtblHost[2][i] = m_qtblHost[0][i];
-        }
-    }
-
-    // 4. 读取量化 DCT 系数（先读取，再用实际维度）
-    jvirt_barray_ptr* coefs = jpeg_read_coefficients(&cinfo);
-    if (!coefs) {
-        jpeg_destroy_decompress(&cinfo);
-        qCWarning(lcClient) << "OpenCLDecoder: jpeg_read_coefficients returned null";
-        return false;
-    }
-
-    // 5. 直接使用 libjpeg 的 height_in_blocks（不含 MCU 填充块，与虚拟数组行数一致）
-    m_yBlocksW = cinfo.comp_info[0].width_in_blocks;
-    m_yBlocksH = cinfo.comp_info[0].height_in_blocks;
-
-    qCDebug(lcClient) << "OpenCLDecoder: GPU path — image" << *outW << "x" << *outH
-                      << "nc:" << nc << "Y blocks:" << m_yBlocksW << "x" << m_yBlocksH;
-
-    if (nc >= 3) {
-        m_cbHRatio = cinfo.comp_info[0].h_samp_factor / cinfo.comp_info[1].h_samp_factor;
-        m_cbVRatio = cinfo.comp_info[0].v_samp_factor / cinfo.comp_info[1].v_samp_factor;
-        m_crHRatio = cinfo.comp_info[0].h_samp_factor / cinfo.comp_info[2].h_samp_factor;
-        m_crVRatio = cinfo.comp_info[0].v_samp_factor / cinfo.comp_info[2].v_samp_factor;
-
-        // 直接用 height_in_blocks，而非自己计算（避免整数截断错误）
-        m_cbBlocksW = cinfo.comp_info[1].width_in_blocks;
-        m_cbBlocksH = cinfo.comp_info[1].height_in_blocks;
-        m_crBlocksW = cinfo.comp_info[2].width_in_blocks;
-        m_crBlocksH = cinfo.comp_info[2].height_in_blocks;
-    } else {
-        m_cbHRatio = m_cbVRatio = m_crHRatio = m_crVRatio = 1;
-        m_cbBlocksW = m_cbBlocksH = m_crBlocksW = m_crBlocksH = 1;
-    }
-
-    // 5a. Y 分量 — 按 maxaccess (v_samp_factor) 大小分块访问
-    {
-        int chunk = cinfo.comp_info[0].v_samp_factor;  // 4:2:0 → 2 行/次
-        m_coefY.resize(m_yBlocksW * m_yBlocksH * 64);
-        for (JDIMENSION start = 0; start < m_yBlocksH; start += chunk) {
-            int n = (start + chunk <= m_yBlocksH) ? chunk : (m_yBlocksH - start);
-            auto array = (cinfo.mem->access_virt_barray)(
-                (j_common_ptr)&cinfo, coefs[0], start, n, FALSE);
-            for (int by = 0; by < n; by++) {
-                JBLOCKROW row = array[by];
-                JDIMENSION gy = start + by;
-                for (JDIMENSION bx = 0; bx < m_yBlocksW; bx++)
-                    std::memcpy(&m_coefY[(gy * m_yBlocksW + bx) * 64], row[bx], sizeof(JBLOCK));
-            }
-        }
-    }
-
-    // 5b. Cb / Cr 分量（灰度 JPEG nc==1 时填充零）
-    for (int c = 1; c <= 2; c++) {
-        int bw = (c == 1) ? m_cbBlocksW : m_crBlocksW;
-        int bh = (c == 1) ? m_cbBlocksH : m_crBlocksH;
-        auto& buf = (c == 1) ? m_coefCb : m_coefCr;
-        buf.resize(bw * bh * 64);
-
-        if (c < nc) {
-            int chunk = cinfo.comp_info[c].v_samp_factor;  // 4:2:0 → 1 行/次
-            for (JDIMENSION start = 0; start < bh; start += chunk) {
-                int n = (start + chunk <= bh) ? chunk : (bh - start);
-                auto array = (cinfo.mem->access_virt_barray)(
-                    (j_common_ptr)&cinfo, coefs[c], start, n, FALSE);
-                for (int by = 0; by < n; by++) {
-                    JBLOCKROW row = array[by];
-                    JDIMENSION gy = start + by;
-                    for (int bx = 0; bx < bw; bx++)
-                        std::memcpy(&buf[(gy * bw + bx) * 64], row[bx], sizeof(JBLOCK));
-                }
-            }
-        } else {
-            std::memset(buf.data(), 0, bw * bh * 64 * sizeof(short));
-        }
-    }
-
-    jpeg_destroy_decompress(&cinfo);
+    m_lastPboId = pboId;
+    qCDebug(lcClient) << "OpenCLDecoder: interop buffer created for PBO" << pboId
+                      << "size" << (w * h * 3) << "bytes";
     return true;
 }
 
@@ -239,11 +207,6 @@ bool OpenCLDecoder::extractCoefficients(const QByteArray& jpegData,
 bool OpenCLDecoder::decode(const QByteArray& jpegData,
                             int* outWidth, int* outHeight,
                             GLsync* outFence, QImage* outImage)
-#else
-bool OpenCLDecoder::decode(const QByteArray& jpegData,
-                            int* outWidth, int* outHeight,
-                            QImage* outImage)
-#endif
 {
     if (!m_available) return false;
 
@@ -253,32 +216,53 @@ bool OpenCLDecoder::decode(const QByteArray& jpegData,
     int nYBlocks = m_yBlocksW * m_yBlocksH;
     if (nYBlocks == 0) return false;
 
+    // Interop 必须可用——probeGPU() 已保证 m_interopAvailable
+    GLuint pboId = 0;
+    if (!m_target || (pboId = m_target->writablePboId()) == 0
+        || !setupInteropBuffer(pboId, w, h))
+    {
+        // PBO 未就绪——罕见边缘情况（首帧 PBO 分配中），回退 CPU
+        QImage tmp(w, h, QImage::Format_RGB888);
+        // 不应到达：probeGPU 已确认 interop 可用；PBO 失败仅在首帧竞态出现
+        qCWarning(lcClient) << "OpenCLDecoder: interop PBO not ready —"
+                            << "target:" << (void*)m_target
+                            << "pboId:" << pboId;
+        *outWidth = w;
+        *outHeight = h;
+        *outFence = nullptr;
+        if (outImage) *outImage = tmp;
+        return false;
+    }
+
     // 按需重建 GPU 缓冲区
     if (m_lastWidth != w || m_lastHeight != h) {
         m_coefBufY  = cl::Buffer(m_ctx, CL_MEM_READ_ONLY, m_coefY.size()  * sizeof(short));
         m_coefBufCb = cl::Buffer(m_ctx, CL_MEM_READ_ONLY, m_coefCb.size() * sizeof(short));
         m_coefBufCr = cl::Buffer(m_ctx, CL_MEM_READ_ONLY, m_coefCr.size() * sizeof(short));
         m_qtblBuf   = cl::Buffer(m_ctx, CL_MEM_READ_ONLY, 3 * 64 * sizeof(unsigned short));
-        m_outBuf    = cl::Buffer(m_ctx, CL_MEM_READ_WRITE, w * h * 3);
         m_lastWidth = w; m_lastHeight = h;
     }
 
-    // 上传系数 & 量化表到 GPU
-    m_queue.enqueueWriteBuffer(m_coefBufY,  CL_TRUE, 0,
+    // Interop 路径：Acquire GL → 上传+内核+直写 PBO → Release GL → commit
+    clEnqueueAcquireGLObjects(m_queue(), 1, &m_interopBuf, 0, nullptr, nullptr);
+
+    // 上传系数
+    m_queue.enqueueWriteBuffer(m_coefBufY,  CL_FALSE, 0,
         m_coefY.size()  * sizeof(short), m_coefY.data());
-    m_queue.enqueueWriteBuffer(m_coefBufCb, CL_TRUE, 0,
+    m_queue.enqueueWriteBuffer(m_coefBufCb, CL_FALSE, 0,
         m_coefCb.size() * sizeof(short), m_coefCb.data());
-    m_queue.enqueueWriteBuffer(m_coefBufCr, CL_TRUE, 0,
+    m_queue.enqueueWriteBuffer(m_coefBufCr, CL_FALSE, 0,
         m_coefCr.size() * sizeof(short), m_coefCr.data());
-    m_queue.enqueueWriteBuffer(m_qtblBuf,   CL_TRUE, 0,
+    m_queue.enqueueWriteBuffer(m_qtblBuf,   CL_FALSE, 0,
         3 * 64 * sizeof(unsigned short), m_qtblHost);
 
-    // 设置内核参数
+    // 设置内核参数（输出 → interop PBO）
+    cl::Buffer interopWrapper(m_interopBuf, true);
     m_kernel.setArg(0,  m_coefBufY);
     m_kernel.setArg(1,  m_coefBufCb);
     m_kernel.setArg(2,  m_coefBufCr);
     m_kernel.setArg(3,  m_qtblBuf);
-    m_kernel.setArg(4,  m_outBuf);
+    m_kernel.setArg(4,  interopWrapper);
     m_kernel.setArg(5,  w);
     m_kernel.setArg(6,  h);
     m_kernel.setArg(7,  m_yBlocksW);
@@ -291,42 +275,23 @@ bool OpenCLDecoder::decode(const QByteArray& jpegData,
     m_kernel.setArg(14, m_crHRatio);
     m_kernel.setArg(15, m_crVRatio);
 
+    // 入队内核
     m_queue.enqueueNDRangeKernel(m_kernel, cl::NullRange,
         cl::NDRange(m_yBlocksW, m_yBlocksH), cl::NullRange);
+
+    // 释放 GL 对象
+    clEnqueueReleaseGLObjects(m_queue(), 1, &m_interopBuf, 0, nullptr, nullptr);
     m_queue.finish();
 
     *outWidth = w;
     *outHeight = h;
-
-#ifndef QT_NO_OPENGL
-    if (m_target) {
-        unsigned char* dst = m_target->mapWriteBuffer(w, h);
-        if (dst) {
-            m_queue.enqueueReadBuffer(m_outBuf, CL_TRUE, 0,
-                static_cast<size_t>(w) * h * 3, dst);
-            *outFence = m_target->commitWriteBuffer();
-            return true;
-        }
-    }
-    *outFence = nullptr;
-#endif
-
-    // 回退：CPU 路径（PBO 不可用时）
-    QImage tmp(w, h, QImage::Format_RGB888);
-    m_queue.enqueueReadBuffer(m_outBuf, CL_TRUE, 0,
-        static_cast<size_t>(w) * h * 3, tmp.bits());
-
-#ifndef QT_NO_OPENGL
-    if (m_target) {
-        *outFence = m_target->uploadPixels(tmp.bits(), w, h);
-    }
-#endif
-
-    if (outImage) {
-        *outImage = tmp;
-    }
+    *outFence = m_target->commitFromInterop(w, h);
     return true;
 }
+#else
+bool OpenCLDecoder::decode(const QByteArray&, int*, int*,
+                           QImage*) { return false; }
+#endif
 
 // ── 构造/析构 ─────────────────────────────────────────────────────────────
 
@@ -338,6 +303,11 @@ OpenCLDecoder::OpenCLDecoder() {
 OpenCLDecoder::~OpenCLDecoder() { releaseResources(); }
 
 void OpenCLDecoder::releaseResources() {
+    if (m_interopBuf) {
+        clReleaseMemObject(m_interopBuf);
+        m_interopBuf = nullptr;
+        m_lastPboId = 0;
+    }
     m_kernel = cl::Kernel();
     m_program = cl::Program();
 }
