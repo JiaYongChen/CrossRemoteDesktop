@@ -164,20 +164,12 @@ bool OpenCLDecoder::extractCoefficients(const QByteArray& jpegData,
         return false;
     }
 
-    // 5. 用 MCU 填充公式计算虚拟数组的真实维度
-    //    height_in_blocks 不含 MCU 填充块，但虚拟数组按 MCU 边界分配
-    //    直接使用 height_in_blocks 访问会触发 "Bogus virtual array access"
-    int mcuW = cinfo.max_h_samp_factor * DCTSIZE;
-    int mcuH = cinfo.max_v_samp_factor * DCTSIZE;
-    int mcuCols = (cinfo.image_width  + mcuW - 1) / mcuW;
-    int mcuRows = (cinfo.image_height + mcuH - 1) / mcuH;
-
-    m_yBlocksW = mcuCols * cinfo.comp_info[0].h_samp_factor;
-    m_yBlocksH = mcuRows * cinfo.comp_info[0].v_samp_factor;
+    // 5. 直接使用 libjpeg 的 height_in_blocks（不含 MCU 填充块，与虚拟数组行数一致）
+    m_yBlocksW = cinfo.comp_info[0].width_in_blocks;
+    m_yBlocksH = cinfo.comp_info[0].height_in_blocks;
 
     qCDebug(lcClient) << "OpenCLDecoder: GPU path — image" << *outW << "x" << *outH
-                      << "nc:" << nc << "Y blocks:" << m_yBlocksW << "x" << m_yBlocksH
-                      << "MCU:" << mcuCols << "x" << mcuRows;
+                      << "nc:" << nc << "Y blocks:" << m_yBlocksW << "x" << m_yBlocksH;
 
     if (nc >= 3) {
         m_cbHRatio = cinfo.comp_info[0].h_samp_factor / cinfo.comp_info[1].h_samp_factor;
@@ -185,24 +177,30 @@ bool OpenCLDecoder::extractCoefficients(const QByteArray& jpegData,
         m_crHRatio = cinfo.comp_info[0].h_samp_factor / cinfo.comp_info[2].h_samp_factor;
         m_crVRatio = cinfo.comp_info[0].v_samp_factor / cinfo.comp_info[2].v_samp_factor;
 
-        m_cbBlocksW = mcuCols * cinfo.comp_info[1].h_samp_factor;
-        m_cbBlocksH = mcuRows * cinfo.comp_info[1].v_samp_factor;
-        m_crBlocksW = mcuCols * cinfo.comp_info[2].h_samp_factor;
-        m_crBlocksH = mcuRows * cinfo.comp_info[2].v_samp_factor;
+        // 直接用 height_in_blocks，而非自己计算（避免整数截断错误）
+        m_cbBlocksW = cinfo.comp_info[1].width_in_blocks;
+        m_cbBlocksH = cinfo.comp_info[1].height_in_blocks;
+        m_crBlocksW = cinfo.comp_info[2].width_in_blocks;
+        m_crBlocksH = cinfo.comp_info[2].height_in_blocks;
     } else {
         m_cbHRatio = m_cbVRatio = m_crHRatio = m_crVRatio = 1;
         m_cbBlocksW = m_cbBlocksH = m_crBlocksW = m_crBlocksH = 1;
     }
 
-    // 5a. Y 分量
-    m_coefY.resize(m_yBlocksW * m_yBlocksH * 64);
+    // 5a. Y 分量 — 按 maxaccess (v_samp_factor) 大小分块访问
     {
-        auto array = (cinfo.mem->access_virt_barray)(
-            (j_common_ptr)&cinfo, coefs[0], 0, m_yBlocksH, FALSE);
-        for (JDIMENSION by = 0; by < m_yBlocksH; by++) {
-            JBLOCKROW row = array[by];
-            for (JDIMENSION bx = 0; bx < m_yBlocksW; bx++)
-                std::memcpy(&m_coefY[(by * m_yBlocksW + bx) * 64], row[bx], sizeof(JBLOCK));
+        int chunk = cinfo.comp_info[0].v_samp_factor;  // 4:2:0 → 2 行/次
+        m_coefY.resize(m_yBlocksW * m_yBlocksH * 64);
+        for (JDIMENSION start = 0; start < m_yBlocksH; start += chunk) {
+            int n = (start + chunk <= m_yBlocksH) ? chunk : (m_yBlocksH - start);
+            auto array = (cinfo.mem->access_virt_barray)(
+                (j_common_ptr)&cinfo, coefs[0], start, n, FALSE);
+            for (int by = 0; by < n; by++) {
+                JBLOCKROW row = array[by];
+                JDIMENSION gy = start + by;
+                for (JDIMENSION bx = 0; bx < m_yBlocksW; bx++)
+                    std::memcpy(&m_coefY[(gy * m_yBlocksW + bx) * 64], row[bx], sizeof(JBLOCK));
+            }
         }
     }
 
@@ -214,12 +212,17 @@ bool OpenCLDecoder::extractCoefficients(const QByteArray& jpegData,
         buf.resize(bw * bh * 64);
 
         if (c < nc) {
-            auto array = (cinfo.mem->access_virt_barray)(
-                (j_common_ptr)&cinfo, coefs[c], 0, bh, FALSE);
-            for (int by = 0; by < bh; by++) {
-                JBLOCKROW row = array[by];
-                for (int bx = 0; bx < bw; bx++)
-                    std::memcpy(&buf[(by * bw + bx) * 64], row[bx], sizeof(JBLOCK));
+            int chunk = cinfo.comp_info[c].v_samp_factor;  // 4:2:0 → 1 行/次
+            for (JDIMENSION start = 0; start < bh; start += chunk) {
+                int n = (start + chunk <= bh) ? chunk : (bh - start);
+                auto array = (cinfo.mem->access_virt_barray)(
+                    (j_common_ptr)&cinfo, coefs[c], start, n, FALSE);
+                for (int by = 0; by < n; by++) {
+                    JBLOCKROW row = array[by];
+                    JDIMENSION gy = start + by;
+                    for (int bx = 0; bx < bw; bx++)
+                        std::memcpy(&buf[(gy * bw + bx) * 64], row[bx], sizeof(JBLOCK));
+                }
             }
         } else {
             std::memset(buf.data(), 0, bw * bh * 64 * sizeof(short));
@@ -328,13 +331,8 @@ bool OpenCLDecoder::decode(const QByteArray& jpegData,
 // ── 构造/析构 ─────────────────────────────────────────────────────────────
 
 OpenCLDecoder::OpenCLDecoder() {
-    // GPU 路径暂不可用：jpeg_read_coefficients() 在当前 jpeg62.dll
-    // (libjpeg-turbo 3.1.4, vcpkg) 上对任何非平凡 JPEG 返回
-    // "Bogus virtual array access"。
-    // probeGPU()、buildKernel() 和 decode() 代码保留以便后续启用。
-    m_available = false;
-    qCInfo(lcClient) << "OpenCLDecoder: GPU path disabled —"
-                      << "jpeg_read_coefficients not functional in current libjpeg-turbo build";
+    m_available = probeGPU();
+    if (m_available) qCInfo(lcClient) << "OpenCLDecoder: GPU 解码已启用";
 }
 
 OpenCLDecoder::~OpenCLDecoder() { releaseResources(); }

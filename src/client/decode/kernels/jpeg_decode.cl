@@ -2,9 +2,11 @@
 // 每个 work-item 处理一个 8×8 Y 块
 
 // ── IDCT 预计算矩阵 ──
+// 标准 JPEG 1D IDCT 权重: C(u)/2
+//   C(0) = 1/√2  →  C(0)/2 = 1/(2√2) = 1/√8 ≈ 0.353553
+//   C(u>0) = 1   →  C(u)/2 = 1/2 = 0.5
 __constant float idct_mat[8] = {
-    0.3535533906f, 0.4903926402f, 0.4619397663f, 0.4157348062f,
-    0.3535533906f, 0.2777851165f, 0.1913417162f, 0.0975451610f
+    0.3535533906f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f
 };
 
 // ── 1D IDCT（8 点）──
@@ -76,17 +78,52 @@ __kernel void jpeg_decode(
     idct_2d(cbBlock);
     idct_2d(crBlock);
 
-    // ── YCbCr→RGB（BT.601）+ 级别偏移 ──
+    // ── YCbCr→RGB（BT.601）+ 双线性色度上采样 ──
+    // 色度偏移：处理子采样网格对齐
+    int cbOffX = (bx % cbHRatio) * (8 / cbHRatio);
+    int cbOffY = (by % cbVRatio) * (8 / cbVRatio);
+    int crOffX = (bx % crHRatio) * (8 / crHRatio);
+    int crOffY = (by % crVRatio) * (8 / crVRatio);
+
     for (int y = 0; y < 8; y++) {
         int py = by * 8 + y;
+        int cy  = y / cbVRatio + cbOffY;
+        int cy1 = (cy + 1 < 8) ? (cy + 1) : cy;
+        float cfy = (float)(y % cbVRatio) / (float)cbVRatio;  // 4:2:0 → 0.0 or 0.5
+
+        int cry  = y / crVRatio + crOffY;
+        int cry1 = (cry + 1 < 8) ? (cry + 1) : cry;
+        float crfy = (float)(y % crVRatio) / (float)crVRatio;
+
         for (int x = 0; x < 8; x++) {
             int px = bx * 8 + x;
             if (px >= imgW || py >= imgH) continue;
 
-            int pidx = y * 8 + x;
-            float Y_val  = yBlock[pidx]  + 128.0f;
-            float Cb_val = cbBlock[pidx];
-            float Cr_val = crBlock[pidx];
+            int cx  = x / cbHRatio + cbOffX;
+            int cx1 = (cx + 1 < 8) ? (cx + 1) : cx;
+            float cfx = (float)(x % cbHRatio) / (float)cbHRatio;
+
+            int crx  = x / crHRatio + crOffX;
+            int crx1 = (crx + 1 < 8) ? (crx + 1) : crx;
+            float crfx = (float)(x % crHRatio) / (float)crHRatio;
+
+            float Y_val = yBlock[y * 8 + x] + 128.0f;
+
+            // 双线性 Cb
+            float cb00 = cbBlock[cy  * 8 + cx];
+            float cb10 = cbBlock[cy  * 8 + cx1];
+            float cb01 = cbBlock[cy1 * 8 + cx];
+            float cb11 = cbBlock[cy1 * 8 + cx1];
+            float Cb_val = (cb00 * (1.0f - cfx) + cb10 * cfx) * (1.0f - cfy)
+                         + (cb01 * (1.0f - cfx) + cb11 * cfx) * cfy;
+
+            // 双线性 Cr
+            float cr00 = crBlock[cry  * 8 + crx];
+            float cr10 = crBlock[cry  * 8 + crx1];
+            float cr01 = crBlock[cry1 * 8 + crx];
+            float cr11 = crBlock[cry1 * 8 + crx1];
+            float Cr_val = (cr00 * (1.0f - crfx) + cr10 * crfx) * (1.0f - crfy)
+                         + (cr01 * (1.0f - crfx) + cr11 * crfx) * crfy;
 
             float r = Y_val + 1.402f * Cr_val;
             float g = Y_val - 0.34414f * Cb_val - 0.71414f * Cr_val;
