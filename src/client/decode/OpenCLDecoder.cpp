@@ -56,12 +56,28 @@ bool OpenCLDecoder::buildKernel() {
     sources.push_back({src.c_str(), src.length()});
     m_program = cl::Program(m_ctx, sources);
 
-    cl_int err = m_program.build();
-    if (err != CL_SUCCESS) {
-        auto devs = m_ctx.getInfo<CL_CONTEXT_DEVICES>();
-        std::string log;
-        m_program.getBuildInfo(devs[0], CL_PROGRAM_BUILD_LOG, &log);
-        qCWarning(lcClient) << "OpenCLDecoder: build failed —" << QString::fromStdString(log);
+    try {
+        cl_int err = m_program.build();
+        if (err != CL_SUCCESS) {
+            auto devs = m_ctx.getInfo<CL_CONTEXT_DEVICES>();
+            std::string log;
+            m_program.getBuildInfo(devs[0], CL_PROGRAM_BUILD_LOG, &log);
+            qCWarning(lcClient) << "OpenCLDecoder: build failed —"
+                                << QString::fromStdString(log);
+            return false;
+        }
+    } catch (const cl::BuildError& e) {
+        // 提取每个设备的编译日志并打印
+        const auto& buildLogs = e.getBuildLog();
+        for (const auto& entry : buildLogs) {
+            qCWarning(lcClient) << "OpenCLDecoder: build failed ["
+                                << QString::fromStdString(entry.first.getInfo<CL_DEVICE_NAME>())
+                                << "] —" << QString::fromStdString(entry.second);
+        }
+        return false;
+    } catch (const cl::Error& e) {
+        qCWarning(lcClient) << "OpenCLDecoder: build error —" << e.what()
+                            << "(" << e.err() << ")";
         return false;
     }
 

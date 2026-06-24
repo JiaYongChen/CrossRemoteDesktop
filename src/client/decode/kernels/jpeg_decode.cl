@@ -1,7 +1,7 @@
 // OpenCL JPEG block decoder — CPU Huffman + GPU IDCT/RGB
 // 每个 work-item 处理一个 8×8 像素块
 
-static float idct_mat[8] = {
+__constant float idct_mat[8] = {
     0.3535533906f, 0.4903926402f, 0.4619397663f, 0.4157348062f,
     0.3535533906f, 0.2777851165f, 0.1913417162f, 0.0975451610f
 };
