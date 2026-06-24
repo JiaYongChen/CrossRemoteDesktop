@@ -42,6 +42,9 @@ private:
     std::vector<short> m_coefY, m_coefCb, m_coefCr;
     unsigned short m_qtblHost[3][64];   // 量化表（自然顺序）
 
+    // ── 状态标记 ──
+    bool m_gpuPathFailed = false;   // GPU 系数提取失败后设 true，直接走 CPU 回退
+
     // ── 图像/子采样维度 ──
     int m_lastWidth = 0, m_lastHeight = 0;
     int m_yBlocksW = 0, m_yBlocksH = 0;

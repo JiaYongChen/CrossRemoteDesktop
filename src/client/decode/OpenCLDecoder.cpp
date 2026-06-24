@@ -1,7 +1,9 @@
 #include "OpenCLDecoder.h"
 #include "../../common/core/logging/LoggingCategories.h"
 #include <jpeglib.h>
+#include <turbojpeg.h>
 #include <cstring>
+#include <csetjmp>
 #include <QtCore/QFile>
 
 #ifndef QT_NO_OPENGL
@@ -85,15 +87,34 @@ bool OpenCLDecoder::buildKernel() {
     return true;
 }
 
+// ── libjpeg 错误处理：覆盖默认 exit() 行为 ──
+struct JpegErrorMgr {
+    jpeg_error_mgr pub;
+    jmp_buf setjmpBuf;
+};
+
+static void jpegErrorExit(j_common_ptr cinfo) {
+    auto* mgr = reinterpret_cast<JpegErrorMgr*>(cinfo->err);
+    longjmp(mgr->setjmpBuf, 1);
+}
+
 // ── extractCoefficients ───────────────────────────────────────────────────
 
 bool OpenCLDecoder::extractCoefficients(const QByteArray& jpegData,
                                          int* outW, int* outH)
 {
-    // 1. 初始化 libjpeg 解压对象
+    // 1. 初始化 libjpeg 解压对象（自定义错误处理防止 exit()）
     jpeg_decompress_struct cinfo;
-    jpeg_error_mgr jerr;
-    cinfo.err = jpeg_std_error(&jerr);
+    JpegErrorMgr jerr;
+    cinfo.err = jpeg_std_error(&jerr.pub);
+    jerr.pub.error_exit = jpegErrorExit;
+
+    if (setjmp(jerr.setjmpBuf)) {
+        jpeg_destroy_decompress(&cinfo);
+        qCWarning(lcClient) << "OpenCLDecoder: libjpeg fatal error during coefficient extraction";
+        return false;
+    }
+
     jpeg_create_decompress(&cinfo);
 
     jpeg_mem_src(&cinfo,
@@ -132,26 +153,7 @@ bool OpenCLDecoder::extractCoefficients(const QByteArray& jpegData,
         }
     }
 
-    // 4. 计算块维度 & 子采样比率
-    m_yBlocksW = (cinfo.image_width  + 7) / 8;
-    m_yBlocksH = (cinfo.image_height + 7) / 8;
-
-    if (nc >= 3) {
-        m_cbHRatio = cinfo.comp_info[0].h_samp_factor / cinfo.comp_info[1].h_samp_factor;
-        m_cbVRatio = cinfo.comp_info[0].v_samp_factor / cinfo.comp_info[1].v_samp_factor;
-        m_crHRatio = cinfo.comp_info[0].h_samp_factor / cinfo.comp_info[2].h_samp_factor;
-        m_crVRatio = cinfo.comp_info[0].v_samp_factor / cinfo.comp_info[2].v_samp_factor;
-
-        m_cbBlocksW = m_yBlocksW / m_cbHRatio;
-        m_cbBlocksH = m_yBlocksH / m_cbVRatio;
-        m_crBlocksW = m_yBlocksW / m_crHRatio;
-        m_crBlocksH = m_yBlocksH / m_crVRatio;
-    } else {
-        m_cbHRatio = m_cbVRatio = m_crHRatio = m_crVRatio = 1;
-        m_cbBlocksW = m_cbBlocksH = m_crBlocksW = m_crBlocksH = 1;
-    }
-
-    // 5. 读取量化 DCT 系数
+    // 4. 读取量化 DCT 系数（先读取，再用实际维度）
     jvirt_barray_ptr* coefs = jpeg_read_coefficients(&cinfo);
     if (!coefs) {
         jpeg_destroy_decompress(&cinfo);
@@ -159,14 +161,36 @@ bool OpenCLDecoder::extractCoefficients(const QByteArray& jpegData,
         return false;
     }
 
-    // 5a. Y 分量（全分辨率块）
+    // 5. 从 libjpeg 获取精确块维度（含 MCU 对齐，避免 Bogus virtual array access）
+    m_yBlocksW = cinfo.comp_info[0].width_in_blocks;
+    m_yBlocksH = cinfo.comp_info[0].height_in_blocks;
+
+    qCDebug(lcClient) << "OpenCLDecoder: GPU path — image" << *outW << "x" << *outH
+                      << "nc:" << nc << "Y blocks:" << m_yBlocksW << "x" << m_yBlocksH;
+
+    if (nc >= 3) {
+        m_cbHRatio = cinfo.comp_info[0].h_samp_factor / cinfo.comp_info[1].h_samp_factor;
+        m_cbVRatio = cinfo.comp_info[0].v_samp_factor / cinfo.comp_info[1].v_samp_factor;
+        m_crHRatio = cinfo.comp_info[0].h_samp_factor / cinfo.comp_info[2].h_samp_factor;
+        m_crVRatio = cinfo.comp_info[0].v_samp_factor / cinfo.comp_info[2].v_samp_factor;
+
+        m_cbBlocksW = cinfo.comp_info[1].width_in_blocks;
+        m_cbBlocksH = cinfo.comp_info[1].height_in_blocks;
+        m_crBlocksW = cinfo.comp_info[2].width_in_blocks;
+        m_crBlocksH = cinfo.comp_info[2].height_in_blocks;
+    } else {
+        m_cbHRatio = m_cbVRatio = m_crHRatio = m_crVRatio = 1;
+        m_cbBlocksW = m_cbBlocksH = m_crBlocksW = m_crBlocksH = 1;
+    }
+
+    // 5a. Y 分量
     m_coefY.resize(m_yBlocksW * m_yBlocksH * 64);
     {
         auto array = (cinfo.mem->access_virt_barray)(
             (j_common_ptr)&cinfo, coefs[0], 0, m_yBlocksH, FALSE);
-        for (int by = 0; by < m_yBlocksH; by++) {
+        for (JDIMENSION by = 0; by < m_yBlocksH; by++) {
             JBLOCKROW row = array[by];
-            for (int bx = 0; bx < m_yBlocksW; bx++)
+            for (JDIMENSION bx = 0; bx < m_yBlocksW; bx++)
                 std::memcpy(&m_coefY[(by * m_yBlocksW + bx) * 64], row[bx], sizeof(JBLOCK));
         }
     }
@@ -195,6 +219,51 @@ bool OpenCLDecoder::extractCoefficients(const QByteArray& jpegData,
     return true;
 }
 
+// ── turboFallback ────────────────────────────────────────────────────────
+
+// GPU 系数提取失败时回退到 TurboJPEG CPU 解码
+#ifndef QT_NO_OPENGL
+static bool turboFallback(const QByteArray& jpegData,
+                           IDecodeTarget* target,
+                           int* outW, int* outH,
+                           GLsync* outFence, QImage* outImage)
+#else
+static bool turboFallback(const QByteArray& jpegData,
+                           int* outW, int* outH,
+                           QImage* outImage)
+#endif
+{
+    tjhandle tj = tjInitDecompress();
+    if (!tj) return false;
+
+    const auto* src = reinterpret_cast<const unsigned char*>(jpegData.constData());
+    unsigned long len = static_cast<unsigned long>(jpegData.size());
+
+    int w = 0, h = 0, subsamp = 0, cs = 0;
+    if (tjDecompressHeader3(tj, src, len, &w, &h, &subsamp, &cs) != 0) {
+        tjDestroy(tj);
+        return false;
+    }
+
+    QImage img(w, h, QImage::Format_RGB888);
+    int ret = tjDecompress2(tj, src, len, img.bits(), w, 0, h, TJPF_RGB, TJFLAG_FASTDCT);
+    tjDestroy(tj);
+    if (ret != 0) return false;
+
+    *outW = w;
+    *outH = h;
+
+#ifndef QT_NO_OPENGL
+    if (target) {
+        *outFence = target->uploadPixels(img.bits(), w, h);
+        return true;
+    }
+    *outFence = nullptr;
+#endif
+    if (outImage) *outImage = std::move(img);
+    return true;
+}
+
 // ── decode ────────────────────────────────────────────────────────────────
 
 #ifndef QT_NO_OPENGL
@@ -210,83 +279,91 @@ bool OpenCLDecoder::decode(const QByteArray& jpegData,
     if (!m_available) return false;
 
     int w = 0, h = 0;
-    if (!extractCoefficients(jpegData, &w, &h)) return false;
 
-    int nYBlocks = m_yBlocksW * m_yBlocksH;
-    if (nYBlocks == 0) return false;
+    // ── GPU 路径：尝试系数提取 → GPU 反量化/IDCT/色彩转换 ──
+    if (!m_gpuPathFailed && extractCoefficients(jpegData, &w, &h)) {
+        int nYBlocks = m_yBlocksW * m_yBlocksH;
+        if (nYBlocks > 0) {
+            // 按需重建 GPU 缓冲区
+            if (m_lastWidth != w || m_lastHeight != h) {
+                m_coefBufY  = cl::Buffer(m_ctx, CL_MEM_READ_ONLY, m_coefY.size()  * sizeof(short));
+                m_coefBufCb = cl::Buffer(m_ctx, CL_MEM_READ_ONLY, m_coefCb.size() * sizeof(short));
+                m_coefBufCr = cl::Buffer(m_ctx, CL_MEM_READ_ONLY, m_coefCr.size() * sizeof(short));
+                m_qtblBuf   = cl::Buffer(m_ctx, CL_MEM_READ_ONLY, 3 * 64 * sizeof(unsigned short));
+                m_outBuf    = cl::Buffer(m_ctx, CL_MEM_READ_WRITE, w * h * 3);
+                m_lastWidth = w; m_lastHeight = h;
+            }
 
-    // 按需重建 GPU 缓冲区
-    if (m_lastWidth != w || m_lastHeight != h) {
-        m_coefBufY  = cl::Buffer(m_ctx, CL_MEM_READ_ONLY, m_coefY.size()  * sizeof(short));
-        m_coefBufCb = cl::Buffer(m_ctx, CL_MEM_READ_ONLY, m_coefCb.size() * sizeof(short));
-        m_coefBufCr = cl::Buffer(m_ctx, CL_MEM_READ_ONLY, m_coefCr.size() * sizeof(short));
-        m_qtblBuf   = cl::Buffer(m_ctx, CL_MEM_READ_ONLY, 3 * 64 * sizeof(unsigned short));
-        m_outBuf    = cl::Buffer(m_ctx, CL_MEM_READ_WRITE, w * h * 3);
-        m_lastWidth = w; m_lastHeight = h;
-    }
+            m_queue.enqueueWriteBuffer(m_coefBufY,  CL_TRUE, 0,
+                m_coefY.size()  * sizeof(short), m_coefY.data());
+            m_queue.enqueueWriteBuffer(m_coefBufCb, CL_TRUE, 0,
+                m_coefCb.size() * sizeof(short), m_coefCb.data());
+            m_queue.enqueueWriteBuffer(m_coefBufCr, CL_TRUE, 0,
+                m_coefCr.size() * sizeof(short), m_coefCr.data());
+            m_queue.enqueueWriteBuffer(m_qtblBuf,   CL_TRUE, 0,
+                3 * 64 * sizeof(unsigned short), m_qtblHost);
 
-    // 上传系数 & 量化表到 GPU
-    m_queue.enqueueWriteBuffer(m_coefBufY,  CL_TRUE, 0,
-        m_coefY.size()  * sizeof(short), m_coefY.data());
-    m_queue.enqueueWriteBuffer(m_coefBufCb, CL_TRUE, 0,
-        m_coefCb.size() * sizeof(short), m_coefCb.data());
-    m_queue.enqueueWriteBuffer(m_coefBufCr, CL_TRUE, 0,
-        m_coefCr.size() * sizeof(short), m_coefCr.data());
-    m_queue.enqueueWriteBuffer(m_qtblBuf,   CL_TRUE, 0,
-        3 * 64 * sizeof(unsigned short), m_qtblHost);
+            m_kernel.setArg(0,  m_coefBufY);
+            m_kernel.setArg(1,  m_coefBufCb);
+            m_kernel.setArg(2,  m_coefBufCr);
+            m_kernel.setArg(3,  m_qtblBuf);
+            m_kernel.setArg(4,  m_outBuf);
+            m_kernel.setArg(5,  w);
+            m_kernel.setArg(6,  m_yBlocksW);
+            m_kernel.setArg(7,  m_cbBlocksW);
+            m_kernel.setArg(8,  m_cbBlocksH);
+            m_kernel.setArg(9,  m_crBlocksW);
+            m_kernel.setArg(10, m_crBlocksH);
+            m_kernel.setArg(11, m_cbHRatio);
+            m_kernel.setArg(12, m_cbVRatio);
+            m_kernel.setArg(13, m_crHRatio);
+            m_kernel.setArg(14, m_crVRatio);
 
-    // 设置内核参数
-    m_kernel.setArg(0,  m_coefBufY);
-    m_kernel.setArg(1,  m_coefBufCb);
-    m_kernel.setArg(2,  m_coefBufCr);
-    m_kernel.setArg(3,  m_qtblBuf);
-    m_kernel.setArg(4,  m_outBuf);
-    m_kernel.setArg(5,  w);
-    m_kernel.setArg(6,  m_yBlocksW);
-    m_kernel.setArg(7,  m_cbBlocksW);
-    m_kernel.setArg(8,  m_cbBlocksH);
-    m_kernel.setArg(9,  m_crBlocksW);
-    m_kernel.setArg(10, m_crBlocksH);
-    m_kernel.setArg(11, m_cbHRatio);
-    m_kernel.setArg(12, m_cbVRatio);
-    m_kernel.setArg(13, m_crHRatio);
-    m_kernel.setArg(14, m_crVRatio);
+            m_queue.enqueueNDRangeKernel(m_kernel, cl::NullRange,
+                cl::NDRange(m_yBlocksW, m_yBlocksH), cl::NullRange);
+            m_queue.finish();
 
-    m_queue.enqueueNDRangeKernel(m_kernel, cl::NullRange,
-        cl::NDRange(m_yBlocksW, m_yBlocksH), cl::NullRange);
-    m_queue.finish();
+            *outWidth = w;
+            *outHeight = h;
 
-    *outWidth = w;
-    *outHeight = h;
+        #ifndef QT_NO_OPENGL
+            if (m_target) {
+                unsigned char* dst = m_target->mapWriteBuffer(w, h);
+                if (dst) {
+                    m_queue.enqueueReadBuffer(m_outBuf, CL_TRUE, 0,
+                        static_cast<size_t>(w) * h * 3, dst);
+                    *outFence = m_target->commitWriteBuffer();
+                    return true;
+                }
+            }
+            *outFence = nullptr;
+        #endif
 
-#ifndef QT_NO_OPENGL
-    if (m_target) {
-        unsigned char* dst = m_target->mapWriteBuffer(w, h);
-        if (dst) {
+            QImage tmp(w, h, QImage::Format_RGB888);
             m_queue.enqueueReadBuffer(m_outBuf, CL_TRUE, 0,
-                static_cast<size_t>(w) * h * 3, dst);
-            *outFence = m_target->commitWriteBuffer();
+                static_cast<size_t>(w) * h * 3, tmp.bits());
+        #ifndef QT_NO_OPENGL
+            if (m_target) {
+                *outFence = m_target->uploadPixels(tmp.bits(), w, h);
+            }
+        #endif
+            if (outImage) *outImage = std::move(tmp);
             return true;
         }
     }
-    *outFence = nullptr;
-#endif
 
-    // 回退：CPU 路径
-    QImage tmp(w, h, QImage::Format_RGB888);
-    m_queue.enqueueReadBuffer(m_outBuf, CL_TRUE, 0,
-        static_cast<size_t>(w) * h * 3, tmp.bits());
-
+    // ── CPU 回退：TurboJPEG 全解码（GPU 系数提取失败一次后永久走此路径）──
+    if (!m_gpuPathFailed) {
+        m_gpuPathFailed = true;
+        qCInfo(lcClient) << "OpenCLDecoder: GPU coefficient extraction unavailable,"
+                          << "falling back to CPU TurboJPEG for this session";
+    }
 #ifndef QT_NO_OPENGL
-    if (m_target) {
-        *outFence = m_target->uploadPixels(tmp.bits(), w, h);
-    }
+    return turboFallback(jpegData, m_target,
+                          outWidth, outHeight, outFence, outImage);
+#else
+    return turboFallback(jpegData, outWidth, outHeight, outImage);
 #endif
-
-    if (outImage) {
-        *outImage = tmp;
-    }
-    return true;
 }
 
 // ── 构造/析构 ─────────────────────────────────────────────────────────────
