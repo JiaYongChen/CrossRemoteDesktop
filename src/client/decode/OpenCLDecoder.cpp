@@ -1,6 +1,7 @@
 #include "OpenCLDecoder.h"
 #include "JpegCoefficientDecoder.h"
 #include "../../common/core/logging/LoggingCategories.h"
+#include <chrono>
 #include <cstring>
 #include <QtCore/QFile>
 
@@ -78,7 +79,8 @@ bool OpenCLDecoder::probeGPU() {
         qCInfo(lcClient) << "OpenCLDecoder: CL/GL interop 已启用 —"
                          << QString::fromStdString(devName);
 
-        m_queue = cl::CommandQueue(m_ctx, device);
+        // ★ 临时 profiling：启用 CL event 计时
+        m_queue = cl::CommandQueue(m_ctx, device, CL_QUEUE_PROFILING_ENABLE);
         qCInfo(lcClient) << "OpenCLDecoder: device" << QString::fromStdString(devName);
 
         // 3. 编译内核
@@ -207,11 +209,21 @@ bool OpenCLDecoder::setupInteropBuffer(GLuint pboId, int w, int h) {
 bool OpenCLDecoder::decode(const QByteArray& jpegData,
                             int* outWidth, int* outHeight,
                             GLsync* outFence, QImage* outImage)
+#else
+bool OpenCLDecoder::decode(const QByteArray& jpegData,
+                            int* outWidth, int* outHeight,
+                            QImage* outImage)
+#endif
 {
     if (!m_available) return false;
 
+    using namespace std::chrono;
+
+    // ★ Profiling: Huffman 解码（CPU 端计时）
+    const auto t0 = steady_clock::now();
     int w = 0, h = 0;
     if (!extractCoefficients(jpegData, &w, &h)) return false;
+    const auto t1 = steady_clock::now();
 
     int nYBlocks = m_yBlocksW * m_yBlocksH;
     if (nYBlocks == 0) return false;
@@ -221,9 +233,7 @@ bool OpenCLDecoder::decode(const QByteArray& jpegData,
     if (!m_target || (pboId = m_target->writablePboId()) == 0
         || !setupInteropBuffer(pboId, w, h))
     {
-        // PBO 未就绪——罕见边缘情况（首帧 PBO 分配中），回退 CPU
         QImage tmp(w, h, QImage::Format_RGB888);
-        // 不应到达：probeGPU 已确认 interop 可用；PBO 失败仅在首帧竞态出现
         qCWarning(lcClient) << "OpenCLDecoder: interop PBO not ready —"
                             << "target:" << (void*)m_target
                             << "pboId:" << pboId;
@@ -234,6 +244,8 @@ bool OpenCLDecoder::decode(const QByteArray& jpegData,
         return false;
     }
 
+    // ★ Profiling: 缓冲区重建（CPU 端计时）
+    const auto tbuf0 = steady_clock::now();
     // 按需重建 GPU 缓冲区
     if (m_lastWidth != w || m_lastHeight != h) {
         m_coefBufY  = cl::Buffer(m_ctx, CL_MEM_READ_ONLY, m_coefY.size()  * sizeof(short));
@@ -242,19 +254,24 @@ bool OpenCLDecoder::decode(const QByteArray& jpegData,
         m_qtblBuf   = cl::Buffer(m_ctx, CL_MEM_READ_ONLY, 3 * 64 * sizeof(unsigned short));
         m_lastWidth = w; m_lastHeight = h;
     }
+    const auto tbuf1 = steady_clock::now();
 
-    // Interop 路径：Acquire GL → 上传+内核+直写 PBO → Release GL → commit
-    clEnqueueAcquireGLObjects(m_queue(), 1, &m_interopBuf, 0, nullptr, nullptr);
+    // ── Interop 管线（全 CL event profiling）──
 
-    // 上传系数
+    // ★ Profiling: Acquire GL objects
+    cl::Event evtAcquire;
+    clEnqueueAcquireGLObjects(m_queue(), 1, &m_interopBuf, 0, nullptr, &evtAcquire());
+
+    // ★ Profiling: 4 次上传（各带 event）
+    cl::Event evtUpY, evtUpCb, evtUpCr, evtUpQt;
     m_queue.enqueueWriteBuffer(m_coefBufY,  CL_FALSE, 0,
-        m_coefY.size()  * sizeof(short), m_coefY.data());
+        m_coefY.size()  * sizeof(short), m_coefY.data(),  nullptr, &evtUpY);
     m_queue.enqueueWriteBuffer(m_coefBufCb, CL_FALSE, 0,
-        m_coefCb.size() * sizeof(short), m_coefCb.data());
+        m_coefCb.size() * sizeof(short), m_coefCb.data(), nullptr, &evtUpCb);
     m_queue.enqueueWriteBuffer(m_coefBufCr, CL_FALSE, 0,
-        m_coefCr.size() * sizeof(short), m_coefCr.data());
+        m_coefCr.size() * sizeof(short), m_coefCr.data(), nullptr, &evtUpCr);
     m_queue.enqueueWriteBuffer(m_qtblBuf,   CL_FALSE, 0,
-        3 * 64 * sizeof(unsigned short), m_qtblHost);
+        3 * 64 * sizeof(unsigned short), m_qtblHost,   nullptr, &evtUpQt);
 
     // 设置内核参数（输出 → interop PBO）
     cl::Buffer interopWrapper(m_interopBuf, true);
@@ -275,23 +292,108 @@ bool OpenCLDecoder::decode(const QByteArray& jpegData,
     m_kernel.setArg(14, m_crHRatio);
     m_kernel.setArg(15, m_crVRatio);
 
-    // 入队内核
+    // ★ Profiling: 内核执行
+    cl::Event evtKernel;
     m_queue.enqueueNDRangeKernel(m_kernel, cl::NullRange,
-        cl::NDRange(m_yBlocksW, m_yBlocksH), cl::NullRange);
+        cl::NDRange(m_yBlocksW, m_yBlocksH), cl::NullRange, nullptr, &evtKernel);
 
-    // 释放 GL 对象
-    clEnqueueReleaseGLObjects(m_queue(), 1, &m_interopBuf, 0, nullptr, nullptr);
+    // ★ Profiling: Release GL objects
+    cl::Event evtRelease;
+    clEnqueueReleaseGLObjects(m_queue(), 1, &m_interopBuf, 0, nullptr, &evtRelease());
+
+    // ★ Profiling: finish 同步等待计时
+    const auto tfin0 = steady_clock::now();
     m_queue.finish();
+    const auto tfin1 = steady_clock::now();
+
+    // ★ Profiling: 提取 CL event 时间戳
+    auto clElapsedUs = [](const cl::Event& e) -> double {
+        if (e() == nullptr) return -1.0;
+        cl_ulong start = 0, end = 0;
+        e.getProfilingInfo(CL_PROFILING_COMMAND_START, &start);
+        e.getProfilingInfo(CL_PROFILING_COMMAND_END,   &end);
+        return (end - start) / 1000.0;  // ns → μs
+    };
+
+    const double huffmanUs = duration_cast<microseconds>(t1 - t0).count();
+    const double bufferRebuildUs = duration_cast<microseconds>(tbuf1 - tbuf0).count();
+    const double interopAcquireUs = clElapsedUs(evtAcquire);
+    const double interopReleaseUs = clElapsedUs(evtRelease);
+    const double uploadY_us  = clElapsedUs(evtUpY);
+    const double uploadCb_us = clElapsedUs(evtUpCb);
+    const double uploadCr_us = clElapsedUs(evtUpCr);
+    const double uploadQt_us = clElapsedUs(evtUpQt);
+    const double uploadTotalUs = uploadY_us + uploadCb_us + uploadCr_us + uploadQt_us;
+    const double kernelUs   = clElapsedUs(evtKernel);
+    const double finishWaitUs = duration_cast<microseconds>(tfin1 - tfin0).count();
+    const double totalUs = huffmanUs + bufferRebuildUs + interopAcquireUs
+                          + uploadTotalUs + kernelUs + interopReleaseUs;
+
+    // ★ Profiling: 30 帧累加 + 汇总输出
+    static int s_profFrameCount = 0;
+    static double s_huffmanAccum = 0, s_huffmanMax = 0;
+    static double s_bufRebuildAccum = 0, s_bufRebuildMax = 0;
+    static double s_interopAcqAccum = 0, s_interopAcqMax = 0;
+    static double s_uploadY_accum = 0, s_uploadCb_accum = 0;
+    static double s_uploadCr_accum = 0, s_uploadQt_accum = 0;
+    static double s_uploadTotalAccum = 0, s_uploadTotalMax = 0;
+    static double s_kernelAccum = 0, s_kernelMax = 0;
+    static double s_interopRelAccum = 0, s_interopRelMax = 0;
+    static double s_finishAccum = 0, s_finishMax = 0;
+    static double s_totalAccum = 0, s_totalMax = 0;
+
+    s_huffmanAccum += huffmanUs;     s_huffmanMax = std::max(s_huffmanMax, huffmanUs);
+    s_bufRebuildAccum += bufferRebuildUs; s_bufRebuildMax = std::max(s_bufRebuildMax, bufferRebuildUs);
+    s_interopAcqAccum += interopAcquireUs; s_interopAcqMax = std::max(s_interopAcqMax, interopAcquireUs);
+    s_uploadY_accum += uploadY_us;   s_uploadCb_accum += uploadCb_us;
+    s_uploadCr_accum += uploadCr_us; s_uploadQt_accum += uploadQt_us;
+    s_uploadTotalAccum += uploadTotalUs; s_uploadTotalMax = std::max(s_uploadTotalMax, uploadTotalUs);
+    s_kernelAccum += kernelUs;       s_kernelMax = std::max(s_kernelMax, kernelUs);
+    s_interopRelAccum += interopReleaseUs; s_interopRelMax = std::max(s_interopRelMax, interopReleaseUs);
+    s_finishAccum += finishWaitUs;   s_finishMax = std::max(s_finishMax, finishWaitUs);
+    s_totalAccum += totalUs;         s_totalMax = std::max(s_totalMax, totalUs);
+
+    if (++s_profFrameCount >= 30) {
+        const double n = 30.0;
+        const double avgTotal = s_totalAccum / n;
+        const double maxTotal = s_totalMax;
+        const double fpsAvg = (avgTotal > 0) ? (1e6 / avgTotal) : 0;
+        const double fpsMax = (maxTotal > 0) ? (1e6 / maxTotal) : 0;
+
+        qCInfo(lcClient)
+            << "[OpenCL Profiling]" << w << "x" << h << "近30帧 (avg/max us):\n"
+            << "  CPU Huffman:    " << (s_huffmanAccum/n) << "/" << s_huffmanMax << "\n"
+            << "  Buffer重建:     " << (s_bufRebuildAccum/n) << "/" << s_bufRebuildMax << "\n"
+            << "  Interop Acquire:" << (s_interopAcqAccum/n) << "/" << s_interopAcqMax << "\n"
+            << "  PCIe上传:       " << (s_uploadTotalAccum/n) << "/" << s_uploadTotalMax
+            << " (Y:" << (s_uploadY_accum/n) << " Cb:" << (s_uploadCb_accum/n)
+            << " Cr:" << (s_uploadCr_accum/n) << " Qt:" << (s_uploadQt_accum/n) << ")\n"
+            << "  GPU内核:        " << (s_kernelAccum/n) << "/" << s_kernelMax << "\n"
+            << "  Interop Release:" << (s_interopRelAccum/n) << "/" << s_interopRelMax << "\n"
+            << "  Finish等待:     " << (s_finishAccum/n) << "/" << s_finishMax << "\n"
+            << "  ═══════════════════════════\n"
+            << "  总计:           " << avgTotal << "/" << maxTotal
+            << " (理论max " << int(fpsMax) << "/" << int(fpsAvg) << " fps)";
+
+        // 清零累加器
+        s_profFrameCount = 0;
+        s_huffmanAccum = 0; s_huffmanMax = 0;
+        s_bufRebuildAccum = 0; s_bufRebuildMax = 0;
+        s_interopAcqAccum = 0; s_interopAcqMax = 0;
+        s_uploadY_accum = 0; s_uploadCb_accum = 0;
+        s_uploadCr_accum = 0; s_uploadQt_accum = 0;
+        s_uploadTotalAccum = 0; s_uploadTotalMax = 0;
+        s_kernelAccum = 0; s_kernelMax = 0;
+        s_interopRelAccum = 0; s_interopRelMax = 0;
+        s_finishAccum = 0; s_finishMax = 0;
+        s_totalAccum = 0; s_totalMax = 0;
+    }
 
     *outWidth = w;
     *outHeight = h;
     *outFence = m_target->commitFromInterop(w, h);
     return true;
 }
-#else
-bool OpenCLDecoder::decode(const QByteArray&, int*, int*,
-                           QImage*) { return false; }
-#endif
 
 // ── 构造/析构 ─────────────────────────────────────────────────────────────
 
