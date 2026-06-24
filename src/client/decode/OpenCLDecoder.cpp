@@ -197,12 +197,20 @@ bool OpenCLDecoder::extractCoefficients(const QByteArray& jpegData,
         return false;
     }
 
-    // 5. 从 libjpeg 获取精确块维度（含 MCU 对齐，避免 Bogus virtual array access）
-    m_yBlocksW = cinfo.comp_info[0].width_in_blocks;
-    m_yBlocksH = cinfo.comp_info[0].height_in_blocks;
+    // 5. 用 MCU 填充公式计算虚拟数组的真实维度
+    //    height_in_blocks 不含 MCU 填充块，但虚拟数组按 MCU 边界分配
+    //    直接使用 height_in_blocks 访问会触发 "Bogus virtual array access"
+    int mcuW = cinfo.max_h_samp_factor * DCTSIZE;
+    int mcuH = cinfo.max_v_samp_factor * DCTSIZE;
+    int mcuCols = (cinfo.image_width  + mcuW - 1) / mcuW;
+    int mcuRows = (cinfo.image_height + mcuH - 1) / mcuH;
+
+    m_yBlocksW = mcuCols * cinfo.comp_info[0].h_samp_factor;
+    m_yBlocksH = mcuRows * cinfo.comp_info[0].v_samp_factor;
 
     qCDebug(lcClient) << "OpenCLDecoder: GPU path — image" << *outW << "x" << *outH
-                      << "nc:" << nc << "Y blocks:" << m_yBlocksW << "x" << m_yBlocksH;
+                      << "nc:" << nc << "Y blocks:" << m_yBlocksW << "x" << m_yBlocksH
+                      << "MCU:" << mcuCols << "x" << mcuRows;
 
     if (nc >= 3) {
         m_cbHRatio = cinfo.comp_info[0].h_samp_factor / cinfo.comp_info[1].h_samp_factor;
@@ -210,10 +218,10 @@ bool OpenCLDecoder::extractCoefficients(const QByteArray& jpegData,
         m_crHRatio = cinfo.comp_info[0].h_samp_factor / cinfo.comp_info[2].h_samp_factor;
         m_crVRatio = cinfo.comp_info[0].v_samp_factor / cinfo.comp_info[2].v_samp_factor;
 
-        m_cbBlocksW = cinfo.comp_info[1].width_in_blocks;
-        m_cbBlocksH = cinfo.comp_info[1].height_in_blocks;
-        m_crBlocksW = cinfo.comp_info[2].width_in_blocks;
-        m_crBlocksH = cinfo.comp_info[2].height_in_blocks;
+        m_cbBlocksW = mcuCols * cinfo.comp_info[1].h_samp_factor;
+        m_cbBlocksH = mcuRows * cinfo.comp_info[1].v_samp_factor;
+        m_crBlocksW = mcuCols * cinfo.comp_info[2].h_samp_factor;
+        m_crBlocksH = mcuRows * cinfo.comp_info[2].v_samp_factor;
     } else {
         m_cbHRatio = m_cbVRatio = m_crHRatio = m_crVRatio = 1;
         m_cbBlocksW = m_cbBlocksH = m_crBlocksW = m_crBlocksH = 1;
@@ -302,15 +310,16 @@ bool OpenCLDecoder::decode(const QByteArray& jpegData,
     m_kernel.setArg(3,  m_qtblBuf);
     m_kernel.setArg(4,  m_outBuf);
     m_kernel.setArg(5,  w);
-    m_kernel.setArg(6,  m_yBlocksW);
-    m_kernel.setArg(7,  m_cbBlocksW);
-    m_kernel.setArg(8,  m_cbBlocksH);
-    m_kernel.setArg(9,  m_crBlocksW);
-    m_kernel.setArg(10, m_crBlocksH);
-    m_kernel.setArg(11, m_cbHRatio);
-    m_kernel.setArg(12, m_cbVRatio);
-    m_kernel.setArg(13, m_crHRatio);
-    m_kernel.setArg(14, m_crVRatio);
+    m_kernel.setArg(6,  h);
+    m_kernel.setArg(7,  m_yBlocksW);
+    m_kernel.setArg(8,  m_cbBlocksW);
+    m_kernel.setArg(9,  m_cbBlocksH);
+    m_kernel.setArg(10, m_crBlocksW);
+    m_kernel.setArg(11, m_crBlocksH);
+    m_kernel.setArg(12, m_cbHRatio);
+    m_kernel.setArg(13, m_cbVRatio);
+    m_kernel.setArg(14, m_crHRatio);
+    m_kernel.setArg(15, m_crVRatio);
 
     m_queue.enqueueNDRangeKernel(m_kernel, cl::NullRange,
         cl::NDRange(m_yBlocksW, m_yBlocksH), cl::NullRange);

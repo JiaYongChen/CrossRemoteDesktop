@@ -44,7 +44,7 @@ __kernel void jpeg_decode(
     __global const short* cr_coefs,
     __constant ushort* qtbl,
     __global uchar* output,
-    int imgW,
+    int imgW, int imgH,
     int yBlocksW,
     int cbBlocksW, int cbBlocksH,
     int crBlocksW, int crBlocksH,
@@ -81,7 +81,7 @@ __kernel void jpeg_decode(
         int py = by * 8 + y;
         for (int x = 0; x < 8; x++) {
             int px = bx * 8 + x;
-            if (px >= imgW) continue;
+            if (px >= imgW || py >= imgH) continue;
 
             int pidx = y * 8 + x;
             float Y_val  = yBlock[pidx]  + 128.0f;
