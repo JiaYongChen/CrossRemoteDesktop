@@ -328,8 +328,13 @@ bool OpenCLDecoder::decode(const QByteArray& jpegData,
 // ── 构造/析构 ─────────────────────────────────────────────────────────────
 
 OpenCLDecoder::OpenCLDecoder() {
-    m_available = probeGPU();
-    if (m_available) qCInfo(lcClient) << "OpenCLDecoder: GPU 解码已启用";
+    // GPU 路径暂不可用：jpeg_read_coefficients() 在当前 jpeg62.dll
+    // (libjpeg-turbo 3.1.4, vcpkg) 上对任何非平凡 JPEG 返回
+    // "Bogus virtual array access"。
+    // probeGPU()、buildKernel() 和 decode() 代码保留以便后续启用。
+    m_available = false;
+    qCInfo(lcClient) << "OpenCLDecoder: GPU path disabled —"
+                      << "jpeg_read_coefficients not functional in current libjpeg-turbo build";
 }
 
 OpenCLDecoder::~OpenCLDecoder() { releaseResources(); }
