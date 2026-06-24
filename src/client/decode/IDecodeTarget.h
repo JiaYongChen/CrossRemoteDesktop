@@ -51,6 +51,25 @@ public:
     /// 当前纹理尺寸
     [[nodiscard]] virtual int textureWidth() const = 0;
     [[nodiscard]] virtual int textureHeight() const = 0;
+
+    // ── CL/GL interop 接口（GPU 零拷贝路径）──
+
+    /// 确保 PBO 和纹理已分配（CL/GL interop 路径不走 mapWriteBuffer 触发分配）
+    /// 在调用 writablePboId() 之前调用。
+    /// @param width  图像宽度
+    /// @param height 图像高度
+    /// @return PBO 分配成功返回 true
+    [[nodiscard]] virtual bool ensureBufferReady(int width, int height)
+    { Q_UNUSED(width); Q_UNUSED(height); return true; }
+
+    /// 返回当前可写入 PBO 的 GL ID（0 = CL/GL interop 不可用）
+    /// OpenCL 通过 clCreateFromGLBuffer 直接写入该 PBO，跳过 CPU 回读。
+    [[nodiscard]] virtual GLuint writablePboId() const { return 0; }
+
+    /// 从 OpenCL interop 提交（PBO 已由 CL 直接写入）
+    /// 内部：绑定 PBO → glTexSubImage2D → fence sync（不解映射——CL 写入而非 CPU 映射）
+    [[nodiscard]] virtual GLsync commitFromInterop(int width, int height)
+    { Q_UNUSED(width); Q_UNUSED(height); return nullptr; }
 };
 
 #endif // QT_NO_OPENGL
