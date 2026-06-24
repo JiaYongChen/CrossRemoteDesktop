@@ -130,6 +130,7 @@ target_link_libraries(CrossRemoteDesktop PRIVATE
     OpenSSL::SSL
     OpenSSL::Crypto
     LibJpegTurbo::turbojpeg
+    LibJpegTurbo::jpeg
 )
 
 # ── CUDA + nvJPEG（编译时直接链接，运行时 DLL 必须存在）──
