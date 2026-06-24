@@ -44,6 +44,7 @@ private:
     static constexpr int kMaxInteropCache = 2;
     GLuint   m_interopPboId[kMaxInteropCache] = {0, 0};
     cl_mem   m_interopBuf[kMaxInteropCache] = {nullptr, nullptr};
+    cl::Event m_lastReleaseEvent;  // 上一帧的 ReleaseGL 完成事件（管线异步化）
 
     // ── 主机端系数缓冲区 ──
     std::vector<short> m_coefY, m_coefCb, m_coefCr;

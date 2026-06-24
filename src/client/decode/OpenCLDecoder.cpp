@@ -274,7 +274,16 @@ bool OpenCLDecoder::decode(const QByteArray& jpegData,
     }
     if (!interopMem) return false;  // 不应到达：setupInteropBuffer 已创建
 
-    // Interop 管线：Acquire GL → 上传+内核+直写 PBO → Release GL → commit
+    // ── 管线异步化：等待上一帧 GPU 完成后再开始本帧 GL 操作 ──
+    // CPU Huffman 解码（本帧）与 GPU 执行（上一帧）可并行
+    if (m_lastReleaseEvent()) {
+        cl_int waitErr = m_lastReleaseEvent.wait();
+        if (waitErr != CL_SUCCESS) {
+            qCWarning(lcClient) << "OpenCLDecoder: wait for prev frame failed —" << waitErr;
+        }
+    }
+
+    // Interop 管线：Acquire GL → 上传+内核+直写 PBO → Release GL → 记录事件
     clEnqueueAcquireGLObjects(m_queue(), 1, &interopMem, 0, nullptr, nullptr);
 
     m_queue.enqueueWriteBuffer(m_coefBufY,  CL_FALSE, 0,
@@ -307,8 +316,11 @@ bool OpenCLDecoder::decode(const QByteArray& jpegData,
     m_queue.enqueueNDRangeKernel(m_kernel, cl::NullRange,
         cl::NDRange(m_yBlocksW, m_yBlocksH), cl::NullRange);
 
-    clEnqueueReleaseGLObjects(m_queue(), 1, &interopMem, 0, nullptr, nullptr);
-    m_queue.finish();
+    // 记录本帧 ReleaseGL 完成事件，供下一帧等待
+    // 覆写 m_lastReleaseEvent（旧 event 对象自动释放）
+    clEnqueueReleaseGLObjects(m_queue(), 1, &interopMem, 0, nullptr,
+                              &m_lastReleaseEvent());
+    m_queue.flush();  // 确保命令提交到 GPU，不阻塞 CPU
 
     *outWidth = w;
     *outHeight = h;
