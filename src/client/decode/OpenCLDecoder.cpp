@@ -1,7 +1,6 @@
 #include "OpenCLDecoder.h"
 #include "../../common/core/logging/LoggingCategories.h"
 #include <jpeglib.h>
-#include <turbojpeg.h>
 #include <cstring>
 #include <csetjmp>
 #include <QtCore/QFile>
@@ -42,38 +41,6 @@ bool OpenCLDecoder::probeGPU() {
         // 2. 编译内核
         if (!buildKernel()) return false;
 
-        // 3. 能力验证：用中等尺寸 4:2:0 JPEG 测试 MCU 对齐路径
-        //    小 JPEG (8×8, 4:4:4) 可能通过但真实大帧的 4:2:0 MCU 对齐会失败
-        // 使用 32×24 (4:2:0): MCU=16×16, 高度不对齐 (24 % 16 ≠ 0)
-        // 这会触发真实大帧中出现的 MCU 对齐问题
-        QImage probeImg(32, 24, QImage::Format_RGB888);
-        probeImg.fill(Qt::gray);
-        tjhandle tj = tjInitCompress();
-        if (!tj) {
-            qCWarning(lcClient) << "OpenCLDecoder: cannot verify pipeline — tjInitCompress failed";
-            return false;
-        }
-        unsigned char* jpegBuf = nullptr;
-        unsigned long jpegSize = 0;
-        int ret = tjCompress2(tj, probeImg.bits(), 32, 0, 32, TJPF_RGB,
-                              &jpegBuf, &jpegSize, TJSAMP_420, 90, 0);
-        tjDestroy(tj);
-        if (ret != 0 || !jpegBuf) {
-            qCWarning(lcClient) << "OpenCLDecoder: cannot verify pipeline — test JPEG encode failed";
-            return false;
-        }
-        QByteArray probeJpeg(reinterpret_cast<const char*>(jpegBuf),
-                             static_cast<int>(jpegSize));
-        tjFree(jpegBuf);
-
-        int probeW = 0, probeH = 0;
-        if (!extractCoefficients(probeJpeg, &probeW, &probeH)) {
-            qCInfo(lcClient) << "OpenCLDecoder: GPU unavailable — jpeg_read_coefficients"
-                             << "not functional on this system, falling back to CPU decoder";
-            return false;
-        }
-        qCDebug(lcClient) << "OpenCLDecoder: probe JPEG decoded OK —"
-                          << probeW << "x" << probeH;
         return true;
     } catch (const cl::Error& e) {
         qCDebug(lcClient) << "OpenCLDecoder: probe failed —" << e.what() << "(" << e.err() << ")";
