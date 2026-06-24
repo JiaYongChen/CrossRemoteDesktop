@@ -40,8 +40,10 @@ private:
 
     // ── CL/GL interop ──
     bool     m_interopAvailable = false;
-    cl_mem   m_interopBuf = nullptr;  // clCreateFromGLBuffer(PBO)，CL 内核直写
-    GLuint   m_lastPboId = 0;         // interop 缓冲关联的 PBO ID（变更时重建）
+    /// 双槽位缓存：PBO 双缓冲下避免每帧重建 CL interop 对象
+    static constexpr int kMaxInteropCache = 2;
+    GLuint   m_interopPboId[kMaxInteropCache] = {0, 0};
+    cl_mem   m_interopBuf[kMaxInteropCache] = {nullptr, nullptr};
 
     // ── 主机端系数缓冲区 ──
     std::vector<short> m_coefY, m_coefCb, m_coefCr;

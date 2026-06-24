@@ -176,29 +176,41 @@ bool OpenCLDecoder::extractCoefficients(const QByteArray& jpegData,
 // ── setupInteropBuffer ─────────────────────────────────────────────────────
 
 bool OpenCLDecoder::setupInteropBuffer(GLuint pboId, int w, int h) {
-    if (m_interopBuf && m_lastPboId == pboId) {
-        return true;  // 已存在且未变更
+    // 查找已缓存的 interop 缓冲（匹配 PBO ID）
+    for (int i = 0; i < kMaxInteropCache; ++i) {
+        if (m_interopPboId[i] == pboId && m_interopBuf[i]) {
+            return true;  // 已缓存
+        }
     }
 
-    // 释放旧 interop 缓冲
-    if (m_interopBuf) {
-        clReleaseMemObject(m_interopBuf);
-        m_interopBuf = nullptr;
-        m_lastPboId = 0;
+    // 找空闲槽位（优先使用空槽，否则替换最少使用的槽位 0）
+    int slot = -1;
+    for (int i = 0; i < kMaxInteropCache; ++i) {
+        if (m_interopBuf[i] == nullptr) {
+            slot = i;
+            break;
+        }
+    }
+    if (slot < 0) {
+        // 全部占用 → 释放第一个槽位，用于新的 PBO（PBO 双缓冲最多 2 个并发）
+        clReleaseMemObject(m_interopBuf[0]);
+        m_interopBuf[0] = nullptr;
+        m_interopPboId[0] = 0;
+        slot = 0;
     }
 
     cl_int err = 0;
-    m_interopBuf = clCreateFromGLBuffer(
+    m_interopBuf[slot] = clCreateFromGLBuffer(
         m_ctx(), CL_MEM_WRITE_ONLY, pboId, &err);
     if (err != CL_SUCCESS) {
         qCWarning(lcClient) << "OpenCLDecoder: clCreateFromGLBuffer failed — err" << err;
-        m_interopBuf = nullptr;
+        m_interopBuf[slot] = nullptr;
         return false;
     }
 
-    m_lastPboId = pboId;
+    m_interopPboId[slot] = pboId;
     qCDebug(lcClient) << "OpenCLDecoder: interop buffer created for PBO" << pboId
-                      << "size" << (w * h * 3) << "bytes";
+                      << "slot" << slot << "size" << (w * h * 3) << "bytes";
     return true;
 }
 
@@ -252,8 +264,18 @@ bool OpenCLDecoder::decode(const QByteArray& jpegData,
         m_lastWidth = w; m_lastHeight = h;
     }
 
+    // 查找匹配 PBO ID 的 interop 缓冲
+    cl_mem interopMem = nullptr;
+    for (int i = 0; i < kMaxInteropCache; ++i) {
+        if (m_interopPboId[i] == pboId) {
+            interopMem = m_interopBuf[i];
+            break;
+        }
+    }
+    if (!interopMem) return false;  // 不应到达：setupInteropBuffer 已创建
+
     // Interop 管线：Acquire GL → 上传+内核+直写 PBO → Release GL → commit
-    clEnqueueAcquireGLObjects(m_queue(), 1, &m_interopBuf, 0, nullptr, nullptr);
+    clEnqueueAcquireGLObjects(m_queue(), 1, &interopMem, 0, nullptr, nullptr);
 
     m_queue.enqueueWriteBuffer(m_coefBufY,  CL_FALSE, 0,
         m_coefY.size()  * sizeof(short), m_coefY.data());
@@ -264,7 +286,7 @@ bool OpenCLDecoder::decode(const QByteArray& jpegData,
     m_queue.enqueueWriteBuffer(m_qtblBuf,   CL_FALSE, 0,
         3 * 64 * sizeof(unsigned short), m_qtblHost);
 
-    cl::Buffer interopWrapper(m_interopBuf, true);
+    cl::Buffer interopWrapper(interopMem, true);
     m_kernel.setArg(0,  m_coefBufY);
     m_kernel.setArg(1,  m_coefBufCb);
     m_kernel.setArg(2,  m_coefBufCr);
@@ -285,7 +307,7 @@ bool OpenCLDecoder::decode(const QByteArray& jpegData,
     m_queue.enqueueNDRangeKernel(m_kernel, cl::NullRange,
         cl::NDRange(m_yBlocksW, m_yBlocksH), cl::NullRange);
 
-    clEnqueueReleaseGLObjects(m_queue(), 1, &m_interopBuf, 0, nullptr, nullptr);
+    clEnqueueReleaseGLObjects(m_queue(), 1, &interopMem, 0, nullptr, nullptr);
     m_queue.finish();
 
     *outWidth = w;
@@ -304,10 +326,12 @@ OpenCLDecoder::OpenCLDecoder() {
 OpenCLDecoder::~OpenCLDecoder() { releaseResources(); }
 
 void OpenCLDecoder::releaseResources() {
-    if (m_interopBuf) {
-        clReleaseMemObject(m_interopBuf);
-        m_interopBuf = nullptr;
-        m_lastPboId = 0;
+    for (int i = 0; i < kMaxInteropCache; ++i) {
+        if (m_interopBuf[i]) {
+            clReleaseMemObject(m_interopBuf[i]);
+            m_interopBuf[i] = nullptr;
+            m_interopPboId[i] = 0;
+        }
     }
     m_kernel = cl::Kernel();
     m_program = cl::Program();
