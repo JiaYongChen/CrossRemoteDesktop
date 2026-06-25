@@ -111,7 +111,13 @@ double ClientRemoteWindow::scaleFactor() const {
 // ── Full screen ──
 
 void ClientRemoteWindow::setFullScreen(bool fullScreen) {
+    if (m_isFullScreen == fullScreen) return;
     m_isFullScreen = fullScreen;
+    if (fullScreen) {
+        setWindowState(windowState() | Qt::WindowFullScreen);
+    } else {
+        setWindowState(windowState() & ~Qt::WindowFullScreen);
+    }
 }
 
 bool ClientRemoteWindow::isFullScreen() const {
