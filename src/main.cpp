@@ -239,149 +239,101 @@ void applyStyles(QApplication& app) {
 }
 
 int main(int argc, char* argv[]) {
-    // 创建应用程序实例
-    QApplication app(argc, argv);
+    int result = 0;
 
-    // 初始化应用程序
-    initializeApplication(app);
+    // ── QApplication 内层作用域：离开时正常析构以清理主线程 QThreadStorage ──
+    {
+        QApplication app(argc, argv);
+        initializeApplication(app);
 
-    // 新增：防止关闭最后一个窗口时自动退出应用
-    // 背景说明：
-    // - Qt 默认行为为当最后一个顶层窗口关闭时自动退出（quitOnLastWindowClosed = true）。
-    // - 由于远程桌面窗口（ClientRemoteWindow）是独立顶层窗口，在主窗口被隐藏到托盘或暂未显示的情况下，
-    //   用户关闭远程桌面窗口可能被视为“最后一个窗口关闭”，从而导致整个应用意外退出。
-    // - 为避免该问题，这里显式禁用该自动退出行为，确保关闭远程桌面窗口不会导致应用退出。
-    app.setQuitOnLastWindowClosed(false);
-    qCInfo(lcApp) << "setQuitOnLastWindowClosed(false) applied to prevent auto-quit when closing last window";
+        app.setQuitOnLastWindowClosed(false);
+        qCInfo(lcApp) << "setQuitOnLastWindowClosed(false) applied to prevent auto-quit when closing last window";
 
-    // 解析命令行参数
-    QCommandLineParser parser;
-    parser.setApplicationDescription("Cross Remote Desktop - 远程桌面应用程序");
-    parser.addHelpOption();
-    parser.addVersionOption();
+        QCommandLineParser parser;
+        parser.setApplicationDescription("Cross Remote Desktop - 远程桌面应用程序");
+        parser.addHelpOption();
+        parser.addVersionOption();
 
-    QCommandLineOption connectOption(QStringList() << "c" << "connect",
-        "自动连接到指定的主机",
-        "host:port");
-    parser.addOption(connectOption);
+        QCommandLineOption connectOption(QStringList() << "c" << "connect",
+            "自动连接到指定的主机", "host:port");
+        parser.addOption(connectOption);
 
-    QCommandLineOption clientModeOption(QStringList() << "client",
-        "以客户端模式启动（不启动服务器）");
-    parser.addOption(clientModeOption);
+        QCommandLineOption clientModeOption(QStringList() << "client",
+            "以客户端模式启动（不启动服务器）");
+        parser.addOption(clientModeOption);
 
-    parser.process(app);
+        parser.process(app);
 
-    try {
-        // 初始化日志系统
-        initializeLogging();
+        try {
+            initializeLogging();
+            initializeConfig();
+            loadTranslations(app);
+            applyStyles(app);
 
-        // 初始化配置系统
-        initializeConfig();
+            bool clientMode = parser.isSet(clientModeOption);
 
-        // 加载翻译
-        loadTranslations(app);
+            MainWindow window;
+            g_mainWindow = &window;
+            installSignalHandlers();
 
-        // 应用样式
-        applyStyles(app);
-
-        // 检查是否为客户端模式
-        bool clientMode = parser.isSet(clientModeOption);
-
-        // 创建主窗口
-        MainWindow window;
-
-        // 设置全局指针用于信号处理
-        g_mainWindow = &window;
-
-        // 安装信号处理器
-        installSignalHandlers();
-
-        // 设置客户端模式（必须在构造函数完成后立即设置）
-        if ( clientMode ) {
-            qCInfo(lcApp) << "Starting in client mode";
-            window.setClientMode(true);
-        } else {
-            // 默认服务器模式，启动服务器
-            window.setClientMode(false);
-        }
-
-        window.show();
-
-        // 检查自动连接参数
-        if ( parser.isSet(connectOption) ) {
-            QString connectTo = parser.value(connectOption);
-            QStringList parts = connectTo.split(':');
-            if ( parts.size() == 2 ) {
-                QString host = parts[0];
-                bool ok;
-                int port = parts[1].toInt(&ok);
-                if ( ok && port > 0 && port <= 65535 ) {
-                    qCInfo(lcApp) << "Auto-connecting to" << host << ":" << port;
-                    QTimer::singleShot(1000, [&window, host, port]() {
-                        window.connectToHostDirectly(host, port);
-                    });
-                } else {
-                    qCWarning(lcApp) << "Invalid port number in connect option";
-                }
+            if ( clientMode ) {
+                qCInfo(lcApp) << "Starting in client mode";
+                window.setClientMode(true);
             } else {
-                qCWarning(lcApp) << "Invalid format for connect option. Use host:port";
+                window.setClientMode(false);
             }
+
+            window.show();
+
+            if ( parser.isSet(connectOption) ) {
+                QString connectTo = parser.value(connectOption);
+                QStringList parts = connectTo.split(':');
+                if ( parts.size() == 2 ) {
+                    QString host = parts[0];
+                    bool ok;
+                    int port = parts[1].toInt(&ok);
+                    if ( ok && port > 0 && port <= 65535 ) {
+                        qCInfo(lcApp) << "Auto-connecting to" << host << ":" << port;
+                        QTimer::singleShot(1000, [&window, host, port]() {
+                            window.connectToHostDirectly(host, port);
+                        });
+                    } else {
+                        qCWarning(lcApp) << "Invalid port number in connect option";
+                    }
+                } else {
+                    qCWarning(lcApp) << "Invalid format for connect option. Use host:port";
+                }
+            }
+
+            qCInfo(lcApp) << "Application initialized successfully";
+            result = app.exec();
+
+            g_mainWindow = nullptr;
+            Config::instance()->save();
+            qCInfo(lcApp) << "应用程序即将退出";
+            qCInfo(lcServer) << "Application exiting with code:" << result;
+
+            window.gracefulShutdown();
+            QThreadPool::globalInstance()->waitForDone(3000);
+            Config::destroyInstance();
+
+        } catch ( const std::exception& e ) {
+            QString errorMsg = QString("Unhandled exception: %1").arg(e.what());
+            qCCritical(lcApp) << errorMsg;
+            QMessageBox::critical(nullptr, APP_NAME,
+                QObject::tr("发生严重错误：%1").arg(e.what()));
+            result = -1;
+        } catch ( ... ) {
+            qCCritical(lcApp) << "Unknown exception occurred";
+            QMessageBox::critical(nullptr, APP_NAME,
+                QObject::tr("发生未知错误，应用程序将退出。"));
+            result = -1;
         }
+    } // QApplication 正常析构，清理主线程 QThreadStorage
 
-        qCInfo(lcApp) << "Application initialized successfully";
-
-        // 运行应用程序
-        int result = app.exec();
-
-        // 清理全局指针
-        g_mainWindow = nullptr;
-
-        // 保存配置
-        Config::instance()->save();
-
-        // 统一输出中文退出提示，便于测试用例匹配
-        qCInfo(lcApp) << "应用程序即将退出";
-
-        qCInfo(lcServer) << "Application exiting with code:" << result;
-
-        // ─────────────────────────────────────────────────────────
-        // std::_Exit 不调用栈上对象的析构函数，必须在跳转前手动清理
-        // 所有线程——否则 Qt 内部 QThreadStorage 在线程仍在运行时
-        // 被 atexit 清理会触发 "destroyed before end of thread" 警告。
-        // ─────────────────────────────────────────────────────────
-        window.gracefulShutdown();
-        QThreadPool::globalInstance()->waitForDone(3000);
-
-        // 销毁 Config 单例——其 QFileSystemWatcher 持有 Qt 内部线程
-        Config::destroyInstance();
-
-        // ─────────────────────────────────────────────────────────
-        // 跳过 QApplication 静态析构，解决终端挂死问题。
-        //
-        // 挂死根源：NVIDIA 472.12 驱动下 Qt QPA 无法正常打开 \\.\DISPLAY1
-        // （启动时即报：qt.qpa.screen "Unable to open monitor interface"
-        //  "Unknown error 0xe0000225"），导致 QWindowsScreen 清理阶段挂死。
-        //
-        // 安全性：gracefulShutdown() 已彻底清理了所有自有资源
-        // （服务端、客户端、全部线程、GL 资源、D3D/COM），
-        // 无任何未写入的数据或未关闭的句柄，跳静态析构不会造成泄漏。
-        // ─────────────────────────────────────────────────────────
-        std::_Exit(result);
-
-    } catch ( const std::exception& e ) {
-        QString errorMsg = QString("Unhandled exception: %1").arg(e.what());
-        qCCritical(lcApp) << errorMsg;
-
-        QMessageBox::critical(nullptr, APP_NAME,
-            QObject::tr("发生严重错误：%1").arg(e.what()));
-        return -1;
-
-    } catch ( ... ) {
-        QString errorMsg = "Unknown exception occurred";
-        qCCritical(lcApp) << errorMsg;
-
-        QMessageBox::critical(nullptr, APP_NAME,
-            QObject::tr("发生未知错误，应用程序将退出。"));
-        return -1;
-    }
+    // ─────────────────────────────────────────────────────────
+    // 跳过全局静态析构，解决终端挂死问题（NVIDIA 472.12 驱动）。
+    // 此时所有资源已在内层作用域中正常回收完毕。
+    // ─────────────────────────────────────────────────────────
+    std::_Exit(result);
 }
