@@ -22,8 +22,8 @@ struct ConnectionParams {
 
     // ── 显示 & 功能标签页 ──
     bool    fullScreen     = false;
-    int     windowWidth    = 1024;
-    int     windowHeight   = 768;
+    int     windowWidth    = 1600;
+    int     windowHeight   = 900;
     bool    viewOnly       = false;
     bool    shareClipboard = true;
     bool    showCursor     = true;
