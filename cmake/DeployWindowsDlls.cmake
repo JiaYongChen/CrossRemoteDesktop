@@ -96,16 +96,6 @@ function(rd_deploy_windows_runtime _target)
         )
     endif()
 
-    # ── jpeg62 DLL（标准 libjpeg API）──
-    if(DEFINED JPEG_TP_BIN AND EXISTS "${JPEG_TP_BIN}/jpeg62.dll")
-        add_custom_command(TARGET ${_target} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${JPEG_TP_BIN}/jpeg62.dll"
-                "${_out_dir}/jpeg62.dll"
-            COMMENT "Copying jpeg62 DLL"
-        )
-    endif()
-
     # ── nvJPEG DLL（GPU JPEG 解码）──
     if(DEFINED NVJPEG_TP_BIN AND EXISTS "${NVJPEG_TP_BIN}/nvjpeg64_12.dll")
         add_custom_command(TARGET ${_target} POST_BUILD

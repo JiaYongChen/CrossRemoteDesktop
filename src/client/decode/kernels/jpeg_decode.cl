@@ -1,24 +1,67 @@
 // OpenCL JPEG 解码内核 — CPU Huffman + GPU 反量化/IDCT/YCbCr→RGB
 // 每个 work-item 处理一个 8×8 Y 块
 
-// ── IDCT 预计算矩阵 ──
-// 标准 JPEG 1D IDCT 权重: C(u)/2
-//   C(0) = 1/√2  →  C(0)/2 = 1/(2√2) = 1/√8 ≈ 0.353553
-//   C(u>0) = 1   →  C(u)/2 = 1/2 = 0.5
-__constant float idct_mat[8] = {
-    0.3535533906f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f
-};
+// ── AAN (Arai-Agui-Nakajima) 快速 8 点 1D IDCT ──
+// 5 次乘法 + 29 次加法（vs Chen-Wang 11 次乘法，vs 朴素矩阵 64 次乘法）
+// 参考：IJG libjpeg jidctflt.c (Thomas G. Lane, Guido Vollbeding)
+//       基于 Arai/Agui/Nakajima 的缩放 DCT 分解，经数十亿张图片验证
+//
+// 算法特性：AAN 是"缩放 DCT"——1D 变换输出 = 8 × 数学 IDCT
+// 2D 分离变换输出 = 64 × 数学 2D IDCT
+// 通过在反量化中预乘 1/8 = 0.125 补偿，使最终空间域值正确
+//
+// 常数说明（缩放至 IJG 等价形式）：
+//   SQRT2     = √2                — c4 的 2 倍，用于偶部和奇部旋转
+//   C2X2      = 2·cos(π/8)       — 奇部第一阶段旋转
+//   C2mC6X2   = 2·(cos(π/8)−sin(π/8)) — 奇部 z12 系数
+//   C2pC6X2   = 2·(cos(π/8)+sin(π/8)) — 奇部 z10 系数
 
-// ── 1D IDCT（8 点）──
+__constant float SQRT2    = 1.4142135623730951f;   // √2
+__constant float C2X2     = 1.8477590650225735f;   // 2 * cos(π/8)
+__constant float C2mC6X2  = 1.0823922002923940f;   // 2 * (cos(π/8) - sin(π/8))
+__constant float C2pC6X2  = 2.6131259297527530f;   // 2 * (cos(π/8) + sin(π/8))
+
 static void idct_1d(float p[8]) {
-    float tmp[8];
-    for (int x = 0; x < 8; x++) {
-        float s = 0.0f;
-        for (int k = 0; k < 8; k++)
-            s += p[k] * idct_mat[k] * cos((2.0f * x + 1.0f) * k * M_PI_F / 16.0f);
-        tmp[x] = s;
-    }
-    for (int x = 0; x < 8; x++) p[x] = tmp[x];
+    // ── 偶部（相位 3 → 5-3 → 2）──
+    // 处理偶数索引系数 F0, F2, F4, F6
+    float et0 = p[0] + p[4];                         // tmp10 = F0 + F4
+    float et1 = p[0] - p[4];                         // tmp11 = F0 - F4
+    float et2 = p[2] + p[6];                         // tmp13 = F2 + F6
+    float et3 = (p[2] - p[6]) * SQRT2 - et2;         // tmp12 = (F2-F6)*√2 - (F2+F6)
+
+    float e0 = et0 + et2;                            // tmp0 = 相位 2
+    float e3 = et0 - et2;                            // tmp3
+    float e1 = et1 + et3;                            // tmp1
+    float e2 = et1 - et3;                            // tmp2
+
+    // ── 奇部（相位 6 → 5 → 2）──
+    // 处理奇数索引系数 F1, F3, F5, F7
+    float oz13 = p[5] + p[3];                        // z13 = F5 + F3
+    float oz10 = p[5] - p[3];                        // z10 = F5 - F3
+    float oz11 = p[1] + p[7];                        // z11 = F1 + F7
+    float oz12 = p[1] - p[7];                        // z12 = F1 - F7
+
+    float o7 = oz11 + oz13;                          // tmp7 = z11 + z13（相位 5）
+    float o11 = (oz11 - oz13) * SQRT2;               // tmp11 = (z11-z13)*√2
+
+    float z5 = (oz10 + oz12) * C2X2;                 // z5 = (z10+z12)*2*cos(π/8)
+    float o10 = z5 - oz12 * C2mC6X2;                 // tmp10 = z5 - z12*2*(c2-c6)
+    float o12 = z5 - oz10 * C2pC6X2;                 // tmp12 = z5 - z10*2*(c2+c6)
+
+    float o6 = o12 - o7;                             // tmp6 = tmp12 - tmp7（相位 2）
+    float o5 = o11 - o6;                             // tmp5 = tmp11 - tmp6
+    float o4 = o10 - o5;                             // tmp4 = tmp10 - tmp5
+
+    // ── 最终输出（自然顺序 0..7）──
+    // IJG 在 workspace 中以交错顺序存储，这里直接写入自然顺序
+    p[0] = e0 + o7;                                  // DC-like → 空间位置 0
+    p[1] = e1 + o6;                                  // 基频 → 空间位置 1
+    p[2] = e2 + o5;                                  // 空间位置 2
+    p[3] = e3 + o4;                                  // 空间位置 3
+    p[4] = e3 - o4;                                  // 空间位置 4
+    p[5] = e2 - o5;                                  // 空间位置 5
+    p[6] = e1 - o6;                                  // 空间位置 6
+    p[7] = e0 - o7;                                  // Nyquist → 空间位置 7
 }
 
 // ── 8×8 转置 ──
@@ -65,12 +108,13 @@ __kernel void jpeg_decode(
     __global const short* cb_src = cb_coefs + cbBidx * 64;
     __global const short* cr_src = cr_coefs + crBidx * 64;
 
-    // ── 反量化（系数自然顺序 × 量化表自然顺序）──
+    // ── 反量化（系数自然顺序 × 量化表自然顺序 × AAN 缩放补偿 1/8）──
+    // 0.125 = 1/8：AAN 2D IDCT 输出是数学 IDCT 的 8 倍，预除 1/8 得到正确的空间域值
     float yBlock[64], cbBlock[64], crBlock[64];
     for (int i = 0; i < 64; i++) {
-        yBlock[i]  = (float)y_src[i]  * (float)qtbl[0 * 64 + i];
-        cbBlock[i] = (float)cb_src[i] * (float)qtbl[1 * 64 + i];
-        crBlock[i] = (float)cr_src[i] * (float)qtbl[2 * 64 + i];
+        yBlock[i]  = (float)y_src[i]  * (float)qtbl[0 * 64 + i] * 0.125f;
+        cbBlock[i] = (float)cb_src[i] * (float)qtbl[1 * 64 + i] * 0.125f;
+        crBlock[i] = (float)cr_src[i] * (float)qtbl[2 * 64 + i] * 0.125f;
     }
 
     // ── 2D IDCT ──

@@ -130,7 +130,6 @@ target_link_libraries(CrossRemoteDesktop PRIVATE
     OpenSSL::SSL
     OpenSSL::Crypto
     LibJpegTurbo::turbojpeg
-    LibJpegTurbo::jpeg
 )
 
 # ── CUDA + nvJPEG（编译时直接链接，运行时 DLL 必须存在）──
@@ -145,6 +144,10 @@ endif()
 if(OPENCL_AVAILABLE)
     target_link_libraries(CrossRemoteDesktop PRIVATE OpenCL::OpenCL)
     target_compile_definitions(CrossRemoteDesktop PRIVATE HAS_OPENCL)
+    if(WIN32)
+        # CL/GL interop 需要 wglGetCurrentContext / wglGetCurrentDC
+        target_link_libraries(CrossRemoteDesktop PRIVATE opengl32)
+    endif()
     message(STATUS "[OpenCL] Linked to CrossRemoteDesktop")
 endif()
 
