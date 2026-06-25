@@ -14,13 +14,12 @@
 
 #include <QtWidgets/QApplication>
 
-RemoteDesktopSession::RemoteDesktopSession(const QString& host, int port,
+RemoteDesktopSession::RemoteDesktopSession(const ConnectionParams& params,
                                            const QString& connectionId,
                                            QObject* parent)
     : QObject(parent)
     , m_connectionId(connectionId)
-    , m_host(host)
-    , m_port(port) {
+    , m_params(params) {
 
     // 所有网络对象在 Main 线程创建并保持——QSslSocket 的平台级回调绑定 Main 线程，
     // Qt 异步 I/O 不阻塞 GUI；只有解码在独立 DecodeThread 进行。
@@ -42,6 +41,14 @@ RemoteDesktopSession::~RemoteDesktopSession() {
 void RemoteDesktopSession::createNetworkComponents() {
     // ConnectionManager 构造函数内部创建 TcpClient（Qt 父子关系）
     m_connectionManager = new ConnectionManager();
+
+    // ── 预设认证凭证（在 connectToHost 前，handleHandshakeResponse 会自动使用）──
+    m_connectionManager->setCredentials(m_params.username, m_params.password);
+
+    // ── 网络参数配置 ──
+    m_connectionManager->setConnectionTimeout(m_params.connectionTimeout);
+    m_connectionManager->setAutoReconnect(m_params.autoReconnect);
+    m_connectionManager->setReconnectInterval(m_params.reconnectInterval);
 
     m_protocolSession = new ProtocolSession(m_connectionManager, m_decodePipeline);
     m_protocolSession->setConnectionId(m_connectionId);
@@ -94,6 +101,36 @@ void RemoteDesktopSession::createWindow() {
         inputForwarder->setProtocolSession(m_protocolSession);
     }
 
+    // ── 分发 ConnectionParams 配置到窗口组件 ──
+
+    // 主机名 → 窗口标题
+    if (!m_params.hostname.isEmpty()) {
+        m_window->updateWindowTitle(m_params.hostname);
+    }
+
+    // 全屏模式
+    m_window->setFullScreen(m_params.fullScreen);
+
+    // 窗口尺寸（仅非全屏时生效）
+    if (!m_params.fullScreen) {
+        m_window->resize(m_params.windowWidth, m_params.windowHeight);
+    }
+
+    // 仅查看模式 → 禁用输入转发
+    m_window->setInputEnabled(!m_params.viewOnly);
+
+    // 剪贴板同步
+    ClipboardManager* clipboardMgr = m_window->findChild<ClipboardManager*>();
+    if (clipboardMgr) {
+        clipboardMgr->setEnabled(m_params.shareClipboard);
+    }
+
+    // 远程光标显隐
+    CursorManager* cursorMgr = m_window->cursorManager();
+    if (cursorMgr) {
+        cursorMgr->setCursorEnabled(m_params.showCursor);
+    }
+
     m_window->show();
     m_window->raise();
     m_window->activateWindow();
@@ -109,7 +146,7 @@ void RemoteDesktopSession::wireSignals() {
                 m_protocolSession->startSession();
             } else if (state == ConnectionManager::ConnectionState::Error) {
                 emit errorOccurred(RdError(ErrorCode::NetworkConnectionFailed,
-                    QStringLiteral("连接 %1:%2 失败").arg(m_host).arg(m_port),
+                    QStringLiteral("连接 %1:%2 失败").arg(m_params.host).arg(m_params.port),
                     "RemoteDesktopSession"));
             }
         });
@@ -148,9 +185,11 @@ void RemoteDesktopSession::wireSignals() {
 }
 
 void RemoteDesktopSession::start() {
-    qCInfo(lcSession) << "RemoteDesktopSession::start() — connecting to" << m_host << ":" << m_port << "[" << m_connectionId << "]";
+    qCInfo(lcSession) << "RemoteDesktopSession::start() — connecting to"
+                      << m_params.host << ":" << m_params.port
+                      << "[" << m_connectionId << "]";
     // 网络对象在 Main 线程，直接调用即可
-    m_connectionManager->connectToHost(m_host, m_port);
+    m_connectionManager->connectToHost(m_params.host, m_params.port);
 }
 
 void RemoteDesktopSession::close() {

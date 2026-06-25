@@ -673,7 +673,10 @@ void MainWindow::showConnectionDialog() {
 
 void MainWindow::connectToHostDirectly(const QString& host, int port) {
     QString connectionId = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    auto* session = new RemoteDesktopSession(host, port, connectionId, this);
+    ConnectionParams params;
+    params.host = host;
+    params.port = port;
+    auto* session = new RemoteDesktopSession(params, connectionId, this);
 
     connect(session, &RemoteDesktopSession::finished, this, [this, session](const QString& id) {
         Q_UNUSED(id);
