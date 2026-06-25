@@ -31,6 +31,12 @@
 
 GpuDecodeTarget::GpuDecodeTarget(QOpenGLContext* shareContext)
     : m_shareContext(shareContext) {
+    // 必须在 GUI 线程预创建 QOffscreenSurface——其内部 QWindow 不允许跨线程创建
+    if (m_shareContext) {
+        m_offSurface = new QOffscreenSurface();
+        m_offSurface->setFormat(m_shareContext->format());
+        m_offSurface->create();
+    }
 }
 
 GpuDecodeTarget::~GpuDecodeTarget() {
@@ -73,9 +79,13 @@ bool GpuDecodeTarget::ensureWorkerContext() {
         return false;
     }
 
-    m_offSurface = new QOffscreenSurface();
-    m_offSurface->setFormat(m_workerContext->format());
-    m_offSurface->create();
+    // m_offSurface 已在构造中预创建（GUI 线程），此处仅需绑定上下文
+    if (!m_offSurface) {
+        qCWarning(lcGLViewport) << "GpuDecodeTarget: QOffscreenSurface 未预创建";
+        delete m_workerContext;
+        m_workerContext = nullptr;
+        return false;
+    }
 
     m_workerContext->makeCurrent(m_offSurface);
     initializeOpenGLFunctions();
