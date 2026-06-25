@@ -63,8 +63,10 @@ public:
     /// 批量读取 n 位（1-16），复用 peekBits + consumeBits 模式
     /// 避免逐位循环，每条路径单次移位+掩码即可完成
     int readBits(int n) {
-        while (m_bitsLeft < n && !m_eof) fill();
-        if (m_eof) return -1;  // 数据耗尽
+        // 仅调用一次 fill——避免 marker 字节触发死循环
+        // fill() 一次性填充至 24+ 位，对 JPEG Huffman（n≤11）足够
+        if (m_bitsLeft < n) fill();
+        if (m_bitsLeft < n) return -1;  // 数据耗尽或遇到 marker
         int v = (m_buffer >> (m_bitsLeft - n)) & ((1 << n) - 1);
         m_bitsLeft -= n;
         return v;
@@ -72,8 +74,8 @@ public:
 
     /// 偷看 n 位（不消耗），确保缓冲区有足够位数
     int peekBits(int n) {
-        while (m_bitsLeft < n && !m_eof) fill();
-        if (m_eof) return -1;  // 数据耗尽
+        if (m_bitsLeft < n) fill();
+        if (m_bitsLeft < n) return -1;  // 数据耗尽或遇到 marker
         return (m_buffer >> (m_bitsLeft - n)) & ((1 << n) - 1);
     }
 
