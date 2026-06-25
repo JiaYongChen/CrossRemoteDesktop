@@ -46,11 +46,9 @@ include(cmake/SetupLibJpegTurbo.cmake)  # → LibJpegTurbo::turbojpeg
 include(cmake/SetupQt6.cmake)           # → Qt6::*, QT6_ROOT_DIR
 include(cmake/FilterAppleOpenGL.cmake)  # → rd_filter_apple_opengl()
 include(cmake/SetupNvJpeg.cmake)        # → rd_setup_nvjpeg(), Cuda::cudart, Cuda::nvjpeg
-include(cmake/SetupOpenCL.cmake)        # → rd_setup_opencl(), OpenCL::OpenCL
 include(cmake/DeployWindowsDlls.cmake)  # → rd_deploy_windows_runtime()
 
 rd_setup_nvjpeg()
-rd_setup_opencl()
 
 # 清理 AGL/OpenGL 传播
 rd_filter_apple_opengl(Qt6::Gui)
@@ -106,7 +104,6 @@ file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS
 qt_add_executable(CrossRemoteDesktop WIN32
     ${PROJECT_SOURCES}
     resources/resources.qrc
-    src/client/decode/kernels/kernels.qrc
 )
 
 target_include_directories(CrossRemoteDesktop PRIVATE
@@ -138,17 +135,6 @@ if(CUDA_AVAILABLE AND NVJPEG_AVAILABLE)
         Cuda::cudart Cuda::nvjpeg)
     target_compile_definitions(CrossRemoteDesktop PRIVATE HAS_NVJPEG)
     message(STATUS "[CUDA] Linked — GPU decode available")
-endif()
-
-# ── OpenCL（编译时链接 OpenCL.lib，运行时 DLL 由 GPU 驱动提供）──
-if(OPENCL_AVAILABLE)
-    target_link_libraries(CrossRemoteDesktop PRIVATE OpenCL::OpenCL)
-    target_compile_definitions(CrossRemoteDesktop PRIVATE HAS_OPENCL)
-    if(WIN32)
-        # CL/GL interop 需要 wglGetCurrentContext / wglGetCurrentDC
-        target_link_libraries(CrossRemoteDesktop PRIVATE opengl32)
-    endif()
-    message(STATUS "[OpenCL] Linked to CrossRemoteDesktop")
 endif()
 
 # ── Windows: D3D11 + DXGI + 子系统 + DLL 部署 ──

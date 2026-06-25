@@ -13,8 +13,7 @@ class IDecodeTarget;
  *
  * 解码器在 DecodeWorker::start() 中按优先级选择：
  *   1. NvJpegDecoder（NVIDIA GPU CC >= 5.0）
- *   2. OpenCLDecoder（跨 GPU 平台）
- *   3. TurboJpegDecoder（CPU 回退，始终可用）
+ *   2. TurboJpegDecoder（CPU 回退，始终可用）
  *
  * 调用方只需调用 decode()，内部自行决定最优路径：
  *   - GPU 解码器：mapWriteBuffer → GPU 解码直写 PBO → commitWriteBuffer
@@ -29,7 +28,7 @@ public:
     /// 检查当前硬件/运行时环境是否支持此解码器
     [[nodiscard]] virtual bool isAvailable() const = 0;
 
-    /// 解码器名称，用于诊断日志（如 "libjpeg-turbo"、"nvJPEG"、"OpenCL"）
+    /// 解码器名称，用于诊断日志（如 "libjpeg-turbo"、"nvJPEG"）
     [[nodiscard]] virtual const char* name() const = 0;
 
 #ifndef QT_NO_OPENGL
@@ -42,11 +41,9 @@ public:
     /// 各实现内部自行选择最优路径：
     ///   - TurboJpegDecoder: tjDecompress2 -> target->uploadPixels()
     ///   - NvJpegDecoder:    target->mapWriteBuffer() -> nvjpegDecode -> D2D -> target->commitWriteBuffer()
-    ///   - OpenCLDecoder:    huffmanDecode -> OpenCL kernel -> target->mapWriteBuffer() / target->uploadPixels()
     ///
     /// 回退策略：
     ///   - NvJpegDecoder GPU 失败时内部回退到 TurboJpegDecoder（惰性构造）
-    ///   - OpenCLDecoder PBO 不可用时回退到 uploadPixels
     ///
     /// @param jpegData     原始 JPEG 字节（必须包含有效 JPEG 头）
     /// @param[out] outWidth   解码后图像宽度

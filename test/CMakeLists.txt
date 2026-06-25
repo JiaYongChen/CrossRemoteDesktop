@@ -190,7 +190,6 @@ add_rd_test(TARGET test_session_latest_wins  NAME SessionLatestWinsTest
         ../src/client/managers/DecodeWorker.cpp
         ../src/client/decode/TurboJpegDecoder.cpp
 
-        ../src/client/decode/OpenCLDecoder.cpp
         ../src/client/network/ConnectionManager.cpp
         ../src/client/network/TcpClient.cpp
         ../src/common/core/network/ProtocolImpl.cpp
@@ -243,7 +242,6 @@ add_rd_test(TARGET test_clientremotewindow  NAME ClientRemoteWindowTest
         ../src/client/managers/DecodeWorker.cpp
         ../src/client/decode/TurboJpegDecoder.cpp
 
-        ../src/client/decode/OpenCLDecoder.cpp
         ../src/client/network/ConnectionManager.cpp
         ../src/client/network/TcpClient.cpp
         ../src/common/core/network/ProtocolImpl.cpp
@@ -331,7 +329,6 @@ add_rd_test(TARGET test_frame_transmission_latency  NAME FrameTransmissionLatenc
 #         ../src/client/managers/DecodeWorker.cpp
 #         ../src/client/decode/TurboJpegDecoder.cpp
 #
-#         ../src/client/decode/OpenCLDecoder.cpp
 #         ../src/client/network/ConnectionManager.cpp
 #         ../src/client/network/TcpClient.cpp
 #         ../src/common/core/network/ProtocolImpl.cpp
@@ -347,7 +344,6 @@ add_rd_test(TARGET test_frame_transmission_latency  NAME FrameTransmissionLatenc
 #         ../src/client/managers/DecodeWorker.cpp
 #         ../src/client/decode/TurboJpegDecoder.cpp
 #
-#         ../src/client/decode/OpenCLDecoder.cpp
 #         ../src/client/network/ConnectionManager.cpp
 #         ../src/client/network/TcpClient.cpp
 #         ../src/common/core/network/ProtocolImpl.cpp
@@ -363,7 +359,6 @@ add_rd_test(TARGET test_frame_transmission_latency  NAME FrameTransmissionLatenc
 #         ../src/client/managers/DecodeWorker.cpp
 #         ../src/client/decode/TurboJpegDecoder.cpp
 #
-#         ../src/client/decode/OpenCLDecoder.cpp
 #         ../src/client/network/ConnectionManager.cpp
 #         ../src/client/network/TcpClient.cpp
 #         ../src/common/core/network/ProtocolImpl.cpp

@@ -84,7 +84,7 @@ Q_DECLARE_LOGGING_CATEGORY(lcClientRemoteWindow)
 /// 会话模块日志（新架构：DecodePipeline / ProtocolSession / RemoteDesktopSession）
 Q_DECLARE_LOGGING_CATEGORY(lcSession)
 
-/// 解码管线日志（帧解码+OpenCL管线）
+/// 解码管线日志（帧解码）
 Q_DECLARE_LOGGING_CATEGORY(lcDecodePipeline)
 
 /// OpenGL纹理视口日志

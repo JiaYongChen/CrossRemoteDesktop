@@ -42,12 +42,6 @@ public:
     [[nodiscard]] int textureWidth() const override  { return m_texWidth; }
     [[nodiscard]] int textureHeight() const override { return m_texHeight; }
 
-    // ── CL/GL interop ──
-    [[nodiscard]] GLuint writablePboId() const override;
-    [[nodiscard]] GLsync commitFromInterop(int width, int height) override;
-    /// 确保 PBO 和纹理在调用 writablePboId() 前已分配（CL/GL interop 需要）
-    bool ensureBufferReady(int width, int height);
-
     // ── 生命周期 ──
     [[nodiscard]] bool initialize();
     void cleanup();

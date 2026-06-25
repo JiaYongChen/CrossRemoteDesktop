@@ -239,62 +239,6 @@ GLuint GpuDecodeTarget::displayTexture() const {
     return m_textureId[m_displayTexIndex.load(std::memory_order_acquire)];
 }
 
-// ════════════════ CL/GL interop ════════════════
-
-bool GpuDecodeTarget::ensureBufferReady(int width, int height) {
-    if (!m_ready) return false;
-    if (!ensureWorkerContext()) return false;
-    ensureTextureSize(width, height);
-    return ensurePboSize(width, height);
-}
-
-GLuint GpuDecodeTarget::writablePboId() const {
-    if (!m_ready) return 0;
-
-    // 持久映射 PBO 优先
-    if (m_usePersistent && m_persistentPboId[m_pboWriteIdx] != 0) {
-        return m_persistentPboId[m_pboWriteIdx];
-    }
-
-    // 标准 PBO 路径
-    const QOpenGLBuffer& pbo = m_pbo[m_pboWriteIdx];
-    if (pbo.isCreated()) {
-        return pbo.bufferId();
-    }
-
-    return 0;
-}
-
-GLsync GpuDecodeTarget::commitFromInterop(int width, int height) {
-    if (!m_ready) return nullptr;
-
-    auto* f = m_workerContext->extraFunctions();
-    if (!f) return nullptr;
-
-    ensureTextureSize(width, height);
-    const int targetIdx = 1 - m_displayTexIndex.load();
-
-    // 绑定已由 CL 填充的 PBO → glTexSubImage2D（零拷贝，数据已在 GPU 显存）
-    const GLuint pboId = writablePboId();
-    if (pboId == 0) return nullptr;
-
-    f->glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboId);
-    glBindTexture(GL_TEXTURE_2D, m_textureId[targetIdx]);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height,
-                    GL_RGB, GL_UNSIGNED_BYTE, nullptr);
-    f->glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-
-    // 注意：不解映射 PBO — 持久 PBO 始终映射，标准 PBO 未通过 mapWriteBuffer 映射
-    // 标准 PBO 如果之前被 mapWriteBuffer 映射了但未通过 commitWriteBuffer 解除，
-    // 调用方应确保 mapWriteBuffer 返回后未实际写入（interop 跳过了 map/CPU 写入）。
-
-    GLsync fence = f->glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-    f->glFlush();
-
-    m_pboWriteIdx = (m_pboWriteIdx + 1) % kPboCount;
-    return fence;
-}
-
 // ════════════════ ensureTextureSize ════════════════
 
 bool GpuDecodeTarget::ensureTextureSize(int width, int height) {

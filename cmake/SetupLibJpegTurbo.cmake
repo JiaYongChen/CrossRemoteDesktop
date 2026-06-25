@@ -103,17 +103,3 @@ if(NOT TARGET LibJpegTurbo::turbojpeg)
         )
     endif()
 endif()
-
-# ── 标准 libjpeg API（jpeg_read_header / jpeg_read_coefficients 等）──
-set(JPEG_TP_BIN "${_TJ_BIN}")
-
-if(NOT TARGET LibJpegTurbo::jpeg)
-    add_library(LibJpegTurbo::jpeg UNKNOWN IMPORTED GLOBAL)
-    set_target_properties(LibJpegTurbo::jpeg PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES    "${_TJ_INC}"
-        IMPORTED_LOCATION_DEBUG          "${_TJ_LIB}/jpeg.lib"
-        IMPORTED_LOCATION_RELEASE        "${_TJ_LIB}/jpeg.lib"
-        IMPORTED_LOCATION_RELWITHDEBINFO "${_TJ_LIB}/jpeg.lib"
-        IMPORTED_LOCATION_MINSIZEREL     "${_TJ_LIB}/jpeg.lib"
-    )
-endif()
