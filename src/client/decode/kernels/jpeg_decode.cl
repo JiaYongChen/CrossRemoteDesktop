@@ -6,9 +6,11 @@
 // 参考：IJG libjpeg jidctflt.c (Thomas G. Lane, Guido Vollbeding)
 //       基于 Arai/Agui/Nakajima 的缩放 DCT 分解，经数十亿张图片验证
 //
-// 算法特性：AAN 是"缩放 DCT"——1D 变换输出 = 8 × 数学 IDCT
-// 2D 分离变换输出 = 64 × 数学 2D IDCT
-// 通过在反量化中预乘 1/8 = 0.125 补偿，使最终空间域值正确
+// 算法特性：AAN 是"缩放 DCT"，其缩放因子是频率相关的：
+//   1D 放大因子 A[k] = 2/cos(kπ/16)（k>0），A[0] = 2√2
+//   2D 放大因子 A[u,v] = A[u] × A[v]
+// 不同于统一 0.125 补偿（仅在 IJG 量化表预缩放后有效），
+// 这里用频率补偿表 DEQUANT_SCALE[u*8+v] = 1 / A[u,v] 逐系数精确补偿。
 //
 // 常数说明（缩放至 IJG 等价形式）：
 //   SQRT2     = √2                — c4 的 2 倍，用于偶部和奇部旋转
@@ -20,6 +22,21 @@ __constant float SQRT2    = 1.4142135623730951f;   // √2
 __constant float C2X2     = 1.8477590650225735f;   // 2 * cos(π/8)
 __constant float C2mC6X2  = 1.0823922002923940f;   // 2 * (cos(π/8) - sin(π/8))
 __constant float C2pC6X2  = 2.6131259297527530f;   // 2 * (cos(π/8) + sin(π/8))
+
+// ── 频率补偿表 ──
+// AAN 放大因子 A[k] = 2/cos(kπ/16)（k>0），A[0] = 2√2
+// DEQUANT_SCALE[u*8+v] = 1 / (A[u] × A[v])，替代统一 0.125
+// 矩阵对称：DEQUANT_SCALE[u*8+v] = DEQUANT_SCALE[v*8+u]
+__constant float DEQUANT_SCALE[64] = {
+    0.125000000f, 0.173379297f, 0.163320397f, 0.146985797f, 0.125000000f, 0.098211353f, 0.067649051f, 0.034487422f,
+    0.173379297f, 0.240484982f, 0.226526350f, 0.203869264f, 0.173379297f, 0.136220909f, 0.093829743f, 0.047833474f,
+    0.163320397f, 0.226526350f, 0.213388348f, 0.192044472f, 0.163320397f, 0.128316382f, 0.088388348f, 0.045059763f,
+    0.146985797f, 0.203869264f, 0.192044472f, 0.172851548f, 0.146985797f, 0.115485173f, 0.079547411f, 0.040553701f,
+    0.125000000f, 0.173379297f, 0.163320397f, 0.146985797f, 0.125000000f, 0.098211353f, 0.067649051f, 0.034487422f,
+    0.098211353f, 0.136220909f, 0.128316382f, 0.115485173f, 0.098211353f, 0.077164316f, 0.053151545f, 0.027096428f,
+    0.067649051f, 0.093829743f, 0.088388348f, 0.079547411f, 0.067649051f, 0.053151545f, 0.036611652f, 0.018664153f,
+    0.034487422f, 0.047833474f, 0.045059763f, 0.040553701f, 0.034487422f, 0.027096428f, 0.018664153f, 0.009515008f
+};
 
 static void idct_1d(float p[8]) {
     // ── 偶部（相位 3 → 5-3 → 2）──
@@ -108,13 +125,15 @@ __kernel void jpeg_decode(
     __global const short* cb_src = cb_coefs + cbBidx * 64;
     __global const short* cr_src = cr_coefs + crBidx * 64;
 
-    // ── 反量化（系数自然顺序 × 量化表自然顺序 × AAN 缩放补偿 1/8）──
-    // 0.125 = 1/8：AAN 2D IDCT 输出是数学 IDCT 的 8 倍，预除 1/8 得到正确的空间域值
+    // ── 反量化（系数 × 量化表 × 频率补偿）──
+    // AAN 缩放 DCT 对每个频率的放大倍数不同（A[u,v] = A[u]×A[v]）
+    // DEQUANT_SCALE[i] = 1/A[u,v] 逐系数精确补偿，确保空间域值正确
     float yBlock[64], cbBlock[64], crBlock[64];
     for (int i = 0; i < 64; i++) {
-        yBlock[i]  = (float)y_src[i]  * (float)qtbl[0 * 64 + i] * 0.125f;
-        cbBlock[i] = (float)cb_src[i] * (float)qtbl[1 * 64 + i] * 0.125f;
-        crBlock[i] = (float)cr_src[i] * (float)qtbl[2 * 64 + i] * 0.125f;
+        float s = DEQUANT_SCALE[i];
+        yBlock[i]  = (float)y_src[i]  * (float)qtbl[0 * 64 + i] * s;
+        cbBlock[i] = (float)cb_src[i] * (float)qtbl[1 * 64 + i] * s;
+        crBlock[i] = (float)cr_src[i] * (float)qtbl[2 * 64 + i] * s;
     }
 
     // ── 2D IDCT ──
