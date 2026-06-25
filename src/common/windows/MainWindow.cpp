@@ -623,6 +623,14 @@ void MainWindow::gracefulShutdown() {
         qCInfo(lcUI) << "MainWindow::gracefulShutdown() - All threads destroyed";
     }
 
+    // 隐藏系统托盘图标——std::_Exit 跳过 ~MainWindow() 析构，
+    // 必须在此显式调用 hide() 以发送 NIM_DELETE 通知 Windows 移除图标，
+    // 否则每次退出都会残留一个孤儿托盘图标，多次启动后累积成多个。
+    if ( m_trayIcon ) {
+        m_trayIcon->hide();
+        qCInfo(lcUI) << "MainWindow::gracefulShutdown() - Tray icon hidden";
+    }
+
     qCInfo(lcUI) << "MainWindow::gracefulShutdown() - Graceful shutdown complete";
 
     // 正常退出应用程序
