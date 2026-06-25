@@ -317,6 +317,15 @@ int main(int argc, char* argv[]) {
             QThreadPool::globalInstance()->waitForDone(3000);
             Config::destroyInstance();
 
+            // ─────────────────────────────────────────────────────────
+            // 跳过 QApplication 静态析构，解决终端挂死问题。
+            // （NVIDIA 472.12 驱动 QWindowsScreen 析构阶段挂死）
+            //
+            // 副作用：主线程 QThreadStorage 条目在 CRT 清理时报
+            // "destroyed before end of thread"，属于无害警告。
+            // ─────────────────────────────────────────────────────────
+            std::_Exit(result);
+
         } catch ( const std::exception& e ) {
             QString errorMsg = QString("Unhandled exception: %1").arg(e.what());
             qCCritical(lcApp) << errorMsg;
@@ -329,11 +338,5 @@ int main(int argc, char* argv[]) {
                 QObject::tr("发生未知错误，应用程序将退出。"));
             result = -1;
         }
-    } // QApplication 正常析构，清理主线程 QThreadStorage
-
-    // ─────────────────────────────────────────────────────────
-    // 跳过全局静态析构，解决终端挂死问题（NVIDIA 472.12 驱动）。
-    // 此时所有资源已在内层作用域中正常回收完毕。
-    // ─────────────────────────────────────────────────────────
-    std::_Exit(result);
+    }
 }
