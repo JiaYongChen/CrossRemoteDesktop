@@ -64,6 +64,17 @@ public:
     // ==================== 便捷方法 ====================
 
     /**
+     * @brief 启用/禁用远程光标显示
+     */
+    void setCursorEnabled(bool enabled);
+
+    /**
+     * @brief 查询远程光标是否启用
+     * @return true 表示启用，false 表示禁用
+     */
+    bool isCursorEnabled() const { return m_cursorEnabled; }
+
+    /**
      * @brief 重置所有设置为默认值
      */
     void reset();
@@ -81,5 +92,6 @@ private:
 
     // 远程光标状态
     Qt::CursorShape m_remoteCursorType; ///< 远程光标类型
+    bool m_cursorEnabled = true;        ///< 远程光标是否启用（默认 true，与 UI 复选框一致）
 };
 

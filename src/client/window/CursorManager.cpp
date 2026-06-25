@@ -71,6 +71,9 @@ void CursorManager::refreshLocalCursor() {
 // ==================== 远程光标控制 ====================
 
 void CursorManager::setRemoteCursorType(Qt::CursorShape type) {
+    if (!m_cursorEnabled) {
+        return;
+    }
     if ( m_remoteCursorType == type ) {
         return;
     }
@@ -86,6 +89,18 @@ Qt::CursorShape CursorManager::remoteCursorType() const {
 }
 
 // ==================== 便捷方法 ====================
+
+void CursorManager::setCursorEnabled(bool enabled) {
+    if (m_cursorEnabled == enabled) {
+        return;
+    }
+    m_cursorEnabled = enabled;
+    if (!enabled) {
+        restoreLocalCursor();   // 恢复默认箭头，不再显示远程光标
+    } else {
+        applyLocalCursorState(); // 重新应用当前远程光标类型
+    }
+}
 
 void CursorManager::reset() {
     m_remoteCursorType = Qt::ArrowCursor;
