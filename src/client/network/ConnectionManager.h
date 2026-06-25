@@ -61,6 +61,9 @@ public:
     // 认证接口
     void authenticate(const QString& username, const QString& password);
 
+    /// 预设认证凭证（在 connectToHost 前调用），不触发认证流程
+    void setCredentials(const QString& username, const QString& password);
+
     // 消息发送接口
     virtual void sendMessage(MessageType type, const IMessageCodec& message);
 

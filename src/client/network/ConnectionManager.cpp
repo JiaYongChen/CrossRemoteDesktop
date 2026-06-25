@@ -131,6 +131,11 @@ void ConnectionManager::authenticate(const QString& username, const QString& pas
     sendAuthenticationRequest(username, password);
 }
 
+void ConnectionManager::setCredentials(const QString& username, const QString& password) {
+    m_username = username;
+    m_password = password;
+}
+
 // 自动重连管理方法
 void ConnectionManager::setAutoReconnect(bool enable) {
     m_autoReconnect = enable;
