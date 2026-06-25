@@ -13,8 +13,6 @@ public:
     static const int MIN_WINDOW_HEIGHT = 600;             ///< 最小窗口高度
     static const int MAIN_WINDOW_WIDTH = 1200;            ///< 主窗口宽度
     static const int MAIN_WINDOW_HEIGHT = 800;            ///< 主窗口高度
-    static const int CONNECTION_DIALOG_WIDTH = 400;       ///< 连接对话框宽度
-    static const int CONNECTION_DIALOG_HEIGHT = 300;      ///< 连接对话框高度
 
     // ==================== 会话管理常量 ====================
     static const int STATS_UPDATE_INTERVAL = 500;         ///< 统计更新间隔 500ms

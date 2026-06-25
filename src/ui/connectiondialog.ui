@@ -398,9 +398,9 @@ QWidget#advancedTab {
           <item row="1" column="1"><widget class="QCheckBox" name="fullScreenCheckBox"><property name="minimumSize"><size><width>0</width><height>24</height></size></property><property name="text"><string>全屏模式</string></property></widget></item>
           <item row="2" column="1">
            <layout class="QHBoxLayout" name="windowSizeLayout">
-            <item><widget class="QSpinBox" name="windowWidthSpinBox"><property name="minimumSize"><size><width>0</width><height>32</height></size></property><property name="minimum"><number>320</number></property><property name="maximum"><number>3840</number></property><property name="value"><number>1024</number></property></widget></item>
+            <item><widget class="QSpinBox" name="windowWidthSpinBox"><property name="minimumSize"><size><width>0</width><height>32</height></size></property><property name="minimum"><number>320</number></property><property name="maximum"><number>3840</number></property><property name="value"><number>1600</number></property></widget></item>
             <item><widget class="QLabel" name="multiplyLabel"><property name="text"><string>×</string></property></widget></item>
-            <item><widget class="QSpinBox" name="windowHeightSpinBox"><property name="minimumSize"><size><width>0</width><height>32</height></size></property><property name="minimum"><number>200</number></property><property name="maximum"><number>2160</number></property><property name="value"><number>768</number></property></widget></item>
+            <item><widget class="QSpinBox" name="windowHeightSpinBox"><property name="minimumSize"><size><width>0</width><height>32</height></size></property><property name="minimum"><number>200</number></property><property name="maximum"><number>2160</number></property><property name="value"><number>900</number></property></widget></item>
            </layout>
           </item>
          </layout>
