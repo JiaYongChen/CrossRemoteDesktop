@@ -31,16 +31,12 @@ private:
     // ── OpenCL 对象 ──
     cl::Context        m_ctx;
     cl::CommandQueue   m_queue;
-    cl::Kernel         m_cbcrKernel;      // 内核 A：Cb/Cr 反量化 + IDCT
-    cl::Kernel         m_yRgbKernel;      // 内核 B：Y IDCT + YCbCr→RGB
+    cl::Kernel         m_kernel;
     cl::Program        m_program;
 
     // ── GPU 缓冲区 ──
     cl::Buffer m_coefBufY, m_coefBufCb, m_coefBufCr;
     cl::Buffer m_qtblBuf;
-    cl::Buffer m_cbSpatialBuf;   // Cb IDCT 中间结果（空间域）
-    cl::Buffer m_crSpatialBuf;   // Cr IDCT 中间结果（空间域）
-    int m_cbcrBufElems = 0;      // 中间缓冲元素数（分辨率变化时重建）
 
     // ── CL/GL interop ──
     bool     m_interopAvailable = false;
