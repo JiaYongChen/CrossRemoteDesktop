@@ -617,6 +617,12 @@ void MainWindow::gracefulShutdown() {
     }
     // 注：m_sessions 已在上面通过 qDeleteAll + clear() 清理完毕，无需再次遍历
 
+    // 停止并等待所有工作线程退出——std::_Exit 不触发析构，必须在此显式回收
+    if ( m_threadManager ) {
+        m_threadManager->destroyAllThreads();
+        qCInfo(lcUI) << "MainWindow::gracefulShutdown() - All threads destroyed";
+    }
+
     qCInfo(lcUI) << "MainWindow::gracefulShutdown() - Graceful shutdown complete";
 
     // 正常退出应用程序

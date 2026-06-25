@@ -7,6 +7,7 @@
 #include <QtWidgets/QSplashScreen>
 #include <QtGui/QPixmap>
 #include <QtCore/QThread>
+#include <QtCore/QThreadPool>
 #include <QtCore/QTimer>
 #include <QtCore/QCommandLineParser>
 #include <QtCore/QCommandLineOption>
@@ -349,7 +350,8 @@ int main(int argc, char* argv[]) {
         // 被 atexit 清理会触发 "destroyed before end of thread" 警告。
         // ─────────────────────────────────────────────────────────
         window.gracefulShutdown();
-        QThread::msleep(50);  // 给线程完成清理的宽限期
+        QThreadPool::globalInstance()->waitForDone(3000);
+        QThread::msleep(100);  // 给线程完成清理的宽限期
 
         // ─────────────────────────────────────────────────────────
         // 跳过 QApplication 静态析构，解决终端挂死问题。
