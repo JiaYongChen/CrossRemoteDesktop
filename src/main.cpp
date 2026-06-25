@@ -6,6 +6,7 @@
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QSplashScreen>
 #include <QtGui/QPixmap>
+#include <QtCore/QThread>
 #include <QtCore/QTimer>
 #include <QtCore/QCommandLineParser>
 #include <QtCore/QCommandLineOption>
@@ -341,6 +342,14 @@ int main(int argc, char* argv[]) {
         qCInfo(lcApp) << "应用程序即将退出";
 
         qCInfo(lcServer) << "Application exiting with code:" << result;
+
+        // ─────────────────────────────────────────────────────────
+        // std::_Exit 不调用栈上对象的析构函数，必须在跳转前手动清理
+        // 所有线程——否则 Qt 内部 QThreadStorage 在线程仍在运行时
+        // 被 atexit 清理会触发 "destroyed before end of thread" 警告。
+        // ─────────────────────────────────────────────────────────
+        window.gracefulShutdown();
+        QThread::msleep(50);  // 给线程完成清理的宽限期
 
         // ─────────────────────────────────────────────────────────
         // 跳过 QApplication 静态析构，解决终端挂死问题。

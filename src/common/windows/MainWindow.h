@@ -32,6 +32,7 @@ public:
     
     void setClientMode(bool clientMode);
     void connectToHostDirectly(const QString &host, int port);
+    void gracefulShutdown();   // 供 main.cpp 在 std::_Exit 前手动调用
 
 protected:
     void closeEvent(QCloseEvent *event) override;
@@ -79,9 +80,6 @@ private slots:
     void updateConnectionListItem(QListWidgetItem *item, const QString &host, int port, const QString &connectionTime);
     QString formatConnectionText(const QString &host, int port, const QString &connectionTime);
     
-    // 优雅停止相关
-    void gracefulShutdown();
-
 private:
     void createActions();
     void createMenus();
