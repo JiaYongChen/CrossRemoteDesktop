@@ -130,7 +130,8 @@ bool OpenCLDecoder::buildKernel() {
         return false;
     }
 
-    m_kernel = cl::Kernel(m_program, "jpeg_decode");
+    m_cbcrKernel = cl::Kernel(m_program, "jpeg_decode_cbcr");
+    m_yRgbKernel = cl::Kernel(m_program, "jpeg_decode_y_rgb");
     return true;
 }
 
@@ -235,7 +236,6 @@ bool OpenCLDecoder::decode(const QByteArray& jpegData,
     if (nYBlocks == 0) return false;
 
     // Interop 必须可用——probeGPU() 已保证 m_interopAvailable
-    // 确保 PBO 已分配（interop 路径不走 mapWriteBuffer，需显式触发）
     if (!m_target || !m_target->ensureBufferReady(w, h)) {
         qCWarning(lcClient) << "OpenCLDecoder: PBO ensureBufferReady failed";
         return false;
@@ -255,12 +255,20 @@ bool OpenCLDecoder::decode(const QByteArray& jpegData,
         return false;
     }
 
-    // 按需重建 GPU 缓冲区
+    // 按需重建 GPU 缓冲区（含 Cb/Cr 空间域中间缓冲）
     if (m_lastWidth != w || m_lastHeight != h) {
         m_coefBufY  = cl::Buffer(m_ctx, CL_MEM_READ_ONLY, m_coefY.size()  * sizeof(short));
         m_coefBufCb = cl::Buffer(m_ctx, CL_MEM_READ_ONLY, m_coefCb.size() * sizeof(short));
         m_coefBufCr = cl::Buffer(m_ctx, CL_MEM_READ_ONLY, m_coefCr.size() * sizeof(short));
         m_qtblBuf   = cl::Buffer(m_ctx, CL_MEM_READ_ONLY, 3 * 64 * sizeof(unsigned short));
+
+        // 中间缓冲：Cb + Cr 空间域值（float），分辨率不变时复用
+        int cbElems = m_cbBlocksW * m_cbBlocksH * 64;
+        int crElems = m_crBlocksW * m_crBlocksH * 64;
+        m_cbSpatialBuf = cl::Buffer(m_ctx, CL_MEM_READ_WRITE, cbElems * sizeof(float));
+        m_crSpatialBuf = cl::Buffer(m_ctx, CL_MEM_READ_WRITE, crElems * sizeof(float));
+        m_cbcrBufElems = cbElems + crElems;
+
         m_lastWidth = w; m_lastHeight = h;
     }
 
@@ -272,10 +280,9 @@ bool OpenCLDecoder::decode(const QByteArray& jpegData,
             break;
         }
     }
-    if (!interopMem) return false;  // 不应到达：setupInteropBuffer 已创建
+    if (!interopMem) return false;
 
     // ── 管线异步化：等待上一帧 GPU 完成后再开始本帧 GL 操作 ──
-    // CPU Huffman 解码（本帧）与 GPU 执行（上一帧）可并行
     if (m_lastReleaseEvent()) {
         cl_int waitErr = m_lastReleaseEvent.wait();
         if (waitErr != CL_SUCCESS) {
@@ -283,9 +290,10 @@ bool OpenCLDecoder::decode(const QByteArray& jpegData,
         }
     }
 
-    // Interop 管线：Acquire GL → 上传+内核+直写 PBO → Release GL → 记录事件
+    // ── 双内核管线：Acquire GL → 上传 → CbCr IDCT → Y IDCT+RGB → Release GL ──
     clEnqueueAcquireGLObjects(m_queue(), 1, &interopMem, 0, nullptr, nullptr);
 
+    // 上传系数（in-order queue 保证先于内核执行）
     m_queue.enqueueWriteBuffer(m_coefBufY,  CL_FALSE, 0,
         m_coefY.size()  * sizeof(short), m_coefY.data());
     m_queue.enqueueWriteBuffer(m_coefBufCb, CL_FALSE, 0,
@@ -295,32 +303,47 @@ bool OpenCLDecoder::decode(const QByteArray& jpegData,
     m_queue.enqueueWriteBuffer(m_qtblBuf,   CL_FALSE, 0,
         3 * 64 * sizeof(unsigned short), m_qtblHost);
 
-    cl::Buffer interopWrapper(interopMem, true);
-    m_kernel.setArg(0,  m_coefBufY);
-    m_kernel.setArg(1,  m_coefBufCb);
-    m_kernel.setArg(2,  m_coefBufCr);
-    m_kernel.setArg(3,  m_qtblBuf);
-    m_kernel.setArg(4,  interopWrapper);
-    m_kernel.setArg(5,  w);
-    m_kernel.setArg(6,  h);
-    m_kernel.setArg(7,  m_yBlocksW);
-    m_kernel.setArg(8,  m_cbBlocksW);
-    m_kernel.setArg(9,  m_cbBlocksH);
-    m_kernel.setArg(10, m_crBlocksW);
-    m_kernel.setArg(11, m_crBlocksH);
-    m_kernel.setArg(12, m_cbHRatio);
-    m_kernel.setArg(13, m_cbVRatio);
-    m_kernel.setArg(14, m_crHRatio);
-    m_kernel.setArg(15, m_crVRatio);
+    // 内核 A：Cb/Cr 反量化 + IDCT → 中间缓冲
+    m_cbcrKernel.setArg(0, m_coefBufCb);
+    m_cbcrKernel.setArg(1, m_coefBufCr);
+    m_cbcrKernel.setArg(2, m_qtblBuf);
+    m_cbcrKernel.setArg(3, m_cbSpatialBuf);
+    m_cbcrKernel.setArg(4, m_crSpatialBuf);
+    m_cbcrKernel.setArg(5, m_cbBlocksW);
+    m_cbcrKernel.setArg(6, m_cbBlocksH);
+    m_cbcrKernel.setArg(7, m_crBlocksW);
+    m_cbcrKernel.setArg(8, m_crBlocksH);
 
-    m_queue.enqueueNDRangeKernel(m_kernel, cl::NullRange,
+    // 全局维度：(Cb 宽度 + Cr 宽度, 高度)，内核内用 gx 分左右半区
+    m_queue.enqueueNDRangeKernel(m_cbcrKernel, cl::NullRange,
+        cl::NDRange(m_cbBlocksW + m_crBlocksW, m_cbBlocksH), cl::NullRange);
+
+    // 内核 B：Y IDCT + YCbCr→RGB → 直写 PBO（interop）
+    cl::Buffer interopWrapper(interopMem, true);
+    m_yRgbKernel.setArg(0,  m_coefBufY);
+    m_yRgbKernel.setArg(1,  m_qtblBuf);
+    m_yRgbKernel.setArg(2,  m_cbSpatialBuf);
+    m_yRgbKernel.setArg(3,  m_crSpatialBuf);
+    m_yRgbKernel.setArg(4,  interopWrapper);
+    m_yRgbKernel.setArg(5,  w);
+    m_yRgbKernel.setArg(6,  h);
+    m_yRgbKernel.setArg(7,  m_yBlocksW);
+    m_yRgbKernel.setArg(8,  m_cbBlocksW);
+    m_yRgbKernel.setArg(9,  m_cbBlocksH);
+    m_yRgbKernel.setArg(10, m_crBlocksW);
+    m_yRgbKernel.setArg(11, m_crBlocksH);
+    m_yRgbKernel.setArg(12, m_cbHRatio);
+    m_yRgbKernel.setArg(13, m_cbVRatio);
+    m_yRgbKernel.setArg(14, m_crHRatio);
+    m_yRgbKernel.setArg(15, m_crVRatio);
+
+    m_queue.enqueueNDRangeKernel(m_yRgbKernel, cl::NullRange,
         cl::NDRange(m_yBlocksW, m_yBlocksH), cl::NullRange);
 
     // 记录本帧 ReleaseGL 完成事件，供下一帧等待
-    // 覆写 m_lastReleaseEvent（旧 event 对象自动释放）
     clEnqueueReleaseGLObjects(m_queue(), 1, &interopMem, 0, nullptr,
                               &m_lastReleaseEvent());
-    m_queue.flush();  // 确保命令提交到 GPU，不阻塞 CPU
+    m_queue.flush();
 
     *outWidth = w;
     *outHeight = h;
@@ -345,8 +368,12 @@ void OpenCLDecoder::releaseResources() {
             m_interopPboId[i] = 0;
         }
     }
-    m_kernel = cl::Kernel();
+    m_cbcrKernel = cl::Kernel();
+    m_yRgbKernel = cl::Kernel();
     m_program = cl::Program();
+    m_cbSpatialBuf = cl::Buffer();
+    m_crSpatialBuf = cl::Buffer();
+    m_cbcrBufElems = 0;
 }
 
 #else // !HAS_OPENCL

@@ -22,6 +22,18 @@ constexpr int kZigzag[64] = {
     35, 36, 48, 49, 57, 58, 62, 63
 };
 
+// kZigzagInv[zigzag_index] = natural_index  (逆映射，用于解码时直写自然顺序)
+constexpr int kZigzagInv[64] = {
+     0,  1,  8, 16,  9,  2,  3, 10,
+    17, 24, 32, 25, 18, 11,  4,  5,
+    12, 19, 26, 33, 40, 48, 41, 34,
+    27, 20, 13,  6,  7, 14, 21, 28,
+    35, 42, 49, 56, 57, 50, 43, 36,
+    29, 22, 15, 23, 30, 37, 44, 51,
+    58, 59, 52, 45, 38, 31, 39, 46,
+    53, 60, 61, 54, 47, 55, 62, 63
+};
+
 constexpr uint16_t kSOI  = 0xFFD8;
 constexpr uint16_t kEOI  = 0xFFD9;
 constexpr uint16_t kDQT  = 0xFFDB;
@@ -48,13 +60,13 @@ public:
         return b;
     }
 
+    /// 批量读取 n 位（1-16），复用 peekBits + consumeBits 模式
+    /// 避免逐位循环，每条路径单次移位+掩码即可完成
     int readBits(int n) {
-        int v = 0;
-        for (int i = 0; i < n; ++i) {
-            int b = readBit();
-            if (b < 0) return -1;  // 数据耗尽
-            v = (v << 1) | b;
-        }
+        while (m_bitsLeft < n && !m_eof) fill();
+        if (m_eof) return -1;  // 数据耗尽
+        int v = (m_buffer >> (m_bitsLeft - n)) & ((1 << n) - 1);
+        m_bitsLeft -= n;
         return v;
     }
 
@@ -240,18 +252,21 @@ bool decodeBlock(BitReader& br, int& dcPred,
                  const HuffTable& dcTable, const HuffTable& acTable,
                  short* block)
 {
-    short temp[64] = {};
+    // AC 系数稀疏写入，需先清零
+    std::memset(block, 0, 64 * sizeof(short));
 
+    // DC 系数 → 自然顺序位置 0（zigzag 0）
     int ssss = dcTable.decode(br);
     if (ssss < 0 || ssss > 11) return false;
     if (ssss == 0) {
-        temp[0] = static_cast<short>(dcPred);
+        block[0] = static_cast<short>(dcPred);
     } else {
         int delta = extendSign(br.readBits(ssss), ssss);
         dcPred += delta;
-        temp[0] = static_cast<short>(dcPred);
+        block[0] = static_cast<short>(dcPred);
     }
 
+    // AC 系数 → 通过逆 zigzag 表直写自然顺序
     int k = 1;
     while (k < 64) {
         int rs = acTable.decode(br);
@@ -266,12 +281,9 @@ bool decodeBlock(BitReader& br, int& dcPred,
         k += r;
         if (k >= 64) return false;
 
-        temp[k] = static_cast<short>(extendSign(br.readBits(s), s));
+        block[kZigzagInv[k]] = static_cast<short>(extendSign(br.readBits(s), s));
         ++k;
     }
-
-    for (int i = 0; i < 64; ++i)
-        block[i] = temp[kZigzag[i]];
 
     return true;
 }
