@@ -16,7 +16,6 @@ class InputSimulator;
 class IMessageCodec;
 class QueueManager;
 class AuthHandler;
-class DataProcessingWorker;
 
 /**
  * @brief 客户端处理工作线程类
@@ -37,7 +36,6 @@ public:
      */
     explicit ClientHandlerWorker(qintptr socketDescriptor,
                                 QueueManager* queueMgr,
-                                DataProcessingWorker* dataWorker = nullptr,
                                 const QSslCertificate& certificate = QSslCertificate(),
                                 const QSslKey& privateKey = QSslKey(),
                                 QObject* parent = nullptr);
@@ -125,6 +123,12 @@ signals:
      * @param error 错误信息
      */
     void errorOccurred(const RdError& error);
+
+    /**
+     * @brief 客户端握手携带的质量参数
+     * @param imageQuality JPEG 编码质量 (1-100)
+     */
+    void qualitySettingsReceived(int imageQuality);
 
     /**
      * @brief 接收到剪贴板文本信号（更新服务器端剪贴板）
@@ -317,8 +321,7 @@ private:
     InputSimulator* m_inputSimulator;     ///< 输入模拟器
 
     // 屏幕数据发送相关
-    QueueManager* m_queueManager;               ///< 队列管理器
-    DataProcessingWorker* m_dataWorker = nullptr;  ///< 数据处理工作线程（用于传递质量参数）
+    QueueManager* m_queueManager;         ///< 队列管理器
 
     // Guard flag to prevent event queue accumulation:
     // processTask posts sendScreenDataFromQueue via QueuedConnection on each tick;

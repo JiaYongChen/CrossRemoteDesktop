@@ -7,7 +7,6 @@
 #include "../simulator/InputSimulator.h"
 #include "../dataflow/QueueManager.h"
 #include "../dataflow/DataFlowStructures.h"
-#include "../dataprocessing/DataProcessingWorker.h"
 
 // 取消Windows SDK定义的事件宏,避免与MessageType冲突
 #ifdef MOUSE_EVENT
@@ -38,7 +37,6 @@
 
 ClientHandlerWorker::ClientHandlerWorker(qintptr socketDescriptor,
                                          QueueManager* queueMgr,
-                                         DataProcessingWorker* dataWorker,
                                          const QSslCertificate& certificate,
                                          const QSslKey& privateKey,
                                          QObject* parent)
@@ -58,8 +56,7 @@ ClientHandlerWorker::ClientHandlerWorker(qintptr socketDescriptor,
     , m_bytesReceived(0)
     , m_bytesSent(0)
     , m_inputSimulator(nullptr)
-    , m_queueManager(queueMgr)
-    , m_dataWorker(dataWorker) {
+    , m_queueManager(queueMgr) {
     qCDebug(lcClientHandlerWorker) << "ClientHandlerWorker 构造函数调用，套接字描述符:" << socketDescriptor;
     setName("ClientHandlerWorker");
 }
@@ -702,10 +699,8 @@ void ClientHandlerWorker::handleHandshakeRequest(const QByteArray& data) {
         qCDebug(lcClientHandlerWorker) << "客户端色深:" << request.colorDepth
                                        << "图像质量:" << request.imageQuality;
 
-        // 将客户端请求的图像质量传递给 DataProcessingWorker
-        if (m_dataWorker) {
-            m_dataWorker->setJpegQuality(request.imageQuality);
-        }
+        // 通过信号通知外部（ServerManager 负责桥接到 DataProcessingWorker）
+        emit qualitySettingsReceived(request.imageQuality);
     }
 
     sendHandshakeResponse();

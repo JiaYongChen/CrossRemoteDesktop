@@ -634,7 +634,7 @@ void ServerManager::onNewClientConnection(qintptr socketDescriptor) {
         cert = sw->sslCertificate();
         key = sw->sslPrivateKey();
     }
-    auto worker = std::make_unique<ClientHandlerWorker>(socketDescriptor, m_queueManager, m_dataWorker, cert, key);
+    auto worker = std::make_unique<ClientHandlerWorker>(socketDescriptor, m_queueManager, cert, key);
 
     // 保存Worker裸指针（在move之前）
     m_currentClient = worker.get();
@@ -662,6 +662,12 @@ void ServerManager::onNewClientConnection(qintptr socketDescriptor) {
 
     connect(m_currentClient, &ClientHandlerWorker::messageReceived,
         this, &ServerManager::onClientHandlerMessageReceived, Qt::QueuedConnection);
+
+    // 将客户端握手质量参数桥接到 DataProcessingWorker
+    if (m_dataWorker) {
+        connect(m_currentClient, &ClientHandlerWorker::qualitySettingsReceived,
+                m_dataWorker, &DataProcessingWorker::setJpegQuality, Qt::QueuedConnection);
+    }
 
     qCDebug(lcServerManager) << "ServerManager::onNewClientConnection() - ClientHandlerWorker started in thread";
 }
