@@ -295,7 +295,7 @@ int main(int argc, char* argv[]) {
                     if ( ok && port > 0 && port <= 65535 ) {
                         qCInfo(lcApp) << "Auto-connecting to" << host << ":" << port;
                         QTimer::singleShot(1000, [&window, host, port]() {
-                            window.connectToHostDirectly(host, port);
+                            window.connectToHostDirectly(ConnectionParams{host, port});
                         });
                     } else {
                         qCWarning(lcApp) << "Invalid port number in connect option";

@@ -363,7 +363,7 @@ void MainWindow::connectToHost() {
 
         if ( !host.isEmpty() && port > 0 ) {
             // 直接连接到选中的主机，不弹出对话框
-            connectToHostDirectly(host, port);
+            connectToHostDirectly(ConnectionParams{host, port});
             return;
         }
     }
@@ -662,20 +662,32 @@ void MainWindow::showConnectionDialog() {
     }
 
     if ( m_connectionDialog->exec() == QDialog::Accepted ) {
-        // 处理连接请求
-        QString host = m_connectionDialog->getHostAddress();
-        int port = m_connectionDialog->getPort();
+        // 从对话框提取全部参数
+        ConnectionParams params;
+        params.host     = m_connectionDialog->getHostAddress();
+        params.port     = m_connectionDialog->getPort();
+        params.hostname = m_connectionDialog->getHostname();
+        params.username = m_connectionDialog->getUsername();
+        params.password = m_connectionDialog->getPassword();
 
-        // 直接连接到主机
-        connectToHostDirectly(host, port);
+        params.fullScreen     = m_connectionDialog->getFullScreen();
+        params.windowWidth    = m_connectionDialog->getWindowWidth();
+        params.windowHeight   = m_connectionDialog->getWindowHeight();
+        params.viewOnly       = m_connectionDialog->getViewOnly();
+        params.shareClipboard = m_connectionDialog->getShareClipboard();
+        params.showCursor     = m_connectionDialog->getShowCursor();
+
+        // 对话框单位为秒，ConnectionParams 单位为毫秒
+        params.connectionTimeout  = m_connectionDialog->getConnectionTimeout() * 1000;
+        params.autoReconnect      = m_connectionDialog->getAutoReconnect();
+        params.reconnectInterval  = m_connectionDialog->getReconnectInterval() * 1000;
+
+        connectToHostDirectly(params);
     }
 }
 
-void MainWindow::connectToHostDirectly(const QString& host, int port) {
+void MainWindow::connectToHostDirectly(const ConnectionParams& params) {
     QString connectionId = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    ConnectionParams params;
-    params.host = host;
-    params.port = port;
     auto* session = new RemoteDesktopSession(params, connectionId, this);
 
     connect(session, &RemoteDesktopSession::finished, this, [this, session](const QString& id) {
@@ -694,9 +706,7 @@ void MainWindow::connectToHostDirectly(const QString& host, int port) {
 
     m_sessions.append(session);
 
-    // 添加到连接历史
-    addConnectionToHistory(host, port);
-
+    // 启动会话（内部调用 connectToHost）
     session->start();
 }
 
@@ -806,7 +816,7 @@ void MainWindow::onConnectionItemDoubleClicked() {
         int port = item->data(Qt::UserRole + 1).toInt();
 
         // 直接连接到选中的主机
-        connectToHostDirectly(host, port);
+        connectToHostDirectly(ConnectionParams{host, port});
     }
 }
 

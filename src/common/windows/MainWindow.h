@@ -7,6 +7,7 @@
 #include <QtCore/QList>
 #include <QtCore/QSettings>
 #include "error/RdError.h"
+#include "../../client/session/RemoteDesktopSession.h"  // ConnectionParams
 
 QT_BEGIN_NAMESPACE
 class QAction;
@@ -31,7 +32,7 @@ public:
     ~MainWindow();
     
     void setClientMode(bool clientMode);
-    void connectToHostDirectly(const QString &host, int port);
+    void connectToHostDirectly(const ConnectionParams& params);
     void gracefulShutdown();   // 供 main.cpp 在 std::_Exit 前手动调用
 
 protected:
