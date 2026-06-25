@@ -89,7 +89,8 @@ void Config::setConfigFile(const QString &filePath, ConfigFormat format)
     
     // 文件监控
     if (m_fileWatcher) {
-        m_fileWatcher->removePaths(m_fileWatcher->files());
+        if (!m_fileWatcher->files().isEmpty())
+            m_fileWatcher->removePaths(m_fileWatcher->files());
         m_fileWatcher->addPath(m_configFilePath);
     }
 }
