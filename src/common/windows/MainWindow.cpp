@@ -706,6 +706,8 @@ void MainWindow::connectToHostDirectly(const ConnectionParams& params) {
 
     m_sessions.append(session);
 
+    addConnectionToHistory(params.host, params.port);
+
     // 启动会话（内部调用 connectToHost）
     session->start();
 }
