@@ -64,6 +64,13 @@ Config* Config::instance()
     return s_instance;
 }
 
+void Config::destroyInstance()
+{
+    QMutexLocker locker(&s_instanceMutex);
+    delete s_instance;
+    s_instance = nullptr;
+}
+
 void Config::setConfigFile(const QString &filePath, ConfigFormat format)
 {
     QMutexLocker locker(&m_mutex);

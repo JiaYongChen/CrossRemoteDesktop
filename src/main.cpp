@@ -351,7 +351,9 @@ int main(int argc, char* argv[]) {
         // ─────────────────────────────────────────────────────────
         window.gracefulShutdown();
         QThreadPool::globalInstance()->waitForDone(3000);
-        QThread::msleep(100);  // 给线程完成清理的宽限期
+
+        // 销毁 Config 单例——其 QFileSystemWatcher 持有 Qt 内部线程
+        Config::destroyInstance();
 
         // ─────────────────────────────────────────────────────────
         // 跳过 QApplication 静态析构，解决终端挂死问题。
