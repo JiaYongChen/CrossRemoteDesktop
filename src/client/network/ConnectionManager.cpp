@@ -136,6 +136,14 @@ void ConnectionManager::setCredentials(const QString& username, const QString& p
     m_password = password;
 }
 
+void ConnectionManager::setColorDepth(int depth) {
+    m_colorDepth = qBound(16, depth, 32);
+}
+
+void ConnectionManager::setImageQuality(int quality) {
+    m_imageQuality = qBound(1, quality, 100);
+}
+
 // 自动重连管理方法
 void ConnectionManager::setAutoReconnect(bool enable) {
     m_autoReconnect = enable;
@@ -394,7 +402,8 @@ void ConnectionManager::sendHandshakeRequest() {
     request.clientVersion = PROTOCOL_VERSION;
     request.screenWidth = 1920;
     request.screenHeight = 1080;
-    request.colorDepth = 32;
+    request.colorDepth = static_cast<quint8>(m_colorDepth);
+    request.imageQuality = static_cast<quint8>(m_imageQuality);
     request.clientName = QStringLiteral("CrossRemoteDesktop Client");
     request.clientOS = getClientOS();
 

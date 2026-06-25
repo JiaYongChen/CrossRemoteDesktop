@@ -51,6 +51,14 @@ void DataProcessingWorker::setProcessingConfig(std::shared_ptr<DataProcessingCon
     m_config = config;
 }
 
+void DataProcessingWorker::setJpegQuality(int quality) {
+    m_jpegQuality.store(qBound(1, quality, 100), std::memory_order_relaxed);
+}
+
+int DataProcessingWorker::jpegQuality() const {
+    return m_jpegQuality.load(std::memory_order_relaxed);
+}
+
 std::shared_ptr<DataProcessingConfig> DataProcessingWorker::getProcessingConfig() const {
     return m_config;
 }
@@ -259,7 +267,7 @@ void DataProcessingWorker::processTask() {
 }
 
 void DataProcessingWorker::processBatchAsync(std::vector<CapturedFrame>&& frames) {
-    const int currentQuality = CoreConstants::Compression::DEFAULT_JPEG_QUALITY;
+    const int currentQuality = m_jpegQuality.load(std::memory_order_relaxed);
     const double currentScale = CoreConstants::Compression::SCALE_FACTOR_HIGH;
 
     // 将帧存入 shared_ptr，确保线程池异步编码期间不会被销毁

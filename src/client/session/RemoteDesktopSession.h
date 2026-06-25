@@ -24,6 +24,8 @@ struct ConnectionParams {
     bool    fullScreen     = false;
     int     windowWidth    = 1600;
     int     windowHeight   = 900;
+    int     colorDepth     = 32;    // 16/24/32
+    int     imageQuality   = 85;    // 1-100
     bool    viewOnly       = false;
     bool    shareClipboard = true;
     bool    showCursor     = true;

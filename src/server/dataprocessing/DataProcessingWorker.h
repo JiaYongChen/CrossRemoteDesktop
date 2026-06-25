@@ -49,6 +49,11 @@ public:
      */
     void setProcessingConfig(std::shared_ptr<DataProcessingConfig> config);
 
+    /// 设置 JPEG 编码质量（线程安全，可在任意线程调用）
+    void setJpegQuality(int quality);
+    /// 获取当前 JPEG 编码质量
+    int jpegQuality() const;
+
     /**
      * @brief 获取处理配置
      * @return 数据处理配置
@@ -264,6 +269,7 @@ private:
     // 配置参数
     int m_processingTimeout;                                            ///< 处理超时时间（毫秒）
     int m_statsUpdateInterval;                                          ///< 统计更新间隔（毫秒）
+    std::atomic<int> m_jpegQuality{CoreConstants::Compression::DEFAULT_JPEG_QUALITY};  ///< JPEG 编码质量（线程安全）
 
     // 并行处理
     int m_maxParallelTasks;                                             ///< 最大并行任务数

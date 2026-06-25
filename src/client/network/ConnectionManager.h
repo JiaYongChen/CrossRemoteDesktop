@@ -64,6 +64,11 @@ public:
     /// 预设认证凭证（在 connectToHost 前调用），不触发认证流程
     void setCredentials(const QString& username, const QString& password);
 
+    /// 设置客户端颜色深度（在 connectToHost 前调用，由握手携带）
+    void setColorDepth(int depth);
+    /// 设置 JPEG 图像质量（在 connectToHost 前调用，由握手携带）
+    void setImageQuality(int quality);
+
     // 消息发送接口
     virtual void sendMessage(MessageType type, const IMessageCodec& message);
 
@@ -121,6 +126,10 @@ private:
     // 认证信息
     QString m_username;
     QString m_password;
+
+    // 显示参数（由握手携带到服务端）
+    int m_colorDepth = 32;
+    int m_imageQuality = 85;
 
     // 自动重连相关
     QTimer* m_reconnectTimer;

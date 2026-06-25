@@ -634,7 +634,7 @@ void ServerManager::onNewClientConnection(qintptr socketDescriptor) {
         cert = sw->sslCertificate();
         key = sw->sslPrivateKey();
     }
-    auto worker = std::make_unique<ClientHandlerWorker>(socketDescriptor, m_queueManager, cert, key);
+    auto worker = std::make_unique<ClientHandlerWorker>(socketDescriptor, m_queueManager, m_dataWorker, cert, key);
 
     // 保存Worker裸指针（在move之前）
     m_currentClient = worker.get();

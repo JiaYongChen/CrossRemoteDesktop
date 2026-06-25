@@ -153,6 +153,7 @@ void ClientRemoteWindow::initializeManagers() {
 
 void ClientRemoteWindow::configureWindow() {
     setMinimumSize(400, 225);
+    resize(1600, 900);
     setFocusPolicy(Qt::StrongFocus);
     setMouseTracking(true); // still needed even with event filter
 }

@@ -16,6 +16,7 @@ class InputSimulator;
 class IMessageCodec;
 class QueueManager;
 class AuthHandler;
+class DataProcessingWorker;
 
 /**
  * @brief 客户端处理工作线程类
@@ -36,6 +37,7 @@ public:
      */
     explicit ClientHandlerWorker(qintptr socketDescriptor,
                                 QueueManager* queueMgr,
+                                DataProcessingWorker* dataWorker = nullptr,
                                 const QSslCertificate& certificate = QSslCertificate(),
                                 const QSslKey& privateKey = QSslKey(),
                                 QObject* parent = nullptr);
@@ -315,7 +317,8 @@ private:
     InputSimulator* m_inputSimulator;     ///< 输入模拟器
 
     // 屏幕数据发送相关
-    QueueManager* m_queueManager;         ///< 队列管理器
+    QueueManager* m_queueManager;               ///< 队列管理器
+    DataProcessingWorker* m_dataWorker = nullptr;  ///< 数据处理工作线程（用于传递质量参数）
 
     // Guard flag to prevent event queue accumulation:
     // processTask posts sendScreenDataFromQueue via QueuedConnection on each tick;

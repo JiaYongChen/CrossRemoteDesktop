@@ -673,6 +673,8 @@ void MainWindow::showConnectionDialog() {
         params.fullScreen     = m_connectionDialog->getFullScreen();
         params.windowWidth    = m_connectionDialog->getWindowWidth();
         params.windowHeight   = m_connectionDialog->getWindowHeight();
+        params.colorDepth     = m_connectionDialog->getColorDepth();
+        params.imageQuality   = m_connectionDialog->getImageQuality();
         params.viewOnly       = m_connectionDialog->getViewOnly();
         params.shareClipboard = m_connectionDialog->getShareClipboard();
         params.showCursor     = m_connectionDialog->getShowCursor();

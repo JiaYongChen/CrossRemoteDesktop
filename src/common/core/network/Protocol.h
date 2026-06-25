@@ -118,6 +118,7 @@ struct HandshakeRequest : public IMessageCodec {
     quint16 screenWidth;
     quint16 screenHeight;
     quint8 colorDepth;
+    quint8 imageQuality;  // JPEG 质量 1-100
     QString clientName;
     QString clientOS;
 

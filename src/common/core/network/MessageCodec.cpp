@@ -98,6 +98,7 @@ QByteArray HandshakeRequest::encode() const {
     ds << screenWidth;
     ds << screenHeight;
     ds << colorDepth;
+    ds << imageQuality;
     writePrefixedString(ds, clientName);
     writePrefixedString(ds, clientOS);
     return bytes;
@@ -110,6 +111,7 @@ bool HandshakeRequest::decode(const QByteArray& bytes) {
     ds >> screenWidth;
     ds >> screenHeight;
     ds >> colorDepth;
+    ds >> imageQuality;
     clientName = readPrefixedString(ds, MAX_HOSTNAME_LENGTH);
     clientOS = readPrefixedString(ds, MAX_HOSTNAME_LENGTH);
     return ds.status() == QDataStream::Ok;
