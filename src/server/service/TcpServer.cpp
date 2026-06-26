@@ -33,7 +33,7 @@ bool TcpServer::startServer(quint16 port, const QHostAddress& address) {
     qCInfo(lcServer) << "TcpServer::startServer() called with port:" << port << "address:" << address.toString();
 
     if ( m_isRunning ) {
-        qCWarning(lcServer) << "Server already running, returning false";
+        qCDebug(lcServer) << "Server already running, returning false";
         return false;
     }
 
@@ -44,7 +44,7 @@ bool TcpServer::startServer(quint16 port, const QHostAddress& address) {
             emit errorOccurred(RdError(ErrorCode::NetworkTlsError, "Failed to generate TLS certificate", "TcpServer"));
             return false;
         }
-        qCInfo(lcServer) << "TLS self-signed certificate generated successfully";
+        qCDebug(lcServer) << "TLS self-signed certificate generated successfully";
     }
 
     m_serverAddress = address;

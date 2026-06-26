@@ -41,7 +41,7 @@ bool ServerWorker::initialize() {
     // 设置服务器连接
     setupServerConnections();
 
-    qCDebug(lcServer) << "服务器工作线程初始化完成";
+    qCInfo(lcServer) << "服务器工作线程初始化完成";
     return true;
 }
 
@@ -63,7 +63,7 @@ void ServerWorker::cleanup() {
         m_tcpServer = nullptr;
     }
 
-    qCDebug(lcServer) << "服务器工作线程资源清理完成";
+    qCInfo(lcServer) << "服务器工作线程资源清理完成";
 }
 
 void ServerWorker::processTask() {
@@ -93,7 +93,7 @@ bool ServerWorker::startServer(quint16 port) {
     // 直接在当前线程中执行，避免死锁
     bool result = false;
     if ( !m_tcpServer ) {
-        qCDebug(lcServer) << "TCP服务器未初始化";
+        qCWarning(lcServer) << "TCP服务器未初始化";
         return false;
     }
 
@@ -104,10 +104,10 @@ bool ServerWorker::startServer(quint16 port) {
 
         emit serverStarted(m_currentPort);
 
-        qCDebug(lcServer) << "服务器启动成功，端口:" << m_currentPort;
+        qCInfo(lcServer) << "服务器启动成功，端口:" << m_currentPort;
     } else {
         emit serverError(RdError(ErrorCode::ServerStartFailed, tr("服务器启动失败"), "ServerWorker"));
-        qCDebug(lcServer) << "服务器启动失败";
+        qCWarning(lcServer) << "服务器启动失败";
     }
 
     return result;
@@ -132,7 +132,7 @@ void ServerWorker::stopServer(bool synchronous) {
     m_currentPort = 0;
 
     emit serverStopped();
-    qCDebug(lcServer) << "服务器停止完成";
+    qCInfo(lcServer) << "服务器停止完成";
 }
 
 bool ServerWorker::isServerRunning() const {
@@ -184,14 +184,14 @@ void ServerWorker::disconnectServerSignals() {
 // ============================================================================
 
 void ServerWorker::onNewConnection(qintptr socketDescriptor) {
-    qCDebug(lcServer) << "新客户端连接:" << socketDescriptor;
+    qCInfo(lcServer) << "新客户端连接，描述符:" << socketDescriptor;
 
     // 转发socketDescriptor到ServerManager
     emit newClientConnection(socketDescriptor);
 }
 
 void ServerWorker::onServerStopped() {
-    qCDebug(lcServer) << "TCP服务器已停止";
+    qCInfo(lcServer) << "TCP服务器已停止";
 
     QMutexLocker locker(&m_serverMutex);
     m_isServerRunning = false;
@@ -201,7 +201,7 @@ void ServerWorker::onServerStopped() {
 }
 
 void ServerWorker::onServerError(const RdError& error) {
-    qCDebug(lcServer) << "TCP服务器错误:" << error.logLabel();
+    qCWarning(lcServer) << "TCP服务器错误:" << error.logLabel();
     emit serverError(RdError(ErrorCode::ServerBindFailed, error.logLabel(), "ServerWorker"));
 }
 

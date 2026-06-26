@@ -68,7 +68,7 @@ ClientHandlerWorker::~ClientHandlerWorker() {
 }
 
 bool ClientHandlerWorker::initialize() {
-    qCInfo(lcServerClientHandler) << "初始化 ClientHandlerWorker";
+    qCDebug(lcServerClientHandler) << "初始化 ClientHandlerWorker";
 
     // 在Worker线程中创建SSL socket
     m_socket = new QSslSocket(this);
@@ -177,7 +177,7 @@ bool ClientHandlerWorker::initialize() {
 }
 
 void ClientHandlerWorker::cleanup() {
-    qCInfo(lcServerClientHandler) << "清理 ClientHandlerWorker 资源";
+    qCDebug(lcServerClientHandler) << "清理 ClientHandlerWorker 资源";
 
     // 在工作线程中停止并显式删除定时器子对象。
     // 根本原因修复：这些子 QObject 是在工作线程的 initialize() 中以 this 为 parent 创建的，
@@ -413,9 +413,9 @@ void ClientHandlerWorker::sendMessage(MessageType type, const IMessageCodec& mes
         }
 
     } catch ( const std::exception& e ) {
-        qCWarning(lcServerClientHandler) << "发送消息时发生异常:" << e.what();
+        qCCritical(lcServerClientHandler) << "发送消息时发生异常:" << e.what();
     } catch ( ... ) {
-        qCWarning(lcServerClientHandler) << "发送消息时发生未知异常";
+        qCCritical(lcServerClientHandler) << "发送消息时发生未知异常";
     }
 }
 
@@ -456,9 +456,9 @@ void ClientHandlerWorker::sendEncodedMessage(const QByteArray& messageData) {
         // qCDebug(lcServerClientHandler) << "数据大小:" << totalSize << "bytes" << "发送数据大小:" << bytesWritten << "bytes";
 
     } catch ( const std::exception& e ) {
-        qCWarning(lcServerClientHandler) << "发送消息时发生异常:" << e.what();
+        qCCritical(lcServerClientHandler) << "发送消息时发生异常:" << e.what();
     } catch ( ... ) {
-        qCWarning(lcServerClientHandler) << "发送消息时发生未知异常";
+        qCCritical(lcServerClientHandler) << "发送消息时发生未知异常";
     }
 }
 
@@ -498,7 +498,7 @@ void ClientHandlerWorker::forceDisconnect() {
             qCWarning(lcServerClientHandler) << "Socket为空,直接发送disconnected信号";
             emit disconnected();
         } else {
-            qCWarning(lcServerClientHandler) << "Socket为空且disconnected信号已发送";
+            qCDebug(lcServerClientHandler) << "Socket为空且disconnected信号已发送";
         }
     }
 }
@@ -552,7 +552,7 @@ void ClientHandlerWorker::onReadyRead() {
             }, Qt::QueuedConnection);
         } else if ( result == 0 ) {
             // 消息无效，清空缓冲区
-            qCCritical(lcClient) << "接收到无效消息，清空缓冲区";
+            qCWarning(lcServerClientHandler) << "接收到无效消息，清空缓冲区";
             m_receiveBuffer.clear();
         } else {
             // 数据不完整，等待更多数据
@@ -584,19 +584,11 @@ void ClientHandlerWorker::onDisconnected() {
     // 注意:不要在这里调用 stop(),因为会导致信号还未处理完Worker就停止了
     // 使用成员变量确保只发送一次
     if ( !m_disconnectSignalSent.exchange(true) ) {
-        qCCritical(lcServerClientHandler) << "!!!!! 准备发送 disconnected 信号给 ClientHandler !!!!!";
-        qCCritical(lcServerClientHandler) << "Worker对象地址(this):" << this;
-        qCCritical(lcServerClientHandler) << "signal发送线程:" << QThread::currentThread();
-        qCCritical(lcServerClientHandler) << "Worker线程:" << thread();
+        qCDebug(lcServerClientHandler) << "发送 disconnected 信号, Worker:" << this
+                                       << "发送线程:" << QThread::currentThread()
+                                       << "Worker线程:" << thread();
         emit disconnected();
-        qCCritical(lcServerClientHandler) << "!!!!! disconnected 信号已发出 !!!!!";
-
-        // !!!!! 终极诊断:强制处理事件队列,看看信号是否在事件队列中 !!!!!
-        qCCritical(lcServerClientHandler) << "!!!!! 强制处理事件队列 !!!!!";
-        QCoreApplication::processEvents();
-        QThread::msleep(10); // 给接收线程时间处理
-        QCoreApplication::processEvents();
-        qCCritical(lcServerClientHandler) << "!!!!! 事件队列处理完成 !!!!!";
+        qCDebug(lcServerClientHandler) << "disconnected 信号已发出";
     } else {
         qCDebug(lcServerClientHandler) << "disconnected 信号已发送过,跳过重复发送";
     }
@@ -640,7 +632,7 @@ void ClientHandlerWorker::onError(QAbstractSocket::SocketError error) {
             break;
     }
 
-    qCInfo(lcServerClientHandler) << "错误分类:" << errorCategory
+    qCDebug(lcServerClientHandler) << "错误分类:" << errorCategory
         << ", 是否强制断开:" << (shouldForceDisconnect ? "是" : "否");
 
     // 客户端主动断开（RemoteHostClosedError）是正常关闭流程，不视为服务端错误。
@@ -763,7 +755,7 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
     int delayMs = std::min(
         AUTH_BASE_DELAY_MS * (1 << (failCount - 1)),
         AUTH_MAX_DELAY_MS);
-    qCInfo(lcServerClientHandler) << "认证速率限制: 延迟" << delayMs << "ms 后发送响应";
+    qCDebug(lcServerClientHandler) << "认证速率限制: 延迟" << delayMs << "ms 后发送响应";
     QTimer::singleShot(delayMs, this, [this]() {
         sendAuthenticationResponse(AuthResult::INVALID_PASSWORD);
     });

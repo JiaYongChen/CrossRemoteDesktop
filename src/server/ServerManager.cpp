@@ -93,13 +93,13 @@ bool ServerManager::startServer(quint16 port, const QString& password) {
         QMutexLocker workerLock(&m_workerMutex);
 
         if ( !m_threadManager->createThread("ServerWorker", std::make_unique<ServerWorker>()) ) {
-            qCDebug(lcServerManager) << "Failed to create ServerWorker thread";
+            qCWarning(lcServerManager) << "Failed to create ServerWorker thread";
             return false;
         }
 
         // 启动线程
         if ( !m_threadManager->startThread("ServerWorker") ) {
-            qCDebug(lcServerManager) << "Failed to start ServerWorker thread";
+            qCWarning(lcServerManager) << "Failed to start ServerWorker thread";
             (void)m_threadManager->destroyThread("ServerWorker");
             return false;
         }
@@ -267,7 +267,7 @@ void ServerManager::onWorkerServerStarted(quint16 port) {
         m_isServerRunning = true;
         m_currentPort = port;
     }
-    qCDebug(lcServerManager) << "onWorkerServerStarted(): server started on port" << port;
+    qCInfo(lcServerManager) << "Server started on port" << port;
     emit serverStarted(port);
 }
 
@@ -278,13 +278,12 @@ void ServerManager::onWorkerServerStopped() {
         m_currentPort = 0;
         m_captureStarted = false;
     }
-    qCDebug(lcServerManager) << "ServerManager::onWorkerServerStopped() - Server stopped";
     qCInfo(lcServerManager) << "ServerManager::onWorkerServerStopped() - Server stopped";
     emit serverStopped();
 }
 
 void ServerManager::onWorkerServerError(const RdError& error) {
-    qCDebug(lcServerManager) << "onWorkerServerError():" << error.logLabel();
+    qCWarning(lcServerManager) << "Server error:" << error.logLabel();
     {
         QMutexLocker stateLock(&m_stateMutex);
         m_isServerRunning = false;
@@ -319,7 +318,7 @@ void ServerManager::disconnectWorkerSignals() {
 void ServerManager::connectToServerWorker() {
     ServerWorker* worker = getServerWorker();
     if ( !worker ) {
-        qCDebug(lcServerManager) << "ServerManager::connectToServerWorker() - Failed to get ServerWorker instance";
+        qCWarning(lcServerManager) << "ServerManager::connectToServerWorker() - Failed to get ServerWorker instance";
         return;
     }
     qCDebug(lcServerManager) << "ServerManager::connectToServerWorker() - Connecting signals to ServerWorker";
@@ -614,7 +613,7 @@ void ServerManager::startWorkerThreads() {
 }
 
 void ServerManager::onNewClientConnection(qintptr socketDescriptor) {
-    qCDebug(lcServerManager) << "ServerManager::onNewClientConnection() - New client connection:" << socketDescriptor;
+    qCInfo(lcServerManager) << "New client connection, descriptor:" << socketDescriptor;
 
     QMutexLocker locker(&m_clientMutex);
 
@@ -678,7 +677,7 @@ void ServerManager::onClientHandlerDisconnected() {
         clientAddress = m_currentClient->clientAddress();
     }
 
-    qCDebug(lcServerManager) << "ServerManager::onClientHandlerDisconnected() - Client disconnected:" << clientAddress;
+    qCInfo(lcServerManager) << "Client disconnected:" << clientAddress;
 
     // 清理客户端
     cleanupDisconnectedClient();
@@ -693,7 +692,7 @@ void ServerManager::onClientHandlerAuthenticated() {
     if ( !m_currentClient ) return;
 
     QString clientAddress = m_currentClient->clientAddress();
-    qCDebug(lcServerManager) << "ServerManager::onClientHandlerAuthenticated() - Client authenticated:" << clientAddress;
+    qCInfo(lcServerManager) << "Client authenticated:" << clientAddress;
 
     // 检查是否已启动工作线程
     bool alreadyStarted = false;
