@@ -35,10 +35,9 @@ void CursorManager::setCursorEnabled(bool enabled) {
 }
 
 QPoint CursorManager::drawPos() const {
-    int x = m_localX, y = m_localY;
-    // 本地位置未更新时回退到服务端绝对坐标（映射到视口）
-    if (m_localX == 0 && m_localY == 0 && m_remoteX > 0
-        && m_remoteScreenSize.isValid() && m_viewportSize.isValid()) {
+    // 始终使用服务端 DXGI 提取的权威光标位置，映射到客户端视口
+    int x = 0, y = 0;
+    if (m_remoteScreenSize.isValid() && m_viewportSize.isValid()) {
         x = m_remoteX * m_viewportSize.width()  / m_remoteScreenSize.width();
         y = m_remoteY * m_viewportSize.height() / m_remoteScreenSize.height();
     }
