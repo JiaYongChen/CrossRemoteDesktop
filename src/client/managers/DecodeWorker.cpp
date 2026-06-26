@@ -197,7 +197,7 @@ bool DecodeWorker::processOneFrame() {
     s_glUploadMaxUs = std::max(s_glUploadMaxUs, glUploadUs);
 
     if (++s_diagFrameCount >= 30) {
-        qCInfo(lcClientSessionDecode)
+        qCDebug(lcClientSessionDecode)
             << "[DecodeWorker 诊断] 近30帧耗时 (avg/max):"
             << "队列等待:" << (s_queueWaitAccumUs / 30 / 1000.0) << "/"
             << (s_queueWaitMaxUs / 1000.0) << "ms"
@@ -236,7 +236,7 @@ bool DecodeWorker::initializeGL(QOpenGLContext* shareContext) {
     // GpuDecodeTarget 的 ensureWorkerContext() 会在首次调用的线程上创建上下文，
     // 此处主动触发避免 Main 线程的 paintGL 回退路径抢先创建
     if (!m_decodeTarget->ensureWorkerContext()) {
-        qCWarning(lcClient) << "DecodeWorker::initializeGL() — failed to create worker GL context";
+        qCCritical(lcClient) << "DecodeWorker::initializeGL() — failed to create worker GL context";
         return false;
     }
 
@@ -245,7 +245,7 @@ bool DecodeWorker::initializeGL(QOpenGLContext* shareContext) {
 
     // 激活上下文——后续所有 GL 操作依赖此调用
     if (!m_glContext->makeCurrent(m_glSurface)) {
-        qCWarning(lcClient) << "DecodeWorker::initializeGL() — failed to make GL context current";
+        qCCritical(lcClient) << "DecodeWorker::initializeGL() — failed to make GL context current";
         m_glUploadReady = false;
         return false;
     }

@@ -8,7 +8,7 @@
 TurboJpegDecoder::TurboJpegDecoder() {
     m_handle = tjInitDecompress();
     if (!m_handle) {
-        qCWarning(lcClient) << "TurboJpegDecoder: tjInitDecompress failed";
+        qCCritical(lcClient) << "TurboJpegDecoder: tjInitDecompress failed";
     }
 }
 

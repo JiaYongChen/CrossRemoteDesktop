@@ -21,7 +21,7 @@ DecodePipeline::~DecodePipeline() {
 
 void DecodePipeline::start() {
     if (m_running) {
-        qCWarning(lcClientSessionDecode) << "DecodePipeline::start() — already running for" << m_connectionId;
+        qCDebug(lcClientSessionDecode) << "DecodePipeline::start() — already running for" << m_connectionId;
         return;
     }
 

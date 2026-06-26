@@ -73,7 +73,7 @@ bool GpuDecodeTarget::ensureWorkerContext() {
     m_workerContext->setShareContext(m_shareContext);
     m_workerContext->setFormat(m_shareContext->format());
     if (!m_workerContext->create()) {
-        qCWarning(lcClientGL) << "GpuDecodeTarget: 创建工作线程 GL 上下文失败";
+        qCCritical(lcClientGL) << "GpuDecodeTarget: 创建工作线程 GL 上下文失败";
         delete m_workerContext;
         m_workerContext = nullptr;
         return false;
@@ -81,7 +81,7 @@ bool GpuDecodeTarget::ensureWorkerContext() {
 
     // m_offSurface 已在构造中预创建（GUI 线程），此处仅需绑定上下文
     if (!m_offSurface) {
-        qCWarning(lcClientGL) << "GpuDecodeTarget: QOffscreenSurface 未预创建";
+        qCCritical(lcClientGL) << "GpuDecodeTarget: QOffscreenSurface 未预创建";
         delete m_workerContext;
         m_workerContext = nullptr;
         return false;
@@ -306,7 +306,7 @@ bool GpuDecodeTarget::ensurePboSize(int width, int height) {
         for (int i = 0; i < kPboCount; ++i) {
             if (!m_pbo[i].isCreated()) {
                 if (!m_pbo[i].create()) {
-                    qCWarning(lcClientGL) << "GpuDecodeTarget: PBO" << i << "创建失败";
+                    qCCritical(lcClientGL) << "GpuDecodeTarget: PBO" << i << "创建失败";
                     return false;
                 }
                 m_pbo[i].setUsagePattern(QOpenGLBuffer::StreamDraw);
@@ -357,7 +357,7 @@ void GpuDecodeTarget::createPersistentPBOs(int size) {
         m_persistentPtr[i] = f->glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, size, mapFlags);
 
         if (!m_persistentPtr[i]) {
-            qCWarning(lcClientGL) << "GpuDecodeTarget: 持久 PBO 映射失败，槽位" << i;
+            qCCritical(lcClientGL) << "GpuDecodeTarget: 持久 PBO 映射失败，槽位" << i;
             destroyPersistentPBOs();
             m_usePersistent = false;
             return;

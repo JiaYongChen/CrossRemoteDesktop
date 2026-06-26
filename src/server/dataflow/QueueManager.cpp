@@ -25,7 +25,7 @@ bool QueueManager::initialize(int captureQueueSize, int processedQueueSize) {
         << "处理队列大小:" << processedQueueSize;
 
     if ( m_initialized ) {
-        qCWarning(lcServerQueue) << "队列管理器已经初始化";
+        qCDebug(lcServerQueue) << "队列管理器已经初始化";
         return true;
     }
 
@@ -60,7 +60,7 @@ bool QueueManager::initialize(int captureQueueSize, int processedQueueSize) {
         }
 
         m_initialized = true;
-        qCDebug(lcServerQueue) << "队列管理器初始化成功";
+        qCInfo(lcServerQueue) << "队列管理器初始化成功";
         return true;
 
     } catch ( const std::exception& e ) {
@@ -88,7 +88,7 @@ void QueueManager::cleanup() {
     m_processedQueue.reset();
 
     m_initialized = false;
-    qCDebug(lcServerQueue) << "队列管理器清理完成";
+    qCInfo(lcServerQueue) << "队列管理器清理完成";
 }
 
 QueueStats QueueManager::getQueueStats(QueueType type) const {

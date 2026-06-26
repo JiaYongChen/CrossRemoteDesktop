@@ -140,7 +140,7 @@ void GLTextureViewport::initializeGL() {
     // 创建 GpuDecodeTarget
     m_decodeTarget = new GpuDecodeTarget(context());
     if (!m_decodeTarget->initialize()) {
-        qCWarning(lcClientGL) << "Failed to initialize GpuDecodeTarget";
+        qCCritical(lcClientGL) << "Failed to initialize GpuDecodeTarget";
         delete m_decodeTarget;
         m_decodeTarget = nullptr;
     }
@@ -281,7 +281,7 @@ void GLTextureViewport::setRemoteScreen(const QImage& image) {
     }
 
     if (!m_glInitialized) {
-        qCWarning(lcClientGL) << "GL not initialized, skipping setRemoteScreen";
+        qCDebug(lcClientGL) << "GL not initialized, skipping setRemoteScreen";
         return;
     }
 
@@ -488,7 +488,7 @@ void GLTextureViewport::paintGL() {
 
     if ( texId == 0 || !m_shaderProgram || m_renderRect.isEmpty() ) {
         if ( s_renderCount <= 3 )
-            qCWarning(lcClientGL) << "paintGL render skip - texId:" << texId
+            qCDebug(lcClientGL) << "paintGL render skip - texId:" << texId
                 << "shader:" << (m_shaderProgram != nullptr)
                 << "rect:" << m_renderRect;
         CheckForNewFrameAfterPaint(m_consumedSlot);

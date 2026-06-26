@@ -28,7 +28,7 @@ DataProcessingWorker::DataProcessingWorker(QObject* parent)
     , m_maxParallelTasks(QThread::idealThreadCount())
     , m_activeParallelTasks(0) {
     qCDebug(lcServerEncode) << "DataProcessingWorker 构造函数";
-    qCInfo(lcServerEncode) << "并行处理线程数:" << m_maxParallelTasks;
+    qCDebug(lcServerEncode) << "并行处理线程数:" << m_maxParallelTasks;
 }
 
 DataProcessingWorker::~DataProcessingWorker() {
@@ -136,7 +136,7 @@ bool DataProcessingWorker::initialize() {
 }
 
 void DataProcessingWorker::stop(bool waitForFinish) {
-    qCDebug(lcServerEncode) << "停止DataProcessingWorker";
+    qCInfo(lcServerEncode) << "停止DataProcessingWorker";
 
     // 调用父类的stop方法
     Worker::stop(waitForFinish);
@@ -167,7 +167,7 @@ void DataProcessingWorker::cleanup() {
     m_queueManager = nullptr;
 
     Worker::cleanup();
-    qCDebug(lcServerEncode) << "DataProcessingWorker清理完成";
+    qCInfo(lcServerEncode) << "DataProcessingWorker清理完成";
 }
 
 void DataProcessingWorker::processTask() {
@@ -585,7 +585,7 @@ void DataProcessingWorker::stopProcessingAndClearQueues() {
 }
 
 void DataProcessingWorker::resumeProcessing() {
-    qCDebug(lcServerEncode) << "恢复数据处理";
+    qCInfo(lcServerEncode) << "恢复数据处理";
 
     // 确保工作线程正在运行
     if ( !isRunning() ) {
