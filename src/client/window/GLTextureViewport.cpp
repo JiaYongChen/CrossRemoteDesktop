@@ -554,9 +554,17 @@ void GLTextureViewport::paintGL() {
     CheckForNewFrameAfterPaint(m_consumedSlot);
 
     // 光标叠加 — OSD 层（在 GL 帧渲染之后、swapBuffers 之前）
-    if (m_cursorManager && m_cursorManager->hasCursor()) {
-        QPainter painter(this);
-        m_cursorManager->paintCursor(painter);
+    {
+        static int s_cursorCheck = 0;
+        bool hasCursor = m_cursorManager && m_cursorManager->hasCursor();
+        if (++s_cursorCheck <= 5 || s_cursorCheck % 60 == 0)
+            qCDebug(lcClientGL) << "paintGL cursor check #" << s_cursorCheck
+                << "mgr:" << (m_cursorManager != nullptr)
+                << "hasCursor:" << hasCursor;
+        if (hasCursor) {
+            QPainter painter(this);
+            m_cursorManager->paintCursor(painter);
+        }
     }
 }
 
