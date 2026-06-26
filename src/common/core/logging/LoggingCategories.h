@@ -117,3 +117,38 @@ Q_DECLARE_LOGGING_CATEGORY(lcThreading)
 /// 测试主模块日志
 Q_DECLARE_LOGGING_CATEGORY(lcTest)
 
+// ============================================================================
+// 新分类体系 — 六棵一级树（迁移过渡期，与旧声明共存）
+// ============================================================================
+
+// --- 核心模块 core.* ---
+Q_DECLARE_LOGGING_CATEGORY(lcCoreProtocol)
+Q_DECLARE_LOGGING_CATEGORY(lcCoreThreading)
+Q_DECLARE_LOGGING_CATEGORY(lcCoreConfig)
+
+// --- 服务端 server.* ---
+Q_DECLARE_LOGGING_CATEGORY(lcServerNetwork)
+Q_DECLARE_LOGGING_CATEGORY(lcServerCapture)
+Q_DECLARE_LOGGING_CATEGORY(lcServerCaptureDxgi)
+Q_DECLARE_LOGGING_CATEGORY(lcServerEncode)
+Q_DECLARE_LOGGING_CATEGORY(lcServerQueue)
+Q_DECLARE_LOGGING_CATEGORY(lcServerClientHandler)
+Q_DECLARE_LOGGING_CATEGORY(lcServerInput)
+
+// --- 客户端 client.* ---
+Q_DECLARE_LOGGING_CATEGORY(lcClientSession)
+Q_DECLARE_LOGGING_CATEGORY(lcClientSessionDecode)
+Q_DECLARE_LOGGING_CATEGORY(lcClientSessionProtocol)
+Q_DECLARE_LOGGING_CATEGORY(lcClientGL)
+
+// --- UI ui.* ---
+Q_DECLARE_LOGGING_CATEGORY(lcUIMainWindow)
+Q_DECLARE_LOGGING_CATEGORY(lcUIConnectionDialog)
+Q_DECLARE_LOGGING_CATEGORY(lcUISettingsDialog)
+
+// --- 测试 test.* ---
+Q_DECLARE_LOGGING_CATEGORY(lcTestScreenCapture)
+Q_DECLARE_LOGGING_CATEGORY(lcTestScreenCaptureIntegration)
+Q_DECLARE_LOGGING_CATEGORY(lcTestClientHandler)
+Q_DECLARE_LOGGING_CATEGORY(lcTestProducerConsumer)
+
