@@ -196,6 +196,22 @@ qCWarning(lcServer) << error.logLabel();      // 推荐
 
 所有日志分类在 `src/common/core/logging/LoggingCategories.h` 中声明，在对应 `.cpp` 中定义。禁止在其他文件中定义 `Q_LOGGING_CATEGORY` 或 `Q_DECLARE_LOGGING_CATEGORY`。新增分类时必须添加到 `LoggingCategories.h/.cpp`。
 
+### 日志级别语义规范
+
+| 级别 | 受众 | 语义 | 示例 |
+|------|------|------|------|
+| `qCDebug` | 开发者 | 开发期追踪，正常运行时无意义 | 构造/析构、状态跃迁、算法中间值 |
+| `qCInfo` | 运维/用户 | 可观测的运行时事件 | 服务启动/停止、客户端连接/断开、初始化成功 |
+| `qCWarning` | 运维/开发者 | 可恢复异常，系统已自行处理 | 重试成功、降级方案、资源临时不足 |
+| `qCCritical` | 所有人 | 不可恢复错误，功能受损 | 异常崩溃、关键线程失败、数据损坏 |
+
+**判定规则：**
+1. "如果这条日志没开，你会后悔吗？" — 后悔 → qCInfo；不 → qCDebug
+2. "这条日志出现在正常生产环境合理吗？" — 合理 → qCInfo；不合理 → qCDebug
+3. "系统自己修好了吗？" — 修好了 → qCWarning；没修好 → qCCritical
+
+**默认过滤建议：** 运行时设置 `*.debug=false` 即可获得有意义的运维视图。
+
 ## 编译器设置
 
 - **警告视为错误**，全局启用：`-Werror`（GCC/Clang）、`/WX`（MSVC）
