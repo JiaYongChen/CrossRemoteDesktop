@@ -91,7 +91,7 @@ void ProtocolSession::onMessageReceived(MessageType type, const QByteArray& data
                 handleScreenData(data);
             }
             break;
-        case MessageType::CURSOR_POSITION:
+        case MessageType::CURSOR_SHAPE:
             handleCursorPosition(data);
             break;
         case MessageType::CLIPBOARD_DATA:
