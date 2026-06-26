@@ -153,6 +153,9 @@ private:
     int     m_outputIndex = 0;
     QSize   m_desktopSize;
     QString m_lastError;
+
+    // 缓存上次成功提取的光标形状（形状不变时复用，仅更新位置）
+    CursorMessage m_cachedCursor;
 };
 
 #endif // _WIN32

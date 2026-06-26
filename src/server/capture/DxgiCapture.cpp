@@ -370,11 +370,22 @@ CursorMessage DxgiCapture::extractCursorShape(const DXGI_OUTDUPL_FRAME_INFO& fra
     static int s_extractCount = 0;
     ++s_extractCount;
 
-    // 仅当有新光标数据时才调用 GetFramePointerShape
+    // LastMouseUpdateTime==0 表示此帧无新光标数据。
+    // 不能用此条件跳过——光标可能只有位置变化无形状变化。
+    // 回退到缓存形状 + 当前鼠标位置。
     if (frameInfo.LastMouseUpdateTime.QuadPart == 0) {
-        if (s_extractCount <= 1)
+        if (s_extractCount <= 3)
             qCDebug(lcServerCaptureDxgi) << "extractCursorShape #" << s_extractCount
-                << ": no new pointer data (LastMouseUpdateTime=0)";
+                << ": no new pointer data, fallback to cached shape";
+        if (m_cachedCursor.width > 0) {
+            POINT cursorPos{};
+            if (GetCursorPos(&cursorPos)) {
+                msg = m_cachedCursor;
+                msg.posX = cursorPos.x;
+                msg.posY = cursorPos.y;
+                return msg;
+            }
+        }
         return msg;
     }
 
@@ -395,9 +406,21 @@ CursorMessage DxgiCapture::extractCursorShape(const DXGI_OUTDUPL_FRAME_INFO& fra
     }
 
     if (FAILED(hr)) {
+        // GetFramePointerShape 仅在光标形状变化时返回数据。
+        // 失败时回退到缓存形状 + 当前鼠标位置（形状不变仅移动也需发送）。
         if (s_extractCount <= 3)
             qCDebug(lcServerCaptureDxgi) << "extractCursorShape #" << s_extractCount
-                << ": GetFramePointerShape FAILED hr=0x" << Qt::hex << (unsigned long)hr;
+                << ": GetFramePointerShape FAILED hr=0x" << Qt::hex << (unsigned long)hr
+                << "— fallback to cached shape";
+        if (m_cachedCursor.width > 0) {
+            POINT cursorPos{};
+            if (GetCursorPos(&cursorPos)) {
+                msg = m_cachedCursor;
+                msg.posX = cursorPos.x;
+                msg.posY = cursorPos.y;
+                return msg;
+            }
+        }
         return msg;
     }
     if (shapeInfo.Width == 0 || shapeInfo.Height == 0) {
@@ -470,7 +493,10 @@ CursorMessage DxgiCapture::extractCursorShape(const DXGI_OUTDUPL_FRAME_INFO& fra
         break;
     }
 
-    // 无条件发送：每次有效光标提取都推送到客户端（去重由客户端视口侧处理）
+    // 缓存形状（GetFramePointerShape 仅形状变化时成功，后续帧用缓存+新位置）
+    m_cachedCursor = msg;
+
+    // 无条件发送：每次有效光标提取都推送到客户端
     static int s_cursorDiag = 0;
     ++s_cursorDiag;
     if (s_cursorDiag <= 3)
