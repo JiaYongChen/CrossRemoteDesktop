@@ -12,6 +12,7 @@ void CursorManager::updateCursor(const CursorMessage& msg) {
         << "pos:" << msg.posX << "," << msg.posY;
     if (msg.width == 0 || msg.height == 0) {
         m_hasCursor = false;
+        emit cursorChanged();
         return;
     }
     m_hotX    = msg.hotX;
@@ -23,6 +24,7 @@ void CursorManager::updateCursor(const CursorMessage& msg) {
     m_remoteY = msg.posY;
     m_hasCursor = true;
     m_dirty   = true;
+    emit cursorChanged();
 }
 
 void CursorManager::setCursorPosition(int x, int y) {

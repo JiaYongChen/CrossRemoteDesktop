@@ -13,6 +13,10 @@ public:
     explicit CursorManager(QObject* parent = nullptr);
     ~CursorManager() override;
 
+signals:
+    /// 光标状态变更（位置/形状），触发 GL 视口立即重绘
+    void cursorChanged();
+
 public slots:
     void updateCursor(const CursorMessage& msg);
     void setCursorPosition(int x, int y);

@@ -186,6 +186,14 @@ void RemoteDesktopSession::wireSignals() {
                 cursorMgr, &CursorManager::updateCursor);
         connect(m_protocolSession, &ProtocolSession::remoteScreenSizeChanged,
                 cursorMgr, &CursorManager::setRemoteScreenSize);
+        // 每次光标更新触发 GL 视口立即重绘，不再等待帧渲染周期
+    #ifndef QT_NO_OPENGL
+        GLTextureViewport* glv = m_window->glViewport();
+        if (glv) {
+            connect(cursorMgr, &CursorManager::cursorChanged,
+                    glv, qOverload<>(&QWidget::update));
+        }
+    #endif
     }
 
     // ── 剪贴板 ──
