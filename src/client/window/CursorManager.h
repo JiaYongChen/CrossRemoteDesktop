@@ -18,6 +18,9 @@ public slots:
     void setCursorEnabled(bool enabled);
 
 public:
+    void setRemoteScreenSize(const QSize& sz) { m_remoteScreenSize = sz; }
+    void setViewportSize(const QSize& sz)     { m_viewportSize = sz; }
+
     bool hasCursor() const { return m_hasCursor && m_enabled; }
     bool isDirty()    const { return m_dirty; }
     void clearDirty()       { m_dirty = false; }
@@ -27,7 +30,7 @@ public:
     int  height() const { return m_height; }
     int  hotX()   const { return m_hotX; }
     int  hotY()   const { return m_hotY; }
-    QPoint drawPos() const { return QPoint(m_lastX - m_hotX, m_lastY - m_hotY); }
+    QPoint drawPos() const;
 
 private:
     bool    m_enabled    = true;
@@ -35,6 +38,9 @@ private:
     bool    m_dirty       = false;
     int     m_hotX       = 0, m_hotY       = 0;
     int     m_width      = 0, m_height     = 0;
-    int     m_lastX      = 0, m_lastY      = 0;
+    int     m_localX     = -1, m_localY    = -1;  // InputForwarder 本地坐标
+    int     m_remoteX    = -1, m_remoteY   = -1;  // 服务端绝对坐标
+    QSize   m_remoteScreenSize;   // 服务端桌面尺寸
+    QSize   m_viewportSize;       // 客户端视口 widget 尺寸
     QByteArray m_pixels;
 };

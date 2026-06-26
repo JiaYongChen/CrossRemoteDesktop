@@ -221,6 +221,8 @@ struct ScreenData : public IMessageCodec {
 };
 
 struct CursorMessage : public IMessageCodec {
+    qint32 posX     = 0;    // 服务端屏幕绝对坐标（客户端需映射到视口）
+    qint32 posY     = 0;
     qint32 hotX     = 0;
     qint32 hotY     = 0;
     qint32 width    = 0;    // 0×0 = OS 隐藏光标 / 无变化
@@ -228,8 +230,8 @@ struct CursorMessage : public IMessageCodec {
     QByteArray pixels;      // RGBA 原始像素，size = width*height*4
 
     CursorMessage() = default;
-    CursorMessage(qint32 hx, qint32 hy, qint32 w, qint32 h, const QByteArray& p)
-        : hotX(hx), hotY(hy), width(w), height(h), pixels(p) {}
+    CursorMessage(qint32 px, qint32 py, qint32 hx, qint32 hy, qint32 w, qint32 h, const QByteArray& p)
+        : posX(px), posY(py), hotX(hx), hotY(hy), width(w), height(h), pixels(p) {}
 
     QByteArray encode() const override;
     bool decode(const QByteArray& data) override;

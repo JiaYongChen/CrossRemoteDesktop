@@ -41,6 +41,7 @@ public:
     QString currentHost() const;
     int currentPort() const;
     bool isConnected() const;
+    QSize remoteScreenSize() const { return m_remoteScreenSize; }
 
     // ── 输入事件序列化（跨线程 slots，从 InputForwarder 调用）──
 public slots:

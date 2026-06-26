@@ -108,6 +108,10 @@ void RemoteDesktopSession::createWindow() {
     // ── CursorManager 注入到 InputForwarder 和 GLTextureViewport ──
     CursorManager* cursorMgr = m_window->cursorManager();
     if (cursorMgr) {
+        // 设置坐标映射所需的服务端屏幕尺寸
+        if (m_protocolSession) {
+            cursorMgr->setRemoteScreenSize(m_protocolSession->remoteScreenSize());
+        }
         if (inputForwarder) {
             inputForwarder->setCursorManager(cursorMgr);
         }

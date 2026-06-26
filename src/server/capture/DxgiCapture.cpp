@@ -407,6 +407,13 @@ CursorMessage DxgiCapture::extractCursorShape(const DXGI_OUTDUPL_FRAME_INFO& fra
         return msg;
     }
 
+    // 获取服务端光标屏幕坐标
+    POINT cursorPos{};
+    if (GetCursorPos(&cursorPos)) {
+        msg.posX = cursorPos.x;
+        msg.posY = cursorPos.y;
+    }
+
     // 转换 → RGBA
     msg.width  = shapeInfo.Width;
     msg.height = shapeInfo.Height;

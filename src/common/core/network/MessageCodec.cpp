@@ -398,6 +398,8 @@ QByteArray CursorMessage::encode() const {
     QDataStream stream(&data, QIODevice::WriteOnly);
     stream.setByteOrder(QDataStream::LittleEndian);
 
+    stream << posX;
+    stream << posY;
     stream << hotX;
     stream << hotY;
     stream << width;
@@ -410,11 +412,13 @@ QByteArray CursorMessage::encode() const {
 }
 
 bool CursorMessage::decode(const QByteArray& dataBuffer) {
-    if (dataBuffer.size() < 20) return false;  // 5 × qint32 最小头
+    if (dataBuffer.size() < 28) return false;  // 7 × qint32 最小头
 
     QDataStream stream(dataBuffer);
     stream.setByteOrder(QDataStream::LittleEndian);
 
+    stream >> posX;
+    stream >> posY;
     stream >> hotX;
     stream >> hotY;
     stream >> width;
@@ -423,8 +427,8 @@ bool CursorMessage::decode(const QByteArray& dataBuffer) {
     stream >> pixelSize;
 
     if (pixelSize > 0) {
-        if (dataBuffer.size() < 20 + pixelSize) return false;
-        pixels = dataBuffer.mid(20, pixelSize);
+        if (dataBuffer.size() < 28 + pixelSize) return false;
+        pixels = dataBuffer.mid(28, pixelSize);
     } else {
         pixels.clear();
     }
