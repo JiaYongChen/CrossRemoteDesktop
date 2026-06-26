@@ -185,13 +185,20 @@ void RemoteDesktopSession::wireSignals() {
     connect(m_protocolSession, &ProtocolSession::connectionStateChanged,
         m_window, &ClientRemoteWindow::setConnectionState);
 
-    // ── 光标（由帧渲染 paintGL 自然绘制，cursorChanged 不再触发额外 update）
+    // ── 光标（cursorChanged→update 确保屏幕静止无帧时光标仍可渲染）
     CursorManager* cursorMgr = m_window->cursorManager();
     if (cursorMgr) {
         connect(m_protocolSession, &ProtocolSession::cursorUpdated,
                 cursorMgr, &CursorManager::updateCursor);
         connect(m_protocolSession, &ProtocolSession::remoteScreenSizeChanged,
                 cursorMgr, &CursorManager::setRemoteScreenSize);
+    #ifndef QT_NO_OPENGL
+        GLTextureViewport* glv = m_window->glViewport();
+        if (glv) {
+            connect(cursorMgr, &CursorManager::cursorChanged,
+                    glv, qOverload<>(&QWidget::update));
+        }
+    #endif
     }
 
     // ── 剪贴板 ──
