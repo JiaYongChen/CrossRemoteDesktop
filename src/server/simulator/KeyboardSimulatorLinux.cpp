@@ -26,7 +26,7 @@ bool KeyboardSimulatorLinux::initialize() {
     }
 
     m_initialized = true;
-    qCDebug(lcServerInput) << "KeyboardSimulatorLinux: Initialized successfully";
+    qCInfo(lcServerInput) << "KeyboardSimulatorLinux: Initialized successfully";
     qCDebug(lcServerInput) << "Standard key mappings:" << m_standardKeyMap.size();
     qCDebug(lcServerInput) << "Numpad key mappings:" << m_numpadKeyMap.size();
     return true;

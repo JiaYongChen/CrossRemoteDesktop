@@ -69,7 +69,7 @@ bool InputSimulator::initialize() {
     m_initialized = mouseInit && keyboardInit;
 
     if ( m_initialized ) {
-        qCDebug(lcServerInput) << "InputSimulator: Initialized successfully";
+        qCInfo(lcServerInput) << "InputSimulator: Initialized successfully";
     } else {
         qCWarning(lcServerInput) << "InputSimulator: Initialization failed:" << m_lastError;
     }

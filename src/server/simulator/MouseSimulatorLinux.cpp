@@ -26,7 +26,7 @@ bool MouseSimulatorLinux::initialize() {
 
     m_screenSize = getScreenSize();
     m_initialized = true;
-    qCDebug(lcServerInput) << "MouseSimulatorLinux: Initialized successfully";
+    qCInfo(lcServerInput) << "MouseSimulatorLinux: Initialized successfully";
     return true;
 }
 

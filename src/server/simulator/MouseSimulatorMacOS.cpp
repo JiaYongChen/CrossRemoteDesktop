@@ -31,7 +31,7 @@ bool MouseSimulatorMacOS::initialize() {
 
     m_screenSize = getScreenSize();
     m_initialized = true;
-    qCDebug(lcServerInput) << "MouseSimulatorMacOS: macOS 辅助功能权限已授予";
+    qCInfo(lcServerInput) << "MouseSimulatorMacOS: macOS 辅助功能权限已授予";
     return true;
 }
 
