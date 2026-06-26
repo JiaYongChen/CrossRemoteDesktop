@@ -378,10 +378,21 @@ CursorMessage DxgiCapture::extractCursorShape(const DXGI_OUTDUPL_FRAME_INFO& fra
         return msg;
     }
 
-    // 获取光标缓冲区大小
-    UINT requiredSize = 0;
+    // 预分配 256KB 缓冲区（光标最大 256×256×4=256KB）
+    // 部分驱动/硬件组合不支持零缓冲区查询
+    constexpr UINT kMaxCursorSize = 256 * 1024;
+    std::vector<BYTE> buffer(kMaxCursorSize);
+    UINT bufferSize = kMaxCursorSize;
     DXGI_OUTDUPL_POINTER_SHAPE_INFO shapeInfo{};
-    HRESULT hr = m_duplication->GetFramePointerShape(0, nullptr, &requiredSize, &shapeInfo);
+    HRESULT hr = m_duplication->GetFramePointerShape(bufferSize, buffer.data(),
+                                                      &bufferSize, &shapeInfo);
+
+    if (hr == DXGI_ERROR_MORE_DATA) {
+        // 光标比预分配的大（极端情况），重新分配
+        buffer.resize(bufferSize);
+        hr = m_duplication->GetFramePointerShape(bufferSize, buffer.data(),
+                                                  &bufferSize, &shapeInfo);
+    }
 
     if (FAILED(hr)) {
         if (s_extractCount <= 3)
@@ -395,12 +406,6 @@ CursorMessage DxgiCapture::extractCursorShape(const DXGI_OUTDUPL_FRAME_INFO& fra
                 << ": cursor hidden (0x0), type=" << shapeInfo.Type;
         return msg;
     }
-
-    // 分配缓冲区并获取光标数据
-    std::vector<BYTE> buffer(requiredSize);
-    hr = m_duplication->GetFramePointerShape(requiredSize, buffer.data(),
-                                              &requiredSize, &shapeInfo);
-    if (FAILED(hr)) return msg;
 
     // 转换 → RGBA
     msg.width  = shapeInfo.Width;
