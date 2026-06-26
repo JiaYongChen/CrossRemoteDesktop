@@ -38,8 +38,8 @@ private:
     bool    m_dirty       = false;
     int     m_hotX       = 0, m_hotY       = 0;
     int     m_width      = 0, m_height     = 0;
-    int     m_localX     = -1, m_localY    = -1;  // InputForwarder 本地坐标
-    int     m_remoteX    = -1, m_remoteY   = -1;  // 服务端绝对坐标
+    int     m_localX     = 0, m_localY    = 0;  // InputForwarder 本地坐标
+    int     m_remoteX    = 0, m_remoteY   = 0;  // 服务端绝对坐标
     QSize   m_remoteScreenSize;   // 服务端桌面尺寸
     QSize   m_viewportSize;       // 客户端视口 widget 尺寸
     QByteArray m_pixels;

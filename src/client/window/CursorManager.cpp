@@ -35,10 +35,10 @@ void CursorManager::setCursorEnabled(bool enabled) {
 }
 
 QPoint CursorManager::drawPos() const {
-    // 优先使用本地鼠标位置（InputForwarder 实时更新），
-    // 回退到服务端绝对坐标（映射到视口）
     int x = m_localX, y = m_localY;
-    if (m_localX < 0 && m_remoteX >= 0 && m_remoteScreenSize.isValid() && m_viewportSize.isValid()) {
+    // 本地位置未更新时回退到服务端绝对坐标（映射到视口）
+    if (m_localX == 0 && m_localY == 0 && m_remoteX > 0
+        && m_remoteScreenSize.isValid() && m_viewportSize.isValid()) {
         x = m_remoteX * m_viewportSize.width()  / m_remoteScreenSize.width();
         y = m_remoteY * m_viewportSize.height() / m_remoteScreenSize.height();
     }
