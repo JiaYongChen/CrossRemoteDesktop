@@ -2,6 +2,7 @@
 
 #include <QtCore/QObject>
 #include <QtCore/QPoint>
+#include <QtCore/QSize>
 #include <QtCore/QByteArray>
 
 struct CursorMessage;
