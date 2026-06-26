@@ -220,15 +220,19 @@ struct ScreenData : public IMessageCodec {
     [[nodiscard]] bool decode(const QByteArray& dataBuffer);
 };
 
-// 光标类型消息（仅包含光标类型信息）
 struct CursorMessage : public IMessageCodec {
-    Qt::CursorShape cursorType;        // 光标类型
+    qint32 hotX     = 0;
+    qint32 hotY     = 0;
+    qint32 width    = 0;    // 0×0 = OS 隐藏光标 / 无变化
+    qint32 height   = 0;
+    QByteArray pixels;      // RGBA 原始像素，size = width*height*4
 
-    CursorMessage();
-    explicit CursorMessage(Qt::CursorShape type);
+    CursorMessage() = default;
+    CursorMessage(qint32 hx, qint32 hy, qint32 w, qint32 h, const QByteArray& p)
+        : hotX(hx), hotY(hy), width(w), height(h), pixels(p) {}
 
     QByteArray encode() const override;
-    bool decode(const QByteArray& dataBuffer) override;
+    bool decode(const QByteArray& data) override;
 };
 
 // 剪贴板数据类型

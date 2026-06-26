@@ -393,36 +393,42 @@ bool AuthChallenge::decode(const QByteArray& bytes) {
     return ds.status() == QDataStream::Ok;
 }
 
-// CursorMessage 实现
-CursorMessage::CursorMessage()
-    : cursorType(Qt::ArrowCursor) {
-}
-
-CursorMessage::CursorMessage(Qt::CursorShape type)
-    : cursorType(type) {
-}
-
 QByteArray CursorMessage::encode() const {
     QByteArray data;
     QDataStream stream(&data, QIODevice::WriteOnly);
     stream.setByteOrder(QDataStream::LittleEndian);
-    stream << static_cast<quint8>(cursorType);
+
+    stream << hotX;
+    stream << hotY;
+    stream << width;
+    stream << height;
+    stream << qint32(pixels.size());
+    if (!pixels.isEmpty()) {
+        stream.writeRawData(pixels.constData(), pixels.size());
+    }
     return data;
 }
 
 bool CursorMessage::decode(const QByteArray& dataBuffer) {
-    if ( dataBuffer.isEmpty() ) {
-        return false;
-    }
+    if (dataBuffer.size() < 20) return false;  // 5 × qint32 最小头
 
     QDataStream stream(dataBuffer);
     stream.setByteOrder(QDataStream::LittleEndian);
 
-    quint8 type;
-    stream >> type;
-    cursorType = static_cast<Qt::CursorShape>(type);
+    stream >> hotX;
+    stream >> hotY;
+    stream >> width;
+    stream >> height;
+    qint32 pixelSize = 0;
+    stream >> pixelSize;
 
-    return stream.status() == QDataStream::Ok;
+    if (pixelSize > 0) {
+        if (dataBuffer.size() < 20 + pixelSize) return false;
+        pixels = dataBuffer.mid(20, pixelSize);
+    } else {
+        pixels.clear();
+    }
+    return true;
 }
 
 // ClipboardMessage 实现
