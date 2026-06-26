@@ -594,8 +594,8 @@ void GLTextureViewport::paintGL() {
             m_cursorGLInit = true;
         }
 
-        // 上传脏像素
-        if (m_cursorManager->isDirty()) {
+        // 无条件上传光标纹理（确保形状不变、仅位置变化时纹理有效）
+        {
             const QByteArray& px = m_cursorManager->pixels();
             if (!px.isEmpty()) {
                 glBindTexture(GL_TEXTURE_2D, m_cursorTex);
@@ -604,7 +604,6 @@ void GLTextureViewport::paintGL() {
                     GL_RGBA, GL_UNSIGNED_BYTE, px.constData());
                 glBindTexture(GL_TEXTURE_2D, 0);
             }
-            m_cursorManager->clearDirty();
         }
 
         // 保存 viewport

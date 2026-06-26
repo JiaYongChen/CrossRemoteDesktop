@@ -23,7 +23,6 @@ void CursorManager::updateCursor(const CursorMessage& msg) {
     m_remoteX = msg.posX;
     m_remoteY = msg.posY;
     m_hasCursor = true;
-    m_dirty   = true;
     emit cursorChanged();
 }
 

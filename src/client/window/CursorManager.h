@@ -27,8 +27,6 @@ public:
     void setViewportSize(const QSize& sz)     { m_viewportSize = sz; }
 
     bool hasCursor() const { return m_hasCursor && m_enabled; }
-    bool isDirty()    const { return m_dirty; }
-    void clearDirty()       { m_dirty = false; }
 
     const QByteArray& pixels() const { return m_pixels; }
     int  width()  const { return m_width; }
@@ -40,7 +38,6 @@ public:
 private:
     bool    m_enabled    = true;
     bool    m_hasCursor   = false;
-    bool    m_dirty       = false;
     int     m_hotX       = 0, m_hotY       = 0;
     int     m_width      = 0, m_height     = 0;
     int     m_localX     = 0, m_localY    = 0;  // InputForwarder 本地坐标
