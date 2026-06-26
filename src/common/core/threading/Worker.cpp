@@ -75,7 +75,7 @@ void Worker::resetPerformanceStats() {
 }
 
 void Worker::start() {
-    qCDebug(lcApp) << "[DEBUG] Worker::start called for thread:" << QThread::currentThread()->objectName();
+    qCDebug(lcCoreThreading) << "Worker::start called for thread:" << QThread::currentThread()->objectName();
 
     State currentState = m_state.load();
     if ( currentState != State::Stopped ) {
@@ -96,11 +96,11 @@ void Worker::start() {
     // 方案：使用 QTimer::singleShot(0, this, ...) 将 doStart 投递到 worker 所属线程的事件队列，
     //       等事件循环启动后再执行。workLoop 内部通过 QCoreApplication::processEvents() 主动处理事件，
     //       确保 stop/pause/resume 等跨线程调用能够被及时响应。
-    qCDebug(lcApp) << "[DEBUG] Scheduling doStart after event loop starts for thread:" << QThread::currentThread()->objectName();
+    qCDebug(lcCoreThreading) << "Scheduling doStart after event loop starts for thread:" << QThread::currentThread()->objectName();
     QTimer::singleShot(0, this, [this]() {
-        qCDebug(lcApp) << "[DEBUG] doStart executing in thread:" << QThread::currentThread()->objectName();
+        qCDebug(lcCoreThreading) << "doStart executing in thread:" << QThread::currentThread()->objectName();
         doStart();
-        qCDebug(lcApp) << "[DEBUG] doStart returned in thread:" << QThread::currentThread()->objectName();
+        qCDebug(lcCoreThreading) << "doStart returned in thread:" << QThread::currentThread()->objectName();
     });
 }
 
@@ -110,7 +110,7 @@ void Worker::stop(bool waitForFinish) {
         return;
     }
 
-    qCDebug(lcApp) << "Stopping worker:" << m_name << "waitForFinish:" << (waitForFinish ? "true" : "false");
+    qCInfo(lcCoreThreading) << "Stopping worker:" << m_name << "waitForFinish:" << (waitForFinish ? "true" : "false");
 
     m_waitForFinish = waitForFinish;
     m_stopRequested.store(true);
@@ -137,7 +137,7 @@ void Worker::stop(bool waitForFinish) {
         Worker* w = selfGuard.data();
         QMetaObject::invokeMethod(w, [w, forceStopTimeout]() {
             if ( w && w->m_state.load() == State::Stopping ) {
-                qCDebug(lcCoreThreading) << "Worker强制停止（超时" << forceStopTimeout << "ms）：" << w->m_name;
+                qCWarning(lcCoreThreading) << "Worker强制停止（超时" << forceStopTimeout << "ms）：" << w->m_name;
                 w->doStop();
             }
         }, Qt::AutoConnection);
@@ -193,7 +193,7 @@ void Worker::waitIfPaused() {
         // 切换到Paused状态并发射paused信号（在工作线程内发射，避免事件循环阻塞）
         if ( m_state.load() != State::Paused ) {
             setState(State::Paused);
-            qCDebug(lcCoreThreading) << "Worker" << m_name << "entering paused state, emitting paused signal";
+            qCInfo(lcCoreThreading) << "Worker" << m_name << "entering paused state, emitting paused signal";
             emit paused();
         }
         QMutexLocker locker(&m_pauseMutex);
@@ -210,9 +210,8 @@ void Worker::waitIfPaused() {
         // 从暂停恢复：如果未停止，则切换回Running并发射resumed信号
         if ( !m_stopRequested.load() && m_state.load() == State::Paused ) {
             setState(State::Running);
-            qCDebug(lcCoreThreading) << "Worker" << m_name << "emitting resumed signal";
+            qCInfo(lcCoreThreading) << "Worker" << m_name << "resumed";
             emit resumed();
-            qCDebug(lcCoreThreading) << "Worker" << m_name << "resumed signal emitted";
         } else {
             qCDebug(lcCoreThreading) << "Worker" << m_name << "NOT emitting resumed signal - stopRequested:"
                 << m_stopRequested.load() << "state:" << static_cast<int>(m_state.load());
@@ -232,7 +231,7 @@ void Worker::endPerformanceTiming() {
 }
 
 void Worker::emitError(const QString& error) {
-    qCDebug(lcCoreThreading) << "Worker error in" << m_name << ":" << error;
+    qCWarning(lcCoreThreading) << "Worker error in" << m_name << ":" << error;
     emit errorOccurred(RdError(ErrorCode::Unknown, error, m_name));
 }
 
@@ -334,7 +333,7 @@ void Worker::doStop() {
     // 避免线程保持运行导致 QThread 在销毁时仍在运行的错误。
     QThread* workerThread = this->thread();
     if ( workerThread && workerThread->isRunning() ) {
-        qCDebug(lcApp) << "[DEBUG] Worker::doStop() requesting thread quit for:" << m_name;
+        qCDebug(lcCoreThreading) << "Worker::doStop() requesting thread quit for:" << m_name;
         workerThread->quit();
     }
 }

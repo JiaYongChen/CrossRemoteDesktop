@@ -41,7 +41,7 @@ bool ThreadManager::createThread(const QString& name,
     bool autoRestart,
     int maxRestarts) {
     if ( name.isEmpty() || !worker ) {
-        qCDebug(lcCoreThreading) << "ThreadManager::createThread() - Invalid parameters";
+        qCWarning(lcCoreThreading) << "ThreadManager::createThread() - Invalid parameters";
         return false;
     }
 
@@ -49,7 +49,7 @@ bool ThreadManager::createThread(const QString& name,
 
     // 检查名称是否已存在
     if ( m_threads.contains(name) ) {
-        qCDebug(lcCoreThreading) << "ThreadManager::createThread() - Thread name already exists:" << name;
+        qCWarning(lcCoreThreading) << "ThreadManager::createThread() - Thread name already exists:" << name;
         return false;
     }
 
@@ -132,7 +132,7 @@ bool ThreadManager::startThread(const QString& name) {
 
     ThreadInfo* info = findThreadInfo(name);
     if ( !info ) {
-        qCDebug(lcCoreThreading) << "ThreadManager::startThread() - Thread not found:" << name;
+        qCWarning(lcCoreThreading) << "ThreadManager::startThread() - Thread not found:" << name;
         return false;
     }
 
@@ -147,7 +147,7 @@ bool ThreadManager::startThread(const QString& name) {
     info->startedTime = QDateTime::currentDateTime();
     info->thread->start();
 
-    qCDebug(lcCoreThreading) << "Thread started:" << name; // 线程已启动
+    qCInfo(lcCoreThreading) << "Thread started:" << name; // 线程已启动
     return true;
 }
 
@@ -156,7 +156,7 @@ bool ThreadManager::stopThread(const QString& name, bool waitForFinish) {
 
     ThreadInfo* info = findThreadInfo(name);
     if ( !info ) {
-        qCDebug(lcCoreThreading) << "ThreadManager::stopThread() - Thread not found:" << name; // 未找到线程
+        qCWarning(lcCoreThreading) << "ThreadManager::stopThread() - Thread not found:" << name; // 未找到线程
         return false;
     }
 
@@ -167,7 +167,7 @@ bool ThreadManager::stopThread(const QString& name, bool waitForFinish) {
 
     // 标记为主动停止，避免自动重启
     info->stopRequested = true;
-    qCDebug(lcCoreThreading) << "Stopping thread:" << name << "waitForFinish:" << waitForFinish;
+    qCInfo(lcCoreThreading) << "Stopping thread:" << name << "waitForFinish:" << waitForFinish;
 
     // 使用 QPointer 防止在解锁后 worker 被删除导致的 use-after-free
     QPointer<Worker> worker = info->worker;
@@ -199,7 +199,7 @@ bool ThreadManager::stopThread(const QString& name, bool waitForFinish) {
         }
     }
 
-    qCDebug(lcCoreThreading) << "Thread stopped:" << name;
+    qCInfo(lcCoreThreading) << "Thread stopped:" << name;
     return true;
 }
 
@@ -208,12 +208,12 @@ bool ThreadManager::pauseThread(const QString& name) {
 
     ThreadInfo* info = findThreadInfo(name);
     if ( !info ) {
-        qCDebug(lcCoreThreading) << "ThreadManager::pauseThread() - Thread not found:" << name;
+        qCWarning(lcCoreThreading) << "ThreadManager::pauseThread() - Thread not found:" << name;
         return false;
     }
 
     if ( !info->thread->isRunning() ) {
-        qCDebug(lcCoreThreading) << "ThreadManager::pauseThread() - Thread not running:" << name;
+        qCWarning(lcCoreThreading) << "ThreadManager::pauseThread() - Thread not running:" << name;
         return false;
     }
 
@@ -228,11 +228,11 @@ bool ThreadManager::pauseThread(const QString& name) {
         // 直接调用线程安全的请求接口，避免事件循环阻塞导致 QueuedConnection 无法触发
         worker->pause();
     } else {
-        qCDebug(lcCoreThreading) << "ThreadManager::pauseThread() - Worker is null for:" << name;
+        qCWarning(lcCoreThreading) << "ThreadManager::pauseThread() - Worker is null for:" << name;
         return false;
     }
 
-    qCDebug(lcCoreThreading) << "Thread paused:" << name; // 统一为debug级别
+    qCInfo(lcCoreThreading) << "Thread paused:" << name; // 统一为debug级别
     return true;
 }
 
@@ -241,12 +241,12 @@ bool ThreadManager::resumeThread(const QString& name) {
 
     ThreadInfo* info = findThreadInfo(name);
     if ( !info ) {
-        qCDebug(lcCoreThreading) << "ThreadManager::resumeThread() - Thread not found:" << name; // 统一为debug
+        qCWarning(lcCoreThreading) << "ThreadManager::resumeThread() - Thread not found:" << name; // 统一为debug
         return false;
     }
 
     if ( !info->thread->isRunning() ) {
-        qCDebug(lcCoreThreading) << "ThreadManager::resumeThread() - Thread not running:" << name; // 统一为debug
+        qCWarning(lcCoreThreading) << "ThreadManager::resumeThread() - Thread not running:" << name; // 统一为debug
         return false;
     }
 
@@ -260,11 +260,11 @@ bool ThreadManager::resumeThread(const QString& name) {
         // 直接调用线程安全的请求接口进行恢复
         worker->resume();
     } else {
-        qCDebug(lcCoreThreading) << "ThreadManager::resumeThread() - Worker is null for:" << name;
+        qCWarning(lcCoreThreading) << "ThreadManager::resumeThread() - Worker is null for:" << name;
         return false;
     }
 
-    qCDebug(lcCoreThreading) << "Thread resumed:" << name;
+    qCInfo(lcCoreThreading) << "Thread resumed:" << name;
     return true;
 }
 
@@ -287,7 +287,7 @@ bool ThreadManager::destroyThread(const QString& name) {
         QMutexLocker locker(&m_mutex);
         ThreadInfo* info = findThreadInfo(name);
         if ( !info ) {
-            qCDebug(lcCoreThreading) << "ThreadManager::destroyThread() - Thread not found:" << name;
+            qCWarning(lcCoreThreading) << "ThreadManager::destroyThread() - Thread not found:" << name;
             return false;
         }
         // 先断开Worker信号，防止在清理过程中收到信号
@@ -303,7 +303,7 @@ bool ThreadManager::destroyThread(const QString& name) {
     QMutexLocker locker(&m_mutex);
     ThreadInfo* info = findThreadInfo(name);
     if ( !info ) {
-        qCDebug(lcCoreThreading) << "ThreadManager::destroyThread() - Thread info missing after stop:" << name;
+        qCWarning(lcCoreThreading) << "ThreadManager::destroyThread() - Thread info missing after stop:" << name;
         return false;
     }
 
@@ -426,7 +426,7 @@ void ThreadManager::stopAllThreads(bool waitForFinish) {
         if ( stoppedCount == totalThreads ) {
             qCDebug(lcCoreThreading) << "All" << totalThreads << "threads stopped successfully";
         } else {
-            qCDebug(lcCoreThreading) << "Only" << stoppedCount << "out of" << totalThreads << "threads stopped successfully";
+            qCWarning(lcCoreThreading) << "Only" << stoppedCount << "out of" << totalThreads << "threads stopped successfully";
         }
     } else {
         // 异步停止：并行发送停止信号
@@ -677,7 +677,6 @@ void ThreadManager::onWorkerPaused() {
     if ( !name.isEmpty() ) {
         qCDebug(lcCoreThreading) << "ThreadManager::onWorkerPaused() - Emitting threadPaused signal for:" << name;
         emit threadPaused(name);
-        qCDebug(lcCoreThreading) << "ThreadManager::onWorkerPaused() - threadPaused signal emitted";
     }
 }
 
@@ -694,7 +693,6 @@ void ThreadManager::onWorkerResumed() {
     if ( !name.isEmpty() ) {
         qCDebug(lcCoreThreading) << "ThreadManager::onWorkerResumed() - Emitting threadResumed signal for:" << name;
         emit threadResumed(name);
-        qCDebug(lcCoreThreading) << "ThreadManager::onWorkerResumed() - threadResumed signal emitted";
     }
 }
 
