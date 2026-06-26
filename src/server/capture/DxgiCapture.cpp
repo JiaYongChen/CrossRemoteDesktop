@@ -470,11 +470,11 @@ CursorMessage DxgiCapture::extractCursorShape(const DXGI_OUTDUPL_FRAME_INFO& fra
         break;
     }
 
-    // SHA-1 变更检测
+    // SHA-1 变更检测（含位置：光标不动但鼠标移动也需发送新位置）
     static int s_cursorDiag = 0;
     QByteArray rawData;
     QDataStream ds(&rawData, QIODevice::WriteOnly);
-    ds << msg.hotX << msg.hotY << msg.width << msg.height << msg.pixels;
+    ds << msg.posX << msg.posY << msg.hotX << msg.hotY << msg.width << msg.height << msg.pixels;
     QByteArray hash = QCryptographicHash::hash(rawData, QCryptographicHash::Sha1);
     ++s_cursorDiag;
     if (hash == m_prevCursorHash) {
