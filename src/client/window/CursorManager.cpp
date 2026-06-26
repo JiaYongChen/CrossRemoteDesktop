@@ -16,11 +16,10 @@ void CursorManager::updateCursor(const CursorMessage& msg) {
         return;
     }
 
-    // 检测实际变化（避免冗余 paintGL）
+    // 仅检测形状变化（位置由本地 InputForwarder 驱动，零延迟）
     const bool shapeChanged = (msg.hotX != m_hotX || msg.hotY != m_hotY
                             || msg.width != m_width || msg.height != m_height
                             || msg.pixels != m_pixels);
-    const bool posChanged   = (msg.posX != m_remoteX || msg.posY != m_remoteY);
     const bool visibilityChanged = !m_hasCursor;
 
     m_hotX    = msg.hotX;
@@ -28,23 +27,28 @@ void CursorManager::updateCursor(const CursorMessage& msg) {
     m_width   = msg.width;
     m_height  = msg.height;
     m_pixels  = msg.pixels;
-    m_remoteX = msg.posX;
+    m_remoteX = msg.posX;  // 仅用于无本地输入时的回退
     m_remoteY = msg.posY;
     m_hasCursor = true;
 
-    if (visibilityChanged || shapeChanged || posChanged) {
+    if (visibilityChanged || shapeChanged) {
         static int s_updateDiag = 0;
         if (++s_updateDiag <= 10)
-            qCDebug(lcClientGL) << "CursorManager::updateCursor — w:" << msg.width
-                << "h:" << msg.height << "hot:" << msg.hotX << "," << msg.hotY
-                << "pos:" << msg.posX << "," << msg.posY;
+            qCDebug(lcClientGL) << "CursorManager::updateCursor — shape w:" << msg.width
+                << "h:" << msg.height << "hot:" << msg.hotX << "," << msg.hotY;
         emit cursorChanged();
     }
 }
 
 void CursorManager::setCursorPosition(int x, int y) {
-    m_localX = x;
-    m_localY = y;
+    if (x != m_localX || y != m_localY || !m_hasLocalPos) {
+        m_localX = x;
+        m_localY = y;
+        m_hasLocalPos = true;
+        if (m_hasCursor && m_enabled) {
+            emit cursorChanged();
+        }
+    }
 }
 
 void CursorManager::setCursorEnabled(bool enabled) {
@@ -52,7 +56,12 @@ void CursorManager::setCursorEnabled(bool enabled) {
 }
 
 QPoint CursorManager::drawPos() const {
-    // 始终使用服务端 DXGI 提取的权威光标位置，映射到客户端视口
+    // 本地位置优先：InputForwarder 提供的客户端鼠标坐标（零延迟）
+    // 回退到服务端远端坐标：当用户未触碰本地鼠标时（如观看他人操作服务端）
+    if (m_hasLocalPos) {
+        return QPoint(m_localX - m_hotX, m_localY - m_hotY);
+    }
+    // 远端回退：映射服务端屏幕坐标到客户端视口
     int x = 0, y = 0;
     if (m_remoteScreenSize.isValid() && m_viewportSize.isValid()) {
         x = m_remoteX * m_viewportSize.width()  / m_remoteScreenSize.width();

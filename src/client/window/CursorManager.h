@@ -36,12 +36,13 @@ public:
     QPoint drawPos() const;
 
 private:
-    bool    m_enabled    = true;
-    bool    m_hasCursor   = false;
-    int     m_hotX       = 0, m_hotY       = 0;
-    int     m_width      = 0, m_height     = 0;
-    int     m_localX     = 0, m_localY    = 0;  // InputForwarder 本地坐标
-    int     m_remoteX    = 0, m_remoteY   = 0;  // 服务端绝对坐标
+    bool    m_enabled      = true;
+    bool    m_hasCursor     = false;
+    bool    m_hasLocalPos   = false;  // InputForwarder 是否已上报过本地鼠标位置
+    int     m_hotX         = 0, m_hotY         = 0;
+    int     m_width        = 0, m_height       = 0;
+    int     m_localX       = 0, m_localY      = 0;  // InputForwarder 本地坐标（视口空间）
+    int     m_remoteX      = 0, m_remoteY     = 0;  // 服务端绝对坐标
     QSize   m_remoteScreenSize;   // 服务端桌面尺寸
     QSize   m_viewportSize;       // 客户端视口 widget 尺寸
     QByteArray m_pixels;
