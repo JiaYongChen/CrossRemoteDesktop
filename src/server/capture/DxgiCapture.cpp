@@ -407,6 +407,16 @@ CursorMessage DxgiCapture::extractCursorShape(const DXGI_OUTDUPL_FRAME_INFO& fra
         return msg;
     }
 
+    // 防范 DXGI 返回未初始化内存（部分驱动/GPU 组合下 GetFramePointerShape
+    // 返回 S_OK 但 shapeInfo 含垃圾值，如 Debug 版 MSVC 的 0xCCCCCCCC）
+    if (shapeInfo.Width < 0 || shapeInfo.Width > 512 ||
+        shapeInfo.Height < 0 || shapeInfo.Height > 512) {
+        if (s_extractCount <= 5)
+            qCDebug(lcServerCaptureDxgi) << "extractCursorShape #" << s_extractCount
+                << ": REJECTED garbage size" << shapeInfo.Width << "x" << shapeInfo.Height;
+        return msg;
+    }
+
     // 获取服务端光标屏幕坐标
     POINT cursorPos{};
     if (GetCursorPos(&cursorPos)) {

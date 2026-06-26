@@ -626,7 +626,8 @@ void GLTextureViewport::paintGL() {
         float t = 1.0f - (pos.y() / h) * 2.0f;
         float b = 1.0f - ((pos.y() + ch) / h) * 2.0f;
 
-        float verts[] = { l,t, 0.f,1.f,  l,b, 0.f,0.f,  r,t, 1.f,1.f,  r,b, 1.f,0.f };
+        // V 坐标与帧 Quad 一致：顶部 V=0, 底部 V=1（补偿 OpenGL/QImage 原点差异）
+        float verts[] = { l,t, 0.f,0.f,  l,b, 0.f,1.f,  r,t, 1.f,0.f,  r,b, 1.f,1.f };
 
         m_cursorVAO.bind();
         m_cursorVBO.bind();

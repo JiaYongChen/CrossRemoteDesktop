@@ -63,6 +63,7 @@ public slots:
 signals:
     // → CursorManager (Main 线程，直接连接)
     void cursorUpdated(const CursorMessage& msg);
+    void remoteScreenSizeChanged(QSize sz);
 
     // → ClipboardManager (Main 线程，QueuedConnection)
     void clipboardTextReceived(const QString& text);

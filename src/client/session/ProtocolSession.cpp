@@ -127,10 +127,21 @@ void ProtocolSession::handleScreenData(const QByteArray& data) {
         }
     }
 
-    // 3. 更新远程屏幕尺寸（缩放场景）
+    // 3. 更新远程屏幕尺寸
     if (screenData.flags & static_cast<quint8>(ScreenDataFlags::SCALED)) {
         if (screenData.originalWidth > 0 && screenData.originalHeight > 0) {
-            m_remoteScreenSize = QSize(screenData.originalWidth, screenData.originalHeight);
+            QSize newSz(screenData.originalWidth, screenData.originalHeight);
+            if (newSz != m_remoteScreenSize) {
+                m_remoteScreenSize = newSz;
+                emit remoteScreenSizeChanged(m_remoteScreenSize);
+            }
+        }
+    } else if (screenData.width > 0 && screenData.height > 0) {
+        // 非缩放帧：直接用帧尺寸（首帧即设置，不等 SCALED 帧）
+        QSize newSz(screenData.width, screenData.height);
+        if (newSz != m_remoteScreenSize) {
+            m_remoteScreenSize = newSz;
+            emit remoteScreenSizeChanged(m_remoteScreenSize);
         }
     }
 

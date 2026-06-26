@@ -184,6 +184,8 @@ void RemoteDesktopSession::wireSignals() {
     if (cursorMgr) {
         connect(m_protocolSession, &ProtocolSession::cursorUpdated,
                 cursorMgr, &CursorManager::updateCursor);
+        connect(m_protocolSession, &ProtocolSession::remoteScreenSizeChanged,
+                cursorMgr, &CursorManager::setRemoteScreenSize);
     }
 
     // ── 剪贴板 ──
