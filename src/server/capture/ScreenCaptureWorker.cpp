@@ -284,12 +284,13 @@ void ScreenCaptureWorker::performCapture() {
         if ( m_dxgiAvailable && m_dxgiCapture ) {
             CaptureResult result = m_dxgiCapture->captureFrame(5);
 
+            // 光标独立于帧：屏幕静止时 captureFrame 也返回光标（回退路径）
+            if ( result.cursor.width > 0 ) {
+                cursorMsg = std::move(result.cursor);
+            }
             if ( !result.frame.isNull() ) {
                 m_dxgiReinitAttempts = 0;
                 capturedImage = std::move(result.frame);
-                if ( result.cursor.width > 0 ) {
-                    cursorMsg = std::move(result.cursor);
-                }
             } else if ( !m_dxgiCapture->isInitialized() ) {
                 // DXGI access-lost — attempt reinit
                 qCWarning(lcServerCapture) << "DXGI access lost, attempting reinitialize"

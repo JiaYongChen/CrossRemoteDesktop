@@ -280,8 +280,11 @@ CaptureResult DxgiCapture::captureFrame(int timeoutMs) {
         static_cast<UINT>(timeoutMs), &frameInfo, desktopResource.GetAddressOf());
 
     if ( hr == DXGI_ERROR_WAIT_TIMEOUT ) {
-        // No new frame within timeout — not an error, just no update
-        return CaptureResult{};
+        // 屏幕内容未变化，但仍需提取光标位置（鼠标移动不触发 AcquireNextFrame）
+        CaptureResult result;
+        DXGI_OUTDUPL_FRAME_INFO zeroInfo{};
+        result.cursor = extractCursorShape(zeroInfo);
+        return result;
     }
 
     if ( hr == DXGI_ERROR_ACCESS_LOST ) {
