@@ -91,6 +91,8 @@ target_link_libraries(threading_test_core PUBLIC Qt6::Core common_test_core)
 qt_add_library(capture_test_core STATIC
     ../src/server/capture/ScreenCaptureWorker.cpp
     ../src/server/dataflow/QueueManager.cpp
+    ../src/common/core/network/ProtocolImpl.cpp
+    ../src/common/core/network/MessageCodec.cpp
 )
 if(WIN32)
     target_sources(capture_test_core PRIVATE ../src/server/capture/DxgiCapture.cpp)
@@ -152,6 +154,7 @@ add_rd_test(TARGET test_screencapture  NAME ScreenCaptureTest
 
 add_rd_test(TARGET test_dxgi_capture  NAME DxgiCaptureTest
     SOURCES test_dxgi_capture.cpp
+    EXTRA_SOURCES ../src/common/core/network/ProtocolImpl.cpp ../src/common/core/network/MessageCodec.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui common_test_core
     TIMEOUT 30  LABELS unit capture dxgi windows  NO_OPENGL)
 if(WIN32)

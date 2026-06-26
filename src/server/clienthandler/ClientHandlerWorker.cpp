@@ -336,8 +336,9 @@ void ClientHandlerWorker::sendCursorType() {
     // 获取当前光标类型
     int cursorType = m_inputSimulator->getCurrentCursorType();
 
-    // 创建光标类型消息（仅包含类型）
-    CursorMessage message(static_cast<Qt::CursorShape>(cursorType));
+    // 创建光标类型消息（像素数据由服务端 DXGI 提取填入）
+    CursorMessage message;
+    Q_UNUSED(cursorType);
 
     // 发送光标类型消息
     QByteArray messageData = Protocol::createMessage(MessageType::CURSOR_POSITION, message);

@@ -67,15 +67,17 @@ void TestDxgiCapture::test_captureFrame() {
     // Give the desktop a moment to produce a frame
     QTest::qWait(100);
 
-    QImage frame = capture.captureFrame(500);
+    CaptureResult result = capture.captureFrame(500);
 
     // Frame could be null if no desktop content changed in the timeout window
     // But typically on a real desktop with a clock/cursor, it should succeed
-    if ( frame.isNull() ) {
+    if ( result.frame.isNull() ) {
         qCWarning(lcServerCaptureDxgi) << "captureFrame returned null (timeout — no desktop update)";
         // This is acceptable — not a test failure
         return;
     }
+
+    const QImage& frame = result.frame;
 
     // Verify the captured image has correct properties
     QCOMPARE(frame.size(), capture.desktopSize());
@@ -108,10 +110,10 @@ void TestDxgiCapture::test_capturePerformance() {
 
     for ( int i = 0; i < NUM_FRAMES; ++i ) {
         timer.restart();
-        QImage frame = capture.captureFrame(100);
+        CaptureResult result = capture.captureFrame(100);
         qint64 elapsed = timer.elapsed();
 
-        if ( !frame.isNull() ) {
+        if ( !result.frame.isNull() ) {
             ++successfulFrames;
             totalTime += elapsed;
         }
@@ -193,8 +195,8 @@ void TestDxgiCapture::test_captureWithoutInit() {
     DxgiCapture capture;
 
     // Capture without initialization should return null
-    QImage frame = capture.captureFrame(100);
-    QVERIFY(frame.isNull());
+    CaptureResult result = capture.captureFrame(100);
+    QVERIFY(result.frame.isNull());
 #endif
 }
 

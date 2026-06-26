@@ -352,11 +352,11 @@ QImage ScreenCaptureWorker::captureScreen() {
     // timeout=5ms: 短超时避免在静态桌面上阻塞等待。DXGI 桌面有变化时
     // 立即返回帧，无变化时 5ms 后超时返回空帧——跳过 GDI 回退路径。
     if ( m_dxgiAvailable && m_dxgiCapture ) {
-        QImage image = m_dxgiCapture->captureFrame(5);
+        CaptureResult result = m_dxgiCapture->captureFrame(5);
 
-        if ( !image.isNull() ) {
+        if ( !result.frame.isNull() ) {
             m_dxgiReinitAttempts = 0;  // Reset on success
-            return image;
+            return result.frame;
         }
 
         // DXGI returned null: either timeout (no screen change) or error.
@@ -377,9 +377,9 @@ QImage ScreenCaptureWorker::captureScreen() {
                 m_dxgiReinitAttempts = 0;
                 qCInfo(lcServerCapture) << "DXGI reinitialized successfully";
                 // Retry capture immediately
-                image = m_dxgiCapture->captureFrame(5);
-                if ( !image.isNull() ) {
-                    return image;
+                result = m_dxgiCapture->captureFrame(5);
+                if ( !result.frame.isNull() ) {
+                    return result.frame;
                 }
             }
         } else {

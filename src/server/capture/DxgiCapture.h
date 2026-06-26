@@ -11,6 +11,21 @@
 #include <dxgi1_2.h>
 #include <wrl/client.h>  // Microsoft::WRL::ComPtr
 
+#include "../../common/core/network/Protocol.h"
+
+/**
+ * @brief Result of a single capture operation.
+ *
+ * Combines the frame image and cursor shape data, both extracted within
+ * a single AcquireNextFrame / ReleaseFrame window.
+ * - frame.isNull() = no new frame (timeout or error)
+ * - cursor.width == 0 = cursor unchanged or hidden
+ */
+struct CaptureResult {
+    QImage        frame;
+    CursorMessage cursor;
+};
+
 /**
  * @brief DXGI Desktop Duplication capture engine.
  *
@@ -68,12 +83,13 @@ public:
      *
      * Calls AcquireNextFrame with the given timeout. If a new frame is
      * available, copies it to a staging texture and maps it to CPU memory,
-     * producing a QImage (Format_RGB32).
+     * producing a QImage (Format_RGB32). Also extracts the cursor shape
+     * when available.
      *
      * @param timeoutMs  Max wait time for a new frame (ms). Default: 100.
-     * @return Captured frame as QImage, or null QImage on timeout/error.
+     * @return CaptureResult with frame and cursor; frame.isNull() on timeout/error.
      */
-    QImage captureFrame(int timeoutMs = 100);
+    CaptureResult captureFrame(int timeoutMs = 100);
 
     /**
      * @brief Get the desktop dimensions being captured.
@@ -114,6 +130,17 @@ private:
      */
     bool createStagingTexture(int width, int height);
 
+    /**
+     * @brief Extract cursor shape from current duplicated frame.
+     *
+     * Must be called between AcquireNextFrame() and ReleaseFrame().
+     * Uses GetFramePointerShape to retrieve cursor pixels, converts
+     * to RGBA, and applies SHA-1 change detection to avoid duplicates.
+     *
+     * @return CursorMessage with RGBA pixels, or empty (width == 0) if unchanged/hidden.
+     */
+    CursorMessage extractCursorShape();
+
     // D3D11 / DXGI COM objects
     Microsoft::WRL::ComPtr<ID3D11Device>           m_device;
     Microsoft::WRL::ComPtr<ID3D11DeviceContext>     m_context;
@@ -126,6 +153,9 @@ private:
     int     m_outputIndex = 0;
     QSize   m_desktopSize;
     QString m_lastError;
+
+    // 光标变更检测
+    QByteArray     m_prevCursorHash;
 };
 
 #endif // _WIN32

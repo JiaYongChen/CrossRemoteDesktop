@@ -3,10 +3,14 @@
 #include "DxgiCapture.h"
 #include "../../common/core/logging/LoggingCategories.h"
 
+#include <vector>
 #include <dxgi.h>
 #include <d3d11.h>
 #include <dxgi1_2.h>
 #include <objbase.h>  // CoInitializeEx, CoUninitialize, RPC_E_CHANGED_MODE
+
+#include <QDataStream>
+#include <QCryptographicHash>
 
 // Link libraries (redundant with CMake, but helps IDE intellisense)
 #pragma comment(lib, "d3d11.lib")
@@ -262,10 +266,10 @@ bool DxgiCapture::createStagingTexture(int width, int height) {
     return true;
 }
 
-QImage DxgiCapture::captureFrame(int timeoutMs) {
+CaptureResult DxgiCapture::captureFrame(int timeoutMs) {
     if ( !m_initialized || !m_duplication ) {
         m_lastError = "DXGI capture not initialized";
-        return QImage();
+        return CaptureResult{};
     }
 
     // Acquire the next desktop frame
@@ -277,21 +281,21 @@ QImage DxgiCapture::captureFrame(int timeoutMs) {
 
     if ( hr == DXGI_ERROR_WAIT_TIMEOUT ) {
         // No new frame within timeout — not an error, just no update
-        return QImage();
+        return CaptureResult{};
     }
 
     if ( hr == DXGI_ERROR_ACCESS_LOST ) {
         m_lastError = "Desktop Duplication access lost (desktop switch/resolution change)";
         qCWarning(lcServerCaptureDxgi) << m_lastError;
         m_initialized = false;  // Caller should call reinitialize()
-        return QImage();
+        return CaptureResult{};
     }
 
     if ( FAILED(hr) ) {
         m_lastError = QString("AcquireNextFrame failed: 0x%1")
             .arg(static_cast<unsigned long>(hr), 8, 16, QChar('0'));
         qCWarning(lcServerCaptureDxgi) << m_lastError;
-        return QImage();
+        return CaptureResult{};
     }
 
     // Get the ID3D11Texture2D from the acquired resource
@@ -302,7 +306,7 @@ QImage DxgiCapture::captureFrame(int timeoutMs) {
         m_lastError = QString("QueryInterface for ID3D11Texture2D failed: 0x%1")
             .arg(static_cast<unsigned long>(hr), 8, 16, QChar('0'));
         qCWarning(lcServerCaptureDxgi) << m_lastError;
-        return QImage();
+        return CaptureResult{};
     }
 
     // Check if desktop size changed (resolution change while duplication is active)
@@ -316,7 +320,7 @@ QImage DxgiCapture::captureFrame(int timeoutMs) {
         m_desktopSize = currentSize;
         if ( !createStagingTexture(m_desktopSize.width(), m_desktopSize.height()) ) {
             m_duplication->ReleaseFrame();
-            return QImage();
+            return CaptureResult{};
         }
     }
 
@@ -331,7 +335,7 @@ QImage DxgiCapture::captureFrame(int timeoutMs) {
         m_lastError = QString("Map staging texture failed: 0x%1")
             .arg(static_cast<unsigned long>(hr), 8, 16, QChar('0'));
         qCWarning(lcServerCaptureDxgi) << m_lastError;
-        return QImage();
+        return CaptureResult{};
     }
 
     // Create QImage from mapped data
@@ -349,11 +353,91 @@ QImage DxgiCapture::captureFrame(int timeoutMs) {
         srcRow += mapped.RowPitch;
     }
 
-    // Unmap and release
+    // Unmap
     m_context->Unmap(m_stagingTexture.Get(), 0);
-    m_duplication->ReleaseFrame();
 
-    return image;
+    // Extract cursor before releasing the frame
+    CaptureResult result;
+    result.frame  = image;
+    result.cursor = extractCursorShape();
+
+    m_duplication->ReleaseFrame();
+    return result;
+}
+
+CursorMessage DxgiCapture::extractCursorShape() {
+    CursorMessage msg;
+
+    // 获取光标缓冲区大小
+    UINT requiredSize = 0;
+    DXGI_OUTDUPL_POINTER_SHAPE_INFO shapeInfo{};
+    HRESULT hr = m_duplication->GetFramePointerShape(0, nullptr, &requiredSize, &shapeInfo);
+
+    if (FAILED(hr)) return msg;  // 无光标信息
+    if (shapeInfo.Width == 0 || shapeInfo.Height == 0) return msg;  // 隐藏
+
+    // 分配缓冲区并获取光标数据
+    std::vector<BYTE> buffer(requiredSize);
+    hr = m_duplication->GetFramePointerShape(requiredSize, buffer.data(),
+                                              &requiredSize, &shapeInfo);
+    if (FAILED(hr)) return msg;
+
+    // 转换 → RGBA
+    msg.width  = shapeInfo.Width;
+    msg.height = shapeInfo.Height;
+    msg.hotX   = shapeInfo.HotSpot.x;
+    msg.hotY   = shapeInfo.HotSpot.y;
+
+    int pixelCount = msg.width * msg.height;
+    msg.pixels.resize(pixelCount * 4);
+    BYTE* dst = reinterpret_cast<BYTE*>(msg.pixels.data());
+
+    switch (shapeInfo.Type) {
+    case 1: { // DXGI_OUTDUPL_POINTER_SHAPE_TYPE_MONOCHROME
+        // 单色光标: AND mask (1bpp) + XOR mask (1bpp)
+        // 行对齐到 32-bit
+        int rowBytes = ((msg.width + 31) / 32) * 4;
+        BYTE* andMask = buffer.data() + rowBytes * msg.height;
+        for (int y = 0; y < msg.height; ++y) {
+            for (int x = 0; x < msg.width; ++x) {
+                int byteIdx = (y * rowBytes) + (x / 8);
+                int bitIdx  = 7 - (x % 8);
+                bool andBit = (buffer[byteIdx] >> bitIdx) & 1;
+                bool xorBit = (andMask[byteIdx] >> bitIdx) & 1;
+                int idx = (y * msg.width + x) * 4;
+                if (!andBit && xorBit) { dst[idx+2]=255; dst[idx+1]=255; dst[idx]=255; dst[idx+3]=255; }
+                else if (!andBit && !xorBit) { dst[idx+3]=0; }
+                else if (andBit && !xorBit) { dst[idx+3]=0; }
+                else { dst[idx+2]=0; dst[idx+1]=0; dst[idx]=0; dst[idx+3]=255; }
+            }
+        }
+        break;
+    }
+    case 2: // DXGI_OUTDUPL_POINTER_SHAPE_TYPE_COLOR (32bpp ARGB)
+    case 4: // DXGI_OUTDUPL_POINTER_SHAPE_TYPE_MASKED_COLOR (32bpp XOR + AND mask)
+        // 直接复制 ARGB → RGBA
+        {
+            BYTE* src = buffer.data();
+            for (int i = 0; i < pixelCount; ++i) {
+                dst[i*4]   = src[i*4+2];  // R ← B
+                dst[i*4+1] = src[i*4+1];  // G
+                dst[i*4+2] = src[i*4];    // B ← R
+                dst[i*4+3] = src[i*4+3];  // A
+            }
+        }
+        break;
+    }
+
+    // SHA-1 变更检测
+    QByteArray rawData;
+    QDataStream ds(&rawData, QIODevice::WriteOnly);
+    ds << msg.hotX << msg.hotY << msg.width << msg.height << msg.pixels;
+    QByteArray hash = QCryptographicHash::hash(rawData, QCryptographicHash::Sha1);
+    if (hash == m_prevCursorHash) {
+        return CursorMessage{};  // 未变化
+    }
+    m_prevCursorHash = hash;
+    return msg;
 }
 
 #endif // _WIN32
