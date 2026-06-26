@@ -367,14 +367,26 @@ CaptureResult DxgiCapture::captureFrame(int timeoutMs) {
 
 CursorMessage DxgiCapture::extractCursorShape() {
     CursorMessage msg;
+    static int s_extractCount = 0;
+    ++s_extractCount;
 
     // 获取光标缓冲区大小
     UINT requiredSize = 0;
     DXGI_OUTDUPL_POINTER_SHAPE_INFO shapeInfo{};
     HRESULT hr = m_duplication->GetFramePointerShape(0, nullptr, &requiredSize, &shapeInfo);
 
-    if (FAILED(hr)) return msg;  // 无光标信息
-    if (shapeInfo.Width == 0 || shapeInfo.Height == 0) return msg;  // 隐藏
+    if (FAILED(hr)) {
+        if (s_extractCount <= 3)
+            qCDebug(lcServerCaptureDxgi) << "extractCursorShape #" << s_extractCount
+                << ": GetFramePointerShape FAILED hr=0x" << Qt::hex << (unsigned long)hr;
+        return msg;
+    }
+    if (shapeInfo.Width == 0 || shapeInfo.Height == 0) {
+        if (s_extractCount <= 3)
+            qCDebug(lcServerCaptureDxgi) << "extractCursorShape #" << s_extractCount
+                << ": cursor hidden (0x0), type=" << shapeInfo.Type;
+        return msg;
+    }
 
     // 分配缓冲区并获取光标数据
     std::vector<BYTE> buffer(requiredSize);
