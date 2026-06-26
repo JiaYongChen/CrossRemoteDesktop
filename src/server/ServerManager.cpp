@@ -547,6 +547,16 @@ void ServerManager::startWorkerThreads() {
         qCDebug(lcServerManager) << "ServerManager::startWorkerThreads() - Starting screen capture";
         m_screenCapture->startCapture();
         qCDebug(lcServerManager) << "ServerManager::startWorkerThreads() - Screen capture started";
+
+        // 将 ScreenCaptureWorker 的光标更新信号连接到当前客户端
+        if (m_currentClient) {
+            auto* captureWorker = qobject_cast<ScreenCaptureWorker*>(
+                m_threadManager->getWorker(QStringLiteral("ScreenCaptureWorker")));
+            if (captureWorker) {
+                m_currentClient->setScreenCaptureWorker(captureWorker);
+                qCDebug(lcServerManager) << "ServerManager::startWorkerThreads() - ScreenCaptureWorker cursor signal wired";
+            }
+        }
     }
 
     // 2. 创建和启动 DataProcessingWorker 线程

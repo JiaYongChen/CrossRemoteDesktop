@@ -429,14 +429,21 @@ CursorMessage DxgiCapture::extractCursorShape() {
     }
 
     // SHA-1 变更检测
+    static int s_cursorDiag = 0;
     QByteArray rawData;
     QDataStream ds(&rawData, QIODevice::WriteOnly);
     ds << msg.hotX << msg.hotY << msg.width << msg.height << msg.pixels;
     QByteArray hash = QCryptographicHash::hash(rawData, QCryptographicHash::Sha1);
+    ++s_cursorDiag;
     if (hash == m_prevCursorHash) {
-        return CursorMessage{};  // 未变化
+        if (s_cursorDiag <= 3) qCDebug(lcServerCaptureDxgi) << "extractCursorShape #" << s_cursorDiag << ": unchanged, skip";
+        return CursorMessage{};
     }
     m_prevCursorHash = hash;
+    if (s_cursorDiag <= 3)
+        qCDebug(lcServerCaptureDxgi) << "extractCursorShape #" << s_cursorDiag
+            << ": NEW cursor" << msg.width << "x" << msg.height
+            << "hot:" << msg.hotX << "," << msg.hotY;
     return msg;
 }
 
