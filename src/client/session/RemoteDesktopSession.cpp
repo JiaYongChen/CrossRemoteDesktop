@@ -163,12 +163,7 @@ void RemoteDesktopSession::wireSignals() {
     connect(m_protocolSession, &ProtocolSession::connectionStateChanged,
         m_window, &ClientRemoteWindow::setConnectionState);
 
-    // ── 光标 ──
-    CursorManager* cursorMgr = m_window->cursorManager();
-    if (cursorMgr) {
-        connect(m_protocolSession, &ProtocolSession::remoteCursorTypeUpdated,
-            cursorMgr, &CursorManager::setRemoteCursorType);
-    }
+    // ── 光标（像素光标由 ScreenCaptureWorker → CursorManager 线路传递，不在此接线）──
 
     // ── 剪贴板 ──
     ClipboardManager* clipboardMgr = m_window->findChild<ClipboardManager*>();

@@ -7,6 +7,7 @@
 #include "../simulator/InputSimulator.h"
 #include "../dataflow/QueueManager.h"
 #include "../dataflow/DataFlowStructures.h"
+#include "../capture/ScreenCaptureWorker.h"
 
 // 取消Windows SDK定义的事件宏,避免与MessageType冲突
 #ifdef MOUSE_EVENT

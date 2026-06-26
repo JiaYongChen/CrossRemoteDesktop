@@ -146,7 +146,7 @@ CursorManager* ClientRemoteWindow::cursorManager() const {
 // ── Initialization ──
 
 void ClientRemoteWindow::initializeManagers() {
-    m_cursorManager = new CursorManager(this, this);
+    m_cursorManager = new CursorManager(this);
     m_clipboardManager = new ClipboardManager(this);
     m_clipboardManager->setEnabled(true);
 }
@@ -202,16 +202,14 @@ void ClientRemoteWindow::resizeEvent(QResizeEvent* event) {
 
 void ClientRemoteWindow::enterEvent(QEnterEvent* event) {
     QWidget::enterEvent(event);
-    if (m_cursorManager) {
-        m_cursorManager->applyLocalCursorState();
-    }
+    // 隐藏本地系统光标，显示远程像素光标
+    setCursor(Qt::BlankCursor);
 }
 
 void ClientRemoteWindow::leaveEvent(QEvent* event) {
     QWidget::leaveEvent(event);
-    if (m_cursorManager) {
-        m_cursorManager->restoreLocalCursor();
-    }
+    // 恢复默认系统光标
+    unsetCursor();
 }
 
 void ClientRemoteWindow::closeEvent(QCloseEvent* event) {

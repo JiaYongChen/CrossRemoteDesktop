@@ -2,96 +2,38 @@
 
 #include <QtCore/QObject>
 #include <QtCore/QPoint>
-#include <QtCore/QPointer>
-#include <QtCore/Qt>
-#include <QtGui/QPainter>
+#include <QtCore/QByteArray>
+#include <QtGui/QImage>
+#include <QtOpenGL/QOpenGLFunctions_3_3_Core>
 
-class QWidget;
+struct CursorMessage; // 前置声明
 
-/**
- * @brief 光标管理器类
- *
- * 统一管理本地光标的显示/隐藏和远程光标的显示
- * 提供简洁的接口用于远程桌面应用中的光标控制
- */
 class CursorManager : public QObject {
     Q_OBJECT
-
 public:
-    /**
-     * @brief 构造函数
-     * @param targetWidget 目标窗口部件（用于设置光标）
-     * @param parent 父对象
-     */
-    explicit CursorManager(QWidget* targetWidget, QObject* parent = nullptr);
-
-    /**
-     * @brief 析构函数
-     */
+    explicit CursorManager(QObject* parent = nullptr);
     ~CursorManager() override;
 
-    // ==================== 本地光标控制 ====================
-
-    /**
-     * @brief 应用本地光标设置（在鼠标进入时调用）
-     */
-    void applyLocalCursorState();
-
-    /**
-     * @brief 恢复本地光标（在鼠标离开时调用）
-     */
-    void restoreLocalCursor();
-
-    /**
-     * @brief 强制刷新本地光标状态（在鼠标事件后调用）
-     */
-    void refreshLocalCursor();
-
-    // ==================== 远程光标控制 ====================
-
-    /**
-     * @brief 设置远程光标类型
-     * @param type 光标类型
-     */
-    void setRemoteCursorType(Qt::CursorShape type);
-
-    /**
-     * @brief 获取远程光标类型
-     * @return 光标类型
-     */
-    Qt::CursorShape remoteCursorType() const;
-
-    // ==================== 便捷方法 ====================
-
-    /**
-     * @brief 启用/禁用远程光标显示
-     */
+public slots:
+    void updateCursor(const CursorMessage& msg);
+    void setCursorPosition(int x, int y);
     void setCursorEnabled(bool enabled);
 
-    /**
-     * @brief 查询远程光标是否启用
-     * @return true 表示启用，false 表示禁用
-     */
-    bool isCursorEnabled() const { return m_cursorEnabled; }
-
-    /**
-     * @brief 重置所有设置为默认值
-     */
-    void reset();
+public:
+    bool hasCursor() const { return m_hasCursor && m_enabled; }
+    QPoint cursorDrawPos() const;   // 渲染矩形左上角
+    void paintCursor(QPainter& painter);
+    int hotspotX() const { return m_hotX; }
+    int hotspotY() const { return m_hotY; }
 
 private:
-    /**
-     * @brief 解析出当前生效的 viewport widget
-     * @return 若 target 本身就是 QAbstractScrollArea 的子类则返回其 viewport；
-     *         否则返回 findChild<QWidget*>("qt_scrollarea_viewport") 的结果（可能为 nullptr）
-     * @note 每次调用时重新解析，以兼容 QGraphicsView::setViewport() 替换 viewport 的情况
-     */
-    QWidget* resolveViewport() const;
+    void buildTexture();
 
-    QPointer<QWidget> m_targetWidget;   ///< 目标窗口部件（QPointer 自动感知销毁）
-
-    // 远程光标状态
-    Qt::CursorShape m_remoteCursorType; ///< 远程光标类型
-    bool m_cursorEnabled = true;        ///< 远程光标是否启用（默认 true，与 UI 复选框一致）
+    bool    m_enabled    = true;
+    bool    m_hasCursor   = false;
+    int     m_hotX       = 0, m_hotY       = 0;
+    int     m_width      = 0, m_height     = 0;
+    int     m_lastX      = 0, m_lastY      = 0;
+    QImage  m_cursorImage;
+    QByteArray m_pixels;
 };
-
