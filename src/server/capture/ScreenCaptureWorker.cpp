@@ -50,7 +50,7 @@ bool ScreenCaptureWorker::initialize() {
     // 通过 QueuedConnection 竞相调用 initialize()，导致 D3D11 设备被
     // 创建两次。只允许第一次初始化生效。
     if (m_initialized.exchange(true)) {
-        qCInfo(lcServerCapture) << "ScreenCaptureWorker 已初始化，跳过";
+        qCDebug(lcServerCapture) << "ScreenCaptureWorker 已初始化，跳过";
         return true;
     }
     qCInfo(lcServerCapture) << "初始化 ScreenCaptureWorker";
@@ -122,7 +122,7 @@ void ScreenCaptureWorker::cleanup() {
     // 可能竞相调用 cleanup()，导致 m_dxgiCapture->shutdown() 在已释放的
     // COM 对象上崩溃 (0xC0000005)。
     if (m_cleanedUp.exchange(true)) {
-        qCInfo(lcServerCapture) << "ScreenCaptureWorker 已清理，跳过";
+        qCDebug(lcServerCapture) << "ScreenCaptureWorker 已清理，跳过";
         return;
     }
     qCInfo(lcServerCapture) << "清理 ScreenCaptureWorker 资源";
@@ -173,7 +173,7 @@ void ScreenCaptureWorker::startCapturing() {
                 m_captureTimer->start();
             }
         }
-        qCDebug(lcServerCapture) << "startCapturing: 捕获已开始，统计定时器/捕获定时器已启动";
+        qCInfo(lcServerCapture) << "startCapturing: 捕获已开始，统计定时器/捕获定时器已启动";
     };
     if ( QThread::currentThread() == this->thread() ) {
         startFn();
@@ -202,7 +202,7 @@ void ScreenCaptureWorker::stopCapturing() {
         if ( m_captureTimer ) {
             QObject::disconnect(m_captureTimer, &QTimer::timeout, this, &ScreenCaptureWorker::performCapture);
         }
-        qCDebug(lcServerCapture) << "stopCapturing: 捕获已停止，统计/捕获定时器已停止并断开信号";
+        qCInfo(lcServerCapture) << "stopCapturing: 捕获已停止，统计/捕获定时器已停止并断开信号";
     };
 
     // 如果在Worker线程中，立即执行；否则使用同步调用确保立即完成
@@ -325,7 +325,7 @@ void ScreenCaptureWorker::performCapture() {
             if ( enqueued ) {
                 //qCDebug(screenCaptureWorker, "成功将帧放入捕获队列，帧ID: %llu", frame.frameId);
             } else {
-                qCWarning(lcServerCapture) << "捕获队列已停止，无法入队，丢弃帧ID: " << frame.frameId;
+                qCDebug(lcServerCapture) << "捕获队列已停止，无法入队，丢弃帧ID: " << frame.frameId;
                 QMutexLocker locker(&m_statsMutex);
                 m_stats.droppedFrames++;
             }
@@ -383,7 +383,7 @@ QImage ScreenCaptureWorker::captureScreen() {
                 }
             }
         } else {
-            qCWarning(lcServerCapture) << "DXGI reinit attempts exhausted,"
+            qCCritical(lcServerCapture) << "DXGI reinit attempts exhausted,"
                 << "falling back to QScreen::grabWindow()";
             m_dxgiAvailable = false;
         }

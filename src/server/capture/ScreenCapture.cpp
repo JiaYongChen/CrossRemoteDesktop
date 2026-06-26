@@ -193,7 +193,7 @@ bool ScreenCapture::initializeThreads() {
     // 通过ThreadManager创建Worker实例
     const QString threadName = "ScreenCaptureWorker";
     if ( m_threadManager->hasThread(threadName) ) {
-        qCWarning(lcServerCapture) << "ScreenCaptureWorker线程已存在，先停止并销毁旧线程";
+        qCDebug(lcServerCapture) << "ScreenCaptureWorker线程已存在，先停止并销毁旧线程";
         bool stopped = m_threadManager->stopThread(threadName, true);
         if ( !stopped ) {
             qCWarning(lcServerCapture) << "停止旧ScreenCaptureWorker线程失败，尝试继续销毁";
@@ -306,7 +306,7 @@ void ScreenCapture::onThreadError(const RdError& error) {
 }
 
 void ScreenCapture::onThreadRestarted(const QString& name, int restartCount) {
-    qCWarning(lcServerCapture) << "线程重启 [" << name << "]: 第" << restartCount << "次重启";
+    qCDebug(lcServerCapture) << "线程重启 [" << name << "]: 第" << restartCount << "次重启";
 
     // 如果重启次数过多，停止捕获以避免无限重启
     if ( restartCount > 3 ) {
@@ -375,7 +375,7 @@ void ScreenCapture::updateCaptureConfig(const CaptureConfig& config) {
     }
 
     // 日志增强：同时打印输入值与裁剪后的值，便于问题定位
-    qCInfo(lcServerCapture) << "捕获配置已更新: 帧率(输入=" << originalFrameRate
+    qCDebug(lcServerCapture) << "捕获配置已更新: 帧率(输入=" << originalFrameRate
         << ", 裁剪=" << m_captureConfig.frameRate
         << "), 高清=" << (m_captureConfig.highDefinition ? "开启" : "关闭")
         << ", 抗锯齿=" << (m_captureConfig.antiAliasing ? "开启" : "关闭");
