@@ -460,60 +460,60 @@ void GLTextureViewport::paintGL() {
     }
 
     static int s_skipCount = 0;
+    bool canRenderFrame = true;
     if ( !m_textureDirty ) {
         if ( ++s_skipCount <= 3 || s_skipCount % 300 == 0 )
             qCDebug(lcClientGL) << "paintGL skip #" << s_skipCount << "(m_textureDirty=false)";
         m_needsRepaint.store(false, std::memory_order_release);
-        // 帧间间隙修复：即便 fence 未就绪导致本次未绘制，
-        // 也检查 TripleBuffer 是否有绘制期间到达的新帧
         CheckForNewFrameAfterPaint(m_consumedSlot);
-        return;  // nothing new to draw
+        canRenderFrame = false;  // 帧不变，跳过 GL 渲染，但仍绘制光标 OSD
+    } else {
+        m_textureDirty = false;
+        m_needsRepaint.store(false, std::memory_order_release);
+        s_skipCount = 0;
     }
-    m_textureDirty = false;
-    m_needsRepaint.store(false, std::memory_order_release);
-    s_skipCount = 0;  // reset skip counter on successful render
 
-    static int s_renderCount = 0;
-    ++s_renderCount;
+    if ( canRenderFrame ) {
+        static int s_renderCount = 0;
+        ++s_renderCount;
 
-    // 选择纹理：回退纹理优先，否则使用 GpuDecodeTarget
-    GLuint texId = (m_fallbackTexture != 0) ? m_fallbackTexture
-                                             : (m_decodeTarget ? m_decodeTarget->displayTexture() : 0);
+        // 选择纹理：回退纹理优先，否则使用 GpuDecodeTarget
+        GLuint texId = (m_fallbackTexture != 0) ? m_fallbackTexture
+                                                 : (m_decodeTarget ? m_decodeTarget->displayTexture() : 0);
 
-    if ( s_renderCount <= 3 || s_renderCount % 30 == 0 )
-        qCDebug(lcClientGL) << "paintGL rendering #" << s_renderCount
-            << "texId:" << texId
-            << "size:" << m_textureSize
-            << "rect:" << m_renderRect;
+        if ( s_renderCount <= 3 || s_renderCount % 30 == 0 )
+            qCDebug(lcClientGL) << "paintGL rendering #" << s_renderCount
+                << "texId:" << texId
+                << "size:" << m_textureSize
+                << "rect:" << m_renderRect;
 
-    glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT);
 
-    if ( texId == 0 || !m_shaderProgram || m_renderRect.isEmpty() ) {
-        if ( s_renderCount <= 3 )
+        if ( texId != 0 && m_shaderProgram && !m_renderRect.isEmpty() ) {
+            // Set viewport to the aspect-ratio-preserving render rectangle
+            const qreal dpr = devicePixelRatioF();
+            const int rx = static_cast<int>(m_renderRect.x() * dpr);
+            const int ry = static_cast<int>((height() - m_renderRect.bottom()) * dpr);
+            const int rw = static_cast<int>(m_renderRect.width() * dpr);
+            const int rh = static_cast<int>(m_renderRect.height() * dpr);
+            glViewport(rx, ry, rw, rh);
+
+            m_shaderProgram->bind();
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, texId);
+            m_shaderProgram->setUniformValue("uTexture", 0);
+
+            QOpenGLVertexArrayObject::Binder vaoBinder(&m_vao);
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+            m_shaderProgram->release();
+        } else if ( s_renderCount <= 3 ) {
             qCDebug(lcClientGL) << "paintGL render skip - texId:" << texId
                 << "shader:" << (m_shaderProgram != nullptr)
                 << "rect:" << m_renderRect;
+        }
         CheckForNewFrameAfterPaint(m_consumedSlot);
-        return;
     }
-
-    // Set viewport to the aspect-ratio-preserving render rectangle
-    const qreal dpr = devicePixelRatioF();
-    const int rx = static_cast<int>(m_renderRect.x() * dpr);
-    const int ry = static_cast<int>((height() - m_renderRect.bottom()) * dpr);
-    const int rw = static_cast<int>(m_renderRect.width() * dpr);
-    const int rh = static_cast<int>(m_renderRect.height() * dpr);
-    glViewport(rx, ry, rw, rh);
-
-    m_shaderProgram->bind();
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texId);
-    m_shaderProgram->setUniformValue("uTexture", 0);
-
-    QOpenGLVertexArrayObject::Binder vaoBinder(&m_vao);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-    m_shaderProgram->release();
 
     // FPS 统计（EMA 平滑，基于渲染时刻——用户实际看到的帧率）
     const auto now = std::chrono::steady_clock::now();
