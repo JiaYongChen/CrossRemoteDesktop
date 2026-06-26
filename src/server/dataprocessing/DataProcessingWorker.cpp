@@ -27,12 +27,12 @@ DataProcessingWorker::DataProcessingWorker(QObject* parent)
     , m_statsUpdateInterval(DEFAULT_STATS_INTERVAL)
     , m_maxParallelTasks(QThread::idealThreadCount())
     , m_activeParallelTasks(0) {
-    qCDebug(lcDataProcessingWorker) << "DataProcessingWorker 构造函数";
-    qCInfo(lcDataProcessingWorker) << "并行处理线程数:" << m_maxParallelTasks;
+    qCDebug(lcServerEncode) << "DataProcessingWorker 构造函数";
+    qCInfo(lcServerEncode) << "并行处理线程数:" << m_maxParallelTasks;
 }
 
 DataProcessingWorker::~DataProcessingWorker() {
-    qCDebug(lcDataProcessingWorker) << "DataProcessingWorker析构函数";
+    qCDebug(lcServerEncode) << "DataProcessingWorker析构函数";
     // 确保在正确的线程中停止定时器与清理，避免跨线程 killTimer 警告
     QThread* workerThread = this->thread();
     QThread* current = QThread::currentThread();
@@ -47,7 +47,7 @@ DataProcessingWorker::~DataProcessingWorker() {
 }
 
 void DataProcessingWorker::setProcessingConfig(std::shared_ptr<DataProcessingConfig> config) {
-    qCDebug(lcDataProcessingWorker) << "设置处理配置";
+    qCDebug(lcServerEncode) << "设置处理配置";
     m_config = config;
 }
 
@@ -82,16 +82,16 @@ double DataProcessingWorker::getAverageProcessingLatency() const {
 }
 
 void DataProcessingWorker::setProcessingTimeout(int timeoutMs) {
-    qCDebug(lcDataProcessingWorker) << "设置处理超时时间:" << timeoutMs << "毫秒";
+    qCDebug(lcServerEncode) << "设置处理超时时间:" << timeoutMs << "毫秒";
     m_processingTimeout = timeoutMs;
 }
 
 bool DataProcessingWorker::initialize() {
-    qCDebug(lcDataProcessingWorker) << "初始化 DataProcessingWorker";
+    qCDebug(lcServerEncode) << "初始化 DataProcessingWorker";
 
     try {
         if ( !m_queueManager ) {
-            qCCritical(lcDataProcessingWorker) << "未设置队列管理器";
+            qCCritical(lcServerEncode) << "未设置队列管理器";
             return false;
         }
 
@@ -104,7 +104,7 @@ bool DataProcessingWorker::initialize() {
         // 创建数据处理器
         m_dataProcessor = std::make_unique<DataProcessor>(this);
         if ( !m_dataProcessor ) {
-            qCCritical(lcDataProcessingWorker) << "无法创建数据处理器";
+            qCCritical(lcServerEncode) << "无法创建数据处理器";
             return false;
         }
 
@@ -123,36 +123,36 @@ bool DataProcessingWorker::initialize() {
         connect(m_asyncWatcher, &QFutureWatcher<ProcessedData>::finished,
                 this, &DataProcessingWorker::onAsyncBatchFinished);
 
-        qCInfo(lcDataProcessingWorker) << "DataProcessingWorker 初始化成功";
+        qCInfo(lcServerEncode) << "DataProcessingWorker 初始化成功";
         return true;
 
     } catch ( const std::exception& e ) {
-        qCCritical(lcDataProcessingWorker) << "初始化异常:" << e.what();
+        qCCritical(lcServerEncode) << "初始化异常:" << e.what();
         return false;
     } catch ( ... ) {
-        qCCritical(lcDataProcessingWorker) << "初始化未知异常";
+        qCCritical(lcServerEncode) << "初始化未知异常";
         return false;
     }
 }
 
 void DataProcessingWorker::stop(bool waitForFinish) {
-    qCDebug(lcDataProcessingWorker) << "停止DataProcessingWorker";
+    qCDebug(lcServerEncode) << "停止DataProcessingWorker";
 
     // 调用父类的stop方法
     Worker::stop(waitForFinish);
 }
 
 void DataProcessingWorker::cleanup() {
-    qCDebug(lcDataProcessingWorker) << "清理DataProcessingWorker";
+    qCDebug(lcServerEncode) << "清理DataProcessingWorker";
 
     // 停止处理并清空队列，确保processTask能快速退出
     stopProcessingAndClearQueues();
-    qCDebug(lcDataProcessingWorker) << "已停止处理并清空队列";
+    qCDebug(lcServerEncode) << "已停止处理并清空队列";
 
     // 停止所有定时器
     if ( m_statsTimer && m_statsTimer->isActive() ) {
         m_statsTimer->stop();
-        qCDebug(lcDataProcessingWorker) << "统计定时器已停止";
+        qCDebug(lcServerEncode) << "统计定时器已停止";
     }
 
     // 断开队列管理器信号连接
@@ -167,13 +167,13 @@ void DataProcessingWorker::cleanup() {
     m_queueManager = nullptr;
 
     Worker::cleanup();
-    qCDebug(lcDataProcessingWorker) << "DataProcessingWorker清理完成";
+    qCDebug(lcServerEncode) << "DataProcessingWorker清理完成";
 }
 
 void DataProcessingWorker::processTask() {
     // 首先检查是否应该停止
     if ( shouldStop() ) {
-        qCDebug(lcDataProcessingWorker) << "检测到停止信号，退出processTask";
+        qCDebug(lcServerEncode) << "检测到停止信号，退出processTask";
         return;
     }
 
@@ -204,7 +204,7 @@ void DataProcessingWorker::processTask() {
         if ( m_queueManager->dequeueCapturedFrame(firstFrame) ) {
             // 获取到数据后再次检查停止状态
             if ( shouldStop() ) {
-                qCDebug(lcDataProcessingWorker) << "获取帧数据后检测到停止信号，退出处理";
+                qCDebug(lcServerEncode) << "获取帧数据后检测到停止信号，退出处理";
                 return;
             }
 
@@ -228,7 +228,7 @@ void DataProcessingWorker::processTask() {
 
                 // 检查是否需要停止
                 if ( shouldStop() ) {
-                    qCDebug(lcDataProcessingWorker) << "检测到停止信号，退出批量收集";
+                    qCDebug(lcServerEncode) << "检测到停止信号，退出批量收集";
                     break;
                 }
             }
@@ -244,7 +244,7 @@ void DataProcessingWorker::processTask() {
         if ( ++taskCount % 50 == 0 ) { // 每50次任务检查一次
             // 在检查系统资源前也要确认没有停止信号
             if ( shouldStop() ) {
-                qCDebug(lcDataProcessingWorker) << "检测到停止信号，跳过性能检查";
+                qCDebug(lcServerEncode) << "检测到停止信号，跳过性能检查";
                 return;
             }
 
@@ -252,13 +252,13 @@ void DataProcessingWorker::processTask() {
         }
 
     } catch ( const std::exception& e ) {
-        qCCritical(lcDataProcessingWorker) << "processTask异常:" << e.what();
+        qCCritical(lcServerEncode) << "processTask异常:" << e.what();
         emit processingError(RdError(ErrorCode::DataProcessingException, QString("数据处理任务异常: %1").arg(e.what()), "DataProcessingWorker"));
 
         // 异常后短暂休眠，避免连续异常导致CPU占用过高
         QThread::msleep(10);
     } catch ( ... ) {
-        qCCritical(lcDataProcessingWorker) << "processTask未知异常";
+        qCCritical(lcServerEncode) << "processTask未知异常";
         emit processingError(RdError(ErrorCode::DataProcessingException, "数据处理任务发生未知异常", "DataProcessingWorker"));
 
         // 异常后短暂休眠，避免连续异常导致CPU占用过高
@@ -337,7 +337,7 @@ ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, qui
     try {
         // 验证输入图像
         if ( image.isNull() || image.size().isEmpty() ) {
-            qCWarning(lcDataProcessingWorker) << "输入图像无效，帧ID:" << frameId
+            qCWarning(lcServerEncode) << "输入图像无效，帧ID:" << frameId
                 << "isNull:" << image.isNull() << "size:" << image.size();
             return result;
         }
@@ -350,7 +350,7 @@ ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, qui
             workingImage = image.scaled(newWidth, newHeight, Qt::KeepAspectRatio, 
                                         Qt::FastTransformation);
             if ( workingImage.isNull() ) {
-                qCWarning(lcDataProcessingWorker) << "图像缩放失败，帧ID:" << frameId;
+                qCWarning(lcServerEncode) << "图像缩放失败，帧ID:" << frameId;
                 workingImage = image; // 回退到原始图像
             }
         }
@@ -360,14 +360,14 @@ ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, qui
         if ( workingImage.format() != QImage::Format_RGB888 ) {
             convertedImage = workingImage.convertToFormat(QImage::Format_RGB888);
             if ( convertedImage.isNull() ) {
-                qCWarning(lcDataProcessingWorker) << "图像格式转换失败，帧ID:" << frameId;
+                qCWarning(lcServerEncode) << "图像格式转换失败，帧ID:" << frameId;
                 return result;
             }
         }
 
         // 每 100 帧输出一次编码信息，避免刷屏
         if ( frameId <= 3 || frameId % 100 == 0 ) {
-            qCDebug(lcDataProcessingWorker) << "编码JPEG(turbo)，帧ID:" << frameId
+            qCDebug(lcServerEncode) << "编码JPEG(turbo)，帧ID:" << frameId
                 << "原始尺寸:" << image.size()
                 << "处理后尺寸:" << convertedImage.size()
                 << "缩放因子:" << scaleFactor
@@ -379,7 +379,7 @@ ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, qui
         if ( !tjCompress ) {
             tjCompress = tjInitCompress();
             if ( !tjCompress ) {
-                qCWarning(lcDataProcessingWorker) << "tjInitCompress 失败，帧ID:" << frameId;
+                qCWarning(lcServerEncode) << "tjInitCompress 失败，帧ID:" << frameId;
                 return result;
             }
         }
@@ -398,7 +398,7 @@ ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, qui
             TJFLAG_FASTDCT);  // 快速 DCT 算法
 
         if ( tjRet != 0 ) {
-            qCWarning(lcDataProcessingWorker) << "tjCompress2 失败:" << tjGetErrorStr2(tjCompress)
+            qCWarning(lcServerEncode) << "tjCompress2 失败:" << tjGetErrorStr2(tjCompress)
                                                << "帧ID:" << frameId;
             return result;
         }
@@ -407,7 +407,7 @@ ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, qui
         tjFree(jpegBuf);
 
         if ( jpegData.isEmpty() ) {
-            qCWarning(lcDataProcessingWorker) << "JPEG编码结果为空，帧ID:" << frameId;
+            qCWarning(lcServerEncode) << "JPEG编码结果为空，帧ID:" << frameId;
             return result;
         }
 
@@ -416,7 +416,7 @@ ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, qui
 
         // 每 100 帧输出一次压缩统计，避免刷屏
         if ( frameId <= 3 || frameId % 100 == 0 ) {
-            qCDebug(lcDataProcessingWorker) << "帧ID:" << frameId
+            qCDebug(lcServerEncode) << "帧ID:" << frameId
                 << "原始图像尺寸:" << image.size()
                 << "处理后尺寸:" << convertedImage.size()
                 << "缩放:" << (wasScaled ? QString::number(scaleFactor) : "无")
@@ -434,9 +434,9 @@ ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, qui
         result.compressedDataSize = jpegData.size();
         result.isScaled = wasScaled;                      // 标记是否进行了缩放
     } catch ( const std::exception& e ) {
-        qCCritical(lcDataProcessingWorker) << "图像处理异常:" << e.what() << "帧ID:" << frameId;
+        qCCritical(lcServerEncode) << "图像处理异常:" << e.what() << "帧ID:" << frameId;
     } catch ( ... ) {
-        qCCritical(lcDataProcessingWorker) << "图像处理未知异常，帧ID:" << frameId;
+        qCCritical(lcServerEncode) << "图像处理未知异常，帧ID:" << frameId;
     }
 
     return result;
@@ -459,7 +459,7 @@ bool DataProcessingWorker::validateFrame(const CapturedFrame& frame) const {
     // 检查帧延迟是否过高
     qint64 latency = frame.getLatency();
     if ( latency > m_processingTimeout ) {
-        qCWarning(lcDataProcessingWorker) << "帧延迟过高:" << latency << "ms，超时阈值:" << m_processingTimeout << "ms";
+        qCWarning(lcServerEncode) << "帧延迟过高:" << latency << "ms，超时阈值:" << m_processingTimeout << "ms";
         return false;
     }
 
@@ -467,13 +467,13 @@ bool DataProcessingWorker::validateFrame(const CapturedFrame& frame) const {
     // frame.isValid() 已在首行校验 image 非空且非 Null，这里可安全解引用；
     // 但显式再做一次空指针校验，避免 validateFrame 被从其他路径直接调用时崩溃。
     if ( !frame.image ) {
-        qCWarning(lcDataProcessingWorker) << "frame.image is null";
+        qCWarning(lcServerEncode) << "frame.image is null";
         return false;
     }
     QSize size = frame.image->size();
     if ( size.width() <= 0 || size.height() <= 0 ||
         size.width() > 8192 || size.height() > 8192 ) {
-        qCWarning(lcDataProcessingWorker) << "图像尺寸不合理:" << size;
+        qCWarning(lcServerEncode) << "图像尺寸不合理:" << size;
         return false;
     }
 
@@ -530,24 +530,24 @@ void DataProcessingWorker::checkPerformance() {
 
 void DataProcessingWorker::onQueueWarning(QueueManager::QueueType type, const QString& message) {
     if ( type == QueueManager::CaptureQueue || type == QueueManager::ProcessedQueue ) {
-        qCWarning(lcDataProcessingWorker) << "队列警告:" << message;
+        qCWarning(lcServerEncode) << "队列警告:" << message;
         emit processingWarning(message);
     }
 }
 
 void DataProcessingWorker::onQueueError(const RdError& error) {
-    qCCritical(lcDataProcessingWorker) << "队列错误:" << error.logLabel();
+    qCCritical(lcServerEncode) << "队列错误:" << error.logLabel();
     emit processingError(RdError(ErrorCode::QueueEnqueueFailed, error.logLabel(), "DataProcessingWorker"));
 }
 
 void DataProcessingWorker::stopProcessingAndClearQueues() {
-    qCDebug(lcDataProcessingWorker) << "停止数据处理并清空队列";
+    qCDebug(lcServerEncode) << "停止数据处理并清空队列";
 
     // 立即设置停止标志，确保processTask()能快速退出
     if ( isRunning() ) {
         // 通过调用基类stop()方法设置停止请求标志，使shouldStop()返回true
         Worker::stop(false); // false表示不等待完成，立即设置停止标志
-        qCDebug(lcDataProcessingWorker) << "已设置停止标志，暂停数据处理任务";
+        qCDebug(lcServerEncode) << "已设置停止标志，暂停数据处理任务";
     }
 
     // 取消飞行中的异步编码批次
@@ -556,14 +556,14 @@ void DataProcessingWorker::stopProcessingAndClearQueues() {
         m_asyncWatcher->waitForFinished();
         m_inFlightFrames.reset();
         m_inFlightBatches.store(0);
-        qCDebug(lcDataProcessingWorker) << "已等待飞行中的异步编码批次完成";
+        qCDebug(lcServerEncode) << "已等待飞行中的异步编码批次完成";
     }
 
     // 使用 QueueManager 统一接口清空队列
     if ( m_queueManager ) {
         m_queueManager->clearQueue(QueueManager::CaptureQueue);
         m_queueManager->clearQueue(QueueManager::ProcessedQueue);
-        qCDebug(lcDataProcessingWorker) << "已清空捕获队列和处理队列";
+        qCDebug(lcServerEncode) << "已清空捕获队列和处理队列";
     }
 
     // 重置统计信息
@@ -575,29 +575,29 @@ void DataProcessingWorker::stopProcessingAndClearQueues() {
         m_averageLatency = 0.0;
         m_processingRate = 0.0;
 
-        qCDebug(lcDataProcessingWorker) << "重置统计信息完成";
+        qCDebug(lcServerEncode) << "重置统计信息完成";
     }
 
     // 发出统计更新信号
     emit processingStatsUpdated(0, 0, 0.0, 0.0);
 
-    qCDebug(lcDataProcessingWorker) << "停止数据处理并清空队列完成";
+    qCDebug(lcServerEncode) << "停止数据处理并清空队列完成";
 }
 
 void DataProcessingWorker::resumeProcessing() {
-    qCDebug(lcDataProcessingWorker) << "恢复数据处理";
+    qCDebug(lcServerEncode) << "恢复数据处理";
 
     // 确保工作线程正在运行
     if ( !isRunning() ) {
-        qCWarning(lcDataProcessingWorker) << "工作线程未运行，无法恢复处理";
+        qCWarning(lcServerEncode) << "工作线程未运行，无法恢复处理";
         return;
     }
 
     // 重新启动统计定时器
     if ( m_statsTimer && !m_statsTimer->isActive() ) {
         m_statsTimer->start(m_statsUpdateInterval);
-        qCDebug(lcDataProcessingWorker) << "重新启动统计定时器";
+        qCDebug(lcServerEncode) << "重新启动统计定时器";
     }
 
-    qCDebug(lcDataProcessingWorker) << "恢复数据处理完成";
+    qCDebug(lcServerEncode) << "恢复数据处理完成";
 }

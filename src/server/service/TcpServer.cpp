@@ -132,7 +132,7 @@ QHostAddress TcpServer::serverAddress() const {
 }
 
 void TcpServer::incomingConnection(qintptr socketDescriptor) {
-    qCDebug(lcNetServer) << "incomingConnection descriptor:" << socketDescriptor;
+    qCDebug(lcServerNetwork) << "incomingConnection descriptor:" << socketDescriptor;
 
     // 发出新连接信号，让 ServerManager 处理客户端管理
     emit newClientConnection(socketDescriptor);

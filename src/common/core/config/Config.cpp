@@ -117,12 +117,12 @@ bool Config::load()
     
     QFile file(m_configFilePath);
     if (!file.exists()) {
-    qCInfo(lcApp) << "Config file does not exist:" << m_configFilePath;
+    qCInfo(lcCoreConfig) << "Config file does not exist:" << m_configFilePath;
         return false;
     }
     
     if (!file.open(QIODevice::ReadOnly)) {
-    qCWarning(lcApp) << "Failed to open config file for reading:" << m_configFilePath;
+    qCWarning(lcCoreConfig) << "Failed to open config file for reading:" << m_configFilePath;
         return false;
     }
     
@@ -145,7 +145,7 @@ bool Config::load()
         break;
     case ConfigFormat::BinaryFormat:
         // Binary format not implemented
-    qCWarning(lcApp) << "Binary format not supported";
+    qCWarning(lcCoreConfig) << "Binary format not supported";
         return false;
     }
     
@@ -176,7 +176,7 @@ bool Config::save()
         break;
     case ConfigFormat::BinaryFormat:
         // Binary format not implemented
-    qCWarning(lcApp) << "Binary format not supported";
+    qCWarning(lcCoreConfig) << "Binary format not supported";
         return false;
     }
     
@@ -428,14 +428,14 @@ bool Config::saveIni() const
 bool Config::saveJson() const
 {
     // JSON format not fully implemented
-    qCWarning(lcApp) << "JSON format save not implemented";
+    qCWarning(lcCoreConfig) << "JSON format save not implemented";
     return false;
 }
 
 bool Config::saveXml() const
 {
     // XML format not implemented
-    qCWarning(lcApp) << "XML format save not implemented";
+    qCWarning(lcCoreConfig) << "XML format save not implemented";
     return false;
 }
 
@@ -452,14 +452,14 @@ bool Config::loadIni()
 bool Config::loadJson()
 {
     // JSON format not fully implemented
-    qCWarning(lcApp) << "JSON format load not implemented";
+    qCWarning(lcCoreConfig) << "JSON format load not implemented";
     return false;
 }
 
 bool Config::loadXml()
 {
     // XML format not implemented
-    qCWarning(lcApp) << "XML format load not implemented";
+    qCWarning(lcCoreConfig) << "XML format load not implemented";
     return false;
 }
 

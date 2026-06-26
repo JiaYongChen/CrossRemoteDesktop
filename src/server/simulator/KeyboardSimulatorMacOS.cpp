@@ -69,7 +69,7 @@ bool KeyboardSimulatorMacOS::requestAccessibilityPermission() {
 
 bool KeyboardSimulatorMacOS::simulateKeyPress(int qtKey, Qt::KeyboardModifiers modifiers) {
     if (!m_initialized || !m_enabled) {
-        qCDebug(lcKeyboardSimulatorMacOS) << "simulateKeyPress: Not initialized or enabled";
+        qCDebug(lcServerInput) << "simulateKeyPress: Not initialized or enabled";
         return false;
     }
 
@@ -78,13 +78,13 @@ bool KeyboardSimulatorMacOS::simulateKeyPress(int qtKey, Qt::KeyboardModifiers m
         return false;
     }
 
-    qCDebug(lcKeyboardSimulatorMacOS) << "simulateKeyPress: qtKey=" << Qt::hex << qtKey 
+    qCDebug(lcServerInput) << "simulateKeyPress: qtKey=" << Qt::hex << qtKey 
         << "(" << Qt::dec << qtKey << "), modifiers=" << modifiers;
 
     CGKeyCode macKey = qtKeyToMacOSKey(qtKey);
     CGEventFlags macModifiers = qtModifiersToMacOSModifiers(modifiers);
     
-    qCDebug(lcKeyboardSimulatorMacOS) << "Mapped to macKey=" << Qt::hex << macKey 
+    qCDebug(lcServerInput) << "Mapped to macKey=" << Qt::hex << macKey 
         << "(" << Qt::dec << macKey << ")";
     
     return simulateKeyboardEvent(macKey, true, macModifiers);
@@ -92,7 +92,7 @@ bool KeyboardSimulatorMacOS::simulateKeyPress(int qtKey, Qt::KeyboardModifiers m
 
 bool KeyboardSimulatorMacOS::simulateKeyRelease(int qtKey, Qt::KeyboardModifiers modifiers) {
     if (!m_initialized || !m_enabled) {
-        qCDebug(lcKeyboardSimulatorMacOS) << "simulateKeyRelease: Not initialized or enabled";
+        qCDebug(lcServerInput) << "simulateKeyRelease: Not initialized or enabled";
         return false;
     }
 
@@ -110,7 +110,7 @@ bool KeyboardSimulatorMacOS::simulateKeyRelease(int qtKey, Qt::KeyboardModifiers
 bool KeyboardSimulatorMacOS::simulateKeyboardEvent(CGKeyCode key, bool keyDown, CGEventFlags modifiers) {
     // 检查辅助功能权限
     if (!AXIsProcessTrusted()) {
-        qCWarning(lcKeyboardSimulatorMacOS) << "Accessibility permission not granted, cannot simulate keyboard event";
+        qCWarning(lcServerInput) << "Accessibility permission not granted, cannot simulate keyboard event";
         setLastError("需要辅助功能权限");
         return false;
     }
@@ -121,7 +121,7 @@ bool KeyboardSimulatorMacOS::simulateKeyboardEvent(CGKeyCode key, bool keyDown, 
                               key == 0x3A || key == 0x3D ||  // Option L/R
                               key == 0x37 || key == 0x36);   // Command L/R
 
-    qCDebug(lcKeyboardSimulatorMacOS) << "simulateKeyboardEvent: key=" << key 
+    qCDebug(lcServerInput) << "simulateKeyboardEvent: key=" << key 
         << "keyDown=" << keyDown << "modifiers=" << modifiers 
         << "isMainKeyModifier=" << isMainKeyModifier;
 
@@ -131,7 +131,7 @@ bool KeyboardSimulatorMacOS::simulateKeyboardEvent(CGKeyCode key, bool keyDown, 
         if (event) {
             CGEventPost(kCGHIDEventTap, event);
             CFRelease(event);
-            qCDebug(lcKeyboardSimulatorMacOS) << "Modifier key event sent: key=" << key;
+            qCDebug(lcServerInput) << "Modifier key event sent: key=" << key;
             return true;
         }
         return false;
@@ -145,7 +145,7 @@ bool KeyboardSimulatorMacOS::simulateKeyboardEvent(CGKeyCode key, bool keyDown, 
             if (ctrlEvent) {
                 CGEventPost(kCGHIDEventTap, ctrlEvent);
                 CFRelease(ctrlEvent);
-                qCDebug(lcKeyboardSimulatorMacOS) << "Pressing Control";
+                qCDebug(lcServerInput) << "Pressing Control";
             }
         }
         if (modifiers & kCGEventFlagMaskShift) {
@@ -153,7 +153,7 @@ bool KeyboardSimulatorMacOS::simulateKeyboardEvent(CGKeyCode key, bool keyDown, 
             if (shiftEvent) {
                 CGEventPost(kCGHIDEventTap, shiftEvent);
                 CFRelease(shiftEvent);
-                qCDebug(lcKeyboardSimulatorMacOS) << "Pressing Shift";
+                qCDebug(lcServerInput) << "Pressing Shift";
             }
         }
         if (modifiers & kCGEventFlagMaskAlternate) {
@@ -161,7 +161,7 @@ bool KeyboardSimulatorMacOS::simulateKeyboardEvent(CGKeyCode key, bool keyDown, 
             if (altEvent) {
                 CGEventPost(kCGHIDEventTap, altEvent);
                 CFRelease(altEvent);
-                qCDebug(lcKeyboardSimulatorMacOS) << "Pressing Option";
+                qCDebug(lcServerInput) << "Pressing Option";
             }
         }
         if (modifiers & kCGEventFlagMaskCommand) {
@@ -169,7 +169,7 @@ bool KeyboardSimulatorMacOS::simulateKeyboardEvent(CGKeyCode key, bool keyDown, 
             if (cmdEvent) {
                 CGEventPost(kCGHIDEventTap, cmdEvent);
                 CFRelease(cmdEvent);
-                qCDebug(lcKeyboardSimulatorMacOS) << "Pressing Command";
+                qCDebug(lcServerInput) << "Pressing Command";
             }
         }
     }
@@ -177,7 +177,7 @@ bool KeyboardSimulatorMacOS::simulateKeyboardEvent(CGKeyCode key, bool keyDown, 
     // 主键事件
     CGEventRef event = CGEventCreateKeyboardEvent(nullptr, key, keyDown);
     if (!event) {
-        qCWarning(lcKeyboardSimulatorMacOS) << "Failed to create CGEvent for keyboard key:" << key;
+        qCWarning(lcServerInput) << "Failed to create CGEvent for keyboard key:" << key;
         return false;
     }
     CGEventPost(kCGHIDEventTap, event);
@@ -190,7 +190,7 @@ bool KeyboardSimulatorMacOS::simulateKeyboardEvent(CGKeyCode key, bool keyDown, 
             if (cmdEvent) {
                 CGEventPost(kCGHIDEventTap, cmdEvent);
                 CFRelease(cmdEvent);
-                qCDebug(lcKeyboardSimulatorMacOS) << "Releasing Command";
+                qCDebug(lcServerInput) << "Releasing Command";
             }
         }
         if (modifiers & kCGEventFlagMaskAlternate) {
@@ -198,7 +198,7 @@ bool KeyboardSimulatorMacOS::simulateKeyboardEvent(CGKeyCode key, bool keyDown, 
             if (altEvent) {
                 CGEventPost(kCGHIDEventTap, altEvent);
                 CFRelease(altEvent);
-                qCDebug(lcKeyboardSimulatorMacOS) << "Releasing Option";
+                qCDebug(lcServerInput) << "Releasing Option";
             }
         }
         if (modifiers & kCGEventFlagMaskShift) {
@@ -206,7 +206,7 @@ bool KeyboardSimulatorMacOS::simulateKeyboardEvent(CGKeyCode key, bool keyDown, 
             if (shiftEvent) {
                 CGEventPost(kCGHIDEventTap, shiftEvent);
                 CFRelease(shiftEvent);
-                qCDebug(lcKeyboardSimulatorMacOS) << "Releasing Shift";
+                qCDebug(lcServerInput) << "Releasing Shift";
             }
         }
         if (modifiers & kCGEventFlagMaskControl) {
@@ -214,12 +214,12 @@ bool KeyboardSimulatorMacOS::simulateKeyboardEvent(CGKeyCode key, bool keyDown, 
             if (ctrlEvent) {
                 CGEventPost(kCGHIDEventTap, ctrlEvent);
                 CFRelease(ctrlEvent);
-                qCDebug(lcKeyboardSimulatorMacOS) << "Releasing Control";
+                qCDebug(lcServerInput) << "Releasing Control";
             }
         }
     }
 
-    qCDebug(lcKeyboardSimulatorMacOS) << "Keyboard event simulated successfully";
+    qCDebug(lcServerInput) << "Keyboard event simulated successfully";
     return true;
 }
 
@@ -228,7 +228,7 @@ CGKeyCode KeyboardSimulatorMacOS::qtKeyToMacOSKey(int qtKey) const {
     bool isKeypad = (qtKey & 0x20000000) != 0;
     int baseKey = qtKey & ~0x20000000;  // 移除 KeypadModifier 标志
     
-    qCDebug(lcKeyboardSimulatorMacOS) << "qtKeyToMacOSKey: qtKey=" << Qt::hex << qtKey 
+    qCDebug(lcServerInput) << "qtKeyToMacOSKey: qtKey=" << Qt::hex << qtKey 
         << "(" << Qt::dec << qtKey << "), isKeypad=" << isKeypad << ", baseKey=" << Qt::hex << baseKey;
     
     // ===========================================
@@ -245,46 +245,46 @@ CGKeyCode KeyboardSimulatorMacOS::qtKeyToMacOSKey(int qtKey) const {
 }
 
 CGKeyCode KeyboardSimulatorMacOS::handleNumpadKey(int baseKey, int originalKey) const {
-    qCDebug(lcKeyboardSimulatorMacOS) << "Processing numpad key: baseKey=" << Qt::hex << baseKey 
+    qCDebug(lcServerInput) << "Processing numpad key: baseKey=" << Qt::hex << baseKey 
         << ", originalKey=" << originalKey;
     
     // 步骤 1: 在小键盘专用映射表中查找
     auto it = m_numpadKeyMap.find(baseKey);
     if (it != m_numpadKeyMap.end()) {
-        qCDebug(lcKeyboardSimulatorMacOS) << "Found in numpad map: baseKey=" << Qt::hex << baseKey
+        qCDebug(lcServerInput) << "Found in numpad map: baseKey=" << Qt::hex << baseKey
             << "-> CGKeyCode=" << Qt::hex << it->second;
         return it->second;
     }
     
     // 步骤 2: 小键盘映射表中未找到，检查是否是导航键
-    qCDebug(lcKeyboardSimulatorMacOS) << "Not found in numpad map, checking if it's a navigation key";
+    qCDebug(lcServerInput) << "Not found in numpad map, checking if it's a navigation key";
     
     auto stdIt = m_standardKeyMap.find(baseKey);
     if (stdIt != m_standardKeyMap.end()) {
-        qCDebug(lcKeyboardSimulatorMacOS) << "Found navigation key in standard map: baseKey=" << Qt::hex << baseKey
+        qCDebug(lcServerInput) << "Found navigation key in standard map: baseKey=" << Qt::hex << baseKey
             << "-> CGKeyCode=" << Qt::hex << stdIt->second;
         return stdIt->second;
     }
     
     // 步骤 3: 仍未找到映射，记录警告并返回默认值
-    qCWarning(lcKeyboardSimulatorMacOS) << "Unmapped numpad key:" << Qt::hex << originalKey 
+    qCWarning(lcServerInput) << "Unmapped numpad key:" << Qt::hex << originalKey 
         << "(baseKey=" << baseKey << "), using fallback";
     return static_cast<CGKeyCode>(baseKey & 0xFF);
 }
 
 CGKeyCode KeyboardSimulatorMacOS::handleStandardKey(int qtKey) const {
-    qCDebug(lcKeyboardSimulatorMacOS) << "Processing standard keyboard key: qtKey=" << Qt::hex << qtKey;
+    qCDebug(lcServerInput) << "Processing standard keyboard key: qtKey=" << Qt::hex << qtKey;
     
     // 在标准键盘映射表中查找
     auto it = m_standardKeyMap.find(qtKey);
     if (it != m_standardKeyMap.end()) {
-        qCDebug(lcKeyboardSimulatorMacOS) << "Found in standard map: qtKey=" << Qt::hex << qtKey 
+        qCDebug(lcServerInput) << "Found in standard map: qtKey=" << Qt::hex << qtKey 
             << "-> CGKeyCode=" << Qt::hex << it->second << "(" << Qt::dec << it->second << ")";
         return it->second;
     }
     
     // 未找到映射，记录警告并返回默认值
-    qCWarning(lcKeyboardSimulatorMacOS) << "Unmapped standard key:" << Qt::hex << qtKey 
+    qCWarning(lcServerInput) << "Unmapped standard key:" << Qt::hex << qtKey 
         << "(" << Qt::dec << qtKey << "), using fallback CGKeyCode=" << (qtKey & 0xFF);
     return static_cast<CGKeyCode>(qtKey & 0xFF);
 }
@@ -300,7 +300,7 @@ CGEventFlags KeyboardSimulatorMacOS::qtModifiersToMacOSModifiers(Qt::KeyboardMod
     if (filteredModifiers & Qt::AltModifier) result |= kCGEventFlagMaskAlternate;
     if (filteredModifiers & Qt::MetaModifier) result |= kCGEventFlagMaskCommand;
     
-    qCDebug(lcKeyboardSimulatorMacOS) << "Modifiers conversion: Qt=" << Qt::hex << modifiers 
+    qCDebug(lcServerInput) << "Modifiers conversion: Qt=" << Qt::hex << modifiers 
         << "filtered=" << filteredModifiers 
         << "-> macOS=" << result 
         << "(Ctrl=" << bool(result & kCGEventFlagMaskControl) 
@@ -478,16 +478,16 @@ void KeyboardSimulatorMacOS::initializeKeyMappings() {
     m_numpadKeyMap[Qt::Key_Equal] = 0x51;         // = (小键盘)
     m_numpadKeyMap[Qt::Key_Clear] = 0x47;         // Clear (小键盘)
     
-    qCDebug(lcKeyboardSimulatorMacOS) << "Key mappings initialized:"
+    qCDebug(lcServerInput) << "Key mappings initialized:"
         << "Standard keys:" << m_standardKeyMap.size()
         << ", Numpad keys:" << m_numpadKeyMap.size();
     
     // 调试输出:检查关键按键的映射
-    qCDebug(lcKeyboardSimulatorMacOS) << "Backspace mapping: Qt::Key_Backspace (" << Qt::Key_Backspace 
+    qCDebug(lcServerInput) << "Backspace mapping: Qt::Key_Backspace (" << Qt::Key_Backspace 
         << ") -> CGKeyCode" << Qt::hex << m_standardKeyMap[Qt::Key_Backspace];
-    qCDebug(lcKeyboardSimulatorMacOS) << "Delete mapping: Qt::Key_Delete (" << Qt::Key_Delete 
+    qCDebug(lcServerInput) << "Delete mapping: Qt::Key_Delete (" << Qt::Key_Delete 
         << ") -> CGKeyCode" << Qt::hex << m_standardKeyMap[Qt::Key_Delete];
-    qCDebug(lcKeyboardSimulatorMacOS) << "Return mapping: Qt::Key_Return (" << Qt::Key_Return 
+    qCDebug(lcServerInput) << "Return mapping: Qt::Key_Return (" << Qt::Key_Return 
         << ") -> CGKeyCode" << Qt::hex << m_standardKeyMap[Qt::Key_Return];
 }
 

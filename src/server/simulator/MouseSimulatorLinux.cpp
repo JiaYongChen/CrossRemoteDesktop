@@ -144,12 +144,12 @@ bool MouseSimulatorLinux::simulateMouseEvent(int x, int y, unsigned int button, 
         // 鼠标移动
         result = XTestFakeMotionEvent(m_display, -1, x, y, CurrentTime) == True;
         XFlush(m_display);
-        qCDebug(lcMouseSimulatorLinux) << "Mouse move: x=" << x << "y=" << y << "result=" << result;
+        qCDebug(lcServerInput) << "Mouse move: x=" << x << "y=" << y << "result=" << result;
     } else {
         // 鼠标按键
         result = XTestFakeButtonEvent(m_display, button, press ? True : False, CurrentTime) == True;
         XFlush(m_display);
-        qCDebug(lcMouseSimulatorLinux) << "Mouse button: button=" << button 
+        qCDebug(lcServerInput) << "Mouse button: button=" << button 
             << "press=" << press << "result=" << result;
     }
 

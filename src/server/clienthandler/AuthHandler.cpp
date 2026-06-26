@@ -40,7 +40,7 @@ int AuthHandler::authenticate(const QString& username, const QString& passwordHa
     }
 
     if (authMethod != 1) {
-        qCWarning(lcClientHandlerWorker) << "不支持的认证方法:" << authMethod;
+        qCWarning(lcServerClientHandler) << "不支持的认证方法:" << authMethod;
         return 2; // AuthResult::INVALID_PASSWORD
     }
 
@@ -55,7 +55,7 @@ int AuthHandler::authenticate(const QString& username, const QString& passwordHa
 
     m_failedAuthCount++;
     m_lastFailedAuthTime = QDateTime::currentDateTime();
-    qCWarning(lcClientHandlerWorker) << "客户端认证失败 (失败次数:" << m_failedAuthCount << "/" << MAX_AUTH_FAILURES << ")";
+    qCWarning(lcServerClientHandler) << "客户端认证失败 (失败次数:" << m_failedAuthCount << "/" << MAX_AUTH_FAILURES << ")";
 
     if (m_failedAuthCount >= MAX_AUTH_FAILURES) {
         return 3; // ACCESS_DENIED → 断开连接

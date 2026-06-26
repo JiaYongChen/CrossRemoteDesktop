@@ -33,7 +33,7 @@ void KeyboardSimulatorWindows::cleanup() {
 
 bool KeyboardSimulatorWindows::simulateKeyPress(int qtKey, Qt::KeyboardModifiers modifiers) {
     if (!m_initialized || !m_enabled) {
-        qCDebug(lcKeyboardSimulatorWindows) << "simulateKeyPress: Not initialized or enabled";
+        qCDebug(lcServerInput) << "simulateKeyPress: Not initialized or enabled";
         return false;
     }
 
@@ -42,13 +42,13 @@ bool KeyboardSimulatorWindows::simulateKeyPress(int qtKey, Qt::KeyboardModifiers
         return false;
     }
 
-    qCDebug(lcKeyboardSimulatorWindows) << "simulateKeyPress: qtKey=" << Qt::hex << qtKey 
+    qCDebug(lcServerInput) << "simulateKeyPress: qtKey=" << Qt::hex << qtKey 
         << "(" << Qt::dec << qtKey << "), modifiers=" << modifiers;
 
     WORD winKey = qtKeyToWindowsKey(qtKey);
     DWORD winModifiers = qtModifiersToWindowsModifiers(modifiers);
     
-    qCDebug(lcKeyboardSimulatorWindows) << "Mapped to winKey=" << Qt::hex << winKey 
+    qCDebug(lcServerInput) << "Mapped to winKey=" << Qt::hex << winKey 
         << "(" << Qt::dec << winKey << ")";
     
     return simulateKeyboardEvent(winKey, 0, winModifiers); // 0 表示按下
@@ -56,7 +56,7 @@ bool KeyboardSimulatorWindows::simulateKeyPress(int qtKey, Qt::KeyboardModifiers
 
 bool KeyboardSimulatorWindows::simulateKeyRelease(int qtKey, Qt::KeyboardModifiers modifiers) {
     if (!m_initialized || !m_enabled) {
-        qCDebug(lcKeyboardSimulatorWindows) << "simulateKeyRelease: Not initialized or enabled";
+        qCDebug(lcServerInput) << "simulateKeyRelease: Not initialized or enabled";
         return false;
     }
 
@@ -78,7 +78,7 @@ bool KeyboardSimulatorWindows::simulateKeyboardEvent(WORD key, DWORD flags, DWOR
     bool isMainKeyModifier = (key == VK_CONTROL || key == VK_SHIFT || key == VK_MENU || 
                               key == VK_LWIN || key == VK_RWIN);
 
-    qCDebug(lcKeyboardSimulatorWindows) << "simulateKeyboardEvent: key=" << key 
+    qCDebug(lcServerInput) << "simulateKeyboardEvent: key=" << key 
         << "flags=" << flags << "modifiers=" << modifiers 
         << "isMainKeyModifier=" << isMainKeyModifier;
 
@@ -92,7 +92,7 @@ bool KeyboardSimulatorWindows::simulateKeyboardEvent(WORD key, DWORD flags, DWOR
         
         UINT sent = SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT));
         if (sent == inputs.size()) {
-            qCDebug(lcKeyboardSimulatorWindows) << "Modifier key event sent: key=" << key << "flags=" << flags;
+            qCDebug(lcServerInput) << "Modifier key event sent: key=" << key << "flags=" << flags;
             return true;
         }
         return false;
@@ -107,7 +107,7 @@ bool KeyboardSimulatorWindows::simulateKeyboardEvent(WORD key, DWORD flags, DWOR
             input.ki.wVk = VK_CONTROL;
             input.ki.dwFlags = 0;
             inputs.push_back(input);
-            qCDebug(lcKeyboardSimulatorWindows) << "Pressing Ctrl";
+            qCDebug(lcServerInput) << "Pressing Ctrl";
         }
         if (modifiers & 0x0004) {  // Shift
             INPUT input = {0};
@@ -115,7 +115,7 @@ bool KeyboardSimulatorWindows::simulateKeyboardEvent(WORD key, DWORD flags, DWOR
             input.ki.wVk = VK_SHIFT;
             input.ki.dwFlags = 0;
             inputs.push_back(input);
-            qCDebug(lcKeyboardSimulatorWindows) << "Pressing Shift";
+            qCDebug(lcServerInput) << "Pressing Shift";
         }
         if (modifiers & 0x0001) {  // Alt
             INPUT input = {0};
@@ -123,7 +123,7 @@ bool KeyboardSimulatorWindows::simulateKeyboardEvent(WORD key, DWORD flags, DWOR
             input.ki.wVk = VK_MENU;
             input.ki.dwFlags = 0;
             inputs.push_back(input);
-            qCDebug(lcKeyboardSimulatorWindows) << "Pressing Alt";
+            qCDebug(lcServerInput) << "Pressing Alt";
         }
     }
 
@@ -143,7 +143,7 @@ bool KeyboardSimulatorWindows::simulateKeyboardEvent(WORD key, DWORD flags, DWOR
             input.ki.wVk = VK_MENU;
             input.ki.dwFlags = KEYEVENTF_KEYUP;
             inputs.push_back(input);
-            qCDebug(lcKeyboardSimulatorWindows) << "Releasing Alt";
+            qCDebug(lcServerInput) << "Releasing Alt";
         }
         if (modifiers & 0x0004) {  // Shift
             INPUT input = {0};
@@ -151,7 +151,7 @@ bool KeyboardSimulatorWindows::simulateKeyboardEvent(WORD key, DWORD flags, DWOR
             input.ki.wVk = VK_SHIFT;
             input.ki.dwFlags = KEYEVENTF_KEYUP;
             inputs.push_back(input);
-            qCDebug(lcKeyboardSimulatorWindows) << "Releasing Shift";
+            qCDebug(lcServerInput) << "Releasing Shift";
         }
         if (modifiers & 0x0002) {  // Ctrl
             INPUT input = {0};
@@ -159,17 +159,17 @@ bool KeyboardSimulatorWindows::simulateKeyboardEvent(WORD key, DWORD flags, DWOR
             input.ki.wVk = VK_CONTROL;
             input.ki.dwFlags = KEYEVENTF_KEYUP;
             inputs.push_back(input);
-            qCDebug(lcKeyboardSimulatorWindows) << "Releasing Ctrl";
+            qCDebug(lcServerInput) << "Releasing Ctrl";
         }
     }
 
     UINT sent = SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT));
     if (sent == inputs.size()) {
-        qCDebug(lcKeyboardSimulatorWindows) << "Keyboard event simulated: sent" << inputs.size() << "inputs";
+        qCDebug(lcServerInput) << "Keyboard event simulated: sent" << inputs.size() << "inputs";
         return true;
     }
 
-    qCWarning(lcKeyboardSimulatorWindows) << "Failed to send keyboard input: key=" << key;
+    qCWarning(lcServerInput) << "Failed to send keyboard input: key=" << key;
     return false;
 }
 
@@ -178,7 +178,7 @@ WORD KeyboardSimulatorWindows::qtKeyToWindowsKey(int qtKey) const {
     bool isKeypad = (qtKey & 0x20000000) != 0;
     int baseKey = qtKey & ~0x20000000;  // 移除 KeypadModifier 标志
     
-    qCDebug(lcKeyboardSimulatorWindows) << "qtKeyToWindowsKey: qtKey=" << Qt::hex << qtKey 
+    qCDebug(lcServerInput) << "qtKeyToWindowsKey: qtKey=" << Qt::hex << qtKey 
         << "(" << Qt::dec << qtKey << "), isKeypad=" << isKeypad << ", baseKey=" << Qt::hex << baseKey;
     
     // ===========================================
@@ -195,13 +195,13 @@ WORD KeyboardSimulatorWindows::qtKeyToWindowsKey(int qtKey) const {
 }
 
 WORD KeyboardSimulatorWindows::handleNumpadKey(int baseKey, int originalKey) const {
-    qCDebug(lcKeyboardSimulatorWindows) << "Processing numpad key: baseKey=" << Qt::hex << baseKey 
+    qCDebug(lcServerInput) << "Processing numpad key: baseKey=" << Qt::hex << baseKey 
         << ", originalKey=" << originalKey;
     
     // 步骤 1: 在小键盘专用映射表中查找
     auto it = m_numpadKeyMap.find(baseKey);
     if (it != m_numpadKeyMap.end()) {
-        qCDebug(lcKeyboardSimulatorWindows) << "Found in numpad map: baseKey=" << Qt::hex << baseKey
+        qCDebug(lcServerInput) << "Found in numpad map: baseKey=" << Qt::hex << baseKey
             << "-> VK=" << Qt::hex << it->second << "(VK_NUMPAD*)";
         return it->second;
     }
@@ -209,34 +209,34 @@ WORD KeyboardSimulatorWindows::handleNumpadKey(int baseKey, int originalKey) con
     // 步骤 2: 小键盘映射表中未找到，检查是否是导航键
     // NumLock 关闭时，小键盘会发送 Insert/Delete/Home/End/PageUp/PageDown/Left/Right/Up/Down/Clear
     // 这些键应该映射到标准的导航键 VK 码
-    qCDebug(lcKeyboardSimulatorWindows) << "Not found in numpad map, checking if it's a navigation key";
+    qCDebug(lcServerInput) << "Not found in numpad map, checking if it's a navigation key";
     
     auto stdIt = m_standardKeyMap.find(baseKey);
     if (stdIt != m_standardKeyMap.end()) {
-        qCDebug(lcKeyboardSimulatorWindows) << "Found navigation key in standard map: baseKey=" << Qt::hex << baseKey
+        qCDebug(lcServerInput) << "Found navigation key in standard map: baseKey=" << Qt::hex << baseKey
             << "-> VK=" << Qt::hex << stdIt->second;
         return stdIt->second;
     }
     
     // 步骤 3: 仍未找到映射，记录警告并返回默认值
-    qCWarning(lcKeyboardSimulatorWindows) << "Unmapped numpad key:" << Qt::hex << originalKey 
+    qCWarning(lcServerInput) << "Unmapped numpad key:" << Qt::hex << originalKey 
         << "(baseKey=" << baseKey << "), using fallback";
     return static_cast<WORD>(baseKey & 0xFFFF);
 }
 
 WORD KeyboardSimulatorWindows::handleStandardKey(int qtKey) const {
-    qCDebug(lcKeyboardSimulatorWindows) << "Processing standard keyboard key: qtKey=" << Qt::hex << qtKey;
+    qCDebug(lcServerInput) << "Processing standard keyboard key: qtKey=" << Qt::hex << qtKey;
     
     // 在标准键盘映射表中查找
     auto it = m_standardKeyMap.find(qtKey);
     if (it != m_standardKeyMap.end()) {
-        qCDebug(lcKeyboardSimulatorWindows) << "Found in standard map: qtKey=" << Qt::hex << qtKey 
+        qCDebug(lcServerInput) << "Found in standard map: qtKey=" << Qt::hex << qtKey 
             << "-> VK=" << Qt::hex << it->second << "(" << Qt::dec << it->second << ")";
         return it->second;
     }
     
     // 未找到映射，记录警告并返回默认值
-    qCWarning(lcKeyboardSimulatorWindows) << "Unmapped standard key:" << Qt::hex << qtKey 
+    qCWarning(lcServerInput) << "Unmapped standard key:" << Qt::hex << qtKey 
         << "(" << Qt::dec << qtKey << "), using fallback VK=" << (qtKey & 0xFFFF);
     return static_cast<WORD>(qtKey & 0xFFFF);
 }
@@ -252,7 +252,7 @@ DWORD KeyboardSimulatorWindows::qtModifiersToWindowsModifiers(Qt::KeyboardModifi
     if (filteredModifiers & Qt::ShiftModifier) result |= 0x0004;
     if (filteredModifiers & Qt::AltModifier) result |= 0x0001;
     
-    qCDebug(lcKeyboardSimulatorWindows) << "Modifiers conversion: Qt=" << Qt::hex << modifiers 
+    qCDebug(lcServerInput) << "Modifiers conversion: Qt=" << Qt::hex << modifiers 
         << "filtered=" << filteredModifiers 
         << "-> Windows=" << result 
         << "(Ctrl=" << bool(result & 0x0002) 
@@ -478,16 +478,16 @@ void KeyboardSimulatorWindows::initializeKeyMappings() {
     m_numpadKeyMap[Qt::Key_Slash] = VK_DIVIDE;       // / (小键盘专用 VK 码)
     m_numpadKeyMap[Qt::Key_Enter] = VK_RETURN;       // Enter (与主键盘 Enter 共用 VK 码)
     
-    qCDebug(lcKeyboardSimulatorWindows) << "Key mappings initialized:"
+    qCDebug(lcServerInput) << "Key mappings initialized:"
         << "Standard keys:" << m_standardKeyMap.size()
         << ", Numpad keys:" << m_numpadKeyMap.size();
     
     // 调试输出:检查关键按键的映射
-    qCDebug(lcKeyboardSimulatorWindows) << "Backspace mapping: Qt::Key_Backspace (" << Qt::Key_Backspace 
+    qCDebug(lcServerInput) << "Backspace mapping: Qt::Key_Backspace (" << Qt::Key_Backspace 
         << ") -> VK" << Qt::hex << m_standardKeyMap[Qt::Key_Backspace];
-    qCDebug(lcKeyboardSimulatorWindows) << "Delete mapping: Qt::Key_Delete (" << Qt::Key_Delete 
+    qCDebug(lcServerInput) << "Delete mapping: Qt::Key_Delete (" << Qt::Key_Delete 
         << ") -> VK" << Qt::hex << m_standardKeyMap[Qt::Key_Delete];
-    qCDebug(lcKeyboardSimulatorWindows) << "Return mapping: Qt::Key_Return (" << Qt::Key_Return 
+    qCDebug(lcServerInput) << "Return mapping: Qt::Key_Return (" << Qt::Key_Return 
         << ") -> VK" << Qt::hex << m_standardKeyMap[Qt::Key_Return];
 }
 

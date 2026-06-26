@@ -133,7 +133,7 @@ bool MouseSimulatorMacOS::simulateMouseDoubleClick(int x, int y, Qt::MouseButton
 
     // 检查辅助功能权限
     if (!AXIsProcessTrusted()) {
-        qCWarning(lcMouseSimulatorMacOS) << "Accessibility permission not granted";
+        qCWarning(lcServerInput) << "Accessibility permission not granted";
         setLastError("需要辅助功能权限");
         return false;
     }
@@ -167,7 +167,7 @@ bool MouseSimulatorMacOS::simulateMouseDoubleClick(int x, int y, Qt::MouseButton
     // 创建事件源
     CGEventSourceRef source = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
     if (!source) {
-        qCWarning(lcMouseSimulatorMacOS) << "Failed to create CGEventSource";
+        qCWarning(lcServerInput) << "Failed to create CGEventSource";
         return false;
     }
 
@@ -202,7 +202,7 @@ bool MouseSimulatorMacOS::simulateMouseDoubleClick(int x, int y, Qt::MouseButton
     }
 
     CFRelease(source);
-    qCDebug(lcMouseSimulatorMacOS) << "Double click simulated at" << x << y << "button:" << button;
+    qCDebug(lcServerInput) << "Double click simulated at" << x << y << "button:" << button;
     return true;
 }
 
@@ -216,7 +216,7 @@ bool MouseSimulatorMacOS::simulateMouseWheel(int x, int y, int deltaX, int delta
 
     // 检查辅助功能权限
     if (!AXIsProcessTrusted()) {
-        qCWarning(lcMouseSimulatorMacOS) << "Accessibility permission not granted";
+        qCWarning(lcServerInput) << "Accessibility permission not granted";
         setLastError("需要辅助功能权限");
         return false;
     }
@@ -233,11 +233,11 @@ bool MouseSimulatorMacOS::simulateMouseWheel(int x, int y, int deltaX, int delta
     if (event) {
         CGEventPost(kCGHIDEventTap, event);
         CFRelease(event);
-        qCDebug(lcMouseSimulatorMacOS) << "Mouse wheel simulated: deltaX=" << deltaX << "deltaY=" << deltaY;
+        qCDebug(lcServerInput) << "Mouse wheel simulated: deltaX=" << deltaX << "deltaY=" << deltaY;
         return true;
     }
 
-    qCWarning(lcMouseSimulatorMacOS) << "Failed to create scroll wheel event";
+    qCWarning(lcServerInput) << "Failed to create scroll wheel event";
     return false;
 }
 
@@ -270,7 +270,7 @@ int MouseSimulatorMacOS::getCurrentCursorType() const {
 bool MouseSimulatorMacOS::simulateMouseEvent(int x, int y, CGEventType eventType, CGMouseButton button) {
     // 检查辅助功能权限
     if (!AXIsProcessTrusted()) {
-        qCWarning(lcMouseSimulatorMacOS) << "Accessibility permission not granted, cannot simulate mouse event";
+        qCWarning(lcServerInput) << "Accessibility permission not granted, cannot simulate mouse event";
         setLastError("需要辅助功能权限");
         return false;
     }
@@ -283,7 +283,7 @@ bool MouseSimulatorMacOS::simulateMouseEvent(int x, int y, CGEventType eventType
     // 创建事件源以提高事件注入的可靠性
     CGEventSourceRef source = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
     if (!source) {
-        qCWarning(lcMouseSimulatorMacOS) << "Failed to create CGEventSource";
+        qCWarning(lcServerInput) << "Failed to create CGEventSource";
     }
 
     CGPoint point = CGPointMake(static_cast<CGFloat>(tx), static_cast<CGFloat>(ty));
@@ -294,13 +294,13 @@ bool MouseSimulatorMacOS::simulateMouseEvent(int x, int y, CGEventType eventType
         CGEventPost(kCGHIDEventTap, event);
         CFRelease(event);
         if (source) CFRelease(source);
-        qCDebug(lcMouseSimulatorMacOS) << "Mouse event simulated:" << eventType 
+        qCDebug(lcServerInput) << "Mouse event simulated:" << eventType 
             << "orig:" << x << y << "transformed:" << tx << ty << "button:" << button;
         return true;
     }
 
     if (source) CFRelease(source);
-    qCWarning(lcMouseSimulatorMacOS) << "Failed to create CGEvent for mouse at" << x << y 
+    qCWarning(lcServerInput) << "Failed to create CGEvent for mouse at" << x << y 
         << "(transformed:" << tx << ty << ")";
     return false;
 }

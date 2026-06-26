@@ -44,20 +44,20 @@ qsizetype Protocol::validateReceivedDataIntegrity(const QByteArray& data, Messag
     // 步骤2：反序列化消息头（明文，由TLS保护）
     QByteArray headerData = data.left(static_cast<qsizetype>(SERIALIZED_HEADER_SIZE));
     if ( !header.decode(headerData) ) {
-        qCWarning(lcProtocol) << "Protocol::validateReceivedDataIntegrity() - Failed to parse message header";
+        qCWarning(lcCoreProtocol) << "Protocol::validateReceivedDataIntegrity() - Failed to parse message header";
         return 0;
     }
 
     // 步骤3：验证魔数
     if ( header.magic != PROTOCOL_MAGIC ) {
-        qCWarning(lcProtocol) << "Protocol::validateReceivedDataIntegrity() - Invalid magic number:" << Qt::hex << header.magic
+        qCWarning(lcCoreProtocol) << "Protocol::validateReceivedDataIntegrity() - Invalid magic number:" << Qt::hex << header.magic
             << "expected:" << Qt::hex << PROTOCOL_MAGIC;
         return 0;
     }
 
     // 步骤4：验证协议版本
     if ( header.version != PROTOCOL_VERSION ) {
-        qCWarning(lcProtocol) << "Protocol::validateReceivedDataIntegrity() - Unsupported protocol version:" << header.version
+        qCWarning(lcCoreProtocol) << "Protocol::validateReceivedDataIntegrity() - Unsupported protocol version:" << header.version
             << "expected:" << PROTOCOL_VERSION;
         return 0;
     }
@@ -65,7 +65,7 @@ qsizetype Protocol::validateReceivedDataIntegrity(const QByteArray& data, Messag
     // 步骤5：检查payload长度是否合理（防止恶意超大消息）
     const quint32 MAX_PAYLOAD_SIZE = NetworkConstants::MAX_PACKET_SIZE - SERIALIZED_HEADER_SIZE;
     if ( header.length > MAX_PAYLOAD_SIZE ) {
-        qCWarning(lcProtocol) << "Protocol::validateReceivedDataIntegrity() - Payload size too large:" << header.length
+        qCWarning(lcCoreProtocol) << "Protocol::validateReceivedDataIntegrity() - Payload size too large:" << header.length
             << "max allowed:" << MAX_PAYLOAD_SIZE;
         return 0;
     }
@@ -82,7 +82,7 @@ qsizetype Protocol::validateReceivedDataIntegrity(const QByteArray& data, Messag
     QByteArray payload = data.mid(static_cast<qsizetype>(SERIALIZED_HEADER_SIZE), static_cast<qsizetype>(header.length));
     quint32 calculatedChecksum = calculateChecksum(payload);
     if ( calculatedChecksum != header.checksum ) {
-        qCWarning(lcProtocol)
+        qCWarning(lcCoreProtocol)
             << "Checksum mismatch. Expected:" << Qt::hex << header.checksum
             << "Calculated:" << Qt::hex << calculatedChecksum;
         return 0;

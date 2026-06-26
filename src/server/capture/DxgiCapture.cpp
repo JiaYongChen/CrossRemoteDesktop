@@ -23,7 +23,7 @@ bool DxgiCapture::initialize(int outputIndex) {
     shutdown();
     m_outputIndex = outputIndex;
 
-    qCInfo(lcDxgiCapture) << "Initializing DXGI capture engine, output index:" << outputIndex;
+    qCInfo(lcServerCaptureDxgi) << "Initializing DXGI capture engine, output index:" << outputIndex;
 
     if ( !createD3DDevice() ) {
         return false;
@@ -35,7 +35,7 @@ bool DxgiCapture::initialize(int outputIndex) {
     }
 
     m_initialized = true;
-    qCInfo(lcDxgiCapture) << "DXGI capture engine initialized successfully, desktop size:"
+    qCInfo(lcServerCaptureDxgi) << "DXGI capture engine initialized successfully, desktop size:"
         << m_desktopSize.width() << "x" << m_desktopSize.height();
     return true;
 }
@@ -52,7 +52,7 @@ void DxgiCapture::shutdown() {
         m_initialized = false;
         m_desktopSize = QSize();
 
-        qCDebug(lcDxgiCapture) << "DXGI capture engine shut down";
+        qCDebug(lcServerCaptureDxgi) << "DXGI capture engine shut down";
     }
 
     // ─────────────────────────────────────────────────────────
@@ -69,7 +69,7 @@ void DxgiCapture::shutdown() {
 
 bool DxgiCapture::reinitialize() {
     const int savedOutputIndex = m_outputIndex;
-    qCInfo(lcDxgiCapture) << "Reinitializing DXGI capture (output:" << savedOutputIndex << ")";
+    qCInfo(lcServerCaptureDxgi) << "Reinitializing DXGI capture (output:" << savedOutputIndex << ")";
     shutdown();
     return initialize(savedOutputIndex);
 }
@@ -91,7 +91,7 @@ bool DxgiCapture::createD3DDevice() {
         if (comHr != RPC_E_CHANGED_MODE) {
             m_lastError = QString("CoInitializeEx failed: HRESULT 0x%1")
                 .arg(static_cast<unsigned long>(comHr), 8, 16, QChar('0'));
-            qCCritical(lcDxgiCapture) << m_lastError;
+            qCCritical(lcServerCaptureDxgi) << m_lastError;
             return false;
         }
     }
@@ -139,11 +139,11 @@ bool DxgiCapture::createD3DDevice() {
     if ( FAILED(hr) ) {
         m_lastError = QString("D3D11CreateDevice failed: HRESULT 0x%1")
             .arg(static_cast<unsigned long>(hr), 8, 16, QChar('0'));
-        qCCritical(lcDxgiCapture) << m_lastError;
+        qCCritical(lcServerCaptureDxgi) << m_lastError;
         return false;
     }
 
-    qCDebug(lcDxgiCapture) << "D3D11 device created, feature level:"
+    qCDebug(lcServerCaptureDxgi) << "D3D11 device created, feature level:"
         << QString("0x%1").arg(featureLevel, 0, 16);
     return true;
 }
@@ -155,7 +155,7 @@ bool DxgiCapture::acquireOutputDuplication(int outputIndex) {
     if ( FAILED(hr) ) {
         m_lastError = QString("QueryInterface for IDXGIDevice failed: 0x%1")
             .arg(static_cast<unsigned long>(hr), 8, 16, QChar('0'));
-        qCCritical(lcDxgiCapture) << m_lastError;
+        qCCritical(lcServerCaptureDxgi) << m_lastError;
         return false;
     }
 
@@ -165,7 +165,7 @@ bool DxgiCapture::acquireOutputDuplication(int outputIndex) {
     if ( FAILED(hr) ) {
         m_lastError = QString("GetAdapter failed: 0x%1")
             .arg(static_cast<unsigned long>(hr), 8, 16, QChar('0'));
-        qCCritical(lcDxgiCapture) << m_lastError;
+        qCCritical(lcServerCaptureDxgi) << m_lastError;
         return false;
     }
 
@@ -176,7 +176,7 @@ bool DxgiCapture::acquireOutputDuplication(int outputIndex) {
         m_lastError = QString("EnumOutputs(%1) failed: 0x%2 — monitor may not exist")
             .arg(outputIndex)
             .arg(static_cast<unsigned long>(hr), 8, 16, QChar('0'));
-        qCCritical(lcDxgiCapture) << m_lastError;
+        qCCritical(lcServerCaptureDxgi) << m_lastError;
         return false;
     }
 
@@ -186,7 +186,7 @@ bool DxgiCapture::acquireOutputDuplication(int outputIndex) {
     if ( FAILED(hr) ) {
         m_lastError = QString("GetDesc failed: 0x%1")
             .arg(static_cast<unsigned long>(hr), 8, 16, QChar('0'));
-        qCCritical(lcDxgiCapture) << m_lastError;
+        qCCritical(lcServerCaptureDxgi) << m_lastError;
         return false;
     }
 
@@ -201,7 +201,7 @@ bool DxgiCapture::acquireOutputDuplication(int outputIndex) {
     if ( FAILED(hr) ) {
         m_lastError = QString("QueryInterface for IDXGIOutput1 failed: 0x%1")
             .arg(static_cast<unsigned long>(hr), 8, 16, QChar('0'));
-        qCCritical(lcDxgiCapture) << m_lastError;
+        qCCritical(lcServerCaptureDxgi) << m_lastError;
         return false;
     }
 
@@ -219,7 +219,7 @@ bool DxgiCapture::acquireOutputDuplication(int outputIndex) {
             m_lastError += " — access denied (secure desktop or UAC)";
         }
 
-        qCCritical(lcDxgiCapture) << m_lastError;
+        qCCritical(lcServerCaptureDxgi) << m_lastError;
         return false;
     }
 
@@ -229,7 +229,7 @@ bool DxgiCapture::acquireOutputDuplication(int outputIndex) {
         return false;
     }
 
-    qCInfo(lcDxgiCapture) << "Desktop Duplication acquired for output"
+    qCInfo(lcServerCaptureDxgi) << "Desktop Duplication acquired for output"
         << outputIndex << "size:" << m_desktopSize;
     return true;
 }
@@ -254,11 +254,11 @@ bool DxgiCapture::createStagingTexture(int width, int height) {
     if ( FAILED(hr) ) {
         m_lastError = QString("CreateTexture2D (staging) failed: 0x%1")
             .arg(static_cast<unsigned long>(hr), 8, 16, QChar('0'));
-        qCCritical(lcDxgiCapture) << m_lastError;
+        qCCritical(lcServerCaptureDxgi) << m_lastError;
         return false;
     }
 
-    qCDebug(lcDxgiCapture) << "Staging texture created:" << width << "x" << height;
+    qCDebug(lcServerCaptureDxgi) << "Staging texture created:" << width << "x" << height;
     return true;
 }
 
@@ -282,7 +282,7 @@ QImage DxgiCapture::captureFrame(int timeoutMs) {
 
     if ( hr == DXGI_ERROR_ACCESS_LOST ) {
         m_lastError = "Desktop Duplication access lost (desktop switch/resolution change)";
-        qCWarning(lcDxgiCapture) << m_lastError;
+        qCWarning(lcServerCaptureDxgi) << m_lastError;
         m_initialized = false;  // Caller should call reinitialize()
         return QImage();
     }
@@ -290,7 +290,7 @@ QImage DxgiCapture::captureFrame(int timeoutMs) {
     if ( FAILED(hr) ) {
         m_lastError = QString("AcquireNextFrame failed: 0x%1")
             .arg(static_cast<unsigned long>(hr), 8, 16, QChar('0'));
-        qCWarning(lcDxgiCapture) << m_lastError;
+        qCWarning(lcServerCaptureDxgi) << m_lastError;
         return QImage();
     }
 
@@ -301,7 +301,7 @@ QImage DxgiCapture::captureFrame(int timeoutMs) {
         m_duplication->ReleaseFrame();
         m_lastError = QString("QueryInterface for ID3D11Texture2D failed: 0x%1")
             .arg(static_cast<unsigned long>(hr), 8, 16, QChar('0'));
-        qCWarning(lcDxgiCapture) << m_lastError;
+        qCWarning(lcServerCaptureDxgi) << m_lastError;
         return QImage();
     }
 
@@ -311,7 +311,7 @@ QImage DxgiCapture::captureFrame(int timeoutMs) {
     const QSize currentSize(static_cast<int>(texDesc.Width),
                             static_cast<int>(texDesc.Height));
     if ( currentSize != m_desktopSize ) {
-        qCInfo(lcDxgiCapture) << "Desktop size changed from" << m_desktopSize
+        qCInfo(lcServerCaptureDxgi) << "Desktop size changed from" << m_desktopSize
             << "to" << currentSize;
         m_desktopSize = currentSize;
         if ( !createStagingTexture(m_desktopSize.width(), m_desktopSize.height()) ) {
@@ -330,7 +330,7 @@ QImage DxgiCapture::captureFrame(int timeoutMs) {
         m_duplication->ReleaseFrame();
         m_lastError = QString("Map staging texture failed: 0x%1")
             .arg(static_cast<unsigned long>(hr), 8, 16, QChar('0'));
-        qCWarning(lcDxgiCapture) << m_lastError;
+        qCWarning(lcServerCaptureDxgi) << m_lastError;
         return QImage();
     }
 

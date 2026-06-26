@@ -57,25 +57,25 @@ ClientHandlerWorker::ClientHandlerWorker(qintptr socketDescriptor,
     , m_bytesSent(0)
     , m_inputSimulator(nullptr)
     , m_queueManager(queueMgr) {
-    qCDebug(lcClientHandlerWorker) << "ClientHandlerWorker 构造函数调用，套接字描述符:" << socketDescriptor;
+    qCDebug(lcServerClientHandler) << "ClientHandlerWorker 构造函数调用，套接字描述符:" << socketDescriptor;
     setName("ClientHandlerWorker");
 }
 
 ClientHandlerWorker::~ClientHandlerWorker() {
-    qCDebug(lcClientHandlerWorker) << "ClientHandlerWorker 析构函数";
+    qCDebug(lcServerClientHandler) << "ClientHandlerWorker 析构函数";
 
-    qCDebug(lcClientHandlerWorker) << "ClientHandlerWorker 析构完成";
+    qCDebug(lcServerClientHandler) << "ClientHandlerWorker 析构完成";
 }
 
 bool ClientHandlerWorker::initialize() {
-    qCInfo(lcClientHandlerWorker) << "初始化 ClientHandlerWorker";
+    qCInfo(lcServerClientHandler) << "初始化 ClientHandlerWorker";
 
     // 在Worker线程中创建SSL socket
     m_socket = new QSslSocket(this);
 
     // 使用套接字描述符初始化socket
     if ( !m_socket->setSocketDescriptor(m_socketDescriptor) ) {
-        qCCritical(lcClientHandlerWorker) << "无法设置套接字描述符:" << m_socket->errorString();
+        qCCritical(lcServerClientHandler) << "无法设置套接字描述符:" << m_socket->errorString();
         delete m_socket;
         m_socket = nullptr;
         return false;
@@ -124,11 +124,11 @@ bool ClientHandlerWorker::initialize() {
                 case QSslError::SelfSignedCertificateInChain:
                 case QSslError::HostNameMismatch:
                     // Tolerable for self-signed server certificates
-                    qCDebug(lcClientHandlerWorker) << "Ignoring expected SSL error:" << error.errorString();
+                    qCDebug(lcServerClientHandler) << "Ignoring expected SSL error:" << error.errorString();
                     expectedErrors.append(error);
                     break;
                 default:
-                    qCWarning(lcClientHandlerWorker) << "SSL error:" << error.errorString();
+                    qCWarning(lcServerClientHandler) << "SSL error:" << error.errorString();
                     break;
             }
         }
@@ -158,11 +158,11 @@ bool ClientHandlerWorker::initialize() {
     // 创建输入模拟器
     m_inputSimulator = new InputSimulator(this);
     if ( !m_inputSimulator->initialize() ) {
-        qCWarning(lcClientHandlerWorker) << "输入模拟器初始化失败，客户端:" << clientId();
+        qCWarning(lcServerClientHandler) << "输入模拟器初始化失败，客户端:" << clientId();
     }
 
     if ( !m_queueManager ) {
-        qCWarning(lcClientHandlerWorker) << "无法获取队列管理器实例";
+        qCWarning(lcServerClientHandler) << "无法获取队列管理器实例";
     }
 
     // 启动心跳检查定时器
@@ -171,13 +171,13 @@ bool ClientHandlerWorker::initialize() {
     // 启动心跳发送定时器
     m_heartbeatSendTimer->start();
 
-    qCInfo(lcClientHandlerWorker) << "ClientHandlerWorker 初始化成功，客户端:" << clientId();
+    qCInfo(lcServerClientHandler) << "ClientHandlerWorker 初始化成功，客户端:" << clientId();
 
     return true;
 }
 
 void ClientHandlerWorker::cleanup() {
-    qCInfo(lcClientHandlerWorker) << "清理 ClientHandlerWorker 资源";
+    qCInfo(lcServerClientHandler) << "清理 ClientHandlerWorker 资源";
 
     // 在工作线程中停止并显式删除定时器子对象。
     // 根本原因修复：这些子 QObject 是在工作线程的 initialize() 中以 this 为 parent 创建的，
@@ -222,7 +222,7 @@ void ClientHandlerWorker::cleanup() {
         m_socket = nullptr;
     }
 
-    qCInfo(lcClientHandlerWorker) << "ClientHandlerWorker 资源清理完成";
+    qCInfo(lcServerClientHandler) << "ClientHandlerWorker 资源清理完成";
 }
 
 void ClientHandlerWorker::processTask() {
@@ -234,7 +234,7 @@ void ClientHandlerWorker::processTask() {
         // 不要直接调用stop(),而是通过disconnected信号让ClientHandler来停止
         // 使用成员变量确保只触发一次
         if ( !m_disconnectSignalSent.exchange(true) ) {
-            qCDebug(lcClientHandlerWorker) << "检测到连接断开(processTask)，触发disconnected信号";
+            qCDebug(lcServerClientHandler) << "检测到连接断开(processTask)，触发disconnected信号";
             emit disconnected();
         }
         return;
@@ -283,7 +283,7 @@ void ClientHandlerWorker::sendScreenDataFromQueue() {
 
         // 验证数据有效性
         if ( !processedData.isValid() ) {
-            qCWarning(lcClientHandlerWorker) << "ProcessedData无效，跳过发送，帧ID:" << processedData.originalFrameId;
+            qCWarning(lcServerClientHandler) << "ProcessedData无效，跳过发送，帧ID:" << processedData.originalFrameId;
             continue;
         }
 
@@ -310,7 +310,7 @@ void ClientHandlerWorker::sendScreenDataFromQueue() {
         QByteArray messageData = Protocol::createMessage(MessageType::SCREEN_DATA, screenData);
 
         if ( messageData.isEmpty() ) {
-            qCWarning(lcClientHandlerWorker) << "消息编码失败，messageData为空";
+            qCWarning(lcServerClientHandler) << "消息编码失败，messageData为空";
             continue;
         }
 
@@ -399,7 +399,7 @@ void ClientHandlerWorker::sendMessage(MessageType type, const IMessageCodec& mes
         QByteArray messageData = Protocol::createMessage(type, message);
 
         if ( messageData.isEmpty() ) {
-            qCWarning(lcClientHandlerWorker) << "消息数据为空，跳过发送";
+            qCWarning(lcServerClientHandler) << "消息数据为空，跳过发送";
             return;
         }
 
@@ -408,25 +408,25 @@ void ClientHandlerWorker::sendMessage(MessageType type, const IMessageCodec& mes
 
         // 只在非屏幕数据消息时记录详细日志，避免高频日志输出
         if ( type != MessageType::SCREEN_DATA ) {
-            qCDebug(lcClientHandlerWorker) << "消息发送完成: 类型=" << static_cast<int>(type)
+            qCDebug(lcServerClientHandler) << "消息发送完成: 类型=" << static_cast<int>(type)
                 << ", 大小=" << messageData.size() << "bytes";
         }
 
     } catch ( const std::exception& e ) {
-        qCWarning(lcClientHandlerWorker) << "发送消息时发生异常:" << e.what();
+        qCWarning(lcServerClientHandler) << "发送消息时发生异常:" << e.what();
     } catch ( ... ) {
-        qCWarning(lcClientHandlerWorker) << "发送消息时发生未知异常";
+        qCWarning(lcServerClientHandler) << "发送消息时发生未知异常";
     }
 }
 
 void ClientHandlerWorker::sendEncodedMessage(const QByteArray& messageData) {
     if ( !m_socket || m_socket->state() != QAbstractSocket::ConnectedState ) {
-        qCWarning(lcClientHandlerWorker) << "套接字未连接，无法发送消息";
+        qCWarning(lcServerClientHandler) << "套接字未连接，无法发送消息";
         return;
     }
 
     if ( messageData.isEmpty() ) {
-        qCWarning(lcClientHandlerWorker) << "消息数据为空，跳过发送";
+        qCWarning(lcServerClientHandler) << "消息数据为空，跳过发送";
         return;
     }
 
@@ -438,12 +438,12 @@ void ClientHandlerWorker::sendEncodedMessage(const QByteArray& messageData) {
         qint64 bytesWritten = m_socket->write(messageData);
 
         if ( bytesWritten == -1 ) {
-            qCWarning(lcClientHandlerWorker) << "发送消息失败:" << m_socket->errorString();
+            qCWarning(lcServerClientHandler) << "发送消息失败:" << m_socket->errorString();
             return;
         }
 
         if ( bytesWritten != totalSize ) {
-            qCWarning(lcClientHandlerWorker) << "消息部分发送: 期望" << totalSize << "bytes，实际" << bytesWritten << "bytes";
+            qCWarning(lcServerClientHandler) << "消息部分发送: 期望" << totalSize << "bytes，实际" << bytesWritten << "bytes";
         }
 
         // 更新统计信息（按写入的字节数，不是消息大小）
@@ -453,52 +453,52 @@ void ClientHandlerWorker::sendEncodedMessage(const QByteArray& messageData) {
         }
 
         // 数据大小和发送数据大小日志
-        // qCDebug(lcClientHandlerWorker) << "数据大小:" << totalSize << "bytes" << "发送数据大小:" << bytesWritten << "bytes";
+        // qCDebug(lcServerClientHandler) << "数据大小:" << totalSize << "bytes" << "发送数据大小:" << bytesWritten << "bytes";
 
     } catch ( const std::exception& e ) {
-        qCWarning(lcClientHandlerWorker) << "发送消息时发生异常:" << e.what();
+        qCWarning(lcServerClientHandler) << "发送消息时发生异常:" << e.what();
     } catch ( ... ) {
-        qCWarning(lcClientHandlerWorker) << "发送消息时发生未知异常";
+        qCWarning(lcServerClientHandler) << "发送消息时发生未知异常";
     }
 }
 
 void ClientHandlerWorker::disconnectClient() {
-    qCInfo(lcClientHandlerWorker) << "断开客户端连接:" << clientId();
+    qCInfo(lcServerClientHandler) << "断开客户端连接:" << clientId();
 
     if ( m_socket ) {
-        qCDebug(lcClientHandlerWorker) << "Socket state before disconnect:" << m_socket->state();
+        qCDebug(lcServerClientHandler) << "Socket state before disconnect:" << m_socket->state();
         m_socket->close();
-        qCDebug(lcClientHandlerWorker) << "Socket state after close:" << m_socket->state();
+        qCDebug(lcServerClientHandler) << "Socket state after close:" << m_socket->state();
 
         if ( m_socket->state() != QAbstractSocket::UnconnectedState ) {
-            qCDebug(lcClientHandlerWorker) << "Waiting for disconnection...";
+            qCDebug(lcServerClientHandler) << "Waiting for disconnection...";
             if ( !m_socket->waitForDisconnected(5000) ) {
-                qCWarning(lcClientHandlerWorker) << "等待断开连接超时，强制关闭";
+                qCWarning(lcServerClientHandler) << "等待断开连接超时，强制关闭";
                 m_socket->abort();
             }
         }
-        qCDebug(lcClientHandlerWorker) << "Socket state final:" << m_socket->state();
+        qCDebug(lcServerClientHandler) << "Socket state final:" << m_socket->state();
     } else {
-        qCWarning(lcClientHandlerWorker) << "Socket is null in disconnectClient()";
+        qCWarning(lcServerClientHandler) << "Socket is null in disconnectClient()";
     }
 }
 
 void ClientHandlerWorker::forceDisconnect() {
     m_isConnectedAtomic.store(false, std::memory_order_release);
-    qCWarning(lcClientHandlerWorker) << "强制断开客户端连接:" << clientId();
+    qCWarning(lcServerClientHandler) << "强制断开客户端连接:" << clientId();
 
     m_receiveBuffer.clear();
 
     if ( m_socket ) {
         m_socket->abort();
-        qCDebug(lcClientHandlerWorker) << "Socket已abort,等待disconnected信号触发清理";
+        qCDebug(lcServerClientHandler) << "Socket已abort,等待disconnected信号触发清理";
     } else {
         // 如果socket为空,直接发送disconnected信号（使用标志避免重复）
         if ( !m_disconnectSignalSent.exchange(true) ) {
-            qCWarning(lcClientHandlerWorker) << "Socket为空,直接发送disconnected信号";
+            qCWarning(lcServerClientHandler) << "Socket为空,直接发送disconnected信号";
             emit disconnected();
         } else {
-            qCWarning(lcClientHandlerWorker) << "Socket为空且disconnected信号已发送";
+            qCWarning(lcServerClientHandler) << "Socket为空且disconnected信号已发送";
         }
     }
 }
@@ -516,7 +516,7 @@ void ClientHandlerWorker::onReadyRead() {
 
     // 检查缓冲区大小，防止无限增长
     if ( m_receiveBuffer.size() + newData.size() > NetworkConstants::MAX_PACKET_SIZE ) {
-        qCCritical(lcClientHandlerWorker) << "接收缓冲区超过最大限制:" << NetworkConstants::MAX_PACKET_SIZE
+        qCCritical(lcServerClientHandler) << "接收缓冲区超过最大限制:" << NetworkConstants::MAX_PACKET_SIZE
             << "当前大小:" << m_receiveBuffer.size()
             << "新增数据:" << newData.size();
         forceDisconnect();
@@ -563,42 +563,42 @@ void ClientHandlerWorker::onReadyRead() {
 
 void ClientHandlerWorker::onDisconnected() {
     m_isConnectedAtomic.store(false, std::memory_order_release);
-    qCInfo(lcClientHandlerWorker) << "客户端断开连接:" << clientId()
+    qCInfo(lcServerClientHandler) << "客户端断开连接:" << clientId()
         << "(连接时长:" << m_connectionTime.secsTo(QDateTime::currentDateTime()) << "秒)";
 
     // 停止定时器
     if ( m_heartbeatCheckTimer ) {
         m_heartbeatCheckTimer->stop();
-        qCDebug(lcClientHandlerWorker) << "心跳检查定时器已停止";
+        qCDebug(lcServerClientHandler) << "心跳检查定时器已停止";
     }
 
     if ( m_heartbeatSendTimer ) {
         m_heartbeatSendTimer->stop();
-        qCDebug(lcClientHandlerWorker) << "心跳发送定时器已停止";
+        qCDebug(lcServerClientHandler) << "心跳发送定时器已停止";
     }
 
     // 记录连接统计信息
-    qCDebug(lcClientHandlerWorker) << "连接统计 - 接收字节数:" << m_bytesReceived << "发送字节数:" << m_bytesSent;
+    qCDebug(lcServerClientHandler) << "连接统计 - 接收字节数:" << m_bytesReceived << "发送字节数:" << m_bytesSent;
 
     // 发送 disconnected 信号,让 ClientHandler 处理后续的停止逻辑
     // 注意:不要在这里调用 stop(),因为会导致信号还未处理完Worker就停止了
     // 使用成员变量确保只发送一次
     if ( !m_disconnectSignalSent.exchange(true) ) {
-        qCCritical(lcClientHandlerWorker) << "!!!!! 准备发送 disconnected 信号给 ClientHandler !!!!!";
-        qCCritical(lcClientHandlerWorker) << "Worker对象地址(this):" << this;
-        qCCritical(lcClientHandlerWorker) << "signal发送线程:" << QThread::currentThread();
-        qCCritical(lcClientHandlerWorker) << "Worker线程:" << thread();
+        qCCritical(lcServerClientHandler) << "!!!!! 准备发送 disconnected 信号给 ClientHandler !!!!!";
+        qCCritical(lcServerClientHandler) << "Worker对象地址(this):" << this;
+        qCCritical(lcServerClientHandler) << "signal发送线程:" << QThread::currentThread();
+        qCCritical(lcServerClientHandler) << "Worker线程:" << thread();
         emit disconnected();
-        qCCritical(lcClientHandlerWorker) << "!!!!! disconnected 信号已发出 !!!!!";
+        qCCritical(lcServerClientHandler) << "!!!!! disconnected 信号已发出 !!!!!";
 
         // !!!!! 终极诊断:强制处理事件队列,看看信号是否在事件队列中 !!!!!
-        qCCritical(lcClientHandlerWorker) << "!!!!! 强制处理事件队列 !!!!!";
+        qCCritical(lcServerClientHandler) << "!!!!! 强制处理事件队列 !!!!!";
         QCoreApplication::processEvents();
         QThread::msleep(10); // 给接收线程时间处理
         QCoreApplication::processEvents();
-        qCCritical(lcClientHandlerWorker) << "!!!!! 事件队列处理完成 !!!!!";
+        qCCritical(lcServerClientHandler) << "!!!!! 事件队列处理完成 !!!!!";
     } else {
-        qCDebug(lcClientHandlerWorker) << "disconnected 信号已发送过,跳过重复发送";
+        qCDebug(lcServerClientHandler) << "disconnected 信号已发送过,跳过重复发送";
     }
 }
 
@@ -606,7 +606,7 @@ void ClientHandlerWorker::onError(QAbstractSocket::SocketError error) {
     QString errorString = m_socket ? m_socket->errorString() : "未知错误";
 
     // 详细的错误日志记录
-    qCWarning(lcClientHandlerWorker) << "套接字错误 [" << static_cast<int>(error) << "]:"
+    qCWarning(lcServerClientHandler) << "套接字错误 [" << static_cast<int>(error) << "]:"
         << errorString << "(客户端:" << clientId() << ")";
 
     // 根据错误类型进行分类处理
@@ -640,7 +640,7 @@ void ClientHandlerWorker::onError(QAbstractSocket::SocketError error) {
             break;
     }
 
-    qCInfo(lcClientHandlerWorker) << "错误分类:" << errorCategory
+    qCInfo(lcServerClientHandler) << "错误分类:" << errorCategory
         << ", 是否强制断开:" << (shouldForceDisconnect ? "是" : "否");
 
     // 客户端主动断开（RemoteHostClosedError）是正常关闭流程，不视为服务端错误。
@@ -651,7 +651,7 @@ void ClientHandlerWorker::onError(QAbstractSocket::SocketError error) {
 
     // 对于严重错误，强制断开连接
     if ( shouldForceDisconnect ) {
-        qCWarning(lcClientHandlerWorker) << "严重错误，强制断开客户端连接:" << clientId();
+        qCWarning(lcServerClientHandler) << "严重错误，强制断开客户端连接:" << clientId();
         forceDisconnect();
     }
 }
@@ -659,7 +659,7 @@ void ClientHandlerWorker::onError(QAbstractSocket::SocketError error) {
 void ClientHandlerWorker::checkHeartbeat() {
     QDateTime now = QDateTime::currentDateTime();
     if ( m_lastHeartbeat.msecsTo(now) > NetworkConstants::HEARTBEAT_TIMEOUT ) {
-        qCWarning(lcClientHandlerWorker) << "客户端心跳超时:" << clientId();
+        qCWarning(lcServerClientHandler) << "客户端心跳超时:" << clientId();
         forceDisconnect();
     }
 }
@@ -685,18 +685,18 @@ void ClientHandlerWorker::processMessage(const MessageHeader& header, const QByt
             handleClipboardData(payload);
             break;
         default:
-            qCWarning(lcClientHandlerWorker) << "未知消息类型:" << static_cast<int>(header.type);
+            qCWarning(lcServerClientHandler) << "未知消息类型:" << static_cast<int>(header.type);
             break;
     }
 }
 
 void ClientHandlerWorker::handleHandshakeRequest(const QByteArray& data) {
-    qCDebug(lcClientHandlerWorker) << "处理握手请求";
+    qCDebug(lcServerClientHandler) << "处理握手请求";
 
     // 解码客户端握手以提取显示参数
     HandshakeRequest request;
     if (request.decode(data)) {
-        qCDebug(lcClientHandlerWorker) << "客户端色深:" << request.colorDepth
+        qCDebug(lcServerClientHandler) << "客户端色深:" << request.colorDepth
                                        << "图像质量:" << request.imageQuality;
 
         // 通过信号通知外部（ServerManager 负责桥接到 DataProcessingWorker）
@@ -707,17 +707,17 @@ void ClientHandlerWorker::handleHandshakeRequest(const QByteArray& data) {
 }
 
 void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
-    qCDebug(lcClientHandlerWorker) << "处理认证请求";
+    qCDebug(lcServerClientHandler) << "处理认证请求";
 
     // 速率限制检查（委托给 AuthHandler）
     if (m_authHandler->isRateLimited()) {
-        qCWarning(lcClientHandlerWorker) << "认证速率限制中，拒绝请求:" << clientId();
+        qCWarning(lcServerClientHandler) << "认证速率限制中，拒绝请求:" << clientId();
         return;
     }
 
     AuthenticationRequest authRequest;
     if (!authRequest.decode(data)) {
-        qCWarning(lcClientHandlerWorker) << "认证请求数据解析失败";
+        qCWarning(lcServerClientHandler) << "认证请求数据解析失败";
         sendAuthenticationResponse(AuthResult::INVALID_PASSWORD);
         return;
     }
@@ -744,13 +744,13 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
         }
 
         emit authenticated();
-        qCInfo(lcClientHandlerWorker) << "客户端认证成功: " << clientId();
+        qCInfo(lcServerClientHandler) << "客户端认证成功: " << clientId();
         return;
     }
 
     if (result == 3) {
         // 超过最大失败次数 → ACCESS_DENIED
-        qCWarning(lcClientHandlerWorker) << "认证失败次数达到上限，断开连接:" << clientId();
+        qCWarning(lcServerClientHandler) << "认证失败次数达到上限，断开连接:" << clientId();
         sendAuthenticationResponse(AuthResult::ACCESS_DENIED);
         forceDisconnect();
         return;
@@ -763,7 +763,7 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
     int delayMs = std::min(
         AUTH_BASE_DELAY_MS * (1 << (failCount - 1)),
         AUTH_MAX_DELAY_MS);
-    qCInfo(lcClientHandlerWorker) << "认证速率限制: 延迟" << delayMs << "ms 后发送响应";
+    qCInfo(lcServerClientHandler) << "认证速率限制: 延迟" << delayMs << "ms 后发送响应";
     QTimer::singleShot(delayMs, this, [this]() {
         sendAuthenticationResponse(AuthResult::INVALID_PASSWORD);
     });
@@ -772,39 +772,39 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
 void ClientHandlerWorker::handleHeartbeat() {
     // 收到客户端的心跳响应，更新最后心跳时间
     m_lastHeartbeat = QDateTime::currentDateTime();
-    qCDebug(lcClientHandlerWorker) << "收到客户端心跳响应:" << clientId();
+    qCDebug(lcServerClientHandler) << "收到客户端心跳响应:" << clientId();
 }
 
 void ClientHandlerWorker::sendHeartbeat() {
     if ( !m_socket || !m_socket->isOpen() ) {
-        qCDebug(lcClientHandlerWorker) << "套接字未连接，无法发送心跳请求";
+        qCDebug(lcServerClientHandler) << "套接字未连接，无法发送心跳请求";
         return;
     }
 
     if ( !isAuthenticated() ) {
-        qCDebug(lcClientHandlerWorker) << "客户端未认证，跳过心跳发送";
+        qCDebug(lcServerClientHandler) << "客户端未认证，跳过心跳发送";
         return;
     }
 
     sendMessage(MessageType::HEARTBEAT, BaseMessage());
 
-    qCDebug(lcClientHandlerWorker) << "发送心跳请求到客户端:" << clientId();
+    qCDebug(lcServerClientHandler) << "发送心跳请求到客户端:" << clientId();
 }
 
 void ClientHandlerWorker::handleMouseEvent(const QByteArray& data) {
     if ( !isAuthenticated() ) {
-        qCWarning(lcClientHandlerWorker) << "未认证客户端尝试发送鼠标事件";
+        qCWarning(lcServerClientHandler) << "未认证客户端尝试发送鼠标事件";
         return;
     }
 
     if ( !m_inputSimulator ) {
-        qCWarning(lcClientHandlerWorker) << "输入模拟器未初始化";
+        qCWarning(lcServerClientHandler) << "输入模拟器未初始化";
         return;
     }
 
     // MouseEvent结构: eventType(1) + x(2) + y(2) + wheelDelta(2) = 7字节
     if ( data.size() < 7 ) {
-        qCWarning(lcClientHandlerWorker) << "鼠标事件数据不完整，期望至少7字节，实际: " << data.size();
+        qCWarning(lcServerClientHandler) << "鼠标事件数据不完整，期望至少7字节，实际: " << data.size();
         return;
     }
 
@@ -819,7 +819,7 @@ void ClientHandlerWorker::handleMouseEvent(const QByteArray& data) {
 
     // 检查数据流状态
     if ( stream.status() != QDataStream::Ok ) {
-        qCWarning(lcClientHandlerWorker) << "鼠标事件数据解析失败";
+        qCWarning(lcServerClientHandler) << "鼠标事件数据解析失败";
         return;
     }
 
@@ -866,36 +866,36 @@ void ClientHandlerWorker::handleMouseEvent(const QByteArray& data) {
             }
             break;
         default:
-            qCWarning(lcClientHandlerWorker) << "未知的鼠标事件类型: " << static_cast<int>(eventType);
+            qCWarning(lcServerClientHandler) << "未知的鼠标事件类型: " << static_cast<int>(eventType);
             break;
     }
 }
 
 void ClientHandlerWorker::handleKeyboardEvent(const QByteArray& data) {
     if ( !isAuthenticated() ) {
-        qCWarning(lcClientHandlerWorker) << "未认证客户端尝试发送键盘事件";
+        qCWarning(lcServerClientHandler) << "未认证客户端尝试发送键盘事件";
         return;
     }
 
     if ( !m_inputSimulator ) {
-        qCWarning(lcClientHandlerWorker) << "输入模拟器未初始化";
+        qCWarning(lcServerClientHandler) << "输入模拟器未初始化";
         return;
     }
 
     // KeyboardEvent结构: eventType(1) + keyCode(4) + modifiers(4) + text(8) = 17字节
     if ( data.size() < 17 ) {
-        qCWarning(lcClientHandlerWorker) << "键盘事件数据不完整，期望至少17字节，实际: " << data.size();
+        qCWarning(lcServerClientHandler) << "键盘事件数据不完整，期望至少17字节，实际: " << data.size();
         return;
     }
 
     // 使用 KeyboardEvent 的 decode 方法解析
     KeyboardEvent keyEvent;
     if ( !keyEvent.decode(data) ) {
-        qCWarning(lcClientHandlerWorker) << "键盘事件数据解析失败";
+        qCWarning(lcServerClientHandler) << "键盘事件数据解析失败";
         return;
     }
 
-    qCDebug(lcClientHandlerWorker) << "键盘事件: eventType=" << static_cast<int>(keyEvent.eventType)
+    qCDebug(lcServerClientHandler) << "键盘事件: eventType=" << static_cast<int>(keyEvent.eventType)
         << "keyCode=" << keyEvent.keyCode << "modifiers=" << keyEvent.modifiers
         << "text=" << keyEvent.text;
 
@@ -910,7 +910,7 @@ void ClientHandlerWorker::handleKeyboardEvent(const QByteArray& data) {
     // 如果 modifiers 包含 KeypadModifier，将其添加到 key 值中
     if ( qtModifiers & Qt::KeypadModifier ) {
         qtKey |= 0x20000000;  // 添加 KeypadModifier 标志
-        qCDebug(lcClientHandlerWorker) << "Keypad modifier detected, combined key:" << Qt::hex << qtKey;
+        qCDebug(lcServerClientHandler) << "Keypad modifier detected, combined key:" << Qt::hex << qtKey;
     }
 
     if ( keyEvent.eventType == KeyboardEventType::KEY_PRESS ) {
@@ -918,7 +918,7 @@ void ClientHandlerWorker::handleKeyboardEvent(const QByteArray& data) {
     } else if ( keyEvent.eventType == KeyboardEventType::KEY_RELEASE ) {
         m_inputSimulator->simulateKeyRelease(qtKey, qtModifiers);
     } else {
-        qCWarning(lcClientHandlerWorker) << "未知的键盘事件类型: " << static_cast<int>(keyEvent.eventType);
+        qCWarning(lcServerClientHandler) << "未知的键盘事件类型: " << static_cast<int>(keyEvent.eventType);
     }
 }
 
@@ -939,7 +939,7 @@ void ClientHandlerWorker::sendHandshakeResponse() {
 #endif
 
     sendMessage(MessageType::HANDSHAKE_RESPONSE, response);
-    qCDebug(lcClientHandlerWorker) << "发送握手响应";
+    qCDebug(lcServerClientHandler) << "发送握手响应";
 }
 
 void ClientHandlerWorker::sendAuthenticationResponse(AuthResult result, const QString& sessionId) {
@@ -949,7 +949,7 @@ void ClientHandlerWorker::sendAuthenticationResponse(AuthResult result, const QS
     response.permissions = 0; // 默认权限
 
     sendMessage(MessageType::AUTHENTICATION_RESPONSE, response);
-    qCDebug(lcClientHandlerWorker) << "发送认证响应，结果:" << static_cast<int>(result);
+    qCDebug(lcServerClientHandler) << "发送认证响应，结果:" << static_cast<int>(result);
 }
 
 void ClientHandlerWorker::sendAuthChallenge() {
@@ -971,7 +971,7 @@ void ClientHandlerWorker::sendAuthChallenge() {
     challenge.saltHex = QString::fromLatin1(salt.toHex());
 
     sendMessage(MessageType::AUTH_CHALLENGE, challenge);
-    qCDebug(lcClientHandlerWorker) << "发送认证挑战，方法:" << challenge.method
+    qCDebug(lcServerClientHandler) << "发送认证挑战，方法:" << challenge.method
         << ", 迭代次数:" << challenge.iterations << ", 密钥长度:" << challenge.keyLength
         << ", 盐值:" << challenge.saltHex;
 }
@@ -991,12 +991,12 @@ QString ClientHandlerWorker::generateSessionId() const {
 void ClientHandlerWorker::handleClipboardData(const QByteArray& data) {
     ClipboardMessage message;
     if ( !message.decode(data) ) {
-        qCWarning(lcClientHandlerWorker) << "剪贴板消息解析失败";
+        qCWarning(lcServerClientHandler) << "剪贴板消息解析失败";
         return;
     }
 
     if ( message.isText() ) {
-        qCDebug(lcClientHandlerWorker) << "接收到剪贴板文本，长度: " << message.text().length();
+        qCDebug(lcServerClientHandler) << "接收到剪贴板文本，长度: " << message.text().length();
 
         // 更新服务器端剪贴板
         emit clipboardTextReceived(message.text());
@@ -1004,7 +1004,7 @@ void ClientHandlerWorker::handleClipboardData(const QByteArray& data) {
         // 广播到其他客户端（通过 ServerManager）
         emit broadcastClipboardText(message.text());
     } else if ( message.isImage() ) {
-        qCDebug(lcClientHandlerWorker) << "接收到剪贴板图片，尺寸:" << message.width << "x" << message.height
+        qCDebug(lcServerClientHandler) << "接收到剪贴板图片，尺寸:" << message.width << "x" << message.height
             << ", 数据大小:" << message.imageData().size();
 
         // 更新服务器端剪贴板

@@ -50,7 +50,7 @@ public:
                 }
                 // 若仍在运行，避免直接delete导致崩溃，改为延迟删除
                 if (thread->isRunning()) {
-                    qCWarning(lcThreading) << "ThreadInfo destructor: QThread is still running; deferring deletion for thread" << name;
+                    qCWarning(lcCoreThreading) << "ThreadInfo destructor: QThread is still running; deferring deletion for thread" << name;
                     // Worker同样延迟删除，防止跨线程析构
                     if (worker) {
                         QObject::connect(thread, &QThread::finished, worker, &QObject::deleteLater);

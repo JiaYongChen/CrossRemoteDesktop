@@ -256,7 +256,7 @@ QByteArray ScreenData::encode() const {
     // 验证数据大小一致性，防止缓冲区溢出
     quint32 actualDataSize = static_cast<quint32>(imageData.size());
     if ( dataSize != actualDataSize ) {
-        qCWarning(lcProtocol) << "ScreenData::encode() - Data size mismatch: dataSize=" << dataSize << ", actual=" << actualDataSize;
+        qCWarning(lcCoreProtocol) << "ScreenData::encode() - Data size mismatch: dataSize=" << dataSize << ", actual=" << actualDataSize;
         // 使用实际大小以确保数据一致性
         ds << actualDataSize;
     } else {
@@ -272,7 +272,7 @@ QByteArray ScreenData::encode() const {
     // 检查数据大小限制，防止内存问题
     const quint32 MAX_SCREEN_DATA_SIZE = 50 * 1024 * 1024; // 50MB限制
     if ( actualDataSize > MAX_SCREEN_DATA_SIZE ) {
-        qCWarning(lcProtocol) << "ScreenData::encode() - Data too large: " << actualDataSize << " bytes, exceeds limit " << MAX_SCREEN_DATA_SIZE << " bytes";
+        qCWarning(lcCoreProtocol) << "ScreenData::encode() - Data too large: " << actualDataSize << " bytes, exceeds limit " << MAX_SCREEN_DATA_SIZE << " bytes";
         return QByteArray(); // 返回空数据，避免崩溃
     }
 
@@ -286,7 +286,7 @@ bool ScreenData::decode(const QByteArray& bytes) {
     // 检查最小头部大小：x(2)+y(2)+w(2)+h(2)+origW(2)+origH(2)+dataSize(4)+flags(1)+captureTs(8) = 25 字节
     const qsizetype headerSize = 2 + 2 + 2 + 2 + 2 + 2 + 4 + 1 + 8;
     if ( bytes.size() < headerSize ) {
-        qCWarning(lcProtocol)
+        qCWarning(lcCoreProtocol)
             << "ScreenData decode failed: insufficient header size"
             << "- received:" << bytes.size() << "bytes, required:" << headerSize << "bytes";
         return false;
@@ -312,7 +312,7 @@ bool ScreenData::decode(const QByteArray& bytes) {
     ds >> captureTs;
 
     if ( ds.status() != QDataStream::Ok ) {
-        qCWarning(lcProtocol)
+        qCWarning(lcCoreProtocol)
             << "ScreenData decode failed: QDataStream error during header parsing"
             << "- stream status:" << ds.status();
         return false;
@@ -320,14 +320,14 @@ bool ScreenData::decode(const QByteArray& bytes) {
 
     // 验证字段合理性
     if ( w == 0 || h == 0 ) {
-        qCWarning(lcProtocol)
+        qCWarning(lcCoreProtocol)
             << "ScreenData decode failed: invalid dimensions"
             << "- width:" << w << "height:" << h;
         return false;
     }
 
     if ( size > 50 * 1024 * 1024 ) { // 50MB 限制
-        qCWarning(lcProtocol)
+        qCWarning(lcCoreProtocol)
             << "ScreenData decode failed: image data size too large"
             << "- size:" << size << "bytes (max: 50MB)";
         return false;
@@ -336,7 +336,7 @@ bool ScreenData::decode(const QByteArray& bytes) {
     // 检查总大小是否足够包含头部和图像数据
     qsizetype totalNeeded = headerSize + qsizetype(size);
     if ( bytes.size() < totalNeeded ) {
-        qCWarning(lcProtocol)
+        qCWarning(lcCoreProtocol)
             << "ScreenData decode failed: insufficient total size"
             << "- received:" << bytes.size() << "bytes, required:" << totalNeeded << "bytes"
             << "- header size:" << headerSize << "image data size:" << size;
@@ -358,7 +358,7 @@ bool ScreenData::decode(const QByteArray& bytes) {
     if ( size > 0 ) {
         imageData = bytes.mid(headerSize, size);
         if ( imageData.size() != static_cast<qsizetype>(size) ) {
-            qCWarning(lcProtocol)
+            qCWarning(lcCoreProtocol)
                 << "ScreenData decode warning: extracted image data size mismatch"
                 << "- expected:" << size << "actual:" << imageData.size();
 

@@ -7,7 +7,7 @@
 
 DataProcessingConfig::DataProcessingConfig(QObject* parent)
     : QObject(parent) {
-    qCDebug(lcDataProcessingConfig) << "DataProcessingConfig 构造函数调用";
+    qCDebug(lcServerEncode) << "DataProcessingConfig 构造函数调用";
 
     // 加载配置
     loadFromSettings();
@@ -16,7 +16,7 @@ DataProcessingConfig::DataProcessingConfig(QObject* parent)
 void DataProcessingConfig::setValidationEnabled(bool enabled) {
     if ( m_validationEnabled != enabled ) {
         m_validationEnabled = enabled;
-        qCDebug(lcDataProcessingConfig) << "数据验证已" << (enabled ? "启用" : "禁用");
+        qCDebug(lcServerEncode) << "数据验证已" << (enabled ? "启用" : "禁用");
         emit configChanged(KEY_VALIDATION_ENABLED, enabled);
     }
 }
@@ -24,7 +24,7 @@ void DataProcessingConfig::setValidationEnabled(bool enabled) {
 void DataProcessingConfig::setCleaningEnabled(bool enabled) {
     if ( m_cleaningEnabled != enabled ) {
         m_cleaningEnabled = enabled;
-        qCDebug(lcDataProcessingConfig) << "数据清洗已" << (enabled ? "启用" : "禁用");
+        qCDebug(lcServerEncode) << "数据清洗已" << (enabled ? "启用" : "禁用");
         emit configChanged(KEY_CLEANING_ENABLED, enabled);
     }
 }
@@ -32,7 +32,7 @@ void DataProcessingConfig::setCleaningEnabled(bool enabled) {
 void DataProcessingConfig::setStorageEnabled(bool enabled) {
     if ( m_storageEnabled != enabled ) {
         m_storageEnabled = enabled;
-        qCDebug(lcDataProcessingConfig) << "数据存储已" << (enabled ? "启用" : "禁用");
+        qCDebug(lcServerEncode) << "数据存储已" << (enabled ? "启用" : "禁用");
         emit configChanged(KEY_STORAGE_ENABLED, enabled);
     }
 }
@@ -43,12 +43,12 @@ void DataProcessingConfig::setStorageLimitMB(int limitMB) {
 
     if ( m_storageLimitMB != clampedLimit ) {
         m_storageLimitMB = clampedLimit;
-        qCDebug(lcDataProcessingConfig) << "存储限制设置为" << clampedLimit << "MB";
+        qCDebug(lcServerEncode) << "存储限制设置为" << clampedLimit << "MB";
         emit configChanged(KEY_STORAGE_LIMIT, clampedLimit);
     }
 
     if ( limitMB != clampedLimit ) {
-        qCWarning(lcDataProcessingConfig) << "存储限制值" << limitMB
+        qCWarning(lcServerEncode) << "存储限制值" << limitMB
             << "超出范围，已调整为" << clampedLimit;
     }
 }
@@ -59,12 +59,12 @@ void DataProcessingConfig::setKeyFrameIntervalSec(int intervalSec) {
 
     if ( m_keyFrameIntervalSec != clampedInterval ) {
         m_keyFrameIntervalSec = clampedInterval;
-        qCDebug(lcDataProcessingConfig) << "关键帧间隔设置为" << clampedInterval << "秒";
+        qCDebug(lcServerEncode) << "关键帧间隔设置为" << clampedInterval << "秒";
         emit configChanged(KEY_KEYFRAME_INTERVAL, clampedInterval);
     }
 
     if ( intervalSec != clampedInterval ) {
-        qCWarning(lcDataProcessingConfig) << "关键帧间隔值" << intervalSec
+        qCWarning(lcServerEncode) << "关键帧间隔值" << intervalSec
             << "超出范围，已调整为" << clampedInterval;
     }
 }
@@ -72,7 +72,7 @@ void DataProcessingConfig::setKeyFrameIntervalSec(int intervalSec) {
 void DataProcessingConfig::setDebugMode(bool enabled) {
     if ( m_debugMode != enabled ) {
         m_debugMode = enabled;
-        qCDebug(lcDataProcessingConfig) << "调试模式已" << (enabled ? "启用" : "禁用");
+        qCDebug(lcServerEncode) << "调试模式已" << (enabled ? "启用" : "禁用");
         emit configChanged(KEY_DEBUG_MODE, enabled);
     }
 }
@@ -94,13 +94,13 @@ void DataProcessingConfig::loadFromSettings() {
     m_storageLimitMB = qBound(MIN_STORAGE_LIMIT_MB, m_storageLimitMB, MAX_STORAGE_LIMIT_MB);
     m_keyFrameIntervalSec = qBound(MIN_KEYFRAME_INTERVAL_SEC, m_keyFrameIntervalSec, MAX_KEYFRAME_INTERVAL_SEC);
 
-    qCDebug(lcDataProcessingConfig) << "配置已从设置文件加载:";
-    qCDebug(lcDataProcessingConfig) << "  验证启用:" << m_validationEnabled;
-    qCDebug(lcDataProcessingConfig) << "  清洗启用:" << m_cleaningEnabled;
-    qCDebug(lcDataProcessingConfig) << "  存储启用:" << m_storageEnabled;
-    qCDebug(lcDataProcessingConfig) << "  存储限制:" << m_storageLimitMB << "MB";
-    qCDebug(lcDataProcessingConfig) << "  关键帧间隔:" << m_keyFrameIntervalSec << "秒";
-    qCDebug(lcDataProcessingConfig) << "  调试模式:" << m_debugMode;
+    qCDebug(lcServerEncode) << "配置已从设置文件加载:";
+    qCDebug(lcServerEncode) << "  验证启用:" << m_validationEnabled;
+    qCDebug(lcServerEncode) << "  清洗启用:" << m_cleaningEnabled;
+    qCDebug(lcServerEncode) << "  存储启用:" << m_storageEnabled;
+    qCDebug(lcServerEncode) << "  存储限制:" << m_storageLimitMB << "MB";
+    qCDebug(lcServerEncode) << "  关键帧间隔:" << m_keyFrameIntervalSec << "秒";
+    qCDebug(lcServerEncode) << "  调试模式:" << m_debugMode;
 }
 
 void DataProcessingConfig::saveToSettings() {
@@ -117,11 +117,11 @@ void DataProcessingConfig::saveToSettings() {
     settings.endGroup();
     settings.sync();
 
-    qCDebug(lcDataProcessingConfig) << "配置已保存到设置文件";
+    qCDebug(lcServerEncode) << "配置已保存到设置文件";
 }
 
 void DataProcessingConfig::resetToDefaults() {
-    qCDebug(lcDataProcessingConfig) << "重置配置为默认值";
+    qCDebug(lcServerEncode) << "重置配置为默认值";
 
     setValidationEnabled(DEFAULT_VALIDATION_ENABLED);
     setCleaningEnabled(DEFAULT_CLEANING_ENABLED);
@@ -136,12 +136,12 @@ bool DataProcessingConfig::isValid() const {
     bool valid = true;
 
     if ( m_storageLimitMB < MIN_STORAGE_LIMIT_MB || m_storageLimitMB > MAX_STORAGE_LIMIT_MB ) {
-        qCWarning(lcDataProcessingConfig) << "存储限制值无效:" << m_storageLimitMB;
+        qCWarning(lcServerEncode) << "存储限制值无效:" << m_storageLimitMB;
         valid = false;
     }
 
     if ( m_keyFrameIntervalSec < MIN_KEYFRAME_INTERVAL_SEC || m_keyFrameIntervalSec > MAX_KEYFRAME_INTERVAL_SEC ) {
-        qCWarning(lcDataProcessingConfig) << "关键帧间隔值无效:" << m_keyFrameIntervalSec;
+        qCWarning(lcServerEncode) << "关键帧间隔值无效:" << m_keyFrameIntervalSec;
         valid = false;
     }
 

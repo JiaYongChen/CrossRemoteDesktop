@@ -42,7 +42,7 @@ void KeyboardSimulatorLinux::cleanup() {
 
 bool KeyboardSimulatorLinux::simulateKeyPress(int qtKey, Qt::KeyboardModifiers modifiers) {
     if (!m_initialized || !m_enabled || !m_display) {
-        qCDebug(lcKeyboardSimulatorLinux) << "simulateKeyPress: Not initialized or enabled";
+        qCDebug(lcServerInput) << "simulateKeyPress: Not initialized or enabled";
         return false;
     }
 
@@ -51,13 +51,13 @@ bool KeyboardSimulatorLinux::simulateKeyPress(int qtKey, Qt::KeyboardModifiers m
         return false;
     }
 
-    qCDebug(lcKeyboardSimulatorLinux) << "simulateKeyPress: qtKey=" << Qt::hex << qtKey 
+    qCDebug(lcServerInput) << "simulateKeyPress: qtKey=" << Qt::hex << qtKey 
         << "(" << Qt::dec << qtKey << "), modifiers=" << modifiers;
 
     KeySym linuxKey = qtKeyToLinuxKey(qtKey);
     unsigned int linuxModifiers = qtModifiersToLinuxModifiers(modifiers);
     
-    qCDebug(lcKeyboardSimulatorLinux) << "Mapped to linuxKey=" << Qt::hex << linuxKey 
+    qCDebug(lcServerInput) << "Mapped to linuxKey=" << Qt::hex << linuxKey 
         << "(" << Qt::dec << linuxKey << ")";
     
     return simulateKeyboardEvent(linuxKey, true, linuxModifiers);
@@ -65,7 +65,7 @@ bool KeyboardSimulatorLinux::simulateKeyPress(int qtKey, Qt::KeyboardModifiers m
 
 bool KeyboardSimulatorLinux::simulateKeyRelease(int qtKey, Qt::KeyboardModifiers modifiers) {
     if (!m_initialized || !m_enabled || !m_display) {
-        qCDebug(lcKeyboardSimulatorLinux) << "simulateKeyRelease: Not initialized or enabled";
+        qCDebug(lcServerInput) << "simulateKeyRelease: Not initialized or enabled";
         return false;
     }
 
@@ -87,7 +87,7 @@ bool KeyboardSimulatorLinux::simulateKeyboardEvent(KeySym key, bool press, unsig
 
     KeyCode keycode = XKeysymToKeycode(m_display, key);
     if (keycode == 0) {
-        qCWarning(lcKeyboardSimulatorLinux) << "Failed to convert KeySym to KeyCode:" << key;
+        qCWarning(lcServerInput) << "Failed to convert KeySym to KeyCode:" << key;
         return false;
     }
 
@@ -98,7 +98,7 @@ bool KeyboardSimulatorLinux::simulateKeyboardEvent(KeySym key, bool press, unsig
                               key == XK_Meta_L || key == XK_Meta_R ||
                               key == XK_Super_L || key == XK_Super_R);
 
-    qCDebug(lcKeyboardSimulatorLinux) << "simulateKeyboardEvent: key=" << key 
+    qCDebug(lcServerInput) << "simulateKeyboardEvent: key=" << key 
         << "press=" << press << "modifiers=" << modifiers 
         << "isMainKeyModifier=" << isMainKeyModifier;
 
@@ -106,7 +106,7 @@ bool KeyboardSimulatorLinux::simulateKeyboardEvent(KeySym key, bool press, unsig
     if (isMainKeyModifier) {
         bool result = XTestFakeKeyEvent(m_display, keycode, press ? True : False, CurrentTime) == True;
         XFlush(m_display);
-        qCDebug(lcKeyboardSimulatorLinux) << "Modifier key event sent: key=" << key;
+        qCDebug(lcServerInput) << "Modifier key event sent: key=" << key;
         return result;
     }
 
@@ -116,17 +116,17 @@ bool KeyboardSimulatorLinux::simulateKeyboardEvent(KeySym key, bool press, unsig
         if (modifiers & ControlMask) {
             KeyCode ctrlKey = XKeysymToKeycode(m_display, XK_Control_L);
             XTestFakeKeyEvent(m_display, ctrlKey, True, CurrentTime);
-            qCDebug(lcKeyboardSimulatorLinux) << "Pressing Control";
+            qCDebug(lcServerInput) << "Pressing Control";
         }
         if (modifiers & ShiftMask) {
             KeyCode shiftKey = XKeysymToKeycode(m_display, XK_Shift_L);
             XTestFakeKeyEvent(m_display, shiftKey, True, CurrentTime);
-            qCDebug(lcKeyboardSimulatorLinux) << "Pressing Shift";
+            qCDebug(lcServerInput) << "Pressing Shift";
         }
         if (modifiers & Mod1Mask) {  // Alt
             KeyCode altKey = XKeysymToKeycode(m_display, XK_Alt_L);
             XTestFakeKeyEvent(m_display, altKey, True, CurrentTime);
-            qCDebug(lcKeyboardSimulatorLinux) << "Pressing Alt";
+            qCDebug(lcServerInput) << "Pressing Alt";
         }
     }
 
@@ -138,23 +138,23 @@ bool KeyboardSimulatorLinux::simulateKeyboardEvent(KeySym key, bool press, unsig
         if (modifiers & Mod1Mask) {  // Alt
             KeyCode altKey = XKeysymToKeycode(m_display, XK_Alt_L);
             XTestFakeKeyEvent(m_display, altKey, False, CurrentTime);
-            qCDebug(lcKeyboardSimulatorLinux) << "Releasing Alt";
+            qCDebug(lcServerInput) << "Releasing Alt";
         }
         if (modifiers & ShiftMask) {
             KeyCode shiftKey = XKeysymToKeycode(m_display, XK_Shift_L);
             XTestFakeKeyEvent(m_display, shiftKey, False, CurrentTime);
-            qCDebug(lcKeyboardSimulatorLinux) << "Releasing Shift";
+            qCDebug(lcServerInput) << "Releasing Shift";
         }
         if (modifiers & ControlMask) {
             KeyCode ctrlKey = XKeysymToKeycode(m_display, XK_Control_L);
             XTestFakeKeyEvent(m_display, ctrlKey, False, CurrentTime);
-            qCDebug(lcKeyboardSimulatorLinux) << "Releasing Control";
+            qCDebug(lcServerInput) << "Releasing Control";
         }
     }
 
     XFlush(m_display);
     
-    qCDebug(lcKeyboardSimulatorLinux) << "Keyboard event simulated successfully";
+    qCDebug(lcServerInput) << "Keyboard event simulated successfully";
     return result;
 }
 
@@ -163,7 +163,7 @@ KeySym KeyboardSimulatorLinux::qtKeyToLinuxKey(int qtKey) const {
     bool isKeypad = (qtKey & 0x20000000) != 0;
     int baseKey = qtKey & ~0x20000000;  // 移除 KeypadModifier 标志
     
-    qCDebug(lcKeyboardSimulatorLinux) << "qtKeyToLinuxKey: qtKey=" << Qt::hex << qtKey 
+    qCDebug(lcServerInput) << "qtKeyToLinuxKey: qtKey=" << Qt::hex << qtKey 
         << "(" << Qt::dec << qtKey << "), isKeypad=" << isKeypad << ", baseKey=" << Qt::hex << baseKey;
     
     // ===========================================
@@ -180,46 +180,46 @@ KeySym KeyboardSimulatorLinux::qtKeyToLinuxKey(int qtKey) const {
 }
 
 KeySym KeyboardSimulatorLinux::handleNumpadKey(int baseKey, int originalKey) const {
-    qCDebug(lcKeyboardSimulatorLinux) << "Processing numpad key: baseKey=" << Qt::hex << baseKey 
+    qCDebug(lcServerInput) << "Processing numpad key: baseKey=" << Qt::hex << baseKey 
         << ", originalKey=" << originalKey;
     
     // 步骤 1: 在小键盘专用映射表中查找
     auto it = m_numpadKeyMap.find(baseKey);
     if (it != m_numpadKeyMap.end()) {
-        qCDebug(lcKeyboardSimulatorLinux) << "Found in numpad map: baseKey=" << Qt::hex << baseKey
+        qCDebug(lcServerInput) << "Found in numpad map: baseKey=" << Qt::hex << baseKey
             << "-> KeySym=" << Qt::hex << it->second;
         return it->second;
     }
     
     // 步骤 2: 小键盘映射表中未找到，检查是否是导航键
-    qCDebug(lcKeyboardSimulatorLinux) << "Not found in numpad map, checking if it's a navigation key";
+    qCDebug(lcServerInput) << "Not found in numpad map, checking if it's a navigation key";
     
     auto stdIt = m_standardKeyMap.find(baseKey);
     if (stdIt != m_standardKeyMap.end()) {
-        qCDebug(lcKeyboardSimulatorLinux) << "Found navigation key in standard map: baseKey=" << Qt::hex << baseKey
+        qCDebug(lcServerInput) << "Found navigation key in standard map: baseKey=" << Qt::hex << baseKey
             << "-> KeySym=" << Qt::hex << stdIt->second;
         return stdIt->second;
     }
     
     // 步骤 3: 仍未找到映射，记录警告并返回默认值
-    qCWarning(lcKeyboardSimulatorLinux) << "Unmapped numpad key:" << Qt::hex << originalKey 
+    qCWarning(lcServerInput) << "Unmapped numpad key:" << Qt::hex << originalKey 
         << "(baseKey=" << baseKey << "), using fallback";
     return static_cast<KeySym>(baseKey);
 }
 
 KeySym KeyboardSimulatorLinux::handleStandardKey(int qtKey) const {
-    qCDebug(lcKeyboardSimulatorLinux) << "Processing standard keyboard key: qtKey=" << Qt::hex << qtKey;
+    qCDebug(lcServerInput) << "Processing standard keyboard key: qtKey=" << Qt::hex << qtKey;
     
     // 在标准键盘映射表中查找
     auto it = m_standardKeyMap.find(qtKey);
     if (it != m_standardKeyMap.end()) {
-        qCDebug(lcKeyboardSimulatorLinux) << "Found in standard map: qtKey=" << Qt::hex << qtKey 
+        qCDebug(lcServerInput) << "Found in standard map: qtKey=" << Qt::hex << qtKey 
             << "-> KeySym=" << Qt::hex << it->second << "(" << Qt::dec << it->second << ")";
         return it->second;
     }
     
     // 未找到映射，记录警告并返回默认值
-    qCWarning(lcKeyboardSimulatorLinux) << "Unmapped standard key:" << Qt::hex << qtKey 
+    qCWarning(lcServerInput) << "Unmapped standard key:" << Qt::hex << qtKey 
         << "(" << Qt::dec << qtKey << "), using fallback KeySym=" << qtKey;
     return static_cast<KeySym>(qtKey);
 }
@@ -234,7 +234,7 @@ unsigned int KeyboardSimulatorLinux::qtModifiersToLinuxModifiers(Qt::KeyboardMod
     if (filteredModifiers & Qt::ShiftModifier) result |= ShiftMask;
     if (filteredModifiers & Qt::AltModifier) result |= Mod1Mask;
     
-    qCDebug(lcKeyboardSimulatorLinux) << "Modifiers conversion: Qt=" << Qt::hex << modifiers 
+    qCDebug(lcServerInput) << "Modifiers conversion: Qt=" << Qt::hex << modifiers 
         << "filtered=" << filteredModifiers 
         << "-> Linux=" << result 
         << "(Ctrl=" << bool(result & ControlMask) 
@@ -414,16 +414,16 @@ void KeyboardSimulatorLinux::initializeKeyMappings() {
     m_numpadKeyMap[Qt::Key_Enter] = XK_KP_Enter;          // Enter (小键盘)
     m_numpadKeyMap[Qt::Key_Equal] = XK_KP_Equal;          // = (小键盘)
     
-    qCDebug(lcKeyboardSimulatorLinux) << "Key mappings initialized:"
+    qCDebug(lcServerInput) << "Key mappings initialized:"
         << "Standard keys:" << m_standardKeyMap.size()
         << ", Numpad keys:" << m_numpadKeyMap.size();
     
     // 调试输出:检查关键按键的映射
-    qCDebug(lcKeyboardSimulatorLinux) << "Backspace mapping: Qt::Key_Backspace (" << Qt::Key_Backspace 
+    qCDebug(lcServerInput) << "Backspace mapping: Qt::Key_Backspace (" << Qt::Key_Backspace 
         << ") -> KeySym" << Qt::hex << m_standardKeyMap[Qt::Key_Backspace];
-    qCDebug(lcKeyboardSimulatorLinux) << "Delete mapping: Qt::Key_Delete (" << Qt::Key_Delete 
+    qCDebug(lcServerInput) << "Delete mapping: Qt::Key_Delete (" << Qt::Key_Delete 
         << ") -> KeySym" << Qt::hex << m_standardKeyMap[Qt::Key_Delete];
-    qCDebug(lcKeyboardSimulatorLinux) << "Return mapping: Qt::Key_Return (" << Qt::Key_Return 
+    qCDebug(lcServerInput) << "Return mapping: Qt::Key_Return (" << Qt::Key_Return 
         << ") -> KeySym" << Qt::hex << m_standardKeyMap[Qt::Key_Return];
 }
 

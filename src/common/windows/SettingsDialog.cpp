@@ -268,7 +268,7 @@ void SettingsDialog::onPresetDebugClicked()
 		"lcServer.debug=true\n"
 		"lcClient.debug=true\n"
 		"lcUI.debug=true\n"
-		"lcProtocol.debug=true\n"
+		"lcCoreProtocol.debug=true\n"
 		"core.*.debug=true\n"
 		"qt.network.ssl.warning=false";
 	ui->logRulesTextEdit->setPlainText(coreRules);

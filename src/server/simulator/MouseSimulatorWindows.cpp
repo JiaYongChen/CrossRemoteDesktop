@@ -135,12 +135,12 @@ bool MouseSimulatorWindows::simulateMouseEvent(int x, int y, DWORD flags, DWORD 
 
     UINT sent = SendInput(1, &input, sizeof(INPUT));
     if (sent == 1) {
-        qCDebug(lcMouseSimulatorWindows) << "Mouse event simulated: x=" << x << "y=" << y 
+        qCDebug(lcServerInput) << "Mouse event simulated: x=" << x << "y=" << y 
             << "flags=" << flags << "data=" << data;
         return true;
     }
 
-    qCWarning(lcMouseSimulatorWindows) << "Failed to send mouse input: x=" << x << "y=" << y;
+    qCWarning(lcServerInput) << "Failed to send mouse input: x=" << x << "y=" << y;
     return false;
 }
 

@@ -9,23 +9,23 @@ QueueManager::QueueManager(QObject* parent)
     , m_statsEnabled(true)
     , m_statsUpdateInterval(1000)  // 默认1秒更新一次
     , m_initialized(false) {
-    qCDebug(lcQueueManager) << "QueueManager构造函数";
+    qCDebug(lcServerQueue) << "QueueManager构造函数";
 
     // 连接统计更新定时器
     connect(m_statsTimer, &QTimer::timeout, this, &QueueManager::updateStats);
 }
 
 QueueManager::~QueueManager() {
-    qCDebug(lcQueueManager) << "QueueManager析构函数";
+    qCDebug(lcServerQueue) << "QueueManager析构函数";
     cleanup();
 }
 
 bool QueueManager::initialize(int captureQueueSize, int processedQueueSize) {
-    qCDebug(lcQueueManager) << "初始化队列管理器，捕获队列大小:" << captureQueueSize
+    qCDebug(lcServerQueue) << "初始化队列管理器，捕获队列大小:" << captureQueueSize
         << "处理队列大小:" << processedQueueSize;
 
     if ( m_initialized ) {
-        qCWarning(lcQueueManager) << "队列管理器已经初始化";
+        qCWarning(lcServerQueue) << "队列管理器已经初始化";
         return true;
     }
 
@@ -33,14 +33,14 @@ bool QueueManager::initialize(int captureQueueSize, int processedQueueSize) {
         // 创建捕获队列
         m_captureQueue = std::make_unique<ThreadSafeQueue<CapturedFrame>>(captureQueueSize);
         if ( !m_captureQueue ) {
-            qCCritical(lcQueueManager) << "创建捕获队列失败";
+            qCCritical(lcServerQueue) << "创建捕获队列失败";
             return false;
         }
 
         // 创建处理队列
         m_processedQueue = std::make_unique<ThreadSafeQueue<ProcessedData>>(processedQueueSize);
         if ( !m_processedQueue ) {
-            qCCritical(lcQueueManager) << "创建处理队列失败";
+            qCCritical(lcServerQueue) << "创建处理队列失败";
             return false;
         }
 
@@ -60,20 +60,20 @@ bool QueueManager::initialize(int captureQueueSize, int processedQueueSize) {
         }
 
         m_initialized = true;
-        qCDebug(lcQueueManager) << "队列管理器初始化成功";
+        qCDebug(lcServerQueue) << "队列管理器初始化成功";
         return true;
 
     } catch ( const std::exception& e ) {
-        qCCritical(lcQueueManager) << "初始化队列管理器异常:" << e.what();
+        qCCritical(lcServerQueue) << "初始化队列管理器异常:" << e.what();
         return false;
     } catch ( ... ) {
-        qCCritical(lcQueueManager) << "初始化队列管理器未知异常";
+        qCCritical(lcServerQueue) << "初始化队列管理器未知异常";
         return false;
     }
 }
 
 void QueueManager::cleanup() {
-    qCDebug(lcQueueManager) << "清理队列管理器";
+    qCDebug(lcServerQueue) << "清理队列管理器";
 
     // 停止统计定时器
     if ( m_statsTimer && m_statsTimer->isActive() ) {
@@ -88,7 +88,7 @@ void QueueManager::cleanup() {
     m_processedQueue.reset();
 
     m_initialized = false;
-    qCDebug(lcQueueManager) << "队列管理器清理完成";
+    qCDebug(lcServerQueue) << "队列管理器清理完成";
 }
 
 QueueStats QueueManager::getQueueStats(QueueType type) const {
@@ -100,13 +100,13 @@ QueueStats QueueManager::getQueueStats(QueueType type) const {
         case ProcessedQueue:
             return m_processedStats;
         default:
-            qCWarning(lcQueueManager) << "未知的队列类型:" << type;
+            qCWarning(lcServerQueue) << "未知的队列类型:" << type;
             return QueueStats();
     }
 }
 
 void QueueManager::setQueueMaxSize(QueueType type, int maxSize) {
-    qCDebug(lcQueueManager) << "设置队列最大大小，类型:" << getQueueName(type) << "大小:" << maxSize;
+    qCDebug(lcServerQueue) << "设置队列最大大小，类型:" << getQueueName(type) << "大小:" << maxSize;
 
     switch ( type ) {
         case CaptureQueue:
@@ -124,13 +124,13 @@ void QueueManager::setQueueMaxSize(QueueType type, int maxSize) {
             }
             break;
         default:
-            qCWarning(lcQueueManager) << "设置队列大小失败，未知类型:" << type;
+            qCWarning(lcServerQueue) << "设置队列大小失败，未知类型:" << type;
             break;
     }
 }
 
 void QueueManager::clearQueue(QueueType type) {
-    qCDebug(lcQueueManager) << "清空队列:" << getQueueName(type);
+    qCDebug(lcServerQueue) << "清空队列:" << getQueueName(type);
 
     switch ( type ) {
         case CaptureQueue:
@@ -144,13 +144,13 @@ void QueueManager::clearQueue(QueueType type) {
             }
             break;
         default:
-            qCWarning(lcQueueManager) << "清空队列失败，未知类型:" << type;
+            qCWarning(lcServerQueue) << "清空队列失败，未知类型:" << type;
             break;
     }
 }
 
 void QueueManager::stopAllQueues() {
-    qCDebug(lcQueueManager) << "停止所有队列（清空）";
+    qCDebug(lcServerQueue) << "停止所有队列（清空）";
 
     if ( m_captureQueue ) {
         m_captureQueue->clear();
@@ -251,13 +251,13 @@ QString QueueManager::getQueueName(QueueType type) const {
 
 bool QueueManager::enqueueCapturedFrame(const CapturedFrame& frame) {
     if ( !m_captureQueue ) {
-        qCWarning(lcQueueManager) << "捕获队列未初始化";
+        qCWarning(lcServerQueue) << "捕获队列未初始化";
         return false;
     }
 
     // 如果入队的数据无效，直接返回失败
     if ( !frame.isValid() ) {
-        qCWarning(lcQueueManager) << "尝试入队无效的捕获帧，帧ID:" << frame.frameId;
+        qCWarning(lcServerQueue) << "尝试入队无效的捕获帧，帧ID:" << frame.frameId;
         return false;
     }
 
@@ -265,14 +265,14 @@ bool QueueManager::enqueueCapturedFrame(const CapturedFrame& frame) {
     // 实时流场景下优先保证低延迟，旧帧的显示价值已被新帧替代。
     const int dropped = m_captureQueue->tryEnqueueDrainToLatest(frame);
     if ( dropped > 0 ) {
-        qCDebug(lcQueueManager) << "CaptureQueue drained:" << dropped << "old frames dropped";
+        qCDebug(lcServerQueue) << "CaptureQueue drained:" << dropped << "old frames dropped";
     }
     return true;
 }
 
 bool QueueManager::dequeueCapturedFrame(CapturedFrame& frame) {
     if ( !m_captureQueue ) {
-        qCWarning(lcQueueManager) << "捕获队列未初始化";
+        qCWarning(lcServerQueue) << "捕获队列未初始化";
         return false;
     }
 
@@ -286,27 +286,27 @@ bool QueueManager::dequeueCapturedFrame(CapturedFrame& frame) {
 
 bool QueueManager::enqueueProcessedData(const ProcessedData& data) {
     if ( !m_processedQueue ) {
-        qCWarning(lcQueueManager) << "处理队列未初始化";
+        qCWarning(lcServerQueue) << "处理队列未初始化";
         return false;
     }
 
     // 如果入队的数据无效，直接返回失败
     if ( !data.isValid() ) {
-        qCWarning(lcQueueManager) << "尝试入队无效的处理数据，帧ID:" << data.originalFrameId;
+        qCWarning(lcServerQueue) << "尝试入队无效的处理数据，帧ID:" << data.originalFrameId;
         return false;
     }
 
     // Drain-to-Latest：队列满时清空所有旧帧，仅保留最新帧。
     const int dropped = m_processedQueue->tryEnqueueDrainToLatest(data);
     if ( dropped > 0 ) {
-        qCDebug(lcQueueManager) << "ProcessedQueue drained:" << dropped << "old frames dropped";
+        qCDebug(lcServerQueue) << "ProcessedQueue drained:" << dropped << "old frames dropped";
     }
     return true;
 }
 
 bool QueueManager::dequeueProcessedData(ProcessedData& data) {
     if ( !m_processedQueue ) {
-        qCWarning(lcQueueManager) << "处理队列未初始化";
+        qCWarning(lcServerQueue) << "处理队列未初始化";
         return false;
     }
 

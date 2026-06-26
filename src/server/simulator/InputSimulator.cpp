@@ -32,7 +32,7 @@ InputSimulator::InputSimulator(QObject* parent)
     m_mouseSimulator = std::make_unique<MouseSimulatorLinux>();
     m_keyboardSimulator = std::make_unique<KeyboardSimulatorLinux>();
 #else
-    qCWarning(lcInputSimulator) << "InputSimulator: Unsupported platform";
+    qCWarning(lcServerInput) << "InputSimulator: Unsupported platform";
 #endif
 
     (void)initialize();
@@ -69,9 +69,9 @@ bool InputSimulator::initialize() {
     m_initialized = mouseInit && keyboardInit;
 
     if ( m_initialized ) {
-        qCDebug(lcInputSimulator) << "InputSimulator: Initialized successfully";
+        qCDebug(lcServerInput) << "InputSimulator: Initialized successfully";
     } else {
-        qCWarning(lcInputSimulator) << "InputSimulator: Initialization failed:" << m_lastError;
+        qCWarning(lcServerInput) << "InputSimulator: Initialization failed:" << m_lastError;
     }
 
     return m_initialized;

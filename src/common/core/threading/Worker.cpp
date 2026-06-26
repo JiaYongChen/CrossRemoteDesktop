@@ -137,7 +137,7 @@ void Worker::stop(bool waitForFinish) {
         Worker* w = selfGuard.data();
         QMetaObject::invokeMethod(w, [w, forceStopTimeout]() {
             if ( w && w->m_state.load() == State::Stopping ) {
-                qCDebug(lcThreading) << "Worker强制停止（超时" << forceStopTimeout << "ms）：" << w->m_name;
+                qCDebug(lcCoreThreading) << "Worker强制停止（超时" << forceStopTimeout << "ms）：" << w->m_name;
                 w->doStop();
             }
         }, Qt::AutoConnection);
@@ -146,29 +146,29 @@ void Worker::stop(bool waitForFinish) {
 
 void Worker::pause() {
     if ( m_stopRequested.load() ) {
-        qCDebug(lcThreading) << "Worker::pause() - stop already requested for" << m_name;
+        qCDebug(lcCoreThreading) << "Worker::pause() - stop already requested for" << m_name;
         return;
     }
 
     bool alreadyRequested = m_pauseRequested.exchange(true);
     if ( alreadyRequested ) {
-        qCDebug(lcThreading) << "Worker::pause() - pause already pending for" << m_name;
+        qCDebug(lcCoreThreading) << "Worker::pause() - pause already pending for" << m_name;
         return;
     }
 
-    qCDebug(lcThreading) << "Worker::pause() - pause requested, state:"
+    qCDebug(lcCoreThreading) << "Worker::pause() - pause requested, state:"
         << static_cast<int>(m_state.load());
 }
 
 void Worker::resume() {
     bool hadRequest = m_pauseRequested.exchange(false);
     if ( !hadRequest && m_state.load() != State::Paused ) {
-        qCDebug(lcThreading) << "Worker::resume() - nothing to resume for" << m_name;
+        qCDebug(lcCoreThreading) << "Worker::resume() - nothing to resume for" << m_name;
         return;
     }
 
     m_pauseCondition.wakeAll();
-    qCDebug(lcThreading) << "Worker::resume() - wake issued for" << m_name;
+    qCDebug(lcCoreThreading) << "Worker::resume() - wake issued for" << m_name;
 }
 
 void Worker::setState(State newState) {
@@ -193,28 +193,28 @@ void Worker::waitIfPaused() {
         // 切换到Paused状态并发射paused信号（在工作线程内发射，避免事件循环阻塞）
         if ( m_state.load() != State::Paused ) {
             setState(State::Paused);
-            qCDebug(lcThreading) << "Worker" << m_name << "entering paused state, emitting paused signal";
+            qCDebug(lcCoreThreading) << "Worker" << m_name << "entering paused state, emitting paused signal";
             emit paused();
         }
         QMutexLocker locker(&m_pauseMutex);
-        qCDebug(lcThreading) << "Worker" << m_name << "waiting in paused state";
+        qCDebug(lcCoreThreading) << "Worker" << m_name << "waiting in paused state";
         while ( m_pauseRequested.load() && !m_stopRequested.load() ) {
             // 处理Qt事件，保证其它槽函数能被执行
             QCoreApplication::processEvents();
             // 带超时等待，周期性检查退出条件
             m_pauseCondition.wait(&m_pauseMutex, 50);
         }
-        qCDebug(lcThreading) << "Worker" << m_name << "exited pause wait loop, pauseRequested:"
+        qCDebug(lcCoreThreading) << "Worker" << m_name << "exited pause wait loop, pauseRequested:"
             << m_pauseRequested.load() << "stopRequested:" << m_stopRequested.load()
             << "state:" << static_cast<int>(m_state.load());
         // 从暂停恢复：如果未停止，则切换回Running并发射resumed信号
         if ( !m_stopRequested.load() && m_state.load() == State::Paused ) {
             setState(State::Running);
-            qCDebug(lcThreading) << "Worker" << m_name << "emitting resumed signal";
+            qCDebug(lcCoreThreading) << "Worker" << m_name << "emitting resumed signal";
             emit resumed();
-            qCDebug(lcThreading) << "Worker" << m_name << "resumed signal emitted";
+            qCDebug(lcCoreThreading) << "Worker" << m_name << "resumed signal emitted";
         } else {
-            qCDebug(lcThreading) << "Worker" << m_name << "NOT emitting resumed signal - stopRequested:"
+            qCDebug(lcCoreThreading) << "Worker" << m_name << "NOT emitting resumed signal - stopRequested:"
                 << m_stopRequested.load() << "state:" << static_cast<int>(m_state.load());
         }
     }
@@ -232,7 +232,7 @@ void Worker::endPerformanceTiming() {
 }
 
 void Worker::emitError(const QString& error) {
-    qCDebug(lcThreading) << "Worker error in" << m_name << ":" << error;
+    qCDebug(lcCoreThreading) << "Worker error in" << m_name << ":" << error;
     emit errorOccurred(RdError(ErrorCode::Unknown, error, m_name));
 }
 
@@ -251,7 +251,7 @@ void Worker::cleanup() {
 }
 
 void Worker::workLoop() {
-    qCDebug(lcThreading) << "Worker" << m_name << "开始工作循环";
+    qCDebug(lcCoreThreading) << "Worker" << m_name << "开始工作循环";
 
     try {
         while ( !shouldStop() ) {
@@ -290,7 +290,7 @@ void Worker::workLoop() {
         emitError("Unknown exception in work loop");
     }
 
-    qCDebug(lcThreading) << "Worker" << m_name << "工作循环结束";
+    qCDebug(lcCoreThreading) << "Worker" << m_name << "工作循环结束";
 }
 
 void Worker::doStart() {

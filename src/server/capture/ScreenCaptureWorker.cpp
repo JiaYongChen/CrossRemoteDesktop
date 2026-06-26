@@ -22,7 +22,7 @@ ScreenCaptureWorker::ScreenCaptureWorker(QueueManager* queueManager, QObject* pa
     : Worker(parent)
     , m_queueManager(queueManager)
     , m_primaryScreen(nullptr) {
-    qCDebug(lcScreenCaptureWorker) << "ScreenCaptureWorker构造函数: 初始化基础配置";
+    qCDebug(lcServerCapture) << "ScreenCaptureWorker构造函数: 初始化基础配置";
 
     // 初始化配置
     m_config.frameRate = CoreConstants::Capture::DEFAULT_FRAME_RATE;
@@ -35,14 +35,14 @@ ScreenCaptureWorker::ScreenCaptureWorker(QueueManager* queueManager, QObject* pa
 
     // 重要：不要在构造函数中创建 QTimer，以避免其隶属于错误线程。
     // 定时器将在 initialize() 中（已处于工作线程）创建并连接。
-    qCDebug(lcScreenCaptureWorker) << "ScreenCaptureWorker 构造完成（未创建定时器，等待 initialize()）";
+    qCDebug(lcServerCapture) << "ScreenCaptureWorker 构造完成（未创建定时器，等待 initialize()）";
 }
 
 ScreenCaptureWorker::~ScreenCaptureWorker() {
-    qCDebug(lcScreenCaptureWorker) << "ScreenCaptureWorker析构函数";
+    qCDebug(lcServerCapture) << "ScreenCaptureWorker析构函数";
     // 析构阶段不再主动调用 stop/等待，生命周期由 ThreadManager 控制，
     // 避免与 destroyThread/stopThread 的停止流程产生竞态。
-    qCDebug(lcScreenCaptureWorker) << "ScreenCaptureWorker 析构完成";
+    qCDebug(lcServerCapture) << "ScreenCaptureWorker 析构完成";
 }
 
 bool ScreenCaptureWorker::initialize() {
@@ -50,21 +50,21 @@ bool ScreenCaptureWorker::initialize() {
     // 通过 QueuedConnection 竞相调用 initialize()，导致 D3D11 设备被
     // 创建两次。只允许第一次初始化生效。
     if (m_initialized.exchange(true)) {
-        qCInfo(lcScreenCaptureWorker) << "ScreenCaptureWorker 已初始化，跳过";
+        qCInfo(lcServerCapture) << "ScreenCaptureWorker 已初始化，跳过";
         return true;
     }
-    qCInfo(lcScreenCaptureWorker) << "初始化 ScreenCaptureWorker";
+    qCInfo(lcServerCapture) << "初始化 ScreenCaptureWorker";
 
     // 检查并缓存主屏幕
     QGuiApplication* app = qobject_cast<QGuiApplication*>(QCoreApplication::instance());
     if ( !app ) {
-        qCWarning(lcScreenCaptureWorker) << "未检测到QGuiApplication实例，某些功能可能受限";
+        qCWarning(lcServerCapture) << "未检测到QGuiApplication实例，某些功能可能受限";
     }
     m_primaryScreen = app ? app->primaryScreen() : nullptr;
     if ( m_primaryScreen ) {
         m_screenGeometry = m_primaryScreen->geometry();
     }
-    qCDebug(lcScreenCaptureWorker) << "Primary Screen geometry:" << m_screenGeometry.x()
+    qCDebug(lcServerCapture) << "Primary Screen geometry:" << m_screenGeometry.x()
         << "," << m_screenGeometry.y() << m_screenGeometry.width() << "x" << m_screenGeometry.height();
     if ( m_config.captureRect.isEmpty() ) {
         m_config.captureRect = m_screenGeometry;
@@ -103,17 +103,17 @@ bool ScreenCaptureWorker::initialize() {
     if ( m_dxgiCapture->initialize() ) {
         m_dxgiAvailable = true;
         m_dxgiReinitAttempts = 0;
-        qCInfo(lcScreenCaptureWorker) << "DXGI Desktop Duplication initialized, desktop:"
+        qCInfo(lcServerCapture) << "DXGI Desktop Duplication initialized, desktop:"
             << m_dxgiCapture->desktopSize();
     } else {
         m_dxgiAvailable = false;
-        qCWarning(lcScreenCaptureWorker) << "DXGI initialization failed:"
+        qCWarning(lcServerCapture) << "DXGI initialization failed:"
             << m_dxgiCapture->lastError()
             << "— falling back to QScreen::grabWindow()";
     }
 #endif
 
-    qCInfo(lcScreenCaptureWorker) << "ScreenCaptureWorker 初始化成功";
+    qCInfo(lcServerCapture) << "ScreenCaptureWorker 初始化成功";
     return true;
 }
 
@@ -122,10 +122,10 @@ void ScreenCaptureWorker::cleanup() {
     // 可能竞相调用 cleanup()，导致 m_dxgiCapture->shutdown() 在已释放的
     // COM 对象上崩溃 (0xC0000005)。
     if (m_cleanedUp.exchange(true)) {
-        qCInfo(lcScreenCaptureWorker) << "ScreenCaptureWorker 已清理，跳过";
+        qCInfo(lcServerCapture) << "ScreenCaptureWorker 已清理，跳过";
         return;
     }
-    qCInfo(lcScreenCaptureWorker) << "清理 ScreenCaptureWorker 资源";
+    qCInfo(lcServerCapture) << "清理 ScreenCaptureWorker 资源";
 #ifdef Q_OS_WIN
     if ( m_dxgiCapture ) {
         m_dxgiCapture->shutdown();
@@ -149,7 +149,7 @@ void ScreenCaptureWorker::cleanup() {
         m_captureTimeHistory.clear();
         m_frameTimestamps.clear();
     }
-    qCInfo(lcScreenCaptureWorker) << "ScreenCaptureWorker 资源清理完成";
+    qCInfo(lcServerCapture) << "ScreenCaptureWorker 资源清理完成";
 }
 
 void ScreenCaptureWorker::startCapturing() {
@@ -173,7 +173,7 @@ void ScreenCaptureWorker::startCapturing() {
                 m_captureTimer->start();
             }
         }
-        qCDebug(lcScreenCaptureWorker) << "startCapturing: 捕获已开始，统计定时器/捕获定时器已启动";
+        qCDebug(lcServerCapture) << "startCapturing: 捕获已开始，统计定时器/捕获定时器已启动";
     };
     if ( QThread::currentThread() == this->thread() ) {
         startFn();
@@ -202,7 +202,7 @@ void ScreenCaptureWorker::stopCapturing() {
         if ( m_captureTimer ) {
             QObject::disconnect(m_captureTimer, &QTimer::timeout, this, &ScreenCaptureWorker::performCapture);
         }
-        qCDebug(lcScreenCaptureWorker) << "stopCapturing: 捕获已停止，统计/捕获定时器已停止并断开信号";
+        qCDebug(lcServerCapture) << "stopCapturing: 捕获已停止，统计/捕获定时器已停止并断开信号";
     };
 
     // 如果在Worker线程中，立即执行；否则使用同步调用确保立即完成
@@ -247,13 +247,13 @@ void ScreenCaptureWorker::processTask() {
         if ( m_configChanged.load() ) {
             calculateFrameDelay();
             m_configChanged.store(false);
-            qCDebug(lcScreenCaptureWorker) << "配置已更新，新帧延迟: " << m_frameDelay.count() << " ms";
+            qCDebug(lcServerCapture) << "配置已更新，新帧延迟: " << m_frameDelay.count() << " ms";
         }
     } catch ( const std::exception& e ) {
-        qCCritical(lcScreenCaptureWorker) << "Exception in ScreenCaptureWorker::processTask: " << e.what();
+        qCCritical(lcServerCapture) << "Exception in ScreenCaptureWorker::processTask: " << e.what();
         handleCaptureError(QString("ProcessTask exception: %1").arg(e.what()));
     } catch ( ... ) {
-        qCCritical(lcScreenCaptureWorker) << "Unknown exception in ScreenCaptureWorker::processTask";
+        qCCritical(lcServerCapture) << "Unknown exception in ScreenCaptureWorker::processTask";
         handleCaptureError("ProcessTask unknown exception");
     }
 }
@@ -325,7 +325,7 @@ void ScreenCaptureWorker::performCapture() {
             if ( enqueued ) {
                 //qCDebug(screenCaptureWorker, "成功将帧放入捕获队列，帧ID: %llu", frame.frameId);
             } else {
-                qCWarning(lcScreenCaptureWorker) << "捕获队列已停止，无法入队，丢弃帧ID: " << frame.frameId;
+                qCWarning(lcServerCapture) << "捕获队列已停止，无法入队，丢弃帧ID: " << frame.frameId;
                 QMutexLocker locker(&m_statsMutex);
                 m_stats.droppedFrames++;
             }
@@ -368,14 +368,14 @@ QImage ScreenCaptureWorker::captureScreen() {
         }
 
         // Handle access-lost (desktop switch, resolution change, UAC, etc.)
-        qCWarning(lcScreenCaptureWorker) << "DXGI access lost, attempting reinitialize"
+        qCWarning(lcServerCapture) << "DXGI access lost, attempting reinitialize"
             << "(attempt" << (m_dxgiReinitAttempts + 1) << "/" << MAX_DXGI_REINIT_ATTEMPTS << ")";
 
         ++m_dxgiReinitAttempts;
         if ( m_dxgiReinitAttempts <= MAX_DXGI_REINIT_ATTEMPTS ) {
             if ( m_dxgiCapture->reinitialize() ) {
                 m_dxgiReinitAttempts = 0;
-                qCInfo(lcScreenCaptureWorker) << "DXGI reinitialized successfully";
+                qCInfo(lcServerCapture) << "DXGI reinitialized successfully";
                 // Retry capture immediately
                 image = m_dxgiCapture->captureFrame(5);
                 if ( !image.isNull() ) {
@@ -383,7 +383,7 @@ QImage ScreenCaptureWorker::captureScreen() {
                 }
             }
         } else {
-            qCWarning(lcScreenCaptureWorker) << "DXGI reinit attempts exhausted,"
+            qCWarning(lcServerCapture) << "DXGI reinit attempts exhausted,"
                 << "falling back to QScreen::grabWindow()";
             m_dxgiAvailable = false;
         }
@@ -392,13 +392,13 @@ QImage ScreenCaptureWorker::captureScreen() {
 
     // Qt fallback path — QScreen::grabWindow() (GDI-based)
     if ( !m_primaryScreen ) {
-        qCWarning(lcScreenCaptureWorker) << "主屏幕指针为空";
+        qCWarning(lcServerCapture) << "主屏幕指针为空";
         return QImage();
     }
 
     QRect captureRect = m_screenGeometry;
     if ( captureRect.isEmpty() ) {
-        qCWarning(lcScreenCaptureWorker) << "屏幕区域无效";
+        qCWarning(lcServerCapture) << "屏幕区域无效";
         return QImage();
     }
 
@@ -413,7 +413,7 @@ QImage ScreenCaptureWorker::captureScreen() {
         captureRect.height());
 
     if ( pixmap.isNull() ) {
-        qCWarning(lcScreenCaptureWorker) << "屏幕捕获失败";
+        qCWarning(lcServerCapture) << "屏幕捕获失败";
         return QImage();
     }
 
@@ -453,7 +453,7 @@ void ScreenCaptureWorker::calculateFrameDelay() {
     }
     fps = std::clamp(fps, MIN_FRAME_RATE, MAX_FRAME_RATE);
     m_frameDelay = std::chrono::milliseconds(1000 / fps);
-    qCDebug(lcScreenCaptureWorker) << "计算帧延迟: " << fps << " fps -> " << m_frameDelay.count() << " ms";
+    qCDebug(lcServerCapture) << "计算帧延迟: " << fps << " fps -> " << m_frameDelay.count() << " ms";
 }
 
 bool ScreenCaptureWorker::shouldCaptureFrame() {
@@ -508,12 +508,12 @@ void ScreenCaptureWorker::monitorResourceUsage() {
 }
 
 void ScreenCaptureWorker::handleCaptureError(const QString& error) {
-    qCWarning(lcScreenCaptureWorker) << "捕获错误: " << error;
+    qCWarning(lcServerCapture) << "捕获错误: " << error;
     m_lastError = error;
     m_errorCount.fetch_add(1);
     if ( m_errorCount.load() > MAX_ERROR_COUNT ) {
         m_recoveryMode.store(true);
-        qCCritical(lcScreenCaptureWorker) << "错误次数过多，进入恢复模式";
+        qCCritical(lcServerCapture) << "错误次数过多，进入恢复模式";
     }
 }
 
