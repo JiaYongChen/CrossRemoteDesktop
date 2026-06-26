@@ -1,5 +1,6 @@
 #include "InputForwarder.h"
 #include "../session/ProtocolSession.h"
+#include "CursorManager.h"
 #include <QtWidgets/QWidget>
 #include <QtGui/QMouseEvent>
 #include <QtGui/QKeyEvent>
@@ -114,6 +115,9 @@ bool InputForwarder::handleMousePress(QMouseEvent* event) {
             Qt::QueuedConnection, Q_ARG(int, rp.x()), Q_ARG(int, rp.y()), Q_ARG(int, t));
     }
     m_lastMousePos = event->pos();
+    if (m_cursorManager) {
+        m_cursorManager->setCursorPosition(event->pos().x(), event->pos().y());
+    }
     return false;
 }
 
@@ -125,6 +129,9 @@ bool InputForwarder::handleMouseRelease(QMouseEvent* event) {
         QMetaObject::invokeMethod(m_protocolSession, "sendMouseEvent",
             Qt::QueuedConnection, Q_ARG(int, rp.x()), Q_ARG(int, rp.y()), Q_ARG(int, t));
     }
+    if (m_cursorManager) {
+        m_cursorManager->setCursorPosition(event->pos().x(), event->pos().y());
+    }
     return false;
 }
 
@@ -135,6 +142,9 @@ bool InputForwarder::handleMouseMove(QMouseEvent* event) {
         Qt::QueuedConnection, Q_ARG(int, rp.x()), Q_ARG(int, rp.y()),
         Q_ARG(int, static_cast<int>(MouseEventType::MOVE)));
     m_lastMousePos = event->pos();
+    if (m_cursorManager) {
+        m_cursorManager->setCursorPosition(event->pos().x(), event->pos().y());
+    }
     return false;
 }
 
@@ -145,6 +155,9 @@ bool InputForwarder::handleMouseDoubleClick(QMouseEvent* event) {
     if (t != 0) {
         QMetaObject::invokeMethod(m_protocolSession, "sendMouseEvent",
             Qt::QueuedConnection, Q_ARG(int, rp.x()), Q_ARG(int, rp.y()), Q_ARG(int, t));
+    }
+    if (m_cursorManager) {
+        m_cursorManager->setCursorPosition(event->pos().x(), event->pos().y());
     }
     return false;
 }

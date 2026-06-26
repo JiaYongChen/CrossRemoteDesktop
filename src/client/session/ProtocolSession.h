@@ -60,8 +60,8 @@ public slots:
     void resetConnection();
 
 signals:
-    // → CursorManager (Main 线程，QueuedConnection)
-    void remoteCursorTypeUpdated(Qt::CursorShape type);
+    // → CursorManager (Main 线程，直接连接)
+    void cursorUpdated(const CursorMessage& msg);
 
     // → ClipboardManager (Main 线程，QueuedConnection)
     void clipboardTextReceived(const QString& text);

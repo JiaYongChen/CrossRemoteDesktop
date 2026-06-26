@@ -13,6 +13,7 @@ class QEnterEvent;
 class QEvent;
 class ProtocolSession;
 class GLTextureViewport;
+class CursorManager;
 
 /// 输入事件转发器 — 从 ClientRemoteWindow 分离出的输入处理职责
 ///
@@ -32,6 +33,9 @@ public:
 
     /// 设置坐标映射提供方（GLTextureViewport）
     void setViewport(GLTextureViewport* vp) { m_viewport = vp; }
+
+    /// 设置 CursorManager（用于通知光标位置）
+    void setCursorManager(CursorManager* mgr) { m_cursorManager = mgr; }
 
     /// 启用/禁用输入转发
     void setEnabled(bool enabled) { m_enabled = enabled; }
@@ -55,6 +59,7 @@ private:
 
     ProtocolSession* m_protocolSession = nullptr;
     GLTextureViewport* m_viewport = nullptr;
+    CursorManager* m_cursorManager = nullptr;
     bool m_enabled = true;
     QPoint m_lastMousePos{-1, -1};
 };

@@ -4,9 +4,11 @@
 #include "../decode/GpuDecodeTarget.h"
 #include "../../common/core/logging/LoggingCategories.h"
 #include "../../common/core/config/RenderConfig.h"
+#include "CursorManager.h"
 
 #include <QtGui/QOpenGLExtraFunctions>
 #include <QtGui/QOpenGLContext>
+#include <QtGui/QPainter>
 #include <algorithm>  // std::max
 #include <chrono>
 
@@ -550,6 +552,12 @@ void GLTextureViewport::paintGL() {
     // 到达的新帧。若有则立即 CAS 排队 update()，将等待时间从"下个
     // VSync/轮询周期"缩短到"下个事件循环迭代"。
     CheckForNewFrameAfterPaint(m_consumedSlot);
+
+    // 光标叠加 — OSD 层（在 GL 帧渲染之后、swapBuffers 之前）
+    if (m_cursorManager && m_cursorManager->hasCursor()) {
+        QPainter painter(this);
+        m_cursorManager->paintCursor(painter);
+    }
 }
 
 void GLTextureViewport::updateRenderRect() {

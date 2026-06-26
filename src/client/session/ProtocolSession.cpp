@@ -143,9 +143,7 @@ void ProtocolSession::handleScreenData(const QByteArray& data) {
 void ProtocolSession::handleCursorPosition(const QByteArray& data) {
     CursorMessage message;
     if (message.decode(data)) {
-        // Removed legacy Qt::CursorShape signal — cursor type has been replaced
-        // by pixel-based CursorMessage (see Task 1 protocol update).
-        Q_UNUSED(message);
+        emit cursorUpdated(message);
     }
 }
 

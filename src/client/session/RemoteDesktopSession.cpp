@@ -105,6 +105,19 @@ void RemoteDesktopSession::createWindow() {
         inputForwarder->setProtocolSession(m_protocolSession);
     }
 
+    // ── CursorManager 注入到 InputForwarder 和 GLTextureViewport ──
+    CursorManager* cursorMgr = m_window->cursorManager();
+    if (cursorMgr) {
+        if (inputForwarder) {
+            inputForwarder->setCursorManager(cursorMgr);
+        }
+    #ifndef QT_NO_OPENGL
+        if (gl) {
+            gl->setCursorManager(cursorMgr);
+        }
+    #endif
+    }
+
     // ── 分发 ConnectionParams 配置到窗口组件 ──
 
     // 主机名 → 窗口标题
@@ -130,7 +143,6 @@ void RemoteDesktopSession::createWindow() {
     }
 
     // 远程光标显隐
-    CursorManager* cursorMgr = m_window->cursorManager();
     if (cursorMgr) {
         cursorMgr->setCursorEnabled(m_params.showCursor);
     }
@@ -164,6 +176,11 @@ void RemoteDesktopSession::wireSignals() {
         m_window, &ClientRemoteWindow::setConnectionState);
 
     // ── 光标（像素光标由 ScreenCaptureWorker → CursorManager 线路传递，不在此接线）──
+    CursorManager* cursorMgr = m_window->cursorManager();
+    if (cursorMgr) {
+        connect(m_protocolSession, &ProtocolSession::cursorUpdated,
+                cursorMgr, &CursorManager::updateCursor);
+    }
 
     // ── 剪贴板 ──
     ClipboardManager* clipboardMgr = m_window->findChild<ClipboardManager*>();

@@ -20,6 +20,7 @@
 #include "../core/FrameSlot.h"
 
 class GpuDecodeTarget;
+class CursorManager;
 
 /**
  * @brief OpenGL viewport that renders remote desktop frames via direct texture upload.
@@ -159,6 +160,9 @@ public:
      */
     double currentFPS() const { return m_currentFPS; }
 
+    /// 设置 CursorManager（用于 GL 视图上叠加渲染远程光标）
+    void setCursorManager(CursorManager* mgr) { m_cursorManager = mgr; }
+
 signals:
     /**
      * @brief Emitted when the viewport is resized and render rect changes.
@@ -279,6 +283,9 @@ private:
     std::chrono::steady_clock::time_point m_lastPaintTime{};
     double m_smoothedFrameDuration = 0.0;
     static constexpr double kFpsAlpha = 0.1;
+
+    // 远程光标叠加渲染
+    CursorManager* m_cursorManager = nullptr;
 };
 
 #endif // QT_NO_OPENGL
