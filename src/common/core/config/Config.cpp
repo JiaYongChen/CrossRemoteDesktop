@@ -117,7 +117,7 @@ bool Config::load()
     
     QFile file(m_configFilePath);
     if (!file.exists()) {
-    qCInfo(lcCoreConfig) << "Config file does not exist:" << m_configFilePath;
+    qCDebug(lcCoreConfig) << "Config file does not exist:" << m_configFilePath;
         return false;
     }
     

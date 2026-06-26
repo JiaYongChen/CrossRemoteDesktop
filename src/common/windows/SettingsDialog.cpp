@@ -150,13 +150,13 @@ void SettingsDialog::onLanguageChanged(int index)
 void SettingsDialog::onAutoStartChanged(bool checked)
 {
 	m_settings->setValue("General/startWithSystem", checked);
-	qCInfo(lcUISettingsDialog) << "SettingsDialog: auto start set to" << checked;
+	qCDebug(lcUISettingsDialog) << "SettingsDialog: auto start set to" << checked;
 }
 
 void SettingsDialog::onListenPortChanged(int value)
 {
 	m_settings->setValue("Server/listenPort", value);
-	qCInfo(lcUISettingsDialog) << "SettingsDialog: listen port set to" << value;
+	qCDebug(lcUISettingsDialog) << "SettingsDialog: listen port set to" << value;
 }
 
 void SettingsDialog::onUsernameChanged()
@@ -174,7 +174,7 @@ void SettingsDialog::onUsernameChanged()
 	}
 
 	m_settings->setValue("Server/username", newUsername);
-	qCInfo(lcUISettingsDialog) << "SettingsDialog: username changed";
+	qCDebug(lcUISettingsDialog) << "SettingsDialog: username changed";
 }
 
 void SettingsDialog::onPasswordChanged()
@@ -191,7 +191,7 @@ void SettingsDialog::onPasswordChanged()
 		const QString encrypted = PasswordCrypto::encrypt(username, newPassword);
 		m_settings->setValue("Server/password", encrypted);
 	}
-	qCInfo(lcUISettingsDialog) << "SettingsDialog: password updated";
+	qCDebug(lcUISettingsDialog) << "SettingsDialog: password updated";
 }
 
 void SettingsDialog::onLogLevelChanged(int index)
@@ -201,7 +201,7 @@ void SettingsDialog::onLogLevelChanged(int index)
 
 	m_settings->setValue("Logging/level", levels[index]);
 	Config::instance()->setValue("level", levels[index], Config::Logging);
-	qCInfo(lcUISettingsDialog) << "SettingsDialog: log level set to" << levels[index];
+	qCDebug(lcUISettingsDialog) << "SettingsDialog: log level set to" << levels[index];
 }
 
 void SettingsDialog::onLogRulesChanged()
@@ -249,7 +249,7 @@ void SettingsDialog::onRestoreDefaultsClicked()
 	m_settings->remove("Logging/rules");
 	Config::instance()->remove("rules", Config::Logging);
 
-	qCInfo(lcUISettingsDialog) << "SettingsDialog: restored to defaults";
+	qCDebug(lcUISettingsDialog) << "SettingsDialog: restored to defaults";
 }
 
 void SettingsDialog::onTogglePasswordClicked()

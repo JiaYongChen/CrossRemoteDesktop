@@ -321,7 +321,7 @@ void ConnectionManager::onTcpMessageReceived(MessageType type, const QByteArray&
 void ConnectionManager::handleHandshakeResponse(const QByteArray& data) {
     HandshakeResponse response;
     if ( response.decode(data) ) {
-        qCInfo(lcClient)
+        qCDebug(lcClient)
             << MessageConstants::Network::HANDSHAKE_RESPONSE_RECEIVED;
         qCDebug(lcClient)
             << "Server version:" << response.serverVersion;
@@ -340,7 +340,7 @@ void ConnectionManager::handleHandshakeResponse(const QByteArray& data) {
 void ConnectionManager::handleAuthenticationResponse(const QByteArray& data) {
     AuthenticationResponse response;
     if ( response.decode(data) ) {
-        qCInfo(lcClient)
+        qCDebug(lcClient)
             << MessageConstants::Network::AUTH_RESPONSE_RECEIVED;
         qCDebug(lcClient)
             << "Auth result:" << static_cast<int>(response.result);
@@ -409,7 +409,7 @@ void ConnectionManager::sendHandshakeRequest() {
 
     m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST, request);
 
-    qCInfo(lcClient)
+    qCDebug(lcClient)
         << MessageConstants::Network::HANDSHAKE_REQUEST_SENT;
 }
 
@@ -422,7 +422,7 @@ void ConnectionManager::sendAuthenticationRequest(const QString& username, const
 
     m_tcpClient->sendMessage(MessageType::AUTHENTICATION_REQUEST, ar);
 
-    qCInfo(lcClient)
+    qCDebug(lcClient)
         << MessageConstants::Network::AUTH_REQUEST_SENT.arg(username);
 }
 

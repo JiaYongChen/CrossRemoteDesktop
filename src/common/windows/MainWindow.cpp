@@ -101,7 +101,7 @@ MainWindow::MainWindow(QWidget* parent)
 }
 
 MainWindow::~MainWindow() {
-    qCInfo(lcUIMainWindow) << "MainWindow::~MainWindow() - Destructor started";
+    qCDebug(lcUIMainWindow) << "MainWindow::~MainWindow() - Destructor started";
 
     // 在析构函数中进行最后的资源清理
     // 注意：此时不应该再调用可能触发信号的方法
@@ -131,7 +131,7 @@ MainWindow::~MainWindow() {
         m_settingsDialog->close();
     }
 
-    qCInfo(lcUIMainWindow) << "MainWindow::~MainWindow() - Destructor complete";
+    qCDebug(lcUIMainWindow) << "MainWindow::~MainWindow() - Destructor complete";
 }
 
 // createActions/createMenus/createToolBars/createStatusBar/createCentralWidget/
@@ -225,7 +225,7 @@ void MainWindow::saveSettings() {
     saveConnectionHistory();
 
     // 统一输出保存设置日志，便于测试用例判断
-    qCInfo(lcUIMainWindow) << "MainWindow::saveSettings() - Settings saved";
+    qCDebug(lcUIMainWindow) << "MainWindow::saveSettings() - Settings saved";
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {
@@ -233,7 +233,7 @@ void MainWindow::closeEvent(QCloseEvent* event) {
 
     // 防止重复关闭
     if ( m_isShuttingDown ) {
-        qCInfo(lcUIMainWindow) << "MainWindow::closeEvent() - Already shutting down, ignoring duplicate close";
+        qCDebug(lcUIMainWindow) << "MainWindow::closeEvent() - Already shutting down, ignoring duplicate close";
         event->accept();
         return;
     }

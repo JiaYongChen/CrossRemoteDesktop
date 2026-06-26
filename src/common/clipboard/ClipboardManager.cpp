@@ -44,12 +44,12 @@ void ClipboardManager::setEnabled(bool enabled) {
                 }
             }
         }
-        qCDebug(lcClient) << "ClipboardManager::setEnabled() - Clipboard enabled";
+        qCInfo(lcClient) << "ClipboardManager::setEnabled() - Clipboard enabled";
     } else {
         // 禁用时清空状态
         m_lastText.clear();
         m_lastImageData.clear();
-        qCDebug(lcClient) << "ClipboardManager::setEnabled() - Clipboard disabled";
+        qCInfo(lcClient) << "ClipboardManager::setEnabled() - Clipboard disabled";
     }
 }
 

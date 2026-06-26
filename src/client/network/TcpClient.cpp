@@ -303,7 +303,7 @@ void TcpClient::onReadyRead() {
             processMessage(header, payload);
         } else if ( result == 0 ) {
             // 消息无效，清空缓冲区
-            qCCritical(lcClient) << "接收到无效消息，清空缓冲区";
+            qCWarning(lcClient) << "接收到无效消息，清空缓冲区";
             m_receiveBuffer.clear();
         } else {
             // 数据不完整，等待更多数据

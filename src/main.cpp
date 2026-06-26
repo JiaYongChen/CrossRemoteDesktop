@@ -197,9 +197,9 @@ void initializeLogging() {
     qCInfo(lcApp) << "Logger initialized and message routing verified";
     // 打印有效日志级别与规则，便于诊断
     if ( !rules.isEmpty() ) {
-        qCInfo(lcApp) << "Effective QT_LOGGING_RULES:" << rules;
+        qCDebug(lcApp) << "Effective QT_LOGGING_RULES:" << rules;
     } else {
-        qCInfo(lcApp) << "Effective QT_LOGGING_RULES: (none)";
+        qCDebug(lcApp) << "Effective QT_LOGGING_RULES: (none)";
     }
 }
 
@@ -213,7 +213,7 @@ void initializeConfig() {
     Config::instance()->setConfigFile(configDir + "/settings.ini");
     Config::instance()->load();
 
-    qCInfo(lcApp) << "Configuration loaded from:" << Config::instance()->configFile();
+    qCDebug(lcApp) << "Configuration loaded from:" << Config::instance()->configFile();
 }
 
 // 加载翻译文件
