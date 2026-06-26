@@ -261,12 +261,6 @@ QPoint MouseSimulatorMacOS::getCursorPosition() const {
     return QPoint(static_cast<int>(point.x), screenSize.height() - static_cast<int>(point.y) - 1);
 }
 
-int MouseSimulatorMacOS::getCurrentCursorType() const {
-    // TODO: 实现 macOS 平台的光标类型检测并映射到 Qt::CursorShape
-    // 使用 NSCursor API 获取当前光标，然后映射到对应的 Qt::CursorShape 枚举值
-    return Qt::ArrowCursor; // 默认返回 Qt::ArrowCursor (0)
-}
-
 bool MouseSimulatorMacOS::simulateMouseEvent(int x, int y, CGEventType eventType, CGMouseButton button) {
     // 检查辅助功能权限
     if (!AXIsProcessTrusted()) {

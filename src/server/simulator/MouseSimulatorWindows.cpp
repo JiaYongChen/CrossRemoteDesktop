@@ -95,34 +95,6 @@ QPoint MouseSimulatorWindows::getCursorPosition() const {
     return QPoint();
 }
 
-int MouseSimulatorWindows::getCurrentCursorType() const {
-    // Windows 实现：获取当前光标类型并映射到 Qt::CursorShape
-    // 使用 GetCursorInfo 获取光标句柄，然后判断类型
-    CURSORINFO cursorInfo;
-    cursorInfo.cbSize = sizeof(CURSORINFO);
-    
-    if (GetCursorInfo(&cursorInfo)) {
-        HCURSOR hCursor = cursorInfo.hCursor;
-        
-        // 将 Windows 光标映射到 Qt::CursorShape 枚举值
-        if (hCursor == LoadCursor(NULL, IDC_ARROW)) return Qt::ArrowCursor;           // 0
-        if (hCursor == LoadCursor(NULL, IDC_IBEAM)) return Qt::IBeamCursor;           // 4
-        if (hCursor == LoadCursor(NULL, IDC_WAIT)) return Qt::WaitCursor;             // 3
-        if (hCursor == LoadCursor(NULL, IDC_CROSS)) return Qt::CrossCursor;           // 2
-        if (hCursor == LoadCursor(NULL, IDC_HAND)) return Qt::PointingHandCursor;     // 13
-        if (hCursor == LoadCursor(NULL, IDC_SIZEALL)) return Qt::SizeAllCursor;       // 9
-        if (hCursor == LoadCursor(NULL, IDC_SIZENESW)) return Qt::SizeBDiagCursor;    // 7
-        if (hCursor == LoadCursor(NULL, IDC_SIZENS)) return Qt::SizeVerCursor;        // 5
-        if (hCursor == LoadCursor(NULL, IDC_SIZENWSE)) return Qt::SizeFDiagCursor;    // 6
-        if (hCursor == LoadCursor(NULL, IDC_SIZEWE)) return Qt::SizeHorCursor;        // 8
-        if (hCursor == LoadCursor(NULL, IDC_NO)) return Qt::ForbiddenCursor;          // 14
-        if (hCursor == LoadCursor(NULL, IDC_HELP)) return Qt::WhatsThisCursor;        // 15
-        if (hCursor == LoadCursor(NULL, IDC_APPSTARTING)) return Qt::BusyCursor;      // 16
-    }
-    
-    return Qt::ArrowCursor; // 默认返回 Qt::ArrowCursor (0)
-}
-
 bool MouseSimulatorWindows::simulateMouseEvent(int x, int y, DWORD flags, DWORD data) {
     INPUT input = {0};
     input.type = INPUT_MOUSE;
