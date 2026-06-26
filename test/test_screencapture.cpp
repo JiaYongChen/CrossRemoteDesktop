@@ -18,7 +18,6 @@
 #include "../src/server/dataflow/QueueManager.h"
 #include "../src/server/dataflow/DataFlowStructures.h"
 
-Q_LOGGING_CATEGORY(testScreenCapture, "test.screencapture")
 
 /**
  * @brief ScreenCapture单元测试类
@@ -140,7 +139,7 @@ private slots:
 
 void TestScreenCapture::initTestCase()
 {
-    qCDebug(testScreenCapture, "开始ScreenCapture测试");
+    qCDebug(lcTestScreenCapture, "开始ScreenCapture测试");
 
     // 创建线程管理器和队列管理器（DI 模式）
     m_threadManager = new ThreadManager(this);
@@ -153,7 +152,7 @@ void TestScreenCapture::initTestCase()
 
 void TestScreenCapture::cleanupTestCase()
 {
-    qCDebug(testScreenCapture, "ScreenCapture测试完成");
+    qCDebug(lcTestScreenCapture, "ScreenCapture测试完成");
 }
 
 void TestScreenCapture::init()
@@ -175,18 +174,18 @@ void TestScreenCapture::cleanup()
 
 void TestScreenCapture::test_basicFunctionality()
 {
-    qCDebug(testScreenCapture, "测试基本功能");
+    qCDebug(lcTestScreenCapture, "测试基本功能");
     
     // 测试初始状态
     QVERIFY(!m_screenCapture->isCapturing());
     QVERIFY(m_screenCapture->getCaptureConfig().frameRate > 0);
     
-    qCDebug(testScreenCapture, "基本功能测试通过");
+    qCDebug(lcTestScreenCapture, "基本功能测试通过");
 }
 
 void TestScreenCapture::test_captureControl()
 {
-    qCDebug(testScreenCapture, "测试捕获控制");
+    qCDebug(lcTestScreenCapture, "测试捕获控制");
     
     // 测试启动捕获
     QVERIFY(!m_screenCapture->isCapturing());
@@ -199,12 +198,12 @@ void TestScreenCapture::test_captureControl()
     QTest::qWait(100); // 等待停止完成
     QVERIFY(!m_screenCapture->isCapturing());
     
-    qCDebug(testScreenCapture, "捕获控制测试通过");
+    qCDebug(lcTestScreenCapture, "捕获控制测试通过");
 }
 
 void TestScreenCapture::test_frameRateControl()
 {
-    qCDebug(testScreenCapture, "测试帧率控制");
+    qCDebug(lcTestScreenCapture, "测试帧率控制");
 
     int testFrameRates[] = {15, 30, 60, 120};
     for (int fps : testFrameRates) {
@@ -229,32 +228,32 @@ void TestScreenCapture::test_frameRateControl()
         QVERIFY(m_screenCapture->getCaptureConfig().frameRate <= CoreConstants::Capture::MAX_FRAME_RATE);
     }
 
-    qCDebug(testScreenCapture, "帧率控制测试通过");
+    qCDebug(lcTestScreenCapture, "帧率控制测试通过");
 }
 
 void TestScreenCapture::test_qualityControl()
 {
-    qCDebug(testScreenCapture, "质量控制测试通过");
+    qCDebug(lcTestScreenCapture, "质量控制测试通过");
 }
 
 void TestScreenCapture::test_highDefinitionMode()
 {
-    qCDebug(testScreenCapture, "高清模式测试（已移除 CaptureConfig，保留空测试）");
+    qCDebug(lcTestScreenCapture, "高清模式测试（已移除 CaptureConfig，保留空测试）");
 }
 
 void TestScreenCapture::test_antiAliasing()
 {
-    qCDebug(testScreenCapture, "抗锯齿测试（已移除 CaptureConfig，保留空测试）");
+    qCDebug(lcTestScreenCapture, "抗锯齿测试（已移除 CaptureConfig，保留空测试）");
 }
 
 void TestScreenCapture::test_scaleQuality()
 {
-    qCDebug(testScreenCapture, "缩放质量测试（已移除 CaptureConfig，保留空测试）");
+    qCDebug(lcTestScreenCapture, "缩放质量测试（已移除 CaptureConfig，保留空测试）");
 }
 
 void TestScreenCapture::test_queueManagement()
 {
-    qCDebug(testScreenCapture, "测试队列管理");
+    qCDebug(lcTestScreenCapture, "测试队列管理");
     
     // 简化测试：验证性能统计的可用性（不再校验队列利用率）
     auto stats = m_screenCapture->getPerformanceStats();
@@ -269,12 +268,12 @@ void TestScreenCapture::test_queueManagement()
     QCOMPARE(resetStats.totalFramesProcessed, quint64(0));
     QCOMPARE(resetStats.droppedFrames, quint64(0));
     
-    qCDebug(testScreenCapture, "队列管理测试通过");
+    qCDebug(lcTestScreenCapture, "队列管理测试通过");
 }
 
 void TestScreenCapture::test_performanceStats()
 {
-    qCDebug(testScreenCapture, "测试性能统计");
+    qCDebug(lcTestScreenCapture, "测试性能统计");
     
     // 获取初始统计数据
     auto stats = m_screenCapture->getPerformanceStats();
@@ -291,12 +290,12 @@ void TestScreenCapture::test_performanceStats()
     QCOMPARE(resetStats.totalFramesProcessed, 0ULL);
     QCOMPARE(resetStats.droppedFrames, 0ULL);
     
-    qCDebug(testScreenCapture, "性能统计测试通过");
+    qCDebug(lcTestScreenCapture, "性能统计测试通过");
 }
 
 void TestScreenCapture::test_syncCapture()
 {
-    qCDebug(testScreenCapture, "测试异步捕获功能（通过队列）");
+    qCDebug(lcTestScreenCapture, "测试异步捕获功能（通过队列）");
     
     // 清空队列
     m_queueManager->clearQueue(QueueManager::CaptureQueue);
@@ -332,17 +331,17 @@ void TestScreenCapture::test_syncCapture()
     if (!capturedImage.isNull()) {
         QVERIFY(capturedImage.width() > 0);
         QVERIFY(capturedImage.height() > 0);
-        qCDebug(testScreenCapture, "同步捕获成功，图像尺寸: %dx%d", capturedImage.width(), capturedImage.height());
+        qCDebug(lcTestScreenCapture, "同步捕获成功，图像尺寸: %dx%d", capturedImage.width(), capturedImage.height());
     } else {
-        qCDebug(testScreenCapture, "同步捕获返回空图像（可能在测试环境中正常）");
+        qCDebug(lcTestScreenCapture, "同步捕获返回空图像（可能在测试环境中正常）");
     }
     
-    qCDebug(testScreenCapture, "同步捕获测试通过");
+    qCDebug(lcTestScreenCapture, "同步捕获测试通过");
 }
 
 void TestScreenCapture::test_signalEmission()
 {
-    qCDebug(testScreenCapture, "信号发射测试（captureError/performanceStatsUpdated 信号已移除）");
+    qCDebug(lcTestScreenCapture, "信号发射测试（captureError/performanceStatsUpdated 信号已移除）");
     m_screenCapture->startCapture();
     QTest::qWait(100);
     m_screenCapture->stopCapture();
@@ -350,17 +349,17 @@ void TestScreenCapture::test_signalEmission()
 
 void TestScreenCapture::test_errorHandling()
 {
-    qCDebug(testScreenCapture, "错误处理测试（captureError 信号已移除）");
+    qCDebug(lcTestScreenCapture, "错误处理测试（captureError 信号已移除）");
     m_screenCapture->startCapture();
     QTest::qWait(100);
     m_screenCapture->stopCapture();
     QVERIFY(!m_screenCapture->isCapturing());
-    qCDebug(testScreenCapture, "错误处理测试通过");
+    qCDebug(lcTestScreenCapture, "错误处理测试通过");
 }
 
 void TestScreenCapture::test_threadSafety()
 {
-    qCDebug(testScreenCapture, "测试线程安全性");
+    qCDebug(lcTestScreenCapture, "测试线程安全性");
     
     // 测试并发配置修改
     std::atomic<bool> stopTest{false};
@@ -390,12 +389,12 @@ void TestScreenCapture::test_threadSafety()
     // 验证对象仍然有效
     QVERIFY(m_screenCapture->getCaptureConfig().frameRate > 0);
     
-    qCDebug(testScreenCapture, "线程安全性测试通过");
+    qCDebug(lcTestScreenCapture, "线程安全性测试通过");
 }
 
 void TestScreenCapture::test_memoryManagement()
 {
-    qCDebug(testScreenCapture, "测试内存管理");
+    qCDebug(lcTestScreenCapture, "测试内存管理");
     
     // 测试多次创建和销毁
     for (int i = 0; i < 10; ++i) {
@@ -416,12 +415,12 @@ void TestScreenCapture::test_memoryManagement()
     // 验证当前状态
     QVERIFY(m_screenCapture->isCapturing() || !m_screenCapture->isCapturing());
     
-    qCDebug(testScreenCapture, "内存管理测试通过");
+    qCDebug(lcTestScreenCapture, "内存管理测试通过");
 }
 
 void TestScreenCapture::test_startCapture()
 {
-    qCDebug(testScreenCapture, "test_startCapture");
+    qCDebug(lcTestScreenCapture, "test_startCapture");
     QVERIFY(!m_screenCapture->isCapturing());
     m_screenCapture->startCapture();
     QTest::qWait(150);
@@ -432,7 +431,7 @@ void TestScreenCapture::test_startCapture()
 
 void TestScreenCapture::test_stopCapture()
 {
-    qCDebug(testScreenCapture, "test_stopCapture");
+    qCDebug(lcTestScreenCapture, "test_stopCapture");
     m_screenCapture->startCapture();
     QTest::qWait(150);
     QVERIFY(m_screenCapture->isCapturing());
@@ -443,7 +442,7 @@ void TestScreenCapture::test_stopCapture()
 
 void TestScreenCapture::test_setFrameRate()
 {
-    qCDebug(testScreenCapture, "test_setFrameRate");
+    qCDebug(lcTestScreenCapture, "test_setFrameRate");
     CaptureConfig cfg = m_screenCapture->getCaptureConfig();
     cfg.frameRate = 24;
     m_screenCapture->updateCaptureConfig(cfg);
@@ -452,7 +451,7 @@ void TestScreenCapture::test_setFrameRate()
 
 void TestScreenCapture::test_frameRate()
 {
-    qCDebug(testScreenCapture, "test_frameRate");
+    qCDebug(lcTestScreenCapture, "test_frameRate");
     auto fps = m_screenCapture->getCaptureConfig().frameRate;
     QVERIFY(fps >= 1);
     QVERIFY(fps <= 120);
@@ -460,7 +459,7 @@ void TestScreenCapture::test_frameRate()
 
 void TestScreenCapture::test_getPerformanceStats()
 {
-    qCDebug(testScreenCapture, "test_getPerformanceStats");
+    qCDebug(lcTestScreenCapture, "test_getPerformanceStats");
     auto stats = m_screenCapture->getPerformanceStats();
     QVERIFY(stats.totalFramesCaptured >= 0);
     QVERIFY(stats.totalFramesProcessed >= 0);
@@ -469,7 +468,7 @@ void TestScreenCapture::test_getPerformanceStats()
 
 void TestScreenCapture::test_stopCapture_errorPath()
 {
-    qCDebug(testScreenCapture, "test_stopCapture_errorPath");
+    qCDebug(lcTestScreenCapture, "test_stopCapture_errorPath");
     // 未启动直接停止，不应崩溃
     m_screenCapture->stopCapture();
     QTest::qWait(50);

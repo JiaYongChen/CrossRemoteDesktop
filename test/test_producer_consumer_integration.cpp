@@ -24,7 +24,6 @@
 #include "../src/common/core/threading/ThreadSafeQueue.h"
 #include "../src/common/core/threading/ThreadManager.h"
 
-Q_LOGGING_CATEGORY(lcProducerConsumerTest, "test.producer.consumer")
 
 /**
  * @brief 生产者-消费者模式集成测试类
@@ -156,7 +155,7 @@ TestProducerConsumerIntegration::~TestProducerConsumerIntegration() {
 }
 
 void TestProducerConsumerIntegration::initTestCase() {
-    qCDebug(lcProducerConsumerTest) << "初始化生产者-消费者集成测试";
+    qCDebug(lcTestProducerConsumer) << "初始化生产者-消费者集成测试";
 
     // 创建线程管理器和队列管理器（DI 模式）
     m_threadManager = new ThreadManager(this);
@@ -174,7 +173,7 @@ void TestProducerConsumerIntegration::initTestCase() {
 }
 
 void TestProducerConsumerIntegration::cleanupTestCase() {
-    qCDebug(lcProducerConsumerTest) << "清理生产者-消费者集成测试";
+    qCDebug(lcTestProducerConsumer) << "清理生产者-消费者集成测试";
 
     // 清理线程
     if ( m_processingThread && m_processingThread->isRunning() ) {
@@ -219,7 +218,7 @@ void TestProducerConsumerIntegration::cleanup() {
 }
 
 void TestProducerConsumerIntegration::test_basicProducerConsumer() {
-    qCDebug(lcProducerConsumerTest) << "测试基本的生产者-消费者功能";
+    qCDebug(lcTestProducerConsumer) << "测试基本的生产者-消费者功能";
 
     // 创建测试数据
     QImage testImage = createTestImage(400, 300, 1);
@@ -254,7 +253,7 @@ void TestProducerConsumerIntegration::test_basicProducerConsumer() {
             Q_UNUSED(processingRate)
             QMutexLocker locker(&m_counterMutex);
         m_processedCount = static_cast<int>(processedFrames);
-        qCDebug(lcProducerConsumerTest) << "数据处理统计更新，已处理帧数:" << processedFrames;
+        qCDebug(lcTestProducerConsumer) << "数据处理统计更新，已处理帧数:" << processedFrames;
     });
 
     // 启动处理线程
@@ -288,7 +287,7 @@ void TestProducerConsumerIntegration::test_basicProducerConsumer() {
 }
 
 void TestProducerConsumerIntegration::test_queueThreadSafety() {
-    qCDebug(lcProducerConsumerTest) << "测试队列的线程安全性";
+    qCDebug(lcTestProducerConsumer) << "测试队列的线程安全性";
 
     const int numProducers = 3;
     const int numConsumers = 2;
@@ -399,7 +398,7 @@ void TestProducerConsumerIntegration::test_queueThreadSafety() {
 }
 
 void TestProducerConsumerIntegration::test_dataIntegrity() {
-    qCDebug(lcProducerConsumerTest) << "测试数据完整性";
+    qCDebug(lcTestProducerConsumer) << "测试数据完整性";
 
     // 创建多个不同的测试图像
     QList<CapturedFrame> testFrames;
@@ -426,7 +425,7 @@ void TestProducerConsumerIntegration::test_dataIntegrity() {
         Q_UNUSED(droppedFrames)
             Q_UNUSED(averageLatency)
             Q_UNUSED(processingRate)
-            qCDebug(lcProducerConsumerTest) << "处理统计更新: 已处理帧数" << processedFrames;
+            qCDebug(lcTestProducerConsumer) << "处理统计更新: 已处理帧数" << processedFrames;
     });
 
     // 启动处理
@@ -478,7 +477,7 @@ void TestProducerConsumerIntegration::test_dataIntegrity() {
 }
 
 void TestProducerConsumerIntegration::test_queueFullHandling() {
-    qCDebug(lcProducerConsumerTest) << "测试队列满时的处理";
+    qCDebug(lcTestProducerConsumer) << "测试队列满时的处理";
 
     // 设置小容量队列进行测试
     ThreadSafeQueue<CapturedFrame> smallQueue(3);
@@ -512,7 +511,7 @@ void TestProducerConsumerIntegration::test_queueFullHandling() {
 }
 
 void TestProducerConsumerIntegration::test_queueEmptyHandling() {
-    qCDebug(lcProducerConsumerTest) << "测试队列空时的处理";
+    qCDebug(lcTestProducerConsumer) << "测试队列空时的处理";
 
     // 确保队列为空
     m_queueManager->clearQueue(QueueManager::CaptureQueue);
@@ -551,7 +550,7 @@ void TestProducerConsumerIntegration::test_queueEmptyHandling() {
 }
 
 void TestProducerConsumerIntegration::test_highConcurrency() {
-    qCDebug(lcProducerConsumerTest) << "测试高并发场景";
+    qCDebug(lcTestProducerConsumer) << "测试高并发场景";
 
     const int numThreads = 8;
     QList<QThread*> threads;
@@ -609,12 +608,12 @@ void TestProducerConsumerIntegration::test_highConcurrency() {
     threads.clear();
 
     // 验证没有死锁或数据损坏
-    qCDebug(lcProducerConsumerTest) << "高并发测试完成，消费数据数量:" << m_consumedCount;
+    qCDebug(lcTestProducerConsumer) << "高并发测试完成，消费数据数量:" << m_consumedCount;
     QVERIFY(m_consumedCount > 0);
 }
 
 void TestProducerConsumerIntegration::test_queueStatistics() {
-    qCDebug(lcProducerConsumerTest) << "测试队列统计信息";
+    qCDebug(lcTestProducerConsumer) << "测试队列统计信息";
 
     // 获取队列统计信息（强制刷新缓存）
     m_queueManager->forceUpdateStats();
@@ -747,24 +746,24 @@ bool TestProducerConsumerIntegration::waitForQueueProcessing(int maxWaitMs) {
 bool TestProducerConsumerIntegration::verifyProcessedData(const ProcessedData& processedData, const CapturedFrame& originalFrame) {
     // 验证基本字段
     if ( processedData.originalFrameId != originalFrame.frameId ) {
-        qCWarning(lcProducerConsumerTest) << "帧ID不匹配:" << processedData.originalFrameId << "vs" << originalFrame.frameId;
+        qCWarning(lcTestProducerConsumer) << "帧ID不匹配:" << processedData.originalFrameId << "vs" << originalFrame.frameId;
         return false;
     }
 
     if ( processedData.imageSize != originalFrame.originalSize ) {
-        qCWarning(lcProducerConsumerTest) << "图像尺寸不匹配:" << processedData.imageSize << "vs" << originalFrame.originalSize;
+        qCWarning(lcTestProducerConsumer) << "图像尺寸不匹配:" << processedData.imageSize << "vs" << originalFrame.originalSize;
         return false;
     }
 
     // 验证处理后的图像数据不为空
     if ( processedData.compressedData.isEmpty() ) {
-        qCWarning(lcProducerConsumerTest) << "处理后的图像数据为空";
+        qCWarning(lcTestProducerConsumer) << "处理后的图像数据为空";
         return false;
     }
 
     // 验证时间戳
     if ( processedData.processedTime <= originalFrame.timestamp ) {
-        qCWarning(lcProducerConsumerTest) << "处理时间戳不合理";
+        qCWarning(lcTestProducerConsumer) << "处理时间戳不合理";
         return false;
     }
 

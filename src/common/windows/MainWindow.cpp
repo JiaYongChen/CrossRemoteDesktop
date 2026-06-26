@@ -101,7 +101,7 @@ MainWindow::MainWindow(QWidget* parent)
 }
 
 MainWindow::~MainWindow() {
-    qCInfo(lcUI) << "MainWindow::~MainWindow() - Destructor started";
+    qCInfo(lcUIMainWindow) << "MainWindow::~MainWindow() - Destructor started";
 
     // 在析构函数中进行最后的资源清理
     // 注意：此时不应该再调用可能触发信号的方法
@@ -131,7 +131,7 @@ MainWindow::~MainWindow() {
         m_settingsDialog->close();
     }
 
-    qCInfo(lcUI) << "MainWindow::~MainWindow() - Destructor complete";
+    qCInfo(lcUIMainWindow) << "MainWindow::~MainWindow() - Destructor complete";
 }
 
 // createActions/createMenus/createToolBars/createStatusBar/createCentralWidget/
@@ -225,15 +225,15 @@ void MainWindow::saveSettings() {
     saveConnectionHistory();
 
     // 统一输出保存设置日志，便于测试用例判断
-    qCInfo(lcUI) << "MainWindow::saveSettings() - Settings saved";
+    qCInfo(lcUIMainWindow) << "MainWindow::saveSettings() - Settings saved";
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {
-    qCInfo(lcUI) << "MainWindow::closeEvent() - Close event started";
+    qCInfo(lcUIMainWindow) << "MainWindow::closeEvent() - Close event started";
 
     // 防止重复关闭
     if ( m_isShuttingDown ) {
-        qCInfo(lcUI) << "MainWindow::closeEvent() - Already shutting down, ignoring duplicate close";
+        qCInfo(lcUIMainWindow) << "MainWindow::closeEvent() - Already shutting down, ignoring duplicate close";
         event->accept();
         return;
     }
@@ -245,7 +245,7 @@ void MainWindow::closeEvent(QCloseEvent* event) {
 
     // 在客户端模式下，直接退出应用程序
     if ( m_clientMode ) {
-        qCInfo(lcUI) << "MainWindow::closeEvent() - Client mode, closing main window and exiting application";
+        qCInfo(lcUIMainWindow) << "MainWindow::closeEvent() - Client mode, closing main window and exiting application";
 
         // 断开所有客户端连接（先断开 finished 信号，防止 close() 触发 removeOne 修改容器）
         for (auto* session : m_sessions) {
@@ -266,12 +266,12 @@ void MainWindow::closeEvent(QCloseEvent* event) {
     // 服务器模式下执行优雅停止序列
     gracefulShutdown();
 
-    qCInfo(lcUI) << "MainWindow::closeEvent() - Server stopped";
+    qCInfo(lcUIMainWindow) << "MainWindow::closeEvent() - Server stopped";
 
     // 接受关闭事件
     event->accept();
 
-    qCInfo(lcUI) << "MainWindow::closeEvent() - Close event complete";
+    qCInfo(lcUIMainWindow) << "MainWindow::closeEvent() - Close event complete";
 }
 
 void MainWindow::changeEvent(QEvent* event) {
@@ -281,14 +281,14 @@ void MainWindow::changeEvent(QEvent* event) {
             hide();
         }
     } else if ( event->type() == QEvent::LanguageChange ) {
-        qCInfo(lcUI) << "MainWindow::changeEvent - LanguageChange received, calling retranslateUi";
+        qCInfo(lcUIMainWindow) << "MainWindow::changeEvent - LanguageChange received, calling retranslateUi";
         retranslateUi();
-        qCInfo(lcUI) << "MainWindow::changeEvent - retranslateUi completed";
+        qCInfo(lcUIMainWindow) << "MainWindow::changeEvent - retranslateUi completed";
     }
 }
 
 void MainWindow::retranslateUi() {
-    qCInfo(lcUI) << "MainWindow::retranslateUi - starting UI retranslation";
+    qCInfo(lcUIMainWindow) << "MainWindow::retranslateUi - starting UI retranslation";
     setWindowTitle(tr("Qt远程桌面"));
 
     // 动作文本
@@ -344,7 +344,7 @@ void MainWindow::retranslateUi() {
         }
     }
 
-    qCInfo(lcUI) << "MainWindow::retranslateUi - UI retranslation done, windowTitle:" << windowTitle();
+    qCInfo(lcUIMainWindow) << "MainWindow::retranslateUi - UI retranslation done, windowTitle:" << windowTitle();
 }
 
 // 槽函数实现
@@ -588,11 +588,11 @@ void MainWindow::updatePerformanceInfo()
 }
 
 void MainWindow::gracefulShutdown() {
-    qCInfo(lcUI) << "MainWindow::gracefulShutdown() - Starting graceful shutdown";
+    qCInfo(lcUIMainWindow) << "MainWindow::gracefulShutdown() - Starting graceful shutdown";
 
     // 断开所有客户端连接
     if ( !m_sessions.isEmpty() ) {
-        qCInfo(lcUI) << "MainWindow::gracefulShutdown() - Disconnecting all clients";
+        qCInfo(lcUIMainWindow) << "MainWindow::gracefulShutdown() - Disconnecting all clients";
         for (auto* session : m_sessions) {
             disconnect(session, &RemoteDesktopSession::finished, this, nullptr);
             session->close();
@@ -603,12 +603,12 @@ void MainWindow::gracefulShutdown() {
 
     // 停止服务器（无论当前标记是否显示正在运行，均调用优雅关闭以保证最终态日志输出与资源释放的幂等性）
     if ( m_serverManager ) {
-        qCInfo(lcUI) << "MainWindow::gracefulShutdown() - Stopping server";
+        qCInfo(lcUIMainWindow) << "MainWindow::gracefulShutdown() - Stopping server";
 
         // 使用gracefulShutdown方法进行同步停止（内部具备幂等保护与最终态日志输出）
         m_serverManager->gracefulShutdown();
 
-        qCInfo(lcUI) << "MainWindow::gracefulShutdown() - Server stopped";
+        qCInfo(lcUIMainWindow) << "MainWindow::gracefulShutdown() - Server stopped";
     }
 
     // 断开所有信号连接，防止在退出过程中触发回调
@@ -620,7 +620,7 @@ void MainWindow::gracefulShutdown() {
     // 停止并等待所有工作线程退出——std::_Exit 不触发析构，必须在此显式回收
     if ( m_threadManager ) {
         m_threadManager->destroyAllThreads();
-        qCInfo(lcUI) << "MainWindow::gracefulShutdown() - All threads destroyed";
+        qCInfo(lcUIMainWindow) << "MainWindow::gracefulShutdown() - All threads destroyed";
     }
 
     // 隐藏系统托盘图标——std::_Exit 跳过 ~MainWindow() 析构，
@@ -628,10 +628,10 @@ void MainWindow::gracefulShutdown() {
     // 否则每次退出都会残留一个孤儿托盘图标，多次启动后累积成多个。
     if ( m_trayIcon ) {
         m_trayIcon->hide();
-        qCInfo(lcUI) << "MainWindow::gracefulShutdown() - Tray icon hidden";
+        qCInfo(lcUIMainWindow) << "MainWindow::gracefulShutdown() - Tray icon hidden";
     }
 
-    qCInfo(lcUI) << "MainWindow::gracefulShutdown() - Graceful shutdown complete";
+    qCInfo(lcUIMainWindow) << "MainWindow::gracefulShutdown() - Graceful shutdown complete";
 
     // 正常退出应用程序
     QCoreApplication::quit();
@@ -702,7 +702,7 @@ void MainWindow::connectToHostDirectly(const ConnectionParams& params) {
     });
 
     connect(session, &RemoteDesktopSession::errorOccurred, this, [this](const RdError& err) {
-        qCWarning(lcSession) << "RemoteDesktopSession error:" << err.logLabel();
+        qCWarning(lcClientSession) << "RemoteDesktopSession error:" << err.logLabel();
         updateConnectionStatus(err.logLabel());
     });
 
@@ -1049,11 +1049,11 @@ void MainWindow::setClientMode(bool clientMode) {
             m_serverManager->stopServer();
         }
 
-        qCInfo(lcUI) << "Application set to client mode";
+        qCInfo(lcUIMainWindow) << "Application set to client mode";
     } else {
         // 服务器模式：正常启动服务器
         setWindowTitle(tr("Qt远程桌面"));
-        qCInfo(lcUI) << "Application set to server mode";
+        qCInfo(lcUIMainWindow) << "Application set to server mode";
 
         // 延迟启动服务器
         QTimer::singleShot(500, this, &MainWindow::startServer);
@@ -1113,15 +1113,15 @@ void MainWindow::updateConnectionListItem(QListWidgetItem* item, const QString& 
 }
 
 void MainWindow::onAllConnectionsClosed() {
-    qCDebug(lcMainWindow) << "MainWindow::onAllConnectionsClosed() - All client connections closed";
+    qCDebug(lcUIMainWindow) << "MainWindow::onAllConnectionsClosed() - All client connections closed";
 
     // 只有在客户端模式下才退出应用程序
     // 服务器模式下应该保持运行，等待新的客户端连接
     if ( m_clientMode ) {
-        qCDebug(lcMainWindow) << "MainWindow::onAllConnectionsClosed() - Client mode, all connections closed, exiting application";
+        qCDebug(lcUIMainWindow) << "MainWindow::onAllConnectionsClosed() - Client mode, all connections closed, exiting application";
         QApplication::quit();
     } else {
-        qCDebug(lcMainWindow) << "服务器模式下所有连接已关闭，保持运行状态";
+        qCDebug(lcUIMainWindow) << "服务器模式下所有连接已关闭，保持运行状态";
     }
 }
 

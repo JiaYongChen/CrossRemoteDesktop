@@ -31,13 +31,13 @@ void ProtocolSession::setupConnections() {
 
 void ProtocolSession::startSession() {
     if (!m_connectionManager || !m_connectionManager->isAuthenticated()) {
-        qCWarning(lcSession) << "ProtocolSession::startSession() — not authenticated";
+        qCWarning(lcClientSessionProtocol) << "ProtocolSession::startSession() — not authenticated";
         emit sessionError(RdError(ErrorCode::SessionNotAuthenticated,
             tr("无法启动会话 - 未认证"), "ProtocolSession"));
         return;
     }
     if (!m_pipeline) {
-        qCWarning(lcSession) << "ProtocolSession::startSession() — pipeline is null";
+        qCWarning(lcClientSessionProtocol) << "ProtocolSession::startSession() — pipeline is null";
         emit sessionError(RdError(ErrorCode::SessionNotAuthenticated,
             tr("解码管线未初始化"), "ProtocolSession"));
         return;
@@ -106,14 +106,14 @@ void ProtocolSession::handleScreenData(const QByteArray& data) {
     // 1. 协议级解码 + 校验
     ScreenData screenData{};
     if (!screenData.decode(data)) {
-        qCWarning(lcSession) << "ProtocolSession::handleScreenData() — decode failed";
+        qCWarning(lcClientSessionProtocol) << "ProtocolSession::handleScreenData() — decode failed";
         return;
     }
     if (screenData.imageData.isEmpty() || screenData.dataSize == 0) {
         return;
     }
     if (static_cast<quint32>(screenData.imageData.size()) != screenData.dataSize) {
-        qCWarning(lcSession) << "ProtocolSession::handleScreenData() — size mismatch";
+        qCWarning(lcClientSessionProtocol) << "ProtocolSession::handleScreenData() — size mismatch";
         return;
     }
 
@@ -122,7 +122,7 @@ void ProtocolSession::handleScreenData(const QByteArray& data) {
         unsigned char b0 = static_cast<unsigned char>(screenData.imageData[0]);
         unsigned char b1 = static_cast<unsigned char>(screenData.imageData[1]);
         if (b0 != 0xFF || b1 != 0xD8) {
-            qCWarning(lcSession) << "ProtocolSession::handleScreenData() — invalid JPEG header";
+            qCWarning(lcClientSessionProtocol) << "ProtocolSession::handleScreenData() — invalid JPEG header";
             return;
         }
     }
@@ -150,7 +150,7 @@ void ProtocolSession::handleCursorPosition(const QByteArray& data) {
 void ProtocolSession::handleClipboardData(const QByteArray& data) {
     ClipboardMessage message;
     if (!message.decode(data)) {
-        qCWarning(lcSession) << "ProtocolSession::handleClipboardData() — decode failed";
+        qCWarning(lcClientSessionProtocol) << "ProtocolSession::handleClipboardData() — decode failed";
         return;
     }
     if (message.isText()) {
@@ -228,5 +228,5 @@ void ProtocolSession::resetConnection() {
     m_remoteScreenSize = QSize();
     m_sessionActive = false;
     emit connectionReset();
-    qCInfo(lcSession) << "ProtocolSession::resetConnection() — complete";
+    qCInfo(lcClientSessionProtocol) << "ProtocolSession::resetConnection() — complete";
 }

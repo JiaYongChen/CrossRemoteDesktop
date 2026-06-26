@@ -72,7 +72,7 @@ void TestDxgiCapture::test_captureFrame() {
     // Frame could be null if no desktop content changed in the timeout window
     // But typically on a real desktop with a clock/cursor, it should succeed
     if ( frame.isNull() ) {
-        qCWarning(lcDxgiCapture) << "captureFrame returned null (timeout — no desktop update)";
+        qCWarning(lcServerCaptureDxgi) << "captureFrame returned null (timeout — no desktop update)";
         // This is acceptable — not a test failure
         return;
     }
@@ -133,7 +133,7 @@ void TestDxgiCapture::test_capturePerformance() {
         const char* kBuildKind = "Release";
 #endif
 
-        qCInfo(lcDxgiCapture) << "DXGI capture performance (" << kBuildKind << "):"
+        qCInfo(lcServerCaptureDxgi) << "DXGI capture performance (" << kBuildKind << "):"
             << successfulFrames << "/" << NUM_FRAMES << "frames,"
             << "avg:" << avgMs << "ms/frame (threshold:" << kMaxAvgMs << "ms)";
 
@@ -143,7 +143,7 @@ void TestDxgiCapture::test_capturePerformance() {
                 .arg(kMaxAvgMs, 0, 'f', 1)
                 .arg(kBuildKind)));
     } else {
-        qCWarning(lcDxgiCapture) << "No frames captured during performance test (timeout)";
+        qCWarning(lcServerCaptureDxgi) << "No frames captured during performance test (timeout)";
     }
 #endif
 }
@@ -239,7 +239,7 @@ void TestDxgiCapture::test_desktopSize() {
     QScreen* primaryScreen = QGuiApplication::primaryScreen();
     if ( primaryScreen ) {
         QSize qtSize = primaryScreen->geometry().size();
-        qCInfo(lcDxgiCapture) << "DXGI desktop:" << size << "Qt screen:" << qtSize;
+        qCInfo(lcServerCaptureDxgi) << "DXGI desktop:" << size << "Qt screen:" << qtSize;
         // Should match (within DPI scaling tolerance)
         // Note: DXGI returns physical pixels, Qt returns logical pixels
         // So they might differ on HiDPI displays

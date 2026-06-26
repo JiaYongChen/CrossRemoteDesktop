@@ -41,7 +41,7 @@ GpuDecodeTarget::GpuDecodeTarget(QOpenGLContext* shareContext)
 
 GpuDecodeTarget::~GpuDecodeTarget() {
     if (m_ready) {
-        qCWarning(lcGLViewport) << "GpuDecodeTarget: 未调用 cleanup() 即销毁——资源可能泄漏";
+        qCWarning(lcClientGL) << "GpuDecodeTarget: 未调用 cleanup() 即销毁——资源可能泄漏";
         m_ready = false;
     }
     delete m_workerContext;
@@ -54,14 +54,14 @@ GpuDecodeTarget::~GpuDecodeTarget() {
 
 bool GpuDecodeTarget::initialize() {
     if (!m_shareContext) {
-        qCWarning(lcGLViewport) << "GpuDecodeTarget::initialize() — 无共享上下文";
+        qCWarning(lcClientGL) << "GpuDecodeTarget::initialize() — 无共享上下文";
         return false;
     }
 
     // 工作线程 GL 上下文改为延迟创建——在首次使用的线程上创建，
     // 避免 QOpenGLContext 跨线程 makeCurrent 的限制。
     m_ready = true;
-    qCInfo(lcGLViewport) << "GpuDecodeTarget: 初始化完成";
+    qCInfo(lcClientGL) << "GpuDecodeTarget: 初始化完成";
     return true;
 }
 
@@ -73,7 +73,7 @@ bool GpuDecodeTarget::ensureWorkerContext() {
     m_workerContext->setShareContext(m_shareContext);
     m_workerContext->setFormat(m_shareContext->format());
     if (!m_workerContext->create()) {
-        qCWarning(lcGLViewport) << "GpuDecodeTarget: 创建工作线程 GL 上下文失败";
+        qCWarning(lcClientGL) << "GpuDecodeTarget: 创建工作线程 GL 上下文失败";
         delete m_workerContext;
         m_workerContext = nullptr;
         return false;
@@ -81,7 +81,7 @@ bool GpuDecodeTarget::ensureWorkerContext() {
 
     // m_offSurface 已在构造中预创建（GUI 线程），此处仅需绑定上下文
     if (!m_offSurface) {
-        qCWarning(lcGLViewport) << "GpuDecodeTarget: QOffscreenSurface 未预创建";
+        qCWarning(lcClientGL) << "GpuDecodeTarget: QOffscreenSurface 未预创建";
         delete m_workerContext;
         m_workerContext = nullptr;
         return false;
@@ -91,7 +91,7 @@ bool GpuDecodeTarget::ensureWorkerContext() {
     initializeOpenGLFunctions();
     m_workerContext->doneCurrent();
 
-    qCInfo(lcGLViewport) << "GpuDecodeTarget: 工作线程 GL 上下文就绪（延迟创建）";
+    qCInfo(lcClientGL) << "GpuDecodeTarget: 工作线程 GL 上下文就绪（延迟创建）";
     return true;
 }
 
@@ -99,12 +99,12 @@ void GpuDecodeTarget::cleanup() {
     if (!m_workerContext || !m_offSurface) return;
     m_ready = false;
 
-    qCDebug(lcGLViewport) << "GpuDecodeTarget::cleanup() — context thread:" << m_workerContext->thread()
+    qCDebug(lcClientGL) << "GpuDecodeTarget::cleanup() — context thread:" << m_workerContext->thread()
                           << "current thread:" << QThread::currentThread();
 
     // 仅在上下文所属线程调用 makeCurrent（Qt 线程亲和性限制）
     if (m_workerContext->thread() != QThread::currentThread()) {
-        qCDebug(lcGLViewport) << "GpuDecodeTarget::cleanup() — 跨线程清理，跳过 makeCurrent";
+        qCDebug(lcClientGL) << "GpuDecodeTarget::cleanup() — 跨线程清理，跳过 makeCurrent";
         delete m_workerContext;
         m_workerContext = nullptr;
         delete m_offSurface;
@@ -112,7 +112,7 @@ void GpuDecodeTarget::cleanup() {
         return;
     }
 
-    qCDebug(lcGLViewport) << "GpuDecodeTarget::cleanup() — 同线程清理 GL 资源";
+    qCDebug(lcClientGL) << "GpuDecodeTarget::cleanup() — 同线程清理 GL 资源";
     m_workerContext->makeCurrent(m_offSurface);
 
     destroyPersistentPBOs();
@@ -133,7 +133,7 @@ void GpuDecodeTarget::cleanup() {
     m_texHeight = 0;
 
     m_workerContext->doneCurrent();
-    qCInfo(lcGLViewport) << "GpuDecodeTarget: GL 资源已清理";
+    qCInfo(lcClientGL) << "GpuDecodeTarget: GL 资源已清理";
 }
 
 // ════════════════ mapWriteBuffer ════════════════
@@ -276,7 +276,7 @@ bool GpuDecodeTarget::ensureTextureSize(int width, int height) {
     m_texWidth = width;
     m_texHeight = height;
     m_displayTexIndex.store(0);
-    qCDebug(lcGLViewport) << "GpuDecodeTarget: 纹理重建" << width << "x" << height;
+    qCDebug(lcClientGL) << "GpuDecodeTarget: 纹理重建" << width << "x" << height;
     return true;
 }
 
@@ -306,7 +306,7 @@ bool GpuDecodeTarget::ensurePboSize(int width, int height) {
         for (int i = 0; i < kPboCount; ++i) {
             if (!m_pbo[i].isCreated()) {
                 if (!m_pbo[i].create()) {
-                    qCWarning(lcGLViewport) << "GpuDecodeTarget: PBO" << i << "创建失败";
+                    qCWarning(lcClientGL) << "GpuDecodeTarget: PBO" << i << "创建失败";
                     return false;
                 }
                 m_pbo[i].setUsagePattern(QOpenGLBuffer::StreamDraw);
@@ -329,7 +329,7 @@ void GpuDecodeTarget::createPersistentPBOs(int size) {
     const bool hasBufferStorage = m_workerContext->hasExtension(
         QByteArrayLiteral("GL_ARB_buffer_storage"));
     if (!hasBufferStorage) {
-        qCInfo(lcGLViewport) << "GpuDecodeTarget: GL_ARB_buffer_storage 不支持——回退到标准 PBO";
+        qCInfo(lcClientGL) << "GpuDecodeTarget: GL_ARB_buffer_storage 不支持——回退到标准 PBO";
         m_usePersistent = false;
         return;
     }
@@ -338,7 +338,7 @@ void GpuDecodeTarget::createPersistentPBOs(int size) {
     auto glBufferStorageFn = reinterpret_cast<GLBufferStorageProc>(
         m_workerContext->getProcAddress(QByteArrayLiteral("glBufferStorage")));
     if (!glBufferStorageFn) {
-        qCInfo(lcGLViewport) << "GpuDecodeTarget: glBufferStorage 不可解析——回退到标准 PBO";
+        qCInfo(lcClientGL) << "GpuDecodeTarget: glBufferStorage 不可解析——回退到标准 PBO";
         m_usePersistent = false;
         return;
     }
@@ -357,7 +357,7 @@ void GpuDecodeTarget::createPersistentPBOs(int size) {
         m_persistentPtr[i] = f->glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, size, mapFlags);
 
         if (!m_persistentPtr[i]) {
-            qCWarning(lcGLViewport) << "GpuDecodeTarget: 持久 PBO 映射失败，槽位" << i;
+            qCWarning(lcClientGL) << "GpuDecodeTarget: 持久 PBO 映射失败，槽位" << i;
             destroyPersistentPBOs();
             m_usePersistent = false;
             return;
@@ -367,7 +367,7 @@ void GpuDecodeTarget::createPersistentPBOs(int size) {
     }
 
     m_usePersistent = true;
-    qCInfo(lcGLViewport) << "GpuDecodeTarget: 持久 PBO 已创建 —"
+    qCInfo(lcClientGL) << "GpuDecodeTarget: 持久 PBO 已创建 —"
                           << size << "bytes x" << kPboCount;
 }
 

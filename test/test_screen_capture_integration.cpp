@@ -19,7 +19,6 @@
 #include "../src/common/core/threading/ThreadManager.h"
 
 // 日志分类
-Q_LOGGING_CATEGORY(testScreenCaptureIntegration, "test.screencapture.integration")
 
 /**
  * @class TestScreenCaptureIntegration
@@ -48,7 +47,7 @@ private slots:
      * @brief 测试初始化
      */
     void initTestCase() {
-        qCDebug(testScreenCaptureIntegration, "开始ScreenCapture集成测试");
+        qCDebug(lcTestScreenCaptureIntegration, "开始ScreenCapture集成测试");
 
         m_threadManager = std::make_unique<ThreadManager>();
         m_queueManager = std::make_unique<QueueManager>();
@@ -62,7 +61,7 @@ private slots:
      * @brief 测试清理
      */
     void cleanupTestCase() {
-        qCDebug(testScreenCaptureIntegration, "ScreenCapture集成测试完成");
+        qCDebug(lcTestScreenCaptureIntegration, "ScreenCapture集成测试完成");
     }
 
     /**
@@ -85,7 +84,7 @@ private slots:
      * 验证ScreenCapture和ScreenCaptureWorker是否存在重复的配置管理逻辑
      */
     void test_configurationRedundancy() {
-        qCDebug(testScreenCaptureIntegration, "测试配置管理冗余");
+        qCDebug(lcTestScreenCaptureIntegration, "测试配置管理冗余");
         
         try {
             ScreenCapture capture(m_threadManager.get(), m_queueManager.get());
@@ -111,7 +110,7 @@ private slots:
      * 检查统计信息收集是否在多个类中重复实现
      */
     void test_statisticsRedundancy() {
-        qCDebug(testScreenCaptureIntegration, "测试统计信息冗余");
+        qCDebug(lcTestScreenCaptureIntegration, "测试统计信息冗余");
         
         try {
             ScreenCapture capture(m_threadManager.get(), m_queueManager.get());
@@ -124,7 +123,7 @@ private slots:
             QCOMPARE(stats.totalFramesProcessed, 0ULL);
             QCOMPARE(stats.droppedFrames, 0ULL);
             
-            qCDebug(testScreenCaptureIntegration, "统计信息测试通过");
+            qCDebug(lcTestScreenCaptureIntegration, "统计信息测试通过");
             
         } catch (const std::exception& e) {
             QFAIL(QString("统计信息冗余测试异常: %1").arg(e.what()).toUtf8().constData());
@@ -139,7 +138,7 @@ private slots:
      * 验证消息队列管理是否存在重复实现
      */
     void test_queueManagementRedundancy() {
-        qCDebug(testScreenCaptureIntegration, "测试队列管理冗余");
+        qCDebug(lcTestScreenCaptureIntegration, "测试队列管理冗余");
         
         try {
             ScreenCapture capture(m_threadManager.get(), m_queueManager.get());
@@ -147,7 +146,7 @@ private slots:
             // 测试队列状态查询
             QVERIFY(!capture.isCapturing());
             
-            qCDebug(testScreenCaptureIntegration, "队列管理测试通过");
+            qCDebug(lcTestScreenCaptureIntegration, "队列管理测试通过");
             
         } catch (const std::exception& e) {
             QFAIL(QString("队列管理冗余测试异常: %1").arg(e.what()).toUtf8().constData());
@@ -162,7 +161,7 @@ private slots:
      * 检查错误处理机制是否在多个地方重复实现
      */
     void test_errorHandlingRedundancy() {
-        qCDebug(testScreenCaptureIntegration, "测试错误处理冗余");
+        qCDebug(lcTestScreenCaptureIntegration, "测试错误处理冗余");
         
         try {
             ScreenCapture capture(m_threadManager.get(), m_queueManager.get());
@@ -177,7 +176,7 @@ private slots:
             auto stats2 = capture.getPerformanceStats(); // 冗余调用
             QVERIFY(stats1.totalFramesCaptured == stats2.totalFramesCaptured);
             
-            qCDebug(testScreenCaptureIntegration, "错误处理测试通过");
+            qCDebug(lcTestScreenCaptureIntegration, "错误处理测试通过");
             
         } catch (const std::exception& e) {
             QFAIL(QString("错误处理冗余测试异常: %1").arg(e.what()).toUtf8().constData());
@@ -192,7 +191,7 @@ private slots:
      * 验证资源分配和释放是否存在重复逻辑
      */
     void test_resourceManagementRedundancy() {
-        qCDebug(testScreenCaptureIntegration, "测试资源管理冗余");
+        qCDebug(lcTestScreenCaptureIntegration, "测试资源管理冗余");
         
         try {
             // 测试对象创建和销毁
@@ -203,7 +202,7 @@ private slots:
             }
             // 对象应该能够正常销毁
             
-            qCDebug(testScreenCaptureIntegration, "资源管理测试通过");
+            qCDebug(lcTestScreenCaptureIntegration, "资源管理测试通过");
             
         } catch (const std::exception& e) {
             QFAIL(QString("资源管理冗余测试异常: %1").arg(e.what()).toUtf8().constData());

@@ -189,7 +189,7 @@ void RemoteDesktopSession::wireSignals() {
 }
 
 void RemoteDesktopSession::start() {
-    qCInfo(lcSession) << "RemoteDesktopSession::start() — connecting to"
+    qCInfo(lcClientSession) << "RemoteDesktopSession::start() — connecting to"
                       << m_params.host << ":" << m_params.port
                       << "[" << m_connectionId << "]";
     // 网络对象在 Main 线程，直接调用即可
@@ -200,7 +200,7 @@ void RemoteDesktopSession::close() {
     if (m_closing) return;
     m_closing = true;
 
-    qCInfo(lcSession) << "RemoteDesktopSession::close() — starting for" << m_connectionId;
+    qCInfo(lcClientSession) << "RemoteDesktopSession::close() — starting for" << m_connectionId;
 
     if (m_window) {
         disconnect(m_window, &ClientRemoteWindow::windowClosed, this, &RemoteDesktopSession::close);
@@ -221,6 +221,6 @@ void RemoteDesktopSession::close() {
         m_window->close();
     }
 
-    qCInfo(lcSession) << "RemoteDesktopSession::close() — completed for" << m_connectionId;
+    qCInfo(lcClientSession) << "RemoteDesktopSession::close() — completed for" << m_connectionId;
     emit finished(m_connectionId);
 }

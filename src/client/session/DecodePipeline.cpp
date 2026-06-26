@@ -21,7 +21,7 @@ DecodePipeline::~DecodePipeline() {
 
 void DecodePipeline::start() {
     if (m_running) {
-        qCWarning(lcSession) << "DecodePipeline::start() — already running for" << m_connectionId;
+        qCWarning(lcClientSessionDecode) << "DecodePipeline::start() — already running for" << m_connectionId;
         return;
     }
 
@@ -59,7 +59,7 @@ void DecodePipeline::start() {
     QMetaObject::invokeMethod(m_worker, "start", Qt::QueuedConnection);
 
     m_running = true;
-    qCInfo(lcSession) << "DecodePipeline::start() — started for" << m_connectionId;
+    qCInfo(lcClientSessionDecode) << "DecodePipeline::start() — started for" << m_connectionId;
 }
 
 void DecodePipeline::stop() {
@@ -67,7 +67,7 @@ void DecodePipeline::stop() {
         return;
     }
 
-    qCInfo(lcSession) << "DecodePipeline::stop() — stopping pipeline for" << m_connectionId;
+    qCInfo(lcClientSessionDecode) << "DecodePipeline::stop() — stopping pipeline for" << m_connectionId;
 
     // 1. 停止队列
     m_worker->requestStop();
@@ -88,7 +88,7 @@ void DecodePipeline::stop() {
     if (decodeThread && decodeThread->isRunning()) {
         decodeThread->quit();
         if (!decodeThread->wait(3000)) {
-            qCWarning(lcSession) << "DecodePipeline::stop() — thread quit timeout, forcing";
+            qCWarning(lcClientSessionDecode) << "DecodePipeline::stop() — thread quit timeout, forcing";
             decodeThread->requestInterruption();
             decodeThread->quit();
             decodeThread->wait(1000);
@@ -102,7 +102,7 @@ void DecodePipeline::stop() {
     // 6. 等待线程退出（worker 已删除，线程应快速退出）
     if (decodeThread && decodeThread->isRunning()) {
         if (!decodeThread->wait(1000)) {
-            qCWarning(lcSession) << "DecodePipeline::stop() — thread still running after worker deleted, forcing";
+            qCWarning(lcClientSessionDecode) << "DecodePipeline::stop() — thread still running after worker deleted, forcing";
             decodeThread->requestInterruption();
             decodeThread->quit();
             decodeThread->wait(1000);
@@ -117,7 +117,7 @@ void DecodePipeline::stop() {
 
     m_running = false;
 
-    qCInfo(lcSession) << "DecodePipeline::stop() — stopped for" << m_connectionId;
+    qCInfo(lcClientSessionDecode) << "DecodePipeline::stop() — stopped for" << m_connectionId;
 }
 
 bool DecodePipeline::isRunning() const {

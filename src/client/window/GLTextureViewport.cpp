@@ -131,7 +131,7 @@ void GLTextureViewport::initializeGL() {
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
     if ( !initializeShaders() ) {
-        qCCritical(lcGLViewport) << "Failed to initialize shaders";
+        qCCritical(lcClientGL) << "Failed to initialize shaders";
         return;
     }
 
@@ -140,7 +140,7 @@ void GLTextureViewport::initializeGL() {
     // 创建 GpuDecodeTarget
     m_decodeTarget = new GpuDecodeTarget(context());
     if (!m_decodeTarget->initialize()) {
-        qCWarning(lcGLViewport) << "Failed to initialize GpuDecodeTarget";
+        qCWarning(lcClientGL) << "Failed to initialize GpuDecodeTarget";
         delete m_decodeTarget;
         m_decodeTarget = nullptr;
     }
@@ -151,7 +151,7 @@ void GLTextureViewport::initializeGL() {
     connect(context(), &QOpenGLContext::aboutToBeDestroyed,
             this, &GLTextureViewport::cleanupGL);
 
-    qCInfo(lcGLViewport) << "OpenGL initialized:"
+    qCInfo(lcClientGL) << "OpenGL initialized:"
         << "vendor:" << reinterpret_cast<const char*>(glGetString(GL_VENDOR))
         << "renderer:" << reinterpret_cast<const char*>(glGetString(GL_RENDERER))
         << "version:" << reinterpret_cast<const char*>(glGetString(GL_VERSION));
@@ -164,19 +164,19 @@ bool GLTextureViewport::initializeShaders() {
     m_shaderProgram = new QOpenGLShaderProgram(this);
 
     if ( !m_shaderProgram->addShaderFromSourceCode(QOpenGLShader::Vertex, s_vertexShaderSource) ) {
-        qCCritical(lcGLViewport) << "Vertex shader compilation failed:"
+        qCCritical(lcClientGL) << "Vertex shader compilation failed:"
             << m_shaderProgram->log();
         return false;
     }
 
     if ( !m_shaderProgram->addShaderFromSourceCode(QOpenGLShader::Fragment, s_fragmentShaderSource) ) {
-        qCCritical(lcGLViewport) << "Fragment shader compilation failed:"
+        qCCritical(lcClientGL) << "Fragment shader compilation failed:"
             << m_shaderProgram->log();
         return false;
     }
 
     if ( !m_shaderProgram->link() ) {
-        qCCritical(lcGLViewport) << "Shader program link failed:"
+        qCCritical(lcClientGL) << "Shader program link failed:"
             << m_shaderProgram->log();
         return false;
     }
@@ -281,7 +281,7 @@ void GLTextureViewport::setRemoteScreen(const QImage& image) {
     }
 
     if (!m_glInitialized) {
-        qCWarning(lcGLViewport) << "GL not initialized, skipping setRemoteScreen";
+        qCWarning(lcClientGL) << "GL not initialized, skipping setRemoteScreen";
         return;
     }
 
@@ -354,7 +354,7 @@ void GLTextureViewport::paintGL() {
     // Check triple buffer for new frames (lock-free, atomic read)
     static int s_paintCount = 0;
     if ( ++s_paintCount <= 3 )
-        qCDebug(lcGLViewport) << "paintGL called, frameBuffer:" << (m_frameBuffer != nullptr);
+        qCDebug(lcClientGL) << "paintGL called, frameBuffer:" << (m_frameBuffer != nullptr);
     m_consumedSlot = -1;  // 每次 paintGL 重置
     if ( m_frameBuffer ) {
         FrameSlot* slot = nullptr;
@@ -380,7 +380,7 @@ void GLTextureViewport::paintGL() {
                 static int s_fenceDiagCount = 0;
                 ++s_fenceDiagCount;
                 if ( s_fenceDiagCount <= 3 || s_fenceDiagCount % 30 == 0 )
-                    qCDebug(lcGLViewport) << "paintGL fence #" << s_fenceDiagCount << "result:" << result
+                    qCDebug(lcClientGL) << "paintGL fence #" << s_fenceDiagCount << "result:" << result
                         << (result == GL_ALREADY_SIGNALED ? "SIGNALED" :
                             result == GL_CONDITION_SATISFIED ? "SATISFIED" :
                             result == GL_TIMEOUT_EXPIRED ? "TIMEOUT" : "OTHER")
@@ -408,7 +408,7 @@ void GLTextureViewport::paintGL() {
                     if ( s_consecutiveFenceTimeouts >= 5 ) {
                         // 连续 5 次超时（~80ms）：强制放弃 fence，避免画面卡死。
                         // 可能显示部分上传的纹理，但远好于冻结。
-                        qCWarning(lcGLViewport) << "paintGL: force-skipping stuck fence after"
+                        qCWarning(lcClientGL) << "paintGL: force-skipping stuck fence after"
                                                << s_consecutiveFenceTimeouts << "timeouts";
                         f->glDeleteSync(slot->uploadFence);
                         slot->uploadFence = nullptr;
@@ -460,7 +460,7 @@ void GLTextureViewport::paintGL() {
     static int s_skipCount = 0;
     if ( !m_textureDirty ) {
         if ( ++s_skipCount <= 3 || s_skipCount % 300 == 0 )
-            qCDebug(lcGLViewport) << "paintGL skip #" << s_skipCount << "(m_textureDirty=false)";
+            qCDebug(lcClientGL) << "paintGL skip #" << s_skipCount << "(m_textureDirty=false)";
         m_needsRepaint.store(false, std::memory_order_release);
         // 帧间间隙修复：即便 fence 未就绪导致本次未绘制，
         // 也检查 TripleBuffer 是否有绘制期间到达的新帧
@@ -479,7 +479,7 @@ void GLTextureViewport::paintGL() {
                                              : (m_decodeTarget ? m_decodeTarget->displayTexture() : 0);
 
     if ( s_renderCount <= 3 || s_renderCount % 30 == 0 )
-        qCDebug(lcGLViewport) << "paintGL rendering #" << s_renderCount
+        qCDebug(lcClientGL) << "paintGL rendering #" << s_renderCount
             << "texId:" << texId
             << "size:" << m_textureSize
             << "rect:" << m_renderRect;
@@ -488,7 +488,7 @@ void GLTextureViewport::paintGL() {
 
     if ( texId == 0 || !m_shaderProgram || m_renderRect.isEmpty() ) {
         if ( s_renderCount <= 3 )
-            qCWarning(lcGLViewport) << "paintGL render skip - texId:" << texId
+            qCWarning(lcClientGL) << "paintGL render skip - texId:" << texId
                 << "shader:" << (m_shaderProgram != nullptr)
                 << "rect:" << m_renderRect;
         CheckForNewFrameAfterPaint(m_consumedSlot);
@@ -535,7 +535,7 @@ void GLTextureViewport::paintGL() {
         if ( ++m_metricsFrameCount >= kMetricsReportInterval ) {
             const double avgMs = (m_metricsLatencyAccumUs / double(m_metricsFrameCount)) / 1000.0;
             const double maxMs = m_metricsLatencyMaxUs / 1000.0;
-            qCDebug(lcRefreshMetrics)
+            qCDebug(lcClientGL)
                 << "end-to-glass avg:" << avgMs << "ms"
                 << "max:" << maxMs << "ms"
                 << "over" << m_metricsFrameCount << "frames";
@@ -652,7 +652,7 @@ void GLTextureViewport::setVSyncEnabled(bool on) {
     QSurfaceFormat f = format();
     f.setSwapInterval(on ? 1 : 0);
     setFormat(f);
-    qCInfo(lcGLViewport) << "VSync toggled:" << (on ? "ON" : "OFF");
+    qCInfo(lcClientGL) << "VSync toggled:" << (on ? "ON" : "OFF");
     configurePollTimer();
     update();
 }

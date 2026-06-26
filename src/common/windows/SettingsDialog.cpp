@@ -144,19 +144,19 @@ void SettingsDialog::onLanguageChanged(int index)
 	Config::instance()->setValue("language", lang, Config::General);
 	m_settings->setValue("General/language", lang);
 	switchTranslation(*qApp, lang);
-	qCInfo(lcUI) << "SettingsDialog: language switched to" << lang;
+	qCInfo(lcUISettingsDialog) << "SettingsDialog: language switched to" << lang;
 }
 
 void SettingsDialog::onAutoStartChanged(bool checked)
 {
 	m_settings->setValue("General/startWithSystem", checked);
-	qCInfo(lcUI) << "SettingsDialog: auto start set to" << checked;
+	qCInfo(lcUISettingsDialog) << "SettingsDialog: auto start set to" << checked;
 }
 
 void SettingsDialog::onListenPortChanged(int value)
 {
 	m_settings->setValue("Server/listenPort", value);
-	qCInfo(lcUI) << "SettingsDialog: listen port set to" << value;
+	qCInfo(lcUISettingsDialog) << "SettingsDialog: listen port set to" << value;
 }
 
 void SettingsDialog::onUsernameChanged()
@@ -174,7 +174,7 @@ void SettingsDialog::onUsernameChanged()
 	}
 
 	m_settings->setValue("Server/username", newUsername);
-	qCInfo(lcUI) << "SettingsDialog: username changed";
+	qCInfo(lcUISettingsDialog) << "SettingsDialog: username changed";
 }
 
 void SettingsDialog::onPasswordChanged()
@@ -191,7 +191,7 @@ void SettingsDialog::onPasswordChanged()
 		const QString encrypted = PasswordCrypto::encrypt(username, newPassword);
 		m_settings->setValue("Server/password", encrypted);
 	}
-	qCInfo(lcUI) << "SettingsDialog: password updated";
+	qCInfo(lcUISettingsDialog) << "SettingsDialog: password updated";
 }
 
 void SettingsDialog::onLogLevelChanged(int index)
@@ -201,7 +201,7 @@ void SettingsDialog::onLogLevelChanged(int index)
 
 	m_settings->setValue("Logging/level", levels[index]);
 	Config::instance()->setValue("level", levels[index], Config::Logging);
-	qCInfo(lcUI) << "SettingsDialog: log level set to" << levels[index];
+	qCInfo(lcUISettingsDialog) << "SettingsDialog: log level set to" << levels[index];
 }
 
 void SettingsDialog::onLogRulesChanged()
@@ -249,7 +249,7 @@ void SettingsDialog::onRestoreDefaultsClicked()
 	m_settings->remove("Logging/rules");
 	Config::instance()->remove("rules", Config::Logging);
 
-	qCInfo(lcUI) << "SettingsDialog: restored to defaults";
+	qCInfo(lcUISettingsDialog) << "SettingsDialog: restored to defaults";
 }
 
 void SettingsDialog::onTogglePasswordClicked()
@@ -267,7 +267,7 @@ void SettingsDialog::onPresetDebugClicked()
 		"lcApp.debug=true\n"
 		"lcServer.debug=true\n"
 		"lcClient.debug=true\n"
-		"lcUI.debug=true\n"
+		"lcUISettingsDialog.debug=true\n"
 		"lcCoreProtocol.debug=true\n"
 		"core.*.debug=true\n"
 		"qt.network.ssl.warning=false";
