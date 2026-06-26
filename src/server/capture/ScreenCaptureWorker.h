@@ -6,6 +6,7 @@
 #include "../dataflow/QueueManager.h"
 #include "../dataprocessing/DataProcessing.h"
 #include "CaptureConfig.h"
+#include "../../common/core/network/Protocol.h"
 #include <QtGui/QImage>
 #include <QtGui/QScreen>
 #include <QtCore/QTimer>
@@ -78,6 +79,12 @@ signals:
      * @param stats 统计信息
      */
     void captureStatsUpdated(const CaptureStats& stats);
+
+    /**
+     * @brief 光标更新信号
+     * @param cursor 光标形状数据（含热点和RGBA像素）
+     */
+    void cursorUpdateReady(const CursorMessage& cursor);
 
 protected:
     /**

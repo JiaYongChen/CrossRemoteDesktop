@@ -276,7 +276,57 @@ void ScreenCaptureWorker::performCapture() {
     }
     auto captureStartTime = std::chrono::steady_clock::now();
     try {
-        QImage capturedImage = captureScreen();
+        QImage capturedImage;
+        CursorMessage cursorMsg;
+
+        // DXGI fast path — captures frame + cursor in one call
+#ifdef Q_OS_WIN
+        if ( m_dxgiAvailable && m_dxgiCapture ) {
+            CaptureResult result = m_dxgiCapture->captureFrame(5);
+
+            if ( !result.frame.isNull() ) {
+                m_dxgiReinitAttempts = 0;
+                capturedImage = std::move(result.frame);
+                if ( result.cursor.width > 0 ) {
+                    cursorMsg = std::move(result.cursor);
+                }
+            } else if ( !m_dxgiCapture->isInitialized() ) {
+                // DXGI access-lost — attempt reinit
+                qCWarning(lcServerCapture) << "DXGI access lost, attempting reinitialize"
+                    << "(attempt" << (m_dxgiReinitAttempts + 1) << "/" << MAX_DXGI_REINIT_ATTEMPTS << ")";
+                ++m_dxgiReinitAttempts;
+                if ( m_dxgiReinitAttempts <= MAX_DXGI_REINIT_ATTEMPTS ) {
+                    if ( m_dxgiCapture->reinitialize() ) {
+                        m_dxgiReinitAttempts = 0;
+                        qCInfo(lcServerCapture) << "DXGI reinitialized successfully";
+                        CaptureResult retryResult = m_dxgiCapture->captureFrame(5);
+                        if ( !retryResult.frame.isNull() ) {
+                            capturedImage = std::move(retryResult.frame);
+                            if ( retryResult.cursor.width > 0 ) {
+                                cursorMsg = std::move(retryResult.cursor);
+                            }
+                        }
+                    }
+                } else {
+                    qCCritical(lcServerCapture) << "DXGI reinit attempts exhausted, falling back";
+                    m_dxgiAvailable = false;
+                }
+            }
+            // else: DXGI healthy but timeout — capturedImage stays null, skip GDI fallback
+        }
+#endif
+
+        // Fallback to GDI if DXGI didn't produce a frame
+        if ( capturedImage.isNull() ) {
+#ifdef Q_OS_WIN
+            // Only fallback when DXGI is genuinely unavailable, not just timeout
+            if ( !m_dxgiAvailable || !m_dxgiCapture || !m_dxgiCapture->isInitialized() )
+#endif
+            {
+                capturedImage = captureScreen();
+            }
+        }
+
         // 捕获后立刻检查停止请求，防止后续处理占用时间
         if ( shouldStop() ) {
             return;
@@ -331,6 +381,11 @@ void ScreenCaptureWorker::performCapture() {
             }
         }
 
+        // 光标数据可用时发射信号
+        if ( cursorMsg.width > 0 ) {
+            emit cursorUpdateReady(std::move(cursorMsg));
+        }
+
         // qCDebug(screenCaptureWorker, "成功捕获帧，大小: %dx%d，耗时: %lld ms",
         //     capturedImage.width(), capturedImage.height(), captureTime.count());
     } catch ( const std::exception& e ) {
@@ -342,54 +397,6 @@ void ScreenCaptureWorker::performCapture() {
 }
 
 QImage ScreenCaptureWorker::captureScreen() {
-    // Check stop request before capture
-    if ( shouldStop() ) {
-        return QImage();
-    }
-
-#ifdef Q_OS_WIN
-    // DXGI fast path — GPU-accelerated capture with change detection.
-    // timeout=5ms: 短超时避免在静态桌面上阻塞等待。DXGI 桌面有变化时
-    // 立即返回帧，无变化时 5ms 后超时返回空帧——跳过 GDI 回退路径。
-    if ( m_dxgiAvailable && m_dxgiCapture ) {
-        CaptureResult result = m_dxgiCapture->captureFrame(5);
-
-        if ( !result.frame.isNull() ) {
-            m_dxgiReinitAttempts = 0;  // Reset on success
-            return result.frame;
-        }
-
-        // DXGI returned null: either timeout (no screen change) or error.
-        // Only fall through to GDI if DXGI lost access (not just timeout).
-        if ( m_dxgiCapture->isInitialized() ) {
-            // Engine healthy, just no new frame — skip GDI fallback.
-            // This eliminates ~90% of JPEG encoding on static desktops.
-            return QImage();
-        }
-
-        // Handle access-lost (desktop switch, resolution change, UAC, etc.)
-        qCWarning(lcServerCapture) << "DXGI access lost, attempting reinitialize"
-            << "(attempt" << (m_dxgiReinitAttempts + 1) << "/" << MAX_DXGI_REINIT_ATTEMPTS << ")";
-
-        ++m_dxgiReinitAttempts;
-        if ( m_dxgiReinitAttempts <= MAX_DXGI_REINIT_ATTEMPTS ) {
-            if ( m_dxgiCapture->reinitialize() ) {
-                m_dxgiReinitAttempts = 0;
-                qCInfo(lcServerCapture) << "DXGI reinitialized successfully";
-                // Retry capture immediately
-                result = m_dxgiCapture->captureFrame(5);
-                if ( !result.frame.isNull() ) {
-                    return result.frame;
-                }
-            }
-        } else {
-            qCCritical(lcServerCapture) << "DXGI reinit attempts exhausted,"
-                << "falling back to QScreen::grabWindow()";
-            m_dxgiAvailable = false;
-        }
-    }
-#endif
-
     // Qt fallback path — QScreen::grabWindow() (GDI-based)
     if ( !m_primaryScreen ) {
         qCWarning(lcServerCapture) << "主屏幕指针为空";
