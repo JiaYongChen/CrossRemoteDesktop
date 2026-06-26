@@ -20,9 +20,9 @@ bool KeyboardSimulatorWindows::initialize() {
 
     // Windows API 不需要特殊初始化
     m_initialized = true;
-    qCDebug(lcInputSimulator) << "KeyboardSimulatorWindows: Initialized successfully";
-    qCDebug(lcInputSimulator) << "Standard key mappings:" << m_standardKeyMap.size();
-    qCDebug(lcInputSimulator) << "Numpad key mappings:" << m_numpadKeyMap.size();
+    qCDebug(lcServerInput) << "KeyboardSimulatorWindows: Initialized successfully";
+    qCDebug(lcServerInput) << "Standard key mappings:" << m_standardKeyMap.size();
+    qCDebug(lcServerInput) << "Numpad key mappings:" << m_numpadKeyMap.size();
     return true;
 }
 

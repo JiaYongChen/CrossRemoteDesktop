@@ -21,7 +21,7 @@ bool KeyboardSimulatorMacOS::initialize() {
     // 检查辅助功能权限
     if (!checkAccessibilityPermission()) {
         setLastError("需要辅助功能权限才能模拟输入事件。请在系统偏好设置 > 安全性与隐私 > 隐私 > 辅助功能中授予权限。");
-        qCWarning(lcInputSimulator) << "KeyboardSimulatorMacOS: 缺少辅助功能权限";
+        qCWarning(lcServerInput) << "KeyboardSimulatorMacOS: 缺少辅助功能权限";
 
         // 尝试请求权限（会打开系统设置）
         requestAccessibilityPermission();
@@ -29,9 +29,9 @@ bool KeyboardSimulatorMacOS::initialize() {
     }
 
     m_initialized = true;
-    qCDebug(lcInputSimulator) << "KeyboardSimulatorMacOS: Initialized successfully";
-    qCDebug(lcInputSimulator) << "Standard key mappings:" << m_standardKeyMap.size();
-    qCDebug(lcInputSimulator) << "Numpad key mappings:" << m_numpadKeyMap.size();
+    qCDebug(lcServerInput) << "KeyboardSimulatorMacOS: Initialized successfully";
+    qCDebug(lcServerInput) << "Standard key mappings:" << m_standardKeyMap.size();
+    qCDebug(lcServerInput) << "Numpad key mappings:" << m_numpadKeyMap.size();
     return true;
 }
 

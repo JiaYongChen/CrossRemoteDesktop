@@ -21,14 +21,14 @@ bool KeyboardSimulatorLinux::initialize() {
     m_display = XOpenDisplay(nullptr);
     if (!m_display) {
         setLastError("Failed to open X11 display");
-        qCWarning(lcInputSimulator) << "KeyboardSimulatorLinux: Failed to open X11 display";
+        qCWarning(lcServerInput) << "KeyboardSimulatorLinux: Failed to open X11 display";
         return false;
     }
 
     m_initialized = true;
-    qCDebug(lcInputSimulator) << "KeyboardSimulatorLinux: Initialized successfully";
-    qCDebug(lcInputSimulator) << "Standard key mappings:" << m_standardKeyMap.size();
-    qCDebug(lcInputSimulator) << "Numpad key mappings:" << m_numpadKeyMap.size();
+    qCDebug(lcServerInput) << "KeyboardSimulatorLinux: Initialized successfully";
+    qCDebug(lcServerInput) << "Standard key mappings:" << m_standardKeyMap.size();
+    qCDebug(lcServerInput) << "Numpad key mappings:" << m_numpadKeyMap.size();
     return true;
 }
 

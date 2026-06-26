@@ -197,7 +197,7 @@ bool DecodeWorker::processOneFrame() {
     s_glUploadMaxUs = std::max(s_glUploadMaxUs, glUploadUs);
 
     if (++s_diagFrameCount >= 30) {
-        qCInfo(lcRefreshMetrics)
+        qCInfo(lcClientSessionDecode)
             << "[DecodeWorker 诊断] 近30帧耗时 (avg/max):"
             << "队列等待:" << (s_queueWaitAccumUs / 30 / 1000.0) << "/"
             << (s_queueWaitMaxUs / 1000.0) << "ms"

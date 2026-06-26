@@ -20,13 +20,13 @@ bool MouseSimulatorLinux::initialize() {
     m_display = XOpenDisplay(nullptr);
     if (!m_display) {
         setLastError("Failed to open X11 display");
-        qCWarning(lcInputSimulator) << "MouseSimulatorLinux: Failed to open X11 display";
+        qCWarning(lcServerInput) << "MouseSimulatorLinux: Failed to open X11 display";
         return false;
     }
 
     m_screenSize = getScreenSize();
     m_initialized = true;
-    qCDebug(lcInputSimulator) << "MouseSimulatorLinux: Initialized successfully";
+    qCDebug(lcServerInput) << "MouseSimulatorLinux: Initialized successfully";
     return true;
 }
 
