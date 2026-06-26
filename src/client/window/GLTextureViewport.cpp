@@ -642,6 +642,14 @@ void GLTextureViewport::paintGL() {
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
         m_shaderProgram->release();
 
+        // 诊断：检查 GL 错误
+        GLenum glErr = glGetError();
+        if (glErr != GL_NO_ERROR) {
+            static int s_glErrCount = 0;
+            if (++s_glErrCount <= 3)
+                qCDebug(lcClientGL) << "cursor GL error:" << Qt::hex << glErr;
+        }
+
         glDisable(GL_BLEND);
         m_cursorVAO.release();
         glViewport(savedVp[0], savedVp[1], savedVp[2], savedVp[3]);
