@@ -4,6 +4,7 @@
 #include "dataprocessing/DataProcessingWorker.h"
 #include "dataprocessing/DataProcessingConfig.h"
 #include "capture/ScreenCapture.h"
+#include "capture/ScreenCaptureWorker.h"
 #include "clienthandler/ClientHandlerWorker.h"
 #include "../common/core/threading/ThreadManager.h"
 #include "../common/core/network/Protocol.h"
@@ -666,6 +667,15 @@ void ServerManager::onNewClientConnection(qintptr socketDescriptor) {
     if (m_dataWorker) {
         connect(m_currentClient, &ClientHandlerWorker::qualitySettingsReceived,
                 m_dataWorker, &DataProcessingWorker::setJpegQuality, Qt::QueuedConnection);
+    }
+
+    // 将 ScreenCaptureWorker 的光标更新信号连接到 ClientHandlerWorker
+    {
+        auto* captureWorker = qobject_cast<ScreenCaptureWorker*>(
+            m_threadManager->getWorker(QStringLiteral("ScreenCaptureWorker")));
+        if (captureWorker) {
+            m_currentClient->setScreenCaptureWorker(captureWorker);
+        }
     }
 
     qCDebug(lcServerManager) << "ServerManager::onNewClientConnection() - ClientHandlerWorker started in thread";

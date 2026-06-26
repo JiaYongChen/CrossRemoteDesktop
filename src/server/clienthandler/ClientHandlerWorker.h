@@ -16,6 +16,7 @@ class InputSimulator;
 class IMessageCodec;
 class QueueManager;
 class AuthHandler;
+class ScreenCaptureWorker;
 
 /**
  * @brief 客户端处理工作线程类
@@ -99,6 +100,12 @@ public:
      * @brief 强制断开连接
      */
     Q_INVOKABLE void forceDisconnect();
+
+    /**
+     * @brief 设置 ScreenCaptureWorker 并连接光标更新信号
+     * @param worker ScreenCaptureWorker 指针
+     */
+    void setScreenCaptureWorker(ScreenCaptureWorker* worker);
 
 signals:
     /**
@@ -272,11 +279,6 @@ private:
      */
     Q_INVOKABLE void sendScreenDataFromQueue();
     
-    /**
-     * @brief 发送光标类型到客户端
-     */
-    Q_INVOKABLE void sendCursorType();
-
 private:
     // 网络相关
     qintptr m_socketDescriptor;           ///< 套接字描述符
@@ -302,9 +304,9 @@ private:
     QDateTime m_lastHeartbeat;            ///< 最后心跳时间
     QTimer* m_heartbeatSendTimer;         ///< 心跳发送定时器
     QTimer* m_heartbeatCheckTimer;        ///< 心跳检查定时器
-    
+
     // 光标位置发送
-    QTimer* m_cursorUpdateTimer;          ///< 光标位置更新定时器
+    ScreenCaptureWorker* m_screenCaptureWorker{ nullptr };  ///< 屏幕捕获工作线程（非拥有指针）
 
     // 连接状态（线程安全，用于跨线程查询替代直接访问 QSslSocket::state()）
     std::atomic<bool> m_isConnectedAtomic{ false };

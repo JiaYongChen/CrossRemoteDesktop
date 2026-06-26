@@ -52,7 +52,6 @@ ClientHandlerWorker::ClientHandlerWorker(qintptr socketDescriptor,
     , m_lastHeartbeat(QDateTime::currentDateTime())
     , m_heartbeatSendTimer(nullptr)
     , m_heartbeatCheckTimer(nullptr)
-    , m_cursorUpdateTimer(nullptr)
     , m_bytesReceived(0)
     , m_bytesSent(0)
     , m_inputSimulator(nullptr)
@@ -65,6 +64,19 @@ ClientHandlerWorker::~ClientHandlerWorker() {
     qCDebug(lcServerClientHandler) << "ClientHandlerWorker 析构函数";
 
     qCDebug(lcServerClientHandler) << "ClientHandlerWorker 析构完成";
+}
+
+void ClientHandlerWorker::setScreenCaptureWorker(ScreenCaptureWorker* worker) {
+    m_screenCaptureWorker = worker;
+    if (m_screenCaptureWorker) {
+        connect(m_screenCaptureWorker, &ScreenCaptureWorker::cursorUpdateReady,
+                this, [this](const CursorMessage& cursor) {
+            QByteArray msgData = Protocol::createMessage(MessageType::CURSOR_SHAPE, cursor);
+            if (!msgData.isEmpty()) {
+                sendEncodedMessage(msgData);
+            }
+        });
+    }
 }
 
 bool ClientHandlerWorker::initialize() {
@@ -150,11 +162,6 @@ bool ClientHandlerWorker::initialize() {
     m_heartbeatSendTimer->setInterval(NetworkConstants::HEARTBEAT_INTERVAL);
     connect(m_heartbeatSendTimer, &QTimer::timeout, this, &ClientHandlerWorker::sendHeartbeat);
 
-    // 创建光标类型更新定时器 (60 FPS)
-    m_cursorUpdateTimer = new QTimer(this);
-    m_cursorUpdateTimer->setInterval(10);
-    connect(m_cursorUpdateTimer, &QTimer::timeout, this, &ClientHandlerWorker::sendCursorType);
-
     // 创建输入模拟器
     m_inputSimulator = new InputSimulator(this);
     if ( !m_inputSimulator->initialize() ) {
@@ -196,12 +203,6 @@ void ClientHandlerWorker::cleanup() {
         m_heartbeatSendTimer->stop();
         delete m_heartbeatSendTimer;
         m_heartbeatSendTimer = nullptr;
-    }
-
-    if ( m_cursorUpdateTimer ) {
-        m_cursorUpdateTimer->stop();
-        delete m_cursorUpdateTimer;
-        m_cursorUpdateTimer = nullptr;
     }
 
     // 在工作线程中显式删除输入模拟器
@@ -316,34 +317,6 @@ void ClientHandlerWorker::sendScreenDataFromQueue() {
 
         sendEncodedMessage(messageData);
         ++sent;
-    }
-}
-
-void ClientHandlerWorker::sendCursorType() {
-    // 检查连接和认证状态
-    if ( !m_socket || !m_socket->isOpen() ) {
-        return;
-    }
-
-    if ( !isAuthenticated() ) {
-        return;
-    }
-
-    if ( !m_inputSimulator ) {
-        return;
-    }
-
-    // 获取当前光标类型
-    int cursorType = m_inputSimulator->getCurrentCursorType();
-
-    // 创建光标类型消息（像素数据由服务端 DXGI 提取填入）
-    CursorMessage message;
-    Q_UNUSED(cursorType);
-
-    // 发送光标类型消息
-    QByteArray messageData = Protocol::createMessage(MessageType::CURSOR_POSITION, message);
-    if ( !messageData.isEmpty() ) {
-        sendEncodedMessage(messageData);
     }
 }
 
@@ -731,10 +704,6 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
 
         QString sessionId = generateSessionId();
         sendAuthenticationResponse(AuthResult::SUCCESS, sessionId);
-
-        if (m_cursorUpdateTimer) {
-            m_cursorUpdateTimer->start();
-        }
 
         emit authenticated();
         qCInfo(lcServerClientHandler) << "客户端认证成功: " << clientId();
