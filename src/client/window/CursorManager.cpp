@@ -1,7 +1,6 @@
 #include "CursorManager.h"
 #include "common/core/network/Protocol.h"
 #include "common/core/logging/LoggingCategories.h"
-#include <QtGui/QPainter>
 
 CursorManager::CursorManager(QObject* parent) : QObject(parent) {}
 
@@ -9,11 +8,9 @@ CursorManager::~CursorManager() = default;
 
 void CursorManager::updateCursor(const CursorMessage& msg) {
     qCDebug(lcClientGL) << "CursorManager::updateCursor — w:" << msg.width
-        << "h:" << msg.height << "hot:" << msg.hotX << "," << msg.hotY
-        << "pixelBytes:" << msg.pixels.size();
+        << "h:" << msg.height << "hot:" << msg.hotX << "," << msg.hotY;
     if (msg.width == 0 || msg.height == 0) {
         m_hasCursor = false;
-        qCDebug(lcClientGL) << "CursorManager: cursor hidden (0x0)";
         return;
     }
     m_hotX   = msg.hotX;
@@ -21,9 +18,8 @@ void CursorManager::updateCursor(const CursorMessage& msg) {
     m_width  = msg.width;
     m_height = msg.height;
     m_pixels = msg.pixels;
-    m_cursorImage = QImage();  // 清除缓存，触发下次 paintCursor 重建
     m_hasCursor = true;
-    qCDebug(lcClientGL) << "CursorManager: cursor set, hasCursor=true";
+    m_dirty  = true;
 }
 
 void CursorManager::setCursorPosition(int x, int y) {
@@ -33,27 +29,4 @@ void CursorManager::setCursorPosition(int x, int y) {
 
 void CursorManager::setCursorEnabled(bool enabled) {
     m_enabled = enabled;
-}
-
-QPoint CursorManager::cursorDrawPos() const {
-    return QPoint(m_lastX - m_hotX, m_lastY - m_hotY);
-}
-
-void CursorManager::paintCursor(QPainter& painter) {
-    if (!hasCursor()) return;
-    if (m_cursorImage.isNull() || m_cursorImage.size() != QSize(m_width, m_height)) {
-        m_cursorImage = QImage(
-            reinterpret_cast<const uchar*>(m_pixels.constData()),
-            m_width, m_height, m_pixels.size() / m_height,  // bytesPerLine = total / height
-            QImage::Format_RGBA8888
-        ).copy();
-        qCDebug(lcClientGL) << "CursorManager::paintCursor — image rebuilt:"
-            << m_cursorImage.size() << "isNull:" << m_cursorImage.isNull()
-            << "format:" << m_cursorImage.format();
-    }
-    QPoint pos = cursorDrawPos();
-    qCDebug(lcClientGL) << "CursorManager::paintCursor — draw at:" << pos
-        << "hot:" << m_hotX << "," << m_hotY
-        << "last:" << m_lastX << "," << m_lastY;
-    painter.drawImage(pos, m_cursorImage);
 }

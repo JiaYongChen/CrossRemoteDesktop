@@ -3,10 +3,8 @@
 #include <QtCore/QObject>
 #include <QtCore/QPoint>
 #include <QtCore/QByteArray>
-#include <QtGui/QImage>
-#include <QtOpenGL/QOpenGLFunctions_3_3_Core>
 
-struct CursorMessage; // 前置声明
+struct CursorMessage;
 
 class CursorManager : public QObject {
     Q_OBJECT
@@ -21,19 +19,22 @@ public slots:
 
 public:
     bool hasCursor() const { return m_hasCursor && m_enabled; }
-    QPoint cursorDrawPos() const;   // 渲染矩形左上角
-    void paintCursor(QPainter& painter);
-    int hotspotX() const { return m_hotX; }
-    int hotspotY() const { return m_hotY; }
+    bool isDirty()    const { return m_dirty; }
+    void clearDirty()       { m_dirty = false; }
+
+    const QByteArray& pixels() const { return m_pixels; }
+    int  width()  const { return m_width; }
+    int  height() const { return m_height; }
+    int  hotX()   const { return m_hotX; }
+    int  hotY()   const { return m_hotY; }
+    QPoint drawPos() const { return QPoint(m_lastX - m_hotX, m_lastY - m_hotY); }
 
 private:
-    void buildTexture();
-
     bool    m_enabled    = true;
     bool    m_hasCursor   = false;
+    bool    m_dirty       = false;
     int     m_hotX       = 0, m_hotY       = 0;
     int     m_width      = 0, m_height     = 0;
     int     m_lastX      = 0, m_lastY      = 0;
-    QImage  m_cursorImage;
     QByteArray m_pixels;
 };

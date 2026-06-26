@@ -286,6 +286,10 @@ private:
 
     // 远程光标叠加渲染
     CursorManager* m_cursorManager = nullptr;
+    QOpenGLBuffer m_cursorVBO{QOpenGLBuffer::VertexBuffer};
+    QOpenGLVertexArrayObject m_cursorVAO;
+    GLuint m_cursorTex = 0;
+    bool m_cursorGLInit = false;
 };
 
 #endif // QT_NO_OPENGL

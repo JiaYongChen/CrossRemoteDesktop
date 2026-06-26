@@ -147,6 +147,8 @@ void GLTextureViewport::initializeGL() {
         m_decodeTarget = nullptr;
     }
 
+    // CursorManager 的 GL 资源在首次渲染时懒初始化
+
     m_glInitialized = true;
 
     // Prepare for context loss recovery
@@ -231,6 +233,15 @@ void GLTextureViewport::cleanupGL() {
     m_shaderProgram = nullptr;
     m_glInitialized = false;
     m_textureSize = QSize();  // reset
+
+    // 清理光标 GL 资源
+    if (m_cursorTex != 0) {
+        glDeleteTextures(1, &m_cursorTex);
+        m_cursorTex = 0;
+    }
+    m_cursorVAO.destroy();
+    m_cursorVBO.destroy();
+    m_cursorGLInit = false;
 
     // 清理回退纹理
     if (m_fallbackTexture != 0) {
@@ -553,18 +564,84 @@ void GLTextureViewport::paintGL() {
     // VSync/轮询周期"缩短到"下个事件循环迭代"。
     CheckForNewFrameAfterPaint(m_consumedSlot);
 
-    // 光标叠加 — OSD 层（在 GL 帧渲染之后、swapBuffers 之前）
-    {
-        static int s_cursorCheck = 0;
-        bool hasCursor = m_cursorManager && m_cursorManager->hasCursor();
-        if (++s_cursorCheck <= 5 || s_cursorCheck % 60 == 0)
-            qCDebug(lcClientGL) << "paintGL cursor check #" << s_cursorCheck
-                << "mgr:" << (m_cursorManager != nullptr)
-                << "hasCursor:" << hasCursor;
-        if (hasCursor) {
-            QPainter painter(this);
-            m_cursorManager->paintCursor(painter);
+    // 光标叠加 — GL 原生渲染（在帧渲染之后、swapBuffers 之前）
+    if (m_cursorManager && m_cursorManager->hasCursor()) {
+        // 懒初始化 GL 资源
+        if (!m_cursorGLInit) {
+            m_cursorVAO.create();
+            m_cursorVBO.create();
+            m_cursorVAO.bind();
+            m_cursorVBO.bind();
+            m_cursorVBO.allocate(16 * sizeof(float));
+            m_cursorVBO.setUsagePattern(QOpenGLBuffer::StreamDraw);
+            glEnableVertexAttribArray(0);
+            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+            glEnableVertexAttribArray(1);
+            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+            m_cursorVAO.release();
+
+            glGenTextures(1, &m_cursorTex);
+            glBindTexture(GL_TEXTURE_2D, m_cursorTex);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glBindTexture(GL_TEXTURE_2D, 0);
+
+            m_cursorGLInit = true;
         }
+
+        // 上传脏像素
+        if (m_cursorManager->isDirty()) {
+            const QByteArray& px = m_cursorManager->pixels();
+            if (!px.isEmpty()) {
+                glBindTexture(GL_TEXTURE_2D, m_cursorTex);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
+                    m_cursorManager->width(), m_cursorManager->height(), 0,
+                    GL_RGBA, GL_UNSIGNED_BYTE, px.constData());
+                glBindTexture(GL_TEXTURE_2D, 0);
+            }
+            m_cursorManager->clearDirty();
+        }
+
+        // 保存 viewport
+        GLint savedVp[4];
+        glGetIntegerv(GL_VIEWPORT, savedVp);
+
+        // 全窗口 viewport
+        const qreal dpr = devicePixelRatioF();
+        glViewport(0, 0, static_cast<GLsizei>(width() * dpr),
+                   static_cast<GLsizei>(height() * dpr));
+
+        // 光标 quad (NDC)
+        QPoint pos = m_cursorManager->drawPos();
+        float cw = static_cast<float>(m_cursorManager->width());
+        float ch = static_cast<float>(m_cursorManager->height());
+        float w = static_cast<float>(width()), h = static_cast<float>(height());
+        float l = (pos.x() / w) * 2.0f - 1.0f;
+        float r = ((pos.x() + cw) / w) * 2.0f - 1.0f;
+        float t = 1.0f - (pos.y() / h) * 2.0f;
+        float b = 1.0f - ((pos.y() + ch) / h) * 2.0f;
+
+        float verts[] = { l,t, 0.f,1.f,  l,b, 0.f,0.f,  r,t, 1.f,1.f,  r,b, 1.f,0.f };
+
+        m_cursorVAO.bind();
+        m_cursorVBO.bind();
+        m_cursorVBO.write(0, verts, sizeof(verts));
+
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        m_shaderProgram->bind();
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, m_cursorTex);
+        m_shaderProgram->setUniformValue("uTexture", 0);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        m_shaderProgram->release();
+
+        glDisable(GL_BLEND);
+        m_cursorVAO.release();
+        glViewport(savedVp[0], savedVp[1], savedVp[2], savedVp[3]);
     }
 }
 
