@@ -640,6 +640,11 @@ void GLTextureViewport::paintGL() {
         glBindTexture(GL_TEXTURE_2D, m_cursorTex);
         m_shaderProgram->setUniformValue("uTexture", 0);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        static int s_cursorDrawCount = 0;
+        if (++s_cursorDrawCount <= 3 || s_cursorDrawCount % 120 == 0)
+            qCDebug(lcClientGL) << "cursor GL draw #" << s_cursorDrawCount
+                << "tex:" << m_cursorTex << "pos:" << pos
+                << "size:" << QSize(cw, ch) << "NDC lrtb:" << l << r << t << b;
         m_shaderProgram->release();
 
         // 诊断：检查 GL 错误
