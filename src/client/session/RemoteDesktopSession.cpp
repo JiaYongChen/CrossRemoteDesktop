@@ -162,6 +162,12 @@ void RemoteDesktopSession::wireSignals() {
     connect(m_connectionManager, &ConnectionManager::connectionStateChanged,
         this, [this](ConnectionManager::ConnectionState state) {
             if (state == ConnectionManager::ConnectionState::Authenticated) {
+                // 握手已完成，立即传播远程屏幕尺寸给 CursorManager
+                // （比首帧 SCREEN_DATA 更早，消除首帧光标 (0,0) 问题）
+                QSize remoteSz = m_connectionManager->remoteScreenSize();
+                if (remoteSz.isValid()) {
+                    m_protocolSession->setRemoteScreenSize(remoteSz);
+                }
                 // 使用 QueuedConnection 将 startSession() 派发到 ProtocolSession 所在的 Network 线程
                 m_protocolSession->startSession();
             } else if (state == ConnectionManager::ConnectionState::Error) {

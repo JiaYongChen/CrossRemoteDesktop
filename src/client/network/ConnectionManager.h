@@ -2,6 +2,7 @@
 
 #include <QtCore/QObject>
 #include <QtCore/QString>
+#include <QtCore/QSize>
 #include <QtCore/QMutex>
 #include <QtGui/QImage>
 #include <functional>
@@ -85,6 +86,9 @@ public:
     void setConnectionTimeout(int msecs);
     int connectionTimeout() const;
 
+    /// 握手响应中获取的远程屏幕尺寸
+    QSize remoteScreenSize() const { return m_remoteScreenSize; }
+
 signals:
     // 状态变化通知信号（用于 UI 状态显示）
     void connectionStateChanged(ConnectionState state);
@@ -137,6 +141,9 @@ private:
     int m_reconnectInterval;
     int m_maxReconnectAttempts;
     int m_currentReconnectAttempts;
+
+    // 远程屏幕尺寸（握手时获取）
+    QSize m_remoteScreenSize;
 
     // 连接超时
     int m_connectionTimeout;

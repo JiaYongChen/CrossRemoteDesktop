@@ -328,6 +328,9 @@ void ConnectionManager::handleHandshakeResponse(const QByteArray& data) {
         qCDebug(lcClient)
             << "Screen resolution:" << response.screenWidth << "x" << response.screenHeight;
 
+        // 存储远程屏幕尺寸（CursorManager 坐标映射使用）
+        m_remoteScreenSize = QSize(response.screenWidth, response.screenHeight);
+
         // 发送认证请求
         sendAuthenticationRequest(m_username.isEmpty() ? "guest" : m_username,
             m_password.isEmpty() ? "" : m_password);

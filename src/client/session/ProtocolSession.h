@@ -42,6 +42,12 @@ public:
     int currentPort() const;
     bool isConnected() const;
     QSize remoteScreenSize() const { return m_remoteScreenSize; }
+    void setRemoteScreenSize(QSize sz) {
+        if (sz.isValid() && sz != m_remoteScreenSize) {
+            m_remoteScreenSize = sz;
+            emit remoteScreenSizeChanged(m_remoteScreenSize);
+        }
+    }
 
     // ── 输入事件序列化（跨线程 slots，从 InputForwarder 调用）──
 public slots:
