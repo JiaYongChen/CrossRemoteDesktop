@@ -185,21 +185,13 @@ void RemoteDesktopSession::wireSignals() {
     connect(m_protocolSession, &ProtocolSession::connectionStateChanged,
         m_window, &ClientRemoteWindow::setConnectionState);
 
-    // ── 光标（像素光标由 ScreenCaptureWorker → CursorManager 线路传递，不在此接线）──
+    // ── 光标（由帧渲染 paintGL 自然绘制，cursorChanged 不再触发额外 update）
     CursorManager* cursorMgr = m_window->cursorManager();
     if (cursorMgr) {
         connect(m_protocolSession, &ProtocolSession::cursorUpdated,
                 cursorMgr, &CursorManager::updateCursor);
         connect(m_protocolSession, &ProtocolSession::remoteScreenSizeChanged,
                 cursorMgr, &CursorManager::setRemoteScreenSize);
-        // 每次光标更新触发 GL 视口立即重绘，不再等待帧渲染周期
-    #ifndef QT_NO_OPENGL
-        GLTextureViewport* glv = m_window->glViewport();
-        if (glv) {
-            connect(cursorMgr, &CursorManager::cursorChanged,
-                    glv, qOverload<>(&QWidget::update));
-        }
-    #endif
     }
 
     // ── 剪贴板 ──
