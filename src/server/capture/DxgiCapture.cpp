@@ -10,7 +10,7 @@
 #include <objbase.h>  // CoInitializeEx, CoUninitialize, RPC_E_CHANGED_MODE
 
 #include <QDataStream>
-#include <QCryptographicHash>
+
 
 // Link libraries (redundant with CMake, but helps IDE intellisense)
 #pragma comment(lib, "d3d11.lib")
@@ -470,22 +470,14 @@ CursorMessage DxgiCapture::extractCursorShape(const DXGI_OUTDUPL_FRAME_INFO& fra
         break;
     }
 
-    // SHA-1 变更检测（含位置：光标不动但鼠标移动也需发送新位置）
+    // 无条件发送：每次有效光标提取都推送到客户端（去重由客户端视口侧处理）
     static int s_cursorDiag = 0;
-    QByteArray rawData;
-    QDataStream ds(&rawData, QIODevice::WriteOnly);
-    ds << msg.posX << msg.posY << msg.hotX << msg.hotY << msg.width << msg.height << msg.pixels;
-    QByteArray hash = QCryptographicHash::hash(rawData, QCryptographicHash::Sha1);
     ++s_cursorDiag;
-    if (hash == m_prevCursorHash) {
-        if (s_cursorDiag <= 3) qCDebug(lcServerCaptureDxgi) << "extractCursorShape #" << s_cursorDiag << ": unchanged, skip";
-        return CursorMessage{};
-    }
-    m_prevCursorHash = hash;
     if (s_cursorDiag <= 3)
         qCDebug(lcServerCaptureDxgi) << "extractCursorShape #" << s_cursorDiag
-            << ": NEW cursor" << msg.width << "x" << msg.height
-            << "hot:" << msg.hotX << "," << msg.hotY;
+            << ": cursor" << msg.width << "x" << msg.height
+            << "hot:" << msg.hotX << "," << msg.hotY
+            << "pos:" << msg.posX << "," << msg.posY;
     return msg;
 }
 

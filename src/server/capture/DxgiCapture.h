@@ -153,9 +153,6 @@ private:
     int     m_outputIndex = 0;
     QSize   m_desktopSize;
     QString m_lastError;
-
-    // 光标变更检测
-    QByteArray     m_prevCursorHash;
 };
 
 #endif // _WIN32
