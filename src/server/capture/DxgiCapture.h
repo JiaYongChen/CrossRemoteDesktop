@@ -139,7 +139,7 @@ private:
      *
      * @return CursorMessage with RGBA pixels, or empty (width == 0) if unchanged/hidden.
      */
-    CursorMessage extractCursorShape();
+    CursorMessage extractCursorShape(const DXGI_OUTDUPL_FRAME_INFO& frameInfo);
 
     // D3D11 / DXGI COM objects
     Microsoft::WRL::ComPtr<ID3D11Device>           m_device;

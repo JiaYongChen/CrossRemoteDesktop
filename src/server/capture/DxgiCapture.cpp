@@ -359,16 +359,24 @@ CaptureResult DxgiCapture::captureFrame(int timeoutMs) {
     // Extract cursor before releasing the frame
     CaptureResult result;
     result.frame  = image;
-    result.cursor = extractCursorShape();
+    result.cursor = extractCursorShape(frameInfo);
 
     m_duplication->ReleaseFrame();
     return result;
 }
 
-CursorMessage DxgiCapture::extractCursorShape() {
+CursorMessage DxgiCapture::extractCursorShape(const DXGI_OUTDUPL_FRAME_INFO& frameInfo) {
     CursorMessage msg;
     static int s_extractCount = 0;
     ++s_extractCount;
+
+    // 仅当有新光标数据时才调用 GetFramePointerShape
+    if (frameInfo.LastMouseUpdateTime.QuadPart == 0) {
+        if (s_extractCount <= 1)
+            qCDebug(lcServerCaptureDxgi) << "extractCursorShape #" << s_extractCount
+                << ": no new pointer data (LastMouseUpdateTime=0)";
+        return msg;
+    }
 
     // 获取光标缓冲区大小
     UINT requiredSize = 0;
