@@ -577,10 +577,6 @@ void GLTextureViewport::paintGL() {
 
     // 光标叠加 — GL 原生渲染（在帧渲染之后、swapBuffers 之前）
     if (m_cursorManager && m_cursorManager->hasCursor()) {
-        static int s_hasDiag = 0;
-        if (++s_hasDiag <= 5)
-            qCDebug(lcClientGL) << "cursor render block entered, hasCursor=" << m_cursorManager->hasCursor()
-                << "enabled=" << (m_cursorManager->hasCursor());
         // 同步视口尺寸（服务端坐标映射用）
         m_cursorManager->setViewportSize(size());
 
@@ -642,8 +638,8 @@ void GLTextureViewport::paintGL() {
 
         // 光标 quad (NDC)
         QPoint pos = m_cursorManager->drawPos();
-        float cw = static_cast<float>(m_cursorManager->width()) * 2.0f;
-        float ch = static_cast<float>(m_cursorManager->height()) * 2.0f;
+        float cw = static_cast<float>(m_cursorManager->width());
+        float ch = static_cast<float>(m_cursorManager->height());
         float w = static_cast<float>(width()), h = static_cast<float>(height());
         float l = (pos.x() / w) * 2.0f - 1.0f;
         float r = ((pos.x() + cw) / w) * 2.0f - 1.0f;

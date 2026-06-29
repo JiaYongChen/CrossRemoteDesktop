@@ -7,12 +7,9 @@ CursorManager::CursorManager(QObject* parent) : QObject(parent) {}
 CursorManager::~CursorManager() = default;
 
 void CursorManager::updateCursor(const CursorMessage& msg) {
-    // 光标隐藏
+    // width==0 的消息忽略（可能是垃圾数据或服务端短暂故障）。
+    // 一旦获取了有效形状就不再重置——避免光标闪烁消失。
     if (msg.width == 0 || msg.height == 0) {
-        if (m_hasCursor) {
-            m_hasCursor = false;
-            emit cursorChanged();
-        }
         return;
     }
 
