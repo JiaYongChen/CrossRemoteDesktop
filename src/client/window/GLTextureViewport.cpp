@@ -641,48 +641,27 @@ void GLTextureViewport::paintGL() {
         glViewport(0, 0, static_cast<GLsizei>(width() * dpr),
                    static_cast<GLsizei>(height() * dpr));
 
-        // 光标 quad (NDC)
+        // ── 诊断：用 scissor clear 替代 glDrawArrays 光标 quad ──
         QPoint pos = m_cursorManager->drawPos();
-        float cw = static_cast<float>(m_cursorManager->width());
-        float ch = static_cast<float>(m_cursorManager->height());
-        float w = static_cast<float>(width()), h = static_cast<float>(height());
-        float l = (pos.x() / w) * 2.0f - 1.0f;
-        float r = ((pos.x() + cw) / w) * 2.0f - 1.0f;
-        float t = 1.0f - (pos.y() / h) * 2.0f;
-        float b = 1.0f - ((pos.y() + ch) / h) * 2.0f;
-
-        // V 坐标与帧 Quad 一致：顶部 V=0, 底部 V=1（补偿 OpenGL/QImage 原点差异）
-        float verts[] = { l,t, 0.f,0.f,  l,b, 0.f,1.f,  r,t, 1.f,0.f,  r,b, 1.f,1.f };
-
-        m_cursorVAO.bind();
-        m_cursorVBO.bind();
-        m_cursorVBO.write(0, verts, sizeof(verts));
-
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-        m_shaderProgram->bind();
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, m_cursorTex);
-        m_shaderProgram->setUniformValue("uTexture", 0);
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-        static int s_cursorDrawCount = 0;
-        if (++s_cursorDrawCount <= 3 || s_cursorDrawCount % 120 == 0)
-            qCDebug(lcClientGL) << "cursor GL draw #" << s_cursorDrawCount
-                << "tex:" << m_cursorTex << "pos:" << pos
-                << "size:" << QSize(cw, ch) << "NDC lrtb:" << l << r << t << b;
-        m_shaderProgram->release();
-
-        // 诊断：检查 GL 错误
-        GLenum glErr = glGetError();
-        if (glErr != GL_NO_ERROR) {
-            static int s_glErrCount = 0;
-            if (++s_glErrCount <= 3)
-                qCDebug(lcClientGL) << "cursor GL error:" << Qt::hex << glErr;
+        int cw = m_cursorManager->width();
+        int ch = m_cursorManager->height();
+        const qreal dpr2 = devicePixelRatioF();
+        // scissor 用窗口坐标 (bottom-left origin)
+        int sx = static_cast<int>(pos.x() * dpr2);
+        int sy = static_cast<int>((height() - pos.y() - ch) * dpr2);
+        int sw = static_cast<int>(cw * dpr2);
+        int sh = static_cast<int>(ch * dpr2);
+        if (sw > 0 && sh > 0) {
+            glEnable(GL_SCISSOR_TEST);
+            glScissor(sx, sy, sw, sh);
+            // 交替红/绿色便于跟踪
+            static int s_scissorCursorCount = 0;
+            bool red = (++s_scissorCursorCount % 2);
+            glClearColor(red ? 1.0f : 0.0f, red ? 0.0f : 1.0f, 0.0f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT);
+            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+            glDisable(GL_SCISSOR_TEST);
         }
-
-        glDisable(GL_BLEND);
-        m_cursorVAO.release();
         glViewport(savedVp[0], savedVp[1], savedVp[2], savedVp[3]);
     }
 }
