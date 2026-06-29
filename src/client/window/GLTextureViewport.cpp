@@ -654,6 +654,9 @@ void GLTextureViewport::paintGL() {
         glBindTexture(GL_TEXTURE_2D, m_cursorTex);
         m_shaderProgram->setUniformValue("uTexture", 0);
         GLenum e5 = glGetError();
+        // 诊断：用帧纹理替换光标纹理（排除光标纹理数据问题）
+        GLuint texForCursor = m_decodeTarget ? m_decodeTarget->displayTexture() : m_cursorTex;
+        glBindTexture(GL_TEXTURE_2D, texForCursor);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
         GLenum e6 = glGetError();
         m_shaderProgram->release();
