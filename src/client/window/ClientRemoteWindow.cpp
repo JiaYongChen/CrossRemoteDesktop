@@ -162,6 +162,7 @@ void ClientRemoteWindow::setupUI() {
 #ifndef QT_NO_OPENGL
     m_glViewport = new GLTextureViewport(this);
     m_glViewport->setGeometry(rect());
+    m_glViewport->setAttribute(Qt::WA_TransparentForMouseEvents, true);
     m_glViewport->show();
     m_glViewport->raise();
 
@@ -198,6 +199,13 @@ void ClientRemoteWindow::resizeEvent(QResizeEvent* event) {
     }
 #endif
 
+}
+
+void ClientRemoteWindow::mouseMoveEvent(QMouseEvent* event) {
+    QWidget::mouseMoveEvent(event);
+    if (m_cursorManager) {
+        m_cursorManager->setCursorPosition(event->pos().x(), event->pos().y());
+    }
 }
 
 void ClientRemoteWindow::enterEvent(QEnterEvent* event) {
