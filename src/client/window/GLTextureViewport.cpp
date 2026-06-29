@@ -594,7 +594,7 @@ void GLTextureViewport::paintGL() {
             m_cursorGLInit = true;
         }
 
-        // 无条件上传光标纹理（确保形状不变、仅位置变化时纹理有效）
+        // 无条件上传光标纹理
         {
             const QByteArray& px = m_cursorManager->pixels();
             if (!px.isEmpty()) {
@@ -612,6 +612,19 @@ void GLTextureViewport::paintGL() {
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
                     m_cursorManager->width(), m_cursorManager->height(), 0,
                     GL_RGBA, GL_UNSIGNED_BYTE, px.constData());
+                // 诊断：上传后立即用纯色覆盖纹理
+                static bool s_diagTextureDone = false;
+                if (!s_diagTextureDone) {
+                    s_diagTextureDone = true;
+                    int cw = m_cursorManager->width(), ch = m_cursorManager->height();
+                    std::vector<unsigned char> magenta(cw * ch * 4);
+                    for (int i = 0; i < cw * ch; ++i) {
+                        magenta[i*4]=255; magenta[i*4+1]=0; magenta[i*4+2]=255; magenta[i*4+3]=255;
+                    }
+                    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, cw, ch, 0,
+                        GL_RGBA, GL_UNSIGNED_BYTE, magenta.data());
+                    qCDebug(lcClientGL) << "MAGENTA cursor texture uploaded" << cw << "x" << ch;
+                }
                 glBindTexture(GL_TEXTURE_2D, 0);
             }
         }
@@ -654,9 +667,7 @@ void GLTextureViewport::paintGL() {
         glBindTexture(GL_TEXTURE_2D, m_cursorTex);
         m_shaderProgram->setUniformValue("uTexture", 0);
         GLenum e5 = glGetError();
-        // 诊断：用帧纹理替换光标纹理（排除光标纹理数据问题）
-        GLuint texForCursor = m_decodeTarget ? m_decodeTarget->displayTexture() : m_cursorTex;
-        glBindTexture(GL_TEXTURE_2D, texForCursor);
+        glBindTexture(GL_TEXTURE_2D, m_cursorTex);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
         GLenum e6 = glGetError();
         m_shaderProgram->release();
