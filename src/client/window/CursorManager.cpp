@@ -21,6 +21,9 @@ void CursorManager::updateCursor(const CursorMessage& msg) {
                             || msg.width != m_width || msg.height != m_height
                             || msg.pixels != m_pixels);
     const bool visibilityChanged = !m_hasCursor;
+    // 远端位置变化 — 仅当无本地输入时有效（远端自发移动场景）
+    const bool remotePosChanged = !m_hasLocalPos
+                                  && (msg.posX != m_remoteX || msg.posY != m_remoteY);
 
     m_hotX    = msg.hotX;
     m_hotY    = msg.hotY;
@@ -31,11 +34,12 @@ void CursorManager::updateCursor(const CursorMessage& msg) {
     m_remoteY = msg.posY;
     m_hasCursor = true;
 
-    if (visibilityChanged || shapeChanged) {
+    if (visibilityChanged || shapeChanged || remotePosChanged) {
         static int s_updateDiag = 0;
         if (++s_updateDiag <= 10)
             qCDebug(lcClientGL) << "CursorManager::updateCursor — shape w:" << msg.width
-                << "h:" << msg.height << "hot:" << msg.hotX << "," << msg.hotY;
+                << "h:" << msg.height << "hot:" << msg.hotX << "," << msg.hotY
+                << (remotePosChanged ? " [remote pos]" : "");
         emit cursorChanged();
     }
 }
@@ -53,6 +57,9 @@ void CursorManager::setCursorPosition(int x, int y) {
 
 void CursorManager::setCursorEnabled(bool enabled) {
     m_enabled = enabled;
+    if (!enabled) {
+        m_hasLocalPos = false;  // 移出窗口，下次移入时从远端位置回退开始
+    }
 }
 
 QPoint CursorManager::drawPos() const {
