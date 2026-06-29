@@ -498,14 +498,9 @@ void GLTextureViewport::paintGL() {
                 << "size:" << m_textureSize
                 << "rect:" << m_renderRect;
 
-        static int s_redFrames = 0;
-        bool skipFrame = (++s_redFrames <= 10);
-        if (skipFrame) {
-            glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
-        }
         glClear(GL_COLOR_BUFFER_BIT);
 
-        if ( !skipFrame && texId != 0 && m_shaderProgram && !m_renderRect.isEmpty() ) {
+        if ( texId != 0 && m_shaderProgram && !m_renderRect.isEmpty() ) {
             // Set viewport to the aspect-ratio-preserving render rectangle
             const qreal dpr = devicePixelRatioF();
             const int rx = static_cast<int>(m_renderRect.x() * dpr);
@@ -529,6 +524,17 @@ void GLTextureViewport::paintGL() {
                 << "rect:" << m_renderRect;
         }
         CheckForNewFrameAfterPaint(m_consumedSlot);
+    }
+
+    // ── 诊断：帧后 scissor 红色方块 ──
+    static int s_scissorDiag = 0;
+    if (canRenderFrame && ++s_scissorDiag <= 5) {
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(width()/2 - 50, height()/2 - 50, 100, 100);
+        glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glDisable(GL_SCISSOR_TEST);
     }
 
     // FPS 统计（EMA 平滑，基于渲染时刻——用户实际看到的帧率）
