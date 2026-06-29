@@ -50,7 +50,15 @@ void CursorManager::setCursorPosition(int x, int y) {
         m_localY = y;
         m_hasLocalPos = true;
         if (m_hasCursor && m_enabled) {
+            static int s_diag = 0;
+            if (++s_diag <= 20)
+                qCDebug(lcClientGL) << "setCursorPosition" << x << y << "→ emit cursorChanged";
             emit cursorChanged();
+        } else {
+            static int s_diag2 = 0;
+            if (++s_diag2 <= 5)
+                qCDebug(lcClientGL) << "setCursorPosition" << x << y
+                    << "BLOCKED hasCursor=" << m_hasCursor << "enabled=" << m_enabled;
         }
     }
 }
