@@ -566,8 +566,9 @@ void GLTextureViewport::paintGL() {
 
     // 光标叠加 — GL 原生渲染（在帧渲染之后、swapBuffers 之前）
     if (m_cursorManager && m_cursorManager->hasCursor()) {
-        // 同步视口尺寸（服务端坐标映射用）
+        // 同步视口尺寸和渲染矩形（服务端坐标映射用，含 letterbox/pillarbox 偏移）
         m_cursorManager->setViewportSize(size());
+        m_cursorManager->setRenderRect(m_renderRect);
 
         // 懒初始化 GL 资源
         if (!m_cursorGLInit) {

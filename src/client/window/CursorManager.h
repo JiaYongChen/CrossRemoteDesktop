@@ -3,6 +3,7 @@
 #include <QtCore/QObject>
 #include <QtCore/QPoint>
 #include <QtCore/QSize>
+#include <QtCore/QRectF>
 #include <QtCore/QByteArray>
 
 struct CursorMessage;
@@ -25,6 +26,8 @@ public slots:
 public:
     void setRemoteScreenSize(const QSize& sz) { m_remoteScreenSize = sz; }
     void setViewportSize(const QSize& sz)     { m_viewportSize = sz; }
+    /// 同步渲染矩形（含 letterbox/pillarbox 偏移），用于远端坐标映射
+    void setRenderRect(const QRectF& rect)    { m_renderRect = rect; }
 
     bool hasCursor() const { return m_hasCursor && m_enabled; }
 
@@ -44,6 +47,7 @@ private:
     int     m_localX       = 0, m_localY      = 0;  // InputForwarder 本地坐标（视口空间）
     int     m_remoteX      = 0, m_remoteY     = 0;  // 服务端绝对坐标
     QSize   m_remoteScreenSize;   // 服务端桌面尺寸
-    QSize   m_viewportSize;       // 客户端视口 widget 尺寸
+    QSize   m_viewportSize;       // 客户端视口 widget 尺寸（仅供参考）
+    QRectF  m_renderRect;         // GL 渲染矩形（含 letterbox/pillarbox 偏移）
     QByteArray m_pixels;
 };

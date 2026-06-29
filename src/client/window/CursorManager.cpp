@@ -56,11 +56,13 @@ QPoint CursorManager::drawPos() const {
     if (m_hasLocalPos) {
         return QPoint(m_localX - m_hotX, m_localY - m_hotY);
     }
-    // 远端回退：映射服务端屏幕坐标到客户端视口
+    // 远端回退：映射服务端屏幕坐标到客户端渲染矩形（含 letterbox/pillarbox 偏移）
     int x = 0, y = 0;
-    if (m_remoteScreenSize.isValid() && m_viewportSize.isValid()) {
-        x = m_remoteX * m_viewportSize.width()  / m_remoteScreenSize.width();
-        y = m_remoteY * m_viewportSize.height() / m_remoteScreenSize.height();
+    if (m_remoteScreenSize.isValid() && m_renderRect.isValid()) {
+        x = static_cast<int>(m_remoteX * m_renderRect.width()  / m_remoteScreenSize.width()
+                             + m_renderRect.x());
+        y = static_cast<int>(m_remoteY * m_renderRect.height() / m_remoteScreenSize.height()
+                             + m_renderRect.y());
     }
     return QPoint(x - m_hotX, y - m_hotY);
 }
