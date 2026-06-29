@@ -7,18 +7,14 @@ CursorManager::CursorManager(QObject* parent) : QObject(parent) {}
 CursorManager::~CursorManager() = default;
 
 void CursorManager::updateCursor(const CursorMessage& msg) {
-    // width==0 的消息忽略（可能是垃圾数据或服务端短暂故障）。
-    // 一旦获取了有效形状就不再重置——避免光标闪烁消失。
     if (msg.width == 0 || msg.height == 0) {
-        return;
+        return;  // 忽略无效消息，不重置已有形状
     }
 
-    // 仅检测形状变化（位置由本地 InputForwarder 驱动，零延迟）
     const bool shapeChanged = (msg.hotX != m_hotX || msg.hotY != m_hotY
                             || msg.width != m_width || msg.height != m_height
                             || msg.pixels != m_pixels);
     const bool visibilityChanged = !m_hasCursor;
-    // 远端位置变化 — 仅当无本地输入时有效（远端自发移动场景）
     const bool remotePosChanged = !m_hasLocalPos
                                   && (msg.posX != m_remoteX || msg.posY != m_remoteY);
 
@@ -27,16 +23,11 @@ void CursorManager::updateCursor(const CursorMessage& msg) {
     m_width   = msg.width;
     m_height  = msg.height;
     m_pixels  = msg.pixels;
-    m_remoteX = msg.posX;  // 仅用于无本地输入时的回退
+    m_remoteX = msg.posX;
     m_remoteY = msg.posY;
     m_hasCursor = true;
 
     if (visibilityChanged || shapeChanged || remotePosChanged) {
-        static int s_updateDiag = 0;
-        if (++s_updateDiag <= 10)
-            qCDebug(lcClientGL) << "CursorManager::updateCursor — shape w:" << msg.width
-                << "h:" << msg.height << "hot:" << msg.hotX << "," << msg.hotY
-                << (remotePosChanged ? " [remote pos]" : "");
         emit cursorChanged();
     }
 }
@@ -46,9 +37,6 @@ void CursorManager::setCursorPosition(int x, int y) {
         m_localX = x;
         m_localY = y;
         m_hasLocalPos = true;
-        static int s_diag = 0;
-        if (++s_diag <= 5)
-            qCDebug(lcClientGL) << "setCursorPosition" << x << y << "emit";
         if (m_enabled) {
             emit cursorChanged();
         }
