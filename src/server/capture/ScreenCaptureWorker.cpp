@@ -332,6 +332,10 @@ void ScreenCaptureWorker::performCapture() {
         if ( shouldStop() ) {
             return;
         }
+        // 光标数据独立于帧数据：桌面静止时 DXGI 超时无帧，但光标位置仍需发送
+        if ( cursorMsg.width > 0 ) {
+            emit cursorUpdateReady(std::move(cursorMsg));
+        }
         if ( capturedImage.isNull() ) {
             // DXGI 超时（桌面无变化）是正常情况，不是错误。
             // 仅当 DXGI 不可用或已失效时才记录错误。
@@ -380,11 +384,6 @@ void ScreenCaptureWorker::performCapture() {
                 QMutexLocker locker(&m_statsMutex);
                 m_stats.droppedFrames++;
             }
-        }
-
-        // 光标数据可用时发射信号
-        if ( cursorMsg.width > 0 ) {
-            emit cursorUpdateReady(std::move(cursorMsg));
         }
 
         // qCDebug(screenCaptureWorker, "成功捕获帧，大小: %dx%d，耗时: %lld ms",
