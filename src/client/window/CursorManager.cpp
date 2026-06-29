@@ -49,8 +49,9 @@ void CursorManager::setCursorPosition(int x, int y) {
         m_localX = x;
         m_localY = y;
         m_hasLocalPos = true;
-        // 无条件触发重绘——即使形状数据未到，位置也应实时跟踪。
-        // hasCursor() 在 paintGL 中控制是否实际绘制（形状到后才绘制）。
+        static int s_diag = 0;
+        if (++s_diag <= 5)
+            qCDebug(lcClientGL) << "setCursorPosition" << x << y << "emit";
         if (m_enabled) {
             emit cursorChanged();
         }
