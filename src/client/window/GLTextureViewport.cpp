@@ -598,6 +598,16 @@ void GLTextureViewport::paintGL() {
         {
             const QByteArray& px = m_cursorManager->pixels();
             if (!px.isEmpty()) {
+                static int s_pxDiag = 0;
+                if (++s_pxDiag <= 3) {
+                    const uchar* d = reinterpret_cast<const uchar*>(px.constData());
+                    int nz = 0, sz = px.size();
+                    for (int i = 0; i < sz; ++i) if (d[i] != 0) ++nz;
+                    qCDebug(lcClientGL) << "cursor upload" << m_cursorManager->width()
+                        << "x" << m_cursorManager->height() << "pixels:" << sz << "bytes"
+                        << "nonZero:" << nz << "first8:" << Qt::hex << d[0] << d[1]
+                        << d[2] << d[3] << d[4] << d[5] << d[6] << d[7];
+                }
                 glBindTexture(GL_TEXTURE_2D, m_cursorTex);
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
                     m_cursorManager->width(), m_cursorManager->height(), 0,
