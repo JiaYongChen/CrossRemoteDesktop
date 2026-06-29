@@ -204,12 +204,18 @@ void ClientRemoteWindow::enterEvent(QEnterEvent* event) {
     QWidget::enterEvent(event);
     // 隐藏本地系统光标，显示远程像素光标
     setCursor(Qt::BlankCursor);
+    if (m_cursorManager) {
+        m_cursorManager->setCursorEnabled(true);
+    }
 }
 
 void ClientRemoteWindow::leaveEvent(QEvent* event) {
     QWidget::leaveEvent(event);
-    // 恢复默认系统光标
+    // 恢复默认系统光标，禁用远程光标叠加层
     unsetCursor();
+    if (m_cursorManager) {
+        m_cursorManager->setCursorEnabled(false);
+    }
 }
 
 void ClientRemoteWindow::closeEvent(QCloseEvent* event) {
