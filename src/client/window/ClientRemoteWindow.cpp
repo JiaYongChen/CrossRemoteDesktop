@@ -216,6 +216,11 @@ void ClientRemoteWindow::enterEvent(QEnterEvent* event) {
 void ClientRemoteWindow::leaveEvent(QEvent* event) {
     QWidget::leaveEvent(event);
     unsetCursor();  // 恢复本地系统光标
+    // 清除本地位置标记，让光标回退到远端坐标——
+    // 支持「观看第三方操作服务端」场景（本地鼠标在窗口外）。
+    if (m_cursorManager) {
+        m_cursorManager->clearLocalPosition();
+    }
 }
 
 void ClientRemoteWindow::closeEvent(QCloseEvent* event) {

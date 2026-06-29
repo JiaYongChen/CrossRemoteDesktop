@@ -50,6 +50,18 @@ void CursorManager::setCursorEnabled(bool enabled) {
     }
 }
 
+void CursorManager::clearLocalPosition() {
+    // 仅清除本地位置标记——不禁用光标。
+    // 鼠标离开窗口时调用，让 drawPos() 回退到远端坐标以支持
+    // 「观看第三方操作服务端」场景（本地鼠标在窗口外）。
+    if (m_hasLocalPos) {
+        m_hasLocalPos = false;
+        if (m_hasCursor && m_enabled) {
+            emit cursorChanged();  // 触发重绘，从本地坐标切换到远端坐标
+        }
+    }
+}
+
 QPoint CursorManager::drawPos() const {
     // 本地位置优先：InputForwarder 提供的客户端鼠标坐标（零延迟）
     // 回退到服务端远端坐标：当用户未触碰本地鼠标时（如观看他人操作服务端）

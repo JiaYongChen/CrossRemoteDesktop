@@ -22,6 +22,8 @@ public slots:
     void updateCursor(const CursorMessage& msg);
     void setCursorPosition(int x, int y);
     void setCursorEnabled(bool enabled);
+    /// 清除本地位置标记，使 drawPos() 回退到远端坐标（鼠标离开窗口时调用）
+    void clearLocalPosition();
 
 public:
     void setRemoteScreenSize(const QSize& sz) { m_remoteScreenSize = sz; }
