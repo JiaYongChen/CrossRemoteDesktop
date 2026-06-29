@@ -526,17 +526,6 @@ void GLTextureViewport::paintGL() {
         CheckForNewFrameAfterPaint(m_consumedSlot);
     }
 
-    // ── 诊断：帧后 scissor 红色方块 ──
-    static int s_scissorDiag = 0;
-    if (canRenderFrame && ++s_scissorDiag <= 5) {
-        glEnable(GL_SCISSOR_TEST);
-        glScissor(width()/2 - 50, height()/2 - 50, 100, 100);
-        glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glDisable(GL_SCISSOR_TEST);
-    }
-
     // FPS 统计（EMA 平滑，基于渲染时刻——用户实际看到的帧率）
     const auto now = std::chrono::steady_clock::now();
     if (m_lastPaintTime.time_since_epoch().count() != 0) {
@@ -657,14 +646,6 @@ void GLTextureViewport::paintGL() {
                 << "tex:" << m_cursorTex << "pos:" << pos
                 << "size:" << QSize(cw, ch) << "NDC lrtb:" << l << r << t << b;
         m_shaderProgram->release();
-
-        // 诊断：检查 GL 错误
-        GLenum glErr = glGetError();
-        if (glErr != GL_NO_ERROR) {
-            static int s_glErrCount = 0;
-            if (++s_glErrCount <= 3)
-                qCDebug(lcClientGL) << "cursor GL error:" << Qt::hex << glErr;
-        }
 
         glDisable(GL_BLEND);
         m_cursorVAO.release();
