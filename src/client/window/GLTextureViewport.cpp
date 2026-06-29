@@ -498,12 +498,14 @@ void GLTextureViewport::paintGL() {
                 << "size:" << m_textureSize
                 << "rect:" << m_renderRect;
 
-        // ── 诊断：红色清屏 ──
-        glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+        static int s_redFrames = 0;
+        bool skipFrame = (++s_redFrames <= 10);
+        if (skipFrame) {
+            glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+        }
         glClear(GL_COLOR_BUFFER_BIT);
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);  // 恢复黑色
 
-        if ( texId != 0 && m_shaderProgram && !m_renderRect.isEmpty() ) {
+        if ( !skipFrame && texId != 0 && m_shaderProgram && !m_renderRect.isEmpty() ) {
             // Set viewport to the aspect-ratio-preserving render rectangle
             const qreal dpr = devicePixelRatioF();
             const int rx = static_cast<int>(m_renderRect.x() * dpr);
