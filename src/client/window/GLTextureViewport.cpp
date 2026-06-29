@@ -526,22 +526,6 @@ void GLTextureViewport::paintGL() {
         CheckForNewFrameAfterPaint(m_consumedSlot);
     }
 
-    // ── 诊断：帧后 scissor 红色方块 (窗口中心 100x100) ──
-    static int s_scissorDiag = 0;
-    if (++s_scissorDiag <= 5) {
-        const qreal dpr = devicePixelRatioF();
-        glViewport(0, 0, width() * dpr, height() * dpr);
-        glEnable(GL_SCISSOR_TEST);
-        int cx = (width() * dpr) / 2;
-        int cy = (height() * dpr) / 2;
-        glScissor(cx - 50, cy - 50, 100, 100);
-        glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glDisable(GL_SCISSOR_TEST);
-        qCDebug(lcClientGL) << "scissor red rect at" << cx << cy;
-    }
-
     // FPS 统计（EMA 平滑，基于渲染时刻——用户实际看到的帧率）
     const auto now = std::chrono::steady_clock::now();
     if (m_lastPaintTime.time_since_epoch().count() != 0) {
