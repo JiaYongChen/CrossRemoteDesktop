@@ -526,6 +526,17 @@ void GLTextureViewport::paintGL() {
         CheckForNewFrameAfterPaint(m_consumedSlot);
     }
 
+    // ── 诊断：帧后 scissor 红色方块 ──
+    static int s_scissorDiag = 0;
+    if (canRenderFrame && ++s_scissorDiag <= 5) {
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(width()/2 - 50, height()/2 - 50, 100, 100);
+        glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glDisable(GL_SCISSOR_TEST);
+    }
+
     // FPS 统计（EMA 平滑，基于渲染时刻——用户实际看到的帧率）
     const auto now = std::chrono::steady_clock::now();
     if (m_lastPaintTime.time_since_epoch().count() != 0) {
@@ -566,6 +577,10 @@ void GLTextureViewport::paintGL() {
 
     // 光标叠加 — GL 原生渲染（在帧渲染之后、swapBuffers 之前）
     if (m_cursorManager && m_cursorManager->hasCursor()) {
+        static int s_hasDiag = 0;
+        if (++s_hasDiag <= 5)
+            qCDebug(lcClientGL) << "cursor render block entered, hasCursor=" << m_cursorManager->hasCursor()
+                << "enabled=" << (m_cursorManager->hasCursor());
         // 同步视口尺寸（服务端坐标映射用）
         m_cursorManager->setViewportSize(size());
 
@@ -594,7 +609,7 @@ void GLTextureViewport::paintGL() {
             m_cursorGLInit = true;
         }
 
-        // 无条件上传光标纹理
+        // 无条件上传光标纹理（确保形状不变、仅位置变化时纹理有效）
         {
             const QByteArray& px = m_cursorManager->pixels();
             if (!px.isEmpty()) {
@@ -612,19 +627,6 @@ void GLTextureViewport::paintGL() {
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
                     m_cursorManager->width(), m_cursorManager->height(), 0,
                     GL_RGBA, GL_UNSIGNED_BYTE, px.constData());
-                // 诊断：上传后立即用纯色覆盖纹理
-                static bool s_diagTextureDone = false;
-                if (!s_diagTextureDone) {
-                    s_diagTextureDone = true;
-                    int cw = m_cursorManager->width(), ch = m_cursorManager->height();
-                    std::vector<unsigned char> magenta(cw * ch * 4);
-                    for (int i = 0; i < cw * ch; ++i) {
-                        magenta[i*4]=255; magenta[i*4+1]=0; magenta[i*4+2]=255; magenta[i*4+3]=255;
-                    }
-                    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, cw, ch, 0,
-                        GL_RGBA, GL_UNSIGNED_BYTE, magenta.data());
-                    qCDebug(lcClientGL) << "MAGENTA cursor texture uploaded" << cw << "x" << ch;
-                }
                 glBindTexture(GL_TEXTURE_2D, 0);
             }
         }
@@ -648,39 +650,38 @@ void GLTextureViewport::paintGL() {
         float t = 1.0f - (pos.y() / h) * 2.0f;
         float b = 1.0f - ((pos.y() + ch) / h) * 2.0f;
 
+        // V 坐标与帧 Quad 一致：顶部 V=0, 底部 V=1（补偿 OpenGL/QImage 原点差异）
         float verts[] = { l,t, 0.f,0.f,  l,b, 0.f,1.f,  r,t, 1.f,0.f,  r,b, 1.f,1.f };
 
         m_cursorVAO.bind();
-        GLenum e1 = glGetError();
         m_cursorVBO.bind();
-        GLenum e2 = glGetError();
         m_cursorVBO.write(0, verts, sizeof(verts));
-        GLenum e3 = glGetError();
 
-        // 诊断：禁用混合——排除 alpha blending 问题
-        // glEnable(GL_BLEND);
-        // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         m_shaderProgram->bind();
-        GLenum e4 = glGetError();
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, m_cursorTex);
         m_shaderProgram->setUniformValue("uTexture", 0);
-        GLenum e5 = glGetError();
-        glBindTexture(GL_TEXTURE_2D, m_cursorTex);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-        GLenum e6 = glGetError();
-        m_shaderProgram->release();
-        // glDisable(GL_BLEND);
-        m_cursorVAO.release();
-
         static int s_cursorDrawCount = 0;
-        if (++s_cursorDrawCount <= 5)
+        if (++s_cursorDrawCount <= 3 || s_cursorDrawCount % 120 == 0)
             qCDebug(lcClientGL) << "cursor GL draw #" << s_cursorDrawCount
-                << "pos:" << pos << "size:" << QSize(cw, ch)
-                << "NDC:" << l << r << t << b
-                << "GLerr:" << Qt::hex << e1 << e2 << e3 << e4 << e5 << e6;
+                << "tex:" << m_cursorTex << "pos:" << pos
+                << "size:" << QSize(cw, ch) << "NDC lrtb:" << l << r << t << b;
+        m_shaderProgram->release();
 
+        // 诊断：检查 GL 错误
+        GLenum glErr = glGetError();
+        if (glErr != GL_NO_ERROR) {
+            static int s_glErrCount = 0;
+            if (++s_glErrCount <= 3)
+                qCDebug(lcClientGL) << "cursor GL error:" << Qt::hex << glErr;
+        }
+
+        glDisable(GL_BLEND);
+        m_cursorVAO.release();
         glViewport(savedVp[0], savedVp[1], savedVp[2], savedVp[3]);
     }
 }
