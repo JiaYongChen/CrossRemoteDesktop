@@ -702,6 +702,7 @@ void GLTextureViewport::paintGL() {
             m_cursorVBO.destroy();
             m_cursorVAO.destroy();
             glDeleteTextures(1, &redTex);
+            m_cursorGLInit = false;  // 强制下次 paintGL 重建光标 VAO/VBO
             qCDebug(lcClientGL) << "RED TEST SQUARE drawn at center";
         }
         glViewport(savedVp[0], savedVp[1], savedVp[2], savedVp[3]);
