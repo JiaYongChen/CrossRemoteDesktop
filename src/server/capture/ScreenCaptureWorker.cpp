@@ -234,7 +234,8 @@ void ScreenCaptureWorker::processTask() {
                 // workLoop 的 1ms 睡眠足够短不会造成明显延迟。
                 setDidWork(true);
             } else {
-                // 未到帧间隔，短暂休眠让出CPU
+                // 帧间隔期间独立高频采样光标位置，不受帧率节流限制
+                sampleCursorPosition();
                 QThread::msleep(1);
                 setDidWork(false);
             }
@@ -334,6 +335,13 @@ void ScreenCaptureWorker::performCapture() {
         }
         // 光标数据独立于帧数据：桌面静止时 DXGI 超时无帧，但光标位置仍需发送
         if ( cursorMsg.width > 0 ) {
+            m_lastCursorSampleTime = std::chrono::steady_clock::now();  // 同步采样时钟
+            static int s_cursorEmitCount = 0;
+            ++s_cursorEmitCount;
+            if (s_cursorEmitCount <= 20 || s_cursorEmitCount % 60 == 0)
+                qCDebug(lcServerCapture) << "[CURSOR-TRACE] SERVER emit #" << s_cursorEmitCount
+                    << "pos:" << cursorMsg.posX << "," << cursorMsg.posY
+                    << "size:" << cursorMsg.width << "x" << cursorMsg.height;
             emit cursorUpdateReady(std::move(cursorMsg));
         }
         if ( capturedImage.isNull() ) {
@@ -394,6 +402,31 @@ void ScreenCaptureWorker::performCapture() {
         handleCaptureError("未知捕获异常");
     }
     m_lastCaptureTime = std::chrono::steady_clock::now();
+}
+
+void ScreenCaptureWorker::sampleCursorPosition() {
+#ifdef Q_OS_WIN
+    if (!m_dxgiAvailable || !m_dxgiCapture) {
+        return;
+    }
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        now - m_lastCursorSampleTime);
+    if (elapsed.count() < CURSOR_SAMPLE_INTERVAL_MS) {
+        return;  // 未到采样间隔
+    }
+    m_lastCursorSampleTime = now;
+
+    CursorMessage cursor = m_dxgiCapture->sampleCursorPosition();
+    if (cursor.width > 0) {
+        static int s_fastSampleCount = 0;
+        ++s_fastSampleCount;
+        if (s_fastSampleCount <= 20 || s_fastSampleCount % 120 == 0)
+            qCDebug(lcServerCapture) << "[CURSOR-TRACE] SERVER fast-sample #"
+                << s_fastSampleCount << "pos:" << cursor.posX << "," << cursor.posY;
+        emit cursorUpdateReady(std::move(cursor));
+    }
+#endif
 }
 
 QImage ScreenCaptureWorker::captureScreen() {

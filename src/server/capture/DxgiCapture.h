@@ -92,6 +92,16 @@ public:
     CaptureResult captureFrame(int timeoutMs = 100);
 
     /**
+     * @brief 独立于帧捕获的光标位置采样（轻量，仅 GetCursorPos + 缓存形状）。
+     *
+     * 在帧间隔期间以更高频率调用，确保光标位置更新不受帧率节流限制。
+     * 与 captureFrame() 不同，此方法不调用 AcquireNextFrame/ReleaseFrame。
+     *
+     * @return CursorMessage 含当前位置 + 缓存形状；光标未缓存时返回空(width==0)。
+     */
+    CursorMessage sampleCursorPosition() const;
+
+    /**
      * @brief Get the desktop dimensions being captured.
      */
     QSize desktopSize() const { return m_desktopSize; }

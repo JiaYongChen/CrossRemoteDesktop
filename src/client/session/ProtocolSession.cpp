@@ -154,6 +154,12 @@ void ProtocolSession::handleScreenData(const QByteArray& data) {
 void ProtocolSession::handleCursorPosition(const QByteArray& data) {
     CursorMessage message;
     if (message.decode(data)) {
+        static int s_cursorRcvCount = 0;
+        ++s_cursorRcvCount;
+        if (s_cursorRcvCount <= 20 || s_cursorRcvCount % 60 == 0)
+            qCDebug(lcClientSessionProtocol) << "[CURSOR-TRACE] CLIENT recv #" << s_cursorRcvCount
+                << "pos:" << message.posX << "," << message.posY
+                << "size:" << message.width << "x" << message.height;
         emit cursorUpdated(message);
     }
 }

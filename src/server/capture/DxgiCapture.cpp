@@ -510,4 +510,17 @@ CursorMessage DxgiCapture::extractCursorShape(const DXGI_OUTDUPL_FRAME_INFO& fra
     return msg;
 }
 
+CursorMessage DxgiCapture::sampleCursorPosition() const {
+    CursorMessage msg;
+    if (m_cachedCursor.width > 0) {
+        POINT cursorPos{};
+        if (GetCursorPos(&cursorPos)) {
+            msg = m_cachedCursor;
+            msg.posX = cursorPos.x;
+            msg.posY = cursorPos.y;
+        }
+    }
+    return msg;
+}
+
 #endif // _WIN32

@@ -125,6 +125,9 @@ private:
     void calculateFrameDelay();
     bool shouldCaptureFrame();
 
+    /// 独立于帧捕获的光标位置高频采样（帧间隔期间调用）
+    void sampleCursorPosition();
+
     // 性能监控方法
     void recordCaptureTime(std::chrono::milliseconds time);
     void updateFrameRate();
@@ -153,6 +156,10 @@ private:
     QTimer* m_captureTimer{ nullptr };                    ///< 捕获定时器（仅在未启动Worker线程或测试环境下使用）
     std::chrono::steady_clock::time_point m_lastCaptureTime; ///< 上次捕获时间
     std::chrono::milliseconds m_frameDelay{ 33 }; ///< 帧间延迟
+
+    // 光标独立采样（与帧率解耦）
+    std::chrono::steady_clock::time_point m_lastCursorSampleTime;
+    static constexpr int CURSOR_SAMPLE_INTERVAL_MS = 8;  ///< 光标采样间隔（~125Hz）
 
     // 性能统计
     mutable QMutex m_statsMutex;

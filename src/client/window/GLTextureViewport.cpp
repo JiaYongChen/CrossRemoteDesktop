@@ -607,6 +607,81 @@ void GLTextureViewport::paintGL() {
             }
         }
 
+        // ── 光标清理：用帧纹理重绘旧光标区域，消除像素残留（ghosting）──
+        {
+            QPoint pos = m_cursorManager->drawPos();
+            QRect currentRect(pos.x(), pos.y(),
+                              m_cursorManager->width(), m_cursorManager->height());
+
+            if (!canRenderFrame && m_lastCursorPaintRect.isValid()) {
+
+                static int s_cleanupCount = 0;
+                ++s_cleanupCount;
+                if (s_cleanupCount <= 20 || s_cleanupCount % 60 == 0)
+                    qCDebug(lcClientGL) << "[CURSOR-TRACE] GL scissor-cleanup #" << s_cleanupCount
+                        << "oldRect:" << m_lastCursorPaintRect
+                        << "-> curRect:" << currentRect;
+
+                GLuint frameTex = (m_fallbackTexture != 0) ? m_fallbackTexture
+                    : (m_decodeTarget ? m_decodeTarget->displayTexture() : 0);
+
+                if (frameTex != 0 && !m_renderRect.isEmpty()) {
+                    // 保存当前 GL 状态
+                    GLboolean scissorWasOn = glIsEnabled(GL_SCISSOR_TEST);
+                    GLint savedScissor[4];
+                    glGetIntegerv(GL_SCISSOR_BOX, savedScissor);
+
+                    const qreal dpr = devicePixelRatioF();
+                    const int fbW = static_cast<int>(width() * dpr);
+                    const int fbH = static_cast<int>(height() * dpr);
+
+                    // 旧光标区域 → framebuffer 坐标（OpenGL 原点在左下角）
+                    GLint sx = static_cast<GLint>(m_lastCursorPaintRect.x() * dpr);
+                    GLint sy = static_cast<GLint>(fbH
+                        - (m_lastCursorPaintRect.y() + m_lastCursorPaintRect.height()) * dpr);
+                    GLsizei sw = static_cast<GLsizei>(m_lastCursorPaintRect.width() * dpr);
+                    GLsizei sh = static_cast<GLsizei>(m_lastCursorPaintRect.height() * dpr);
+
+                    // 扩展 1px 补偿浮点取整误差
+                    sx = std::max(0, sx - 1);
+                    sy = std::max(0, sy - 1);
+                    sw = std::min(static_cast<GLsizei>(fbW) - sx, sw + 2);
+                    sh = std::min(static_cast<GLsizei>(fbH) - sy, sh + 2);
+
+                    glScissor(sx, sy, sw, sh);
+                    glEnable(GL_SCISSOR_TEST);
+
+                    // 清除旧光标像素
+                    glClear(GL_COLOR_BUFFER_BIT);
+
+                    // 在旧光标区域重绘帧纹理（scissor 限制仅该区域生效）
+                    const int rx = static_cast<int>(m_renderRect.x() * dpr);
+                    const int ry = static_cast<int>((height() - m_renderRect.bottom()) * dpr);
+                    const int rw = static_cast<int>(m_renderRect.width() * dpr);
+                    const int rh = static_cast<int>(m_renderRect.height() * dpr);
+                    glViewport(rx, ry, rw, rh);
+
+                    m_shaderProgram->bind();
+                    glActiveTexture(GL_TEXTURE0);
+                    glBindTexture(GL_TEXTURE_2D, frameTex);
+                    m_shaderProgram->setUniformValue("uTexture", 0);
+                    {
+                        QOpenGLVertexArrayObject::Binder vaoBinder(&m_vao);
+                        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+                    }
+                    m_shaderProgram->release();
+
+                    // 恢复 scissor 状态
+                    if (!scissorWasOn) {
+                        glDisable(GL_SCISSOR_TEST);
+                    }
+                    glScissor(savedScissor[0], savedScissor[1],
+                              savedScissor[2], savedScissor[3]);
+                }
+            }
+            m_lastCursorPaintRect = currentRect;
+        }
+
         // 保存 viewport
         GLint savedVp[4];
         glGetIntegerv(GL_VIEWPORT, savedVp);

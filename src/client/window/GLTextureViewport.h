@@ -290,6 +290,10 @@ private:
     QOpenGLVertexArrayObject m_cursorVAO;
     GLuint m_cursorTex = 0;
     bool m_cursorGLInit = false;
+
+    // 光标清理：追踪上一次 paint 时的光标屏幕空间矩形，
+    // 用于检测光标移动并触发旧光标区域清理（glClear + 帧重绘）
+    QRect m_lastCursorPaintRect;
 };
 
 #endif // QT_NO_OPENGL

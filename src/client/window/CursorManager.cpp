@@ -18,6 +18,17 @@ void CursorManager::updateCursor(const CursorMessage& msg) {
     const bool remotePosChanged = !m_hasLocalPos
                                   && (msg.posX != m_remoteX || msg.posY != m_remoteY);
 
+    static int s_updateCount = 0;
+    ++s_updateCount;
+    bool willEmit = (visibilityChanged || shapeChanged || remotePosChanged);
+    if (s_updateCount <= 20 || s_updateCount % 60 == 0 || willEmit)
+        qCDebug(lcClientRemoteWindow) << "[CURSOR-TRACE] CursorManager update #" << s_updateCount
+            << "remote:" << msg.posX << "," << msg.posY
+            << "localPos:" << m_hasLocalPos
+            << "posChanged:" << remotePosChanged
+            << "shapeChanged:" << shapeChanged
+            << "emit:" << willEmit;
+
     m_hotX    = msg.hotX;
     m_hotY    = msg.hotY;
     m_width   = msg.width;
