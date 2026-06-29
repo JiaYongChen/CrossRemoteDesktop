@@ -161,13 +161,13 @@ void ClientRemoteWindow::configureWindow() {
 void ClientRemoteWindow::setupUI() {
 #ifndef QT_NO_OPENGL
     m_glViewport = new GLTextureViewport(this);
-    m_glViewport->setAttribute(Qt::WA_TransparentForMouseEvents, true);
     m_glViewport->setGeometry(rect());
     m_glViewport->show();
     m_glViewport->raise();
 
-    // Wire viewport to InputForwarder for coordinate mapping
+    // Wire viewport to InputForwarder: event filter + coordinate mapping
     if (m_inputForwarder) {
+        m_inputForwarder->installOn(m_glViewport);
         m_inputForwarder->setViewport(m_glViewport);
     }
 
