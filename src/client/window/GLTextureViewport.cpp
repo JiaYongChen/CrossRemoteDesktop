@@ -498,7 +498,10 @@ void GLTextureViewport::paintGL() {
                 << "size:" << m_textureSize
                 << "rect:" << m_renderRect;
 
+        // ── 诊断：红色清屏 ──
+        glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);  // 恢复黑色
 
         if ( texId != 0 && m_shaderProgram && !m_renderRect.isEmpty() ) {
             // Set viewport to the aspect-ratio-preserving render rectangle
@@ -667,44 +670,6 @@ void GLTextureViewport::paintGL() {
 
         glDisable(GL_BLEND);
         m_cursorVAO.release();
-
-        // ── 诊断：红色测试方块 (64×64, 屏幕中心) ──
-        static bool s_redDiagDone = false;
-        if (!s_redDiagDone) {
-            s_redDiagDone = true;
-            std::vector<unsigned char> red(64*64*4, 0);
-            for (int i = 0; i < 64*64; ++i) { red[i*4]=255; red[i*4+3]=255; }
-            GLuint redTex = 0;
-            glGenTextures(1, &redTex);
-            glBindTexture(GL_TEXTURE_2D, redTex);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 64, 64, 0, GL_RGBA, GL_UNSIGNED_BYTE, red.data());
-            // 屏幕中心 NDC
-            float rl=-0.05f, rr=0.05f, rt=0.05f, rb=-0.05f;
-            float rverts[] = { rl,rt,0,0, rl,rb,0,1, rr,rt,1,0, rr,rb,1,1 };
-            m_cursorVAO.create();
-            m_cursorVBO.create();
-            m_cursorVAO.bind();
-            m_cursorVBO.bind();
-            m_cursorVBO.allocate(rverts, sizeof(rverts));
-            glEnableVertexAttribArray(0);
-            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4*sizeof(float), (void*)0);
-            glEnableVertexAttribArray(1);
-            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4*sizeof(float), (void*)(2*sizeof(float)));
-            m_shaderProgram->bind();
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, redTex);
-            m_shaderProgram->setUniformValue("uTexture", 0);
-            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-            m_shaderProgram->release();
-            m_cursorVAO.release();
-            m_cursorVBO.destroy();
-            m_cursorVAO.destroy();
-            glDeleteTextures(1, &redTex);
-            m_cursorGLInit = false;  // 强制下次 paintGL 重建光标 VAO/VBO
-            qCDebug(lcClientGL) << "RED TEST SQUARE drawn at center";
-        }
         glViewport(savedVp[0], savedVp[1], savedVp[2], savedVp[3]);
     }
 }
