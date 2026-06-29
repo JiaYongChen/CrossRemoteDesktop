@@ -644,8 +644,9 @@ void GLTextureViewport::paintGL() {
         m_cursorVBO.write(0, verts, sizeof(verts));
         GLenum e3 = glGetError();
 
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        // 诊断：禁用混合——排除 alpha blending 问题
+        // glEnable(GL_BLEND);
+        // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         m_shaderProgram->bind();
         GLenum e4 = glGetError();
@@ -656,7 +657,7 @@ void GLTextureViewport::paintGL() {
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
         GLenum e6 = glGetError();
         m_shaderProgram->release();
-        glDisable(GL_BLEND);
+        // glDisable(GL_BLEND);
         m_cursorVAO.release();
 
         static int s_cursorDrawCount = 0;
