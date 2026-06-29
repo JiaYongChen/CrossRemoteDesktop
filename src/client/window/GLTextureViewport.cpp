@@ -642,8 +642,8 @@ void GLTextureViewport::paintGL() {
 
         // 光标 quad (NDC)
         QPoint pos = m_cursorManager->drawPos();
-        float cw = static_cast<float>(m_cursorManager->width());
-        float ch = static_cast<float>(m_cursorManager->height());
+        float cw = static_cast<float>(m_cursorManager->width()) * 2.0f;
+        float ch = static_cast<float>(m_cursorManager->height()) * 2.0f;
         float w = static_cast<float>(width()), h = static_cast<float>(height());
         float l = (pos.x() / w) * 2.0f - 1.0f;
         float r = ((pos.x() + cw) / w) * 2.0f - 1.0f;
