@@ -169,13 +169,18 @@ void MainWindow::setupConnections() {
             this, &MainWindow::onClientAuthenticated);
     }
 
+    // 快捷键全局连接（无系统托盘时仍有效）
+    connect(m_newConnectionAction, &QAction::triggered, this, &MainWindow::newConnection);
+    connect(m_connectAction, &QAction::triggered, this, &MainWindow::connectToHost);
+    connect(m_settingsAction, &QAction::triggered, this, &MainWindow::showSettings);
+    connect(m_exitAction, &QAction::triggered, this, &MainWindow::exitApplication);
+
     // 系统托盘连接
     if ( m_trayIcon ) {
         connect(m_trayIcon, &QSystemTrayIcon::activated, this, &MainWindow::iconActivated);
         connect(m_minimizeAction, &QAction::triggered, this, &QWidget::hide);
         connect(m_maximizeAction, &QAction::triggered, this, &QWidget::showMaximized);
         connect(m_restoreAction, &QAction::triggered, this, &QWidget::showNormal);
-        connect(m_exitAction, &QAction::triggered, this, &MainWindow::exitApplication);
     }
 
     // 性能信息定时更新（每 2 秒）
@@ -268,18 +273,24 @@ void MainWindow::retranslateUi() {
     qCInfo(lcUIMainWindow) << "MainWindow::retranslateUi - starting UI retranslation";
     setWindowTitle(tr("Qt远程桌面"));
 
+    // 全局快捷键动作
+    m_exitAction->setText(tr("退出"));
+
     // 系统托盘动作
     m_minimizeAction->setText(tr("最小化(&N)"));
     m_maximizeAction->setText(tr("最大化(&X)"));
     m_restoreAction->setText(tr("恢复(&R)"));
 
     // 状态栏
-    m_connectionStatusLabel->setText(tr("未连接"));
-    m_serverStatusLabel->setText(tr("服务器已停止"));
+    m_connectionStatusLabel->setText(tr("连接：未连接"));
+    m_serverStatusLabel->setText(tr("服务器：已停止"));
     updatePerformanceInfo();
     statusBar()->showMessage(tr("就绪"));
 
     // 欢迎页
+    if ( m_searchBox ) {
+        m_searchBox->setPlaceholderText(tr("搜索历史连接..."));
+    }
     if ( m_emptyStateLabel ) {
         m_emptyStateLabel->setText(tr("暂无连接历史"));
     }
@@ -649,6 +660,7 @@ void MainWindow::onConnectionEstablished(const QString& connectionId) {
                 QString host = cm->currentHost();
                 int port = cm->currentPort();
                 if (!host.isEmpty() && port > 0) {
+                    // ConnectionManager 不暴露 hostname，以 host 作为显示名
                     addConnectionToHistory(host, port);
                 }
             }
@@ -795,9 +807,11 @@ ConnectionCard *MainWindow::addConnectionCard(const QString &host, int port,
             && card->property("port").toInt() == port) {
             // 更新已有卡片信息并移到顶部
             card->setLastConnected(time);
-            // 将卡片移到布局顶部
+            card->setProperty("time", time);
             m_cardLayout->removeWidget(card);
             m_cardLayout->insertWidget(0, card);
+            m_connectionCards.removeOne(card);
+            m_connectionCards.prepend(card);
             return card;
         }
     }

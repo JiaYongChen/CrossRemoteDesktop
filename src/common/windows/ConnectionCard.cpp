@@ -62,19 +62,19 @@ void ConnectionCard::setupUi()
     m_connectButton = new QToolButton();
     m_connectButton->setIcon(QIcon(":/icons/connect.svg"));
     m_connectButton->setIconSize(QSize(18, 18));
-    m_connectButton->setToolTip(QStringLiteral("连接"));
+    m_connectButton->setToolTip(tr("连接"));
     m_connectButton->setAutoRaise(true);
 
     m_editButton = new QToolButton();
     m_editButton->setIcon(QIcon(":/icons/save.svg"));
     m_editButton->setIconSize(QSize(18, 18));
-    m_editButton->setToolTip(QStringLiteral("修改参数"));
+    m_editButton->setToolTip(tr("修改参数"));
     m_editButton->setAutoRaise(true);
 
     m_deleteButton = new QToolButton();
     m_deleteButton->setIcon(QIcon(":/icons/delete.svg"));
     m_deleteButton->setIconSize(QSize(18, 18));
-    m_deleteButton->setToolTip(QStringLiteral("删除记录"));
+    m_deleteButton->setToolTip(tr("删除记录"));
     m_deleteButton->setAutoRaise(true);
 
     actionLayout->addWidget(m_connectButton);

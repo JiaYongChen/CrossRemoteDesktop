@@ -24,16 +24,31 @@
 
 void MainWindow::createActions()
 {
-    // 全局快捷键（Ctrl+Q）
-    m_exitAction = new QAction(this);
-    m_exitAction->setShortcut(QKeySequence::Quit);  // Ctrl+Q
-    m_exitAction->setToolTip(QStringLiteral("退出 (Ctrl+Q)"));
-    addAction(m_exitAction);  // 使快捷键在窗口内全局生效
+    // 全局快捷键 Actions
+    m_newConnectionAction = new QAction(this);
+    m_newConnectionAction->setShortcut(QKeySequence::New);
+    m_newConnectionAction->setToolTip(tr("新建连接 (Ctrl+N)"));
+    addAction(m_newConnectionAction);
+
+    m_connectAction = new QAction(this);
+    m_connectAction->setShortcut(QKeySequence(tr("Ctrl+O")));
+    m_connectAction->setToolTip(tr("连接 (Ctrl+O)"));
+    addAction(m_connectAction);
+
+    m_settingsAction = new QAction(this);
+    m_settingsAction->setShortcut(QKeySequence::Preferences);
+    m_settingsAction->setToolTip(tr("设置 (Ctrl+,)"));
+    addAction(m_settingsAction);
+
+    m_exitAction = new QAction(tr("退出"), this);
+    m_exitAction->setShortcut(QKeySequence::Quit);
+    m_exitAction->setToolTip(tr("退出 (Ctrl+Q)"));
+    addAction(m_exitAction);
 
     // 托盘 Actions
-    m_minimizeAction = new QAction(QStringLiteral("最小化"), this);
-    m_maximizeAction = new QAction(QStringLiteral("最大化"), this);
-    m_restoreAction  = new QAction(QStringLiteral("恢复"), this);
+    m_minimizeAction = new QAction(tr("最小化"), this);
+    m_maximizeAction = new QAction(tr("最大化"), this);
+    m_restoreAction  = new QAction(tr("恢复"), this);
 }
 
 // ============================================================
@@ -42,20 +57,20 @@ void MainWindow::createActions()
 
 void MainWindow::createStatusBar()
 {
-    m_connectionStatusLabel = new QLabel(QStringLiteral("连接：未连接"));
+    m_connectionStatusLabel = new QLabel(tr("连接：未连接"));
     m_connectionStatusLabel->setMinimumWidth(120);
 
-    m_serverStatusLabel = new QLabel(QStringLiteral("服务器：已停止"));
+    m_serverStatusLabel = new QLabel(tr("服务器：已停止"));
     m_serverStatusLabel->setMinimumWidth(120);
 
-    m_performanceLabel = new QLabel(QStringLiteral("CPU: 0% | 内存: 0MB"));
+    m_performanceLabel = new QLabel(tr("CPU: 0% | 内存: 0MB"));
     m_performanceLabel->setMinimumWidth(150);
 
     statusBar()->addWidget(m_connectionStatusLabel);
     statusBar()->addPermanentWidget(m_serverStatusLabel);
     statusBar()->addPermanentWidget(m_performanceLabel);
 
-    statusBar()->showMessage(QStringLiteral("就绪"));
+    statusBar()->showMessage(tr("就绪"));
 }
 
 // ============================================================
@@ -108,14 +123,14 @@ void MainWindow::createWelcomePage()
     layout->addSpacing(24);
     m_searchBox = new QLineEdit();
     m_searchBox->setObjectName("searchBox");
-    m_searchBox->setPlaceholderText(QStringLiteral("搜索历史连接..."));
+    m_searchBox->setPlaceholderText(tr("搜索历史连接..."));
     m_searchBox->setFixedWidth(400);
     m_searchBox->setClearButtonEnabled(true);
     layout->addWidget(m_searchBox, 0, Qt::AlignHCenter);
 
     // --- 空状态提示 ---
     layout->addSpacing(16);
-    m_emptyStateLabel = new QLabel(QStringLiteral("暂无连接历史"));
+    m_emptyStateLabel = new QLabel(tr("暂无连接历史"));
     m_emptyStateLabel->setObjectName("emptyStateLabel");
     m_emptyStateLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(m_emptyStateLabel, 0, Qt::AlignHCenter);
@@ -148,8 +163,8 @@ void MainWindow::createWelcomePage()
         m_emptyStateLabel->setVisible(visibleCount == 0);
         m_emptyStateLabel->setText(
             text.isEmpty()
-                ? QStringLiteral("暂无连接历史")
-                : QStringLiteral("无匹配的连接记录"));
+                ? tr("暂无连接历史")
+                : tr("无匹配的连接记录"));
     });
 }
 

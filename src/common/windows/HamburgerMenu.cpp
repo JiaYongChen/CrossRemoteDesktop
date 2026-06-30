@@ -23,7 +23,7 @@ void HamburgerMenu::setupUi()
     m_hamburgerButton = new QToolButton();
     m_hamburgerButton->setIcon(QIcon(":/icons/app.svg"));
     m_hamburgerButton->setIconSize(QSize(22, 22));
-    m_hamburgerButton->setToolTip(QStringLiteral("菜单"));
+    m_hamburgerButton->setToolTip(tr("菜单"));
     m_hamburgerButton->setAutoRaise(true);
     m_hamburgerButton->setFixedSize(48, 44);
     mainLayout->addWidget(m_hamburgerButton, 0, Qt::AlignHCenter);
@@ -43,10 +43,10 @@ void HamburgerMenu::setupUi()
 
     // 创建菜单项：图标路径、tooltip、objectName
     m_newConnectionItem = createMenuItem(
-        ":/icons/new_connection.svg", QStringLiteral("新建连接 (Ctrl+N)"),
+        ":/icons/new_connection.svg", tr("新建连接 (Ctrl+N)"),
         "hamburgerItem");
     m_connectItem = createMenuItem(
-        ":/icons/connect.svg", QStringLiteral("连接 (Ctrl+O)"),
+        ":/icons/connect.svg", tr("连接 (Ctrl+O)"),
         "hamburgerItem");
 
     // 分隔线
@@ -55,7 +55,7 @@ void HamburgerMenu::setupUi()
     sep2->setFixedWidth(24);
 
     m_settingsItem = createMenuItem(
-        ":/icons/settings.svg", QStringLiteral("设置 (Ctrl+,)"),
+        ":/icons/settings.svg", tr("设置 (Ctrl+,)"),
         "hamburgerItem");
 
     // 分隔线
@@ -64,10 +64,10 @@ void HamburgerMenu::setupUi()
     sep3->setFixedWidth(24);
 
     m_aboutItem = createMenuItem(
-        ":/icons/about.svg", QStringLiteral("关于"),
+        ":/icons/about.svg", tr("关于"),
         "hamburgerItem");
     m_exitItem = createMenuItem(
-        ":/icons/exit.svg", QStringLiteral("退出 (Ctrl+Q)"),
+        ":/icons/exit.svg", tr("退出 (Ctrl+Q)"),
         "exitItem");
 
     // 添加到菜单布局
@@ -89,7 +89,7 @@ void HamburgerMenu::setupUi()
     m_themeButton = new QToolButton();
     m_themeButton->setIcon(QIcon(":/icons/app.svg"));  // 使用 app.svg 占位
     m_themeButton->setIconSize(QSize(20, 20));
-    m_themeButton->setToolTip(QStringLiteral("切换主题"));
+    m_themeButton->setToolTip(tr("切换主题"));
     m_themeButton->setAutoRaise(true);
     m_themeButton->setFixedSize(48, 44);
     mainLayout->addWidget(m_themeButton, 0, Qt::AlignHCenter);

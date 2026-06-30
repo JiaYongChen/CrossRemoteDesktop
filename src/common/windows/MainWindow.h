@@ -125,6 +125,9 @@ private:
 
     // 动作（仅保留托盘菜单和快捷键需要的）
     class QAction *m_exitAction;
+    class QAction *m_newConnectionAction;
+    class QAction *m_connectAction;
+    class QAction *m_settingsAction;
     class QAction *m_minimizeAction;
     class QAction *m_maximizeAction;
     class QAction *m_restoreAction;
