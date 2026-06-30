@@ -130,7 +130,7 @@ void MainWindow::createWelcomePage()
     layout->addWidget(m_searchBox, 0, Qt::AlignHCenter);
 
     // --- 空状态提示 ---
-    layout->addSpacing(16);
+    layout->addSpacing(10);
     m_emptyStateLabel = new QLabel(tr("暂无连接历史"));
     m_emptyStateLabel->setObjectName("emptyStateLabel");
     m_emptyStateLabel->setAlignment(Qt::AlignCenter);
