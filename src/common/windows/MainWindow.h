@@ -71,7 +71,7 @@ private slots:
     void iconActivated(QSystemTrayIcon::ActivationReason reason);
     
     // 连接列表管理
-    void addConnectionToHistory(const QString &host, int port);
+    void addConnectionToHistory(const QString &host, int port, const QString &hostname = QString());
 
     // 状态更新
     void updateServerStatus(const QString &message);
@@ -99,7 +99,8 @@ private:
     void updatePerformanceInfo();
 
     ConnectionCard *addConnectionCard(const QString &host, int port,
-                                       const QDateTime &time);
+                                       const QDateTime &time,
+                                       const QString &hostname = QString());
 
 #ifdef Q_OS_MACOS
     // macOS 辅助功能权限检查

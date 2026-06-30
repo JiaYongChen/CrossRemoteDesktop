@@ -175,6 +175,7 @@ void MainWindow::setupConnections() {
         connect(m_minimizeAction, &QAction::triggered, this, &QWidget::hide);
         connect(m_maximizeAction, &QAction::triggered, this, &QWidget::showMaximized);
         connect(m_restoreAction, &QAction::triggered, this, &QWidget::showNormal);
+        connect(m_exitAction, &QAction::triggered, this, &MainWindow::exitApplication);
     }
 
     // 性能信息定时更新（每 2 秒）
@@ -631,7 +632,7 @@ void MainWindow::connectToHostDirectly(const ConnectionParams& params) {
 
     m_sessions.append(session);
 
-    addConnectionToHistory(params.host, params.port);
+    addConnectionToHistory(params.host, params.port, params.hostname);
 
     // 启动会话（内部调用 connectToHost）
     session->start();
@@ -716,9 +717,9 @@ void MainWindow::cleanupConnection(const QString& connectionId) {
 }
 
 
-void MainWindow::addConnectionToHistory(const QString& host, int port)
+void MainWindow::addConnectionToHistory(const QString& host, int port, const QString& hostname)
 {
-    addConnectionCard(host, port, QDateTime::currentDateTime());
+    addConnectionCard(host, port, QDateTime::currentDateTime(), hostname);
     saveConnectionHistory();
 }
 
@@ -738,6 +739,7 @@ void MainWindow::loadConnectionHistory()
 {
     m_settings->beginGroup("ConnectionHistory");
     QStringList hosts = m_settings->value("hosts").toStringList();
+    QStringList hostnames = m_settings->value("hostnames").toStringList();
     QStringList ports = m_settings->value("ports").toStringList();
     QStringList times = m_settings->value("times").toStringList();
     m_settings->endGroup();
@@ -754,7 +756,9 @@ void MainWindow::loadConnectionHistory()
         if (!time.isValid())
             continue;
 
-        addConnectionCard(hosts.at(i), port, time);
+        QString hostname = (i < hostnames.size() && !hostnames.at(i).isEmpty())
+            ? hostnames.at(i) : hosts.at(i);
+        addConnectionCard(hosts.at(i), port, time, hostname);
         hasHistory = true;
     }
 
@@ -765,14 +769,16 @@ void MainWindow::saveConnectionHistory()
 {
     if (!m_settings) return;
 
-    QStringList hosts, ports, times;
+    QStringList hosts, hostnames, ports, times;
     for (const auto *card : m_connectionCards) {
         hosts.append(card->property("host").toString());
+        hostnames.append(card->property("hostname").toString());
         ports.append(card->property("port").toString());
         times.append(card->property("time").toDateTime().toString(Qt::ISODate));
     }
     m_settings->beginGroup("ConnectionHistory");
     m_settings->setValue("hosts", hosts);
+    m_settings->setValue("hostnames", hostnames);
     m_settings->setValue("ports", ports);
     m_settings->setValue("times", times);
     m_settings->endGroup();
@@ -780,7 +786,8 @@ void MainWindow::saveConnectionHistory()
 }
 
 ConnectionCard *MainWindow::addConnectionCard(const QString &host, int port,
-                                               const QDateTime &time)
+                                               const QDateTime &time,
+                                               const QString &hostname)
 {
     // 检查重复
     for (auto *card : m_connectionCards) {
@@ -796,10 +803,12 @@ ConnectionCard *MainWindow::addConnectionCard(const QString &host, int port,
     }
 
     auto *card = new ConnectionCard();
-    card->setHostname(host);
+    const QString displayName = hostname.isEmpty() ? host : hostname;
+    card->setHostname(displayName);
     card->setAddressPort(host, port);
     card->setLastConnected(time);
     card->setProperty("host", host);
+    card->setProperty("hostname", displayName);
     card->setProperty("port", port);
     card->setProperty("time", time);
     card->setProperty("searchKey", QStringLiteral("%1:%2").arg(host).arg(port));
@@ -807,7 +816,7 @@ ConnectionCard *MainWindow::addConnectionCard(const QString &host, int port,
     // 信号连接
     connect(card, &ConnectionCard::connectClicked, this, [this, card]() {
         ConnectionParams params;
-        params.hostname = card->property("host").toString();
+        params.hostname = card->property("hostname").toString();
         params.host = card->property("host").toString();
         params.port = card->property("port").toInt();
         connectToHostDirectly(params);
@@ -833,7 +842,8 @@ ConnectionCard *MainWindow::addConnectionCard(const QString &host, int port,
             m_connectionCards.removeOne(card);
             card->deleteLater();
             addConnectionCard(params.host.isEmpty() ? params.hostname : params.host,
-                              params.port, QDateTime::currentDateTime());
+                              params.port, QDateTime::currentDateTime(),
+                              params.hostname);
             saveConnectionHistory();
         }
     });

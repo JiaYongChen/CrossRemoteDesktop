@@ -68,9 +68,7 @@ void HamburgerMenu::setupUi()
         "hamburgerItem");
     m_exitItem = createMenuItem(
         ":/icons/exit.svg", QStringLiteral("退出 (Ctrl+Q)"),
-        "hamburgerItem");
-    m_exitItem->setStyleSheet(
-        "QToolButton#hamburgerItem:hover { background-color: #E05555; }");
+        "exitItem");
 
     // 添加到菜单布局
     m_menuLayout->addWidget(m_newConnectionItem, 0, Qt::AlignHCenter);

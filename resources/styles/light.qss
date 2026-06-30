@@ -169,6 +169,11 @@ QLabel#welcomeTitle {
     background: transparent;
 }
 
+/* ===== 退出菜单项（红色悬停） ===== */
+QToolButton#exitItem:hover {
+    background-color: #D32F2F;
+}
+
 /* ===== 空状态文字 ===== */
 QLabel#emptyStateLabel {
     color: #999999;

@@ -27,14 +27,14 @@ signals:
 private:
     void setupUi();
 
-    QLabel *m_statusIndicator;
-    QLabel *m_hostnameLabel;
-    QLabel *m_addressLabel;
-    QLabel *m_resolutionLabel;
-    QLabel *m_timeLabel;
-    QToolButton *m_connectButton;
-    QToolButton *m_editButton;
-    QToolButton *m_deleteButton;
+    QLabel *m_statusIndicator = nullptr;
+    QLabel *m_hostnameLabel = nullptr;
+    QLabel *m_addressLabel = nullptr;
+    QLabel *m_resolutionLabel = nullptr;
+    QLabel *m_timeLabel = nullptr;
+    QToolButton *m_connectButton = nullptr;
+    QToolButton *m_editButton = nullptr;
+    QToolButton *m_deleteButton = nullptr;
 
     QString m_hostname;
     QString m_addressPort;
