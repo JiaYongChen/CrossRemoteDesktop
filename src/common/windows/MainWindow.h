@@ -122,13 +122,8 @@ private:
     // 菜单（系统托盘用）
     class QMenu *m_trayIconMenu;
 
-    // 动作
-    class QAction *m_newConnectionAction;
-    class QAction *m_connectAction;
-    class QAction *m_settingsAction;
+    // 动作（仅保留托盘菜单和快捷键需要的）
     class QAction *m_exitAction;
-    class QAction *m_aboutAction;
-    class QAction *m_aboutQtAction;
     class QAction *m_minimizeAction;
     class QAction *m_maximizeAction;
     class QAction *m_restoreAction;

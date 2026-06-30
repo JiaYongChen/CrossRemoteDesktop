@@ -763,6 +763,8 @@ void MainWindow::loadConnectionHistory()
 
 void MainWindow::saveConnectionHistory()
 {
+    if (!m_settings) return;
+
     QStringList hosts, ports, times;
     for (const auto *card : m_connectionCards) {
         hosts.append(card->property("host").toString());
@@ -774,6 +776,7 @@ void MainWindow::saveConnectionHistory()
     m_settings->setValue("ports", ports);
     m_settings->setValue("times", times);
     m_settings->endGroup();
+    m_settings->sync();
 }
 
 ConnectionCard *MainWindow::addConnectionCard(const QString &host, int port,
@@ -805,6 +808,7 @@ ConnectionCard *MainWindow::addConnectionCard(const QString &host, int port,
     connect(card, &ConnectionCard::connectClicked, this, [this, card]() {
         ConnectionParams params;
         params.hostname = card->property("host").toString();
+        params.host = card->property("host").toString();
         params.port = card->property("port").toInt();
         connectToHostDirectly(params);
     });

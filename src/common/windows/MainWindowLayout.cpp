@@ -24,30 +24,11 @@
 
 void MainWindow::createActions()
 {
-    m_newConnectionAction = new QAction(this);
-    m_newConnectionAction->setShortcut(QKeySequence::New);  // Ctrl+N
-    m_newConnectionAction->setToolTip(QStringLiteral("新建连接 (Ctrl+N)"));
-    addAction(m_newConnectionAction);  // 使快捷键在窗口内全局生效
-
-    m_connectAction = new QAction(this);
-    m_connectAction->setShortcut(QKeySequence("Ctrl+O"));
-    m_connectAction->setToolTip(QStringLiteral("连接 (Ctrl+O)"));
-    addAction(m_connectAction);
-
-    m_settingsAction = new QAction(this);
-    m_settingsAction->setShortcut(QKeySequence::Preferences);  // Ctrl+,
-    m_settingsAction->setToolTip(QStringLiteral("设置 (Ctrl+,)"));
-    addAction(m_settingsAction);
-
-    m_aboutAction = new QAction(this);
-    m_aboutAction->setToolTip(QStringLiteral("关于"));
-
+    // 全局快捷键（Ctrl+Q）
     m_exitAction = new QAction(this);
     m_exitAction->setShortcut(QKeySequence::Quit);  // Ctrl+Q
     m_exitAction->setToolTip(QStringLiteral("退出 (Ctrl+Q)"));
-    addAction(m_exitAction);
-
-    m_aboutQtAction = new QAction(this);
+    addAction(m_exitAction);  // 使快捷键在窗口内全局生效
 
     // 托盘 Actions
     m_minimizeAction = new QAction(QStringLiteral("最小化"), this);
