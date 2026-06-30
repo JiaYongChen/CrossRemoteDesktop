@@ -94,7 +94,8 @@ MainWindow::MainWindow(QWidget* parent)
     // 设置窗口属性
     setWindowTitle(tr("Qt远程桌面"));
     setFixedSize(960, 680);
-    setWindowFlags(windowFlags() & ~Qt::WindowMaximizeButtonHint
+    setWindowFlags(Qt::Window | Qt::WindowMinimizeButtonHint
+                   | Qt::WindowCloseButtonHint
                    | Qt::MSWindowsFixedSizeDialogHint);
 
     // --- 主题初始化 ---
@@ -110,8 +111,6 @@ MainWindow::MainWindow(QWidget* parent)
             this, &MainWindow::showSettings);
     connect(m_hamburgerMenu, &HamburgerMenu::showAbout,
             this, &MainWindow::showAbout);
-    connect(m_hamburgerMenu, &HamburgerMenu::exitApp,
-            this, &MainWindow::exitApplication);
     connect(m_hamburgerMenu, &HamburgerMenu::themeToggled,
             this, &MainWindow::toggleTheme);
 }

@@ -27,7 +27,6 @@ signals:
     void connectToHost();
     void openSettings();
     void showAbout();
-    void exitApp();
     void themeToggled();
 
 private:
@@ -46,7 +45,6 @@ private:
     QToolButton *m_connectItem = nullptr;
     QToolButton *m_settingsItem = nullptr;
     QToolButton *m_aboutItem = nullptr;
-    QToolButton *m_exitItem = nullptr;
 
     // 动画
     QPropertyAnimation *m_heightAnimation = nullptr;

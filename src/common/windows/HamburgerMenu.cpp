@@ -49,35 +49,19 @@ void HamburgerMenu::setupUi()
         ":/icons/connect.svg", tr("连接 (Ctrl+O)"),
         "hamburgerItem");
 
-    // 分隔线
-    auto *sep2 = new QFrame();
-    sep2->setFrameShape(QFrame::HLine);
-    sep2->setFixedWidth(24);
-
     m_settingsItem = createMenuItem(
         ":/icons/settings.svg", tr("设置 (Ctrl+,)"),
         "hamburgerItem");
 
-    // 分隔线
-    auto *sep3 = new QFrame();
-    sep3->setFrameShape(QFrame::HLine);
-    sep3->setFixedWidth(24);
-
     m_aboutItem = createMenuItem(
         ":/icons/about.svg", tr("关于"),
         "hamburgerItem");
-    m_exitItem = createMenuItem(
-        ":/icons/exit.svg", tr("退出 (Ctrl+Q)"),
-        "exitItem");
 
     // 添加到菜单布局
     m_menuLayout->addWidget(m_newConnectionItem, 0, Qt::AlignHCenter);
     m_menuLayout->addWidget(m_connectItem, 0, Qt::AlignHCenter);
-    m_menuLayout->addWidget(sep2, 0, Qt::AlignHCenter);
     m_menuLayout->addWidget(m_settingsItem, 0, Qt::AlignHCenter);
-    m_menuLayout->addWidget(sep3, 0, Qt::AlignHCenter);
     m_menuLayout->addWidget(m_aboutItem, 0, Qt::AlignHCenter);
-    m_menuLayout->addWidget(m_exitItem, 0, Qt::AlignHCenter);
     m_menuLayout->addStretch();
 
     mainLayout->addWidget(m_menuContainer);
@@ -104,7 +88,6 @@ void HamburgerMenu::setupUi()
     connect(m_connectItem, &QToolButton::clicked, this, &HamburgerMenu::connectToHost);
     connect(m_settingsItem, &QToolButton::clicked, this, &HamburgerMenu::openSettings);
     connect(m_aboutItem, &QToolButton::clicked, this, &HamburgerMenu::showAbout);
-    connect(m_exitItem, &QToolButton::clicked, this, &HamburgerMenu::exitApp);
 }
 
 QToolButton *HamburgerMenu::createMenuItem(const QString &iconPath,
@@ -159,11 +142,10 @@ void HamburgerMenu::setExpanded(bool expanded)
     m_fadeGroup->stop();
 
     if (expanded) {
-        // Phase 1: 卷轴下拉
+        // 卷轴下拉 + 图标渐显同步播放
         m_heightAnimation->setStartValue(0);
         m_heightAnimation->setEndValue(m_menuFullHeight);
 
-        // Phase 2: 图标渐显（延迟 150ms 后开始）
         m_fadeGroup->setDirection(QAbstractAnimation::Forward);
         for (int i = 0; i < m_fadeGroup->animationCount(); ++i) {
             auto *anim = static_cast<QPropertyAnimation *>(m_fadeGroup->animationAt(i));
@@ -172,13 +154,9 @@ void HamburgerMenu::setExpanded(bool expanded)
         }
 
         m_heightAnimation->start();
-        // 延迟启动渐显
-        QTimer::singleShot(150, this, [this]() {
-            if (m_expanded)
-                m_fadeGroup->start();
-        });
+        m_fadeGroup->start();
     } else {
-        // Phase 1: 图标渐隐
+        // 图标渐隐 + 卷轴收起同步播放
         m_fadeGroup->setDirection(QAbstractAnimation::Backward);
         for (int i = 0; i < m_fadeGroup->animationCount(); ++i) {
             auto *anim = static_cast<QPropertyAnimation *>(m_fadeGroup->animationAt(i));
@@ -187,13 +165,9 @@ void HamburgerMenu::setExpanded(bool expanded)
         }
         m_fadeGroup->start();
 
-        // Phase 2: 卷轴收起（delay 100ms）
         m_heightAnimation->setStartValue(m_menuFullHeight);
         m_heightAnimation->setEndValue(0);
-        QTimer::singleShot(100, this, [this]() {
-            if (!m_expanded)
-                m_heightAnimation->start();
-        });
+        m_heightAnimation->start();
     }
 }
 
@@ -204,6 +178,5 @@ void HamburgerMenu::retranslateUi()
     m_connectItem->setToolTip(tr("连接 (Ctrl+O)"));
     m_settingsItem->setToolTip(tr("设置 (Ctrl+,)"));
     m_aboutItem->setToolTip(tr("关于"));
-    m_exitItem->setToolTip(tr("退出 (Ctrl+Q)"));
     m_themeButton->setToolTip(tr("切换主题"));
 }
