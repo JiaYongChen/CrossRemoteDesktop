@@ -57,7 +57,7 @@ void ConnectionCard::setupUi()
     // --- 右侧操作按钮 ---
     auto *actionLayout = new QHBoxLayout();
     actionLayout->setSpacing(4);
-    actionLayout->setAlignment(Qt::AlignTop);
+    actionLayout->setAlignment(Qt::AlignVCenter);
 
     m_connectButton = new QToolButton();
     m_connectButton->setIcon(QIcon(":/icons/connect.svg"));
