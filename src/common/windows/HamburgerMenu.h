@@ -17,6 +17,8 @@ public:
 
     [[nodiscard]] bool isExpanded() const { return m_expanded; }
 
+    void retranslateUi();
+
 public slots:
     void setExpanded(bool expanded);
 

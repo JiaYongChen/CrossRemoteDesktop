@@ -87,6 +87,7 @@ private:
 
     void applyTheme();
     void toggleTheme();
+    void retranslateAllCards();
     
     void loadSettings();
     void saveSettings();

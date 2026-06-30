@@ -127,3 +127,10 @@ void ConnectionCard::setOnline(bool online)
             ? "background-color: #4CAF50; border-radius: 4px;"
             : "background-color: #9E9E9E; border-radius: 4px;");
 }
+
+void ConnectionCard::retranslateUi()
+{
+    m_connectButton->setToolTip(tr("连接"));
+    m_editButton->setToolTip(tr("修改参数"));
+    m_deleteButton->setToolTip(tr("删除记录"));
+}

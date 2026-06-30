@@ -196,3 +196,14 @@ void HamburgerMenu::setExpanded(bool expanded)
         });
     }
 }
+
+void HamburgerMenu::retranslateUi()
+{
+    m_hamburgerButton->setToolTip(tr("菜单"));
+    m_newConnectionItem->setToolTip(tr("新建连接 (Ctrl+N)"));
+    m_connectItem->setToolTip(tr("连接 (Ctrl+O)"));
+    m_settingsItem->setToolTip(tr("设置 (Ctrl+,)"));
+    m_aboutItem->setToolTip(tr("关于"));
+    m_exitItem->setToolTip(tr("退出 (Ctrl+Q)"));
+    m_themeButton->setToolTip(tr("切换主题"));
+}

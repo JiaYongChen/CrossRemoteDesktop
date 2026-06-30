@@ -298,7 +298,22 @@ void MainWindow::retranslateUi() {
                 : tr("暂无连接历史"));
     }
 
+    // 汉堡菜单
+    if ( m_hamburgerMenu ) {
+        m_hamburgerMenu->retranslateUi();
+    }
+
+    // 连接卡片
+    retranslateAllCards();
+
     qCInfo(lcUIMainWindow) << "MainWindow::retranslateUi - UI retranslation done, windowTitle:" << windowTitle();
+}
+
+void MainWindow::retranslateAllCards()
+{
+    for (auto *card : m_connectionCards) {
+        card->retranslateUi();
+    }
 }
 
 // 槽函数实现

@@ -19,6 +19,8 @@ public:
     void setLastConnected(const QDateTime &time);
     void setOnline(bool online);
 
+    void retranslateUi();
+
 signals:
     void connectClicked();
     void editClicked();
