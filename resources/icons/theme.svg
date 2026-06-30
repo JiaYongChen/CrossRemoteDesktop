@@ -7,18 +7,17 @@
     </linearGradient>
   </defs>
   <rect width="256" height="256" rx="32" fill="#F5F7FA"/>
-  <g fill="none" stroke="url(#gtheme)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
-    <!-- 太阳光芒（右侧） -->
-    <line x1="164" y1="64" x2="164" y2="88"/>
-    <line x1="192" y1="78" x2="176" y2="94"/>
-    <line x1="164" y1="192" x2="164" y2="168"/>
-    <line x1="192" y1="178" x2="176" y2="162"/>
-    <line x1="204" y1="120" x2="184" y2="124"/>
-    <line x1="204" y1="136" x2="184" y2="132"/>
-    <!-- 中心圆（太阳面 + 月牙面） -->
-    <circle cx="128" cy="128" r="42"/>
-    <!-- 月牙遮盖（形成新月形状） -->
-    <circle cx="110" cy="128" r="32" fill="#F5F7FA" stroke="none"/>
-    <circle cx="120" cy="128" r="36" fill="none" stroke="url(#gtheme)" stroke-width="12"/>
-  </g>
+  <!-- 太阳光芒（6条射线） -->
+  <rect x="122" y="52" width="12" height="20" rx="6" fill="url(#gtheme)"/>
+  <rect x="122" y="184" width="12" height="20" rx="6" fill="url(#gtheme)"/>
+  <rect x="52" y="122" width="20" height="12" rx="6" fill="url(#gtheme)"/>
+  <rect x="184" y="122" width="20" height="12" rx="6" fill="url(#gtheme)"/>
+  <rect x="72" y="72" width="20" height="12" rx="6" transform="rotate(45 82 78)" fill="url(#gtheme)"/>
+  <rect x="164" y="72" width="20" height="12" rx="6" transform="rotate(-45 174 78)" fill="url(#gtheme)"/>
+  <rect x="72" y="164" width="20" height="12" rx="6" transform="rotate(-45 82 170)" fill="url(#gtheme)"/>
+  <rect x="164" y="164" width="20" height="12" rx="6" transform="rotate(45 174 170)" fill="url(#gtheme)"/>
+  <!-- 中心圆（左半圆填充 + 右半圆镂空，形成日月交替） -->
+  <circle cx="128" cy="128" r="44" fill="url(#gtheme)"/>
+  <!-- 月牙叠加（深色遮罩，制造新月效果） -->
+  <circle cx="108" cy="128" r="36" fill="#F5F7FA"/>
 </svg>

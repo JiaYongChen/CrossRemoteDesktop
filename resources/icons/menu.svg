@@ -7,9 +7,7 @@
     </linearGradient>
   </defs>
   <rect width="256" height="256" rx="32" fill="#F5F7FA"/>
-  <g fill="none" stroke="url(#gmenu)" stroke-width="14" stroke-linecap="round">
-    <line x1="68" y1="82" x2="188" y2="82"/>
-    <line x1="68" y1="128" x2="188" y2="128"/>
-    <line x1="68" y1="174" x2="188" y2="174"/>
-  </g>
+  <rect x="68" y="78" width="120" height="14" rx="7" fill="url(#gmenu)"/>
+  <rect x="68" y="121" width="120" height="14" rx="7" fill="url(#gmenu)"/>
+  <rect x="68" y="164" width="120" height="14" rx="7" fill="url(#gmenu)"/>
 </svg>
