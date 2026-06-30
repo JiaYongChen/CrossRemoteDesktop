@@ -154,14 +154,9 @@ QLabel#cardHostname {
     font-weight: bold;
     background: transparent;
 }
-QLabel#cardAddress {
+QLabel#cardLabel {
     color: #AAAAAA;
     font-size: 12px;
-    background: transparent;
-}
-QLabel#cardInfo {
-    color: #999999;
-    font-size: 11px;
     background: transparent;
 }
 

@@ -6,7 +6,7 @@ ConnectionCard::ConnectionCard(QWidget *parent)
     : QFrame(parent)
 {
     setObjectName("connectionCard");
-    setFixedSize(400, 140);
+    setFixedSize(400, 110);
     setupUi();
 }
 
@@ -14,12 +14,12 @@ void ConnectionCard::setupUi()
 {
     // --- 主垂直布局（左侧信息 + 右侧图标） ---
     auto *mainLayout = new QHBoxLayout(this);
-    mainLayout->setContentsMargins(16, 12, 12, 12);
+    mainLayout->setContentsMargins(16, 10, 10, 10);
     mainLayout->setSpacing(0);
 
     // --- 左侧信息区 ---
     auto *infoLayout = new QVBoxLayout();
-    infoLayout->setSpacing(4);
+    infoLayout->setSpacing(2);
 
     // 主机名 + 状态灯
     auto *nameRow = new QHBoxLayout();
@@ -37,16 +37,16 @@ void ConnectionCard::setupUi()
 
     // 地址:端口
     m_addressLabel = new QLabel();
-    m_addressLabel->setObjectName("cardAddress");
+    m_addressLabel->setObjectName("cardLabel");
     infoLayout->addWidget(m_addressLabel);
 
     // 分辨率 + 时间
     auto *metaRow = new QHBoxLayout();
-    metaRow->setSpacing(16);
+    metaRow->setSpacing(12);
     m_resolutionLabel = new QLabel();
-    m_resolutionLabel->setObjectName("cardInfo");
+    m_resolutionLabel->setObjectName("cardLabel");
     m_timeLabel = new QLabel();
-    m_timeLabel->setObjectName("cardInfo");
+    m_timeLabel->setObjectName("cardLabel");
     metaRow->addWidget(m_resolutionLabel);
     metaRow->addWidget(m_timeLabel);
     metaRow->addStretch();
@@ -61,19 +61,19 @@ void ConnectionCard::setupUi()
 
     m_connectButton = new QToolButton();
     m_connectButton->setIcon(QIcon(":/icons/connect.svg"));
-    m_connectButton->setIconSize(QSize(18, 18));
+    m_connectButton->setIconSize(QSize(36, 36));
     m_connectButton->setToolTip(tr("连接"));
     m_connectButton->setAutoRaise(true);
 
     m_editButton = new QToolButton();
     m_editButton->setIcon(QIcon(":/icons/save.svg"));
-    m_editButton->setIconSize(QSize(18, 18));
+    m_editButton->setIconSize(QSize(36, 36));
     m_editButton->setToolTip(tr("修改参数"));
     m_editButton->setAutoRaise(true);
 
     m_deleteButton = new QToolButton();
     m_deleteButton->setIcon(QIcon(":/icons/delete.svg"));
-    m_deleteButton->setIconSize(QSize(18, 18));
+    m_deleteButton->setIconSize(QSize(36, 36));
     m_deleteButton->setToolTip(tr("删除记录"));
     m_deleteButton->setAutoRaise(true);
 
