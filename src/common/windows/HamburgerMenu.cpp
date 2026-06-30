@@ -1,0 +1,199 @@
+#include "HamburgerMenu.h"
+#include <QIcon>
+#include <QFrame>
+#include <QApplication>
+#include <QTimer>
+
+HamburgerMenu::HamburgerMenu(QWidget *parent)
+    : QWidget(parent)
+{
+    setObjectName("leftNavBar");
+    setFixedWidth(48);
+    setupUi();
+    setupAnimations();
+}
+
+void HamburgerMenu::setupUi()
+{
+    auto *mainLayout = new QVBoxLayout(this);
+    mainLayout->setContentsMargins(0, 0, 0, 8);
+    mainLayout->setSpacing(0);
+
+    // ☰ 按钮
+    m_hamburgerButton = new QToolButton();
+    m_hamburgerButton->setIcon(QIcon(":/icons/app.svg"));
+    m_hamburgerButton->setIconSize(QSize(22, 22));
+    m_hamburgerButton->setToolTip(QStringLiteral("菜单"));
+    m_hamburgerButton->setAutoRaise(true);
+    m_hamburgerButton->setFixedSize(48, 44);
+    mainLayout->addWidget(m_hamburgerButton, 0, Qt::AlignHCenter);
+
+    // 分隔线
+    auto *sep1 = new QFrame();
+    sep1->setFrameShape(QFrame::HLine);
+    sep1->setFixedWidth(24);
+    mainLayout->addWidget(sep1, 0, Qt::AlignHCenter);
+
+    // 菜单项容器（动画目标）
+    m_menuContainer = new QWidget();
+    m_menuContainer->setMaximumHeight(0);  // 默认收起
+    m_menuLayout = new QVBoxLayout(m_menuContainer);
+    m_menuLayout->setContentsMargins(0, 8, 0, 0);
+    m_menuLayout->setSpacing(4);
+
+    // 创建菜单项：图标路径、tooltip、objectName
+    m_newConnectionItem = createMenuItem(
+        ":/icons/new_connection.svg", QStringLiteral("新建连接 (Ctrl+N)"),
+        "hamburgerItem");
+    m_connectItem = createMenuItem(
+        ":/icons/connect.svg", QStringLiteral("连接 (Ctrl+O)"),
+        "hamburgerItem");
+
+    // 分隔线
+    auto *sep2 = new QFrame();
+    sep2->setFrameShape(QFrame::HLine);
+    sep2->setFixedWidth(24);
+
+    m_settingsItem = createMenuItem(
+        ":/icons/settings.svg", QStringLiteral("设置 (Ctrl+,)"),
+        "hamburgerItem");
+
+    // 分隔线
+    auto *sep3 = new QFrame();
+    sep3->setFrameShape(QFrame::HLine);
+    sep3->setFixedWidth(24);
+
+    m_aboutItem = createMenuItem(
+        ":/icons/about.svg", QStringLiteral("关于"),
+        "hamburgerItem");
+    m_exitItem = createMenuItem(
+        ":/icons/exit.svg", QStringLiteral("退出 (Ctrl+Q)"),
+        "hamburgerItem");
+    m_exitItem->setStyleSheet(
+        "QToolButton#hamburgerItem:hover { background-color: #E05555; }");
+
+    // 添加到菜单布局
+    m_menuLayout->addWidget(m_newConnectionItem, 0, Qt::AlignHCenter);
+    m_menuLayout->addWidget(m_connectItem, 0, Qt::AlignHCenter);
+    m_menuLayout->addWidget(sep2, 0, Qt::AlignHCenter);
+    m_menuLayout->addWidget(m_settingsItem, 0, Qt::AlignHCenter);
+    m_menuLayout->addWidget(sep3, 0, Qt::AlignHCenter);
+    m_menuLayout->addWidget(m_aboutItem, 0, Qt::AlignHCenter);
+    m_menuLayout->addWidget(m_exitItem, 0, Qt::AlignHCenter);
+    m_menuLayout->addStretch();
+
+    mainLayout->addWidget(m_menuContainer);
+
+    // 弹性空间（推开主题按钮到底部）
+    mainLayout->addStretch();
+
+    // 主题切换按钮（始终可见）
+    m_themeButton = new QToolButton();
+    m_themeButton->setIcon(QIcon(":/icons/app.svg"));  // 使用 app.svg 占位
+    m_themeButton->setIconSize(QSize(20, 20));
+    m_themeButton->setToolTip(QStringLiteral("切换主题"));
+    m_themeButton->setAutoRaise(true);
+    m_themeButton->setFixedSize(48, 44);
+    mainLayout->addWidget(m_themeButton, 0, Qt::AlignHCenter);
+
+    // 信号连接
+    connect(m_hamburgerButton, &QToolButton::clicked, this, [this]() {
+        setExpanded(!m_expanded);
+    });
+    connect(m_themeButton, &QToolButton::clicked, this, &HamburgerMenu::themeToggled);
+
+    connect(m_newConnectionItem, &QToolButton::clicked, this, &HamburgerMenu::newConnection);
+    connect(m_connectItem, &QToolButton::clicked, this, &HamburgerMenu::connectToHost);
+    connect(m_settingsItem, &QToolButton::clicked, this, &HamburgerMenu::openSettings);
+    connect(m_aboutItem, &QToolButton::clicked, this, &HamburgerMenu::showAbout);
+    connect(m_exitItem, &QToolButton::clicked, this, &HamburgerMenu::exitApp);
+}
+
+QToolButton *HamburgerMenu::createMenuItem(const QString &iconPath,
+                                            const QString &tooltip,
+                                            const QString &objectName)
+{
+    auto *btn = new QToolButton();
+    btn->setIcon(QIcon(iconPath));
+    btn->setIconSize(QSize(20, 20));
+    btn->setToolTip(tooltip);
+    btn->setAutoRaise(true);
+    btn->setObjectName(objectName);
+    btn->setFixedSize(40, 40);
+
+    // 为动画准备透明度效果
+    auto *effect = new QGraphicsOpacityEffect(btn);
+    effect->setOpacity(0.0);
+    btn->setGraphicsEffect(effect);
+    m_itemEffects.append(effect);
+
+    return btn;
+}
+
+void HamburgerMenu::setupAnimations()
+{
+    // 测量完整菜单高度（hold in temporary state）
+    m_menuContainer->setMaximumHeight(1000);
+    m_menuContainer->adjustSize();
+    m_menuFullHeight = m_menuContainer->sizeHint().height();
+
+    m_heightAnimation = new QPropertyAnimation(m_menuContainer, "maximumHeight", this);
+    m_heightAnimation->setDuration(150);
+    m_heightAnimation->setEasingCurve(QEasingCurve::OutCubic);
+
+    m_fadeGroup = new QParallelAnimationGroup(this);
+    for (auto *effect : m_itemEffects) {
+        auto *fadeAnim = new QPropertyAnimation(effect, "opacity", this);
+        fadeAnim->setDuration(100);
+        fadeAnim->setEasingCurve(QEasingCurve::OutCubic);
+        m_fadeGroup->addAnimation(fadeAnim);
+    }
+}
+
+void HamburgerMenu::setExpanded(bool expanded)
+{
+    if (m_expanded == expanded)
+        return;
+    m_expanded = expanded;
+
+    m_heightAnimation->stop();
+    m_fadeGroup->stop();
+
+    if (expanded) {
+        // Phase 1: 卷轴下拉
+        m_heightAnimation->setStartValue(0);
+        m_heightAnimation->setEndValue(m_menuFullHeight);
+
+        // Phase 2: 图标渐显（延迟 150ms 后开始）
+        m_fadeGroup->setDirection(QAbstractAnimation::Forward);
+        for (int i = 0; i < m_fadeGroup->animationCount(); ++i) {
+            auto *anim = static_cast<QPropertyAnimation *>(m_fadeGroup->animationAt(i));
+            anim->setStartValue(0.0);
+            anim->setEndValue(1.0);
+        }
+
+        m_heightAnimation->start();
+        // 延迟启动渐显
+        QTimer::singleShot(150, this, [this]() {
+            if (m_expanded)
+                m_fadeGroup->start();
+        });
+    } else {
+        // Phase 1: 图标渐隐
+        m_fadeGroup->setDirection(QAbstractAnimation::Backward);
+        for (int i = 0; i < m_fadeGroup->animationCount(); ++i) {
+            auto *anim = static_cast<QPropertyAnimation *>(m_fadeGroup->animationAt(i));
+            anim->setStartValue(0.0);
+            anim->setEndValue(1.0);
+        }
+        m_fadeGroup->start();
+
+        // Phase 2: 卷轴收起（delay 100ms）
+        m_heightAnimation->setStartValue(m_menuFullHeight);
+        m_heightAnimation->setEndValue(0);
+        QTimer::singleShot(100, this, [this]() {
+            if (!m_expanded)
+                m_heightAnimation->start();
+        });
+    }
+}
