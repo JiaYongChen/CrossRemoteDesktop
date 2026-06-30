@@ -140,7 +140,8 @@ void MainWindow::createWelcomePage()
         int visibleCount = 0;
         for (auto *card : m_connectionCards) {
             bool match = text.isEmpty()
-                || card->property("searchKey").toString().contains(text, Qt::CaseInsensitive);
+                || card->property("searchKey").toString().contains(text, Qt::CaseInsensitive)
+                || card->property("hostname").toString().contains(text, Qt::CaseInsensitive);
             card->setVisible(match);
             if (match) visibleCount++;
         }

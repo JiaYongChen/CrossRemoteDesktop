@@ -826,9 +826,10 @@ ConnectionCard *MainWindow::addConnectionCard(const QString &host, int port,
             m_connectionDialog = new ConnectionDialog(this);
         }
         QString cardHost = card->property("host").toString();
+        QString cardHostname = card->property("hostname").toString();
         int cardPort = card->property("port").toInt();
-        // 预填主机和端口
-        m_connectionDialog->setHostname(cardHost);
+        // 预填主机名和地址
+        m_connectionDialog->setHostname(cardHostname);
         m_connectionDialog->setHostAddress(cardHost);
         m_connectionDialog->setPort(cardPort);
 
