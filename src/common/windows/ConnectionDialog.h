@@ -16,6 +16,9 @@ public:
 
 	void setDefaultPort(int port);
 	void setUsername(const QString& username);
+	void setHostname(const QString& hostname);
+	void setHostAddress(const QString& host);
+	void setPort(int port);
 
 	QString getHostname() const;
 	QString getHostAddress() const;

@@ -154,6 +154,21 @@ void ConnectionDialog::setUsername(const QString& username)
 	ui->usernameLineEdit->setText(username);
 }
 
+void ConnectionDialog::setHostname(const QString& hostname)
+{
+	ui->hostnameLineEdit->setText(hostname);
+}
+
+void ConnectionDialog::setHostAddress(const QString& host)
+{
+	ui->hostLineEdit->setText(host);
+}
+
+void ConnectionDialog::setPort(int port)
+{
+	m_defaultPort = port;
+}
+
 QString ConnectionDialog::getHostname() const
 {
 	return ui->hostnameLineEdit->text().trimmed();

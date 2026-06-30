@@ -2,10 +2,10 @@
 
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QSystemTrayIcon>
-#include <QtWidgets/QListWidget>
 #include <QtCore/QMap>
 #include <QtCore/QList>
 #include <QtCore/QSettings>
+#include <QtCore/QDateTime>
 #include "error/RdError.h"
 #include "../../client/session/RemoteDesktopSession.h"  // ConnectionParams
 
@@ -13,6 +13,7 @@ QT_BEGIN_NAMESPACE
 class QAction;
 class QMenu;
 class QLabel;
+class QLineEdit;
 class QCloseEvent;
 QT_END_NAMESPACE
 
@@ -22,6 +23,9 @@ class ThreadManager;
 class QueueManager;
 class ServerManager;
 class RemoteDesktopSession;
+class HamburgerMenu;
+class ConnectionCard;
+class QVBoxLayout;
 
 class MainWindow : public QMainWindow
 {
@@ -67,29 +71,22 @@ private slots:
     void iconActivated(QSystemTrayIcon::ActivationReason reason);
     
     // 连接列表管理
-    void onConnectionItemDoubleClicked();
     void addConnectionToHistory(const QString &host, int port);
-    void removeConnectionFromHistory();
-    void showConnectionContextMenu(const QPoint &pos);
-    
+
     // 状态更新
     void updateServerStatus(const QString &message);
     void updateConnectionStatus(const QString &message);
     
-    // 辅助函数
-    QListWidgetItem* createConnectionListItem(const QString &host, int port, const QString &connectionTime);
-    void updateConnectionListItem(QListWidgetItem *item, const QString &host, int port, const QString &connectionTime);
-    QString formatConnectionText(const QString &host, int port, const QString &connectionTime);
-    
 private:
     void createActions();
-    void createMenus();
-    void createToolBars();
     void createStatusBar();
     void createCentralWidget();
-    void createWelcomeWidget();
+    void createWelcomePage();
     void createSystemTrayIcon();
     void setupConnections();
+
+    void applyTheme();
+    void toggleTheme();
     
     void loadSettings();
     void saveSettings();
@@ -101,6 +98,9 @@ private:
     void cleanupConnection(const QString &connectionId);
     void updatePerformanceInfo();
 
+    ConnectionCard *addConnectionCard(const QString &host, int port,
+                                       const QDateTime &time);
+
 #ifdef Q_OS_MACOS
     // macOS 辅助功能权限检查
     bool checkMacOSAccessibilityPermission();
@@ -109,22 +109,18 @@ private:
     
     // UI组件
     class QWidget *m_centralWidget;
-    class QSplitter *m_mainSplitter;
-    class QListWidget *m_connectionList;
     class QWidget *m_welcomeWidget;
     class QLabel *m_welcomeTitleLabel;
-    class QLabel *m_welcomeDescLabel;
-    class QLabel *m_welcomeHistoryLabel;
-    
-    // 菜单
-    class QMenu *m_fileMenu;
-    class QMenu *m_connectionMenu;
-    class QMenu *m_toolsMenu;
-    class QMenu *m_helpMenu;
+
+    HamburgerMenu *m_hamburgerMenu = nullptr;
+    QLineEdit *m_searchBox = nullptr;
+    QLabel *m_emptyStateLabel = nullptr;
+    QWidget *m_cardContainer = nullptr;
+    QVBoxLayout *m_cardLayout = nullptr;
+    QList<ConnectionCard *> m_connectionCards;
+
+    // 菜单（系统托盘用）
     class QMenu *m_trayIconMenu;
-    
-    // 工具栏
-    class QToolBar *m_mainToolBar;
 
     // 动作
     class QAction *m_newConnectionAction;
@@ -136,34 +132,34 @@ private:
     class QAction *m_minimizeAction;
     class QAction *m_maximizeAction;
     class QAction *m_restoreAction;
-    
+
     // 状态栏
     class QLabel *m_connectionStatusLabel;
     class QLabel *m_serverStatusLabel;
     class QLabel *m_performanceLabel;
-    
+
     // 系统托盘
     class QSystemTrayIcon *m_trayIcon;
-    
+
     // 对话框
     ConnectionDialog *m_connectionDialog;
     SettingsDialog *m_settingsDialog;
-    
+
     // 管理器
     ThreadManager *m_threadManager;
     QueueManager *m_queueManager;
     ServerManager *m_serverManager;
     QList<RemoteDesktopSession*> m_sessions;
-    
+
     // 设置
     QSettings *m_settings;
-    
-    // 连接历史记录
-    QMap<QString, QVariant> m_connectionHistory;
-    
+
+    // 主题模式
+    QString m_themeMode;
+
     // 客户端模式标志
     bool m_clientMode;
-    
+
     // 停止状态标志
     bool m_isShuttingDown;
 };

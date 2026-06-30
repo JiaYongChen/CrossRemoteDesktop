@@ -1,6 +1,8 @@
 #include "MainWindow.h"
 #include "ConnectionDialog.h"
 #include "SettingsDialog.h"
+#include "HamburgerMenu.h"
+#include "ConnectionCard.h"
 #include "../../server/ServerManager.h"
 #include "../../client/session/RemoteDesktopSession.h"
 #include "../../client/network/ConnectionManager.h"
@@ -24,18 +26,15 @@
 
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QMessageBox>
-#include <QtWidgets/QListWidget>
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QPushButton>
-#include <QtWidgets/QSplitter>
 #include <QtWidgets/QSystemTrayIcon>
 #include <QtWidgets/QMenu>
 #include <QtGui/QAction>
-#include <QtWidgets/QToolBar>
 #include <QtWidgets/QStatusBar>
-#include <QtWidgets/QMenuBar>
 #include <QtWidgets/QLabel>
+#include <QtWidgets/QLineEdit>
 #include <QtCore/QTimer>
 #include <QtCore/QFile>
 #include <QtCore/QDateTime>
@@ -46,18 +45,18 @@
 #include <QtGui/QIcon>
 #include <QtGui/QCloseEvent>
 #include <QtCore/QEvent>
-#include <QtWidgets/QListWidgetItem>
 
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
     , m_centralWidget(nullptr)
-    , m_mainSplitter(nullptr)
-    , m_connectionList(nullptr)
     , m_welcomeWidget(nullptr)
     , m_welcomeTitleLabel(nullptr)
-    , m_welcomeDescLabel(nullptr)
-    , m_welcomeHistoryLabel(nullptr)
+    , m_hamburgerMenu(nullptr)
+    , m_searchBox(nullptr)
+    , m_emptyStateLabel(nullptr)
+    , m_cardContainer(nullptr)
+    , m_cardLayout(nullptr)
     , m_trayIcon(nullptr)
     , m_connectionDialog(nullptr)
     , m_settingsDialog(nullptr)
@@ -70,8 +69,6 @@ MainWindow::MainWindow(QWidget* parent)
 
     // 创建UI组件
     createActions();
-    createMenus();
-    createToolBars();
     createStatusBar();
     createCentralWidget();
     createSystemTrayIcon();
@@ -96,8 +93,27 @@ MainWindow::MainWindow(QWidget* parent)
 
     // 设置窗口属性
     setWindowTitle(tr("Qt远程桌面"));
-    setMinimumSize(UIConstants::MIN_WINDOW_WIDTH, UIConstants::MIN_WINDOW_HEIGHT);
-    resize(UIConstants::MAIN_WINDOW_WIDTH, UIConstants::MAIN_WINDOW_HEIGHT);
+    setFixedSize(960, 680);
+    setWindowFlags(windowFlags() & ~Qt::WindowMaximizeButtonHint
+                   | Qt::MSWindowsFixedSizeDialogHint);
+
+    // --- 主题初始化 ---
+    m_themeMode = m_settings->value("UI/theme", "dark").toString();
+    applyTheme();
+
+    // --- 汉堡菜单信号连接 ---
+    connect(m_hamburgerMenu, &HamburgerMenu::newConnection,
+            this, &MainWindow::newConnection);
+    connect(m_hamburgerMenu, &HamburgerMenu::connectToHost,
+            this, &MainWindow::connectToHost);
+    connect(m_hamburgerMenu, &HamburgerMenu::openSettings,
+            this, &MainWindow::showSettings);
+    connect(m_hamburgerMenu, &HamburgerMenu::showAbout,
+            this, &MainWindow::showAbout);
+    connect(m_hamburgerMenu, &HamburgerMenu::exitApp,
+            this, &MainWindow::exitApplication);
+    connect(m_hamburgerMenu, &HamburgerMenu::themeToggled,
+            this, &MainWindow::toggleTheme);
 }
 
 MainWindow::~MainWindow() {
@@ -138,28 +154,6 @@ MainWindow::~MainWindow() {
 // createWelcomeWidget/createSystemTrayIcon 实现见 MainWindowLayout.cpp
 
 void MainWindow::setupConnections() {
-    // 菜单和工具栏动作连接
-    connect(m_newConnectionAction, &QAction::triggered, this, &MainWindow::newConnection);
-    connect(m_connectAction, &QAction::triggered, this, &MainWindow::connectToHost);
-    connect(m_settingsAction, &QAction::triggered, this, &MainWindow::showSettings);
-    connect(m_aboutAction, &QAction::triggered, this, &MainWindow::showAbout);
-    connect(m_aboutQtAction, &QAction::triggered, this, &MainWindow::showAboutQt);
-    connect(m_exitAction, &QAction::triggered, this, &MainWindow::exitApplication);
-
-    // UI按钮连接
-    QPushButton* connectButton = findChild<QPushButton*>("connectButton");
-    QPushButton* serverButton = findChild<QPushButton*>("serverButton");
-    if ( connectButton ) {
-        connect(connectButton, &QPushButton::clicked, this, &MainWindow::connectToHost);
-    }
-    if ( serverButton ) {
-        // 初始状态连接到startServer
-        connect(serverButton, &QPushButton::clicked, this, &MainWindow::startServer);
-        // 设置初始状态
-        serverButton->setText(tr("启动服务器"));
-        serverButton->setProperty("serverRunning", false);
-    }
-
     // ServerManager信号连接
     if ( m_serverManager ) {
         connect(m_serverManager, &ServerManager::serverStarted, this, &MainWindow::onServerStarted);
@@ -191,15 +185,6 @@ void MainWindow::setupConnections() {
 }
 
 void MainWindow::loadSettings() {
-    // 恢复窗口几何形状
-    QWidget::restoreGeometry(m_settings->value("geometry").toByteArray());
-    restoreState(m_settings->value("windowState").toByteArray());
-
-    // 恢复分割器状态
-    if ( m_mainSplitter ) {
-        m_mainSplitter->restoreState(m_settings->value("splitterState").toByteArray());
-    }
-
     // 加载历史连接记录
     loadConnectionHistory();
 
@@ -212,15 +197,6 @@ void MainWindow::loadSettings() {
 }
 
 void MainWindow::saveSettings() {
-    // 保存窗口几何形状
-    m_settings->setValue("geometry", QWidget::saveGeometry());
-    m_settings->setValue("windowState", saveState());
-
-    // 保存分割器状态
-    if ( m_mainSplitter ) {
-        m_settings->setValue("splitterState", m_mainSplitter->saveState());
-    }
-
     // 保存历史连接记录
     saveConnectionHistory();
 
@@ -291,33 +267,10 @@ void MainWindow::retranslateUi() {
     qCInfo(lcUIMainWindow) << "MainWindow::retranslateUi - starting UI retranslation";
     setWindowTitle(tr("Qt远程桌面"));
 
-    // 动作文本
-    m_newConnectionAction->setText(tr("新建连接(&N)..."));
-    m_newConnectionAction->setStatusTip(tr("创建新的远程连接"));
-    m_exitAction->setText(tr("退出(&X)"));
-    m_exitAction->setStatusTip(tr("退出应用程序"));
-    m_connectAction->setText(tr("连接(&C)"));
-    m_connectAction->setStatusTip(tr("连接到远程主机"));
-    m_settingsAction->setText(tr("设置(&S)..."));
-    m_settingsAction->setStatusTip(tr("配置应用程序设置"));
-    m_aboutAction->setText(tr("关于(&A)"));
-    m_aboutAction->setStatusTip(tr("显示应用程序的关于对话框"));
-    m_aboutQtAction->setText(tr("关于Qt(&Q)"));
-    m_aboutQtAction->setStatusTip(tr("显示Qt库的关于对话框"));
-
     // 系统托盘动作
     m_minimizeAction->setText(tr("最小化(&N)"));
     m_maximizeAction->setText(tr("最大化(&X)"));
     m_restoreAction->setText(tr("恢复(&R)"));
-
-    // 菜单标题
-    m_fileMenu->setTitle(tr("文件(&F)"));
-    m_connectionMenu->setTitle(tr("连接(&C)"));
-    m_toolsMenu->setTitle(tr("工具(&T)"));
-    m_helpMenu->setTitle(tr("帮助(&H)"));
-
-    // 工具栏
-    m_mainToolBar->setWindowTitle(tr("主工具栏"));
 
     // 状态栏
     m_connectionStatusLabel->setText(tr("未连接"));
@@ -325,23 +278,9 @@ void MainWindow::retranslateUi() {
     updatePerformanceInfo();
     statusBar()->showMessage(tr("就绪"));
 
-    // 欢迎页面
-    if ( m_welcomeTitleLabel ) m_welcomeTitleLabel->setText(tr("欢迎使用Qt远程桌面"));
-    if ( m_welcomeDescLabel ) m_welcomeDescLabel->setText(tr("使用左侧按钮连接到远程计算机。"));
-    if ( m_welcomeHistoryLabel ) m_welcomeHistoryLabel->setText(tr("连接历史记录"));
-
-    // 刷新连接历史列表项中的翻译文本
-    for (int i = 0; i < m_connectionList->count(); ++i) {
-        QListWidgetItem* item = m_connectionList->item(i);
-        if ( item ) {
-            QString host = item->data(Qt::UserRole).toString();
-            int port = item->data(Qt::UserRole + 1).toInt();
-            QString connTime = item->data(Qt::UserRole + 2).toString();
-            QLabel* label = qobject_cast<QLabel*>(m_connectionList->itemWidget(item));
-            if ( label ) {
-                label->setText(formatConnectionText(host, port, connTime));
-            }
-        }
+    // 欢迎页
+    if ( m_emptyStateLabel ) {
+        m_emptyStateLabel->setText(tr("暂无连接历史"));
     }
 
     qCInfo(lcUIMainWindow) << "MainWindow::retranslateUi - UI retranslation done, windowTitle:" << windowTitle();
@@ -349,26 +288,10 @@ void MainWindow::retranslateUi() {
 
 // 槽函数实现
 void MainWindow::newConnection() {
-    // 新建连接应该总是显示连接对话框，不管是否有选中的历史项
     showConnectionDialog();
 }
 
 void MainWindow::connectToHost() {
-    // 检查是否有选中的历史连接项
-    QListWidgetItem* currentItem = m_connectionList->currentItem();
-    if ( currentItem ) {
-        // 从UserRole中获取主机和端口信息
-        QString host = currentItem->data(Qt::UserRole).toString();
-        int port = currentItem->data(Qt::UserRole + 1).toInt();
-
-        if ( !host.isEmpty() && port > 0 ) {
-            // 直接连接到选中的主机，不弹出对话框
-            connectToHostDirectly(ConnectionParams{host, port});
-            return;
-        }
-    }
-
-    // 如果没有选中项或数据无效，显示连接对话框
     showConnectionDialog();
 }
 
@@ -737,16 +660,6 @@ void MainWindow::onServerStarted(quint16 port) {
     qCInfo(lcApp) << "MainWindow::onServerStarted() called with port:" << port;
     updateServerStatus(tr("服务器启动成功，端口: %1").arg(port));
 
-    // 更新服务器按钮状态
-    QPushButton* serverButton = findChild<QPushButton*>("serverButton");
-    if ( serverButton ) {
-        serverButton->setText(tr("停止服务器"));
-        serverButton->setProperty("serverRunning", true);
-        // 断开之前的连接，重新连接到stopServer
-        disconnect(serverButton, &QPushButton::clicked, this, &MainWindow::startServer);
-        connect(serverButton, &QPushButton::clicked, this, &MainWindow::stopServer);
-    }
-
     // 在UI层保存成功启动的端口到设置
     if ( m_settings ) {
         m_settings->setValue("Connection/defaultPort", port);
@@ -758,16 +671,6 @@ void MainWindow::onServerStarted(quint16 port) {
 void MainWindow::onServerStopped() {
     qCInfo(lcApp) << "MainWindow::onServerStopped() called";
     updateServerStatus(tr("服务器已停止"));
-
-    // 更新服务器按钮状态
-    QPushButton* serverButton = findChild<QPushButton*>("serverButton");
-    if ( serverButton ) {
-        serverButton->setText(tr("启动服务器"));
-        serverButton->setProperty("serverRunning", false);
-        // 断开之前的连接，重新连接到startServer
-        disconnect(serverButton, &QPushButton::clicked, this, &MainWindow::stopServer);
-        connect(serverButton, &QPushButton::clicked, this, &MainWindow::startServer);
-    }
 }
 
 void MainWindow::onServerError(const RdError& error) {
@@ -812,147 +715,14 @@ void MainWindow::cleanupConnection(const QString& connectionId) {
     qCDebug(lcApp) << "MainWindow::cleanupConnection for:" << connectionId;
 }
 
-void MainWindow::onConnectionItemDoubleClicked() {
-    // 双击直接连接到选中的历史记录，不弹出对话框
-    QListWidgetItem* item = m_connectionList->currentItem();
-    if ( item ) {
-        QString host = item->data(Qt::UserRole).toString();
-        int port = item->data(Qt::UserRole + 1).toInt();
 
-        // 直接连接到选中的主机
-        connectToHostDirectly(ConnectionParams{host, port});
-    }
+void MainWindow::addConnectionToHistory(const QString& host, int port)
+{
+    addConnectionCard(host, port, QDateTime::currentDateTime());
+    saveConnectionHistory();
 }
 
-void MainWindow::addConnectionToHistory(const QString& host, int port) {
-    // 更新连接列表显示
-    if ( m_connectionList ) {
-        // 检查是否已存在相同的连接记录
-        QString connectionString = host + ":" + QString::number(port);
-        bool exists = false;
-        QListWidgetItem* existingItem = nullptr;
 
-        for ( int i = 0; i < m_connectionList->count(); ++i ) {
-            QListWidgetItem* item = m_connectionList->item(i);
-            QString itemHost = item->data(Qt::UserRole).toString();
-            int itemPort = item->data(Qt::UserRole + 1).toInt();
-            if ( item && itemHost == host && itemPort == port ) {
-                exists = true;
-                existingItem = item;
-                break;
-            }
-        }
-
-        if ( !exists ) {
-            // 添加新项目(会自动插入到顶部)
-            QString currentTime = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
-            createConnectionListItem(host, port, currentTime);
-
-            // 保存到历史记录
-            saveConnectionHistory();
-        } else {
-            // 如果连接已存在,更新连接时间并移到顶部
-            QString currentTime = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
-
-            // 先从列表中移除该项
-            int row = m_connectionList->row(existingItem);
-            QListWidgetItem* item = m_connectionList->takeItem(row);
-
-            // 更新项目数据
-            item->setData(Qt::UserRole, host);
-            item->setData(Qt::UserRole + 1, port);
-            item->setData(Qt::UserRole + 2, currentTime);
-
-            // 插入到列表顶部
-            m_connectionList->insertItem(0, item);
-
-            // 更新QLabel内容
-            QLabel* label = qobject_cast<QLabel*>(m_connectionList->itemWidget(item));
-            if ( label ) {
-                label->setText(formatConnectionText(host, port, currentTime));
-            } else {
-                // 如果widget丢失,重新创建
-                QLabel* newLabel = new QLabel(formatConnectionText(host, port, currentTime));
-                newLabel->setWordWrap(true);
-                newLabel->setAlignment(Qt::AlignLeft | Qt::AlignTop);
-                newLabel->setStyleSheet(
-                    "QLabel {"
-                    "    color: #2c3e50;"
-                    "    padding: 15px 12px;"
-                    "    background-color: transparent;"
-                    "    font-size: 13px;"
-                    "}"
-                );
-                m_connectionList->setItemWidget(item, newLabel);
-            }
-
-            // 保存到历史记录
-            saveConnectionHistory();
-        }
-
-        m_connectionList->setCurrentRow(0);
-    }
-}
-
-void MainWindow::removeConnectionFromHistory() {
-    // 从历史记录中移除选中的连接
-    QListWidgetItem* item = m_connectionList->currentItem();
-    if ( item ) {
-        int row = m_connectionList->currentRow();
-        m_connectionList->takeItem(row);
-        delete item;
-
-        // 保存更新后的历史记录
-        saveConnectionHistory();
-
-        // 更新状态栏
-        statusBar()->showMessage(tr("已删除连接记录"));
-    }
-}
-
-void MainWindow::showConnectionContextMenu(const QPoint& pos) {
-    // 检查是否点击在有效项目上
-    QListWidgetItem* item = m_connectionList->itemAt(pos);
-    if ( !item ) {
-        return;
-    }
-
-    // 创建右键菜单
-    QMenu contextMenu(this);
-
-    // 添加连接动作
-    QAction* connectAction = contextMenu.addAction(QIcon(":/icons/connect.svg"), tr("连接"));
-    connect(connectAction, &QAction::triggered, [this, item]() {
-        m_connectionList->setCurrentItem(item);
-        onConnectionItemDoubleClicked();
-    });
-
-    contextMenu.addSeparator();
-
-    // 添加删除动作
-    QAction* deleteAction = contextMenu.addAction(QIcon(":/icons/delete.svg"), tr("删除"));
-    connect(deleteAction, &QAction::triggered, [this, item]() {
-        m_connectionList->setCurrentItem(item);
-
-        // 确认删除
-        QString connectionText = item->text();
-        int ret = QMessageBox::question(this, tr("确认删除"),
-            tr("确定要删除连接记录 \"%1\" 吗？").arg(connectionText),
-            QMessageBox::Yes | QMessageBox::No,
-            QMessageBox::No);
-
-        if ( ret == QMessageBox::Yes ) {
-            removeConnectionFromHistory();
-        }
-    });
-
-    // 显示菜单
-    contextMenu.exec(m_connectionList->mapToGlobal(pos));
-
-    if ( m_connectionList->count() > 0 ) {
-        m_connectionList->setCurrentRow(0);
-    }
-}
 
 void MainWindow::updateServerStatus(const QString& message) {
     // 检查ServerManager的连接状态
@@ -964,77 +734,148 @@ void MainWindow::updateConnectionStatus(const QString& message) {
     m_connectionStatusLabel->setText(message);
 }
 
-void MainWindow::loadConnectionHistory() {
-    if ( !m_connectionList || !m_settings ) {
-        return;
-    }
-
-    // 清空现有列表
-    m_connectionList->clear();
-
-    // 从设置中读取历史连接记录（使用与ClientManager相同的格式）
+void MainWindow::loadConnectionHistory()
+{
     m_settings->beginGroup("ConnectionHistory");
-
     QStringList hosts = m_settings->value("hosts").toStringList();
     QStringList ports = m_settings->value("ports").toStringList();
     QStringList times = m_settings->value("times").toStringList();
-
     m_settings->endGroup();
 
-    // 确保所有列表长度一致
-    int count = qMin(qMin(hosts.size(), ports.size()), times.size());
+    int count = qMin(hosts.size(), qMin(ports.size(), times.size()));
+    bool hasHistory = false;
+    for (int i = 0; i < count; ++i) {
+        bool ok = false;
+        int port = ports.at(i).toInt(&ok);
+        if (!ok || port <= 0 || port > 65535)
+            continue;
 
-    // 顺序加载历史记录:
-    for ( int i = 0; i < count; ++i ) {
-        QString host = hosts[i];
-        int port = ports[i].toInt();
-        QString connectionTime = times[i];
+        QDateTime time = QDateTime::fromString(times.at(i), Qt::ISODate);
+        if (!time.isValid())
+            continue;
 
-        if ( !host.isEmpty() && port > 0 ) {
-            createConnectionListItem(host, port, connectionTime);
-        }
+        addConnectionCard(hosts.at(i), port, time);
+        hasHistory = true;
     }
 
-    // 自动选中最近一次连接的记录（第一个就是最新的，因为ClientManager使用prepend）
-    if ( m_connectionList->count() > 0 ) {
-        m_connectionList->setCurrentRow(0);
-    }
+    m_emptyStateLabel->setVisible(!hasHistory);
 }
 
-void MainWindow::saveConnectionHistory() {
-    if ( !m_connectionList || !m_settings ) {
-        return;
+void MainWindow::saveConnectionHistory()
+{
+    QStringList hosts, ports, times;
+    for (const auto *card : m_connectionCards) {
+        hosts.append(card->property("host").toString());
+        ports.append(card->property("port").toString());
+        times.append(card->property("time").toDateTime().toString(Qt::ISODate));
     }
-
-    // 保存连接历史记录到设置（使用与ClientManager相同的格式）
     m_settings->beginGroup("ConnectionHistory");
-
-    QStringList connections;
-    QStringList hosts;
-    QStringList ports;
-    QStringList times;
-
-    for ( int i = 0; i < m_connectionList->count(); ++i ) {
-        QListWidgetItem* item = m_connectionList->item(i);
-        if ( item ) {
-            QString host = item->data(Qt::UserRole).toString();
-            int port = item->data(Qt::UserRole + 1).toInt();
-            QString time = item->data(Qt::UserRole + 2).toString();
-
-            connections.append(QString("%1:%2").arg(host).arg(port));
-            hosts.append(host);
-            ports.append(QString::number(port));
-            times.append(time);
-        }
-    }
-
-    m_settings->setValue("connections", connections);
     m_settings->setValue("hosts", hosts);
     m_settings->setValue("ports", ports);
     m_settings->setValue("times", times);
-
     m_settings->endGroup();
-    m_settings->sync();
+}
+
+ConnectionCard *MainWindow::addConnectionCard(const QString &host, int port,
+                                               const QDateTime &time)
+{
+    // 检查重复
+    for (auto *card : m_connectionCards) {
+        if (card->property("host").toString() == host
+            && card->property("port").toInt() == port) {
+            // 更新已有卡片信息并移到顶部
+            card->setLastConnected(time);
+            // 将卡片移到布局顶部
+            m_cardLayout->removeWidget(card);
+            m_cardLayout->insertWidget(0, card);
+            return card;
+        }
+    }
+
+    auto *card = new ConnectionCard();
+    card->setHostname(host);
+    card->setAddressPort(host, port);
+    card->setLastConnected(time);
+    card->setProperty("host", host);
+    card->setProperty("port", port);
+    card->setProperty("time", time);
+    card->setProperty("searchKey", QStringLiteral("%1:%2").arg(host).arg(port));
+
+    // 信号连接
+    connect(card, &ConnectionCard::connectClicked, this, [this, card]() {
+        ConnectionParams params;
+        params.hostname = card->property("host").toString();
+        params.port = card->property("port").toInt();
+        connectToHostDirectly(params);
+    });
+    connect(card, &ConnectionCard::editClicked, this, [this, card]() {
+        if (!m_connectionDialog) {
+            m_connectionDialog = new ConnectionDialog(this);
+        }
+        QString cardHost = card->property("host").toString();
+        int cardPort = card->property("port").toInt();
+        // 预填主机和端口
+        m_connectionDialog->setHostname(cardHost);
+        m_connectionDialog->setHostAddress(cardHost);
+        m_connectionDialog->setPort(cardPort);
+
+        if (m_connectionDialog->exec() == QDialog::Accepted) {
+            ConnectionParams params;
+            params.hostname = m_connectionDialog->getHostname();
+            params.host     = m_connectionDialog->getHostAddress();
+            params.port     = m_connectionDialog->getPort();
+            // 移除旧卡片，添加更新后的
+            m_cardLayout->removeWidget(card);
+            m_connectionCards.removeOne(card);
+            card->deleteLater();
+            addConnectionCard(params.host.isEmpty() ? params.hostname : params.host,
+                              params.port, QDateTime::currentDateTime());
+            saveConnectionHistory();
+        }
+    });
+    connect(card, &ConnectionCard::deleteClicked, this, [this, card]() {
+        QMessageBox msgBox(this);
+        msgBox.setWindowTitle(QStringLiteral("确认删除"));
+        msgBox.setText(QStringLiteral("确定删除此连接记录？"));
+        msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+        msgBox.setDefaultButton(QMessageBox::No);
+
+        if (msgBox.exec() == QMessageBox::Yes) {
+            m_cardLayout->removeWidget(card);
+            m_connectionCards.removeOne(card);
+            card->deleteLater();
+            saveConnectionHistory();
+            m_emptyStateLabel->setVisible(m_connectionCards.isEmpty());
+        }
+    });
+
+    m_cardLayout->insertWidget(0, card);
+    m_connectionCards.prepend(card);
+    m_emptyStateLabel->setVisible(false);
+
+    return card;
+}
+
+void MainWindow::applyTheme()
+{
+    QString qssFile = (m_themeMode == "dark")
+        ? ":/styles/dark.qss"
+        : ":/styles/light.qss";
+
+    QFile file(qssFile);
+    if (file.open(QFile::ReadOnly)) {
+        QString styleSheet = QLatin1String(file.readAll());
+        qApp->setStyleSheet(styleSheet);
+        file.close();
+    }
+
+    m_settings->setValue("UI/theme", m_themeMode);
+}
+
+void MainWindow::toggleTheme()
+{
+    m_themeMode = (m_themeMode == "dark") ? "light" : "dark";
+    applyTheme();
 }
 
 void MainWindow::setClientMode(bool clientMode) {
@@ -1057,58 +898,6 @@ void MainWindow::setClientMode(bool clientMode) {
 
         // 延迟启动服务器
         QTimer::singleShot(500, this, &MainWindow::startServer);
-    }
-}
-
-QString MainWindow::formatConnectionText(const QString& host, int port, const QString& connectionTime) {
-    return tr("主机: %1\n端口: %2\n连接时间: %3")
-        .arg(host)
-        .arg(port)
-        .arg(connectionTime);
-}
-
-QListWidgetItem* MainWindow::createConnectionListItem(const QString& host, int port, const QString& connectionTime) {
-    QListWidgetItem* item = new QListWidgetItem();
-    item->setData(Qt::UserRole, host);
-    item->setData(Qt::UserRole + 1, port);
-    item->setData(Qt::UserRole + 2, connectionTime);
-
-    // 创建自定义的QLabel来显示多行文本
-    QLabel* label = new QLabel(formatConnectionText(host, port, connectionTime));
-    label->setWordWrap(true);
-    label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
-    label->setStyleSheet(
-        "QLabel {"
-        "    color: #2c3e50;"
-        "    padding: 15px 12px;"
-        "    background-color: transparent;"
-        "    font-size: 13px;"
-        "}"
-    );
-
-    item->setSizeHint(QSize(0, 120));
-
-    // 添加到列表末尾,保持配置文件中的顺序
-    m_connectionList->addItem(item);
-    m_connectionList->setItemWidget(item, label);
-
-    return item;
-}
-
-void MainWindow::updateConnectionListItem(QListWidgetItem* item, const QString& host, int port, const QString& connectionTime) {
-    if ( !item || !m_connectionList ) {
-        return;
-    }
-
-    // 更新项目数据
-    item->setData(Qt::UserRole, host);
-    item->setData(Qt::UserRole + 1, port);
-    item->setData(Qt::UserRole + 2, connectionTime);
-
-    // 更新QLabel内容
-    QLabel* label = qobject_cast<QLabel*>(m_connectionList->itemWidget(item));
-    if ( label ) {
-        label->setText(formatConnectionText(host, port, connectionTime));
     }
 }
 
