@@ -1,0 +1,176 @@
+/* ===== MainWindow & Global ===== */
+QMainWindow {
+    background-color: #1E1E1E;
+}
+QWidget {
+    background-color: #1E1E1E;
+    color: #E0E0E0;
+}
+
+/* ===== QLabel ===== */
+QLabel {
+    color: #E0E0E0;
+    background: transparent;
+}
+
+/* ===== QLineEdit ===== */
+QLineEdit {
+    background-color: #2D2D2D;
+    color: #E0E0E0;
+    border: 1px solid #444444;
+    border-radius: 6px;
+    padding: 8px 14px;
+    selection-background-color: #4A90D9;
+}
+QLineEdit:focus {
+    border-color: #4A90D9;
+}
+
+/* ===== QFrame (cards) ===== */
+QFrame#connectionCard {
+    background-color: #2A2A2A;
+    border: 1px solid #3A3A3A;
+    border-radius: 8px;
+}
+
+/* ===== QToolButton ===== */
+QToolButton {
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    padding: 4px;
+}
+QToolButton:hover {
+    background-color: #3A3A3A;
+}
+QToolButton:pressed {
+    background-color: #444444;
+}
+
+/* ===== QScrollArea ===== */
+QScrollArea {
+    background: transparent;
+    border: none;
+}
+QScrollArea > QWidget > QWidget {
+    background: transparent;
+}
+QScrollBar:vertical {
+    width: 0px;
+    background: transparent;
+}
+QScrollBar:horizontal {
+    height: 0px;
+    background: transparent;
+}
+
+/* ===== QStatusBar ===== */
+QStatusBar {
+    background-color: #1A1A1A;
+    color: #999999;
+    border-top: 1px solid #333333;
+}
+QStatusBar QLabel {
+    color: #999999;
+    padding: 2px 8px;
+    background: transparent;
+}
+
+/* ===== QMenu ===== */
+QMenu {
+    background-color: #2D2D2D;
+    border: 1px solid #444444;
+    border-radius: 6px;
+    padding: 4px 0;
+    color: #E0E0E0;
+}
+QMenu::item {
+    padding: 6px 24px;
+}
+QMenu::item:selected {
+    background-color: #4A90D9;
+}
+QMenu::separator {
+    height: 1px;
+    background: #3A3A3A;
+    margin: 4px 12px;
+}
+
+/* ===== QDialog ===== */
+QDialog {
+    background-color: #1E1E1E;
+    color: #E0E0E0;
+}
+
+/* ===== QToolTip ===== */
+QToolTip {
+    background-color: #333333;
+    color: #E0E0E0;
+    border: 1px solid #555555;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+/* ===== 左侧导航栏 ===== */
+QWidget#leftNavBar {
+    background-color: #1A1A1A;
+    border-right: 1px solid #333333;
+}
+
+/* ===== 汉堡菜单项 ===== */
+QToolButton#hamburgerItem {
+    background: transparent;
+    border: none;
+    padding: 8px;
+}
+QToolButton#hamburgerItem:hover {
+    background-color: #333333;
+    border-radius: 4px;
+}
+
+/* ===== 搜索框 ===== */
+QLineEdit#searchBox {
+    background-color: #2D2D2D;
+    color: #E0E0E0;
+    border: 1px solid #444444;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 14px;
+}
+QLineEdit#searchBox:focus {
+    border-color: #4A90D9;
+}
+
+/* ===== 卡片内标签 ===== */
+QLabel#cardHostname {
+    color: #E0E0E0;
+    font-size: 14px;
+    font-weight: bold;
+    background: transparent;
+}
+QLabel#cardAddress {
+    color: #AAAAAA;
+    font-size: 12px;
+    background: transparent;
+}
+QLabel#cardInfo {
+    color: #999999;
+    font-size: 11px;
+    background: transparent;
+}
+
+/* ===== 欢迎页标题 ===== */
+QLabel#welcomeTitle {
+    color: #E0E0E0;
+    font-size: 20px;
+    font-weight: bold;
+    background: transparent;
+}
+
+/* ===== 空状态文字 ===== */
+QLabel#emptyStateLabel {
+    color: #666666;
+    font-size: 13px;
+    background: transparent;
+}

@@ -43,7 +43,8 @@
     <!-- 状态与设置图标（已去除未引用项，保留常用通用图标） -->
         
         <!-- 其他资源 -->
-        <file>styles/default.qss</file>
+        <file>styles/dark.qss</file>
+        <file>styles/light.qss</file>
         <file>translations/zh_CN.qm</file>
         <file>translations/en_US.qm</file>
         <file>translations/qtbase_zh_CN.qm</file>
