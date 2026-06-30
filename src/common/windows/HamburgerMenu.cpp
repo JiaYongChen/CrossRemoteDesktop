@@ -21,7 +21,7 @@ void HamburgerMenu::setupUi()
 
     // ☰ 按钮
     m_hamburgerButton = new QToolButton();
-    m_hamburgerButton->setIcon(QIcon(":/icons/app.svg"));
+    m_hamburgerButton->setIcon(QIcon(":/icons/menu.svg"));
     m_hamburgerButton->setIconSize(QSize(22, 22));
     m_hamburgerButton->setToolTip(tr("菜单"));
     m_hamburgerButton->setAutoRaise(true);
@@ -71,7 +71,7 @@ void HamburgerMenu::setupUi()
 
     // 主题切换按钮（始终可见）
     m_themeButton = new QToolButton();
-    m_themeButton->setIcon(QIcon(":/icons/app.svg"));  // 使用 app.svg 占位
+    m_themeButton->setIcon(QIcon(":/icons/theme.svg"));
     m_themeButton->setIconSize(QSize(20, 20));
     m_themeButton->setToolTip(tr("切换主题"));
     m_themeButton->setAutoRaise(true);

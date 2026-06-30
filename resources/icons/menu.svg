@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gmenu" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#667eea"/>
+      <stop offset="100%" stop-color="#764ba2"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="32" fill="#F5F7FA"/>
+  <g fill="none" stroke="url(#gmenu)" stroke-width="14" stroke-linecap="round">
+    <line x1="68" y1="82" x2="188" y2="82"/>
+    <line x1="68" y1="128" x2="188" y2="128"/>
+    <line x1="68" y1="174" x2="188" y2="174"/>
+  </g>
+</svg>

@@ -39,6 +39,8 @@
         <file>icons/zoom_actual.svg</file>
         <file>icons/keyboard.svg</file>
         <file>icons/update.svg</file>
+        <file>icons/menu.svg</file>
+        <file>icons/theme.svg</file>
         
     <!-- 状态与设置图标（已去除未引用项，保留常用通用图标） -->
         
