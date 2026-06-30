@@ -136,6 +136,7 @@ void HamburgerMenu::setupAnimations()
     m_menuContainer->setMaximumHeight(1000);
     m_menuContainer->adjustSize();
     m_menuFullHeight = m_menuContainer->sizeHint().height();
+    m_menuContainer->setMaximumHeight(0);   // 测量后恢复折叠状态
 
     m_heightAnimation = new QPropertyAnimation(m_menuContainer, "maximumHeight", this);
     m_heightAnimation->setDuration(150);
