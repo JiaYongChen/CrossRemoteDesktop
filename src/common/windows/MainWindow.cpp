@@ -271,7 +271,7 @@ void MainWindow::changeEvent(QEvent* event) {
 
 void MainWindow::retranslateUi() {
     qCInfo(lcUIMainWindow) << "MainWindow::retranslateUi - starting UI retranslation";
-    setWindowTitle(tr("Qt远程桌面"));
+    setWindowTitle(m_clientMode ? tr("Qt远程桌面 - 客户端模式") : tr("Qt远程桌面"));
 
     // 全局快捷键动作
     m_exitAction->setText(tr("退出"));
@@ -292,7 +292,10 @@ void MainWindow::retranslateUi() {
         m_searchBox->setPlaceholderText(tr("搜索历史连接..."));
     }
     if ( m_emptyStateLabel ) {
-        m_emptyStateLabel->setText(tr("暂无连接历史"));
+        m_emptyStateLabel->setText(
+            m_searchBox && !m_searchBox->text().isEmpty()
+                ? tr("无匹配的连接记录")
+                : tr("暂无连接历史"));
     }
 
     qCInfo(lcUIMainWindow) << "MainWindow::retranslateUi - UI retranslation done, windowTitle:" << windowTitle();
@@ -864,8 +867,8 @@ ConnectionCard *MainWindow::addConnectionCard(const QString &host, int port,
     });
     connect(card, &ConnectionCard::deleteClicked, this, [this, card]() {
         QMessageBox msgBox(this);
-        msgBox.setWindowTitle(QStringLiteral("确认删除"));
-        msgBox.setText(QStringLiteral("确定删除此连接记录？"));
+        msgBox.setWindowTitle(tr("确认删除"));
+        msgBox.setText(tr("确定删除此连接记录？"));
         msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
         msgBox.setDefaultButton(QMessageBox::No);
 

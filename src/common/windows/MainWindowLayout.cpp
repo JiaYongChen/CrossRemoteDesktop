@@ -46,9 +46,9 @@ void MainWindow::createActions()
     addAction(m_exitAction);
 
     // 托盘 Actions
-    m_minimizeAction = new QAction(tr("最小化"), this);
-    m_maximizeAction = new QAction(tr("最大化"), this);
-    m_restoreAction  = new QAction(tr("恢复"), this);
+    m_minimizeAction = new QAction(tr("最小化(&N)"), this);
+    m_maximizeAction = new QAction(tr("最大化(&X)"), this);
+    m_restoreAction  = new QAction(tr("恢复(&R)"), this);
 }
 
 // ============================================================
@@ -188,6 +188,6 @@ void MainWindow::createSystemTrayIcon()
 
     m_trayIcon->setContextMenu(m_trayIconMenu);
     m_trayIcon->setIcon(QIcon(":/icons/app.svg"));
-    m_trayIcon->setToolTip(QStringLiteral("远程桌面"));
+    m_trayIcon->setToolTip(tr("远程桌面"));
     m_trayIcon->show();
 }
