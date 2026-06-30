@@ -4,229 +4,550 @@
 <context>
     <name>ClientManager</name>
     <message>
-        <location filename="../../src/client/ClientManager.cpp" line="593"/>
         <source>服务器错误</source>
-        <translation>Server Error</translation>
+        <translation type="vanished">Server Error</translation>
     </message>
     <message>
-        <location filename="../../src/client/ClientManager.cpp" line="594"/>
         <source>连接服务器时发生错误：%1</source>
-        <translation>Error connecting to server: %1</translation>
+        <translation type="vanished">Error connecting to server: %1</translation>
     </message>
 </context>
 <context>
     <name>ClientRemoteWindow</name>
     <message>
-        <location filename="../../src/client/window/ClientRemoteWindow.cpp" line="49"/>
+        <location filename="../../src/client/window/ClientRemoteWindow.cpp" line="48"/>
         <source>Remote Desktop</source>
         <translation>Remote Desktop</translation>
     </message>
 </context>
 <context>
+    <name>ConnectionCard</name>
+    <message>
+        <location filename="../../src/common/windows/ConnectionCard.cpp" line="65"/>
+        <location filename="../../src/common/windows/ConnectionCard.cpp" line="133"/>
+        <source>连接</source>
+        <translation type="unfinished">Connection</translation>
+    </message>
+    <message>
+        <location filename="../../src/common/windows/ConnectionCard.cpp" line="71"/>
+        <location filename="../../src/common/windows/ConnectionCard.cpp" line="134"/>
+        <source>修改参数</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/common/windows/ConnectionCard.cpp" line="77"/>
+        <location filename="../../src/common/windows/ConnectionCard.cpp" line="135"/>
+        <source>删除记录</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>ConnectionDialog</name>
     <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="6"/>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="6"/>
         <source>远程桌面连接</source>
         <translation>Remote Desktop Connection</translation>
     </message>
     <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="19"/>
-        <source>连接信息</source>
-        <translation>Connection Info</translation>
-    </message>
-    <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="22"/>
-        <source>服务器信息</source>
-        <translation>Server Information</translation>
-    </message>
-    <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="26"/>
-        <source>主机名:</source>
-        <translation>Hostname:</translation>
-    </message>
-    <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="27"/>
-        <source>可选的友好名称（如&quot;办公室电脑&quot;）</source>
-        <translation>Optional friendly name (e.g. &quot;Office PC&quot;)</translation>
-    </message>
-    <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="28"/>
-        <source>主机地址:</source>
-        <translation>Host Address:</translation>
-    </message>
-    <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="34"/>
-        <source>身份验证</source>
-        <translation>Authentication</translation>
-    </message>
-    <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="38"/>
-        <source>用户名:</source>
-        <translation>Username:</translation>
-    </message>
-    <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="39"/>
-        <source>输入用户名（可选）</source>
-        <translation>Enter username (optional)</translation>
-    </message>
-    <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="40"/>
-        <source>密码:</source>
-        <translation>Password:</translation>
-    </message>
-    <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="43"/>
-        <source>输入密码（可选）</source>
-        <translation>Enter password (optional)</translation>
-    </message>
-    <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="29"/>
-        <source>IP 或主机名，可含端口如 192.168.1.100:5921</source>
-        <translation>IP or hostname, optionally with port</translation>
-    </message>
-    <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="44"/>
-        <source>👁</source>
-        <translation>[TODO]</translation>
-    </message>
-    <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="44"/>
-        <source>显示/隐藏密码</source>
-        <translation>Show/Hide Password</translation>
-    </message>
-    <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="44"/>
-        <source>QPushButton#togglePasswordBtn {
-	background-color: transparent;
-	border: 1px solid #cfcfcf;
-	border-radius: 4px;
-	font-size: 10px;
-	color: #555555;
+        <location filename="../../src/ui/ConnectionDialog.ui" line="21"/>
+        <source>/* ============================================================
+ * ConnectionDialog — Fluent Design (WinUI) 浅色主题
+ * ============================================================ */
+
+/* --- 窗口 --- */
+QDialog#ConnectionDialog {
+    background-color: #f3f3f3;
+    font-family: &quot;Segoe UI Variable&quot;, &quot;Segoe UI&quot;, &quot;Microsoft YaHei&quot;, sans-serif;
+    font-size: 13px;
+    color: #1a1a1a;
 }
-QPushButton#togglePasswordBtn:hover {
-	background-color: #f0f0f0;
+
+/* --- 标签页容器（继承对话框背景） --- */
+QWidget#tabContainer {
+    background-color: transparent;
 }
-QPushButton#togglePasswordBtn[revealed=&quot;true&quot;] {
-	background-color: #0078d4;
-	border-color: #0078d4;
-	color: #ffffff;
+
+/* --- 标签页容器（标签栏区域背景） --- */
+QTabWidget {
+    background-color: transparent;
+}
+
+/* --- 标签页内容区 --- */
+QTabWidget::pane {
+    background-color: #fcfcfc;
+    border: none;
+    border-top: 1px solid #e0e0e0;
+    top: -1px;
+    padding: 6px 28px;
+}
+
+/* --- 标签栏 --- */
+QTabBar::tab {
+    background-color: transparent;
+    color: #666666;
+    padding: 10px 20px;
+    border: none;
+    border-bottom: 3px solid transparent;
+    font-size: 13px;
+    font-weight: 400;
+}
+
+QTabBar::tab:selected {
+    color: #1a1a1a;
+    font-weight: 600;
+    border-bottom: 3px solid #0078d4;
+}
+
+QTabBar::tab:hover:!selected {
+    color: #1a1a1a;
+}
+
+/* --- 分组框 → 白色卡片 --- */
+QGroupBox {
+    background-color: #ffffff;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    margin-top: 0px;
+    padding: 18px 12px 12px 12px;
+    font-weight: 600;
+    font-size: 13px;
+    color: #1a1a1a;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 14px;
+    padding: 0 6px 0 6px;
+    color: #1a1a1a;
+}
+
+/* --- 标签 --- */
+QLabel {
+    color: #1a1a1a;
+    font-weight: 400;
+    font-size: 13px;
+}
+
+QLabel:disabled {
+    color: #a0a0a0;
+}
+
+/* --- 下拉框 --- */
+QComboBox {
+    border: 1px solid #cfcfcf;
+    border-radius: 4px;
+    padding: 5px 10px;
+    background-color: #ffffff;
+    color: #1a1a1a;
+    font-size: 13px;
+    font-family: &quot;Segoe UI&quot;, sans-serif;
+}
+
+QComboBox:hover {
+    border-color: #999999;
+}
+
+QComboBox:focus {
+    border-color: #0078d4;
+}
+
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 24px;
+    border: none;
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
+}
+
+QComboBox::down-arrow {
+    image: url(:/icons/dropdown-arrow.svg);
+    width: 12px;
+    height: 12px;
+    margin-right: 6px;
+}
+
+QComboBox QAbstractItemView {
+    border: 1px solid #cfcfcf;
+    border-radius: 4px;
+    background-color: #ffffff;
+    selection-background-color: rgba(0, 120, 212, 0.12);
+    selection-color: #1a1a1a;
+    outline: none;
+}
+
+/* --- 数字输入框 --- */
+QSpinBox {
+    border: 1px solid #cfcfcf;
+    border-radius: 4px;
+    padding: 8px 12px;
+    background-color: #ffffff;
+    color: #1a1a1a;
+    font-size: 13px;
+    font-family: &quot;Segoe UI&quot;, sans-serif;
+}
+
+QSpinBox:hover {
+    border-color: #999999;
+}
+
+QSpinBox:focus {
+    border-color: #0078d4;
+}
+
+QSpinBox:disabled {
+    background-color: #f0f0f0;
+    color: #a0a0a0;
+    border-color: #e0e0e0;
+}
+
+QSpinBox::up-button {
+    subcontrol-origin: border;
+    subcontrol-position: top right;
+    width: 20px;
+    border-left: 1px solid #cfcfcf;
+    border-bottom: 1px solid #cfcfcf;
+    border-top-right-radius: 4px;
+}
+
+QSpinBox::up-button:hover {
+    background-color: #e8e8e8;
+}
+
+QSpinBox::up-arrow {
+    image: url(:/icons/spin-up.svg);
+    width: 8px;
+    height: 8px;
+}
+
+QSpinBox::down-button {
+    subcontrol-origin: border;
+    subcontrol-position: bottom right;
+    width: 20px;
+    border-left: 1px solid #cfcfcf;
+    border-bottom-right-radius: 4px;
+}
+
+QSpinBox::down-button:hover {
+    background-color: #e8e8e8;
+}
+
+QSpinBox::down-arrow {
+    image: url(:/icons/spin-down.svg);
+    width: 8px;
+    height: 8px;
+}
+
+/* --- 文本框 --- */
+QLineEdit {
+    border: 1px solid #cfcfcf;
+    border-radius: 4px;
+    padding: 8px 12px;
+    background-color: #ffffff;
+    color: #1a1a1a;
+    font-size: 13px;
+    font-family: &quot;Segoe UI&quot;, sans-serif;
+}
+
+QLineEdit:hover {
+    border-color: #999999;
+}
+
+QLineEdit:focus {
+    border-color: #0078d4;
+}
+
+/* --- 复选框（传统方框样式） --- */
+QCheckBox {
+    color: #1a1a1a;
+    font-size: 13px;
+    spacing: 8px;
+}
+
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    background-color: #ffffff;
+    border: 2px solid #cccccc;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #0078d4;
+    border-color: #0078d4;
+}
+
+QCheckBox::indicator:hover {
+    border-color: #999999;
+}
+
+QCheckBox::indicator:checked:hover {
+    background-color: #106ebe;
+    border-color: #106ebe;
+}
+
+/* --- 滑块（图像质量） --- */
+QSlider::groove:horizontal {
+    background-color: #e0e0e0;
+    height: 4px;
+    border-radius: 2px;
+}
+
+QSlider::sub-page:horizontal {
+    background-color: #0078d4;
+    height: 4px;
+    border-radius: 2px;
+}
+
+QSlider::handle:horizontal {
+    background-color: #ffffff;
+    border: 2px solid #0078d4;
+    width: 16px;
+    height: 16px;
+    margin: -6px 0;
+    border-radius: 8px;
+}
+
+QSlider::handle:horizontal:hover {
+    background-color: #f0f0f0;
+    border-color: #106ebe;
+}
+
+/* --- 底部按钮栏（对话框按钮） --- */
+QDialogButtonBox QPushButton {
+    background-color: #0078d4;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 18px;
+    font-size: 13px;
+    font-weight: 500;
+    min-width: 90px;
+    min-height: 28px;
+}
+
+QDialogButtonBox QPushButton:hover {
+    background-color: #106ebe;
+}
+
+QDialogButtonBox QPushButton:pressed {
+    background-color: #005a9e;
+}
+
+/* --- 滚动条 --- */
+QScrollBar:vertical {
+    width: 6px;
+    background-color: transparent;
+    margin: 0;
+}
+
+QScrollBar::handle:vertical {
+    background-color: #c0c0c0;
+    border-radius: 3px;
+    min-height: 30px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background-color: #a0a0a0;
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical {
+    background-color: transparent;
+}
+
+/* --- 标签页内 QWidget 透底 --- */
+QWidget#connectionTab,
+QWidget#optionsTab,
+QWidget#advancedTab {
+    background-color: transparent;
 }</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="68"/>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="358"/>
+        <source>连接信息</source>
+        <translation>Connection Info</translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="361"/>
+        <source>服务器信息</source>
+        <translation>Server Information</translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="365"/>
+        <source>主机名:</source>
+        <translation>Hostname:</translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="366"/>
+        <source>可选的友好名称（如&quot;办公室电脑&quot;）</source>
+        <translation>Optional friendly name (e.g. &quot;Office PC&quot;)</translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="367"/>
+        <source>主机地址:</source>
+        <translation>Host Address:</translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="373"/>
+        <source>身份验证</source>
+        <translation>Authentication</translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="377"/>
+        <source>用户名:</source>
+        <translation>Username:</translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="378"/>
+        <source>输入用户名（可选）</source>
+        <translation>Enter username (optional)</translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="379"/>
+        <source>密码:</source>
+        <translation>Password:</translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="380"/>
+        <source>输入密码（可选）</source>
+        <translation>Enter password (optional)</translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="368"/>
+        <source>IP 或主机名，可含端口如 192.168.1.100:5921</source>
+        <translation>IP or hostname, optionally with port</translation>
+    </message>
+    <message>
+        <source>👁</source>
+        <translation type="vanished">[TODO]</translation>
+    </message>
+    <message>
+        <source>显示/隐藏密码</source>
+        <translation type="vanished">Show/Hide Password</translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="388"/>
         <source>显示 &amp;&amp; 功能</source>
         <translation>Display &amp; Function</translation>
     </message>
     <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="71"/>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="391"/>
         <source>显示设置</source>
         <translation>Display Settings</translation>
     </message>
     <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="75"/>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="395"/>
         <source>颜色深度:</source>
         <translation>Color Depth:</translation>
     </message>
     <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="76"/>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="396"/>
         <source>16位 (65K 颜色)</source>
         <translation>16-bit (65K colors)</translation>
     </message>
     <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="76"/>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="396"/>
         <source>24位 (16M 颜色)</source>
         <translation>24-bit (16M colors)</translation>
     </message>
     <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="76"/>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="396"/>
         <source>32位 (真彩色)</source>
         <translation>32-bit (True Color)</translation>
     </message>
     <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="77"/>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="398"/>
         <source>全屏模式</source>
         <translation>Full Screen Mode</translation>
     </message>
     <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="82"/>
         <source>窗口大小</source>
-        <translation>Window Size</translation>
+        <translation type="vanished">Window Size</translation>
     </message>
     <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="84"/>
-        <location filename="../../src/ui/connectiondialog.ui" line="86"/>
         <source> px</source>
-        <translation>Fullscreen Mode</translation>
+        <translation type="vanished">Fullscreen Mode</translation>
     </message>
     <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="85"/>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="402"/>
         <source>×</source>
         <translation>[TODO]</translation>
     </message>
     <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="91"/>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="410"/>
         <source>图像质量</source>
         <translation>Image Quality</translation>
     </message>
     <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="102"/>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="421"/>
         <source>仅查看模式（禁用输入）</source>
         <translation>View Only Mode (disable input)</translation>
     </message>
     <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="110"/>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="428"/>
         <source>网络</source>
         <translation>Network</translation>
     </message>
     <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="98"/>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="417"/>
         <source>功能选项</source>
         <translation>Feature Options</translation>
     </message>
     <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="100"/>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="397"/>
+        <source>显示模式:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="419"/>
         <source>启用剪贴板同步</source>
         <translation>Enable Clipboard Sync</translation>
     </message>
     <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="101"/>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="420"/>
         <source>显示远程光标</source>
         <translation>Show Remote Cursor</translation>
     </message>
     <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="113"/>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="431"/>
         <source>网络设置</source>
         <translation>Network Settings</translation>
     </message>
     <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="117"/>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="435"/>
         <source>连接超时:</source>
         <translation>Connection Timeout:</translation>
     </message>
     <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="118"/>
-        <location filename="../../src/ui/connectiondialog.ui" line="121"/>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="436"/>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="439"/>
         <source> 秒</source>
         <translation> sec</translation>
     </message>
     <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="119"/>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="437"/>
         <source>自动重连</source>
         <translation>Auto Reconnect</translation>
     </message>
     <message>
-        <location filename="../../src/ui/connectiondialog.ui" line="120"/>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="438"/>
         <source>重连间隔:</source>
         <translation>Reconnect Interval:</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/ConnectionDialog.cpp" line="78"/>
+        <location filename="../../src/common/windows/ConnectionDialog.cpp" line="82"/>
         <source>连接</source>
         <translation>Connection</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/ConnectionDialog.cpp" line="90"/>
+        <location filename="../../src/common/windows/ConnectionDialog.cpp" line="94"/>
         <source>主机地址不能包含空格</source>
         <translation>Host address cannot contain spaces</translation>
     </message>
@@ -234,31 +555,76 @@ QPushButton#togglePasswordBtn[revealed=&quot;true&quot;] {
 <context>
     <name>ConnectionLifecycle</name>
     <message>
-        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="63"/>
-        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="66"/>
-        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="69"/>
-        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="72"/>
-        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="75"/>
-        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="78"/>
-        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="81"/>
-        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="84"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="61"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="64"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="67"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="70"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="73"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="76"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="79"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="82"/>
         <source>%1 - %2</source>
         <translation>%1 - %2</translation>
     </message>
     <message>
-        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="99"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="97"/>
         <source>Connection Disconnected</source>
         <translation>Connection Disconnected</translation>
     </message>
     <message>
-        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="100"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="98"/>
         <source>Connection to remote host %1 has been disconnected.</source>
         <translation>Connection to remote host %1 has been disconnected.</translation>
     </message>
     <message>
-        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="102"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="100"/>
         <source>The window will close.</source>
         <translation>The window will close.</translation>
+    </message>
+</context>
+<context>
+    <name>HamburgerMenu</name>
+    <message>
+        <location filename="../../src/common/windows/HamburgerMenu.cpp" line="26"/>
+        <location filename="../../src/common/windows/HamburgerMenu.cpp" line="202"/>
+        <source>菜单</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/common/windows/HamburgerMenu.cpp" line="46"/>
+        <location filename="../../src/common/windows/HamburgerMenu.cpp" line="203"/>
+        <source>新建连接 (Ctrl+N)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/common/windows/HamburgerMenu.cpp" line="49"/>
+        <location filename="../../src/common/windows/HamburgerMenu.cpp" line="204"/>
+        <source>连接 (Ctrl+O)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/common/windows/HamburgerMenu.cpp" line="58"/>
+        <location filename="../../src/common/windows/HamburgerMenu.cpp" line="205"/>
+        <source>设置 (Ctrl+,)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/common/windows/HamburgerMenu.cpp" line="67"/>
+        <location filename="../../src/common/windows/HamburgerMenu.cpp" line="206"/>
+        <source>关于</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/common/windows/HamburgerMenu.cpp" line="70"/>
+        <location filename="../../src/common/windows/HamburgerMenu.cpp" line="207"/>
+        <source>退出 (Ctrl+Q)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/common/windows/HamburgerMenu.cpp" line="92"/>
+        <location filename="../../src/common/windows/HamburgerMenu.cpp" line="208"/>
+        <source>切换主题</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -266,9 +632,9 @@ QPushButton#togglePasswordBtn[revealed=&quot;true&quot;] {
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="14"/>
         <location filename="../../src/ui/mainwindow.ui" line="95"/>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="82"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="95"/>
         <location filename="../../src/common/windows/MainWindow.cpp" line="274"/>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="863"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="943"/>
         <source>Qt远程桌面</source>
         <translation>Cross Remote Desktop</translation>
     </message>
@@ -306,8 +672,6 @@ QPushButton:pressed {
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="212"/>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="141"/>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="573"/>
         <source>启动服务器</source>
         <translation>Start Server</translation>
     </message>
@@ -371,18 +735,12 @@ QListWidget::item:hover {
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="378"/>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="296"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="54"/>
         <source>文件(&amp;F)</source>
         <translation>&amp;File</translation>
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="389"/>
         <location filename="../../src/ui/mainwindow.ui" line="503"/>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="281"/>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="297"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="31"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="59"/>
         <source>连接(&amp;C)</source>
         <translation>&amp;Connection</translation>
     </message>
@@ -393,8 +751,6 @@ QListWidget::item:hover {
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="409"/>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="298"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="63"/>
         <source>工具(&amp;T)</source>
         <translation>&amp;Tools</translation>
     </message>
@@ -405,8 +761,6 @@ QListWidget::item:hover {
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="433"/>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="299"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="66"/>
         <source>帮助(&amp;H)</source>
         <translation>&amp;Help</translation>
     </message>
@@ -518,8 +872,6 @@ QListWidget::item:hover {
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="605"/>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="285"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="41"/>
         <source>关于(&amp;A)</source>
         <translation>&amp;About</translation>
     </message>
@@ -530,15 +882,11 @@ QListWidget::item:hover {
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="617"/>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="279"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="26"/>
         <source>退出(&amp;X)</source>
         <translation>E&amp;xit</translation>
     </message>
     <message>
         <location filename="../../src/ui/mainwindow.ui" line="620"/>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="280"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="28"/>
         <source>退出应用程序</source>
         <translation>Exit the application</translation>
     </message>
@@ -758,244 +1106,305 @@ QListWidget::item:hover {
         <translation>Check for application updates</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="277"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="21"/>
         <source>新建连接(&amp;N)...</source>
-        <translation>&amp;New Connection...</translation>
+        <translation type="vanished">&amp;New Connection...</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="278"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="23"/>
         <source>创建新的远程连接</source>
-        <translation>Create a new remote connection</translation>
+        <translation type="vanished">Create a new remote connection</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="32"/>
+        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="30"/>
+        <source>新建连接 (Ctrl+N)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="34"/>
         <source>Ctrl+O</source>
         <translation>Ctrl+O</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="282"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="33"/>
-        <source>连接到远程主机</source>
-        <translation>Connect to a remote host</translation>
+        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="35"/>
+        <source>连接 (Ctrl+O)</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="283"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="36"/>
-        <source>设置(&amp;S)...</source>
-        <translation>&amp;Settings...</translation>
+        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="40"/>
+        <source>设置 (Ctrl+,)</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="284"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="38"/>
-        <source>配置应用程序设置</source>
-        <translation>Configure application settings</translation>
-    </message>
-    <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="286"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="42"/>
-        <source>显示应用程序的关于对话框</source>
-        <translation>About Cross Remote Desktop</translation>
-    </message>
-    <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="287"/>
         <location filename="../../src/common/windows/MainWindowLayout.cpp" line="45"/>
+        <source>退出 (Ctrl+Q)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>连接到远程主机</source>
+        <translation type="vanished">Connect to a remote host</translation>
+    </message>
+    <message>
+        <source>设置(&amp;S)...</source>
+        <translation type="vanished">&amp;Settings...</translation>
+    </message>
+    <message>
+        <source>配置应用程序设置</source>
+        <translation type="vanished">Configure application settings</translation>
+    </message>
+    <message>
+        <source>显示应用程序的关于对话框</source>
+        <translation type="vanished">About Cross Remote Desktop</translation>
+    </message>
+    <message>
         <source>关于Qt(&amp;Q)</source>
-        <translation>About &amp;Qt</translation>
+        <translation type="vanished">About &amp;Qt</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="288"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="46"/>
         <source>显示Qt库的关于对话框</source>
-        <translation>About the Qt library</translation>
+        <translation type="vanished">About the Qt library</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="291"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="48"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="280"/>
+        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="49"/>
         <source>最小化(&amp;N)</source>
         <translation>Mi&amp;nimize</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="292"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="49"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="281"/>
+        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="50"/>
         <source>最大化(&amp;X)</source>
         <translation>Ma&amp;ximize</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="293"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="50"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="282"/>
+        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="51"/>
         <source>恢复(&amp;R)</source>
         <translation>&amp;Restore</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="302"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="79"/>
         <source>主工具栏</source>
-        <translation>Main Toolbar</translation>
+        <translation type="vanished">Main Toolbar</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="305"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="91"/>
         <source>未连接</source>
-        <translation>Not connected</translation>
+        <translation type="vanished">Not connected</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="306"/>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="568"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="92"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="704"/>
         <source>服务器已停止</source>
         <translation>Server stopped</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="307"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="93"/>
+        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="66"/>
         <source>CPU: 0% | 内存: 0MB</source>
         <translation>CPU: 0% | Memory: 0MB</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="308"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="105"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="288"/>
+        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="73"/>
         <source>就绪</source>
         <translation>Ready</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="311"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="126"/>
         <source>欢迎使用Qt远程桌面</source>
-        <translation>Welcome to Cross Remote Desktop</translation>
+        <translation type="vanished">Welcome to Cross Remote Desktop</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="312"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="134"/>
         <source>使用左侧按钮连接到远程计算机。</source>
-        <translation>Use the buttons on the left to connect to a remote computer.</translation>
+        <translation type="vanished">Use the buttons on the left to connect to a remote computer.</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="313"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="139"/>
         <source>连接历史记录</source>
-        <translation>Connection History</translation>
+        <translation type="vanished">Connection History</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="209"/>
+        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="191"/>
         <source>远程桌面</source>
         <translation>Remote Desktop</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="377"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="277"/>
+        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="43"/>
+        <source>退出</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="285"/>
+        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="60"/>
+        <source>连接：未连接</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="286"/>
+        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="63"/>
+        <source>服务器：已停止</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="292"/>
+        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="126"/>
+        <source>搜索历史连接...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="297"/>
+        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="167"/>
+        <source>无匹配的连接记录</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="298"/>
+        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="133"/>
+        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="166"/>
+        <source>暂无连接历史</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="353"/>
         <source>需要辅助功能权限</source>
         <translation>Accessibility Permission Required</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="378"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="354"/>
         <source>&lt;p&gt;Qt远程桌面需要&lt;b&gt;辅助功能权限&lt;/b&gt;才能模拟鼠标和键盘输入。&lt;/p&gt;&lt;p&gt;请按照以下步骤授予权限：&lt;/p&gt;&lt;ol&gt;&lt;li&gt;打开&lt;b&gt;系统偏好设置&lt;/b&gt;&lt;/li&gt;&lt;li&gt;选择&lt;b&gt;安全性与隐私&lt;/b&gt;&lt;/li&gt;&lt;li&gt;点击&lt;b&gt;隐私&lt;/b&gt;标签&lt;/li&gt;&lt;li&gt;在左侧列表中选择&lt;b&gt;辅助功能&lt;/b&gt;&lt;/li&gt;&lt;li&gt;点击左下角的锁图标解锁&lt;/li&gt;&lt;li&gt;在右侧列表中勾选&lt;b&gt;CrossRemoteDesktop&lt;/b&gt;&lt;/li&gt;&lt;/ol&gt;&lt;p&gt;授予权限后，请重启应用程序。&lt;/p&gt;</source>
         <translation>[TODO]</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="417"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="394"/>
         <source>关于Qt远程桌面</source>
         <translation>About Cross Remote Desktop</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="418"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="395"/>
         <source>&lt;h2&gt;Qt远程桌面 1.0&lt;/h2&gt;&lt;p&gt;基于Qt 6.9.1构建的跨平台远程桌面应用程序。&lt;/p&gt;&lt;p&gt;支持macOS和Windows系统之间的远程连接。&lt;/p&gt;</source>
         <translation>&lt;h2&gt;Cross Remote Desktop 1.0&lt;/h2&gt;&lt;p&gt;A cross-platform remote desktop application built with Qt 6.9.1.&lt;/p&gt;&lt;p&gt;Supports remote connections between macOS and Windows systems.&lt;/p&gt;</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="424"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="401"/>
         <source>关于Qt</source>
         <translation>About Qt</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="425"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="402"/>
         <source>&lt;h2&gt;关于Qt&lt;/h2&gt;&lt;p&gt;本程序使用Qt版本6.9.1。&lt;/p&gt;&lt;p&gt;Qt是一个用于跨平台应用程序开发的C++工具包。&lt;/p&gt;&lt;p&gt;Qt为所有主要桌面操作系统提供单一源代码的可移植性。它也可用于嵌入式Linux和其他嵌入式及移动操作系统。&lt;/p&gt;&lt;p&gt;Qt可在多种许可选项下使用，旨在满足我们各种用户的需求。&lt;/p&gt;&lt;p&gt;根据我们的商业许可协议许可的Qt适用于开发专有/商业软件，您不希望与第三方共享任何源代码或无法遵守GNU(L)GPL条款。&lt;/p&gt;&lt;p&gt;根据GNU(L)GPL许可的Qt适用于Qt应用程序的开发，前提是您可以遵守相应许可证的条款和条件。&lt;/p&gt;&lt;p&gt;版权所有 (C) Qt公司有限公司及其他贡献者。&lt;/p&gt;&lt;p&gt;Qt和Qt标志是Qt公司有限公司的商标。&lt;/p&gt;&lt;p&gt;Qt是Qt公司有限公司开发的开源项目产品。&lt;/p&gt;</source>
         <translation>&lt;h2&gt;About Qt&lt;/h2&gt;&lt;p&gt;This program uses Qt version 6.9.1.&lt;/p&gt;&lt;p&gt;Qt is a C++ toolkit for cross-platform application development.&lt;/p&gt;&lt;p&gt;Qt provides single-source portability across all major desktop operating systems. It is also available for embedded Linux and other embedded and mobile operating systems.&lt;/p&gt;&lt;p&gt;Qt is available under multiple licensing options designed to accommodate the needs of our various users.&lt;/p&gt;&lt;p&gt;Qt licensed under our commercial license agreement is appropriate for development of proprietary/commercial software where you do not want to share any source code with third parties or otherwise cannot comply with the terms of the GNU (L)GPL.&lt;/p&gt;&lt;p&gt;Qt licensed under the GNU (L)GPL is appropriate for the development of Qt applications provided you can comply with the terms and conditions of the respective licenses.&lt;/p&gt;&lt;p&gt;Copyright (C) The Qt Company Ltd. and other contributors.&lt;/p&gt;&lt;p&gt;Qt and the Qt logo are trademarks of The Qt Company Ltd.&lt;/p&gt;&lt;p&gt;Qt is an open source project product developed by The Qt Company Ltd.&lt;/p&gt;</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="546"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="472"/>
+        <source>CPU: --% | 内存: %1 MB</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="505"/>
+        <source>CPU: %1% | 内存: %2 MB</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="524"/>
+        <source>CPU: %1%</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="538"/>
+        <source>内存: %1 MB</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="692"/>
         <source>服务器启动成功，端口: %1</source>
         <translation>Server started successfully, port: %1</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="551"/>
-        <source>停止服务器</source>
-        <translation>Stop Server</translation>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="886"/>
+        <source>确定删除此连接记录？</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="583"/>
+        <source>停止服务器</source>
+        <translation type="vanished">Stop Server</translation>
+    </message>
+    <message>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="709"/>
         <source>服务器启动失败</source>
         <translation>Server failed to start</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="584"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="710"/>
         <source>服务器错误</source>
         <translation>Server Error</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="589"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="715"/>
         <source>客户端已连接: %1</source>
         <translation>Client connected: %1</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="594"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="720"/>
         <source>客户端已断开: %1</source>
         <translation>Client disconnected: %1</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="599"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="725"/>
         <source>客户端已认证: %1</source>
         <translation>Client authenticated: %1</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="717"/>
         <source>已删除连接记录</source>
-        <translation>Connection record deleted</translation>
+        <translation type="vanished">Connection record deleted</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="732"/>
         <source>连接</source>
-        <translation>Connection</translation>
+        <translation type="vanished">Connection</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="741"/>
         <source>删除</source>
-        <translation>Delete</translation>
+        <translation type="vanished">Delete</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="747"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="885"/>
         <source>确认删除</source>
         <translation>Confirm Delete</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="748"/>
         <source>确定要删除连接记录 &quot;%1&quot; 吗？</source>
-        <translation>Are you sure you want to delete connection record &quot;%1&quot;?</translation>
+        <translation type="vanished">Are you sure you want to delete connection record &quot;%1&quot;?</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="853"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="274"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="933"/>
         <source>Qt远程桌面 - 客户端模式</source>
         <translation>Cross Remote Desktop - Client Mode</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="872"/>
         <source>主机: %1
 端口: %2
 连接时间: %3</source>
-        <translation>Host: %1
+        <translation type="vanished">Host: %1
 Port: %2
 Last Connected: %3</translation>
     </message>
 </context>
 <context>
+    <name>ProtocolSession</name>
+    <message>
+        <location filename="../../src/client/session/ProtocolSession.cpp" line="36"/>
+        <source>无法启动会话 - 未认证</source>
+        <translation type="unfinished">Cannot start session - not authenticated</translation>
+    </message>
+    <message>
+        <location filename="../../src/client/session/ProtocolSession.cpp" line="42"/>
+        <source>解码管线未初始化</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>QObject</name>
     <message>
-        <location filename="../../src/main.cpp" line="352"/>
+        <location filename="../../src/main.cpp" line="326"/>
         <source>发生严重错误：%1</source>
         <translation>A critical error occurred: %1</translation>
     </message>
     <message>
-        <location filename="../../src/main.cpp" line="360"/>
+        <location filename="../../src/main.cpp" line="331"/>
         <source>发生未知错误，应用程序将退出。</source>
         <translation>An unknown error occurred, the application will exit.</translation>
     </message>
@@ -1011,50 +1420,19 @@ Last Connected: %3</translation>
 <context>
     <name>SessionManager</name>
     <message>
-        <location filename="../../src/client/managers/SessionManager.cpp" line="63"/>
         <source>无法启动会话 - 未认证</source>
-        <translation>Cannot start session - not authenticated</translation>
+        <translation type="vanished">Cannot start session - not authenticated</translation>
     </message>
 </context>
 <context>
     <name>SettingsDialog</name>
     <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="14"/>
+        <location filename="../../src/ui/settingsdialog.ui" line="26"/>
         <source>应用程序设置</source>
         <translation>Application Settings</translation>
     </message>
     <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="430"/>
-        <source>常规</source>
-        <translation>General</translation>
-    </message>
-    <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="440"/>
-        <source>高级</source>
-        <translation>Advanced</translation>
-    </message>
-    <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="560"/>
-        <source>开机自动启动</source>
-        <translation>Start with system</translation>
-    </message>
-    <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="515"/>
-        <source>界面语言:</source>
-        <translation>Interface Language:</translation>
-    </message>
-    <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="523"/>
-        <source>简体中文</source>
-        <translation>Simplified Chinese</translation>
-    </message>
-    <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="528"/>
-        <source>英语</source>
-        <translation>English</translation>
-    </message>
-    <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="24"/>
+        <location filename="../../src/ui/settingsdialog.ui" line="36"/>
         <source>/* ============================================================
  * SettingsDialog — Fluent Design (WinUI) 浅色主题
  * ============================================================ */
@@ -1137,12 +1515,11 @@ QLabel {
 QComboBox {
     border: 1px solid #cfcfcf;
     border-radius: 4px;
-    padding: 8px 12px;
+    padding: 5px 10px;
     background-color: #ffffff;
     color: #1a1a1a;
     font-size: 13px;
     font-family: &quot;Segoe UI&quot;, sans-serif;
-    min-width: 100px;
 }
 
 QComboBox:hover {
@@ -1157,9 +1534,16 @@ QComboBox::drop-down {
     subcontrol-origin: padding;
     subcontrol-position: top right;
     width: 24px;
-    border-left: 1px solid #e0e0e0;
+    border: none;
     border-top-right-radius: 4px;
     border-bottom-right-radius: 4px;
+}
+
+QComboBox::down-arrow {
+    image: url(:/icons/dropdown-arrow.svg);
+    width: 12px;
+    height: 12px;
+    margin-right: 6px;
 }
 
 QComboBox QAbstractItemView {
@@ -1188,6 +1572,43 @@ QSpinBox:hover {
 
 QSpinBox:focus {
     border-color: #0078d4;
+}
+
+QSpinBox::up-button {
+    subcontrol-origin: border;
+    subcontrol-position: top right;
+    width: 20px;
+    border-left: 1px solid #cfcfcf;
+    border-bottom: 1px solid #cfcfcf;
+    border-top-right-radius: 4px;
+}
+
+QSpinBox::up-button:hover {
+    background-color: #e8e8e8;
+}
+
+QSpinBox::up-arrow {
+    image: url(:/icons/spin-up.svg);
+    width: 8px;
+    height: 8px;
+}
+
+QSpinBox::down-button {
+    subcontrol-origin: border;
+    subcontrol-position: bottom right;
+    width: 20px;
+    border-left: 1px solid #cfcfcf;
+    border-bottom-right-radius: 4px;
+}
+
+QSpinBox::down-button:hover {
+    background-color: #e8e8e8;
+}
+
+QSpinBox::down-arrow {
+    image: url(:/icons/spin-down.svg);
+    width: 8px;
+    height: 8px;
 }
 
 /* --- 文本框 --- */
@@ -1302,30 +1723,6 @@ QPushButton#resetRulesBtn:hover {
     border-color: #bcbcbc;
 }
 
-/* --- 密码切换按钮 --- */
-QPushButton#togglePasswordBtn {
-    background-color: transparent;
-    border: 1px solid #cfcfcf;
-    border-radius: 4px;
-    width: 20px;
-    height: 20px;
-    font-size: 10px;
-    color: #555555;
-}
-
-QPushButton#togglePasswordBtn:hover {
-    background-color: #f0f0f0;
-}
-
-QPushButton#togglePasswordBtn[revealed=&quot;true&quot;] {
-    background-color: #0078d4;
-    border-color: #0078d4;
-    color: #ffffff;
-}
-
-QPushButton#togglePasswordBtn[revealed=&quot;true&quot;]:hover {
-    background-color: #106ebe;
-}
 
 /* --- 多行文本框（日志规则） --- */
 QTextEdit#logRulesTextEdit {
@@ -1389,130 +1786,158 @@ QWidget#advancedPage {
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="435"/>
+        <location filename="../../src/ui/settingsdialog.ui" line="461"/>
+        <source>常规</source>
+        <translation>General</translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/settingsdialog.ui" line="471"/>
+        <source>高级</source>
+        <translation>Advanced</translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/settingsdialog.ui" line="585"/>
+        <source>开机自动启动</source>
+        <translation>Start with system</translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/settingsdialog.ui" line="534"/>
+        <source>界面语言:</source>
+        <translation>Interface Language:</translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/settingsdialog.ui" line="548"/>
+        <source>简体中文</source>
+        <translation>Simplified Chinese</translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/settingsdialog.ui" line="553"/>
+        <source>英语</source>
+        <translation>English</translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/settingsdialog.ui" line="466"/>
         <source>通信</source>
         <translation>Communication</translation>
     </message>
     <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="491"/>
+        <location filename="../../src/ui/settingsdialog.ui" line="510"/>
         <source>语言</source>
         <translation>Language</translation>
     </message>
     <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="539"/>
+        <location filename="../../src/ui/settingsdialog.ui" line="564"/>
         <source>启动</source>
         <translation>Startup</translation>
     </message>
     <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="602"/>
+        <location filename="../../src/ui/settingsdialog.ui" line="615"/>
         <source>网络</source>
         <translation>Network</translation>
     </message>
     <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="626"/>
+        <location filename="../../src/ui/settingsdialog.ui" line="639"/>
         <source>监听端口:</source>
         <translation>Listen Port:</translation>
     </message>
     <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="649"/>
+        <location filename="../../src/ui/settingsdialog.ui" line="668"/>
         <source>认证</source>
         <translation>Authentication</translation>
     </message>
     <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="673"/>
+        <location filename="../../src/ui/settingsdialog.ui" line="680"/>
         <source>用户名:</source>
         <translation>Username:</translation>
     </message>
     <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="680"/>
+        <location filename="../../src/ui/settingsdialog.ui" line="693"/>
         <source>输入用户名</source>
         <translation>Enter Username</translation>
     </message>
     <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="687"/>
+        <location filename="../../src/ui/settingsdialog.ui" line="700"/>
         <source>密码:</source>
         <translation>Password:</translation>
     </message>
     <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="699"/>
+        <location filename="../../src/ui/settingsdialog.ui" line="716"/>
         <source>输入密码</source>
         <translation>Enter Password</translation>
     </message>
     <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="706"/>
         <source>👁</source>
-        <translation>[TODO]</translation>
+        <translation type="vanished">[TODO]</translation>
     </message>
     <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="709"/>
         <source>显示/隐藏密码</source>
-        <translation>Show/Hide Password</translation>
+        <translation type="vanished">Show/Hide Password</translation>
     </message>
     <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="753"/>
+        <location filename="../../src/ui/settingsdialog.ui" line="746"/>
         <source>日志设置</source>
         <translation>Logging Settings</translation>
     </message>
     <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="777"/>
+        <location filename="../../src/ui/settingsdialog.ui" line="770"/>
         <source>日志级别:</source>
         <translation>Log Level:</translation>
     </message>
     <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="785"/>
+        <location filename="../../src/ui/settingsdialog.ui" line="784"/>
         <source>错误</source>
         <translation>Error</translation>
     </message>
     <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="790"/>
+        <location filename="../../src/ui/settingsdialog.ui" line="789"/>
         <source>警告</source>
         <translation>Warning</translation>
     </message>
     <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="795"/>
+        <location filename="../../src/ui/settingsdialog.ui" line="794"/>
         <source>信息</source>
         <translation>Info</translation>
     </message>
     <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="800"/>
+        <location filename="../../src/ui/settingsdialog.ui" line="799"/>
         <source>调试</source>
         <translation>Debug</translation>
     </message>
     <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="808"/>
+        <location filename="../../src/ui/settingsdialog.ui" line="807"/>
         <source>分类规则:</source>
         <translation>Category Rules:</translation>
     </message>
     <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="815"/>
+        <location filename="../../src/ui/settingsdialog.ui" line="814"/>
         <source>例如:\nlcApp.debug=true\n*.info=true\nqt.network.ssl.warning=false</source>
         <translation>[TODO]</translation>
     </message>
     <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="913"/>
-        <location filename="../../src/common/windows/SettingsDialog.cpp" line="293"/>
+        <location filename="../../src/ui/settingsdialog.ui" line="912"/>
+        <location filename="../../src/common/windows/SettingsDialog.cpp" line="305"/>
         <source>恢复默认值</source>
         <translation>Restore Defaults</translation>
     </message>
     <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="830"/>
-        <location filename="../../src/common/windows/SettingsDialog.cpp" line="291"/>
+        <location filename="../../src/ui/settingsdialog.ui" line="829"/>
+        <location filename="../../src/common/windows/SettingsDialog.cpp" line="303"/>
         <source>Enable Core Debug</source>
         <translation>Enable Core Debug</translation>
     </message>
     <message>
-        <location filename="../../src/ui/settingsdialog.ui" line="837"/>
-        <location filename="../../src/common/windows/SettingsDialog.cpp" line="292"/>
+        <location filename="../../src/ui/settingsdialog.ui" line="836"/>
+        <location filename="../../src/common/windows/SettingsDialog.cpp" line="304"/>
         <source>Reset Rules</source>
         <translation>Reset Rules</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/SettingsDialog.cpp" line="93"/>
+        <location filename="../../src/common/windows/SettingsDialog.cpp" line="98"/>
         <source>中文</source>
         <translation>Chinese</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/SettingsDialog.cpp" line="94"/>
+        <location filename="../../src/common/windows/SettingsDialog.cpp" line="99"/>
         <source>English</source>
         <translation>English</translation>
     </message>
