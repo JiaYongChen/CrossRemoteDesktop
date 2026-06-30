@@ -223,19 +223,12 @@ void loadTranslations(QApplication& app) {
 
 // 应用样式
 void applyStyles(QApplication& app) {
-    // 设置应用程序样式
-    QString styleName = Config::instance()->value("general/style", "Fusion").toString();
-    app.setStyle(QStyleFactory::create(styleName));
+    // 始终使用 Fusion 样式作为基础
+    app.setStyle(QStyleFactory::create("Fusion"));
 
-    // 加载自定义样式表
-    QFile styleFile(":/styles/default.qss");
-    if ( styleFile.open(QFile::ReadOnly) ) {
-        QString styleSheet = QLatin1String(styleFile.readAll());
-        app.setStyleSheet(styleSheet);
-        qCInfo(lcApp) << "Custom stylesheet applied";
-    } else {
-        qCWarning(lcApp) << "Failed to load custom stylesheet";
-    }
+    // 主题 QSS 由 MainWindow::applyTheme() 在构造时加载
+    // 此处仅设 Fusion 基础样式（留空 QSS，让 MainWindow 接管）
+    app.setStyleSheet(QString());
 }
 
 int main(int argc, char* argv[]) {
