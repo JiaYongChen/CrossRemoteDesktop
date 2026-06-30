@@ -92,6 +92,7 @@ void MainWindow::createCentralWidget()
 
     // 右侧欢迎页
     createWelcomePage();
+    m_welcomeWidget->setObjectName("welcomePage");
     mainLayout->addWidget(m_welcomeWidget, 1);
 }
 

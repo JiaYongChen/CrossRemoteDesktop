@@ -115,8 +115,13 @@ QToolTip {
 
 /* ===== 左侧导航栏 ===== */
 QWidget#leftNavBar {
-    background-color: #E8E8E8;
-    border-right: 1px solid #D0D0D0;
+    background-color: #D8D8D8;
+    border-right: 2px solid #C0C0C0;
+}
+
+/* ===== 右侧欢迎页 ===== */
+QWidget#welcomePage {
+    background-color: #F5F5F5;
 }
 
 /* ===== 汉堡菜单项 ===== */
