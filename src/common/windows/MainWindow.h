@@ -13,7 +13,6 @@ QT_BEGIN_NAMESPACE
 class QAction;
 class QMenu;
 class QLabel;
-class QLineEdit;
 class QCloseEvent;
 QT_END_NAMESPACE
 
@@ -25,7 +24,7 @@ class ServerManager;
 class RemoteDesktopSession;
 class HamburgerMenu;
 class ConnectionCard;
-class QVBoxLayout;
+class ConnectionPanel;
 
 class MainWindow : public QMainWindow
 {
@@ -83,28 +82,19 @@ private:
     void createActions();
     void createStatusBar();
     void createCentralWidget();
-    void createWelcomePage();
+    QWidget *createWelcomePage();
     void createSystemTrayIcon();
     void setupConnections();
 
     void applyTheme();
     void toggleTheme();
-    void retranslateAllCards();
-    
     void loadSettings();
     void saveSettings();
-    void loadConnectionHistory();
-    void saveConnectionHistory();
     void retranslateUi();
     
     void showConnectionDialog();
     void cleanupConnection(const QString &connectionId);
     void updatePerformanceInfo();
-
-    ConnectionCard *addConnectionCard(const QString &host, int port,
-                                       const QDateTime &time,
-                                       const QString &hostname = QString(),
-                                       int resWidth = 0, int resHeight = 0);
 
 #ifdef Q_OS_MACOS
     // macOS 辅助功能权限检查
@@ -114,15 +104,10 @@ private:
     
     // UI组件
     class QWidget *m_centralWidget;
-    class QWidget *m_welcomeWidget;
     class QLabel *m_welcomeTitleLabel;
 
     HamburgerMenu *m_hamburgerMenu = nullptr;
-    QLineEdit *m_searchBox = nullptr;
-    QLabel *m_emptyStateLabel = nullptr;
-    QWidget *m_cardContainer = nullptr;
-    QVBoxLayout *m_cardLayout = nullptr;
-    QList<ConnectionCard *> m_connectionCards;
+    ConnectionPanel *m_connectionPanel = nullptr;
 
     // 菜单（系统托盘用）
     class QMenu *m_trayIconMenu;
@@ -132,8 +117,6 @@ private:
     class QAction *m_newConnectionAction;
     class QAction *m_connectAction;
     class QAction *m_settingsAction;
-    class QAction *m_minimizeAction;
-    class QAction *m_maximizeAction;
     class QAction *m_restoreAction;
 
     // 状态栏
