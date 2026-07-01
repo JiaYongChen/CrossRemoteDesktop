@@ -3,7 +3,6 @@
 #include "ConnectionPanel.h"
 #include "SettingsDialog.h"
 #include "HamburgerMenu.h"
-#include "ConnectionCard.h"
 #include "../../server/ServerManager.h"
 #include "../../client/session/RemoteDesktopSession.h"
 #include "../../client/network/ConnectionManager.h"
@@ -759,17 +758,6 @@ void MainWindow::iconActivated(QSystemTrayIcon::ActivationReason reason) {
 
 void MainWindow::cleanupConnection(const QString& connectionId) {
     qCDebug(lcApp) << "MainWindow::cleanupConnection for:" << connectionId;
-}
-
-
-void MainWindow::addConnectionToHistory(const QString& host, int port,
-                                        const QString& hostname,
-                                        int resWidth, int resHeight)
-{
-    if (m_connectionPanel) {
-        m_connectionPanel->addEntry(host, port, hostname, resWidth, resHeight);
-        m_connectionPanel->saveHistory(*m_settings);
-    }
 }
 
 

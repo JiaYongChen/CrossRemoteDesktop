@@ -68,11 +68,6 @@ private slots:
     // 系统托盘
     void iconActivated(QSystemTrayIcon::ActivationReason reason);
     
-    // 连接列表管理
-    void addConnectionToHistory(const QString &host, int port,
-                                 const QString &hostname = QString(),
-                                 int resWidth = 0, int resHeight = 0);
-
     // 状态更新
     void updateServerStatus(const QString &message);
     void updateConnectionStatus(const QString &message);
