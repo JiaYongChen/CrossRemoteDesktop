@@ -4,6 +4,7 @@
 #include "MainWindow.h"
 #include "HamburgerMenu.h"
 #include "ConnectionCard.h"
+#include "ConnectionPanel.h"
 
 #include <QAction>
 #include <QApplication>
@@ -46,8 +47,6 @@ void MainWindow::createActions()
     addAction(m_exitAction);
 
     // 托盘 Actions
-    m_minimizeAction = new QAction(tr("最小化(&N)"), this);
-    m_maximizeAction = new QAction(tr("最大化(&X)"), this);
     m_restoreAction  = new QAction(tr("恢复(&R)"), this);
 }
 
@@ -90,20 +89,21 @@ void MainWindow::createCentralWidget()
     m_hamburgerMenu = new HamburgerMenu();
     mainLayout->addWidget(m_hamburgerMenu);
 
-    // 右侧欢迎页
-    createWelcomePage();
-    m_welcomeWidget->setObjectName("welcomePage");
-    mainLayout->addWidget(m_welcomeWidget, 1);
+    // 右侧内容区
+    auto *contentArea = createWelcomePage();
+    mainLayout->addWidget(contentArea, 1);
 }
 
 // ============================================================
 // 欢迎页：Logo + 搜索框 + 卡片列表
 // ============================================================
 
-void MainWindow::createWelcomePage()
+QWidget *MainWindow::createWelcomePage()
 {
-    m_welcomeWidget = new QWidget();
-    auto *layout = new QVBoxLayout(m_welcomeWidget);
+    auto *contentArea = new QWidget();
+    contentArea->setObjectName("contentArea");
+
+    auto *layout = new QVBoxLayout(contentArea);
     layout->setAlignment(Qt::AlignHCenter);
     layout->setContentsMargins(0, 0, 0, 0);
 
@@ -120,53 +120,11 @@ void MainWindow::createWelcomePage()
     layout->addSpacing(12);
     layout->addWidget(m_welcomeTitleLabel, 0, Qt::AlignHCenter);
 
-    // --- 搜索框 ---
-    layout->addSpacing(24);
-    m_searchBox = new QLineEdit();
-    m_searchBox->setObjectName("searchBox");
-    m_searchBox->setPlaceholderText(tr("搜索历史连接..."));
-    m_searchBox->setFixedWidth(400);
-    m_searchBox->setClearButtonEnabled(true);
-    layout->addWidget(m_searchBox, 0, Qt::AlignHCenter);
+    // --- 连接历史面板（替代旧搜索框+卡片列表+空状态） ---
+    m_connectionPanel = new ConnectionPanel();
+    layout->addWidget(m_connectionPanel, 1);
 
-    // --- 空状态提示 ---
-    layout->addSpacing(4);
-    m_emptyStateLabel = new QLabel(tr("暂无连接历史"));
-    m_emptyStateLabel->setObjectName("emptyStateLabel");
-    m_emptyStateLabel->setAlignment(Qt::AlignCenter);
-    layout->addWidget(m_emptyStateLabel, 0, Qt::AlignHCenter);
-
-    // --- 卡片滚动区域 ---
-    auto *scrollArea = new QScrollArea();
-    scrollArea->setWidgetResizable(true);
-    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);  // 隐藏滚动条
-
-    m_cardContainer = new QWidget();
-    m_cardLayout = new QVBoxLayout(m_cardContainer);
-    m_cardLayout->setAlignment(Qt::AlignHCenter | Qt::AlignTop);
-    m_cardLayout->setSpacing(12);
-    m_cardLayout->setContentsMargins(0, 0, 0, 0);
-
-    scrollArea->setWidget(m_cardContainer);
-    layout->addWidget(scrollArea, 1);
-
-    // 搜索框实时过滤
-    connect(m_searchBox, &QLineEdit::textChanged, this, [this](const QString &text) {
-        int visibleCount = 0;
-        for (auto *card : m_connectionCards) {
-            bool match = text.isEmpty()
-                || card->property("searchKey").toString().contains(text, Qt::CaseInsensitive)
-                || card->property("hostname").toString().contains(text, Qt::CaseInsensitive);
-            card->setVisible(match);
-            if (match) visibleCount++;
-        }
-        m_emptyStateLabel->setVisible(visibleCount == 0);
-        m_emptyStateLabel->setText(
-            text.isEmpty()
-                ? tr("暂无连接历史")
-                : tr("无匹配的连接记录"));
-    });
+    return contentArea;
 }
 
 // ============================================================
@@ -181,8 +139,6 @@ void MainWindow::createSystemTrayIcon()
     m_trayIcon = new QSystemTrayIcon(this);
     m_trayIconMenu = new QMenu(this);
 
-    m_trayIconMenu->addAction(m_minimizeAction);
-    m_trayIconMenu->addAction(m_maximizeAction);
     m_trayIconMenu->addAction(m_restoreAction);
     m_trayIconMenu->addSeparator();
     m_trayIconMenu->addAction(m_exitAction);
