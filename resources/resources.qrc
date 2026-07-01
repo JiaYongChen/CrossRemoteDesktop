@@ -1,54 +1,81 @@
 <RCC>
     <qresource prefix="/">
-        <!-- 应用程序图标 -->
-    <file>icons/app.svg</file>
-    <file>icons/dropdown-arrow.svg</file>
-    <file>icons/spin-up.svg</file>
-    <file>icons/spin-down.svg</file>
-    <file>icons/eye.svg</file>
-    <file>icons/eye-off.svg</file>
+        <!-- 浅色主题图标 -->
+        <file>icons/light/connect.svg</file>
+        <file>icons/light/disconnect.svg</file>
+        <file>icons/light/new_connection.svg</file>
+        <file>icons/light/reconnect.svg</file>
+        <file>icons/light/server.svg</file>
+        <file>icons/light/save.svg</file>
+        <file>icons/light/update.svg</file>
+        <file>icons/light/settings.svg</file>
+        <file>icons/light/keyboard.svg</file>
+        <file>icons/light/help.svg</file>
+        <file>icons/light/about.svg</file>
+        <file>icons/light/fullscreen.svg</file>
+        <file>icons/light/zoom_in.svg</file>
+        <file>icons/light/zoom_out.svg</file>
+        <file>icons/light/zoom_fit.svg</file>
+        <file>icons/light/zoom_actual.svg</file>
+        <file>icons/light/exit.svg</file>
+        <file>icons/light/delete.svg</file>
+        <file>icons/light/record.svg</file>
+        <file>icons/light/screenshot.svg</file>
+        <file>icons/light/theme.svg</file>
+        <file>icons/light/import.svg</file>
+        <file>icons/light/export.svg</file>
+        <file>icons/light/file_transfer.svg</file>
+        <file>icons/light/clipboard.svg</file>
+        <file>icons/light/menu.svg</file>
+        <file>icons/light/dropdown-arrow.svg</file>
+        <file>icons/light/spin-up.svg</file>
+        <file>icons/light/spin-down.svg</file>
+        <file>icons/light/eye.svg</file>
+        <file>icons/light/eye-off.svg</file>
 
-        
-    <!-- 工具栏/常用图标（按代码引用保留） -->
-    <file>icons/connect.svg</file>
-    <file>icons/disconnect.svg</file>
-    <file>icons/server.svg</file>
-    <file>icons/settings.svg</file>
-    <file>icons/exit.svg</file>
-    <file>icons/about.svg</file>
-    <file>icons/help.svg</file>
-        
-        <!-- 连接相关图标 -->
-    <file>icons/new_connection.svg</file>
-    <file>icons/import.svg</file>
-    <file>icons/export.svg</file>
-    <file>icons/save.svg</file>
-    <file>icons/delete.svg</file>
-        
-        <!-- 功能图标 -->
-    <file>icons/fullscreen.svg</file>
-    <file>icons/screenshot.svg</file>
-    <file>icons/record.svg</file>
-    <file>icons/file_transfer.svg</file>
-    <file>icons/clipboard.svg</file>
-    <file>icons/zoom_in.svg</file>
-    <file>icons/zoom_out.svg</file>
-    <file>icons/zoom_fit.svg</file>
-        <!-- Dedicated SVG icons -->
-        <file>icons/reconnect.svg</file>
-        <file>icons/zoom_actual.svg</file>
-        <file>icons/keyboard.svg</file>
-        <file>icons/update.svg</file>
-        <file>icons/menu.svg</file>
-        <file>icons/theme.svg</file>
-        
-    <!-- 状态与设置图标（已去除未引用项，保留常用通用图标） -->
-        
-        <!-- 其他资源 -->
+        <!-- 深色主题图标 -->
+        <file>icons/dark/connect.svg</file>
+        <file>icons/dark/disconnect.svg</file>
+        <file>icons/dark/new_connection.svg</file>
+        <file>icons/dark/reconnect.svg</file>
+        <file>icons/dark/server.svg</file>
+        <file>icons/dark/save.svg</file>
+        <file>icons/dark/update.svg</file>
+        <file>icons/dark/settings.svg</file>
+        <file>icons/dark/keyboard.svg</file>
+        <file>icons/dark/help.svg</file>
+        <file>icons/dark/about.svg</file>
+        <file>icons/dark/fullscreen.svg</file>
+        <file>icons/dark/zoom_in.svg</file>
+        <file>icons/dark/zoom_out.svg</file>
+        <file>icons/dark/zoom_fit.svg</file>
+        <file>icons/dark/zoom_actual.svg</file>
+        <file>icons/dark/exit.svg</file>
+        <file>icons/dark/delete.svg</file>
+        <file>icons/dark/record.svg</file>
+        <file>icons/dark/screenshot.svg</file>
+        <file>icons/dark/theme.svg</file>
+        <file>icons/dark/import.svg</file>
+        <file>icons/dark/export.svg</file>
+        <file>icons/dark/file_transfer.svg</file>
+        <file>icons/dark/clipboard.svg</file>
+        <file>icons/dark/menu.svg</file>
+        <file>icons/dark/dropdown-arrow.svg</file>
+        <file>icons/dark/spin-up.svg</file>
+        <file>icons/dark/spin-down.svg</file>
+        <file>icons/dark/eye.svg</file>
+        <file>icons/dark/eye-off.svg</file>
+
+        <!-- 应用图标（不区分主题） -->
+        <file>icons/app.svg</file>
+
+        <!-- 主题样式 -->
         <file>styles/dark.qss</file>
         <file>styles/light.qss</file>
+
+        <!-- 翻译 -->
         <file>translations/zh_CN.qm</file>
         <file>translations/en_US.qm</file>
         <file>translations/qtbase_zh_CN.qm</file>
-        </qresource>
+    </qresource>
 </RCC>
