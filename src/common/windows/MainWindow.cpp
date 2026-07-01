@@ -184,6 +184,12 @@ void MainWindow::setupConnections() {
             params.host = host;
             params.port = port;
             params.hostname = hostname;
+            // 从已有历史记录回填分辨率
+            if (m_connectionPanel) {
+                HistoryEntry entry = m_connectionPanel->entryFor(host, port);
+                params.windowWidth = entry.resWidth;
+                params.windowHeight = entry.resHeight;
+            }
             connectToHostDirectly(params);
         });
 
@@ -692,22 +698,8 @@ void MainWindow::connectToHostDirectly(const ConnectionParams& params) {
 
 void MainWindow::onConnectionEstablished(const QString& connectionId) {
     qCInfo(lcApp) << "MainWindow::onConnectionEstablished - Connection established for:" << connectionId;
-
-    // 从会话列表中查找对应会话以获取主机/端口信息
-    for (auto* session : m_sessions) {
-        if (session->connectionId() == connectionId) {
-            auto* cm = session->connectionManager();
-            if (cm) {
-                QString host = cm->currentHost();
-                int port = cm->currentPort();
-                if (!host.isEmpty() && port > 0) {
-                    // ConnectionManager 不暴露 hostname，以 host 作为显示名
-                    addConnectionToHistory(host, port);
-                }
-            }
-            break;
-        }
-    }
+    // 注：历史记录已在 connectToHostDirectly() 中完整保存（含 hostname/分辨率），
+    // 此处不再重复调用 addConnectionToHistory，避免以空参数覆盖已有完整数据。
 }
 
 void MainWindow::onServerStarted(quint16 port) {

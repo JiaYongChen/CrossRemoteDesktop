@@ -23,7 +23,6 @@ class QueueManager;
 class ServerManager;
 class RemoteDesktopSession;
 class HamburgerMenu;
-class ConnectionCard;
 class ConnectionPanel;
 
 class MainWindow : public QMainWindow

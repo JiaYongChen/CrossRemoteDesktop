@@ -3,7 +3,6 @@
 
 #include "MainWindow.h"
 #include "HamburgerMenu.h"
-#include "ConnectionCard.h"
 #include "ConnectionPanel.h"
 
 #include <QAction>
@@ -13,7 +12,6 @@
 #include <QLineEdit>
 #include <QMenu>
 #include <QPixmap>
-#include <QScrollArea>
 #include <QStatusBar>
 #include <QSystemTrayIcon>
 #include <QToolButton>
