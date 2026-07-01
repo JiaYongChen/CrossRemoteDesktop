@@ -13,6 +13,7 @@
 #include "../core/config/UiConstants.h"
 #include "../core/config/MessageConstants.h"
 #include "../core/logging/LoggingCategories.h"
+#include "../core/theme/IconThemeProvider.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -789,6 +790,8 @@ void MainWindow::applyTheme()
     }
 
     m_settings->setValue("UI/theme", m_themeMode);
+
+    IconThemeProvider::setDarkMode(m_themeMode == "dark");
 }
 
 void MainWindow::toggleTheme()
