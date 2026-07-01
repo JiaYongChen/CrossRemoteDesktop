@@ -68,5 +68,45 @@
     "dark_fill": "#4CAF50",
     "dark_fill_opacity": "0.6",
     "body": "  <path d=\"M16 7v5l-3-3\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n  <path d=\"M28 13a10 10 0 0 0-18-2\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\"/>\n  <path d=\"M16 27v-5l3 3\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n  <path d=\"M4 21a10 10 0 0 0 18 2\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\"/>\n  <circle cx=\"16\" cy=\"17\" r=\"2\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n"
+  },
+  {
+    "name": "settings",
+    "light_stroke": "#9B51E0",
+    "light_fill": "#BB6BD9",
+    "light_fill_opacity": "0.85",
+    "dark_stroke": "#BB86FC",
+    "dark_fill": "#CE93D8",
+    "dark_fill_opacity": "0.6",
+    "body": "  <circle cx=\"16\" cy=\"16\" r=\"5\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\"/>\n  <circle cx=\"16\" cy=\"16\" r=\"2\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n  <rect x=\"15\" y=\"5\" width=\"2\" height=\"5\" rx=\"1\" fill=\"{{stroke}}\"/>\n  <rect x=\"15\" y=\"22\" width=\"2\" height=\"5\" rx=\"1\" fill=\"{{stroke}}\"/>\n  <rect x=\"5\" y=\"15\" width=\"5\" height=\"2\" rx=\"1\" fill=\"{{stroke}}\"/>\n  <rect x=\"22\" y=\"15\" width=\"5\" height=\"2\" rx=\"1\" fill=\"{{stroke}}\"/>\n  <rect x=\"7\" y=\"7\" width=\"5\" height=\"2\" rx=\"1\" fill=\"{{stroke}}\" transform=\"rotate(45 9.5 8)\"/>\n  <rect x=\"20\" y=\"7\" width=\"5\" height=\"2\" rx=\"1\" fill=\"{{stroke}}\" transform=\"rotate(-45 22.5 8)\"/>\n  <rect x=\"7\" y=\"23\" width=\"5\" height=\"2\" rx=\"1\" fill=\"{{stroke}}\" transform=\"rotate(-45 9.5 24)\"/>\n  <rect x=\"20\" y=\"23\" width=\"5\" height=\"2\" rx=\"1\" fill=\"{{stroke}}\" transform=\"rotate(45 22.5 24)\"/>\n"
+  },
+  {
+    "name": "keyboard",
+    "light_stroke": "#7B1FA2",
+    "light_fill": "#BA68C8",
+    "light_fill_opacity": "0.85",
+    "dark_stroke": "#BA68C8",
+    "dark_fill": "#CE93D8",
+    "dark_fill_opacity": "0.6",
+    "body": "  <rect x=\"5\" y=\"8\" width=\"22\" height=\"16\" rx=\"3\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\"/>\n  <rect x=\"8\" y=\"11\" width=\"3\" height=\"2.5\" rx=\"0.8\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n  <rect x=\"12.5\" y=\"11\" width=\"3\" height=\"2.5\" rx=\"0.8\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n  <rect x=\"17\" y=\"11\" width=\"3\" height=\"2.5\" rx=\"0.8\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n  <rect x=\"21.5\" y=\"11\" width=\"3\" height=\"2.5\" rx=\"0.8\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n  <rect x=\"8\" y=\"15\" width=\"2.2\" height=\"2.2\" rx=\"0.7\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n  <rect x=\"11.2\" y=\"15\" width=\"2.2\" height=\"2.2\" rx=\"0.7\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n  <rect x=\"14.4\" y=\"15\" width=\"2.2\" height=\"2.2\" rx=\"0.7\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n  <rect x=\"17.6\" y=\"15\" width=\"2.2\" height=\"2.2\" rx=\"0.7\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n  <rect x=\"20.8\" y=\"15\" width=\"2.2\" height=\"2.2\" rx=\"0.7\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n  <rect x=\"8\" y=\"18.5\" width=\"16\" height=\"2.5\" rx=\"1\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n"
+  },
+  {
+    "name": "help",
+    "light_stroke": "#5E35B1",
+    "light_fill": "#9575CD",
+    "light_fill_opacity": "0.85",
+    "dark_stroke": "#9575CD",
+    "dark_fill": "#B39DDB",
+    "dark_fill_opacity": "0.6",
+    "body": "  <circle cx=\"16\" cy=\"16\" r=\"10\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\"/>\n  <path d=\"M12 12a5 5 0 0 1 8 3.5c0 2.5-3 4-3 4\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\"/>\n  <circle cx=\"16\" cy=\"22\" r=\"1.2\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n"
+  },
+  {
+    "name": "about",
+    "light_stroke": "#4527A0",
+    "light_fill": "#7E57C2",
+    "light_fill_opacity": "0.85",
+    "dark_stroke": "#7E57C2",
+    "dark_fill": "#B39DDB",
+    "dark_fill_opacity": "0.6",
+    "body": "  <circle cx=\"16\" cy=\"16\" r=\"10\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\"/>\n  <circle cx=\"16\" cy=\"12\" r=\"1.2\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n  <rect x=\"15\" y=\"15\" width=\"2\" height=\"7\" rx=\"1\" fill=\"{{stroke}}\"/>\n  <rect x=\"15\" y=\"23\" width=\"2\" height=\"3\" rx=\"1\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n"
   }
 ]
