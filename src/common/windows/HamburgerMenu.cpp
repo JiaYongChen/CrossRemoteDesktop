@@ -1,4 +1,5 @@
 #include "HamburgerMenu.h"
+#include "common/core/theme/IconThemeProvider.h"
 #include <QIcon>
 #include <QFrame>
 #include <QApplication>
@@ -21,7 +22,7 @@ void HamburgerMenu::setupUi()
 
     // ☰ 按钮
     m_hamburgerButton = new QToolButton();
-    m_hamburgerButton->setIcon(QIcon(":/icons/menu.svg"));
+    m_hamburgerButton->setIcon(IconThemeProvider::icon("menu"));
     m_hamburgerButton->setIconSize(QSize(22, 22));
     m_hamburgerButton->setToolTip(tr("菜单"));
     m_hamburgerButton->setAutoRaise(true);
@@ -43,15 +44,15 @@ void HamburgerMenu::setupUi()
 
     // 创建菜单项：图标路径、tooltip、objectName
     m_newConnectionItem = createMenuItem(
-        ":/icons/new_connection.svg", tr("新建连接 (Ctrl+N)"),
+        IconThemeProvider::icon("new_connection"), tr("新建连接 (Ctrl+N)"),
         "hamburgerItem");
 
     m_settingsItem = createMenuItem(
-        ":/icons/settings.svg", tr("设置 (Ctrl+,)"),
+        IconThemeProvider::icon("settings"), tr("设置 (Ctrl+,)"),
         "hamburgerItem");
 
     m_aboutItem = createMenuItem(
-        ":/icons/about.svg", tr("关于"),
+        IconThemeProvider::icon("about"), tr("关于"),
         "hamburgerItem");
 
     // 添加到菜单布局
@@ -67,7 +68,7 @@ void HamburgerMenu::setupUi()
 
     // 主题切换按钮（始终可见）
     m_themeButton = new QToolButton();
-    m_themeButton->setIcon(QIcon(":/icons/theme.svg"));
+    m_themeButton->setIcon(IconThemeProvider::icon("theme"));
     m_themeButton->setIconSize(QSize(20, 20));
     m_themeButton->setToolTip(tr("切换主题"));
     m_themeButton->setAutoRaise(true);
@@ -84,12 +85,12 @@ void HamburgerMenu::setupUi()
     connect(m_aboutItem, &QToolButton::clicked, this, &HamburgerMenu::showAbout);
 }
 
-QToolButton *HamburgerMenu::createMenuItem(const QString &iconPath,
+QToolButton *HamburgerMenu::createMenuItem(const QIcon &icon,
                                             const QString &tooltip,
                                             const QString &objectName)
 {
     auto *btn = new QToolButton();
-    btn->setIcon(QIcon(iconPath));
+    btn->setIcon(icon);
     btn->setIconSize(QSize(20, 20));
     btn->setToolTip(tooltip);
     btn->setAutoRaise(true);

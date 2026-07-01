@@ -5,6 +5,7 @@
 #include "common/core/logging/LoggingCategories.h"
 #include "common/core/config/UiConstants.h"
 #include "common/core/crypto/PasswordCrypto.h"
+#include "common/core/theme/IconThemeProvider.h"
 
 #include <QtCore/QSettings>
 #include <QtCore/QEvent>
@@ -27,7 +28,7 @@ SettingsDialog::SettingsDialog(QWidget* parent)
 {
 	ui->setupUi(this);
 	m_togglePasswordAction = ui->passwordEdit->addAction(
-		QIcon(":/icons/eye-off.svg"), QLineEdit::TrailingPosition);
+		IconThemeProvider::icon("eye-off"), QLineEdit::TrailingPosition);
 	connect(m_togglePasswordAction, &QAction::triggered,
 	        this, &SettingsDialog::onTogglePasswordClicked);
 	setupUI();
@@ -256,9 +257,9 @@ void SettingsDialog::onTogglePasswordClicked()
 {
 	const bool isMasked = (ui->passwordEdit->echoMode() == QLineEdit::Password);
 	ui->passwordEdit->setEchoMode(isMasked ? QLineEdit::Normal : QLineEdit::Password);
-	m_togglePasswordAction->setIcon(QIcon(isMasked
-		? ":/icons/eye.svg"
-		: ":/icons/eye-off.svg"));
+	m_togglePasswordAction->setIcon(IconThemeProvider::icon(isMasked
+		? "eye"
+		: "eye-off"));
 }
 
 void SettingsDialog::onPresetDebugClicked()

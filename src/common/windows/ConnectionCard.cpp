@@ -1,4 +1,5 @@
 #include "ConnectionCard.h"
+#include "common/core/theme/IconThemeProvider.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 
@@ -60,19 +61,19 @@ void ConnectionCard::setupUi()
     actionLayout->setAlignment(Qt::AlignVCenter);
 
     m_connectButton = new QToolButton();
-    m_connectButton->setIcon(QIcon(":/icons/connect.svg"));
+    m_connectButton->setIcon(IconThemeProvider::icon("connect"));
     m_connectButton->setIconSize(QSize(36, 36));
     m_connectButton->setToolTip(tr("连接"));
     m_connectButton->setAutoRaise(true);
 
     m_editButton = new QToolButton();
-    m_editButton->setIcon(QIcon(":/icons/save.svg"));
+    m_editButton->setIcon(IconThemeProvider::icon("save"));
     m_editButton->setIconSize(QSize(36, 36));
     m_editButton->setToolTip(tr("修改参数"));
     m_editButton->setAutoRaise(true);
 
     m_deleteButton = new QToolButton();
-    m_deleteButton->setIcon(QIcon(":/icons/delete.svg"));
+    m_deleteButton->setIcon(IconThemeProvider::icon("delete"));
     m_deleteButton->setIconSize(QSize(36, 36));
     m_deleteButton->setToolTip(tr("删除记录"));
     m_deleteButton->setAutoRaise(true);

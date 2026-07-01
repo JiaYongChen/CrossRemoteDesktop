@@ -31,7 +31,7 @@ signals:
 private:
     void setupUi();
     void setupAnimations();
-    QToolButton *createMenuItem(const QString &iconPath, const QString &tooltip,
+    QToolButton *createMenuItem(const QIcon &icon, const QString &tooltip,
                                  const QString &objectName);
 
     QToolButton *m_hamburgerButton = nullptr;

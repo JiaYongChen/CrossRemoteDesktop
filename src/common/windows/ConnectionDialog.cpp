@@ -2,6 +2,7 @@
 #include "ui_ConnectionDialog.h"
 #include "../core/config/MessageConstants.h"
 #include "../core/config/UiConstants.h"
+#include "common/core/theme/IconThemeProvider.h"
 
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QPushButton>
@@ -16,7 +17,7 @@ ConnectionDialog::ConnectionDialog(QWidget* parent)
 {
 	ui->setupUi(this);
 	m_togglePasswordAction = ui->passwordLineEdit->addAction(
-		QIcon(":/icons/eye-off.svg"), QLineEdit::TrailingPosition);
+		IconThemeProvider::icon("eye-off"), QLineEdit::TrailingPosition);
 	connect(m_togglePasswordAction, &QAction::triggered,
 	        this, &ConnectionDialog::onTogglePasswordClicked);
 	setupConnections();
@@ -64,9 +65,9 @@ void ConnectionDialog::onTogglePasswordClicked()
 {
 	const bool isMasked = (ui->passwordLineEdit->echoMode() == QLineEdit::Password);
 	ui->passwordLineEdit->setEchoMode(isMasked ? QLineEdit::Normal : QLineEdit::Password);
-	m_togglePasswordAction->setIcon(QIcon(isMasked
-		? ":/icons/eye.svg"
-		: ":/icons/eye-off.svg"));
+	m_togglePasswordAction->setIcon(IconThemeProvider::icon(isMasked
+		? "eye"
+		: "eye-off"));
 }
 
 void ConnectionDialog::onFullScreenToggled(bool checked)
