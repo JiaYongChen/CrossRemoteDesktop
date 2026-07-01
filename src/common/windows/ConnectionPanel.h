@@ -52,10 +52,10 @@ private:
     void setupUi();
 
     /// 在 m_cards 中查找匹配的卡片
-    ConnectionCard *findCard(const QString &host, int port) const;
+    [[nodiscard]] ConnectionCard *findCard(const QString &host, int port) const;
 
     /// 从 HistoryEntry 构造新的 ConnectionCard 并完成信号连接
-    ConnectionCard *createCard(const HistoryEntry &entry);
+    [[nodiscard]] ConnectionCard *createCard(const HistoryEntry &entry);
 
     /// 根据搜索状态更新空状态标签文案
     void updateEmptyState();

@@ -3,7 +3,7 @@
 #include "../core/logging/LoggingCategories.h"
 
 #include <QVBoxLayout>
-#include <QHBoxLayout>
+
 #include <QLineEdit>
 #include <QLabel>
 #include <QScrollArea>
@@ -69,9 +69,12 @@ void ConnectionPanel::setupUi()
 
 void ConnectionPanel::loadHistory(const QSettings &settings)
 {
+    qDeleteAll(m_cards);
+    m_cards.clear();
+
     m_history.load(settings);
     for (const auto &entry : m_history.entries()) {
-        createCard(entry);
+        (void)createCard(entry);
     }
     updateEmptyState();
     qCInfo(lcUIMainWindow) << "ConnectionPanel::loadHistory - Loaded"
@@ -91,6 +94,8 @@ void ConnectionPanel::addEntry(const QString &host, int port,
     ConnectionCard *existing = findCard(host, port);
     if (existing) {
         existing->setHostname(hostname.isEmpty() ? host : hostname);
+        existing->setProperty("hostname", hostname.isEmpty() ? host : hostname);
+        existing->setProperty("searchKey", QStringLiteral("%1:%2").arg(host).arg(port));
         existing->setAddressPort(host, port);
         existing->setResolution(resWidth, resHeight);
         existing->setLastConnected(QDateTime::currentDateTime());
@@ -109,7 +114,7 @@ void ConnectionPanel::addEntry(const QString &host, int port,
         entry.resWidth = resWidth;
         entry.resHeight = resHeight;
         entry.lastConnected = QDateTime::currentDateTime();
-        createCard(entry);
+        (void)createCard(entry);
     }
 
     // 同步数据层
@@ -122,7 +127,7 @@ void ConnectionPanel::addEntry(const QString &host, int port,
     entry.lastConnected = QDateTime::currentDateTime();
     m_history.addOrUpdate(entry);
 
-    m_emptyStateLabel->setVisible(false);
+    updateEmptyState();
 }
 
 void ConnectionPanel::removeEntry(const QString &host, int port)
@@ -159,7 +164,7 @@ void ConnectionPanel::retranslateUi()
 // 私有方法
 // ============================================================
 
-ConnectionCard *ConnectionPanel::findCard(const QString &host, int port) const
+[[nodiscard]] ConnectionCard *ConnectionPanel::findCard(const QString &host, int port) const
 {
     for (auto *card : m_cards) {
         if (card->property("host").toString() == host
@@ -170,7 +175,7 @@ ConnectionCard *ConnectionPanel::findCard(const QString &host, int port) const
     return nullptr;
 }
 
-ConnectionCard *ConnectionPanel::createCard(const HistoryEntry &entry)
+[[nodiscard]] ConnectionCard *ConnectionPanel::createCard(const HistoryEntry &entry)
 {
     auto *card = new ConnectionCard();
     card->setHostname(entry.displayName());
