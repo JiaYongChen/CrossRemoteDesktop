@@ -64,6 +64,11 @@ MainWindow::MainWindow(QWidget* parent)
     // 初始化设置
     m_settings = new QSettings(this);
 
+    // 主题初始化必须在所有 UI 组件创建之前完成
+    // （createActions/createCentralWidget 中会通过 IconThemeProvider::icon() 加载主题图标）
+    m_themeMode = m_settings->value("UI/theme", "dark").toString();
+    IconThemeProvider::setDarkMode(m_themeMode == "dark");
+
     // 创建UI组件
     createActions();
     createStatusBar();
@@ -95,8 +100,7 @@ MainWindow::MainWindow(QWidget* parent)
                    | Qt::WindowCloseButtonHint
                    | Qt::MSWindowsFixedSizeDialogHint);
 
-    // --- 主题初始化 ---
-    m_themeMode = m_settings->value("UI/theme", "dark").toString();
+    // --- 主题样式加载 ---
     applyTheme();
 
     // --- 汉堡菜单信号连接 ---
@@ -792,6 +796,13 @@ void MainWindow::applyTheme()
     m_settings->setValue("UI/theme", m_themeMode);
 
     IconThemeProvider::setDarkMode(m_themeMode == "dark");
+
+    // 刷新所有已构造控件的图标以匹配新主题
+    m_hamburgerMenu->refreshIcons();
+    m_newConnectionAction->setIcon(IconThemeProvider::icon("new_connection"));
+    m_connectAction->setIcon(IconThemeProvider::icon("connect"));
+    m_settingsAction->setIcon(IconThemeProvider::icon("settings"));
+    m_exitAction->setIcon(IconThemeProvider::icon("exit"));
 }
 
 void MainWindow::toggleTheme()

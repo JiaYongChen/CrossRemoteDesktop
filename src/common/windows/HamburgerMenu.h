@@ -1,6 +1,7 @@
 #ifndef HAMBURGERMENU_H
 #define HAMBURGERMENU_H
 
+#include <QIcon>
 #include <QWidget>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -18,6 +19,7 @@ public:
     [[nodiscard]] bool isExpanded() const { return m_expanded; }
 
     void retranslateUi();
+    void refreshIcons();
 
 public slots:
     void setExpanded(bool expanded);

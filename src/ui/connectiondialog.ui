@@ -16,7 +16,6 @@
     <height>540</height>
    </size>
   </property>
-  <property name="windowIcon"><iconset resource="../../resources/resources.qrc"><normaloff>:/icons/connect.svg</normaloff>:/icons/connect.svg</iconset></property>
   <property name="styleSheet">
    <string>/* ============================================================
  * ConnectionDialog — Fluent Design (WinUI) 浅色主题
@@ -129,7 +128,6 @@ QComboBox::drop-down {
 }
 
 QComboBox::down-arrow {
-    image: url(:/icons/dropdown-arrow.svg);
     width: 12px;
     height: 12px;
     margin-right: 6px;
@@ -183,7 +181,6 @@ QSpinBox::up-button:hover {
 }
 
 QSpinBox::up-arrow {
-    image: url(:/icons/spin-up.svg);
     width: 8px;
     height: 8px;
 }
@@ -201,7 +198,6 @@ QSpinBox::down-button:hover {
 }
 
 QSpinBox::down-arrow {
-    image: url(:/icons/spin-down.svg);
     width: 8px;
     height: 8px;
 }

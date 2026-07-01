@@ -27,6 +27,7 @@ SettingsDialog::SettingsDialog(QWidget* parent)
 	, m_settings(new QSettings())
 {
 	ui->setupUi(this);
+	setWindowIcon(IconThemeProvider::icon("settings"));
 	m_togglePasswordAction = ui->passwordEdit->addAction(
 		IconThemeProvider::icon("eye-off"), QLineEdit::TrailingPosition);
 	connect(m_togglePasswordAction, &QAction::triggered,

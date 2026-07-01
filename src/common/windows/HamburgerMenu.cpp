@@ -174,3 +174,12 @@ void HamburgerMenu::retranslateUi()
     m_aboutItem->setToolTip(tr("关于"));
     m_themeButton->setToolTip(tr("切换主题"));
 }
+
+void HamburgerMenu::refreshIcons()
+{
+    m_hamburgerButton->setIcon(IconThemeProvider::icon("menu"));
+    m_newConnectionItem->setIcon(IconThemeProvider::icon("new_connection"));
+    m_settingsItem->setIcon(IconThemeProvider::icon("settings"));
+    m_aboutItem->setIcon(IconThemeProvider::icon("about"));
+    m_themeButton->setIcon(IconThemeProvider::icon("theme"));
+}
