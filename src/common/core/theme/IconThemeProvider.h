@@ -24,4 +24,13 @@ public:
             qCDebug(lcUI) << "图标加载失败:" << path;
         return icon;
     }
+
+    /** 设置深色模式（保留，供外部调用方使用） */
+    static void setDarkMode(bool dark) { s_darkMode = dark; }
+
+    /** 查询当前是否为深色模式（保留，供 TitleBarTheme 等使用） */
+    static bool isDarkMode() { return s_darkMode; }
+
+private:
+    static inline bool s_darkMode = true;  // 默认深色，与 QSettings UI/theme=dark 一致
 };
