@@ -70,6 +70,12 @@ void ConnectionDialog::onTogglePasswordClicked()
 		: "eye-off"));
 }
 
+void ConnectionDialog::refreshIcons()
+{
+	const bool isMasked = (ui->passwordLineEdit->echoMode() == QLineEdit::Password);
+	m_togglePasswordAction->setIcon(IconThemeProvider::icon(isMasked ? "eye" : "eye-off"));
+}
+
 void ConnectionDialog::onFullScreenToggled(bool checked)
 {
 	ui->windowWidthSpinBox->setEnabled(!checked);

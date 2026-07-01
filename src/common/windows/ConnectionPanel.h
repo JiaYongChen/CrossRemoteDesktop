@@ -37,6 +37,7 @@ public:
     [[nodiscard]] HistoryEntry entryFor(const QString &host, int port) const;
 
     void retranslateUi();
+    void refreshIcons();
 
 signals:
     /// 用户点击连接按钮 → MainWindow 构造 ConnectionParams 并发起连接

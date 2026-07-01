@@ -20,6 +20,7 @@ public:
     void setOnline(bool online);
 
     void retranslateUi();
+    void refreshIcons();
 
 signals:
     void connectClicked();

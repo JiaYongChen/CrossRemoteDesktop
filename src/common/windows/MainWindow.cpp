@@ -799,10 +799,15 @@ void MainWindow::applyTheme()
 
     // 刷新所有已构造控件的图标以匹配新主题
     m_hamburgerMenu->refreshIcons();
+    m_connectionPanel->refreshIcons();
     m_newConnectionAction->setIcon(IconThemeProvider::icon("new_connection"));
     m_connectAction->setIcon(IconThemeProvider::icon("connect"));
     m_settingsAction->setIcon(IconThemeProvider::icon("settings"));
     m_exitAction->setIcon(IconThemeProvider::icon("exit"));
+    m_settingsDialog->refreshIcons();
+    if (m_connectionDialog) {
+        m_connectionDialog->refreshIcons();
+    }
 }
 
 void MainWindow::toggleTheme()

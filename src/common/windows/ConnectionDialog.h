@@ -13,6 +13,8 @@ class ConnectionDialog : public QDialog {
 public:
 	explicit ConnectionDialog(QWidget* parent = nullptr);
 	~ConnectionDialog();
+	void refreshIcons();
+
 
 	void setDefaultPort(int port);
 	void setUsername(const QString& username);

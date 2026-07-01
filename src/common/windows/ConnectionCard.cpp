@@ -135,3 +135,10 @@ void ConnectionCard::retranslateUi()
     m_editButton->setToolTip(tr("修改参数"));
     m_deleteButton->setToolTip(tr("删除记录"));
 }
+
+void ConnectionCard::refreshIcons()
+{
+    m_connectButton->setIcon(IconThemeProvider::icon("connect"));
+    m_editButton->setIcon(IconThemeProvider::icon("save"));
+    m_deleteButton->setIcon(IconThemeProvider::icon("delete"));
+}

@@ -162,6 +162,13 @@ void ConnectionPanel::retranslateUi()
     }
 }
 
+void ConnectionPanel::refreshIcons()
+{
+    for (auto *card : m_cards) {
+        card->refreshIcons();
+    }
+}
+
 // ============================================================
 // 私有方法
 // ============================================================
