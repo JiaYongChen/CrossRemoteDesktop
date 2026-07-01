@@ -34,7 +34,7 @@ void ConnectionPanel::setupUi()
     m_searchBox = new QLineEdit();
     m_searchBox->setObjectName("searchBox");
     m_searchBox->setPlaceholderText(tr("搜索历史连接..."));
-    m_searchBox->setFixedWidth(400);
+    m_searchBox->setFixedWidth(500);
     m_searchBox->setClearButtonEnabled(true);
     layout->addWidget(m_searchBox, 0, Qt::AlignHCenter);
 

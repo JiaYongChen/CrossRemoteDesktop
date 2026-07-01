@@ -7,7 +7,7 @@ ConnectionCard::ConnectionCard(QWidget *parent)
     : QFrame(parent)
 {
     setObjectName("connectionCard");
-    setFixedSize(400, 110);
+    setFixedSize(500, 110);
     setupUi();
 }
 
