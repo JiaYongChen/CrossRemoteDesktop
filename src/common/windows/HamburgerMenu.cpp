@@ -31,7 +31,7 @@ void HamburgerMenu::setupUi()
     // 分隔线
     auto *sep1 = new QFrame();
     sep1->setFrameShape(QFrame::HLine);
-    sep1->setFixedWidth(24);
+    sep1->setFixedWidth(35);
     mainLayout->addWidget(sep1, 0, Qt::AlignHCenter);
 
     // 菜单项容器（动画目标）
@@ -45,9 +45,6 @@ void HamburgerMenu::setupUi()
     m_newConnectionItem = createMenuItem(
         ":/icons/new_connection.svg", tr("新建连接 (Ctrl+N)"),
         "hamburgerItem");
-    m_connectItem = createMenuItem(
-        ":/icons/connect.svg", tr("连接 (Ctrl+O)"),
-        "hamburgerItem");
 
     m_settingsItem = createMenuItem(
         ":/icons/settings.svg", tr("设置 (Ctrl+,)"),
@@ -59,7 +56,6 @@ void HamburgerMenu::setupUi()
 
     // 添加到菜单布局
     m_menuLayout->addWidget(m_newConnectionItem, 0, Qt::AlignHCenter);
-    m_menuLayout->addWidget(m_connectItem, 0, Qt::AlignHCenter);
     m_menuLayout->addWidget(m_settingsItem, 0, Qt::AlignHCenter);
     m_menuLayout->addWidget(m_aboutItem, 0, Qt::AlignHCenter);
     m_menuLayout->addStretch();
@@ -83,9 +79,7 @@ void HamburgerMenu::setupUi()
         setExpanded(!m_expanded);
     });
     connect(m_themeButton, &QToolButton::clicked, this, &HamburgerMenu::themeToggled);
-
     connect(m_newConnectionItem, &QToolButton::clicked, this, &HamburgerMenu::newConnection);
-    connect(m_connectItem, &QToolButton::clicked, this, &HamburgerMenu::connectToHost);
     connect(m_settingsItem, &QToolButton::clicked, this, &HamburgerMenu::openSettings);
     connect(m_aboutItem, &QToolButton::clicked, this, &HamburgerMenu::showAbout);
 }
@@ -175,7 +169,6 @@ void HamburgerMenu::retranslateUi()
 {
     m_hamburgerButton->setToolTip(tr("菜单"));
     m_newConnectionItem->setToolTip(tr("新建连接 (Ctrl+N)"));
-    m_connectItem->setToolTip(tr("连接 (Ctrl+O)"));
     m_settingsItem->setToolTip(tr("设置 (Ctrl+,)"));
     m_aboutItem->setToolTip(tr("关于"));
     m_themeButton->setToolTip(tr("切换主题"));

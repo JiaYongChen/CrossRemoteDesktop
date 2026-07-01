@@ -24,7 +24,6 @@ public slots:
 
 signals:
     void newConnection();
-    void connectToHost();
     void openSettings();
     void showAbout();
     void themeToggled();
@@ -42,7 +41,6 @@ private:
 
     // 菜单项
     QToolButton *m_newConnectionItem = nullptr;
-    QToolButton *m_connectItem = nullptr;
     QToolButton *m_settingsItem = nullptr;
     QToolButton *m_aboutItem = nullptr;
 

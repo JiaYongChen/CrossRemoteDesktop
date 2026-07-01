@@ -115,11 +115,10 @@ QToolTip {
 /* ===== 左侧导航栏 ===== */
 QWidget#leftNavBar {
     background-color: #121212;
-    border-right: 2px solid #2A2A2A;
 }
 
-/* ===== 右侧欢迎页 ===== */
-QWidget#welcomePage {
+/* ===== 右侧内容区 ===== */
+QWidget#contentArea {
     background-color: #1E1E1E;
 }
 
