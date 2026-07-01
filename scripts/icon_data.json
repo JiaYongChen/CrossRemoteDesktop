@@ -209,4 +209,45 @@
     "dark_fill_opacity": "0.6",
     "body": "  <circle cx=\"16\" cy=\"16\" r=\"9\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\"/>\n  <path d=\"M16 7v2M16 23v2M7 16h2M23 16h2M9.6 9.6l1.4 1.4M21 21l1.4 1.4M9.6 22.4l1.4-1.4M21 11l1.4-1.4\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\"/>\n  <circle cx=\"16\" cy=\"16\" r=\"4\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n"
   }
+  ,
+  {
+    "name": "import",
+    "light_stroke": "#0277BD",
+    "light_fill": "#4FC3F7",
+    "light_fill_opacity": "0.85",
+    "dark_stroke": "#4FC3F7",
+    "dark_fill": "#29B6F6",
+    "dark_fill_opacity": "0.6",
+    "body": "  <path d=\"M16 6v14M12 16l4 4 4-4\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n  <rect x=\"6\" y=\"22\" width=\"20\" height=\"6\" rx=\"2\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n"
+  },
+  {
+    "name": "export",
+    "light_stroke": "#0288D1",
+    "light_fill": "#81D4FA",
+    "light_fill_opacity": "0.85",
+    "dark_stroke": "#4FC3F7",
+    "dark_fill": "#81D4FA",
+    "dark_fill_opacity": "0.6",
+    "body": "  <path d=\"M16 20V6M12 10l4-4 4 4\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n  <rect x=\"6\" y=\"22\" width=\"20\" height=\"6\" rx=\"2\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n"
+  },
+  {
+    "name": "file_transfer",
+    "light_stroke": "#00838F",
+    "light_fill": "#4DD0E1",
+    "light_fill_opacity": "0.85",
+    "dark_stroke": "#4DD0E1",
+    "dark_fill": "#26C6DA",
+    "dark_fill_opacity": "0.6",
+    "body": "  <rect x=\"5\" y=\"5\" width=\"14\" height=\"11\" rx=\"2\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\"/>\n  <rect x=\"13\" y=\"16\" width=\"14\" height=\"11\" rx=\"2\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\"/>\n  <line x1=\"18\" y1=\"10\" x2=\"14\" y2=\"10\" stroke=\"{{stroke}}\" stroke-width=\"1.5\" stroke-linecap=\"round\"/>\n  <line x1=\"13\" y1=\"21\" x2=\"17\" y2=\"21\" stroke=\"{{stroke}}\" stroke-width=\"1.5\" stroke-linecap=\"round\"/>\n  <polygon points=\"18,8 18,12 21,10\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n  <polygon points=\"13,23 13,19 10,21\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n"
+  },
+  {
+    "name": "clipboard",
+    "light_stroke": "#AB47BC",
+    "light_fill": "#F48FB1",
+    "light_fill_opacity": "0.85",
+    "dark_stroke": "#CE93D8",
+    "dark_fill": "#F48FB1",
+    "dark_fill_opacity": "0.6",
+    "body": "  <rect x=\"8\" y=\"10\" width=\"16\" height=\"16\" rx=\"3\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\"/>\n  <rect x=\"11\" y=\"6\" width=\"10\" height=\"6\" rx=\"1.5\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n  <line x1=\"11\" y1=\"15\" x2=\"21\" y2=\"15\" stroke=\"{{stroke}}\" stroke-width=\"1.5\" stroke-linecap=\"round\"/>\n  <line x1=\"11\" y1=\"19\" x2=\"21\" y2=\"19\" stroke=\"{{stroke}}\" stroke-width=\"1.5\" stroke-linecap=\"round\"/>\n"
+  }
 ]
