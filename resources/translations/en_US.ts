@@ -583,6 +583,35 @@ QWidget#advancedTab {
     </message>
 </context>
 <context>
+    <name>ConnectionPanel</name>
+    <message>
+        <location filename="../../src/common/windows/ConnectionPanel.cpp" line="34"/>
+        <source>搜索历史连接...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/common/windows/ConnectionPanel.cpp" line="42"/>
+        <location filename="../../src/common/windows/ConnectionPanel.cpp" line="238"/>
+        <source>暂无连接历史</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/common/windows/ConnectionPanel.cpp" line="237"/>
+        <source>无匹配的连接记录</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/common/windows/ConnectionPanel.cpp" line="211"/>
+        <source>确认删除</source>
+        <translation>Confirm Delete</translation>
+    </message>
+    <message>
+        <location filename="../../src/common/windows/ConnectionPanel.cpp" line="213"/>
+        <source>确定删除此连接记录？</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>HamburgerMenu</name>
     <message>
         <location filename="../../src/common/windows/HamburgerMenu.cpp" line="26"/>
@@ -1240,25 +1269,6 @@ QListWidget::item:hover {
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="292"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="126"/>
-        <source>搜索历史连接...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="297"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="167"/>
-        <source>无匹配的连接记录</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="298"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="133"/>
-        <location filename="../../src/common/windows/MainWindowLayout.cpp" line="166"/>
-        <source>暂无连接历史</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="../../src/common/windows/MainWindow.cpp" line="353"/>
         <source>需要辅助功能权限</source>
         <translation>Accessibility Permission Required</translation>
@@ -1314,11 +1324,6 @@ QListWidget::item:hover {
         <translation>Server started successfully, port: %1</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="886"/>
-        <source>确定删除此连接记录？</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>停止服务器</source>
         <translation type="vanished">Stop Server</translation>
     </message>
@@ -1358,11 +1363,6 @@ QListWidget::item:hover {
     <message>
         <source>删除</source>
         <translation type="vanished">Delete</translation>
-    </message>
-    <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="885"/>
-        <source>确认删除</source>
-        <translation>Confirm Delete</translation>
     </message>
     <message>
         <source>确定要删除连接记录 &quot;%1&quot; 吗？</source>

@@ -165,7 +165,7 @@ void MainWindow::setupConnections() {
 
     // 快捷键全局连接（无系统托盘时仍有效）
     connect(m_newConnectionAction, &QAction::triggered, this, &MainWindow::newConnection);
-    connect(m_connectAction, &QAction::triggered, this, &MainWindow::connectToHost);
+    connect(m_connectAction, &QAction::triggered, this, &MainWindow::newConnection);
     connect(m_settingsAction, &QAction::triggered, this, &MainWindow::showSettings);
     connect(m_exitAction, &QAction::triggered, this, &MainWindow::exitApplication);
 
@@ -177,6 +177,13 @@ void MainWindow::setupConnections() {
 
     // ConnectionPanel 信号连接
     if (m_connectionPanel) {
+        connect(m_connectionPanel, &ConnectionPanel::contentChanged,
+                this, [this]() {
+            if (m_connectionPanel) {
+                m_connectionPanel->saveHistory(*m_settings);
+            }
+        });
+
         connect(m_connectionPanel, &ConnectionPanel::connectRequested,
                 this, [this](const QString &host, int port, const QString &hostname) {
             ConnectionParams params;
@@ -342,10 +349,6 @@ void MainWindow::retranslateUi() {
 
 // 槽函数实现
 void MainWindow::newConnection() {
-    showConnectionDialog();
-}
-
-void MainWindow::connectToHost() {
     showConnectionDialog();
 }
 

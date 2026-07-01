@@ -1,5 +1,7 @@
 #include "ConnectionHistory.h"
+#include "../core/logging/LoggingCategories.h"
 #include <QSettings>
+#include <algorithm>
 
 // ============================================================
 // HistoryEntry 方法实现
@@ -37,6 +39,18 @@ void ConnectionHistory::load(const QSettings &settings)
     const QStringList resHeights = settings.value("ConnectionHistory/resHeights").toStringList();
 
     const int count = qMin(hosts.size(), qMin(ports.size(), times.size()));
+
+    // 数组长度不一致时输出警告，帮助排查 QSettings 数据损坏
+    const int maxSize = std::max({hosts.size(), hostnames.size(), ports.size(),
+                                  times.size(), resWidths.size(), resHeights.size()});
+    if (hosts.size() != maxSize || ports.size() != maxSize || times.size() != maxSize) {
+        qCWarning(lcUIMainWindow) << "ConnectionHistory::load - QSettings arrays inconsistent:"
+                                  << "hosts=" << hosts.size()
+                                  << "ports=" << ports.size()
+                                  << "times=" << times.size()
+                                  << "-> truncating to" << count;
+    }
+
     for (int i = 0; i < count; ++i) {
         bool ok = false;
         int port = ports.at(i).toInt(&ok);

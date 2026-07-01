@@ -10,6 +10,8 @@
 #include <QSettings>
 #include <QDateTime>
 #include <QMessageBox>
+#include <QSet>
+#include <QPair>
 
 // ============================================================
 // 构造 + UI 构建
@@ -73,8 +75,11 @@ void ConnectionPanel::loadHistory(const QSettings &settings)
     m_cards.clear();
 
     m_history.load(settings);
-    for (const auto &entry : m_history.entries()) {
-        (void)createCard(entry);
+    // entries 是 newest-first，createCard 用 prepend 插入顶部。
+    // 反向遍历确保最旧的先被 prepend（沉到下面），最新的最后被 prepend（最终在顶部）。
+    const auto &entries = m_history.entries();
+    for (int i = entries.size() - 1; i >= 0; --i) {
+        (void)createCard(entries[i]);
     }
     updateEmptyState();
     qCInfo(lcUIMainWindow) << "ConnectionPanel::loadHistory - Loaded"
@@ -90,15 +95,26 @@ void ConnectionPanel::addEntry(const QString &host, int port,
                                 const QString &hostname,
                                 int resWidth, int resHeight)
 {
+    const QDateTime now = QDateTime::currentDateTime();
+
+    // 构造共享的数据层条目（卡片 + history 各用一次，避免重复构造）
+    HistoryEntry entry;
+    entry.host = host;
+    entry.port = port;
+    entry.hostname = hostname.isEmpty() ? host : hostname;
+    entry.resWidth = resWidth;
+    entry.resHeight = resHeight;
+    entry.lastConnected = now;
+
     // 先尝试更新已有卡片
     ConnectionCard *existing = findCard(host, port);
     if (existing) {
-        existing->setHostname(hostname.isEmpty() ? host : hostname);
-        existing->setProperty("hostname", hostname.isEmpty() ? host : hostname);
-        existing->setProperty("searchKey", QStringLiteral("%1:%2").arg(host).arg(port));
+        existing->setHostname(entry.hostname);
+        existing->setProperty("hostname", entry.hostname);
+        existing->setProperty("searchKey", entry.searchKey());
         existing->setAddressPort(host, port);
         existing->setResolution(resWidth, resHeight);
-        existing->setLastConnected(QDateTime::currentDateTime());
+        existing->setLastConnected(now);
         existing->setProperty("resWidth", resWidth);
         existing->setProperty("resHeight", resHeight);
         // 置顶
@@ -107,24 +123,10 @@ void ConnectionPanel::addEntry(const QString &host, int port,
         m_cards.removeOne(existing);
         m_cards.prepend(existing);
     } else {
-        HistoryEntry entry;
-        entry.host = host;
-        entry.port = port;
-        entry.hostname = hostname.isEmpty() ? host : hostname;
-        entry.resWidth = resWidth;
-        entry.resHeight = resHeight;
-        entry.lastConnected = QDateTime::currentDateTime();
         (void)createCard(entry);
     }
 
     // 同步数据层
-    HistoryEntry entry;
-    entry.host = host;
-    entry.port = port;
-    entry.hostname = hostname.isEmpty() ? host : hostname;
-    entry.resWidth = resWidth;
-    entry.resHeight = resHeight;
-    entry.lastConnected = QDateTime::currentDateTime();
     m_history.addOrUpdate(entry);
 
     updateEmptyState();
@@ -217,6 +219,7 @@ void ConnectionPanel::retranslateUi()
             QString host = card->property("host").toString();
             int port = card->property("port").toInt();
             removeEntry(host, port);
+            emit contentChanged();
         }
     });
 
@@ -241,15 +244,21 @@ void ConnectionPanel::updateEmptyState()
 
 void ConnectionPanel::onSearchTextChanged(const QString &text)
 {
-    int visibleCount = 0;
-    for (auto *card : m_cards) {
-        bool match = text.isEmpty()
-            || card->property("searchKey").toString().contains(text, Qt::CaseInsensitive)
-            || card->property("hostname").toString().contains(text, Qt::CaseInsensitive);
-        card->setVisible(match);
-        if (match) visibleCount++;
+    const QList<HistoryEntry> matched = m_history.filter(text);
+
+    // 构建匹配 host+port 集合用于 O(1) 查找
+    QSet<QPair<QString, int>> matchedKeys;
+    for (const auto &e : matched) {
+        matchedKeys.insert({e.host, e.port});
     }
-    m_emptyStateLabel->setVisible(visibleCount == 0);
+
+    for (auto *card : m_cards) {
+        QPair<QString, int> key = {card->property("host").toString(),
+                                    card->property("port").toInt()};
+        card->setVisible(matchedKeys.contains(key));
+    }
+
+    m_emptyStateLabel->setVisible(matchedKeys.isEmpty());
     m_emptyStateLabel->setText(
         text.isEmpty()
             ? tr("暂无连接历史")

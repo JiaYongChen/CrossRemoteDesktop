@@ -44,7 +44,6 @@ protected:
 private slots:
     // 菜单和工具栏动作
     void newConnection();
-    void connectToHost();
     void disconnectFromHost();
     void startServer();
     void stopServer();

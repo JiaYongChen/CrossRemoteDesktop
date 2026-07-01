@@ -45,6 +45,9 @@ signals:
     /// 用户点击编辑按钮 → MainWindow 打开 ConnectionDialog 预填参数
     void editRequested(const QString &host, int port);
 
+    /// 卡片列表内容发生变更（增/删）→ MainWindow 调用 saveHistory
+    void contentChanged();
+
 private slots:
     void onSearchTextChanged(const QString &text);
 
