@@ -25,10 +25,6 @@
   <property name="windowTitle">
    <string>应用程序设置</string>
   </property>
-  <property name="windowIcon">
-    <iconset resource="../../resources/resources.qrc">
-     <normaloff>:/icons/settings.svg</normaloff>:/icons/settings.svg</iconset>
-  </property>
   <property name="modal">
    <bool>false</bool>
   </property>
@@ -140,7 +136,7 @@ QComboBox::drop-down {
 }
 
 QComboBox::down-arrow {
-    image: url(:/icons/dropdown-arrow.svg);
+cons/d
     width: 12px;
     height: 12px;
     margin-right: 6px;
@@ -188,7 +184,7 @@ QSpinBox::up-button:hover {
 }
 
 QSpinBox::up-arrow {
-    image: url(:/icons/spin-up.svg);
+cons/d
     width: 8px;
     height: 8px;
 }
@@ -206,7 +202,7 @@ QSpinBox::down-button:hover {
 }
 
 QSpinBox::down-arrow {
-    image: url(:/icons/spin-down.svg);
+cons/d
     width: 8px;
     height: 8px;
 }
