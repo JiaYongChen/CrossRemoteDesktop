@@ -1,5 +1,6 @@
 #include "MainWindow.h"
 #include "ConnectionDialog.h"
+#include "ConnectionPanel.h"
 #include "SettingsDialog.h"
 #include "HamburgerMenu.h"
 #include "ConnectionCard.h"
@@ -50,13 +51,9 @@
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
     , m_centralWidget(nullptr)
-    , m_welcomeWidget(nullptr)
     , m_welcomeTitleLabel(nullptr)
     , m_hamburgerMenu(nullptr)
-    , m_searchBox(nullptr)
-    , m_emptyStateLabel(nullptr)
-    , m_cardContainer(nullptr)
-    , m_cardLayout(nullptr)
+    , m_connectionPanel(nullptr)
     , m_trayIcon(nullptr)
     , m_connectionDialog(nullptr)
     , m_settingsDialog(nullptr)
@@ -105,8 +102,7 @@ MainWindow::MainWindow(QWidget* parent)
     // --- 汉堡菜单信号连接 ---
     connect(m_hamburgerMenu, &HamburgerMenu::newConnection,
             this, &MainWindow::newConnection);
-    connect(m_hamburgerMenu, &HamburgerMenu::connectToHost,
-            this, &MainWindow::connectToHost);
+
     connect(m_hamburgerMenu, &HamburgerMenu::openSettings,
             this, &MainWindow::showSettings);
     connect(m_hamburgerMenu, &HamburgerMenu::showAbout,
@@ -177,9 +173,47 @@ void MainWindow::setupConnections() {
     // 系统托盘连接
     if ( m_trayIcon ) {
         connect(m_trayIcon, &QSystemTrayIcon::activated, this, &MainWindow::iconActivated);
-        connect(m_minimizeAction, &QAction::triggered, this, &QWidget::hide);
-        connect(m_maximizeAction, &QAction::triggered, this, &QWidget::showMaximized);
         connect(m_restoreAction, &QAction::triggered, this, &QWidget::showNormal);
+    }
+
+    // ConnectionPanel 信号连接
+    if (m_connectionPanel) {
+        connect(m_connectionPanel, &ConnectionPanel::connectRequested,
+                this, [this](const QString &host, int port, const QString &hostname) {
+            ConnectionParams params;
+            params.host = host;
+            params.port = port;
+            params.hostname = hostname;
+            connectToHostDirectly(params);
+        });
+
+        connect(m_connectionPanel, &ConnectionPanel::editRequested,
+                this, [this](const QString &host, int port) {
+            if (!m_connectionPanel)
+                return;
+            HistoryEntry entry = m_connectionPanel->entryFor(host, port);
+            if (!m_connectionDialog) {
+                m_connectionDialog = new ConnectionDialog(this);
+            }
+            m_connectionDialog->setHostname(entry.hostname);
+            m_connectionDialog->setHostAddress(entry.host);
+            m_connectionDialog->setPort(entry.port);
+
+            if (m_connectionDialog->exec() == QDialog::Accepted) {
+                // 移除旧条目
+                m_connectionPanel->removeEntry(host, port);
+                // 添加更新后的条目
+                ConnectionParams params;
+                params.hostname = m_connectionDialog->getHostname();
+                params.host     = m_connectionDialog->getHostAddress();
+                params.port     = m_connectionDialog->getPort();
+                m_connectionPanel->addEntry(
+                    params.host.isEmpty() ? params.hostname : params.host,
+                    params.port, params.hostname,
+                    entry.resWidth, entry.resHeight);
+                m_connectionPanel->saveHistory(*m_settings);
+            }
+        });
     }
 
     // 性能信息定时更新（每 2 秒）
@@ -191,7 +225,9 @@ void MainWindow::setupConnections() {
 
 void MainWindow::loadSettings() {
     // 加载历史连接记录
-    loadConnectionHistory();
+    if (m_connectionPanel) {
+        m_connectionPanel->loadHistory(*m_settings);
+    }
 
     // 检查是否需要自动启动服务器
     bool autoStartServer = m_settings->value("Server/autoStart", false).toBool();
@@ -203,7 +239,9 @@ void MainWindow::loadSettings() {
 
 void MainWindow::saveSettings() {
     // 保存历史连接记录
-    saveConnectionHistory();
+    if (m_connectionPanel) {
+        m_connectionPanel->saveHistory(*m_settings);
+    }
 
     // 统一输出保存设置日志，便于测试用例判断
     qCDebug(lcUIMainWindow) << "MainWindow::saveSettings() - Settings saved";
@@ -276,8 +314,6 @@ void MainWindow::retranslateUi() {
     m_exitAction->setText(tr("退出"));
 
     // 系统托盘动作
-    m_minimizeAction->setText(tr("最小化(&N)"));
-    m_maximizeAction->setText(tr("最大化(&X)"));
     m_restoreAction->setText(tr("恢复(&R)"));
 
     // 状态栏
@@ -286,15 +322,9 @@ void MainWindow::retranslateUi() {
     updatePerformanceInfo();
     statusBar()->showMessage(tr("就绪"));
 
-    // 欢迎页
-    if ( m_searchBox ) {
-        m_searchBox->setPlaceholderText(tr("搜索历史连接..."));
-    }
-    if ( m_emptyStateLabel ) {
-        m_emptyStateLabel->setText(
-            m_searchBox && !m_searchBox->text().isEmpty()
-                ? tr("无匹配的连接记录")
-                : tr("暂无连接历史"));
+    // 连接历史面板
+    if ( m_connectionPanel ) {
+        m_connectionPanel->retranslateUi();
     }
 
     // 汉堡菜单
@@ -302,17 +332,7 @@ void MainWindow::retranslateUi() {
         m_hamburgerMenu->retranslateUi();
     }
 
-    // 连接卡片
-    retranslateAllCards();
-
     qCInfo(lcUIMainWindow) << "MainWindow::retranslateUi - UI retranslation done, windowTitle:" << windowTitle();
-}
-
-void MainWindow::retranslateAllCards()
-{
-    for (auto *card : m_connectionCards) {
-        card->retranslateUi();
-    }
 }
 
 // 槽函数实现
@@ -660,8 +680,11 @@ void MainWindow::connectToHostDirectly(const ConnectionParams& params) {
 
     m_sessions.append(session);
 
-    addConnectionToHistory(params.host, params.port, params.hostname,
-                           params.windowWidth, params.windowHeight);
+    if (m_connectionPanel) {
+        m_connectionPanel->addEntry(params.host, params.port, params.hostname,
+                                     params.windowWidth, params.windowHeight);
+        m_connectionPanel->saveHistory(*m_settings);
+    }
 
     // 启动会话（内部调用 connectToHost）
     session->start();
@@ -751,9 +774,10 @@ void MainWindow::addConnectionToHistory(const QString& host, int port,
                                         const QString& hostname,
                                         int resWidth, int resHeight)
 {
-    addConnectionCard(host, port, QDateTime::currentDateTime(), hostname,
-                      resWidth, resHeight);
-    saveConnectionHistory();
+    if (m_connectionPanel) {
+        m_connectionPanel->addEntry(host, port, hostname, resWidth, resHeight);
+        m_connectionPanel->saveHistory(*m_settings);
+    }
 }
 
 
@@ -766,162 +790,6 @@ void MainWindow::updateServerStatus(const QString& message) {
 void MainWindow::updateConnectionStatus(const QString& message) {
     // 检查Client connect to server的连接状态
     m_connectionStatusLabel->setText(message);
-}
-
-void MainWindow::loadConnectionHistory()
-{
-    m_settings->beginGroup("ConnectionHistory");
-    QStringList hosts = m_settings->value("hosts").toStringList();
-    QStringList hostnames = m_settings->value("hostnames").toStringList();
-    QStringList ports = m_settings->value("ports").toStringList();
-    QStringList times = m_settings->value("times").toStringList();
-    QStringList resWidths = m_settings->value("resWidths").toStringList();
-    QStringList resHeights = m_settings->value("resHeights").toStringList();
-    m_settings->endGroup();
-
-    int count = qMin(hosts.size(), qMin(ports.size(), times.size()));
-    bool hasHistory = false;
-    for (int i = 0; i < count; ++i) {
-        bool ok = false;
-        int port = ports.at(i).toInt(&ok);
-        if (!ok || port <= 0 || port > 65535)
-            continue;
-
-        QDateTime time = QDateTime::fromString(times.at(i), Qt::ISODate);
-        if (!time.isValid())
-            continue;
-
-        QString hostname = (i < hostnames.size() && !hostnames.at(i).isEmpty())
-            ? hostnames.at(i) : hosts.at(i);
-        int rw = (i < resWidths.size()) ? resWidths.at(i).toInt() : 0;
-        int rh = (i < resHeights.size()) ? resHeights.at(i).toInt() : 0;
-        addConnectionCard(hosts.at(i), port, time, hostname, rw, rh);
-        hasHistory = true;
-    }
-
-    m_emptyStateLabel->setVisible(!hasHistory);
-}
-
-void MainWindow::saveConnectionHistory()
-{
-    if (!m_settings) return;
-
-    QStringList hosts, hostnames, ports, times, resWidths, resHeights;
-    for (const auto *card : m_connectionCards) {
-        hosts.append(card->property("host").toString());
-        hostnames.append(card->property("hostname").toString());
-        ports.append(card->property("port").toString());
-        times.append(card->property("time").toDateTime().toString(Qt::ISODate));
-        resWidths.append(card->property("resWidth").toString());
-        resHeights.append(card->property("resHeight").toString());
-    }
-    m_settings->beginGroup("ConnectionHistory");
-    m_settings->setValue("hosts", hosts);
-    m_settings->setValue("hostnames", hostnames);
-    m_settings->setValue("ports", ports);
-    m_settings->setValue("times", times);
-    m_settings->setValue("resWidths", resWidths);
-    m_settings->setValue("resHeights", resHeights);
-    m_settings->endGroup();
-    m_settings->sync();
-}
-
-ConnectionCard *MainWindow::addConnectionCard(const QString &host, int port,
-                                               const QDateTime &time,
-                                               const QString &hostname,
-                                               int resWidth, int resHeight)
-{
-    // 检查重复
-    for (auto *card : m_connectionCards) {
-        if (card->property("host").toString() == host
-            && card->property("port").toInt() == port) {
-            // 更新已有卡片信息并移到顶部
-            card->setLastConnected(time);
-            card->setResolution(resWidth, resHeight);
-            card->setProperty("time", time);
-            card->setProperty("resWidth", resWidth);
-            card->setProperty("resHeight", resHeight);
-            m_cardLayout->removeWidget(card);
-            m_cardLayout->insertWidget(0, card);
-            m_connectionCards.removeOne(card);
-            m_connectionCards.prepend(card);
-            return card;
-        }
-    }
-
-    auto *card = new ConnectionCard();
-    const QString displayName = hostname.isEmpty() ? host : hostname;
-    card->setHostname(displayName);
-    card->setAddressPort(host, port);
-    card->setResolution(resWidth, resHeight);
-    card->setLastConnected(time);
-    card->setProperty("host", host);
-    card->setProperty("hostname", displayName);
-    card->setProperty("port", port);
-    card->setProperty("time", time);
-    card->setProperty("resWidth", resWidth);
-    card->setProperty("resHeight", resHeight);
-    card->setProperty("searchKey", QStringLiteral("%1:%2").arg(host).arg(port));
-
-    // 信号连接
-    connect(card, &ConnectionCard::connectClicked, this, [this, card]() {
-        ConnectionParams params;
-        params.hostname = card->property("hostname").toString();
-        params.host = card->property("host").toString();
-        params.port = card->property("port").toInt();
-        connectToHostDirectly(params);
-    });
-    connect(card, &ConnectionCard::editClicked, this, [this, card]() {
-        if (!m_connectionDialog) {
-            m_connectionDialog = new ConnectionDialog(this);
-        }
-        QString cardHost = card->property("host").toString();
-        QString cardHostname = card->property("hostname").toString();
-        int cardPort = card->property("port").toInt();
-        // 预填主机名和地址
-        m_connectionDialog->setHostname(cardHostname);
-        m_connectionDialog->setHostAddress(cardHost);
-        m_connectionDialog->setPort(cardPort);
-
-        if (m_connectionDialog->exec() == QDialog::Accepted) {
-            ConnectionParams params;
-            params.hostname = m_connectionDialog->getHostname();
-            params.host     = m_connectionDialog->getHostAddress();
-            params.port     = m_connectionDialog->getPort();
-            // 保留旧卡片的分辨率
-            int oldRw = card->property("resWidth").toInt();
-            int oldRh = card->property("resHeight").toInt();
-            // 移除旧卡片，添加更新后的
-            m_cardLayout->removeWidget(card);
-            m_connectionCards.removeOne(card);
-            card->deleteLater();
-            addConnectionCard(params.host.isEmpty() ? params.hostname : params.host,
-                              params.port, QDateTime::currentDateTime(),
-                              params.hostname, oldRw, oldRh);
-            saveConnectionHistory();
-        }
-    });
-    connect(card, &ConnectionCard::deleteClicked, this, [this, card]() {
-        QMessageBox msgBox(this);
-        msgBox.setWindowTitle(tr("确认删除"));
-        msgBox.setText(tr("确定删除此连接记录？"));
-        msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
-        msgBox.setDefaultButton(QMessageBox::No);
-
-        if (msgBox.exec() == QMessageBox::Yes) {
-            m_cardLayout->removeWidget(card);
-            m_connectionCards.removeOne(card);
-            card->deleteLater();
-            saveConnectionHistory();
-            m_emptyStateLabel->setVisible(m_connectionCards.isEmpty());
-        }
-    });
-
-    m_cardLayout->insertWidget(0, card);
-    m_connectionCards.prepend(card);
-    m_emptyStateLabel->setVisible(false);
-
-    return card;
 }
 
 void MainWindow::applyTheme()
