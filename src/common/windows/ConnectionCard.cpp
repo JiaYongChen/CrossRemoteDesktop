@@ -62,19 +62,19 @@ void ConnectionCard::setupUi()
 
     m_connectButton = new QToolButton();
     m_connectButton->setIcon(IconThemeProvider::icon("connect"));
-    m_connectButton->setIconSize(QSize(36, 36));
+    m_connectButton->setIconSize(QSize(40, 40));
     m_connectButton->setToolTip(tr("连接"));
     m_connectButton->setAutoRaise(true);
 
     m_editButton = new QToolButton();
     m_editButton->setIcon(IconThemeProvider::icon("save"));
-    m_editButton->setIconSize(QSize(36, 36));
+    m_editButton->setIconSize(QSize(40, 40));
     m_editButton->setToolTip(tr("修改参数"));
     m_editButton->setAutoRaise(true);
 
     m_deleteButton = new QToolButton();
     m_deleteButton->setIcon(IconThemeProvider::icon("delete"));
-    m_deleteButton->setIconSize(QSize(36, 36));
+    m_deleteButton->setIconSize(QSize(40, 40));
     m_deleteButton->setToolTip(tr("删除记录"));
     m_deleteButton->setAutoRaise(true);
 

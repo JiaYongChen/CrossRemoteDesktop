@@ -23,10 +23,10 @@ void HamburgerMenu::setupUi()
     // ☰ 按钮
     m_hamburgerButton = new QToolButton();
     m_hamburgerButton->setIcon(IconThemeProvider::icon("menu"));
-    m_hamburgerButton->setIconSize(QSize(22, 22));
+    m_hamburgerButton->setIconSize(QSize(44, 44));
     m_hamburgerButton->setToolTip(tr("菜单"));
     m_hamburgerButton->setAutoRaise(true);
-    m_hamburgerButton->setFixedSize(48, 44);
+    m_hamburgerButton->setFixedSize(44, 44);
     mainLayout->addWidget(m_hamburgerButton, 0, Qt::AlignHCenter);
 
     // 分隔线
@@ -69,10 +69,10 @@ void HamburgerMenu::setupUi()
     // 主题切换按钮（始终可见）
     m_themeButton = new QToolButton();
     m_themeButton->setIcon(IconThemeProvider::icon("theme"));
-    m_themeButton->setIconSize(QSize(20, 20));
+    m_themeButton->setIconSize(QSize(44, 44));
     m_themeButton->setToolTip(tr("切换主题"));
     m_themeButton->setAutoRaise(true);
-    m_themeButton->setFixedSize(48, 44);
+    m_themeButton->setFixedSize(44, 44);
     mainLayout->addWidget(m_themeButton, 0, Qt::AlignHCenter);
 
     // 信号连接
@@ -91,11 +91,11 @@ QToolButton *HamburgerMenu::createMenuItem(const QIcon &icon,
 {
     auto *btn = new QToolButton();
     btn->setIcon(icon);
-    btn->setIconSize(QSize(20, 20));
+    btn->setIconSize(QSize(44, 44));
     btn->setToolTip(tooltip);
     btn->setAutoRaise(true);
     btn->setObjectName(objectName);
-    btn->setFixedSize(40, 40);
+    btn->setFixedSize(44, 44);
 
     // 为动画准备透明度效果
     auto *effect = new QGraphicsOpacityEffect(btn);
