@@ -797,6 +797,10 @@ void MainWindow::updateConnectionStatus(const QString& message) {
 
 void MainWindow::applyTheme()
 {
+    // 暂停主窗口绘制，将所有 UI 变更合并为单次原子重绘，消除主题切换时的多帧闪烁
+    // setUpdatesEnabled(false) 会阻止自身及所有子孙 widget 的 update()
+    setUpdatesEnabled(false);
+
     QString qssFile = (m_themeMode == "dark")
         ? ":/styles/dark.qss"
         : ":/styles/light.qss";
@@ -812,17 +816,8 @@ void MainWindow::applyTheme()
 
     IconThemeProvider::setDarkMode(m_themeMode == "dark");
 
-    // 刷新所有已构造控件的图标以匹配新主题
-    m_hamburgerMenu->refreshIcons();
-    m_connectionPanel->refreshIcons();
-    m_newConnectionAction->setIcon(IconThemeProvider::icon("new_connection"));
-    m_connectAction->setIcon(IconThemeProvider::icon("connect"));
-    m_settingsAction->setIcon(IconThemeProvider::icon("settings"));
-    m_exitAction->setIcon(IconThemeProvider::icon("exit"));
-    m_settingsDialog->refreshIcons();
-    if (m_connectionDialog) {
-        m_connectionDialog->refreshIcons();
-    }
+    // 图标已统一为平级 SVG（不区分 light/dark），无需逐个控件刷新图标
+    // setStyleSheet 触发的全局重绘会自动以正确背景渲染现有图标
 
     // 更新 Windows 原生标题栏深色/浅色模式（非 Windows 平台为空操作）
     const bool isDark = (m_themeMode == "dark");
@@ -831,6 +826,9 @@ void MainWindow::applyTheme()
     if (m_connectionDialog) {
         TitleBarTheme::apply(m_connectionDialog, isDark);
     }
+
+    // 恢复绘制 — 所有变更一次性呈现
+    setUpdatesEnabled(true);
 }
 
 void MainWindow::toggleTheme()
