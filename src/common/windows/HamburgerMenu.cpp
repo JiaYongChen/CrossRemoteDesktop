@@ -32,7 +32,7 @@ void HamburgerMenu::setupUi()
     // 分隔线
     auto *sep1 = new QFrame();
     sep1->setFrameShape(QFrame::HLine);
-    sep1->setFixedWidth(35);
+    sep1->setFixedWidth(50);
     mainLayout->addWidget(sep1, 0, Qt::AlignHCenter);
 
     // 菜单项容器（动画目标）

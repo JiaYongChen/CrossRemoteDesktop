@@ -179,19 +179,362 @@ QLabel#emptyStateLabel {
     background: transparent;
 }
 
-/* ===== QComboBox 下拉箭头（深色主题图标） ===== */
+/* ===== QComboBox（深色主题） ===== */
+QComboBox {
+    border: 1px solid #555555;
+    border-radius: 4px;
+    padding: 5px 10px;
+    background-color: #2D2D2D;
+    color: #E0E0E0;
+    font-size: 13px;
+}
+QComboBox:hover {
+    border-color: #777777;
+}
+QComboBox:focus {
+    border-color: #4A90D9;
+}
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 24px;
+    border: none;
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
+}
 QComboBox::down-arrow {
     image: url(:/icons/dark/dropdown-arrow.svg);
     width: 12px;
     height: 12px;
+    margin-right: 6px;
 }
-QAbstractSpinBox::up-arrow {
+QComboBox QAbstractItemView {
+    border: 1px solid #555555;
+    border-radius: 4px;
+    background-color: #2D2D2D;
+    selection-background-color: rgba(74, 144, 217, 0.20);
+    selection-color: #E0E0E0;
+    outline: none;
+}
+
+/* ===== QSpinBox（深色主题） ===== */
+QSpinBox {
+    border: 1px solid #555555;
+    border-radius: 4px;
+    padding: 8px 12px;
+    background-color: #2D2D2D;
+    color: #E0E0E0;
+    font-size: 13px;
+}
+QSpinBox:hover {
+    border-color: #777777;
+}
+QSpinBox:focus {
+    border-color: #4A90D9;
+}
+QSpinBox:disabled {
+    background-color: #252525;
+    color: #666666;
+    border-color: #3A3A3A;
+}
+QSpinBox::up-button {
+    subcontrol-origin: border;
+    subcontrol-position: top right;
+    width: 20px;
+    border-left: 1px solid #555555;
+    border-bottom: 1px solid #555555;
+    border-top-right-radius: 4px;
+}
+QSpinBox::up-button:hover {
+    background-color: #3A3A3A;
+}
+QSpinBox::up-arrow {
     image: url(:/icons/dark/spin-up.svg);
-    width: 12px;
-    height: 12px;
+    width: 8px;
+    height: 8px;
 }
-QAbstractSpinBox::down-arrow {
+QSpinBox::down-button {
+    subcontrol-origin: border;
+    subcontrol-position: bottom right;
+    width: 20px;
+    border-left: 1px solid #555555;
+    border-bottom-right-radius: 4px;
+}
+QSpinBox::down-button:hover {
+    background-color: #3A3A3A;
+}
+QSpinBox::down-arrow {
     image: url(:/icons/dark/spin-down.svg);
-    width: 12px;
-    height: 12px;
+    width: 8px;
+    height: 8px;
+}
+
+/* ===== QPushButton（深色主题） ===== */
+QPushButton {
+    background-color: #4A90D9;
+    color: #FFFFFF;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 20px;
+    font-size: 13px;
+    font-weight: 500;
+    min-width: 90px;
+    min-height: 28px;
+}
+QPushButton:hover {
+    background-color: #5AA0E9;
+}
+QPushButton:pressed {
+    background-color: #3A80C9;
+}
+QPushButton#presetDebugBtn,
+QPushButton#resetRulesBtn {
+    background-color: #3A3A3A;
+    border: 1px solid #555555;
+    border-radius: 4px;
+    padding: 5px 14px;
+    font-size: 12px;
+    font-weight: 400;
+    color: #CCCCCC;
+}
+QPushButton#presetDebugBtn:hover,
+QPushButton#resetRulesBtn:hover {
+    background-color: #444444;
+    border-color: #666666;
+}
+QPushButton#restoreDefaultsBtn {
+    background-color: #4A90D9;
+    color: #FFFFFF;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 20px;
+    font-size: 13px;
+    font-weight: 500;
+    min-width: 100px;
+    min-height: 32px;
+}
+
+/* ===== QDialogButtonBox（深色主题） ===== */
+QDialogButtonBox QPushButton {
+    background-color: #4A90D9;
+    color: #FFFFFF;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 18px;
+    font-size: 13px;
+    font-weight: 500;
+    min-width: 90px;
+    min-height: 28px;
+}
+QDialogButtonBox QPushButton:hover {
+    background-color: #5AA0E9;
+}
+QDialogButtonBox QPushButton:pressed {
+    background-color: #3A80C9;
+}
+
+/* ===== QCheckBox（深色主题） ===== */
+QCheckBox {
+    color: #E0E0E0;
+    font-size: 13px;
+    spacing: 8px;
+}
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    background-color: #2D2D2D;
+    border: 2px solid #555555;
+}
+QCheckBox::indicator:checked {
+    background-color: #4A90D9;
+    border-color: #4A90D9;
+}
+QCheckBox::indicator:hover {
+    border-color: #777777;
+}
+QCheckBox::indicator:checked:hover {
+    background-color: #5AA0E9;
+    border-color: #5AA0E9;
+}
+
+/* ===== QCheckBox#autoStartCheckBox（深色主题） ===== */
+QCheckBox#autoStartCheckBox {
+    spacing: 8px;
+}
+QCheckBox#autoStartCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    background-color: #2D2D2D;
+    border: 2px solid #555555;
+}
+QCheckBox#autoStartCheckBox::indicator:checked {
+    background-color: #4A90D9;
+    border-color: #4A90D9;
+}
+
+/* ===== QGroupBox（深色主题） ===== */
+QGroupBox {
+    background-color: #2A2A2A;
+    border: 1px solid #3A3A3A;
+    border-radius: 8px;
+    margin-top: 8px;
+    padding: 18px 12px 12px 12px;
+    font-weight: 600;
+    font-size: 13px;
+    color: #E0E0E0;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 14px;
+    padding: 0 6px 0 6px;
+    color: #E0E0E0;
+}
+
+/* ===== QTabWidget / QTabBar（深色主题） ===== */
+QTabWidget::pane {
+    background-color: #252525;
+    border: none;
+    border-top: 1px solid #3A3A3A;
+    top: -1px;
+    padding: 6px 28px;
+}
+QTabBar::tab {
+    background-color: transparent;
+    color: #999999;
+    padding: 10px 20px;
+    border: none;
+    border-bottom: 3px solid transparent;
+    font-size: 13px;
+    font-weight: 400;
+}
+QTabBar::tab:selected {
+    color: #E0E0E0;
+    font-weight: 600;
+    border-bottom: 3px solid #4A90D9;
+}
+QTabBar::tab:hover:!selected {
+    color: #CCCCCC;
+}
+
+/* ===== QListWidget（深色主题 — 侧栏导航） ===== */
+QListWidget {
+    background-color: #121212;
+    border: none;
+    outline: none;
+    font-size: 13px;
+    padding: 6px 4px;
+}
+QListWidget::item {
+    padding: 9px 12px;
+    margin: 1px 4px;
+    border-radius: 6px;
+    border-left: 3px solid transparent;
+    color: #AAAAAA;
+    font-weight: 400;
+}
+QListWidget::item:selected {
+    background-color: rgba(255, 255, 255, 0.06);
+    border-left: 3px solid #4A90D9;
+    color: #E0E0E0;
+    font-weight: 600;
+}
+QListWidget::item:hover:!selected {
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+/* ===== QSlider（深色主题） ===== */
+QSlider::groove:horizontal {
+    background-color: #3A3A3A;
+    height: 4px;
+    border-radius: 2px;
+}
+QSlider::sub-page:horizontal {
+    background-color: #4A90D9;
+    height: 4px;
+    border-radius: 2px;
+}
+QSlider::handle:horizontal {
+    background-color: #1E1E1E;
+    border: 2px solid #4A90D9;
+    width: 16px;
+    height: 16px;
+    margin: -6px 0;
+    border-radius: 8px;
+}
+QSlider::handle:horizontal:hover {
+    background-color: #2D2D2D;
+    border-color: #5AA0E9;
+}
+
+/* ===== QTextEdit（深色主题） ===== */
+QTextEdit#logRulesTextEdit {
+    border: 1px solid #555555;
+    border-radius: 4px;
+    padding: 8px 12px;
+    background-color: #2D2D2D;
+    color: #E0E0E0;
+    font-family: "Consolas", "Cascadia Code", "Courier New", monospace;
+    font-size: 12px;
+}
+QTextEdit#logRulesTextEdit:focus {
+    border-color: #4A90D9;
+}
+
+/* ===== 对话框区域背景（深色主题） ===== */
+QWidget#sidebarWidget {
+    background-color: #121212;
+}
+QWidget#mainContentWidget {
+    background-color: #252525;
+    border-left: 1px solid #333333;
+}
+QWidget#buttonWidget {
+    background-color: #1E1E1E;
+    border-top: 1px solid #333333;
+}
+QWidget#tabContainer {
+    background-color: transparent;
+}
+QStackedWidget#settingsStackedWidget {
+    background-color: transparent;
+}
+QWidget#generalPage,
+QWidget#serverPage,
+QWidget#advancedPage,
+QWidget#connectionTab,
+QWidget#optionsTab,
+QWidget#advancedTab {
+    background-color: transparent;
+}
+
+/* ===== 对话框内滚动条（深色主题，与主窗口隐藏滚动条区分） ===== */
+QDialog#SettingsDialog QScrollBar:vertical,
+QDialog#ConnectionDialog QScrollBar:vertical {
+    width: 6px;
+    background-color: transparent;
+    margin: 0;
+}
+QDialog#SettingsDialog QScrollBar::handle:vertical,
+QDialog#ConnectionDialog QScrollBar::handle:vertical {
+    background-color: #555555;
+    border-radius: 3px;
+    min-height: 30px;
+}
+QDialog#SettingsDialog QScrollBar::handle:vertical:hover,
+QDialog#ConnectionDialog QScrollBar::handle:vertical:hover {
+    background-color: #777777;
+}
+QDialog#SettingsDialog QScrollBar::add-line:vertical,
+QDialog#SettingsDialog QScrollBar::sub-line:vertical,
+QDialog#ConnectionDialog QScrollBar::add-line:vertical,
+QDialog#ConnectionDialog QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+QDialog#SettingsDialog QScrollBar::add-page:vertical,
+QDialog#SettingsDialog QScrollBar::sub-page:vertical,
+QDialog#ConnectionDialog QScrollBar::add-page:vertical,
+QDialog#ConnectionDialog QScrollBar::sub-page:vertical {
+    background-color: transparent;
 }

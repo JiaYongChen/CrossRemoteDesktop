@@ -44,6 +44,7 @@ public:
 
 protected:
 	void accept() override;
+	void showEvent(QShowEvent* event) override;
 
 private slots:
 	void onTogglePasswordClicked();

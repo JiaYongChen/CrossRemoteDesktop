@@ -22,6 +22,7 @@ public:
 
 protected:
 	void changeEvent(QEvent* event) override;
+	void showEvent(QShowEvent* event) override;
 
 private slots:
 	// 即时生效槽

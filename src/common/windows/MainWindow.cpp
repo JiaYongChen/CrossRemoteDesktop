@@ -14,6 +14,7 @@
 #include "../core/config/MessageConstants.h"
 #include "../core/logging/LoggingCategories.h"
 #include "../core/theme/IconThemeProvider.h"
+#include "../core/theme/TitleBarTheme.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -211,6 +212,7 @@ void MainWindow::setupConnections() {
             HistoryEntry entry = m_connectionPanel->entryFor(host, port);
             if (!m_connectionDialog) {
                 m_connectionDialog = new ConnectionDialog(this);
+                TitleBarTheme::apply(m_connectionDialog, m_themeMode == "dark");
             }
             m_connectionDialog->setHostname(entry.hostname);
             m_connectionDialog->setHostAddress(entry.host);
@@ -321,6 +323,17 @@ void MainWindow::changeEvent(QEvent* event) {
         retranslateUi();
         qCInfo(lcUIMainWindow) << "MainWindow::changeEvent - retranslateUi completed";
     }
+}
+
+void MainWindow::showEvent(QShowEvent* event)
+{
+    QMainWindow::showEvent(event);
+
+    // 窗口首次显示后，DWM 标题栏属性可能在 Qt 内部窗口创建过程中被重置，
+    // 因此需要在 showEvent 中再次应用标题栏主题
+    const bool isDark = (m_themeMode == "dark");
+    TitleBarTheme::apply(this, isDark);
+    TitleBarTheme::apply(m_settingsDialog, isDark);
 }
 
 void MainWindow::retranslateUi() {
@@ -625,6 +638,8 @@ void MainWindow::gracefulShutdown() {
 void MainWindow::showConnectionDialog() {
     if ( !m_connectionDialog ) {
         m_connectionDialog = new ConnectionDialog(this);
+        // ConnectionDialog 是懒加载的，创建后立即应用标题栏主题
+        TitleBarTheme::apply(m_connectionDialog, m_themeMode == "dark");
     }
 
     // 预填默认端口（优先服务端运行端口，否则从 QSettings 读取）
@@ -807,6 +822,14 @@ void MainWindow::applyTheme()
     m_settingsDialog->refreshIcons();
     if (m_connectionDialog) {
         m_connectionDialog->refreshIcons();
+    }
+
+    // 更新 Windows 原生标题栏深色/浅色模式（非 Windows 平台为空操作）
+    const bool isDark = (m_themeMode == "dark");
+    TitleBarTheme::apply(this, isDark);
+    TitleBarTheme::apply(m_settingsDialog, isDark);
+    if (m_connectionDialog) {
+        TitleBarTheme::apply(m_connectionDialog, isDark);
     }
 }
 

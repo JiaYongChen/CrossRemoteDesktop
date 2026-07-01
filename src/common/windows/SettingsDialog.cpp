@@ -6,6 +6,7 @@
 #include "common/core/config/UiConstants.h"
 #include "common/core/crypto/PasswordCrypto.h"
 #include "common/core/theme/IconThemeProvider.h"
+#include "common/core/theme/TitleBarTheme.h"
 
 #include <QtCore/QSettings>
 #include <QtCore/QEvent>
@@ -313,4 +314,11 @@ void SettingsDialog::changeEvent(QEvent* event)
 		if (ui->resetRulesBtn) ui->resetRulesBtn->setText(tr("Reset Rules"));
 		if (ui->restoreDefaultsBtn) ui->restoreDefaultsBtn->setText(tr("恢复默认值"));
 	}
+}
+void SettingsDialog::showEvent(QShowEvent* event)
+{
+	QDialog::showEvent(event);
+	// 每次显示对话框时重新应用标题栏主题
+	//（hide()/exec() 返回后 Windows 可能重置 DWM 属性）
+	TitleBarTheme::apply(this, IconThemeProvider::isDarkMode());
 }

@@ -40,6 +40,7 @@ public:
 protected:
     void closeEvent(QCloseEvent *event) override;
     void changeEvent(QEvent *event) override;
+    void showEvent(QShowEvent *event) override;
 
 private slots:
     // 菜单和工具栏动作
@@ -102,9 +103,6 @@ private:
     HamburgerMenu *m_hamburgerMenu = nullptr;
     ConnectionPanel *m_connectionPanel = nullptr;
 
-    // 菜单（系统托盘用）
-    class QMenu *m_trayIconMenu;
-
     // 动作（仅保留托盘菜单和快捷键需要的）
     class QAction *m_exitAction;
     class QAction *m_newConnectionAction;
@@ -119,6 +117,7 @@ private:
 
     // 系统托盘
     class QSystemTrayIcon *m_trayIcon;
+    class QMenu *m_trayIconMenu;
 
     // 对话框
     ConnectionDialog *m_connectionDialog;

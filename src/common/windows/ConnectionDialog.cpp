@@ -3,6 +3,7 @@
 #include "../core/config/MessageConstants.h"
 #include "../core/config/UiConstants.h"
 #include "common/core/theme/IconThemeProvider.h"
+#include "common/core/theme/TitleBarTheme.h"
 
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QPushButton>
@@ -149,6 +150,14 @@ void ConnectionDialog::accept()
 	}
 	saveSettings();
 	QDialog::accept();
+}
+
+void ConnectionDialog::showEvent(QShowEvent* event)
+{
+	QDialog::showEvent(event);
+	// 每次显示对话框时重新应用标题栏主题
+	//（exec() 返回后 Windows 可能重置 DWM 属性）
+	TitleBarTheme::apply(this, IconThemeProvider::isDarkMode());
 }
 
 void ConnectionDialog::setDefaultPort(int port)

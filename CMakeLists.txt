@@ -139,7 +139,7 @@ endif()
 
 # ── Windows: D3D11 + DXGI + 子系统 + DLL 部署 ──
 if(WIN32)
-    target_link_libraries(CrossRemoteDesktop PRIVATE d3d11.lib dxgi.lib)
+    target_link_libraries(CrossRemoteDesktop PRIVATE d3d11.lib dxgi.lib dwmapi.lib)
     target_link_options(CrossRemoteDesktop PRIVATE
         $<$<AND:$<CONFIG:Debug>,$<CXX_COMPILER_ID:MSVC>>:/SUBSYSTEM:CONSOLE>
     )
