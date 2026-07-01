@@ -108,5 +108,55 @@
     "dark_fill": "#B39DDB",
     "dark_fill_opacity": "0.6",
     "body": "  <circle cx=\"16\" cy=\"16\" r=\"10\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\"/>\n  <circle cx=\"16\" cy=\"12\" r=\"1.2\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n  <rect x=\"15\" y=\"15\" width=\"2\" height=\"7\" rx=\"1\" fill=\"{{stroke}}\"/>\n  <rect x=\"15\" y=\"23\" width=\"2\" height=\"3\" rx=\"1\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n"
+  },
+  {
+    "name": "fullscreen",
+    "light_stroke": "#F59E0B",
+    "light_fill": "#FFC107",
+    "light_fill_opacity": "0.85",
+    "dark_stroke": "#FFC107",
+    "dark_fill": "#FFD54F",
+    "dark_fill_opacity": "0.6",
+    "body": "  <path d=\"M8 8h6v-4H4v10h4z\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\" stroke=\"{{stroke}}\" stroke-width=\"1.5\" stroke-linejoin=\"round\"/>\n  <path d=\"M24 8h-6v-4h10v10h-4z\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\" stroke=\"{{stroke}}\" stroke-width=\"1.5\" stroke-linejoin=\"round\"/>\n  <path d=\"M8 24h6v4H4V18h4z\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\" stroke=\"{{stroke}}\" stroke-width=\"1.5\" stroke-linejoin=\"round\"/>\n  <path d=\"M24 24h-6v4h10V18h-4z\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\" stroke=\"{{stroke}}\" stroke-width=\"1.5\" stroke-linejoin=\"round\"/>\n"
+  },
+  {
+    "name": "zoom_in",
+    "light_stroke": "#FF9800",
+    "light_fill": "#FFB74D",
+    "light_fill_opacity": "0.85",
+    "dark_stroke": "#FFB74D",
+    "dark_fill": "#FFA726",
+    "dark_fill_opacity": "0.6",
+    "body": "  <circle cx=\"14\" cy=\"14\" r=\"7\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\"/>\n  <line x1=\"19\" y1=\"19\" x2=\"26\" y2=\"26\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\"/>\n  <line x1=\"11\" y1=\"14\" x2=\"17\" y2=\"14\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\"/>\n  <line x1=\"14\" y1=\"11\" x2=\"14\" y2=\"17\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\"/>\n  <circle cx=\"14\" cy=\"14\" r=\"2\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n"
+  },
+  {
+    "name": "zoom_out",
+    "light_stroke": "#F57C00",
+    "light_fill": "#FFB74D",
+    "light_fill_opacity": "0.85",
+    "dark_stroke": "#FFB74D",
+    "dark_fill": "#FF9800",
+    "dark_fill_opacity": "0.6",
+    "body": "  <circle cx=\"14\" cy=\"14\" r=\"7\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\"/>\n  <line x1=\"19\" y1=\"19\" x2=\"26\" y2=\"26\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\"/>\n  <line x1=\"11\" y1=\"14\" x2=\"17\" y2=\"14\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\"/>\n  <circle cx=\"14\" cy=\"14\" r=\"2\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n"
+  },
+  {
+    "name": "zoom_fit",
+    "light_stroke": "#FF8F00",
+    "light_fill": "#FFC107",
+    "light_fill_opacity": "0.85",
+    "dark_stroke": "#FFCA28",
+    "dark_fill": "#FFB300",
+    "dark_fill_opacity": "0.6",
+    "body": "  <rect x=\"5\" y=\"6\" width=\"22\" height=\"17\" rx=\"3\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\"/>\n  <path d=\"M5 10l3-3M27 10l-3-3M5 19l3 3M27 19l-3 3\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n  <rect x=\"10\" y=\"10\" width=\"12\" height=\"9\" rx=\"1\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n"
+  },
+  {
+    "name": "zoom_actual",
+    "light_stroke": "#FB8C00",
+    "light_fill": "#FFA726",
+    "light_fill_opacity": "0.85",
+    "dark_stroke": "#FFA726",
+    "dark_fill": "#FFB74D",
+    "dark_fill_opacity": "0.6",
+    "body": "  <rect x=\"5\" y=\"6\" width=\"22\" height=\"17\" rx=\"3\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\"/>\n  <rect x=\"10\" y=\"10\" width=\"12\" height=\"9\" rx=\"1\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n  <line x1=\"5\" y1=\"25\" x2=\"8\" y2=\"25\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\"/>\n  <line x1=\"27\" y1=\"25\" x2=\"23\" y2=\"25\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\"/>\n  <polygon points=\"16,25 18,23 18,27\" fill=\"{{stroke}}\"/>\n  <polygon points=\"19,25 17,23 17,27\" fill=\"{{stroke}}\"/>\n"
   }
 ]
