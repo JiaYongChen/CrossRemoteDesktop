@@ -38,5 +38,35 @@
     "dark_fill": "#42A5F5",
     "dark_fill_opacity": "0.7",
     "body": "  <path d=\"M10 16 A6 6 0 0 1 20 12\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\"/>\n  <path d=\"M22 16 A6 6 0 0 1 12 20\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\"/>\n  <polygon points=\"20,11 22,8 24,12\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n  <polygon points=\"12,21 10,24 8,20\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n"
+  },
+  {
+    "name": "server",
+    "light_stroke": "#4AC29A",
+    "light_fill": "#A5D6A7",
+    "light_fill_opacity": "0.85",
+    "dark_stroke": "#5EDCA8",
+    "dark_fill": "#5EDCA8",
+    "dark_fill_opacity": "0.3",
+    "body": "  <rect x=\"5\" y=\"6\" width=\"22\" height=\"8\" rx=\"2\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\"/>\n  <rect x=\"5\" y=\"18\" width=\"22\" height=\"8\" rx=\"2\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\"/>\n  <circle cx=\"10\" cy=\"10\" r='1.5' fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n  <circle cx=\"10\" cy=\"22\" r='1.5' fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n  <circle cx=\"19\" cy=\"10\" r='1' fill=\"{{stroke}}\"/>\n  <circle cx=\"19\" cy=\"22\" r='1' fill=\"{{stroke}}\"/>\n"
+  },
+  {
+    "name": "save",
+    "light_stroke": "#43A047",
+    "light_fill": "#81C784",
+    "light_fill_opacity": "0.85",
+    "dark_stroke": "#66BB6A",
+    "dark_fill": "#81C784",
+    "dark_fill_opacity": "0.6",
+    "body": "  <path d=\"M7 6h14l5 5v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linejoin=\"round\"/>\n  <path d=\"M21 6v6H11V6\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n  <rect x=\"10\" y=\"20\" width=\"12\" height=\"6\" rx=\"1\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n"
+  },
+  {
+    "name": "update",
+    "light_stroke": "#2E7D32",
+    "light_fill": "#66BB6A",
+    "light_fill_opacity": "0.85",
+    "dark_stroke": "#66BB6A",
+    "dark_fill": "#4CAF50",
+    "dark_fill_opacity": "0.6",
+    "body": "  <path d=\"M16 7v5l-3-3\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n  <path d=\"M28 13a10 10 0 0 0-18-2\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\"/>\n  <path d=\"M16 27v-5l3 3\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n  <path d=\"M4 21a10 10 0 0 0 18 2\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\"/>\n  <circle cx=\"16\" cy=\"17\" r=\"2\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n"
   }
 ]
