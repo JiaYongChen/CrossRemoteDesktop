@@ -1,1 +1,42 @@
-[]
+[
+  {
+    "name": "connect",
+    "light_stroke": "#2F80ED",
+    "light_fill": "#56CCF2",
+    "light_fill_opacity": "0.85",
+    "dark_stroke": "#6DB3F2",
+    "dark_fill": "#56CCF2",
+    "dark_fill_opacity": "0.7",
+    "body": "  <circle cx=\"8\" cy=\"16\" r=\"2.5\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n  <circle cx=\"8\" cy=\"16\" r=\"3.5\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\"/>\n  <line x1=\"11.5\" y1=\"16\" x2=\"16.5\" y2=\"16\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\"/>\n  <circle cx=\"24\" cy=\"16\" r=\"3.5\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\"/>\n  <circle cx=\"24\" cy=\"16\" r=\"2.5\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n"
+  },
+  {
+    "name": "disconnect",
+    "light_stroke": "#E05555",
+    "light_fill": "#FF8E8E",
+    "light_fill_opacity": "0.85",
+    "dark_stroke": "#FF8A80",
+    "dark_fill": "#FF5252",
+    "dark_fill_opacity": "0.6",
+    "body": "  <circle cx=\"8\" cy=\"16\" r=\"2.5\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n  <circle cx=\"8\" cy=\"16\" r=\"3.5\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\"/>\n  <line x1=\"11.5\" y1=\"16\" x2=\"16.5\" y2=\"16\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\"/>\n  <circle cx=\"24\" cy=\"16\" r=\"3.5\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\"/>\n  <circle cx=\"24\" cy=\"16\" r=\"2.5\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n  <line x1=\"8\" y1=\"8\" x2=\"24\" y2=\"24\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\" opacity=\"0.6\"/>\n"
+  },
+  {
+    "name": "new_connection",
+    "light_stroke": "#1976D2",
+    "light_fill": "#42A5F5",
+    "light_fill_opacity": "0.85",
+    "dark_stroke": "#64B5F6",
+    "dark_fill": "#42A5F5",
+    "dark_fill_opacity": "0.7",
+    "body": "  <circle cx=\"16\" cy=\"16\" r=\"3\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n  <circle cx=\"16\" cy=\"16\" r=\"5\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\"/>\n  <line x1=\"16\" y1=\"6\" x2=\"16\" y2=\"11\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\"/>\n  <line x1=\"16\" y1=\"21\" x2=\"16\" y2=\"26\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\"/>\n  <line x1=\"6\" y1=\"16\" x2=\"11\" y2=\"16\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\"/>\n  <line x1=\"21\" y1=\"16\" x2=\"26\" y2=\"16\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\"/>\n"
+  },
+  {
+    "name": "reconnect",
+    "light_stroke": "#1565C0",
+    "light_fill": "#42A5F5",
+    "light_fill_opacity": "0.85",
+    "dark_stroke": "#64B5F6",
+    "dark_fill": "#42A5F5",
+    "dark_fill_opacity": "0.7",
+    "body": "  <path d=\"M10 16 A6 6 0 0 1 20 12\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\"/>\n  <path d=\"M22 16 A6 6 0 0 1 12 20\" fill=\"none\" stroke=\"{{stroke}}\" stroke-width=\"2.0\" stroke-linecap=\"round\"/>\n  <polygon points=\"20,11 22,8 24,12\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n  <polygon points=\"12,21 10,24 8,20\" fill=\"{{fill}}\" opacity=\"{{fill_opacity}}\"/>\n"
+  }
+]
