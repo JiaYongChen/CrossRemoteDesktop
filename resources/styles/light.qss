@@ -27,10 +27,24 @@ QLineEdit:focus {
 }
 
 /* ===== QFrame (cards) ===== */
-QFrame#connectionCard {
+#connectionCard {
     background-color: #FFFFFF;
     border: 1px solid #E0E0E0;
     border-radius: 8px;
+}
+
+/* ===== 卡片操作按钮 ===== */
+#connectionCard QToolButton {
+    background-color: #F0F0F0;
+    border: none;
+    border-radius: 6px;
+    padding: 4px;
+}
+#connectionCard QToolButton:hover {
+    background-color: #E0E0E0;
+}
+#connectionCard QToolButton:pressed {
+    background-color: #D0D0D0;
 }
 
 /* ===== QToolButton ===== */
@@ -118,6 +132,20 @@ QWidget#leftNavBar {
     background-color: #D8D8D8;
 }
 
+/* ===== 左侧导航栏按钮（汉堡按钮、主题按钮） ===== */
+#leftNavBar > QToolButton {
+    background-color: #AEAEAE;
+    border: none;
+    border-radius: 8px;
+    padding: 4px;
+}
+#leftNavBar > QToolButton:hover {
+    background-color: #9E9E9E;
+}
+#leftNavBar > QToolButton:pressed {
+    background-color: #8E8E8E;
+}
+
 /* ===== 右侧内容区 ===== */
 QWidget#contentArea {
     background-color: #F5F5F5;
@@ -125,13 +153,13 @@ QWidget#contentArea {
 
 /* ===== 汉堡菜单项 ===== */
 QToolButton#hamburgerItem {
-    background: transparent;
+    background-color: #D4D4D4;
     border: none;
+    border-radius: 8px;
     padding: 8px;
 }
 QToolButton#hamburgerItem:hover {
-    background-color: #D8D8D8;
-    border-radius: 4px;
+    background-color: #C4C4C4;
 }
 
 /* ===== 搜索框 ===== */

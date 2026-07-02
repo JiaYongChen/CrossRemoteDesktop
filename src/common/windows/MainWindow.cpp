@@ -28,6 +28,7 @@
 #endif
 
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QDialog>
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QHBoxLayout>
@@ -464,13 +465,22 @@ void MainWindow::showSettings() {
 }
 
 void MainWindow::showAbout() {
-    QMessageBox msgBox(this);
-    msgBox.setWindowTitle(tr("关于Qt远程桌面"));
-    msgBox.setText(tr("<h2>Qt远程桌面 1.0</h2>"
-                       "<p>基于Qt 6.9.1构建的跨平台远程桌面应用程序。</p>"
-                       "<p>支持macOS和Windows系统之间的远程连接。</p>"));
-    TitleBarTheme::apply(&msgBox, m_themeMode == "dark");
-    msgBox.exec();
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("关于Qt远程桌面"));
+    dialog.setFixedSize(360, 160);
+
+    auto *layout = new QVBoxLayout(&dialog);
+    layout->setContentsMargins(24, 20, 24, 20);
+
+    auto *label = new QLabel(tr("<h2>Qt远程桌面 1.0</h2>"
+                                 "<p>基于Qt 6.9.1构建的跨平台远程桌面应用程序。</p>"
+                                 "<p>支持macOS和Windows系统之间的远程连接。</p>"));
+    label->setWordWrap(true);
+    label->setTextFormat(Qt::RichText);
+    layout->addWidget(label);
+
+    TitleBarTheme::apply(&dialog, m_themeMode == "dark");
+    dialog.exec();
 }
 
 void MainWindow::exitApplication() {
@@ -825,7 +835,15 @@ void MainWindow::applyTheme()
     QFile file(qssFile);
     if (file.open(QFile::ReadOnly)) {
         QString styleSheet = QLatin1String(file.readAll());
+
+        // 混合策略：同时设置 qApp 和 MainWindow 的样式表
+        // - qApp->setStyleSheet()：覆盖非 MainWindow 子树的顶层窗口
+        //   （QMessageBox、QMenu 弹出、QComboBox 下拉列表等）
+        // - setStyleSheet()：直接作用于 MainWindow 子树，修复
+        //   QScrollArea 内动态创建控件的 CSS 级联失效问题
         qApp->setStyleSheet(styleSheet);
+        setStyleSheet(styleSheet);
+
         file.close();
     }
 

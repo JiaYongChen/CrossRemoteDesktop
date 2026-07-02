@@ -19,28 +19,24 @@
 void MainWindow::createActions()
 {
     // 使用 IconThemeProvider 设置所有工具栏/菜单图标（替代 .ui 中的硬编码路径）
-    // 全局快捷键 Actions
+    // 全局 Actions（不含快捷键绑定）
     m_newConnectionAction = new QAction(this);
-    m_newConnectionAction->setShortcut(QKeySequence::New);
-    m_newConnectionAction->setToolTip(tr("新建连接 (Ctrl+N)"));
+    m_newConnectionAction->setToolTip(tr("新建连接"));
     m_newConnectionAction->setIcon(IconThemeProvider::icon("new_connection"));
     addAction(m_newConnectionAction);
 
     m_connectAction = new QAction(this);
-    m_connectAction->setShortcut(QKeySequence(tr("Ctrl+O")));
-    m_connectAction->setToolTip(tr("连接 (Ctrl+O)"));
+    m_connectAction->setToolTip(tr("连接"));
     m_connectAction->setIcon(IconThemeProvider::icon("connect"));
     addAction(m_connectAction);
 
     m_settingsAction = new QAction(this);
-    m_settingsAction->setShortcut(QKeySequence::Preferences);
-    m_settingsAction->setToolTip(tr("设置 (Ctrl+,)"));
+    m_settingsAction->setToolTip(tr("设置"));
     m_settingsAction->setIcon(IconThemeProvider::icon("settings"));
     addAction(m_settingsAction);
 
     m_exitAction = new QAction(tr("退出"), this);
-    m_exitAction->setShortcut(QKeySequence::Quit);
-    m_exitAction->setToolTip(tr("退出 (Ctrl+Q)"));
+    m_exitAction->setToolTip(tr("退出"));
     m_exitAction->setIcon(IconThemeProvider::icon("exit"));
     addAction(m_exitAction);
 
