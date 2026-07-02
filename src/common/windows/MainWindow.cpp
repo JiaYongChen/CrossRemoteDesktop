@@ -102,7 +102,8 @@ MainWindow::MainWindow(QWidget* parent)
     // 设置窗口属性
     setWindowTitle(tr("Qt远程桌面"));
     setFixedSize(960, 680);
-    setWindowFlags(Qt::Window | Qt::WindowMinimizeButtonHint
+    setWindowFlags(Qt::Window | Qt::CustomizeWindowHint
+                   | Qt::WindowMinimizeButtonHint
                    | Qt::WindowCloseButtonHint
                    | Qt::MSWindowsFixedSizeDialogHint);
 
