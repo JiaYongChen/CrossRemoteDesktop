@@ -102,10 +102,11 @@ MainWindow::MainWindow(QWidget* parent)
     // 设置窗口属性
     setWindowTitle(tr("Qt远程桌面"));
     setFixedSize(960, 680);
-    setWindowFlags(Qt::Window | Qt::CustomizeWindowHint
+    // Qt::Dialog 在 Windows 上不包含 WS_MAXIMIZEBOX，配合 WindowMinimizeButtonHint
+    // 可精确获得 [最小化] [关闭] 两个按钮，最大化按钮从根本上不会被创建
+    setWindowFlags(Qt::Dialog | Qt::CustomizeWindowHint
                    | Qt::WindowMinimizeButtonHint
-                   | Qt::WindowCloseButtonHint
-                   | Qt::MSWindowsFixedSizeDialogHint);
+                   | Qt::WindowCloseButtonHint);
 
     // --- 主题样式加载 ---
     applyTheme();
@@ -341,17 +342,6 @@ void MainWindow::changeEvent(QEvent* event) {
 void MainWindow::showEvent(QShowEvent* event)
 {
     QMainWindow::showEvent(event);
-
-    // 通过 Win32 API 移除最大化按钮（CustomizeWindowHint 在部分 Windows 版本无效）
-#ifdef Q_OS_WIN
-    if (HWND hwnd = reinterpret_cast<HWND>(winId())) {
-        LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
-        style &= ~WS_MAXIMIZEBOX;
-        SetWindowLongPtr(hwnd, GWL_STYLE, style);
-        SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
-                     SWP_NOZORDER | SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED);
-    }
-#endif
 
     // 窗口首次显示后，DWM 标题栏属性可能在 Qt 内部窗口创建过程中被重置，
     // 因此需要在 showEvent 中再次应用标题栏主题
