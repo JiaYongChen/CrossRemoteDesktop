@@ -146,9 +146,9 @@ QWidget#leftNavBar {
     background-color: #8E8E8E;
 }
 
-/* ===== 右侧内容区 ===== */
-QWidget#contentArea {
-    background-color: #F5F5F5;
+/* ===== 品牌区 Header ===== */
+QWidget#headerArea {
+    background-color: transparent;
 }
 
 /* ===== 汉堡菜单项 ===== */
@@ -188,8 +188,8 @@ QLabel#cardLabel {
     background: transparent;
 }
 
-/* ===== 欢迎页标题 ===== */
-QLabel#welcomeTitle {
+/* ===== Header 标题 ===== */
+QLabel#titleLabel {
     color: #333333;
     font-size: 20px;
     font-weight: bold;
