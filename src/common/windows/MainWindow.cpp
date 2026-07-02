@@ -71,7 +71,6 @@ MainWindow::MainWindow(QWidget* parent)
 
     // 创建UI组件
     createActions();
-    createStatusBar();
     ui = new Ui::MainWindow();
     ui->setupUi(this);
     // 设置 Logo pixmap（.ui 中无法表达运行时缩放）
@@ -79,6 +78,7 @@ MainWindow::MainWindow(QWidget* parent)
     // 便捷指针 — 保持现有业务代码中 m_hamburgerMenu/m_connectionPanel 访问不变
     m_hamburgerMenu = ui->hamburgerMenu;
     m_connectionPanel = ui->connectionPanel;
+    createStatusBar();  // 必须在 setupUi 之后调用 — statusBar() 需要返回 .ui 中创建的状态栏
     createSystemTrayIcon();
 
     // 创建核心基础设施（DI 注入链的起点）
