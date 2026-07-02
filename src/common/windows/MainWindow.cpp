@@ -464,24 +464,30 @@ void MainWindow::showSettings() {
 }
 
 void MainWindow::showAbout() {
-    QMessageBox::about(this, tr("关于Qt远程桌面"),
-        tr("<h2>Qt远程桌面 1.0</h2>"
-            "<p>基于Qt 6.9.1构建的跨平台远程桌面应用程序。</p>"
-            "<p>支持macOS和Windows系统之间的远程连接。</p>"));
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle(tr("关于Qt远程桌面"));
+    msgBox.setText(tr("<h2>Qt远程桌面 1.0</h2>"
+                       "<p>基于Qt 6.9.1构建的跨平台远程桌面应用程序。</p>"
+                       "<p>支持macOS和Windows系统之间的远程连接。</p>"));
+    TitleBarTheme::apply(&msgBox, m_themeMode == "dark");
+    msgBox.exec();
 }
 
 void MainWindow::showAboutQt() {
-    QMessageBox::about(this, tr("关于Qt"),
-        tr("<h2>关于Qt</h2>"
-            "<p>本程序使用Qt版本6.9.1。</p>"
-            "<p>Qt是一个用于跨平台应用程序开发的C++工具包。</p>"
-            "<p>Qt为所有主要桌面操作系统提供单一源代码的可移植性。它也可用于嵌入式Linux和其他嵌入式及移动操作系统。</p>"
-            "<p>Qt可在多种许可选项下使用，旨在满足我们各种用户的需求。</p>"
-            "<p>根据我们的商业许可协议许可的Qt适用于开发专有/商业软件，您不希望与第三方共享任何源代码或无法遵守GNU(L)GPL条款。</p>"
-            "<p>根据GNU(L)GPL许可的Qt适用于Qt应用程序的开发，前提是您可以遵守相应许可证的条款和条件。</p>"
-            "<p>版权所有 (C) Qt公司有限公司及其他贡献者。</p>"
-            "<p>Qt和Qt标志是Qt公司有限公司的商标。</p>"
-            "<p>Qt是Qt公司有限公司开发的开源项目产品。</p>"));
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle(tr("关于Qt"));
+    msgBox.setText(tr("<h2>关于Qt</h2>"
+                       "<p>本程序使用Qt版本6.9.1。</p>"
+                       "<p>Qt是一个用于跨平台应用程序开发的C++工具包。</p>"
+                       "<p>Qt为所有主要桌面操作系统提供单一源代码的可移植性。它也可用于嵌入式Linux和其他嵌入式及移动操作系统。</p>"
+                       "<p>Qt可在多种许可选项下使用，旨在满足我们各种用户的需求。</p>"
+                       "<p>根据我们的商业许可协议许可的Qt适用于开发专有/商业软件，您不希望与第三方共享任何源代码或无法遵守GNU(L)GPL条款。</p>"
+                       "<p>根据GNU(L)GPL许可的Qt适用于Qt应用程序的开发，前提是您可以遵守相应许可证的条款和条件。</p>"
+                       "<p>版权所有 (C) Qt公司有限公司及其他贡献者。</p>"
+                       "<p>Qt和Qt标志是Qt公司有限公司的商标。</p>"
+                       "<p>Qt是Qt公司有限公司开发的开源项目产品。</p>"));
+    TitleBarTheme::apply(&msgBox, m_themeMode == "dark");
+    msgBox.exec();
 }
 
 void MainWindow::exitApplication() {
