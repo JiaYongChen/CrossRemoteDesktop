@@ -102,9 +102,14 @@ MainWindow::MainWindow(QWidget* parent)
     // 设置窗口属性
     setWindowTitle(tr("Qt远程桌面"));
     setFixedSize(960, 680);
-    // Qt::Dialog 在 Windows 上不包含 WS_MAXIMIZEBOX，配合 WindowMinimizeButtonHint
-    // 可精确获得 [最小化] [关闭] 两个按钮，最大化按钮从根本上不会被创建
-    setWindowFlags(Qt::Dialog | Qt::CustomizeWindowHint
+    // CustomizeWindowHint 关掉默认标题栏按钮, 然后逐个加回所需:
+    // WindowTitleHint — 保留标题栏(Win: WS_CAPTION)
+    // WindowSystemMenuHint — 保留系统菜单(Win: WS_SYSMENU)
+    // WindowMinimizeButtonHint — 最小化按钮 (Win: WS_MINIMIZEBOX)
+    // WindowCloseButtonHint — 关闭按钮 (不带 WS_MAXIMIZEBOX 故无最大化)
+    setWindowFlags(Qt::Window | Qt::CustomizeWindowHint
+                   | Qt::WindowTitleHint
+                   | Qt::WindowSystemMenuHint
                    | Qt::WindowMinimizeButtonHint
                    | Qt::WindowCloseButtonHint);
 
