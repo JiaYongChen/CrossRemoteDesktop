@@ -128,7 +128,8 @@ QToolTip {
 
 /* ===== 左侧导航栏 ===== */
 QWidget#leftNavBar {
-    background-color: #121212;
+    background-color: #0D0D0D;
+    border-right: 1px solid #2A2A2A;
 }
 
 /* ===== 左侧导航栏按钮（汉堡按钮、主题按钮） ===== */
