@@ -59,7 +59,11 @@ void SettingsDialog::setupConnections()
 
 	// 常规 — 开机自动启动
 	connect(ui->autoStartCheckBox, &QCheckBox::toggled,
-			this, &SettingsDialog::onAutoStartChanged);
+	        this, &SettingsDialog::onAutoStartChanged);
+
+	// 常规 — 关闭行为
+	connect(ui->closeToTrayCheckBox, &QCheckBox::toggled,
+	        this, &SettingsDialog::onCloseToTrayChanged);
 
 	// 通信 — 监听端口
 	connect(ui->listenPortSpinBox, QOverload<int>::of(&QSpinBox::valueChanged),
@@ -114,6 +118,9 @@ void SettingsDialog::loadSettings()
 	const bool autoStart = m_settings->value("General/startWithSystem", false).toBool();
 	ui->autoStartCheckBox->setChecked(autoStart);
 
+	const bool closeToTray = m_settings->value("UI/closeToTray", false).toBool();
+	ui->closeToTrayCheckBox->setChecked(closeToTray);
+
 	// 通信
 	const int listenPort = m_settings->value("Server/listenPort", UIConstants::DEFAULT_SERVER_PORT).toInt();
 	ui->listenPortSpinBox->setValue(listenPort);
@@ -154,6 +161,12 @@ void SettingsDialog::onAutoStartChanged(bool checked)
 {
 	m_settings->setValue("General/startWithSystem", checked);
 	qCDebug(lcUISettingsDialog) << "SettingsDialog: auto start set to" << checked;
+}
+
+void SettingsDialog::onCloseToTrayChanged(bool checked)
+{
+	m_settings->setValue("UI/closeToTray", checked);
+	qCDebug(lcUISettingsDialog) << "SettingsDialog: close to tray set to" << checked;
 }
 
 void SettingsDialog::onListenPortChanged(int value)
@@ -235,6 +248,9 @@ void SettingsDialog::onRestoreDefaultsClicked()
 
 	ui->autoStartCheckBox->setChecked(false);
 	onAutoStartChanged(false);
+
+	ui->closeToTrayCheckBox->setChecked(false);
+	onCloseToTrayChanged(false);
 
 	ui->listenPortSpinBox->setValue(UIConstants::DEFAULT_SERVER_PORT);
 	onListenPortChanged(UIConstants::DEFAULT_SERVER_PORT);

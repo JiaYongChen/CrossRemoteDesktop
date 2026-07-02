@@ -233,6 +233,37 @@
               </widget>
              </item>
              <item>
+              <widget class="QGroupBox" name="closeBehaviorGroup">
+               <property name="title">
+                <string>关闭行为</string>
+               </property>
+               <layout class="QVBoxLayout" name="closeBehaviorLayout">
+                <property name="spacing">
+                 <number>8</number>
+                </property>
+                <property name="leftMargin">
+                 <number>10</number>
+                </property>
+                <property name="topMargin">
+                 <number>10</number>
+                </property>
+                <property name="rightMargin">
+                 <number>10</number>
+                </property>
+                <property name="bottomMargin">
+                 <number>10</number>
+                </property>
+                <item>
+                 <widget class="QCheckBox" name="closeToTrayCheckBox">
+                  <property name="text">
+                   <string>关闭时隐藏到系统托盘</string>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+             </item>
+             <item>
               <spacer name="generalSpacer">
                <property name="orientation">
                 <enum>Qt::Vertical</enum>

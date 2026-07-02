@@ -284,6 +284,16 @@ void MainWindow::closeEvent(QCloseEvent* event) {
 
     m_isShuttingDown = true;
 
+    // 如果启用了"关闭时隐藏到托盘"，则隐藏窗口而非退出
+    if (m_settings->value("UI/closeToTray", false).toBool()
+        && m_trayIcon && m_trayIcon->isVisible()) {
+        qCInfo(lcUIMainWindow) << "MainWindow::closeEvent() - Close to tray enabled, hiding window";
+        m_isShuttingDown = false;
+        hide();
+        event->ignore();
+        return;
+    }
+
     // 保存设置
     saveSettings();
 

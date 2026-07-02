@@ -28,6 +28,7 @@ private slots:
 	// 即时生效槽
 	void onLanguageChanged(int index);
 	void onAutoStartChanged(bool checked);
+	void onCloseToTrayChanged(bool checked);
 	void onListenPortChanged(int value);
 	void onUsernameChanged();
 	void onPasswordChanged();
