@@ -78,8 +78,6 @@ private slots:
 private:
     void createActions();
     void createStatusBar();
-    void createCentralWidget();
-    QWidget *createWelcomePage();
     void createSystemTrayIcon();
     void setupConnections();
 

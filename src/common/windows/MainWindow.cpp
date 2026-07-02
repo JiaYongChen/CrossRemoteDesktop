@@ -66,7 +66,7 @@ MainWindow::MainWindow(QWidget* parent)
     m_settings = new QSettings(this);
 
     // 主题初始化必须在所有 UI 组件创建之前完成
-    // （createActions/createCentralWidget 中会通过 IconThemeProvider::icon() 加载主题图标）
+    // （createActions 中会通过 IconThemeProvider::icon() 加载主题图标）
     m_themeMode = m_settings->value("UI/theme", "dark").toString();
     IconThemeProvider::setDarkMode(m_themeMode == "dark");
 
@@ -75,7 +75,7 @@ MainWindow::MainWindow(QWidget* parent)
     ui = new Ui::MainWindow();
     ui->setupUi(this);
     // 设置 Logo pixmap（.ui 中无法表达运行时缩放）
-    ui->logoLabel->setPixmap(QPixmap(":/icons/app.svg").scaled(40, 40, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    ui->logoLabel->setPixmap(QPixmap(":/icons/app.svg").scaled(48, 48, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     // 便捷指针 — 保持现有业务代码中 m_hamburgerMenu/m_connectionPanel 访问不变
     m_hamburgerMenu = ui->hamburgerMenu;
     m_connectionPanel = ui->connectionPanel;
@@ -159,8 +159,7 @@ MainWindow::~MainWindow() {
     qCDebug(lcUIMainWindow) << "MainWindow::~MainWindow() - Destructor complete";
 }
 
-// createActions/createMenus/createToolBars/createStatusBar/createCentralWidget/
-// createWelcomeWidget/createSystemTrayIcon 实现见 MainWindowLayout.cpp
+// createActions/createStatusBar/createSystemTrayIcon 实现见 MainWindowLayout.cpp
 
 void MainWindow::setupConnections() {
     // ServerManager信号连接
