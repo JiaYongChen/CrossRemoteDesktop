@@ -52,18 +52,19 @@ void MainWindow::createStatusBar()
 {
     m_connectionStatusLabel = new QLabel(tr("连接：未连接"));
     m_connectionStatusLabel->setMinimumWidth(120);
-
+    
     m_serverStatusLabel = new QLabel(tr("服务器：已停止"));
     m_serverStatusLabel->setMinimumWidth(120);
-
+    
     m_performanceLabel = new QLabel(tr("CPU: 0% | 内存: 0MB"));
     m_performanceLabel->setMinimumWidth(150);
-
+    
     statusBar()->addPermanentWidget(m_connectionStatusLabel);
     statusBar()->addPermanentWidget(m_serverStatusLabel);
     statusBar()->addPermanentWidget(m_performanceLabel);
-
+    
     statusBar()->showMessage(tr("就绪"));
+    statusBar()->setSizeGripEnabled(false);
 }
 
 // ============================================================
