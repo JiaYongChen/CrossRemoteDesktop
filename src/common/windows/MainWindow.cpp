@@ -102,16 +102,11 @@ MainWindow::MainWindow(QWidget* parent)
     // 设置窗口属性
     setWindowTitle(tr("Qt远程桌面"));
     setFixedSize(960, 680);
-    // CustomizeWindowHint 关掉默认标题栏按钮, 然后逐个加回所需:
-    // WindowTitleHint — 保留标题栏(Win: WS_CAPTION)
-    // WindowSystemMenuHint — 保留系统菜单(Win: WS_SYSMENU)
-    // WindowMinimizeButtonHint — 最小化按钮 (Win: WS_MINIMIZEBOX)
-    // WindowCloseButtonHint — 关闭按钮 (不带 WS_MAXIMIZEBOX 故无最大化)
-    setWindowFlags(Qt::Window | Qt::CustomizeWindowHint
-                   | Qt::WindowTitleHint
-                   | Qt::WindowSystemMenuHint
-                   | Qt::WindowMinimizeButtonHint
-                   | Qt::WindowCloseButtonHint);
+    // Qt::Window 在 Windows 上无论如何都会包含 WS_MAXIMIZEBOX,
+    // 需通过 showEvent 中的 Win32 API 延迟移除 (见 showEvent 实现)
+    setWindowFlags(Qt::Window | Qt::WindowMinimizeButtonHint
+                   | Qt::WindowCloseButtonHint
+                   | Qt::MSWindowsFixedSizeDialogHint);
 
     // --- 主题样式加载 ---
     applyTheme();
@@ -347,6 +342,20 @@ void MainWindow::changeEvent(QEvent* event) {
 void MainWindow::showEvent(QShowEvent* event)
 {
     QMainWindow::showEvent(event);
+
+    // Qt::Window 在 Windows 上强制包含 WS_MAXIMIZEBOX，Qt 的 flag 机制无法阻止。
+    // 唯一可靠的方案：等 Qt 完成全部窗口初始化后，通过 Win32 API 直接清除该样式位。
+    // QTimer::singleShot(0) 确保此代码在 Qt 的所有窗口创建流程执行完毕后运行。
+#ifdef Q_OS_WIN
+    QTimer::singleShot(0, this, [this]() {
+        if (HWND hwnd = reinterpret_cast<HWND>(winId())) {
+            SetWindowLongPtr(hwnd, GWL_STYLE,
+                             GetWindowLongPtr(hwnd, GWL_STYLE) & ~WS_MAXIMIZEBOX);
+            SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
+                         SWP_NOZORDER | SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+        }
+    });
+#endif
 
     // 窗口首次显示后，DWM 标题栏属性可能在 Qt 内部窗口创建过程中被重置，
     // 因此需要在 showEvent 中再次应用标题栏主题
