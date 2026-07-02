@@ -320,11 +320,7 @@ void MainWindow::closeEvent(QCloseEvent* event) {
 
 void MainWindow::changeEvent(QEvent* event) {
     QMainWindow::changeEvent(event);
-    if ( event->type() == QEvent::WindowStateChange ) {
-        if ( isMinimized() && m_trayIcon && m_trayIcon->isVisible() ) {
-            hide();
-        }
-    } else if ( event->type() == QEvent::LanguageChange ) {
+    if ( event->type() == QEvent::LanguageChange ) {
         qCInfo(lcUIMainWindow) << "MainWindow::changeEvent - LanguageChange received, calling retranslateUi";
         retranslateUi();
         qCInfo(lcUIMainWindow) << "MainWindow::changeEvent - retranslateUi completed";
