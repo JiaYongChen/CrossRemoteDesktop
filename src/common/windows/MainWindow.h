@@ -54,7 +54,6 @@ private slots:
     void stopServer();
     void showSettings();
     void showAbout();
-    void showAboutQt();
     void exitApplication();
     
     // 连接相关槽函数
