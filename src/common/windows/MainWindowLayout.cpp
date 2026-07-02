@@ -2,21 +2,15 @@
 // 从 MainWindow.cpp 分离，保持文件聚焦于业务逻辑
 
 #include "MainWindow.h"
-#include "HamburgerMenu.h"
-#include "ConnectionPanel.h"
 #include "common/core/theme/IconThemeProvider.h"
 
 #include <QAction>
 #include <QApplication>
-#include <QHBoxLayout>
 #include <QLabel>
-#include <QLineEdit>
 #include <QMenu>
-#include <QPixmap>
 #include <QStatusBar>
 #include <QSystemTrayIcon>
 #include <QToolButton>
-#include <QVBoxLayout>
 
 // ============================================================
 // 创建 Actions（仅保留全局快捷键绑定的 Action，菜单/工具栏入口由 HamburgerMenu 替代）
@@ -77,59 +71,10 @@ void MainWindow::createStatusBar()
 }
 
 // ============================================================
-// 中央区域：左侧导航栏 + 右侧欢迎页
+// 中央区域 + 欢迎页布局
+// 注：已迁移到 mainwindow.ui，通过 ui->setupUi(this) 加载。
+//     自定义控件 HamburgerMenu / ConnectionPanel 通过 promotion 集成。
 // ============================================================
-
-void MainWindow::createCentralWidget()
-{
-    m_centralWidget = new QWidget();
-    setCentralWidget(m_centralWidget);
-
-    auto *mainLayout = new QHBoxLayout(m_centralWidget);
-    mainLayout->setContentsMargins(0, 0, 0, 0);
-    mainLayout->setSpacing(0);
-
-    // 左侧导航栏（HamburgerMenu）
-    m_hamburgerMenu = new HamburgerMenu();
-    mainLayout->addWidget(m_hamburgerMenu);
-
-    // 右侧内容区
-    auto *contentArea = createWelcomePage();
-    mainLayout->addWidget(contentArea, 1);
-}
-
-// ============================================================
-// 欢迎页：Logo + 搜索框 + 卡片列表
-// ============================================================
-
-QWidget *MainWindow::createWelcomePage()
-{
-    auto *contentArea = new QWidget();
-    contentArea->setObjectName("contentArea");
-
-    auto *layout = new QVBoxLayout(contentArea);
-    layout->setAlignment(Qt::AlignHCenter);
-    layout->setContentsMargins(0, 0, 0, 0);
-
-    // --- Logo + 标题 ---
-    auto *logoLabel = new QLabel();
-    logoLabel->setPixmap(QPixmap(":/icons/app.svg").scaled(40, 40, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    logoLabel->setAlignment(Qt::AlignCenter);
-    layout->addSpacing(40);
-    layout->addWidget(logoLabel, 0, Qt::AlignHCenter);
-
-    m_welcomeTitleLabel = new QLabel(QStringLiteral("CrossRemoteDesktop"));
-    m_welcomeTitleLabel->setObjectName("welcomeTitle");
-    m_welcomeTitleLabel->setAlignment(Qt::AlignCenter);
-    layout->addSpacing(12);
-    layout->addWidget(m_welcomeTitleLabel, 0, Qt::AlignHCenter);
-
-    // --- 连接历史面板（替代旧搜索框+卡片列表+空状态） ---
-    m_connectionPanel = new ConnectionPanel();
-    layout->addWidget(m_connectionPanel, 1);
-
-    return contentArea;
-}
 
 // ============================================================
 // 系统托盘（不变）

@@ -137,7 +137,6 @@ CrossRemoteDesktop/
 │   │       ├── ConnectionDialog.* # 连接对话框
 │   │       └── SettingsDialog.*   # 设置对话框
 │   └── ui/                        # UI 界面文件 (*.ui)
-│       ├── mainwindow.ui
 │       ├── connectiondialog.ui
 │       └── settingsdialog.ui
 ├── test/                          # 测试套件（21 个测试文件）

@@ -1,4 +1,5 @@
 #include "MainWindow.h"
+#include "ui_MainWindow.h"
 #include "ConnectionDialog.h"
 #include "ConnectionPanel.h"
 #include "SettingsDialog.h"
@@ -51,8 +52,6 @@
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
-    , m_centralWidget(nullptr)
-    , m_welcomeTitleLabel(nullptr)
     , m_hamburgerMenu(nullptr)
     , m_connectionPanel(nullptr)
     , m_trayIcon(nullptr)
@@ -73,7 +72,13 @@ MainWindow::MainWindow(QWidget* parent)
     // 创建UI组件
     createActions();
     createStatusBar();
-    createCentralWidget();
+    ui = new Ui::MainWindow();
+    ui->setupUi(this);
+    // 设置 Logo pixmap（.ui 中无法表达运行时缩放）
+    ui->logoLabel->setPixmap(QPixmap(":/icons/app.svg").scaled(40, 40, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    // 便捷指针 — 保持现有业务代码中 m_hamburgerMenu/m_connectionPanel 访问不变
+    m_hamburgerMenu = ui->hamburgerMenu;
+    m_connectionPanel = ui->connectionPanel;
     createSystemTrayIcon();
 
     // 创建核心基础设施（DI 注入链的起点）
@@ -123,6 +128,7 @@ MainWindow::~MainWindow() {
     // 注意：此时不应该再调用可能触发信号的方法
 
     // 1. 断开所有信号连接，防止在析构过程中触发信号
+    delete ui;
     if ( m_serverManager ) {
         disconnect(m_serverManager, nullptr, this, nullptr);
     }
