@@ -572,3 +572,22 @@ QDialog QScrollBar::sub-page:vertical {
     font-size: 13px;                         /* token: --font-size-md */
     background: transparent;
 }
+
+/* ── [ConnectionDialog.ui] 对话框容器 ── */
+#ConnectionDialog {
+    background-color: #1E1E1E;               /* token: --color-bg-page */
+}
+
+#tabContainer {
+    background-color: transparent;
+}
+
+QStackedWidget#settingsStackedWidget {
+    background-color: transparent;
+}
+
+#connectionTab,
+#optionsTab,
+#advancedTab {
+    background-color: transparent;
+}
