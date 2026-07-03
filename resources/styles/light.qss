@@ -295,3 +295,159 @@ QDialogButtonBox QPushButton:hover {
 QDialogButtonBox QPushButton:pressed {
     background-color: #005A9E;               /* token: --color-accent-pressed */
 }
+
+/* ----- QCheckBox ----- */
+QCheckBox {
+    color: #1A1A1A;                          /* token: --color-text-primary */
+    font-size: 13px;                         /* token: --font-size-md */
+    spacing: 8px;                            /* token: --spacing-sm */
+}
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    background-color: #FFFFFF;               /* token: --color-bg-card */
+    border: 2px solid #CCCCCC;               /* token: --color-separator */
+}
+QCheckBox::indicator:checked {
+    background-color: #0078D4;               /* token: --color-accent */
+    border-color: #0078D4;
+}
+QCheckBox::indicator:hover {
+    border-color: #999999;
+}
+QCheckBox::indicator:checked:hover {
+    background-color: #106EBE;               /* token: --color-accent-hover */
+    border-color: #106EBE;
+}
+
+/* ----- QGroupBox ----- */
+QGroupBox {
+    background-color: #FFFFFF;               /* token: --color-bg-card */
+    border: 1px solid #E0E0E0;               /* token: --color-border-light */
+    border-radius: 8px;                      /* token: --radius-lg */
+    margin-top: 8px;
+    padding: 18px 12px 12px 12px;
+    font-weight: 600;                        /* token: --font-weight-bold */
+    font-size: 13px;                         /* token: --font-size-md */
+    color: #1A1A1A;                          /* token: --color-text-primary */
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 14px;
+    padding: 0 6px;
+    color: #1A1A1A;                          /* token: --color-text-primary */
+}
+
+/* ----- QTabWidget / QTabBar ----- */
+QTabWidget::pane {
+    background-color: #FCFCFC;               /* token: --color-bg-elevated */
+    border: none;
+    border-top: 1px solid #E0E0E0;           /* token: --color-border-light */
+    top: -1px;
+    padding: 6px 28px;
+}
+QTabBar::tab {
+    background-color: transparent;
+    color: #666666;                          /* token: --color-text-secondary */
+    padding: 10px 20px;
+    border: none;
+    border-bottom: 3px solid transparent;
+    font-size: 13px;                         /* token: --font-size-md */
+    font-weight: 400;                        /* token: --font-weight-normal */
+}
+QTabBar::tab:selected {
+    color: #1A1A1A;                          /* token: --color-text-primary */
+    font-weight: 600;                        /* token: --font-weight-bold */
+    border-bottom: 3px solid #0078D4;        /* token: --color-accent */
+}
+QTabBar::tab:hover:!selected {
+    color: #333333;
+}
+
+/* ----- QListWidget ----- */
+QListWidget {
+    background-color: #F3F3F3;               /* token: --color-bg-sidebar */
+    border: none;
+    outline: none;
+    font-size: 13px;                         /* token: --font-size-md */
+    padding: 6px 4px;
+}
+QListWidget::item {
+    padding: 9px 12px;
+    margin: 1px 4px;
+    border-radius: 6px;                      /* token: --radius-md */
+    border-left: 3px solid transparent;
+    color: #424242;
+    font-weight: 400;                        /* token: --font-weight-normal */
+}
+QListWidget::item:selected {
+    background-color: rgba(0, 0, 0, 0.06);
+    border-left: 3px solid #0078D4;          /* token: --color-accent */
+    color: #1A1A1A;                          /* token: --color-text-primary */
+    font-weight: 600;                        /* token: --font-weight-bold */
+}
+QListWidget::item:hover:!selected {
+    background-color: rgba(0, 0, 0, 0.03);
+}
+
+/* ----- QSlider ----- */
+QSlider::groove:horizontal {
+    background-color: #E0E0E0;               /* token: --color-border-light */
+    height: 4px;
+    border-radius: 2px;
+}
+QSlider::sub-page:horizontal {
+    background-color: #0078D4;               /* token: --color-accent */
+    height: 4px;
+    border-radius: 2px;
+}
+QSlider::handle:horizontal {
+    background-color: #FFFFFF;               /* token: --color-bg-card */
+    border: 2px solid #0078D4;               /* token: --color-accent */
+    width: 16px;
+    height: 16px;
+    margin: -6px 0;
+    border-radius: 8px;
+}
+QSlider::handle:horizontal:hover {
+    background-color: #F0F0F0;               /* token: --color-bg-disabled */
+    border-color: #106EBE;                   /* token: --color-accent-hover */
+}
+
+/* ----- QTextEdit ----- */
+QTextEdit {
+    border: 1px solid #CFCFCF;               /* token: --color-border-strong */
+    border-radius: 4px;                      /* token: --radius-sm */
+    padding: 8px 12px;
+    background-color: #FFFFFF;               /* token: --color-bg-card */
+    color: #1A1A1A;                          /* token: --color-text-primary */
+    font-family: "Consolas", "Cascadia Code", "Courier New", monospace;
+    font-size: 12px;                         /* token: --font-size-sm */
+}
+QTextEdit:focus {
+    border-color: #0078D4;                   /* token: --color-accent */
+}
+
+/* ----- 对话框内滚动条（与主窗口隐藏滚动条区分） ----- */
+QDialog QScrollBar:vertical {
+    width: 6px;
+    background-color: transparent;
+    margin: 0;
+}
+QDialog QScrollBar::handle:vertical {
+    background-color: #C0C0C0;
+    border-radius: 3px;
+    min-height: 30px;
+}
+QDialog QScrollBar::handle:vertical:hover {
+    background-color: #A0A0A0;
+}
+QDialog QScrollBar::add-line:vertical,
+QDialog QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+QDialog QScrollBar::add-page:vertical,
+QDialog QScrollBar::sub-page:vertical {
+    background-color: transparent;
+}
