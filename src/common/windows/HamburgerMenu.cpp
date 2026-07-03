@@ -45,11 +45,11 @@ void HamburgerMenu::setupUi()
 
     // 创建菜单项：图标路径、tooltip、objectName
     m_newConnectionItem = createMenuItem(
-        IconThemeProvider::icon("new_connection"), tr("新建连接 (Ctrl+N)"),
+        IconThemeProvider::icon("new_connection"), tr("新建连接"),
         "hamburgerItem");
 
     m_settingsItem = createMenuItem(
-        IconThemeProvider::icon("settings"), tr("设置 (Ctrl+,)"),
+        IconThemeProvider::icon("settings"), tr("设置"),
         "hamburgerItem");
 
     m_aboutItem = createMenuItem(
@@ -170,8 +170,8 @@ void HamburgerMenu::setExpanded(bool expanded)
 void HamburgerMenu::retranslateUi()
 {
     m_hamburgerButton->setToolTip(tr("菜单"));
-    m_newConnectionItem->setToolTip(tr("新建连接 (Ctrl+N)"));
-    m_settingsItem->setToolTip(tr("设置 (Ctrl+,)"));
+    m_newConnectionItem->setToolTip(tr("新建连接"));
+    m_settingsItem->setToolTip(tr("设置"));
     m_aboutItem->setToolTip(tr("关于"));
     m_themeButton->setToolTip(tr("切换主题"));
 }
