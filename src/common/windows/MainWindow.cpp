@@ -79,6 +79,7 @@ MainWindow::MainWindow(QWidget* parent)
     // 便捷指针 — 保持现有业务代码中 m_hamburgerMenu/m_connectionPanel 访问不变
     m_hamburgerMenu = ui->hamburgerMenu;
     m_connectionPanel = ui->connectionPanel;
+    ui->headerArea->setAutoFillBackground(true);
     createStatusBar();  // 必须在 setupUi 之后调用 — statusBar() 需要返回 .ui 中创建的状态栏
     createSystemTrayIcon();
 

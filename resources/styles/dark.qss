@@ -136,9 +136,9 @@ QWidget#sideSeparator {
     background-color: #3A3A3A;
 }
 
-/* ===== 左侧导航栏按钮（汉堡按钮、主题按钮） ===== */
+/* ===== 左侧导航栏按钮 — 融合侧边栏背景 ===== */
 #leftNavBar > QToolButton {
-    background-color: #1A1A1A;
+    background-color: #131313;
     border: none;
     border-radius: 8px;
     padding: 4px;
@@ -152,7 +152,7 @@ QWidget#sideSeparator {
 
 /* ===== 品牌区 Header ===== */
 QWidget#headerArea {
-    background-color: #151515;
+    background-color: #111111;
 }
 
 /* ===== 汉堡菜单项 ===== */

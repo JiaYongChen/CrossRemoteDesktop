@@ -10,6 +10,7 @@ HamburgerMenu::HamburgerMenu(QWidget *parent)
 {
     setObjectName("leftNavBar");
     setFixedWidth(48);
+    setAutoFillBackground(true);
     setupUi();
     setupAnimations();
 }
