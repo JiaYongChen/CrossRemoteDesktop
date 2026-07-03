@@ -129,38 +129,38 @@ QToolTip {
 
 /* ===== 左侧导航栏 ===== */
 QWidget#leftNavBar {
-    background-color: #EBEBEB;
-    border-right: 1px solid #DEDEDE;
+    background-color: #E8E8E8;
+    border-right: 2px solid #D0D0D0;
 }
 
 /* ===== 左侧导航栏按钮（汉堡按钮、主题按钮） ===== */
 #leftNavBar > QToolButton {
-    background-color: #D8D8D8;
+    background-color: #D4D4D4;
     border: none;
     border-radius: 8px;
     padding: 4px;
 }
 #leftNavBar > QToolButton:hover {
-    background-color: #CCCCCC;
+    background-color: #C8C8C8;
 }
 #leftNavBar > QToolButton:pressed {
-    background-color: #C0C0C0;
+    background-color: #BCBCBC;
 }
 
 /* ===== 品牌区 Header ===== */
 QWidget#headerArea {
-    background-color: transparent;
+    background-color: #F0F0F0;
 }
 
 /* ===== 汉堡菜单项 ===== */
 QToolButton#hamburgerItem {
-    background-color: #E0E0E0;
+    background-color: #DCDCDC;
     border: none;
     border-radius: 8px;
     padding: 8px;
 }
 QToolButton#hamburgerItem:hover {
-    background-color: #D4D4D4;
+    background-color: #D0D0D0;
 }
 
 /* ===== 搜索框 ===== */
