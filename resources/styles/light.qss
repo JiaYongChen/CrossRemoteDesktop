@@ -486,7 +486,7 @@ QDialog QScrollBar::sub-page:vertical {
     padding: 8px;                            /* token: --spacing-sm */
 }
 #hamburgerItem:hover {
-    background-color: #D0D0D0;
+    background-color: #D0D0D0;               /* token: --color-hover-medium */
 }
 
 #exitItem:hover {
@@ -529,7 +529,7 @@ QDialog QScrollBar::sub-page:vertical {
 }
 
 #connectionCard QToolButton {
-    background-color: #F0F0F0;
+    background-color: #F0F0F0;               /* token: --color-hover-light */
     border: none;
     border-radius: 6px;                      /* token: --radius-md */
     padding: 4px;                            /* token: --spacing-xs */
@@ -538,7 +538,7 @@ QDialog QScrollBar::sub-page:vertical {
     background-color: #E0E0E0;               /* token: --color-hover-medium */
 }
 #connectionCard QToolButton:pressed {
-    background-color: #D0D0D0;
+    background-color: #D0D0D0;               /* token: --color-pressed */
 }
 
 #cardHostname {
