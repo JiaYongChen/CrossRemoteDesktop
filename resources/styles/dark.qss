@@ -450,3 +450,125 @@ QDialog QScrollBar::add-page:vertical,
 QDialog QScrollBar::sub-page:vertical {
     background-color: transparent;
 }
+
+/* ═══════════════════════ 第三层：区域样式覆盖 ═══════════════════════ */
+
+/* ── [mainwindow.ui] 左侧导航栏 ────────────────────────────────
+ * Widget 树:
+ *   HamburgerMenu (custom widget)
+ *     └── QWidget#leftNavBar
+ *           ├── QToolButton (导航项 ×N)
+ *           ├── QToolButton#hamburgerItem
+ *           └── QToolButton#exitItem
+ * ─────────────────────────────────────────────────────────────── */
+#leftNavBar {
+    background-color: #0E0E0E;               /* token: --color-bg-nav */
+}
+
+#leftNavBar > QToolButton {
+    background-color: #131313;               /* token: --color-bg-nav-btn */
+    border: none;
+    border-radius: 8px;                      /* token: --radius-lg */
+    padding: 4px;                            /* token: --spacing-xs */
+}
+#leftNavBar > QToolButton:hover {
+    background-color: #2E2E2E;               /* token: --color-hover-nav */
+}
+#leftNavBar > QToolButton:pressed {
+    background-color: #3A3A3A;               /* token: --color-pressed-nav */
+}
+
+#hamburgerItem {
+    background-color: #333333;               /* token: --color-bg-hamburger */
+    border: none;
+    border-radius: 8px;                      /* token: --radius-lg */
+    padding: 8px;                            /* token: --spacing-sm */
+}
+#hamburgerItem:hover {
+    background-color: #3C3C3C;               /* token: --color-hover-medium */
+}
+
+#exitItem:hover {
+    background-color: #E05555;               /* token: --color-danger-hover */
+}
+
+/* ── [mainwindow.ui] 侧边栏分隔线 ── */
+#sideSeparator {
+    background-color: #3A3A3A;               /* token: --color-separator */
+}
+
+/* ── [mainwindow.ui] 品牌区 ──
+ * Widget 树:
+ *   QWidget#headerArea
+ *     └── QLabel#logoLabel
+ *     └── QLabel#titleLabel
+ * ─────────────────────────────────────────────────────────────── */
+#headerArea {
+    background-color: #111111;               /* token: --color-bg-header */
+}
+
+#titleLabel {
+    color: #E0E0E0;                          /* token: --color-text-primary */
+    font-size: 20px;                         /* token: --font-size-xl */
+    font-weight: bold;
+    background: transparent;
+}
+
+/* ── [mainwindow.ui] 连接卡片区域 ──
+ * Widget 树（ConnectionPanel 内部）:
+ *   QFrame#connectionCard
+ *     ├── QLabel#cardHostname
+ *     ├── QLabel#cardLabel
+ *     └── QToolButton (操作按钮)
+ * ─────────────────────────────────────────────────────────────── */
+#connectionCard {
+    background-color: #262626;               /* token: --color-bg-card */
+    border: 1px solid #3A3A3A;               /* token: --color-border-light */
+    border-radius: 8px;                      /* token: --radius-lg */
+}
+
+#connectionCard QToolButton {
+    background-color: #353535;               /* token: --color-hover-light */
+    border: none;
+    border-radius: 6px;                      /* token: --radius-md */
+    padding: 4px;                            /* token: --spacing-xs */
+}
+#connectionCard QToolButton:hover {
+    background-color: #404040;               /* token: --color-hover-medium */
+}
+#connectionCard QToolButton:pressed {
+    background-color: #4C4C4C;               /* token: --color-pressed */
+}
+
+#cardHostname {
+    color: #E0E0E0;                          /* token: --color-text-primary */
+    font-size: 14px;                         /* token: --font-size-lg */
+    font-weight: bold;
+    background: transparent;
+}
+
+#cardLabel {
+    color: #AAAAAA;                          /* token: --color-text-secondary */
+    font-size: 12px;                         /* token: --font-size-sm */
+    background: transparent;
+}
+
+/* ── [mainwindow.ui] 搜索框 ── */
+#searchBox {
+    background-color: #272727;               /* token: --color-bg-elevated */
+    color: #E0E0E0;                          /* token: --color-text-primary */
+    border: 1px solid #444444;               /* token: --color-border-default */
+    border-radius: 8px;                      /* token: --radius-lg */
+    padding: 10px 16px;
+    font-size: 14px;                         /* token: --font-size-lg */
+}
+#searchBox:focus {
+    border-color: #4A90D9;                   /* token: --color-accent */
+}
+
+/* ── [mainwindow.ui] 空状态 ── */
+#emptyStateLabel {
+    color: #666666;                          /* token: --color-text-muted */
+    font-size: 13px;                         /* token: --font-size-md */
+    background: transparent;
+}
