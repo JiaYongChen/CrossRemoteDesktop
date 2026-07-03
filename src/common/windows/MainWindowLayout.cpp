@@ -13,27 +13,13 @@
 #include <QToolButton>
 
 // ============================================================
-// 创建 Actions（仅保留全局快捷键绑定的 Action，菜单/工具栏入口由 HamburgerMenu 替代）
+// 创建 Actions（托盘菜单所需的全局 Action）
 // ============================================================
 
 void MainWindow::createActions()
 {
     // 使用 IconThemeProvider 设置所有工具栏/菜单图标（替代 .ui 中的硬编码路径）
-    // 全局 Actions（不含快捷键绑定）
-    m_newConnectionAction = new QAction(this);
-    m_newConnectionAction->setToolTip(tr("新建连接"));
-    m_newConnectionAction->setIcon(IconThemeProvider::icon("new_connection"));
-    addAction(m_newConnectionAction);
-
-    m_connectAction = new QAction(this);
-    m_connectAction->setToolTip(tr("连接"));
-    m_connectAction->setIcon(IconThemeProvider::icon("connect"));
-    addAction(m_connectAction);
-
-    m_settingsAction = new QAction(this);
-    m_settingsAction->setToolTip(tr("设置"));
-    m_settingsAction->setIcon(IconThemeProvider::icon("settings"));
-    addAction(m_settingsAction);
+    // 全局 Actions
 
     m_exitAction = new QAction(tr("退出"), this);
     m_exitAction->setToolTip(tr("退出"));

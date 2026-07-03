@@ -49,7 +49,6 @@ protected:
 private slots:
     // 菜单和工具栏动作
     void newConnection();
-    void disconnectFromHost();
     void startServer();
     void stopServer();
     void showSettings();
@@ -103,11 +102,8 @@ private:
     HamburgerMenu *m_hamburgerMenu = nullptr;
     ConnectionPanel *m_connectionPanel = nullptr;
 
-    // 动作（仅保留托盘菜单和快捷键需要的）
+    // 动作（托盘菜单需要）
     class QAction *m_exitAction;
-    class QAction *m_newConnectionAction;
-    class QAction *m_connectAction;
-    class QAction *m_settingsAction;
     class QAction *m_restoreAction;
 
     // 状态栏
