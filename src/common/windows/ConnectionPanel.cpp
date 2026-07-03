@@ -30,7 +30,6 @@ void ConnectionPanel::setupUi()
     layout->setAlignment(Qt::AlignHCenter);
 
     // --- 搜索框 ---
-    layout->addSpacing(24);
     m_searchBox = new QLineEdit();
     m_searchBox->setObjectName("searchBox");
     m_searchBox->setPlaceholderText(tr("搜索历史连接..."));
