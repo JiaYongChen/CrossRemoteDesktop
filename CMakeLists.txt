@@ -159,5 +159,35 @@ target_compile_definitions(CrossRemoteDesktop PRIVATE
 # ============================================================================
 install(TARGETS CrossRemoteDesktop RUNTIME DESTINATION bin)
 
+# ============================================================================
+# 翻译更新目标（lupdate）
+# ============================================================================
+# 源码变更后运行，自动扫描 tr() 调用并同步 TS 文件的行号与条目：
+#   cmake --build build --target update_translations
+# ============================================================================
+file(GLOB_RECURSE TRANSLATABLE_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.ui"
+)
+
+set(TS_FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/resources/translations/zh_CN.ts"
+    "${CMAKE_CURRENT_SOURCE_DIR}/resources/translations/en_US.ts"
+)
+
+find_program(LUPDATE_EXECUTABLE lupdate
+    HINTS "${QT6_ROOT_DIR}/bin"
+    DOC "Path to Qt lupdate tool"
+)
+
+if(LUPDATE_EXECUTABLE)
+    add_custom_target(update_translations
+        COMMAND ${LUPDATE_EXECUTABLE} ${TRANSLATABLE_SOURCES} -ts ${TS_FILES}
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        COMMENT "Syncing translation files with source tr() calls..."
+    )
+endif()
+
 enable_testing()
 add_subdirectory(test)

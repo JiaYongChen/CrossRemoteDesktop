@@ -32,12 +32,17 @@ cmake --build build --target run_quick_tests
 cmake --build build --target run_core_tests
 cmake --build build --target run_threading_tests
 cmake --build build --target run_performance_tests
+
+# 同步翻译文件（修改源码 tr() 调用或 .ui 文件后执行）
+cmake --build build --target update_translations
 ```
 
 **注意**：Windows/MSVC 多配置生成器下 `ctest` 必须加 `-C Debug`。
 
 输出目录：项目根目录下的 `Debug/` 和 `Release/`（不在 `build/` 内）。
 测试自动使用 `QT_QPA_PLATFORM=offscreen`（在 CMake 中设置），适用于无头/CI 环境。
+
+**翻译文件维护**：修改源码中的 `tr()` 调用或 `.ui` 文件后，运行 `cmake --build build --target update_translations` 自动扫描并同步 TS 文件的行号与条目，无需手动比对修改。TS 文件中 `<location>` 行号仅给 Qt Linguist 导航用，不影响运行时翻译。`lupdate` 会保留已有译文不变。
 
 ## 依赖
 
