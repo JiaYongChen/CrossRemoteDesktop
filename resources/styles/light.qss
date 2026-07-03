@@ -3,7 +3,7 @@ QMainWindow {
     background-color: #F5F5F5;
 }
 QWidget {
-    background-color: #F5F5F5;
+    background-color: #F8F8F8;
     color: #333333;
 }
 
@@ -15,7 +15,7 @@ QLabel {
 
 /* ===== QLineEdit ===== */
 QLineEdit {
-    background-color: #FFFFFF;
+    background-color: #FCFCFC;
     color: #333333;
     border: 1px solid #D0D0D0;
     border-radius: 6px;
@@ -55,10 +55,10 @@ QToolButton {
     padding: 4px;
 }
 QToolButton:hover {
-    background-color: #E8E8E8;
+    background-color: #EBEBEB;
 }
 QToolButton:pressed {
-    background-color: #D0D0D0;
+    background-color: #D8D8D8;
 }
 
 /* ===== QScrollArea ===== */
@@ -80,9 +80,9 @@ QScrollBar:horizontal {
 
 /* ===== QStatusBar ===== */
 QStatusBar {
-    background-color: #E8E8E8;
+    background-color: #F0F0F0;
     color: #666666;
-    border-top: 1px solid #D0D0D0;
+    border-top: 1px solid #E0E0E0;
 }
 QStatusBar QLabel {
     color: #666666;
@@ -129,22 +129,22 @@ QToolTip {
 
 /* ===== 左侧导航栏 ===== */
 QWidget#leftNavBar {
-    background-color: #C8C8C8;
-    border-right: 1px solid #C0C0C0;
+    background-color: #EBEBEB;
+    border-right: 1px solid #DEDEDE;
 }
 
 /* ===== 左侧导航栏按钮（汉堡按钮、主题按钮） ===== */
 #leftNavBar > QToolButton {
-    background-color: #AEAEAE;
+    background-color: #D8D8D8;
     border: none;
     border-radius: 8px;
     padding: 4px;
 }
 #leftNavBar > QToolButton:hover {
-    background-color: #9E9E9E;
+    background-color: #CCCCCC;
 }
 #leftNavBar > QToolButton:pressed {
-    background-color: #8E8E8E;
+    background-color: #C0C0C0;
 }
 
 /* ===== 品牌区 Header ===== */
@@ -154,13 +154,13 @@ QWidget#headerArea {
 
 /* ===== 汉堡菜单项 ===== */
 QToolButton#hamburgerItem {
-    background-color: #D4D4D4;
+    background-color: #E0E0E0;
     border: none;
     border-radius: 8px;
     padding: 8px;
 }
 QToolButton#hamburgerItem:hover {
-    background-color: #C4C4C4;
+    background-color: #D4D4D4;
 }
 
 /* ===== 搜索框 ===== */
