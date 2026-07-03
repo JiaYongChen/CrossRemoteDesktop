@@ -6,7 +6,7 @@
  *   第二层：类型默认样式（无父选择器限定）
  *   第三层：区域样式覆盖（按 .ui 文件分组，父→子→孙）
  *
- * 修改规范：见项目记忆 project_qss_layered_template
+ * 修改规范：见 docs/superpowers/specs/2026-07-03-qss-layered-rewrite-design.md
  * ═══════════════════════════════════════════════════════════
  *
  *  设计令牌 / Design Tokens
@@ -485,7 +485,7 @@ QDialog QScrollBar::sub-page:vertical {
     padding: 8px;                            /* token: --spacing-sm */
 }
 #hamburgerItem:hover {
-    background-color: #3C3C3C;               /* token: --color-hover-medium */
+    background-color: #3C3C3C;               /* hover darken */
 }
 
 #exitItem:hover {
