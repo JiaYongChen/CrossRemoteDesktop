@@ -86,6 +86,7 @@
 
 QMainWindow {
     background-color: #1E1E1E;               /* token: --color-bg-page */
+    color: #E0E0E0;                          /* token: --color-text-primary */
 }
 
 QDialog {
@@ -145,6 +146,12 @@ QScrollBar:horizontal {
     background: transparent;
 }
 
+/* ----- QScrollArea ----- */
+QScrollArea {
+    background: transparent;
+    border: none;
+}
+
 /* ----- 文本选中色 ----- */
 * {
     selection-background-color: #4A90D9;     /* token: --color-accent */
@@ -156,6 +163,20 @@ QScrollBar:horizontal {
 QLabel {
     color: #E0E0E0;                          /* token: --color-text-primary */
     background: transparent;
+}
+
+/* ----- QToolButton ----- */
+QToolButton {
+    background: transparent;
+    border: none;
+    border-radius: 4px;                      /* token: --radius-sm */
+    padding: 4px;                            /* token: --spacing-xs */
+}
+QToolButton:hover {
+    background-color: #353535;               /* token: --color-hover-light */
+}
+QToolButton:pressed {
+    background-color: #3C3C3C;               /* hover darken */
 }
 
 /* ----- QLineEdit ----- */
@@ -421,7 +442,6 @@ QTextEdit {
     padding: 8px 12px;
     background-color: #2D2D2D;               /* token: --color-bg-dropdown */
     color: #E0E0E0;                          /* token: --color-text-primary */
-    font-family: "Consolas", "Cascadia Code", "Courier New", monospace;
     font-size: 12px;                         /* token: --font-size-sm */
 }
 QTextEdit:focus {
@@ -455,8 +475,7 @@ QDialog QScrollBar::sub-page:vertical {
 
 /* ── [mainwindow.ui] 左侧导航栏 ────────────────────────────────
  * Widget 树:
- *   HamburgerMenu (custom widget)
- *     └── QWidget#leftNavBar
+ *   QWidget#leftNavBar (is the HamburgerMenu itself — setObjectName in constructor)
  *           ├── QToolButton (导航项 ×N)
  *           ├── QToolButton#hamburgerItem
  *           └── QToolButton#exitItem
@@ -486,10 +505,6 @@ QDialog QScrollBar::sub-page:vertical {
 }
 #hamburgerItem:hover {
     background-color: #3C3C3C;               /* hover darken */
-}
-
-#exitItem:hover {
-    background-color: #E05555;               /* token: --color-danger-hover */
 }
 
 /* ── [mainwindow.ui] 侧边栏分隔线 ── */
@@ -582,6 +597,7 @@ QDialog QScrollBar::sub-page:vertical {
     background-color: transparent;
 }
 
+/* QStackedWidget 本身不绘制背景，此规则仅为文档说明 */
 QStackedWidget#settingsStackedWidget {
     background-color: transparent;
 }
