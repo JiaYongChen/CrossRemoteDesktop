@@ -12,12 +12,11 @@
  * ═══════════════════════════════════════════════════════════
  *
  *  ① 基础色板
- *    --color-bg-page:          #F5F5F5    (QMainWindow)
+ *    --color-bg-page:          #F2F2F2    (QMainWindow)
  *    --color-bg-card:          #FFFFFF    (卡片/GroupBox)
  *    --color-bg-elevated:      #FCFCFC    (输入框)
- *    --color-bg-nav:           #E8E8E8    (左侧导航栏)
+ *    --color-bg-nav:           #F0F0F0    (左侧导航栏)
  *    --color-bg-nav-btn:       #E4E4E4    (导航按钮静态)
- *    --color-bg-header:        #F0F0F0    (品牌区)
  *    --color-bg-statusbar:     #F0F0F0    (状态栏)
  *    --color-bg-sidebar:       #F3F3F3    (设置侧栏)
  *    --color-bg-content:       #FCFCFC    (设置内容区)
@@ -84,12 +83,12 @@
 /* ═══════════════════════ 第一层：全局基础 ═══════════════════════ */
 
 QMainWindow {
-    background-color: #F5F5F5;               /* token: --color-bg-page */
+    background-color: #F2F2F2;               /* token: --color-bg-page */
     color: #1A1A1A;                          /* token: --color-text-primary */
 }
 
 QDialog {
-    background-color: #F5F5F5;               /* token: --color-bg-page */
+    background-color: #F2F2F2;               /* token: --color-bg-page */
     color: #1A1A1A;                          /* token: --color-text-primary */
 }
 
@@ -475,25 +474,24 @@ QDialog QScrollBar::sub-page:vertical {
 
 /* ── [mainwindow.ui] 左侧导航栏 ────────────────────────────────
  * Widget 树:
- *   QWidget#leftNavBar (is the HamburgerMenu itself — setObjectName in constructor)
+ *   QWidget#hamburgerMenu (is the HamburgerMenu itself)
  *           ├── QToolButton (导航项 ×N)
  *           ├── QToolButton#hamburgerItem
  *           └── QToolButton#exitItem
  * ─────────────────────────────────────────────────────────────── */
-#leftNavBar {
-    background-color: #E8E8E8;               /* token: --color-bg-nav */
+#hamburgerMenu {
+    background-color: #F0F0F0;               /* token: --color-bg-nav */
 }
 
-#leftNavBar > QToolButton {
-    background-color: #E4E4E4;               /* token: --color-bg-nav-btn */
+#hamburgerMenu > QToolButton {
     border: none;
     border-radius: 8px;                      /* token: --radius-lg */
     padding: 4px;                            /* token: --spacing-xs */
 }
-#leftNavBar > QToolButton:hover {
+#hamburgerMenu > QToolButton:hover {
     background-color: #CCCCCC;               /* token: --color-hover-nav */
 }
-#leftNavBar > QToolButton:pressed {
+#hamburgerMenu > QToolButton:pressed {
     background-color: #C0C0C0;               /* token: --color-pressed-nav */
 }
 
@@ -519,7 +517,7 @@ QDialog QScrollBar::sub-page:vertical {
  *     └── QLabel#titleLabel
  * ─────────────────────────────────────────────────────────────── */
 #headerArea {
-    background-color: #F0F0F0;               /* token: --color-bg-header */
+    background-color: transparent;
 }
 
 #titleLabel {
@@ -590,7 +588,7 @@ QDialog QScrollBar::sub-page:vertical {
 
 /* ── [ConnectionDialog.ui] 对话框容器 ── */
 #ConnectionDialog {
-    background-color: #F5F5F5;               /* token: --color-bg-page */
+    background-color: #F2F2F2;               /* token: --color-bg-page */
 }
 
 #tabContainer {

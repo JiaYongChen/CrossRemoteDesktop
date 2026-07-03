@@ -15,9 +15,8 @@
  *    --color-bg-page:          #1E1E1E    (QMainWindow)
  *    --color-bg-card:          #262626    (卡片/GroupBox)
  *    --color-bg-elevated:      #272727    (输入框/菜单)
- *    --color-bg-nav:           #0E0E0E    (左侧导航栏)
+ *    --color-bg-nav:           #1A1A1A    (左侧导航栏)
  *    --color-bg-nav-btn:       #131313    (导航按钮静态)
- *    --color-bg-header:        #111111    (品牌区)
  *    --color-bg-statusbar:     #121212    (状态栏)
  *    --color-bg-sidebar:       #121212    (设置侧栏)
  *    --color-bg-content:       #252525    (设置内容区)
@@ -474,25 +473,24 @@ QDialog QScrollBar::sub-page:vertical {
 
 /* ── [mainwindow.ui] 左侧导航栏 ────────────────────────────────
  * Widget 树:
- *   QWidget#leftNavBar (is the HamburgerMenu itself — setObjectName in constructor)
+ *   QWidget#hamburgerMenu (is the HamburgerMenu itself)
  *           ├── QToolButton (导航项 ×N)
  *           ├── QToolButton#hamburgerItem
  *           └── QToolButton#exitItem
  * ─────────────────────────────────────────────────────────────── */
-#leftNavBar {
-    background-color: #0E0E0E;               /* token: --color-bg-nav */
+#hamburgerMenu {
+    background-color: #1A1A1A;               /* token: --color-bg-nav */
 }
 
-#leftNavBar > QToolButton {
-    background-color: #131313;               /* token: --color-bg-nav-btn */
+#hamburgerMenu > QToolButton {
     border: none;
     border-radius: 8px;                      /* token: --radius-lg */
     padding: 4px;                            /* token: --spacing-xs */
 }
-#leftNavBar > QToolButton:hover {
+#hamburgerMenu > QToolButton:hover {
     background-color: #2E2E2E;               /* token: --color-hover-nav */
 }
-#leftNavBar > QToolButton:pressed {
+#hamburgerMenu > QToolButton:pressed {
     background-color: #3A3A3A;               /* token: --color-pressed-nav */
 }
 
@@ -518,7 +516,7 @@ QDialog QScrollBar::sub-page:vertical {
  *     └── QLabel#titleLabel
  * ─────────────────────────────────────────────────────────────── */
 #headerArea {
-    background-color: #111111;               /* token: --color-bg-header */
+    background-color: transparent;
 }
 
 #titleLabel {
