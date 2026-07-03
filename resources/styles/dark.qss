@@ -591,3 +591,106 @@ QStackedWidget#settingsStackedWidget {
 #advancedTab {
     background-color: transparent;
 }
+
+/* ── [settingsdialog.ui] 设置对话框 ──
+ * Widget 树:
+ *   QDialog#SettingsDialog
+ *     └── QWidget#contentWidget
+ *           ├── QWidget#sidebarWidget
+ *           │     └── QListWidget#categoryListWidget
+ *           ├── QWidget#mainContentWidget
+ *           │     └── QStackedWidget#settingsStackedWidget
+ *           │           ├── QWidget#generalPage
+ *           │           │     ├── QGroupBox#languageGroup
+ *           │           │     ├── QGroupBox#startupGroup
+ *           │           │     └── QGroupBox#closeBehaviorGroup
+ *           │           ├── QWidget#serverPage
+ *           │           │     ├── QGroupBox#serverNetworkGroup
+ *           │           │     └── QGroupBox#serverAuthGroup
+ *           │           └── QWidget#advancedPage
+ *           │                 └── QGroupBox#loggingGroup
+ *           │                       ├── QPushButton#presetDebugBtn
+ *           │                       └── QPushButton#resetRulesBtn
+ *           └── QWidget#buttonWidget
+ *                 └── QPushButton#restoreDefaultsBtn
+ * ─────────────────────────────────────────────────────────────── */
+
+#sidebarWidget {
+    background-color: #121212;               /* token: --color-bg-sidebar */
+}
+
+#mainContentWidget {
+    background-color: #252525;               /* token: --color-bg-content */
+    border-left: 1px solid #333333;          /* token: --color-border-sidebar */
+}
+
+#buttonWidget {
+    background-color: #1E1E1E;               /* token: --color-bg-btnbar */
+    border-top: 1px solid #333333;           /* token: --color-border-sidebar */
+}
+
+#generalPage,
+#serverPage,
+#advancedPage {
+    background-color: transparent;
+}
+
+/* ── [settingsdialog.ui] 恢复默认值按钮 ── */
+#restoreDefaultsBtn {
+    background-color: #4A90D9;               /* token: --color-accent */
+    color: #FFFFFF;                          /* token: --color-text-on-accent */
+    border: none;
+    border-radius: 4px;                      /* token: --radius-sm */
+    padding: 8px 20px;                       /* token: --spacing-btn-py / --spacing-btn-px */
+    font-size: 13px;                         /* token: --font-size-md */
+    font-weight: 500;
+    min-width: 100px;
+    min-height: 32px;
+}
+
+/* ── [settingsdialog.ui] 日志页辅助按钮 ── */
+#presetDebugBtn,
+#resetRulesBtn {
+    background-color: #3A3A3A;               /* token: --color-border-light */
+    border: 1px solid #555555;               /* token: --color-border-strong */
+    border-radius: 4px;                      /* token: --radius-sm */
+    padding: 5px 14px;
+    font-size: 12px;                         /* token: --font-size-sm */
+    font-weight: 400;                        /* token: --font-weight-normal */
+    color: #CCCCCC;                          /* token: --color-text-btn-secondary */
+}
+#presetDebugBtn:hover,
+#resetRulesBtn:hover {
+    background-color: #444444;
+    border-color: #666666;
+}
+
+/* ── [settingsdialog.ui] 开机自启复选框 ── */
+#autoStartCheckBox {
+    spacing: 8px;                            /* token: --spacing-sm */
+}
+#autoStartCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    background-color: #2D2D2D;               /* token: --color-bg-dropdown */
+    border: 2px solid #555555;               /* token: --color-border-strong */
+}
+#autoStartCheckBox::indicator:checked {
+    background-color: #4A90D9;               /* token: --color-accent */
+    border-color: #4A90D9;
+}
+
+/* ── [settingsdialog.ui] 日志规则文本框 ── */
+#logRulesTextEdit {
+    border: 1px solid #555555;               /* token: --color-border-strong */
+    border-radius: 4px;                      /* token: --radius-sm */
+    padding: 8px 12px;
+    background-color: #2D2D2D;               /* token: --color-bg-dropdown */
+    color: #E0E0E0;                          /* token: --color-text-primary */
+    font-family: "Consolas", "Cascadia Code", "Courier New", monospace;
+    font-size: 12px;                         /* token: --font-size-sm */
+}
+#logRulesTextEdit:focus {
+    border-color: #4A90D9;                   /* token: --color-accent */
+}

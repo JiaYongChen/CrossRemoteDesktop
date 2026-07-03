@@ -592,3 +592,106 @@ QStackedWidget#settingsStackedWidget {
 #advancedTab {
     background-color: transparent;
 }
+
+/* ── [settingsdialog.ui] 设置对话框 ──
+ * Widget 树:
+ *   QDialog#SettingsDialog
+ *     └── QWidget#contentWidget
+ *           ├── QWidget#sidebarWidget
+ *           │     └── QListWidget#categoryListWidget
+ *           ├── QWidget#mainContentWidget
+ *           │     └── QStackedWidget#settingsStackedWidget
+ *           │           ├── QWidget#generalPage
+ *           │           │     ├── QGroupBox#languageGroup
+ *           │           │     ├── QGroupBox#startupGroup
+ *           │           │     └── QGroupBox#closeBehaviorGroup
+ *           │           ├── QWidget#serverPage
+ *           │           │     ├── QGroupBox#serverNetworkGroup
+ *           │           │     └── QGroupBox#serverAuthGroup
+ *           │           └── QWidget#advancedPage
+ *           │                 └── QGroupBox#loggingGroup
+ *           │                       ├── QPushButton#presetDebugBtn
+ *           │                       └── QPushButton#resetRulesBtn
+ *           └── QWidget#buttonWidget
+ *                 └── QPushButton#restoreDefaultsBtn
+ * ─────────────────────────────────────────────────────────────── */
+
+#sidebarWidget {
+    background-color: #F3F3F3;               /* token: --color-bg-sidebar */
+}
+
+#mainContentWidget {
+    background-color: #FCFCFC;               /* token: --color-bg-content */
+    border-left: 1px solid #E5E5E5;          /* token: --color-border-sidebar */
+}
+
+#buttonWidget {
+    background-color: #F3F3F3;               /* token: --color-bg-btnbar */
+    border-top: 1px solid #E5E5E5;           /* token: --color-border-sidebar */
+}
+
+#generalPage,
+#serverPage,
+#advancedPage {
+    background-color: transparent;
+}
+
+/* ── [settingsdialog.ui] 恢复默认值按钮 ── */
+#restoreDefaultsBtn {
+    background-color: #0078D4;               /* token: --color-accent */
+    color: #FFFFFF;                          /* token: --color-text-on-accent */
+    border: none;
+    border-radius: 4px;                      /* token: --radius-sm */
+    padding: 8px 20px;                       /* token: --spacing-btn-py / --spacing-btn-px */
+    font-size: 13px;                         /* token: --font-size-md */
+    font-weight: 500;
+    min-width: 100px;
+    min-height: 32px;
+}
+
+/* ── [settingsdialog.ui] 日志页辅助按钮 ── */
+#presetDebugBtn,
+#resetRulesBtn {
+    background-color: #F5F5F5;
+    border: 1px solid #D0D0D0;               /* token: --color-border-default */
+    border-radius: 4px;                      /* token: --radius-sm */
+    padding: 5px 14px;
+    font-size: 12px;                         /* token: --font-size-sm */
+    font-weight: 400;                        /* token: --font-weight-normal */
+    color: #333333;                          /* token: --color-text-btn-secondary */
+}
+#presetDebugBtn:hover,
+#resetRulesBtn:hover {
+    background-color: #E8E8E8;
+    border-color: #BCBCBC;
+}
+
+/* ── [settingsdialog.ui] 开机自启复选框 ── */
+#autoStartCheckBox {
+    spacing: 8px;                            /* token: --spacing-sm */
+}
+#autoStartCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    background-color: #FFFFFF;               /* token: --color-bg-card */
+    border: 2px solid #CCCCCC;               /* token: --color-separator */
+}
+#autoStartCheckBox::indicator:checked {
+    background-color: #0078D4;               /* token: --color-accent */
+    border-color: #0078D4;
+}
+
+/* ── [settingsdialog.ui] 日志规则文本框 ── */
+#logRulesTextEdit {
+    border: 1px solid #CFCFCF;               /* token: --color-border-strong */
+    border-radius: 4px;                      /* token: --radius-sm */
+    padding: 8px 12px;
+    background-color: #FFFFFF;               /* token: --color-bg-card */
+    color: #1A1A1A;                          /* token: --color-text-primary */
+    font-family: "Consolas", "Cascadia Code", "Courier New", monospace;
+    font-size: 12px;                         /* token: --font-size-sm */
+}
+#logRulesTextEdit:focus {
+    border-color: #0078D4;                   /* token: --color-accent */
+}
