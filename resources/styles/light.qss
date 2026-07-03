@@ -81,3 +81,72 @@
  *    --font-weight-normal:     400
  *    --font-weight-bold:       600
  * ═══════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════ 第一层：全局基础 ═══════════════════════ */
+
+QMainWindow {
+    background-color: #F5F5F5;               /* token: --color-bg-page */
+}
+
+QDialog {
+    background-color: #F5F5F5;               /* token: --color-bg-page */
+    color: #1A1A1A;                          /* token: --color-text-primary */
+}
+
+/* ----- 工具提示 ----- */
+QToolTip {
+    background-color: #FFFFFF;               /* token: --color-bg-tooltip */
+    color: #1A1A1A;                          /* token: --color-text-primary */
+    border: 1px solid #CCCCCC;               /* token: --color-separator */
+    border-radius: 4px;                      /* token: --radius-sm */
+    padding: 4px 8px;
+    font-size: 12px;                         /* token: --font-size-sm */
+}
+
+/* ----- 菜单 ----- */
+QMenu {
+    background-color: #FFFFFF;               /* token: --color-bg-dropdown */
+    border: 1px solid #D0D0D0;               /* token: --color-border-default */
+    border-radius: 6px;                      /* token: --radius-md */
+    padding: 4px 0;
+    color: #1A1A1A;                          /* token: --color-text-primary */
+}
+QMenu::item {
+    padding: 6px 24px;
+}
+QMenu::item:selected {
+    background-color: #0078D4;               /* token: --color-accent */
+    color: #FFFFFF;                          /* token: --color-text-on-accent */
+}
+QMenu::separator {
+    height: 1px;
+    background: #E0E0E0;                     /* token: --color-border-light */
+    margin: 4px 12px;
+}
+
+/* ----- 状态栏 ----- */
+QStatusBar {
+    background-color: #F0F0F0;               /* token: --color-bg-statusbar */
+    color: #666666;                          /* token: --color-text-status */
+    border-top: 1px solid #E0E0E0;           /* token: --color-border-subtle */
+}
+QStatusBar QLabel {
+    color: #666666;                          /* token: --color-text-status */
+    padding: 2px 8px;
+    background: transparent;
+}
+
+/* ----- 全局滚动条（主窗口隐藏） ----- */
+QScrollBar:vertical {
+    width: 0px;
+    background: transparent;
+}
+QScrollBar:horizontal {
+    height: 0px;
+    background: transparent;
+}
+
+/* ----- 文本选中色 ----- */
+* {
+    selection-background-color: #0078D4;     /* token: --color-accent */
+}
