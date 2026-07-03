@@ -128,8 +128,12 @@ QToolTip {
 
 /* ===== 左侧导航栏 ===== */
 QWidget#leftNavBar {
-    background-color: #161616;
-    border-right: 2px solid #3A3A3A;
+    background-color: #0E0E0E;
+}
+
+/* ===== 侧边栏分隔线 ===== */
+QWidget#sideSeparator {
+    background-color: #3A3A3A;
 }
 
 /* ===== 左侧导航栏按钮（汉堡按钮、主题按钮） ===== */
@@ -148,7 +152,7 @@ QWidget#leftNavBar {
 
 /* ===== 品牌区 Header ===== */
 QWidget#headerArea {
-    background-color: #1A1A1A;
+    background-color: #151515;
 }
 
 /* ===== 汉堡菜单项 ===== */

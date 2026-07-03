@@ -38,6 +38,22 @@
      <widget class="HamburgerMenu" name="hamburgerMenu"/>
     </item>
     <item>
+     <widget class="QWidget" name="sideSeparator">
+      <property name="minimumSize">
+       <size>
+        <width>2</width>
+        <height>0</height>
+       </size>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>2</width>
+        <height>16777215</height>
+       </size>
+      </property>
+     </widget>
+    </item>
+    <item>
      <layout class="QVBoxLayout" name="contentLayout">
       <property name="spacing">
        <number>0</number>

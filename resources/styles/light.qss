@@ -130,7 +130,11 @@ QToolTip {
 /* ===== 左侧导航栏 ===== */
 QWidget#leftNavBar {
     background-color: #E8E8E8;
-    border-right: 2px solid #D0D0D0;
+}
+
+/* ===== 侧边栏分隔线 ===== */
+QWidget#sideSeparator {
+    background-color: #CCCCCC;
 }
 
 /* ===== 左侧导航栏按钮（汉堡按钮、主题按钮） ===== */
