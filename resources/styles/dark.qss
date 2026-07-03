@@ -3,7 +3,7 @@ QMainWindow {
     background-color: #1E1E1E;
 }
 QWidget {
-    background-color: #1E1E1E;
+    background-color: #1C1C1C;
     color: #E0E0E0;
 }
 
@@ -15,7 +15,7 @@ QLabel {
 
 /* ===== QLineEdit ===== */
 QLineEdit {
-    background-color: #2D2D2D;
+    background-color: #252525;
     color: #E0E0E0;
     border: 1px solid #444444;
     border-radius: 6px;
@@ -28,23 +28,23 @@ QLineEdit:focus {
 
 /* ===== QFrame (cards) ===== */
 #connectionCard {
-    background-color: #2A2A2A;
+    background-color: #242424;
     border: 1px solid #3A3A3A;
     border-radius: 8px;
 }
 
 /* ===== 卡片操作按钮 ===== */
 #connectionCard QToolButton {
-    background-color: #383838;
+    background-color: #333333;
     border: none;
     border-radius: 6px;
     padding: 4px;
 }
 #connectionCard QToolButton:hover {
-    background-color: #4A4A4A;
+    background-color: #3E3E3E;
 }
 #connectionCard QToolButton:pressed {
-    background-color: #555555;
+    background-color: #4A4A4A;
 }
 
 /* ===== QToolButton ===== */
@@ -55,10 +55,10 @@ QToolButton {
     padding: 4px;
 }
 QToolButton:hover {
-    background-color: #3A3A3A;
+    background-color: #333333;
 }
 QToolButton:pressed {
-    background-color: #444444;
+    background-color: #3A3A3A;
 }
 
 /* ===== QScrollArea ===== */
@@ -80,9 +80,9 @@ QScrollBar:horizontal {
 
 /* ===== QStatusBar ===== */
 QStatusBar {
-    background-color: #1A1A1A;
+    background-color: #121212;
     color: #999999;
-    border-top: 1px solid #333333;
+    border-top: 1px solid #2A2A2A;
 }
 QStatusBar QLabel {
     color: #999999;
@@ -92,7 +92,7 @@ QStatusBar QLabel {
 
 /* ===== QMenu ===== */
 QMenu {
-    background-color: #2D2D2D;
+    background-color: #252525;
     border: 1px solid #444444;
     border-radius: 6px;
     padding: 4px 0;
@@ -128,22 +128,22 @@ QToolTip {
 
 /* ===== 左侧导航栏 ===== */
 QWidget#leftNavBar {
-    background-color: #0D0D0D;
-    border-right: 1px solid #2A2A2A;
+    background-color: #161616;
+    border-right: 1px solid #222222;
 }
 
 /* ===== 左侧导航栏按钮（汉堡按钮、主题按钮） ===== */
 #leftNavBar > QToolButton {
-    background-color: #1E1E1E;
+    background-color: #1A1A1A;
     border: none;
     border-radius: 8px;
     padding: 4px;
 }
 #leftNavBar > QToolButton:hover {
-    background-color: #333333;
+    background-color: #2E2E2E;
 }
 #leftNavBar > QToolButton:pressed {
-    background-color: #444444;
+    background-color: #3A3A3A;
 }
 
 /* ===== 品牌区 Header ===== */
@@ -153,18 +153,18 @@ QWidget#headerArea {
 
 /* ===== 汉堡菜单项 ===== */
 QToolButton#hamburgerItem {
-    background-color: #383838;
+    background-color: #333333;
     border: none;
     border-radius: 8px;
     padding: 8px;
 }
 QToolButton#hamburgerItem:hover {
-    background-color: #444444;
+    background-color: #3C3C3C;
 }
 
 /* ===== 搜索框 ===== */
 QLineEdit#searchBox {
-    background-color: #2D2D2D;
+    background-color: #252525;
     color: #E0E0E0;
     border: 1px solid #444444;
     border-radius: 8px;
@@ -213,7 +213,7 @@ QComboBox {
     border: 1px solid #555555;
     border-radius: 4px;
     padding: 5px 10px;
-    background-color: #2D2D2D;
+    background-color: #252525;
     color: #E0E0E0;
     font-size: 13px;
 }
@@ -251,7 +251,7 @@ QSpinBox {
     border: 1px solid #555555;
     border-radius: 4px;
     padding: 8px 12px;
-    background-color: #2D2D2D;
+    background-color: #252525;
     color: #E0E0E0;
     font-size: 13px;
 }
@@ -262,7 +262,7 @@ QSpinBox:focus {
     border-color: #4A90D9;
 }
 QSpinBox:disabled {
-    background-color: #252525;
+    background-color: #1E1E1E;
     color: #666666;
     border-color: #3A3A3A;
 }
@@ -405,7 +405,7 @@ QCheckBox#autoStartCheckBox::indicator:checked {
 
 /* ===== QGroupBox（深色主题） ===== */
 QGroupBox {
-    background-color: #2A2A2A;
+    background-color: #242424;
     border: 1px solid #3A3A3A;
     border-radius: 8px;
     margin-top: 8px;
