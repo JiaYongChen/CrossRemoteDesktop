@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QWidget>
+#include <QList>
 #include "ConnectionHistory.h"
 
 class QLineEdit;
@@ -9,6 +10,10 @@ class QScrollArea;
 class QVBoxLayout;
 class ConnectionCard;
 class QSettings;
+
+QT_BEGIN_NAMESPACE
+namespace Ui { class ConnectionPanel; }
+QT_END_NAMESPACE
 
 /// 连接历史面板：搜索框 + 卡片列表 + 空状态
 /// 持有 ConnectionHistory 数据层，通过信号与父级通信
@@ -40,21 +45,14 @@ public:
     void refreshIcons();
 
 signals:
-    /// 用户点击连接按钮 → MainWindow 构造 ConnectionParams 并发起连接
     void connectRequested(const QString &host, int port, const QString &hostname);
-
-    /// 用户点击编辑按钮 → MainWindow 打开 ConnectionDialog 预填参数
     void editRequested(const QString &host, int port);
-
-    /// 卡片列表内容发生变更（增/删）→ MainWindow 调用 saveHistory
     void contentChanged();
 
 private slots:
     void onSearchTextChanged(const QString &text);
 
 private:
-    void setupUi();
-
     /// 在 m_cards 中查找匹配的卡片
     [[nodiscard]] ConnectionCard *findCard(const QString &host, int port) const;
 
@@ -64,11 +62,7 @@ private:
     /// 根据搜索状态更新空状态标签文案
     void updateEmptyState();
 
-    QLineEdit *m_searchBox = nullptr;
-    QLabel *m_emptyStateLabel = nullptr;
-    QScrollArea *m_scrollArea = nullptr;
-    QWidget *m_cardContainer = nullptr;
-    QVBoxLayout *m_cardLayout = nullptr;
+    Ui::ConnectionPanel *ui;
 
     ConnectionHistory m_history;
     QList<ConnectionCard *> m_cards;
