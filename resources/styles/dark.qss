@@ -472,11 +472,17 @@ QDialog QScrollBar::sub-page:vertical {
 /* ═══════════════════════ 第三层：区域样式覆盖 ═══════════════════════ */
 
 /* ── [mainwindow.ui] 左侧导航栏 ────────────────────────────────
- * Widget 树:
- *   QWidget#hamburgerMenu (is the HamburgerMenu itself)
- *           ├── QToolButton (导航项 ×N)
- *           ├── QToolButton#hamburgerItem
- *           └── QToolButton#exitItem
+ * Widget 树（HamburgerMenu.ui）:
+ *   QWidget#HamburgerMenu
+ *     ├── QToolButton#hamburgerButton
+ *     ├── QFrame#separator
+ *     ├── QWidget#menuContainer
+ *     │     ├── QToolButton#newConnectionItem  (objectName: hamburgerItem)
+ *     │     ├── QToolButton#settingsItem       (objectName: hamburgerItem)
+ *     │     ├── QToolButton#aboutItem          (objectName: hamburgerItem)
+ *     │     └── QSpacer#menuStretch
+ *     ├── QSpacer#mainStretch
+ *     └── QToolButton#themeButton
  * ─────────────────────────────────────────────────────────────── */
 #hamburgerMenu {
     background-color: #1A1A1A;               /* token: --color-bg-nav */
