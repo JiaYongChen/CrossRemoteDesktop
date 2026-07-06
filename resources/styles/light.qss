@@ -83,7 +83,7 @@
 /* ═══════════════════════ 第一层：全局基础 ═══════════════════════ */
 
 QMainWindow {
-    background-color: #FF0000;               /* token: --color-bg-page */
+    background-color: #F2F2F2;               /* token: --color-bg-page */
     color: #1A1A1A;                          /* token: --color-text-primary */
 }
 
@@ -528,11 +528,6 @@ QDialog QScrollBar::sub-page:vertical {
     background: transparent;
 }
 
-/* ── [mainwindow.ui] ConnectionPanel 容器 ── */
-#connectionPanel {
-    background-color: #F2F2F2;               /* token: --color-bg-page */
-}
-
 /* ── [mainwindow.ui] 连接卡片区域 ──
  * Widget 树（ConnectionPanel 内部）:
  *   QFrame#connectionCard
@@ -540,10 +535,6 @@ QDialog QScrollBar::sub-page:vertical {
  *     ├── QLabel#cardLabel
  *     └── QToolButton (操作按钮)
  * ─────────────────────────────────────────────────────────────── */
-#connectionPanel > QScrollArea {
-    background-color: transparent;
-}
-
 #connectionCard {
     background-color: #FFFFFF;               /* token: --color-bg-card */
     border: 1px solid #E0E0E0;               /* token: --color-border-light */
