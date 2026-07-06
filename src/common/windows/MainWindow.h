@@ -26,7 +26,7 @@ class ThreadManager;
 class QueueManager;
 class ServerManager;
 class RemoteDesktopSession;
-class HamburgerMenu;
+class NavPanel;
 class ConnectionPanel;
 
 class MainWindow : public QMainWindow
@@ -99,7 +99,7 @@ private:
     // UI组件 — 便捷指针指向 ui-> 中的同名控件，减少业务代码变更
     Ui::MainWindow *ui;
 
-    HamburgerMenu *m_hamburgerMenu = nullptr;
+    NavPanel *m_navPanel = nullptr;
     ConnectionPanel *m_connectionPanel = nullptr;
 
     // 动作（托盘菜单需要）

@@ -478,51 +478,51 @@ QDialog QScrollBar::sub-page:vertical {
 /* ═══════════════════════ 第三层：区域样式覆盖 ═══════════════════════ */
 
 /* ── [mainwindow.ui] 左侧导航栏 ────────────────────────────────
- * Widget 树（HamburgerMenu.ui）:
- *   QWidget#HamburgerMenu
- *     ├── QToolButton#hamburgerButton
+ * Widget 树（NavPanel.ui）:
+ *   QWidget#navPanel
+ *     ├── QToolButton#menuToggleButton
  *     ├── QFrame#separator
  *     ├── QWidget#menuContainer
- *     │     ├── QToolButton#newConnectionItem  (objectName: hamburgerItem)
- *     │     ├── QToolButton#settingsItem       (objectName: hamburgerItem)
- *     │     ├── QToolButton#aboutItem          (objectName: hamburgerItem)
+ *     │     ├── QToolButton#newConnectionItem
+ *     │     ├── QToolButton#settingsItem
+ *     │     ├── QToolButton#aboutItem
  *     │     └── QSpacer#menuStretch
  *     ├── QSpacer#mainStretch
  *     └── QToolButton#themeButton
  * ─────────────────────────────────────────────────────────────── */
-#hamburgerMenu {
+#navPanel {
     background-color: #D5D5D5;               /* token: --color-bg-nav-panel */
 }
 
-#hamburgerMenu > QToolButton {
+#navPanel > QToolButton {
     border: none;
     border-radius: 8px;                      /* token: --radius-lg */
     padding: 4px;                            /* token: --spacing-xs */
 }
-#hamburgerMenu > QToolButton:hover {
+#navPanel > QToolButton:hover {
     background-color: #CCCCCC;               /* token: --color-hover-nav */
 }
-#hamburgerMenu > QToolButton:pressed {
+#navPanel > QToolButton:pressed {
     background-color: #C0C0C0;               /* token: --color-pressed-nav */
 }
 
-#hamburgerItem {
+#newConnectionItem, #settingsItem, #aboutItem {
     background-color: #DCDCDC;               /* token: --color-bg-hamburger */
     border: none;
     border-radius: 8px;                      /* token: --radius-lg */
     padding: 8px;                            /* token: --spacing-sm */
 }
-#hamburgerItem:hover {
+#newConnectionItem:hover, #settingsItem:hover, #aboutItem:hover {
     background-color: #D0D0D0;               /* hover darken */
 }
 
 /* ── [mainwindow.ui] 品牌区 ──
  * Widget 树:
- *   QWidget#headerArea
+ *   QWidget#brandBanner
  *     └── QLabel#logoLabel
  *     └── QLabel#titleLabel
  * ─────────────────────────────────────────────────────────────── */
-#headerArea {
+#brandBanner {
     background-color: #F5F5F5;               /* token: --color-bg-brand */
 }
 

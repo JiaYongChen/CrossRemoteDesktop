@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>HamburgerMenu</class>
- <widget class="QWidget" name="HamburgerMenu">
+ <class>NavPanel</class>
+ <widget class="QWidget" name="navPanel">
   <property name="geometry">
    <rect><x>0</x><y>0</y><width>48</width><height>680</height></rect>
   </property>
@@ -12,7 +12,7 @@
    <property name="rightMargin"><number>0</number></property>
    <property name="bottomMargin"><number>8</number></property>
    <item alignment="Qt::AlignHCenter">
-    <widget class="QToolButton" name="hamburgerButton">
+    <widget class="QToolButton" name="menuToggleButton">
      <property name="iconSize"><size><width>44</width><height>44</height></size></property>
      <property name="toolTip"><string>菜单</string></property>
      <property name="autoRaise"><bool>true</bool></property>
@@ -39,7 +39,6 @@
         <property name="iconSize"><size><width>44</width><height>44</height></size></property>
         <property name="toolTip"><string>新建连接</string></property>
         <property name="autoRaise"><bool>true</bool></property>
-        <property name="objectName"><string>hamburgerItem</string></property>
         <property name="fixedSize"><size><width>44</width><height>44</height></size></property>
        </widget>
       </item>
@@ -48,7 +47,6 @@
         <property name="iconSize"><size><width>44</width><height>44</height></size></property>
         <property name="toolTip"><string>设置</string></property>
         <property name="autoRaise"><bool>true</bool></property>
-        <property name="objectName"><string>hamburgerItem</string></property>
         <property name="fixedSize"><size><width>44</width><height>44</height></size></property>
        </widget>
       </item>
@@ -57,7 +55,6 @@
         <property name="iconSize"><size><width>44</width><height>44</height></size></property>
         <property name="toolTip"><string>关于</string></property>
         <property name="autoRaise"><bool>true</bool></property>
-        <property name="objectName"><string>hamburgerItem</string></property>
         <property name="fixedSize"><size><width>44</width><height>44</height></size></property>
        </widget>
       </item>

@@ -3,7 +3,7 @@
 #include "ConnectionDialog.h"
 #include "ConnectionPanel.h"
 #include "SettingsDialog.h"
-#include "HamburgerMenu.h"
+#include "NavPanel.h"
 #include "../../server/ServerManager.h"
 #include "../../client/session/RemoteDesktopSession.h"
 #include "../../client/network/ConnectionManager.h"
@@ -53,7 +53,7 @@
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
-    , m_hamburgerMenu(nullptr)
+    , m_navPanel(nullptr)
     , m_connectionPanel(nullptr)
     , m_trayIcon(nullptr)
     , m_connectionDialog(nullptr)
@@ -76,8 +76,8 @@ MainWindow::MainWindow(QWidget* parent)
     ui->setupUi(this);
     // 设置 Logo pixmap（.ui 中无法表达运行时缩放）
     ui->logoLabel->setPixmap(QPixmap(":/icons/app.svg").scaled(48, 48, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    // 便捷指针 — 保持现有业务代码中 m_hamburgerMenu/m_connectionPanel 访问不变
-    m_hamburgerMenu = ui->hamburgerMenu;
+    // 便捷指针 — 保持现有业务代码中 m_navPanel/m_connectionPanel 访问不变
+    m_navPanel = ui->navPanel;
     m_connectionPanel = ui->connectionPanel;
     createStatusBar();  // 必须在 setupUi 之后调用 — statusBar() 需要返回 .ui 中创建的状态栏
     createSystemTrayIcon();
@@ -112,15 +112,15 @@ MainWindow::MainWindow(QWidget* parent)
     // --- 主题样式加载 ---
     applyTheme();
 
-    // --- 汉堡菜单信号连接 ---
-    connect(m_hamburgerMenu, &HamburgerMenu::newConnection,
+    // --- 导航面板信号连接 ---
+    connect(m_navPanel, &NavPanel::newConnection,
             this, &MainWindow::newConnection);
 
-    connect(m_hamburgerMenu, &HamburgerMenu::openSettings,
+    connect(m_navPanel, &NavPanel::openSettings,
             this, &MainWindow::showSettings);
-    connect(m_hamburgerMenu, &HamburgerMenu::showAbout,
+    connect(m_navPanel, &NavPanel::showAbout,
             this, &MainWindow::showAbout);
-    connect(m_hamburgerMenu, &HamburgerMenu::themeToggled,
+    connect(m_navPanel, &NavPanel::themeToggled,
             this, &MainWindow::toggleTheme);
 
     // 显式调用 retranslateUi 确保首次启动时所有子控件的 tr() 生效
@@ -386,9 +386,9 @@ void MainWindow::retranslateUi() {
         m_connectionPanel->retranslateUi();
     }
 
-    // 汉堡菜单
-    if ( m_hamburgerMenu ) {
-        m_hamburgerMenu->retranslateUi();
+    // 导航面板
+    if ( m_navPanel ) {
+        m_navPanel->retranslateUi();
     }
 
     qCInfo(lcUIMainWindow) << "MainWindow::retranslateUi - UI retranslation done, windowTitle:" << windowTitle();

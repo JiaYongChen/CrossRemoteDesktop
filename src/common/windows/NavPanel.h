@@ -1,5 +1,5 @@
-#ifndef HAMBURGERMENU_H
-#define HAMBURGERMENU_H
+#ifndef NAVPANEL_H
+#define NAVPANEL_H
 
 #include <QIcon>
 #include <QWidget>
@@ -9,16 +9,16 @@
 #include <QList>
 
 QT_BEGIN_NAMESPACE
-namespace Ui { class HamburgerMenu; }
+namespace Ui { class NavPanel; }
 QT_END_NAMESPACE
 
-class HamburgerMenu : public QWidget
+class NavPanel : public QWidget
 {
     Q_OBJECT
 
 public:
-    explicit HamburgerMenu(QWidget *parent = nullptr);
-    ~HamburgerMenu() override;
+    explicit NavPanel(QWidget *parent = nullptr);
+    ~NavPanel() override;
 
     [[nodiscard]] bool isExpanded() const { return m_expanded; }
 
@@ -37,7 +37,7 @@ signals:
 private:
     void setupAnimations();
 
-    Ui::HamburgerMenu *ui = nullptr;
+    Ui::NavPanel *ui = nullptr;
 
     // 动画
     QPropertyAnimation *m_heightAnimation = nullptr;
@@ -48,4 +48,4 @@ private:
     int m_menuFullHeight = 0;
 };
 
-#endif // HAMBURGERMENU_H
+#endif // NAVPANEL_H

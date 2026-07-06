@@ -45,7 +45,7 @@
    </property>
    <item>
     <widget class="QWidget" name="contentWidget">
-     <layout class="QHBoxLayout" name="contentLayout">
+     <layout class="QHBoxLayout" name="contentSplitLayout">
       <property name="spacing">
        <number>0</number>
       </property>

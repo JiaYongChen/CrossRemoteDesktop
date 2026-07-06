@@ -35,10 +35,10 @@
      <number>0</number>
     </property>
     <item>
-     <widget class="HamburgerMenu" name="hamburgerMenu"/>
+     <widget class="NavPanel" name="navPanel"/>
     </item>
     <item>
-     <layout class="QVBoxLayout" name="contentLayout">
+     <layout class="QVBoxLayout" name="workspaceLayout">
       <property name="spacing">
        <number>0</number>
       </property>
@@ -55,7 +55,7 @@
        <number>0</number>
       </property>
       <item>
-       <widget class="QWidget" name="headerArea">
+       <widget class="QWidget" name="brandBanner">
         <property name="minimumSize">
          <size>
           <width>0</width>
@@ -68,7 +68,7 @@
           <height>120</height>
          </size>
         </property>
-        <layout class="QVBoxLayout" name="headerLayout">
+        <layout class="QVBoxLayout" name="bannerLayout">
          <property name="spacing">
           <number>0</number>
          </property>
@@ -85,7 +85,7 @@
           <number>0</number>
          </property>
          <item>
-          <spacer name="headerTopStretch">
+          <spacer name="bannerTopStretch">
            <property name="orientation">
             <enum>Qt::Vertical</enum>
            </property>
@@ -114,7 +114,7 @@
           </widget>
          </item>
          <item>
-          <spacer name="headerTitleSpacer">
+          <spacer name="bannerTitleSpacer">
            <property name="orientation">
             <enum>Qt::Vertical</enum>
            </property>
@@ -137,7 +137,7 @@
           </widget>
          </item>
          <item>
-          <spacer name="headerBottomStretch">
+          <spacer name="bannerBottomStretch">
            <property name="orientation">
             <enum>Qt::Vertical</enum>
            </property>
@@ -163,9 +163,9 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>HamburgerMenu</class>
+   <class>NavPanel</class>
    <extends>QWidget</extends>
-   <header>HamburgerMenu.h</header>
+   <header>NavPanel.h</header>
   </customwidget>
   <customwidget>
    <class>ConnectionPanel</class>

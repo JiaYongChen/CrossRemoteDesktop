@@ -1,21 +1,22 @@
-#include "HamburgerMenu.h"
-#include "ui_HamburgerMenu.h"
+#include "NavPanel.h"
+#include "ui_NavPanel.h"
 #include "common/core/theme/IconThemeProvider.h"
 
 #include <QIcon>
 #include <QToolButton>
 
-HamburgerMenu::HamburgerMenu(QWidget *parent)
+NavPanel::NavPanel(QWidget *parent)
     : QWidget(parent)
-    , ui(new Ui::HamburgerMenu)
+    , ui(new Ui::NavPanel)
 {
     setFixedWidth(48);
-    setAutoFillBackground(true);
+    // 使 QWidget 通过样式表绘制背景（需配合 QSS #navPanel 规则）
+    setAttribute(Qt::WA_StyledBackground, true);
 
     ui->setupUi(this);
 
     // 设置图标
-    ui->hamburgerButton->setIcon(IconThemeProvider::icon("menu"));
+    ui->menuToggleButton->setIcon(IconThemeProvider::icon("menu"));
     ui->newConnectionItem->setIcon(IconThemeProvider::icon("new_connection"));
     ui->settingsItem->setIcon(IconThemeProvider::icon("settings"));
     ui->aboutItem->setIcon(IconThemeProvider::icon("about"));
@@ -34,21 +35,21 @@ HamburgerMenu::HamburgerMenu(QWidget *parent)
     setupAnimations();
 
     // 信号连接
-    connect(ui->hamburgerButton, &QToolButton::clicked, this, [this]() {
+    connect(ui->menuToggleButton, &QToolButton::clicked, this, [this]() {
         setExpanded(!m_expanded);
     });
-    connect(ui->themeButton, &QToolButton::clicked, this, &HamburgerMenu::themeToggled);
-    connect(ui->newConnectionItem, &QToolButton::clicked, this, &HamburgerMenu::newConnection);
-    connect(ui->settingsItem, &QToolButton::clicked, this, &HamburgerMenu::openSettings);
-    connect(ui->aboutItem, &QToolButton::clicked, this, &HamburgerMenu::showAbout);
+    connect(ui->themeButton, &QToolButton::clicked, this, &NavPanel::themeToggled);
+    connect(ui->newConnectionItem, &QToolButton::clicked, this, &NavPanel::newConnection);
+    connect(ui->settingsItem, &QToolButton::clicked, this, &NavPanel::openSettings);
+    connect(ui->aboutItem, &QToolButton::clicked, this, &NavPanel::showAbout);
 }
 
-HamburgerMenu::~HamburgerMenu()
+NavPanel::~NavPanel()
 {
     delete ui;
 }
 
-void HamburgerMenu::setupAnimations()
+void NavPanel::setupAnimations()
 {
     // 测量完整菜单高度
     ui->menuContainer->setMaximumHeight(1000);
@@ -69,7 +70,7 @@ void HamburgerMenu::setupAnimations()
     }
 }
 
-void HamburgerMenu::setExpanded(bool expanded)
+void NavPanel::setExpanded(bool expanded)
 {
     if (m_expanded == expanded)
         return;
@@ -106,18 +107,18 @@ void HamburgerMenu::setExpanded(bool expanded)
     }
 }
 
-void HamburgerMenu::retranslateUi()
+void NavPanel::retranslateUi()
 {
-    ui->hamburgerButton->setToolTip(tr("菜单"));
+    ui->menuToggleButton->setToolTip(tr("菜单"));
     ui->newConnectionItem->setToolTip(tr("新建连接"));
     ui->settingsItem->setToolTip(tr("设置"));
     ui->aboutItem->setToolTip(tr("关于"));
     ui->themeButton->setToolTip(tr("切换主题"));
 }
 
-void HamburgerMenu::refreshIcons()
+void NavPanel::refreshIcons()
 {
-    ui->hamburgerButton->setIcon(IconThemeProvider::icon("menu"));
+    ui->menuToggleButton->setIcon(IconThemeProvider::icon("menu"));
     ui->newConnectionItem->setIcon(IconThemeProvider::icon("new_connection"));
     ui->settingsItem->setIcon(IconThemeProvider::icon("settings"));
     ui->aboutItem->setIcon(IconThemeProvider::icon("about"));
