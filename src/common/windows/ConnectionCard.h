@@ -1,10 +1,13 @@
-#ifndef CONNECTIONCARD_H
-#define CONNECTIONCARD_H
+#pragma once
 
 #include <QFrame>
 #include <QLabel>
 #include <QToolButton>
 #include <QDateTime>
+
+QT_BEGIN_NAMESPACE
+namespace Ui { class ConnectionCard; }
+QT_END_NAMESPACE
 
 class ConnectionCard : public QFrame
 {
@@ -28,16 +31,7 @@ signals:
     void deleteClicked();
 
 private:
-    void setupUi();
-
-    QLabel *m_statusIndicator = nullptr;
-    QLabel *m_hostnameLabel = nullptr;
-    QLabel *m_addressLabel = nullptr;
-    QLabel *m_resolutionLabel = nullptr;
-    QLabel *m_timeLabel = nullptr;
-    QToolButton *m_connectButton = nullptr;
-    QToolButton *m_editButton = nullptr;
-    QToolButton *m_deleteButton = nullptr;
+    Ui::ConnectionCard *ui;
 
     QString m_hostname;
     QString m_addressPort;
@@ -46,5 +40,3 @@ private:
     QDateTime m_lastConnected;
     bool m_online = false;
 };
-
-#endif // CONNECTIONCARD_H
