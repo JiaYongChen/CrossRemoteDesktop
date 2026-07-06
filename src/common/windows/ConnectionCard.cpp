@@ -39,8 +39,8 @@ void ConnectionCard::setHostname(const QString &name)
 
 void ConnectionCard::setAddressPort(const QString &host, int port)
 {
-    m_addressPort = QStringLiteral("%1:%2").arg(host).arg(port);
-    ui->addressLabel->setText(m_addressPort);
+    const QString addr = QStringLiteral("%1:%2").arg(host).arg(port);
+    ui->addressLabel->setText(addr);
 }
 
 void ConnectionCard::setResolution(int width, int height)

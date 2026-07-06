@@ -63,7 +63,7 @@ private:
     /// 卡片布局缓存（避免重复 qobject_cast）
     [[nodiscard]] QVBoxLayout *cardLayout() const;
 
-    Ui::ConnectionPanel *ui;
+    Ui::ConnectionPanel *ui = nullptr;
 
     ConnectionHistory m_history;
     QList<ConnectionCard *> m_cards;

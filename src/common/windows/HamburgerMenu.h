@@ -37,7 +37,7 @@ signals:
 private:
     void setupAnimations();
 
-    Ui::HamburgerMenu *ui;
+    Ui::HamburgerMenu *ui = nullptr;
 
     // 动画
     QPropertyAnimation *m_heightAnimation = nullptr;

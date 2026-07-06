@@ -30,7 +30,5 @@ signals:
     void deleteClicked();
 
 private:
-    Ui::ConnectionCard *ui;
-
-    QString m_addressPort;
+    Ui::ConnectionCard *ui = nullptr;
 };

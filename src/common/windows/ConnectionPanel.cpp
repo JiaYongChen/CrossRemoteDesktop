@@ -152,7 +152,7 @@ void ConnectionPanel::refreshIcons()
 
 QVBoxLayout *ConnectionPanel::cardLayout() const
 {
-    return static_cast<QVBoxLayout *>(ui->cardContainer->layout());
+    return qobject_cast<QVBoxLayout *>(ui->cardContainer->layout());
 }
 
 [[nodiscard]] ConnectionCard *ConnectionPanel::createCard(const HistoryEntry &entry)
