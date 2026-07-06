@@ -54,12 +54,6 @@ void MainWindow::createStatusBar()
 }
 
 // ============================================================
-// 中央区域 + 欢迎页布局
-// 注：已迁移到 mainwindow.ui，通过 ui->setupUi(this) 加载。
-//     自定义控件 HamburgerMenu / ConnectionPanel 通过 promotion 集成。
-// ============================================================
-
-// ============================================================
 // 系统托盘（不变）
 // ============================================================
 
@@ -76,7 +70,7 @@ void MainWindow::createSystemTrayIcon()
     m_trayIconMenu->addAction(m_exitAction);
 
     m_trayIcon->setContextMenu(m_trayIconMenu);
-    m_trayIcon->setIcon(QIcon(":/icons/app.svg"));
+    m_trayIcon->setIcon(IconThemeProvider::icon("app"));
     m_trayIcon->setToolTip(tr("远程桌面"));
     m_trayIcon->show();
 }
