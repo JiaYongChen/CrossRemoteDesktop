@@ -1,120 +1,57 @@
 #include "HamburgerMenu.h"
+#include "ui_HamburgerMenu.h"
 #include "common/core/theme/IconThemeProvider.h"
+
 #include <QIcon>
-#include <QFrame>
-#include <QApplication>
-#include <QTimer>
+#include <QToolButton>
 
 HamburgerMenu::HamburgerMenu(QWidget *parent)
     : QWidget(parent)
+    , ui(new Ui::HamburgerMenu)
 {
     setFixedWidth(48);
     setAutoFillBackground(true);
-    setupUi();
+
+    ui->setupUi(this);
+
+    // 设置图标
+    ui->hamburgerButton->setIcon(IconThemeProvider::icon("menu"));
+    ui->newConnectionItem->setIcon(IconThemeProvider::icon("new_connection"));
+    ui->settingsItem->setIcon(IconThemeProvider::icon("settings"));
+    ui->aboutItem->setIcon(IconThemeProvider::icon("about"));
+    ui->themeButton->setIcon(IconThemeProvider::icon("theme"));
+
+    // 为动画准备透明度效果（.ui 不支持 QGraphicsOpacityEffect）
+    for (auto *btn : {static_cast<QToolButton *>(ui->newConnectionItem),
+                      static_cast<QToolButton *>(ui->settingsItem),
+                      static_cast<QToolButton *>(ui->aboutItem)}) {
+        auto *effect = new QGraphicsOpacityEffect(btn);
+        effect->setOpacity(0.0);
+        btn->setGraphicsEffect(effect);
+        m_itemEffects.append(effect);
+    }
+
     setupAnimations();
-}
-
-void HamburgerMenu::setupUi()
-{
-    auto *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(0, 0, 0, 8);
-    mainLayout->setSpacing(0);
-
-    // ☰ 按钮
-    m_hamburgerButton = new QToolButton();
-    m_hamburgerButton->setIcon(IconThemeProvider::icon("menu"));
-    m_hamburgerButton->setIconSize(QSize(44, 44));
-    m_hamburgerButton->setToolTip(tr("菜单"));
-    m_hamburgerButton->setAutoRaise(true);
-    m_hamburgerButton->setFixedSize(44, 44);
-    mainLayout->addWidget(m_hamburgerButton, 0, Qt::AlignHCenter);
-
-    // 分隔线
-    auto *sep1 = new QFrame();
-    sep1->setFrameShape(QFrame::HLine);
-    sep1->setFixedWidth(50);
-    mainLayout->addWidget(sep1, 0, Qt::AlignHCenter);
-
-    // 菜单项容器（动画目标）
-    m_menuContainer = new QWidget();
-    m_menuContainer->setMaximumHeight(0);  // 默认收起
-    m_menuLayout = new QVBoxLayout(m_menuContainer);
-    m_menuLayout->setContentsMargins(0, 8, 0, 0);
-    m_menuLayout->setSpacing(4);
-
-    // 创建菜单项：图标路径、tooltip、objectName
-    m_newConnectionItem = createMenuItem(
-        IconThemeProvider::icon("new_connection"), tr("新建连接"),
-        "hamburgerItem");
-
-    m_settingsItem = createMenuItem(
-        IconThemeProvider::icon("settings"), tr("设置"),
-        "hamburgerItem");
-
-    m_aboutItem = createMenuItem(
-        IconThemeProvider::icon("about"), tr("关于"),
-        "hamburgerItem");
-
-    // 添加到菜单布局
-    m_menuLayout->addWidget(m_newConnectionItem, 0, Qt::AlignHCenter);
-    m_menuLayout->addWidget(m_settingsItem, 0, Qt::AlignHCenter);
-    m_menuLayout->addWidget(m_aboutItem, 0, Qt::AlignHCenter);
-    m_menuLayout->addStretch();
-
-    mainLayout->addWidget(m_menuContainer);
-
-    // 弹性空间（推开主题按钮到底部）
-    mainLayout->addStretch();
-
-    // 主题切换按钮（始终可见）
-    m_themeButton = new QToolButton();
-    m_themeButton->setIcon(IconThemeProvider::icon("theme"));
-    m_themeButton->setIconSize(QSize(44, 44));
-    m_themeButton->setToolTip(tr("切换主题"));
-    m_themeButton->setAutoRaise(true);
-    m_themeButton->setFixedSize(44, 44);
-    mainLayout->addWidget(m_themeButton, 0, Qt::AlignHCenter);
 
     // 信号连接
-    connect(m_hamburgerButton, &QToolButton::clicked, this, [this]() {
+    connect(ui->hamburgerButton, &QToolButton::clicked, this, [this]() {
         setExpanded(!m_expanded);
     });
-    connect(m_themeButton, &QToolButton::clicked, this, &HamburgerMenu::themeToggled);
-    connect(m_newConnectionItem, &QToolButton::clicked, this, &HamburgerMenu::newConnection);
-    connect(m_settingsItem, &QToolButton::clicked, this, &HamburgerMenu::openSettings);
-    connect(m_aboutItem, &QToolButton::clicked, this, &HamburgerMenu::showAbout);
-}
-
-QToolButton *HamburgerMenu::createMenuItem(const QIcon &icon,
-                                            const QString &tooltip,
-                                            const QString &objectName)
-{
-    auto *btn = new QToolButton();
-    btn->setIcon(icon);
-    btn->setIconSize(QSize(44, 44));
-    btn->setToolTip(tooltip);
-    btn->setAutoRaise(true);
-    btn->setObjectName(objectName);
-    btn->setFixedSize(44, 44);
-
-    // 为动画准备透明度效果
-    auto *effect = new QGraphicsOpacityEffect(btn);
-    effect->setOpacity(0.0);
-    btn->setGraphicsEffect(effect);
-    m_itemEffects.append(effect);
-
-    return btn;
+    connect(ui->themeButton, &QToolButton::clicked, this, &HamburgerMenu::themeToggled);
+    connect(ui->newConnectionItem, &QToolButton::clicked, this, &HamburgerMenu::newConnection);
+    connect(ui->settingsItem, &QToolButton::clicked, this, &HamburgerMenu::openSettings);
+    connect(ui->aboutItem, &QToolButton::clicked, this, &HamburgerMenu::showAbout);
 }
 
 void HamburgerMenu::setupAnimations()
 {
-    // 测量完整菜单高度（hold in temporary state）
-    m_menuContainer->setMaximumHeight(1000);
-    m_menuContainer->adjustSize();
-    m_menuFullHeight = m_menuContainer->sizeHint().height();
-    m_menuContainer->setMaximumHeight(0);   // 测量后恢复折叠状态
+    // 测量完整菜单高度
+    ui->menuContainer->setMaximumHeight(1000);
+    ui->menuContainer->adjustSize();
+    m_menuFullHeight = ui->menuContainer->sizeHint().height();
+    ui->menuContainer->setMaximumHeight(0);
 
-    m_heightAnimation = new QPropertyAnimation(m_menuContainer, "maximumHeight", this);
+    m_heightAnimation = new QPropertyAnimation(ui->menuContainer, "maximumHeight", this);
     m_heightAnimation->setDuration(150);
     m_heightAnimation->setEasingCurve(QEasingCurve::OutCubic);
 
@@ -137,7 +74,6 @@ void HamburgerMenu::setExpanded(bool expanded)
     m_fadeGroup->stop();
 
     if (expanded) {
-        // 卷轴下拉 + 图标渐显同步播放
         m_heightAnimation->setStartValue(0);
         m_heightAnimation->setEndValue(m_menuFullHeight);
 
@@ -151,7 +87,6 @@ void HamburgerMenu::setExpanded(bool expanded)
         m_heightAnimation->start();
         m_fadeGroup->start();
     } else {
-        // 图标渐隐 + 卷轴收起同步播放
         m_fadeGroup->setDirection(QAbstractAnimation::Backward);
         for (int i = 0; i < m_fadeGroup->animationCount(); ++i) {
             auto *anim = static_cast<QPropertyAnimation *>(m_fadeGroup->animationAt(i));
@@ -168,18 +103,18 @@ void HamburgerMenu::setExpanded(bool expanded)
 
 void HamburgerMenu::retranslateUi()
 {
-    m_hamburgerButton->setToolTip(tr("菜单"));
-    m_newConnectionItem->setToolTip(tr("新建连接"));
-    m_settingsItem->setToolTip(tr("设置"));
-    m_aboutItem->setToolTip(tr("关于"));
-    m_themeButton->setToolTip(tr("切换主题"));
+    ui->hamburgerButton->setToolTip(tr("菜单"));
+    ui->newConnectionItem->setToolTip(tr("新建连接"));
+    ui->settingsItem->setToolTip(tr("设置"));
+    ui->aboutItem->setToolTip(tr("关于"));
+    ui->themeButton->setToolTip(tr("切换主题"));
 }
 
 void HamburgerMenu::refreshIcons()
 {
-    m_hamburgerButton->setIcon(IconThemeProvider::icon("menu"));
-    m_newConnectionItem->setIcon(IconThemeProvider::icon("new_connection"));
-    m_settingsItem->setIcon(IconThemeProvider::icon("settings"));
-    m_aboutItem->setIcon(IconThemeProvider::icon("about"));
-    m_themeButton->setIcon(IconThemeProvider::icon("theme"));
+    ui->hamburgerButton->setIcon(IconThemeProvider::icon("menu"));
+    ui->newConnectionItem->setIcon(IconThemeProvider::icon("new_connection"));
+    ui->settingsItem->setIcon(IconThemeProvider::icon("settings"));
+    ui->aboutItem->setIcon(IconThemeProvider::icon("about"));
+    ui->themeButton->setIcon(IconThemeProvider::icon("theme"));
 }

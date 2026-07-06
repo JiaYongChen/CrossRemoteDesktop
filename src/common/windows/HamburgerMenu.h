@@ -3,11 +3,14 @@
 
 #include <QIcon>
 #include <QWidget>
-#include <QToolButton>
-#include <QVBoxLayout>
 #include <QPropertyAnimation>
 #include <QGraphicsOpacityEffect>
 #include <QParallelAnimationGroup>
+#include <QList>
+
+QT_BEGIN_NAMESPACE
+namespace Ui { class HamburgerMenu; }
+QT_END_NAMESPACE
 
 class HamburgerMenu : public QWidget
 {
@@ -31,20 +34,9 @@ signals:
     void themeToggled();
 
 private:
-    void setupUi();
     void setupAnimations();
-    QToolButton *createMenuItem(const QIcon &icon, const QString &tooltip,
-                                 const QString &objectName);
 
-    QToolButton *m_hamburgerButton = nullptr;
-    QToolButton *m_themeButton = nullptr;
-    QWidget *m_menuContainer = nullptr;
-    QVBoxLayout *m_menuLayout = nullptr;
-
-    // 菜单项
-    QToolButton *m_newConnectionItem = nullptr;
-    QToolButton *m_settingsItem = nullptr;
-    QToolButton *m_aboutItem = nullptr;
+    Ui::HamburgerMenu *ui;
 
     // 动画
     QPropertyAnimation *m_heightAnimation = nullptr;

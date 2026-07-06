@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>HamburgerMenu</class>
+ <widget class="QWidget" name="HamburgerMenu">
+  <property name="geometry">
+   <rect><x>0</x><y>0</y><width>48</width><height>680</height></rect>
+  </property>
+  <layout class="QVBoxLayout" name="mainLayout">
+   <property name="spacing"><number>0</number></property>
+   <property name="leftMargin"><number>0</number></property>
+   <property name="topMargin"><number>0</number></property>
+   <property name="rightMargin"><number>0</number></property>
+   <property name="bottomMargin"><number>8</number></property>
+   <item alignment="Qt::AlignHCenter">
+    <widget class="QToolButton" name="hamburgerButton">
+     <property name="iconSize"><size><width>44</width><height>44</height></size></property>
+     <property name="toolTip"><string>菜单</string></property>
+     <property name="autoRaise"><bool>true</bool></property>
+     <property name="fixedSize"><size><width>44</width><height>44</height></size></property>
+    </widget>
+   </item>
+   <item alignment="Qt::AlignHCenter">
+    <widget class="QFrame" name="separator">
+     <property name="frameShape"><enum>QFrame::HLine</enum></property>
+     <property name="fixedWidth"><number>50</number></property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QWidget" name="menuContainer">
+     <property name="maximumSize"><size><width>16777215</width><height>0</height></size></property>
+     <layout class="QVBoxLayout" name="menuLayout">
+      <property name="spacing"><number>4</number></property>
+      <property name="leftMargin"><number>0</number></property>
+      <property name="topMargin"><number>8</number></property>
+      <property name="rightMargin"><number>0</number></property>
+      <property name="bottomMargin"><number>0</number></property>
+      <item alignment="Qt::AlignHCenter">
+       <widget class="QToolButton" name="newConnectionItem">
+        <property name="iconSize"><size><width>44</width><height>44</height></size></property>
+        <property name="toolTip"><string>新建连接</string></property>
+        <property name="autoRaise"><bool>true</bool></property>
+        <property name="objectName"><string>hamburgerItem</string></property>
+        <property name="fixedSize"><size><width>44</width><height>44</height></size></property>
+       </widget>
+      </item>
+      <item alignment="Qt::AlignHCenter">
+       <widget class="QToolButton" name="settingsItem">
+        <property name="iconSize"><size><width>44</width><height>44</height></size></property>
+        <property name="toolTip"><string>设置</string></property>
+        <property name="autoRaise"><bool>true</bool></property>
+        <property name="objectName"><string>hamburgerItem</string></property>
+        <property name="fixedSize"><size><width>44</width><height>44</height></size></property>
+       </widget>
+      </item>
+      <item alignment="Qt::AlignHCenter">
+       <widget class="QToolButton" name="aboutItem">
+        <property name="iconSize"><size><width>44</width><height>44</height></size></property>
+        <property name="toolTip"><string>关于</string></property>
+        <property name="autoRaise"><bool>true</bool></property>
+        <property name="objectName"><string>hamburgerItem</string></property>
+        <property name="fixedSize"><size><width>44</width><height>44</height></size></property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="menuStretch">
+        <property name="orientation"><enum>Qt::Vertical</enum></property>
+        <property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property>
+       </spacer>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <spacer name="mainStretch">
+     <property name="orientation"><enum>Qt::Vertical</enum></property>
+     <property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property>
+    </spacer>
+   </item>
+   <item alignment="Qt::AlignHCenter">
+    <widget class="QToolButton" name="themeButton">
+     <property name="iconSize"><size><width>44</width><height>44</height></size></property>
+     <property name="toolTip"><string>切换主题</string></property>
+     <property name="autoRaise"><bool>true</bool></property>
+     <property name="fixedSize"><size><width>44</width><height>44</height></size></property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+</ui>
