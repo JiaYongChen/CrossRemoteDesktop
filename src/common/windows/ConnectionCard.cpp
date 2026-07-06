@@ -27,6 +27,11 @@ ConnectionCard::ConnectionCard(QWidget *parent)
             this, &ConnectionCard::deleteClicked);
 }
 
+ConnectionCard::~ConnectionCard()
+{
+    delete ui;
+}
+
 void ConnectionCard::setHostname(const QString &name)
 {
     m_hostname = name;

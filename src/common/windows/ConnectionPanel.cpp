@@ -28,6 +28,11 @@ ConnectionPanel::ConnectionPanel(QWidget *parent)
             this, &ConnectionPanel::onSearchTextChanged);
 }
 
+ConnectionPanel::~ConnectionPanel()
+{
+    delete ui;
+}
+
 // ============================================================
 // 公开接口
 // ============================================================

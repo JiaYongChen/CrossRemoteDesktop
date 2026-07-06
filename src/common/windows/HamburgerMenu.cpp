@@ -43,6 +43,11 @@ HamburgerMenu::HamburgerMenu(QWidget *parent)
     connect(ui->aboutItem, &QToolButton::clicked, this, &HamburgerMenu::showAbout);
 }
 
+HamburgerMenu::~HamburgerMenu()
+{
+    delete ui;
+}
+
 void HamburgerMenu::setupAnimations()
 {
     // 测量完整菜单高度

@@ -19,6 +19,7 @@ class ConnectionPanel : public QWidget
 
 public:
     explicit ConnectionPanel(QWidget *parent = nullptr);
+    ~ConnectionPanel() override;
 
     /// 从 QSettings 加载历史并填充卡片
     void loadHistory(const QSettings &settings);

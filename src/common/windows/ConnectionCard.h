@@ -13,6 +13,7 @@ class ConnectionCard : public QFrame
 
 public:
     explicit ConnectionCard(QWidget *parent = nullptr);
+    ~ConnectionCard() override;
 
     void setHostname(const QString &name);
     void setAddressPort(const QString &host, int port);

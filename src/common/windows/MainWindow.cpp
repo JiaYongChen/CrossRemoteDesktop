@@ -122,6 +122,10 @@ MainWindow::MainWindow(QWidget* parent)
             this, &MainWindow::showAbout);
     connect(m_hamburgerMenu, &HamburgerMenu::themeToggled,
             this, &MainWindow::toggleTheme);
+
+    // 显式调用 retranslateUi 确保首次启动时所有子控件的 tr() 生效
+    // （LanguageChange 事件在 MainWindow 构造之前的 installTranslator 阶段已发送）
+    retranslateUi();
 }
 
 MainWindow::~MainWindow() {

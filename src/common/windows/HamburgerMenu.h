@@ -18,6 +18,7 @@ class HamburgerMenu : public QWidget
 
 public:
     explicit HamburgerMenu(QWidget *parent = nullptr);
+    ~HamburgerMenu() override;
 
     [[nodiscard]] bool isExpanded() const { return m_expanded; }
 
