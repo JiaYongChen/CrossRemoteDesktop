@@ -12,10 +12,10 @@
  * ═══════════════════════════════════════════════════════════
  *
  *  ① 基础色板
- *    --color-bg-page:          #F2F2F2    (QMainWindow)
+ *    --color-bg-canvas:        #E8E8E8    (QMainWindow)
  *    --color-bg-card:          #FFFFFF    (卡片/GroupBox)
  *    --color-bg-elevated:      #FCFCFC    (输入框)
- *    --color-bg-nav:           #F0F0F0    (左侧导航栏)
+ *    --color-bg-nav-panel:      #D5D5D5    (左侧导航栏)
  *    --color-bg-nav-btn:       #E4E4E4    (导航按钮静态)
  *    --color-bg-statusbar:     #F0F0F0    (状态栏)
  *    --color-bg-sidebar:       #F3F3F3    (设置侧栏)
@@ -25,6 +25,8 @@
  *    --color-bg-tooltip:       #FFFFFF    (工具提示)
  *    --color-bg-dropdown:      #FFFFFF    (下拉列表)
  *    --color-bg-hamburger:     #DCDCDC    (汉堡菜单按钮)
+ *    --color-bg-brand:         #F5F5F5    (品牌区)
+ *    --color-bg-connection-panel: #FFFFFF (连接面板)
  *
  *  ② 文字色
  *    --color-text-primary:     #1A1A1A    (正文)
@@ -83,12 +85,12 @@
 /* ═══════════════════════ 第一层：全局基础 ═══════════════════════ */
 
 QMainWindow {
-    background-color: #F2F2F2;               /* token: --color-bg-page */
+    background-color: #E8E8E8;               /* token: --color-bg-canvas */
     color: #1A1A1A;                          /* token: --color-text-primary */
 }
 
 QDialog {
-    background-color: #F2F2F2;               /* token: --color-bg-page */
+    background-color: #E8E8E8;               /* token: --color-bg-canvas */
     color: #1A1A1A;                          /* token: --color-text-primary */
 }
 
@@ -257,7 +259,7 @@ QSpinBox::up-button {
     border-bottom: 1px solid #CFCFCF;          /* token: --color-border-strong */
     border-top-right-radius: 4px;
 }
-QSpinBox::up-button:hover { background-color: #E8E8E8; }                                       /* token: --color-bg-nav */
+QSpinBox::up-button:hover { background-color: #E8E8E8; }                                       /* token: --color-bg-canvas */
 QSpinBox::up-arrow {
     image: url(:/icons/spin-up.svg);
     width: 8px;
@@ -270,7 +272,7 @@ QSpinBox::down-button {
     border-left: 1px solid #CFCFCF;          /* token: --color-border-strong */
     border-bottom-right-radius: 4px;
 }
-QSpinBox::down-button:hover { background-color: #E8E8E8; }                                       /* token: --color-bg-nav */
+QSpinBox::down-button:hover { background-color: #E8E8E8; }                                       /* token: --color-bg-canvas */
 QSpinBox::down-arrow {
     image: url(:/icons/spin-down.svg);
     width: 8px;
@@ -486,7 +488,7 @@ QDialog QScrollBar::sub-page:vertical {
  *     └── QToolButton#themeButton
  * ─────────────────────────────────────────────────────────────── */
 #hamburgerMenu {
-    background-color: #F0F0F0;               /* token: --color-bg-nav */
+    background-color: #D5D5D5;               /* token: --color-bg-nav-panel */
 }
 
 #hamburgerMenu > QToolButton {
@@ -518,7 +520,7 @@ QDialog QScrollBar::sub-page:vertical {
  *     └── QLabel#titleLabel
  * ─────────────────────────────────────────────────────────────── */
 #headerArea {
-    background-color: transparent;
+    background-color: #F5F5F5;               /* token: --color-bg-brand */
 }
 
 #titleLabel {
@@ -526,6 +528,11 @@ QDialog QScrollBar::sub-page:vertical {
     font-size: 20px;                         /* token: --font-size-xl */
     font-weight: bold;
     background: transparent;
+}
+
+/* ── [mainwindow.ui] ConnectionPanel 容器 ── */
+#connectionPanel {
+    background-color: #FFFFFF;               /* token: --color-bg-connection-panel */
 }
 
 /* ── [mainwindow.ui] 连接卡片区域 ──
@@ -589,7 +596,7 @@ QDialog QScrollBar::sub-page:vertical {
 
 /* ── [ConnectionDialog.ui] 对话框容器 ── */
 #ConnectionDialog {
-    background-color: #F2F2F2;               /* token: --color-bg-page */
+    background-color: #E8E8E8;               /* token: --color-bg-canvas */
 }
 
 #tabContainer {
