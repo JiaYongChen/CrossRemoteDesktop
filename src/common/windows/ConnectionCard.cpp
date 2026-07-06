@@ -7,6 +7,7 @@ ConnectionCard::ConnectionCard(QWidget *parent)
     , ui(new Ui::ConnectionCard)
 {
     ui->setupUi(this);
+    setFixedSize(500, 110);
 
     // 初始状态指示灯
     ui->statusIndicator->setStyleSheet(
