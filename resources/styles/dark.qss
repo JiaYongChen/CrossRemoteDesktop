@@ -152,8 +152,12 @@ QScrollArea {
     border: none;
 }
 
-/* ----- 文本选中色 ----- */
-* {
+/* ----- 文本选中色 —— 仅可编辑控件 ----- */
+QLineEdit,
+QTextEdit,
+QPlainTextEdit,
+QAbstractSpinBox,
+QComboBox:editable {
     selection-background-color: #4A90D9;     /* token: --color-accent */
 }
 
@@ -186,7 +190,6 @@ QLineEdit {
     border: 1px solid #444444;               /* token: --color-border-default */
     border-radius: 6px;                      /* token: --radius-md */
     padding: 8px 14px;                       /* token: --spacing-input-py / --spacing-input-px */
-    selection-background-color: #4A90D9;     /* token: --color-accent */
 }
 QLineEdit:focus {
     border-color: #4A90D9;                   /* token: --color-accent */
