@@ -536,6 +536,10 @@ QDialog QScrollBar::sub-page:vertical {
 #connectionPanel {
     background-color: #474747;               /* token: --color-bg-connection-panel */
 }
+#connectionPanel QScrollArea,
+#connectionPanel QScrollArea > QWidget {
+    background: transparent;
+}
 
 /* ── [mainwindow.ui] 连接卡片区域 ──
  * Widget 树（ConnectionPanel 内部）:
