@@ -9,6 +9,7 @@
    <string>connectionCard</string>
   </property>
   <layout class="QHBoxLayout" name="mainLayout">
+   <property name="spacing"><number>0</number></property>
    <property name="leftMargin"><number>16</number></property>
    <property name="topMargin"><number>10</number></property>
    <property name="rightMargin"><number>10</number></property>

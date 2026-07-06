@@ -6,6 +6,7 @@
 
 class ConnectionCard;
 class QSettings;
+class QVBoxLayout;
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class ConnectionPanel; }
@@ -58,6 +59,9 @@ private:
 
     /// 根据搜索状态更新空状态标签文案
     void updateEmptyState();
+
+    /// 卡片布局缓存（避免重复 qobject_cast）
+    [[nodiscard]] QVBoxLayout *cardLayout() const;
 
     Ui::ConnectionPanel *ui;
 

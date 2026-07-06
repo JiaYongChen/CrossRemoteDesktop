@@ -73,9 +73,6 @@ void ConnectionPanel::addEntry(const QString &host, int port,
     entry.resHeight = resHeight;
     entry.lastConnected = now;
 
-    // 获取布局引用
-    auto *cardLayout = qobject_cast<QVBoxLayout *>(ui->cardContainer->layout());
-
     // 先尝试更新已有卡片
     ConnectionCard *existing = findCard(host, port);
     if (existing) {
@@ -88,8 +85,9 @@ void ConnectionPanel::addEntry(const QString &host, int port,
         existing->setProperty("resWidth", resWidth);
         existing->setProperty("resHeight", resHeight);
         // 置顶
-        cardLayout->removeWidget(existing);
-        cardLayout->insertWidget(0, existing);
+        auto *cl = cardLayout();
+        cl->removeWidget(existing);
+        cl->insertWidget(0, existing);
         m_cards.removeOne(existing);
         m_cards.prepend(existing);
     } else {
@@ -104,8 +102,7 @@ void ConnectionPanel::removeEntry(const QString &host, int port)
 {
     ConnectionCard *card = findCard(host, port);
     if (card) {
-        auto *cardLayout = qobject_cast<QVBoxLayout *>(ui->cardContainer->layout());
-        cardLayout->removeWidget(card);
+        cardLayout()->removeWidget(card);
         m_cards.removeOne(card);
         card->deleteLater();
     }
@@ -153,6 +150,11 @@ void ConnectionPanel::refreshIcons()
     return nullptr;
 }
 
+QVBoxLayout *ConnectionPanel::cardLayout() const
+{
+    return static_cast<QVBoxLayout *>(ui->cardContainer->layout());
+}
+
 [[nodiscard]] ConnectionCard *ConnectionPanel::createCard(const HistoryEntry &entry)
 {
     auto *card = new ConnectionCard();
@@ -168,23 +170,21 @@ void ConnectionPanel::refreshIcons()
     card->setProperty("resHeight", entry.resHeight);
     card->setProperty("searchKey", entry.searchKey());
 
-    // 连接按钮 → 发射信号
-    connect(card, &ConnectionCard::connectClicked, this, [this, card]() {
-        QString host = card->property("host").toString();
-        int port = card->property("port").toInt();
+    // 连接按钮 → 发射信号（hostname 可能在 addEntry 更新时变化，保持属性读取）
+    const QString capturedHost = entry.host;
+    const int capturedPort = entry.port;
+    connect(card, &ConnectionCard::connectClicked, this, [this, card, capturedHost, capturedPort]() {
         QString hostname = card->property("hostname").toString();
-        emit connectRequested(host, port, hostname);
+        emit connectRequested(capturedHost, capturedPort, hostname);
     });
 
-    // 编辑按钮 → 发射信号
-    connect(card, &ConnectionCard::editClicked, this, [this, card]() {
-        QString host = card->property("host").toString();
-        int port = card->property("port").toInt();
-        emit editRequested(host, port);
+    // 编辑按钮 → 发射信号（host/port 创建后不变，按值捕获）
+    connect(card, &ConnectionCard::editClicked, this, [this, capturedHost, capturedPort]() {
+        emit editRequested(capturedHost, capturedPort);
     });
 
-    // 删除按钮 → 内部处理
-    connect(card, &ConnectionCard::deleteClicked, this, [this, card]() {
+    // 删除按钮 → 内部处理（host/port 创建后不变，按值捕获）
+    connect(card, &ConnectionCard::deleteClicked, this, [this, card, capturedHost, capturedPort]() {
         QMessageBox msgBox(this);
         msgBox.setWindowTitle(tr("确认删除"));
         msgBox.setText(tr("确定删除此连接记录？"));
@@ -192,16 +192,13 @@ void ConnectionPanel::refreshIcons()
         msgBox.setDefaultButton(QMessageBox::No);
 
         if (msgBox.exec() == QMessageBox::Yes) {
-            QString host = card->property("host").toString();
-            int port = card->property("port").toInt();
-            removeEntry(host, port);
+            removeEntry(capturedHost, capturedPort);
             emit contentChanged();
         }
     });
 
     // 插入布局顶部 + 列表头部
-    auto *cardLayout = qobject_cast<QVBoxLayout *>(ui->cardContainer->layout());
-    cardLayout->insertWidget(0, card);
+    cardLayout()->insertWidget(0, card);
     m_cards.prepend(card);
     return card;
 }

@@ -34,7 +34,6 @@ ConnectionCard::~ConnectionCard()
 
 void ConnectionCard::setHostname(const QString &name)
 {
-    m_hostname = name;
     ui->hostnameLabel->setText(name);
 }
 
@@ -46,22 +45,18 @@ void ConnectionCard::setAddressPort(const QString &host, int port)
 
 void ConnectionCard::setResolution(int width, int height)
 {
-    m_resWidth = width;
-    m_resHeight = height;
     ui->resolutionLabel->setText(
         QStringLiteral("📺 %1×%2").arg(width).arg(height));
 }
 
 void ConnectionCard::setLastConnected(const QDateTime &time)
 {
-    m_lastConnected = time;
     ui->timeLabel->setText(
         QStringLiteral("🕐 %1").arg(time.toString("yyyy-MM-dd HH:mm")));
 }
 
 void ConnectionCard::setOnline(bool online)
 {
-    m_online = online;
     ui->statusIndicator->setStyleSheet(
         online
             ? "background-color: #4CAF50; border-radius: 4px;"

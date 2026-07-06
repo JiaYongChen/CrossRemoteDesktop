@@ -32,10 +32,5 @@ signals:
 private:
     Ui::ConnectionCard *ui;
 
-    QString m_hostname;
     QString m_addressPort;
-    int m_resWidth = 0;
-    int m_resHeight = 0;
-    QDateTime m_lastConnected;
-    bool m_online = false;
 };
