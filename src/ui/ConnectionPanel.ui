@@ -46,6 +46,7 @@
        <property name="topMargin"><number>0</number></property>
        <property name="rightMargin"><number>0</number></property>
        <property name="bottomMargin"><number>0</number></property>
+       <property name="alignment"><set>Qt::AlignHCenter|Qt::AlignTop</set></property>
       </layout>
      </widget>
     </widget>

@@ -58,6 +58,7 @@
    <item>
     <layout class="QHBoxLayout" name="actionLayout">
      <property name="spacing"><number>4</number></property>
+     <property name="alignment"><set>Qt::AlignVCenter</set></property>
      <item>
       <widget class="QToolButton" name="connectButton">
        <property name="iconSize"><size><width>40</width><height>40</height></size></property>

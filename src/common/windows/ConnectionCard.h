@@ -1,8 +1,6 @@
 #pragma once
 
 #include <QFrame>
-#include <QLabel>
-#include <QToolButton>
 #include <QDateTime>
 
 QT_BEGIN_NAMESPACE

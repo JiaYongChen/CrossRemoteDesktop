@@ -4,10 +4,6 @@
 #include <QList>
 #include "ConnectionHistory.h"
 
-class QLineEdit;
-class QLabel;
-class QScrollArea;
-class QVBoxLayout;
 class ConnectionCard;
 class QSettings;
 
