@@ -12,38 +12,26 @@
 <context>
     <name>ConnectionCard</name>
     <message>
-        <location filename="../../src/ui/ConnectionCard.ui" line="65"/>
-        <location filename="../../src/common/windows/ConnectionCard.cpp" line="68"/>
+        <location filename="../../src/ui/ConnectionCard.ui" line="57"/>
+        <location filename="../../src/common/windows/ConnectionCard.cpp" line="72"/>
         <source>连接</source>
         <translation>连接</translation>
     </message>
     <message>
-        <location filename="../../src/ui/ConnectionCard.ui" line="72"/>
-        <location filename="../../src/common/windows/ConnectionCard.cpp" line="69"/>
+        <location filename="../../src/ui/ConnectionCard.ui" line="64"/>
+        <location filename="../../src/common/windows/ConnectionCard.cpp" line="73"/>
         <source>修改参数</source>
         <translation>修改参数</translation>
     </message>
     <message>
-        <location filename="../../src/ui/ConnectionCard.ui" line="79"/>
-        <location filename="../../src/common/windows/ConnectionCard.cpp" line="70"/>
+        <location filename="../../src/ui/ConnectionCard.ui" line="71"/>
+        <location filename="../../src/common/windows/ConnectionCard.cpp" line="74"/>
         <source>删除记录</source>
         <translation>删除记录</translation>
     </message>
     <message>
         <location filename="../../src/ui/ConnectionCard.ui" line="9"/>
         <source>connectionCard</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../src/ui/ConnectionCard.ui" line="30"/>
-        <source>cardHostname</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../src/ui/ConnectionCard.ui" line="38"/>
-        <location filename="../../src/ui/ConnectionCard.ui" line="46"/>
-        <location filename="../../src/ui/ConnectionCard.ui" line="51"/>
-        <source>cardLabel</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

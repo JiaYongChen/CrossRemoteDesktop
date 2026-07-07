@@ -1,13 +1,13 @@
 #pragma once
 
-#include <QFrame>
+#include <QWidget>
 #include <QDateTime>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class ConnectionCard; }
 QT_END_NAMESPACE
 
-class ConnectionCard : public QFrame
+class ConnectionCard : public QWidget
 {
     Q_OBJECT
 

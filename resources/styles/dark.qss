@@ -13,7 +13,7 @@
  *
  *  ① 基础色板
  *    --color-bg-canvas:        #1E1E1E    (QMainWindow)
- *    --color-bg-card:          #262626    (卡片/GroupBox)
+ *    --color-bg-card:          #0A0A0A    (卡片/GroupBox)
  *    --color-bg-elevated:      #272727    (输入框/菜单)
  *    --color-bg-nav-panel:      #0A0A0A    (左侧导航栏)
  *    --color-bg-nav-btn:       #131313    (导航按钮静态)
@@ -25,8 +25,7 @@
  *    --color-bg-tooltip:       #333333    (工具提示)
  *    --color-bg-dropdown:      #2D2D2D    (下拉列表)
  *    --color-bg-hamburger:     #333333    (汉堡菜单按钮)
- *    --color-bg-brand:         #353535    (品牌区)
- *    --color-bg-connection-panel: #474747 (连接面板)
+ *    --color-bg-panel:          #474747    (brandBanner / connectionPanel)
  *
  *  ② 文字色
  *    --color-text-primary:     #E0E0E0    (正文)
@@ -493,6 +492,11 @@ QDialog QScrollBar::sub-page:vertical {
     background-color: #0A0A0A;               /* token: --color-bg-nav-panel */
 }
 
+/* 导航面板分隔线 — QFrame::HLine */
+#separator {
+    color: #555555;
+}
+
 #navPanel > QToolButton {
     border: none;
     border-radius: 8px;                      /* token: --radius-lg */
@@ -522,7 +526,7 @@ QDialog QScrollBar::sub-page:vertical {
  *     └── QLabel#titleLabel
  * ─────────────────────────────────────────────────────────────── */
 #brandBanner {
-    background-color: #353535;               /* token: --color-bg-brand */
+    background-color: #474747;               /* token: --color-bg-panel */
 }
 
 #titleLabel {
@@ -534,7 +538,7 @@ QDialog QScrollBar::sub-page:vertical {
 
 /* ── [mainwindow.ui] ConnectionPanel 容器 ── */
 #connectionPanel {
-    background-color: #474747;               /* token: --color-bg-connection-panel */
+    background-color: #474747;               /* token: --color-bg-panel */
 }
 /* QScrollArea 框架 + 内部 viewport（Qt 命名 qt_scrollarea_viewport）+ cardContainer 全线透明 */
 #connectionPanel #scrollArea,
@@ -546,12 +550,12 @@ QDialog QScrollBar::sub-page:vertical {
 /* ── [mainwindow.ui] 连接卡片区域 ──
  * Widget 树（ConnectionPanel 内部）:
  *   QFrame#connectionCard
- *     ├── QLabel#cardHostname
- *     ├── QLabel#cardLabel
+ *     ├── QLabel#hostnameLabel
+ *     ├── QLabel#addressLabel / QLabel#resolutionLabel / QLabel#timeLabel
  *     └── QToolButton (操作按钮)
  * ─────────────────────────────────────────────────────────────── */
 #connectionCard {
-    background-color: #262626;               /* token: --color-bg-card */
+    background-color: #0A0A0A;               /* token: --color-bg-card */
     border: 1px solid #3A3A3A;               /* token: --color-border-light */
     border-radius: 8px;                      /* token: --radius-lg */
 }
@@ -569,14 +573,14 @@ QDialog QScrollBar::sub-page:vertical {
     background-color: #4C4C4C;               /* token: --color-pressed */
 }
 
-#cardHostname {
+#hostnameLabel {
     color: #E0E0E0;                          /* token: --color-text-primary */
     font-size: 14px;                         /* token: --font-size-lg */
     font-weight: bold;
     background: transparent;
 }
 
-#cardLabel {
+#addressLabel, #resolutionLabel, #timeLabel {
     color: #AAAAAA;                          /* token: --color-text-secondary */
     font-size: 12px;                         /* token: --font-size-sm */
     background: transparent;

@@ -9,16 +9,16 @@
 #include "error/RdError.h"
 #include "../../client/session/RemoteDesktopSession.h"  // ConnectionParams
 
-QT_BEGIN_NAMESPACE
 class QAction;
 class QMenu;
 class QLabel;
 class QCloseEvent;
-QT_END_NAMESPACE
 
+QT_BEGIN_NAMESPACE
 namespace Ui {
-class MainWindow;
+    class MainWindow;
 }
+QT_END_NAMESPACE
 
 class ConnectionDialog;
 class SettingsDialog;
@@ -103,17 +103,17 @@ private:
     ConnectionPanel *m_connectionPanel = nullptr;
 
     // 动作（托盘菜单需要）
-    class QAction *m_exitAction;
-    class QAction *m_restoreAction;
+    QAction *m_exitAction;
+    QAction *m_restoreAction;
 
     // 状态栏
-    class QLabel *m_connectionStatusLabel;
-    class QLabel *m_serverStatusLabel;
-    class QLabel *m_performanceLabel;
+    QLabel *m_connectionStatusLabel;
+    QLabel *m_serverStatusLabel;
+    QLabel *m_performanceLabel;
 
     // 系统托盘
-    class QSystemTrayIcon *m_trayIcon;
-    class QMenu *m_trayIconMenu;
+    QSystemTrayIcon *m_trayIcon;
+    QMenu *m_trayIconMenu;
 
     // 对话框
     ConnectionDialog *m_connectionDialog;

@@ -3,10 +3,12 @@
 #include "common/core/theme/IconThemeProvider.h"
 
 ConnectionCard::ConnectionCard(QWidget *parent)
-    : QFrame(parent)
+    : QWidget(parent)
     , ui(new Ui::ConnectionCard)
 {
     ui->setupUi(this);
+
+    setAttribute(Qt::WA_StyledBackground, true);
     setFixedSize(500, 110);
 
     // 初始状态指示灯
@@ -76,3 +78,4 @@ void ConnectionCard::refreshIcons()
     ui->editButton->setIcon(IconThemeProvider::icon("save"));
     ui->deleteButton->setIcon(IconThemeProvider::icon("delete"));
 }
+

@@ -29,10 +29,13 @@ ConnectionPanel::ConnectionPanel(QWidget *parent)
     // QScrollArea 内部 viewport 为普通 QWidget，需同时开启 WA_StyledBackground
     // + setStyleSheet 才能让 QSS 透明背景生效。仅 setAutoFillBackground(false)
     // 在全局 QSS 激活时不够——QSS 引擎仍会从 palette 回退绘制不透明背景
+    // 使用 palette 设置视口透明背景，避免 setStyleSheet 阻断子控件的 QSS 级联
     QWidget *vp = ui->scrollArea->viewport();
-    vp->setAutoFillBackground(false);
+    vp->setAutoFillBackground(true);
     vp->setAttribute(Qt::WA_StyledBackground, true);
-    vp->setStyleSheet(QStringLiteral("background-color: transparent;"));
+    QPalette pal = vp->palette();
+    pal.setColor(QPalette::Window, Qt::transparent);
+    vp->setPalette(pal);
 
     // 搜索实时过滤
     connect(ui->searchBox, &QLineEdit::textChanged,

@@ -112,17 +112,6 @@ MainWindow::MainWindow(QWidget* parent)
     // --- 主题样式加载 ---
     applyTheme();
 
-    // --- 导航面板信号连接 ---
-    connect(m_navPanel, &NavPanel::newConnection,
-            this, &MainWindow::newConnection);
-
-    connect(m_navPanel, &NavPanel::openSettings,
-            this, &MainWindow::showSettings);
-    connect(m_navPanel, &NavPanel::showAbout,
-            this, &MainWindow::showAbout);
-    connect(m_navPanel, &NavPanel::themeToggled,
-            this, &MainWindow::toggleTheme);
-
     // 显式调用 retranslateUi 确保首次启动时所有子控件的 tr() 生效
     // （LanguageChange 事件在 MainWindow 构造之前的 installTranslator 阶段已发送）
     retranslateUi();
@@ -243,6 +232,17 @@ void MainWindow::setupConnections() {
             }
         });
     }
+
+    // --- 导航面板信号连接 ---
+    connect(m_navPanel, &NavPanel::newConnection,
+            this, &MainWindow::newConnection);
+
+    connect(m_navPanel, &NavPanel::openSettings,
+            this, &MainWindow::showSettings);
+    connect(m_navPanel, &NavPanel::showAbout,
+            this, &MainWindow::showAbout);
+    connect(m_navPanel, &NavPanel::themeToggled,
+            this, &MainWindow::toggleTheme);
 
     // 性能信息定时更新（每 2 秒）
     auto* perfTimer = new QTimer(this);
