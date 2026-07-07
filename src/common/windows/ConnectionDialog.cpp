@@ -7,13 +7,11 @@
 
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QPushButton>
-#include <QtCore/QSettings>
 #include <QtGui/QIcon>
 
 ConnectionDialog::ConnectionDialog(QWidget* parent)
 	: QDialog(parent)
 	, ui(new Ui::ConnectionDialog)
-	, m_settings(new QSettings())
 	, m_defaultPort(UIConstants::DEFAULT_SERVER_PORT)
 {
 	ui->setupUi(this);
@@ -22,7 +20,6 @@ ConnectionDialog::ConnectionDialog(QWidget* parent)
 	connect(m_togglePasswordAction, &QAction::triggered,
 	        this, &ConnectionDialog::onTogglePasswordClicked);
 	setupConnections();
-	loadSettings();
 	retranslateButtons();
 }
 
@@ -35,34 +32,6 @@ void ConnectionDialog::setupConnections()
 {
 	connect(ui->fullScreenCheckBox, &QCheckBox::toggled,
 	        this, &ConnectionDialog::onFullScreenToggled);
-}
-
-void ConnectionDialog::loadSettings()
-{
-	if (!m_settings) return;
-	restoreGeometry(m_settings->value("ConnectionDialog/geometry").toByteArray());
-
-	const QString lastHost = m_settings->value("Connection/lastHost").toString();
-	if (!lastHost.isEmpty()) {
-		ui->hostLineEdit->setText(lastHost);
-	}
-	const QString lastUsername = m_settings->value("Connection/lastUsername").toString();
-	if (!lastUsername.isEmpty()) {
-		ui->usernameLineEdit->setText(lastUsername);
-	}
-	ui->viewOnlyCheckBox->setChecked(
-		m_settings->value("Connection/viewOnly", false).toBool());
-}
-
-void ConnectionDialog::saveSettings()
-{
-	if (!m_settings) return;
-	m_settings->setValue("ConnectionDialog/geometry", saveGeometry());
-	m_settings->setValue("Connection/lastHost", ui->hostLineEdit->text().trimmed());
-	if (!ui->usernameLineEdit->text().isEmpty()) {
-		m_settings->setValue("Connection/lastUsername", ui->usernameLineEdit->text().trimmed());
-	}
-	m_settings->setValue("Connection/viewOnly", ui->viewOnlyCheckBox->isChecked());
 }
 
 void ConnectionDialog::onTogglePasswordClicked()
@@ -151,7 +120,6 @@ void ConnectionDialog::accept()
 		QMessageBox::warning(this, MessageConstants::UI::VALIDATION_ERROR_TITLE, errorMessage);
 		return;
 	}
-	saveSettings();
 	QDialog::accept();
 }
 

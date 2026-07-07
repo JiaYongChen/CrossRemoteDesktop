@@ -1,7 +1,5 @@
 #pragma once
 
-#include <QtCore/QSettings>
-
 namespace RenderConfig {
 
 enum class FrameDropPolicy {
@@ -25,26 +23,5 @@ struct Client {
     ClientFrame frame;
     GL gl;
 };
-
-/// Load settings from QSettings (group: "RemoteDesktop/Render").
-inline Client load() {
-    QSettings settings;
-    settings.beginGroup(QStringLiteral("RemoteDesktop/Render"));
-    Client cfg;
-    const QString policy = settings.value(QStringLiteral("DropPolicy"),
-                                          QStringLiteral("LatestOnly")).toString();
-    if ( policy == QStringLiteral("KeepLatest") )
-        cfg.frame.dropPolicy = FrameDropPolicy::KeepLatest;
-    else if ( policy == QStringLiteral("KeepOldest") )
-        cfg.frame.dropPolicy = FrameDropPolicy::KeepOldest;
-    else
-        cfg.frame.dropPolicy = FrameDropPolicy::LatestOnly;
-    cfg.frame.queueCapacity = settings.value(QStringLiteral("QueueCapacity"), 5).toInt();
-    cfg.gl.vsyncEnabled = settings.value(QStringLiteral("VSync"), true).toBool();
-    cfg.gl.usePbo = settings.value(QStringLiteral("UsePbo"), true).toBool();
-    cfg.gl.usePersistentPbo = settings.value(QStringLiteral("UsePersistentPbo"), true).toBool();
-    settings.endGroup();
-    return cfg;
-}
 
 } // namespace RenderConfig

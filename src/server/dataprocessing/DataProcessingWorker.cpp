@@ -14,7 +14,6 @@
 DataProcessingWorker::DataProcessingWorker(QObject* parent)
     : Worker(parent)
     , m_queueManager(nullptr)
-    , m_config(nullptr)
     , m_dataProcessor(nullptr)
     , m_statsTimer(nullptr)
     , m_processedFrames(0)
@@ -46,21 +45,12 @@ DataProcessingWorker::~DataProcessingWorker() {
     }
 }
 
-void DataProcessingWorker::setProcessingConfig(std::shared_ptr<DataProcessingConfig> config) {
-    qCDebug(lcServerEncode) << "设置处理配置";
-    m_config = config;
-}
-
 void DataProcessingWorker::setJpegQuality(int quality) {
     m_jpegQuality.store(qBound(1, quality, 100), std::memory_order_relaxed);
 }
 
 int DataProcessingWorker::jpegQuality() const {
     return m_jpegQuality.load(std::memory_order_relaxed);
-}
-
-std::shared_ptr<DataProcessingConfig> DataProcessingWorker::getProcessingConfig() const {
-    return m_config;
 }
 
 QString DataProcessingWorker::getProcessingStats() const {

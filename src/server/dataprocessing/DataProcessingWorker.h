@@ -5,7 +5,6 @@
 #include "../dataflow/DataFlowStructures.h"
 #include "../dataflow/QueueManager.h"
 #include "DataProcessing.h"
-#include "DataProcessingConfig.h"
 #include "error/RdError.h"
 
 #include <QtCore/QObject>
@@ -43,22 +42,10 @@ public:
      */
     ~DataProcessingWorker() override;
 
-    /**
-     * @brief 设置处理配置
-     * @param config 数据处理配置
-     */
-    void setProcessingConfig(std::shared_ptr<DataProcessingConfig> config);
-
     /// 设置 JPEG 编码质量（线程安全，可在任意线程调用）
     void setJpegQuality(int quality);
     /// 获取当前 JPEG 编码质量
     int jpegQuality() const;
-
-    /**
-     * @brief 获取处理配置
-     * @return 数据处理配置
-     */
-    std::shared_ptr<DataProcessingConfig> getProcessingConfig() const;
 
     /**
       * @brief 获取处理统计信息
@@ -249,8 +236,6 @@ private:
 
 private:
     QueueManager* m_queueManager;                                       ///< 队列管理器
-
-    std::shared_ptr<DataProcessingConfig> m_config;                     ///< 处理配置
     std::unique_ptr<DataProcessor> m_dataProcessor;                     ///< 数据处理器
 
     QTimer* m_statsTimer;                                               ///< 统计更新定时器

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <QtWidgets/QDialog>
-#include <QtCore/QSettings>
 #include "common/data/ConnectionParams.h"
 
 QT_BEGIN_NAMESPACE
@@ -61,15 +60,12 @@ private slots:
 
 private:
 	void setupConnections();
-	void loadSettings();
-	void saveSettings();
 	bool validateConnectionInfo(QString& errorMessage) const;
 	static void parseHostPort(const QString& input, int defaultPort,
 	                          QString& host, int& port);
 	void retranslateButtons();
 
 	Ui::ConnectionDialog* ui;
-	QSettings* m_settings;
 	int m_defaultPort;
 	QAction* m_togglePasswordAction = nullptr;
 	bool m_isEditingMode = false;

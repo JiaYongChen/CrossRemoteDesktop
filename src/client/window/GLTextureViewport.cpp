@@ -3,7 +3,6 @@
 #include "GLTextureViewport.h"
 #include "../decode/GpuDecodeTarget.h"
 #include "../../common/core/logging/LoggingCategories.h"
-#include "../../common/core/config/RenderConfig.h"
 #include "CursorManager.h"
 
 #include <QtGui/QOpenGLExtraFunctions>
@@ -96,9 +95,8 @@ GLTextureViewport::GLTextureViewport(QWidget* parent)
     QSurfaceFormat format;
     format.setVersion(3, 3);
     format.setProfile(QSurfaceFormat::CoreProfile);
-    const auto cfg = RenderConfig::load();
-    m_vsyncEnabled = cfg.gl.vsyncEnabled;
-    format.setSwapInterval(m_vsyncEnabled ? 1 : 0);
+    m_vsyncEnabled = true;
+    format.setSwapInterval(1);
     setFormat(format);
 
     // Frame-polling timer — only active when VSync is off and a frame buffer

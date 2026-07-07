@@ -206,11 +206,6 @@ add_rd_test(TARGET test_triple_buffer_swap  NAME TripleBufferSwapTest
     TIMEOUT 30  LABELS unit client threading)
 
 # unit / render + GL
-add_rd_test(TARGET test_render_config  NAME RenderConfigTest
-    SOURCES test_render_config.cpp
-    LIBRARIES Qt6::Core Qt6::Test
-    TIMEOUT 30  LABELS unit config)
-
 add_rd_test(TARGET test_render_surface  NAME RenderSurfaceTest
     SOURCES test_render_surface.cpp
     EXTRA_SOURCES ../src/client/window/GLTextureViewport.cpp

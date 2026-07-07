@@ -2,7 +2,6 @@
 #include <atomic>
 #include "service/ServerWorker.h"
 #include "dataprocessing/DataProcessingWorker.h"
-#include "dataprocessing/DataProcessingConfig.h"
 #include "capture/ScreenCapture.h"
 #include "capture/ScreenCaptureWorker.h"
 #include "clienthandler/ClientHandlerWorker.h"
@@ -564,13 +563,9 @@ void ServerManager::startWorkerThreads() {
     if ( !m_threadManager->hasThread(dataWorkerName) ) {
         qCDebug(lcServerManager) << "ServerManager::startWorkerThreads() - Creating DataProcessingWorker thread";
 
-        // 创建数据处理配置
-        auto processingConfig = std::make_shared<DataProcessingConfig>();
-
         // 创建数据处理工作线程
         auto dataWorker = std::make_unique<DataProcessingWorker>();
         DataProcessingWorker* dataWorkerPtr = dataWorker.get();
-        dataWorkerPtr->setProcessingConfig(processingConfig);
         dataWorkerPtr->setQueueManager(m_queueManager);
         dataWorkerPtr->setProcessingTimeout(2000);
 

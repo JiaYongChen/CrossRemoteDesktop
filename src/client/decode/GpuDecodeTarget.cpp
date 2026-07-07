@@ -2,7 +2,6 @@
 
 #include "GpuDecodeTarget.h"
 #include "../../common/core/logging/LoggingCategories.h"
-#include "../../common/core/config/RenderConfig.h"
 
 #include <QtCore/QThread>
 #include <QtGui/QOpenGLContext>
@@ -286,13 +285,10 @@ bool GpuDecodeTarget::ensurePboSize(int width, int height) {
     const int need = width * height * kRGB;
     if (need == m_pboAllocatedBytes) return true;
 
-    // 首次分配时尝试持久映射 PBO
+    // 首次分配时使用持久映射 PBO
     if (!m_usePersistent && m_persistentPboId[0] == 0) {
-        const auto cfg = RenderConfig::load();
-        if (cfg.gl.usePersistentPbo) {
-            createPersistentPBOs(need);
-            m_pboAllocatedBytes = need;  // 立即标记，防止下一个条件重复创建
-        }
+        createPersistentPBOs(need);
+        m_pboAllocatedBytes = need;  // 立即标记，防止下一个条件重复创建
     }
     if (m_usePersistent && need != m_pboAllocatedBytes) {
         // 尺寸变更 → 重建持久映射 PBO

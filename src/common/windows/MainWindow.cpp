@@ -262,12 +262,7 @@ void MainWindow::loadSettings() {
         m_connectionPanel->loadHistory(*m_settings);
     }
 
-    // 检查是否需要自动启动服务器
-    bool autoStartServer = m_settings->value("Server/autoStart", false).toBool();
-    if ( autoStartServer ) {
-        // 延迟启动服务器，确保UI完全初始化
-        QTimer::singleShot(100, this, &MainWindow::startServer);
-    }
+    // 服务器由 main() → setClientMode(false) 统一启动，此处不重复调用
 }
 
 void MainWindow::saveSettings() {
