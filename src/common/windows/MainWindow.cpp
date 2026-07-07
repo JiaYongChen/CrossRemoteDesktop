@@ -190,44 +190,46 @@ void MainWindow::setupConnections() {
 
         connect(m_connectionPanel, &ConnectionPanel::connectRequested,
                 this, [this](const QString &host, int port, const QString &hostname) {
-            ConnectionParams params;
-            params.host = host;
-            params.port = port;
-            params.hostname = hostname;
-            // 从已有历史记录回填分辨率
             if (m_connectionPanel) {
-                HistoryEntry entry = m_connectionPanel->entryFor(host, port);
-                params.windowWidth = entry.resWidth;
-                params.windowHeight = entry.resHeight;
+                ConnectionParams params;
+                params.host     = host;
+                params.port     = port;
+                params.hostname = hostname;
+                // username/password 从历史中补充
+                const HistoryEntry entry = m_connectionPanel->entryFor(host, port);
+                params.username = entry.params.username;
+                params.password = entry.params.password;
+                params.fullScreen     = entry.params.fullScreen;
+                params.windowWidth    = entry.params.windowWidth;
+                params.windowHeight   = entry.params.windowHeight;
+                params.colorDepth     = entry.params.colorDepth;
+                params.imageQuality   = entry.params.imageQuality;
+                params.viewOnly       = entry.params.viewOnly;
+                params.shareClipboard = entry.params.shareClipboard;
+                params.showCursor     = entry.params.showCursor;
+                params.connectionTimeout   = entry.params.connectionTimeout;
+                params.autoReconnect       = entry.params.autoReconnect;
+                params.reconnectInterval   = entry.params.reconnectInterval;
+                connectToHostDirectly(params);
             }
-            connectToHostDirectly(params);
         });
 
         connect(m_connectionPanel, &ConnectionPanel::editRequested,
                 this, [this](const QString &host, int port) {
             if (!m_connectionPanel)
                 return;
-            HistoryEntry entry = m_connectionPanel->entryFor(host, port);
+            const HistoryEntry entry = m_connectionPanel->entryFor(host, port);
             if (!m_connectionDialog) {
                 m_connectionDialog = new ConnectionDialog(this);
                 TitleBarTheme::apply(m_connectionDialog, m_themeMode == "dark");
             }
-            m_connectionDialog->setHostname(entry.hostname);
-            m_connectionDialog->setHostAddress(entry.host);
-            m_connectionDialog->setPort(entry.port);
+            // 回填全部配置字段
+            m_connectionDialog->setConnectionParams(entry.params);
 
             if (m_connectionDialog->exec() == QDialog::Accepted) {
-                // 移除旧条目
+                ConnectionParams np = m_connectionDialog->getConnectionParams();
                 m_connectionPanel->removeEntry(host, port);
-                // 添加更新后的条目
-                ConnectionParams params;
-                params.hostname = m_connectionDialog->getHostname();
-                params.host     = m_connectionDialog->getHostAddress();
-                params.port     = m_connectionDialog->getPort();
-                m_connectionPanel->addEntry(
-                    params.host.isEmpty() ? params.hostname : params.host,
-                    params.port, params.hostname,
-                    entry.resWidth, entry.resHeight);
+                m_connectionPanel->addEntry(np);
                 m_connectionPanel->saveHistory(*m_settings);
             }
         });
@@ -726,8 +728,7 @@ void MainWindow::connectToHostDirectly(const ConnectionParams& params) {
     m_sessions.append(session);
 
     if (m_connectionPanel) {
-        m_connectionPanel->addEntry(params.host, params.port, params.hostname,
-                                     params.windowWidth, params.windowHeight);
+        m_connectionPanel->addEntry(params);
         m_connectionPanel->saveHistory(*m_settings);
     }
 

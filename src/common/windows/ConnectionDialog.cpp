@@ -188,6 +188,49 @@ void ConnectionDialog::setPort(int port)
 	m_defaultPort = port;
 }
 
+void ConnectionDialog::setConnectionParams(const ConnectionParams& params)
+{
+	ui->hostnameLineEdit->setText(params.hostname);
+	ui->hostLineEdit->setText(
+		QStringLiteral("%1:%2").arg(params.host).arg(params.port));
+	ui->usernameLineEdit->setText(params.username);
+	ui->passwordLineEdit->setText(params.password);
+	ui->fullScreenCheckBox->setChecked(params.fullScreen);
+	ui->windowWidthSpinBox->setValue(params.windowWidth);
+	ui->windowHeightSpinBox->setValue(params.windowHeight);
+	ui->colorDepthComboBox->setCurrentIndex(
+		params.colorDepth == 16 ? 0 : (params.colorDepth == 24 ? 1 : 2));
+	ui->qualitySlider->setValue(params.imageQuality);
+	ui->viewOnlyCheckBox->setChecked(params.viewOnly);
+	ui->clipboardCheckBox->setChecked(params.shareClipboard);
+	ui->cursorCheckBox->setChecked(params.showCursor);
+	ui->timeoutSpinBox->setValue(params.connectionTimeout / 1000);
+	ui->autoReconnectCheckBox->setChecked(params.autoReconnect);
+	ui->reconnectIntervalSpinBox->setValue(params.reconnectInterval);
+}
+
+ConnectionParams ConnectionDialog::getConnectionParams() const
+{
+	ConnectionParams p;
+	p.host     = getHostAddress();
+	p.hostname = getHostname();
+	p.port     = getPort();
+	p.username = getUsername();
+	p.password = getPassword();
+	p.colorDepth     = getColorDepth();
+	p.fullScreen     = getFullScreen();
+	p.windowWidth    = getWindowWidth();
+	p.windowHeight   = getWindowHeight();
+	p.imageQuality   = getImageQuality();
+	p.viewOnly       = getViewOnly();
+	p.shareClipboard = getShareClipboard();
+	p.showCursor     = getShowCursor();
+	p.connectionTimeout  = getConnectionTimeout();
+	p.autoReconnect      = getAutoReconnect();
+	p.reconnectInterval  = getReconnectInterval();
+	return p;
+}
+
 QString ConnectionDialog::getHostname() const
 {
 	return ui->hostnameLineEdit->text().trimmed();

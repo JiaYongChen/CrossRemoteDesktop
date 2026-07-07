@@ -51,7 +51,7 @@ ConnectionPanel::~ConnectionPanel()
 // 公开接口
 // ============================================================
 
-void ConnectionPanel::loadHistory(const QSettings &settings)
+void ConnectionPanel::loadHistory(QSettings &settings)
 {
     qDeleteAll(m_cards);
     m_cards.clear();
@@ -73,32 +73,24 @@ void ConnectionPanel::saveHistory(QSettings &settings) const
     m_history.save(settings);
 }
 
-void ConnectionPanel::addEntry(const QString &host, int port,
-                                const QString &hostname,
-                                int resWidth, int resHeight)
+void ConnectionPanel::addEntry(const ConnectionParams& params)
 {
     const QDateTime now = QDateTime::currentDateTime();
 
     HistoryEntry entry;
-    entry.host = host;
-    entry.port = port;
-    entry.hostname = hostname.isEmpty() ? host : hostname;
-    entry.resWidth = resWidth;
-    entry.resHeight = resHeight;
+    entry.params = params;
     entry.lastConnected = now;
 
-    // 先尝试更新已有卡片
-    ConnectionCard *existing = findCard(host, port);
+    ConnectionCard *existing = findCard(params.host, params.port);
     if (existing) {
-        existing->setHostname(entry.hostname);
-        existing->setProperty("hostname", entry.hostname);
+        existing->setHostname(entry.displayName());
+        existing->setProperty("hostname", entry.displayName());
         existing->setProperty("searchKey", entry.searchKey());
-        existing->setAddressPort(host, port);
-        existing->setResolution(resWidth, resHeight);
+        existing->setAddressPort(params.host, params.port);
+        existing->setResolution(params.windowWidth, params.windowHeight);
         existing->setLastConnected(now);
-        existing->setProperty("resWidth", resWidth);
-        existing->setProperty("resHeight", resHeight);
-        // 置顶
+        existing->setProperty("resWidth", params.windowWidth);
+        existing->setProperty("resHeight", params.windowHeight);
         auto *cl = cardLayout();
         cl->removeWidget(existing);
         cl->insertWidget(0, existing);
@@ -127,7 +119,7 @@ void ConnectionPanel::removeEntry(const QString &host, int port)
 HistoryEntry ConnectionPanel::entryFor(const QString &host, int port) const
 {
     for (const auto &e : m_history.entries()) {
-        if (e.host == host && e.port == port)
+        if (e.params.host == host && e.params.port == port)
             return e;
     }
     return {};
@@ -173,20 +165,20 @@ QVBoxLayout *ConnectionPanel::cardLayout() const
 {
     auto *card = new ConnectionCard();
     card->setHostname(entry.displayName());
-    card->setAddressPort(entry.host, entry.port);
-    card->setResolution(entry.resWidth, entry.resHeight);
+    card->setAddressPort(entry.params.host, entry.params.port);
+    card->setResolution(entry.params.windowWidth, entry.params.windowHeight);
     card->setLastConnected(entry.lastConnected);
-    card->setProperty("host", entry.host);
+    card->setProperty("host", entry.params.host);
     card->setProperty("hostname", entry.displayName());
-    card->setProperty("port", entry.port);
+    card->setProperty("port", entry.params.port);
     card->setProperty("time", entry.lastConnected);
-    card->setProperty("resWidth", entry.resWidth);
-    card->setProperty("resHeight", entry.resHeight);
+    card->setProperty("resWidth", entry.params.windowWidth);
+    card->setProperty("resHeight", entry.params.windowHeight);
     card->setProperty("searchKey", entry.searchKey());
 
     // 连接按钮 → 发射信号（hostname 可能在 addEntry 更新时变化，保持属性读取）
-    const QString capturedHost = entry.host;
-    const int capturedPort = entry.port;
+    const QString capturedHost = entry.params.host;
+    const int capturedPort = entry.params.port;
     connect(card, &ConnectionCard::connectClicked, this, [this, card, capturedHost, capturedPort]() {
         QString hostname = card->property("hostname").toString();
         emit connectRequested(capturedHost, capturedPort, hostname);
@@ -236,7 +228,7 @@ void ConnectionPanel::onSearchTextChanged(const QString &text)
 
     QSet<QPair<QString, int>> matchedKeys;
     for (const auto &e : matched) {
-        matchedKeys.insert({e.host, e.port});
+        matchedKeys.insert({e.params.host, e.params.port});
     }
 
     for (auto *card : m_cards) {

@@ -3,17 +3,14 @@
 #include <QList>
 #include <QString>
 #include <QDateTime>
+#include "common/data/ConnectionParams.h"
 
 class QSettings;
 
 /// 单条历史连接记录
 struct HistoryEntry {
-    QString host;
-    int port = 0;
-    QString hostname;       // 可选，未设时用 host 显示
-    int resWidth = 0;
-    int resHeight = 0;
-    QDateTime lastConnected;
+    ConnectionParams params;
+    QDateTime        lastConnected;
 
     /// 显示名称：优先 hostname，回退 host
     [[nodiscard]] QString displayName() const;
@@ -30,7 +27,7 @@ struct HistoryEntry {
 class ConnectionHistory {
 public:
     /// 从 QSettings 加载历史（键名与现有格式兼容）
-    void load(const QSettings &settings);
+    void load(QSettings &settings);
 
     /// 保存历史到 QSettings
     void save(QSettings &settings) const;

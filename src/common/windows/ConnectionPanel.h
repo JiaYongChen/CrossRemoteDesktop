@@ -23,15 +23,13 @@ public:
     ~ConnectionPanel() override;
 
     /// 从 QSettings 加载历史并填充卡片
-    void loadHistory(const QSettings &settings);
+    void loadHistory(QSettings &settings);
 
     /// 将当前历史保存到 QSettings
     void saveHistory(QSettings &settings) const;
 
-    /// 添加或更新一条连接记录（同 host+port 则更新置顶）
-    void addEntry(const QString &host, int port,
-                  const QString &hostname = {},
-                  int resWidth = 0, int resHeight = 0);
+    /// 添加或更新一个连接条目
+    void addEntry(const ConnectionParams& params);
 
     /// 移除指定条目（编辑→确认后删除旧条目时使用）
     void removeEntry(const QString &host, int port);

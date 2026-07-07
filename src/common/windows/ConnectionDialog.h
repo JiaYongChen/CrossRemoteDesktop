@@ -2,6 +2,7 @@
 
 #include <QtWidgets/QDialog>
 #include <QtCore/QSettings>
+#include "common/data/ConnectionParams.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class ConnectionDialog; }
@@ -21,6 +22,11 @@ public:
 	void setHostname(const QString& hostname);
 	void setHostAddress(const QString& host);
 	void setPort(int port);
+
+	/// 从 ConnectionParams 设置全部控件值
+	void setConnectionParams(const ConnectionParams& params);
+	/// 从控件读取并构建 ConnectionParams（内部复用已有 getter）
+	ConnectionParams getConnectionParams() const;
 
 	QString getHostname() const;
 	QString getHostAddress() const;

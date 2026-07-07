@@ -17,7 +17,7 @@ ConnectionCard::ConnectionCard(QWidget *parent)
 
     // 设置图标
     ui->connectButton->setIcon(IconThemeProvider::icon("connect"));
-    ui->editButton->setIcon(IconThemeProvider::icon("save"));
+    ui->editButton->setIcon(IconThemeProvider::icon("edit"));
     ui->deleteButton->setIcon(IconThemeProvider::icon("delete"));
 
     // 信号连接
@@ -75,7 +75,7 @@ void ConnectionCard::retranslateUi()
 void ConnectionCard::refreshIcons()
 {
     ui->connectButton->setIcon(IconThemeProvider::icon("connect"));
-    ui->editButton->setIcon(IconThemeProvider::icon("save"));
+    ui->editButton->setIcon(IconThemeProvider::icon("edit"));
     ui->deleteButton->setIcon(IconThemeProvider::icon("delete"));
 }
 
