@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <g transform="rotate(225 16 16)">
+    <!-- 笔身 -->
+    <rect x="13.5" y="7" width="5" height="20" rx="1" fill="none" stroke="#F4B740" stroke-width="2.0"/>
+    <!-- 笔尖 -->
+    <polygon points="13.5,7 18.5,7 16,1" fill="none" stroke="#F4B740" stroke-width="2.0" stroke-linejoin="round"/>
+    <!-- 笔芯 -->
+    <polygon points="14.5,7 17.5,7 16,3" fill="#E69820" opacity="0.85"/>
+  </g>
+</svg>

@@ -231,6 +231,17 @@ ConnectionParams ConnectionDialog::getConnectionParams() const
 	return p;
 }
 
+void ConnectionDialog::setEditingMode(bool editing)
+{
+	m_isEditingMode = editing;
+	m_togglePasswordAction->setVisible(!editing);
+	// 编辑模式下强制密码遮盖，防止通过其他途径切换为明文
+	if (editing && ui->passwordLineEdit->echoMode() == QLineEdit::Normal) {
+		ui->passwordLineEdit->setEchoMode(QLineEdit::Password);
+		m_togglePasswordAction->setIcon(IconThemeProvider::icon("eye-off"));
+	}
+}
+
 QString ConnectionDialog::getHostname() const
 {
 	return ui->hostnameLineEdit->text().trimmed();

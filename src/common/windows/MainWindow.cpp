@@ -225,12 +225,15 @@ void MainWindow::setupConnections() {
             }
             // 回填全部配置字段
             m_connectionDialog->setConnectionParams(entry.params);
+            // 编辑模式：禁止查看已保存的明文密码
+            m_connectionDialog->setEditingMode(true);
 
             if (m_connectionDialog->exec() == QDialog::Accepted) {
                 ConnectionParams np = m_connectionDialog->getConnectionParams();
                 m_connectionPanel->removeEntry(host, port);
                 m_connectionPanel->addEntry(np);
                 m_connectionPanel->saveHistory(*m_settings);
+                connectToHostDirectly(np);
             }
         });
     }
@@ -679,6 +682,9 @@ void MainWindow::showConnectionDialog() {
             m_connectionDialog->setUsername(username);
         }
     }
+
+    // 新建连接模式：允许查看输入的密码
+    m_connectionDialog->setEditingMode(false);
 
     if ( m_connectionDialog->exec() == QDialog::Accepted ) {
         // 从对话框提取全部参数

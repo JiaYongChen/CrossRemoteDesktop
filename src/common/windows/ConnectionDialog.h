@@ -28,6 +28,9 @@ public:
 	/// 从控件读取并构建 ConnectionParams（内部复用已有 getter）
 	ConnectionParams getConnectionParams() const;
 
+	/// 设置编辑模式：编辑历史记录时隐藏密码可见性切换按钮
+	void setEditingMode(bool editing);
+
 	QString getHostname() const;
 	QString getHostAddress() const;
 	int getPort() const;
@@ -69,4 +72,5 @@ private:
 	QSettings* m_settings;
 	int m_defaultPort;
 	QAction* m_togglePasswordAction = nullptr;
+	bool m_isEditingMode = false;
 };

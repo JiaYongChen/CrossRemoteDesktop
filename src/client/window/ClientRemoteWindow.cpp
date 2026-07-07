@@ -239,7 +239,10 @@ void ClientRemoteWindow::mouseMoveEvent(QMouseEvent* event) {
 
 void ClientRemoteWindow::enterEvent(QEnterEvent* event) {
     QWidget::enterEvent(event);
-    setCursor(Qt::BlankCursor);  // 隐藏本地系统光标
+    // 仅交互模式下隐藏本地光标；仅查看模式下保留光标，方便用户观察
+    if (isInputEnabled()) {
+        setCursor(Qt::BlankCursor);
+    }
 }
 
 void ClientRemoteWindow::leaveEvent(QEvent* event) {

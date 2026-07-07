@@ -1,5 +1,6 @@
 #include "ConnectionHistory.h"
 #include "../core/logging/LoggingCategories.h"
+#include "../core/crypto/PasswordCrypto.h"
 #include <QSettings>
 #include <QVariant>
 #include <algorithm>
@@ -26,6 +27,11 @@ QString HistoryEntry::searchKey() const
 // ============================================================
 // ConnectionHistory 方法实现
 // ============================================================
+
+namespace {
+constexpr const char* ENC_PREFIX = "ENC:";
+constexpr int ENC_PREFIX_LEN = 4;
+} // anonymous namespace
 
 void ConnectionHistory::load(QSettings &settings)
 {
@@ -65,8 +71,15 @@ void ConnectionHistory::load(QSettings &settings)
         entry.params.port     = port;
         entry.params.hostname = (i < hostnames.size() && !hostnames.at(i).isEmpty())
             ? hostnames.at(i) : hosts.at(i);
-        entry.params.username         = (i < usernames.size())         ? usernames.at(i)         : QString();
-        entry.params.password         = (i < passwords.size())         ? passwords.at(i)         : QString();
+        const QString storedUser = (i < usernames.size()) ? usernames.at(i) : QString();
+        const QString storedPass = (i < passwords.size()) ? passwords.at(i) : QString();
+        entry.params.username = storedUser;
+        // ENC: 前缀 → 密文解密；无前缀 → 兼容旧版明文密码
+        if (storedPass.startsWith(QLatin1String(ENC_PREFIX))) {
+            entry.params.password = PasswordCrypto::decrypt(storedUser, storedPass.mid(ENC_PREFIX_LEN));
+        } else {
+            entry.params.password = storedPass;
+        }
         entry.params.fullScreen       = (i < fullScreens.size())       ? QVariant(fullScreens.at(i)).toBool()   : false;
         entry.params.windowWidth      = (i < windowWidths.size())      ? windowWidths.at(i).toInt()              : 1600;
         entry.params.windowHeight     = (i < windowHeights.size())     ? windowHeights.at(i).toInt()             : 900;
@@ -105,7 +118,13 @@ void ConnectionHistory::save(QSettings &settings) const
         ports.append(QString::number(e.params.port));
         times.append(e.lastConnected.toString(Qt::ISODate));
         usernames.append(e.params.username);
-        passwords.append(e.params.password);
+        // 密码加密存储：ENC: 前缀 + AES-256-CBC 密文
+        if (!e.params.password.isEmpty()) {
+            passwords.append(QLatin1String(ENC_PREFIX)
+                             + PasswordCrypto::encrypt(e.params.username, e.params.password));
+        } else {
+            passwords.append(QString());
+        }
         fullScreens.append(e.params.fullScreen ? "1" : "0");
         windowWidths.append(QString::number(e.params.windowWidth));
         windowHeights.append(QString::number(e.params.windowHeight));
