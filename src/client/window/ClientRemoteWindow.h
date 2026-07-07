@@ -17,6 +17,7 @@ class QCloseEvent;
 class QEnterEvent;
 class QEvent;
 class QPainter;
+class QLabel;
 class GLTextureViewport;
 class ProtocolSession;
 class CursorManager;
@@ -55,6 +56,9 @@ public:
     // Input control (delegated to InputForwarder)
     void setInputEnabled(bool enabled);
     bool isInputEnabled() const;
+
+    // View-only mode (delegates to overlay + ConnectionLifecycle)
+    void setViewOnly(bool enabled);
 
     // Manager access
     CursorManager* cursorManager() const;
@@ -106,6 +110,8 @@ private:
     InputForwarder* m_inputForwarder = nullptr;
     ConnectionLifecycle* m_connectionLifecycle = nullptr;
 
+    // View-only overlay label
+    QLabel* m_viewOnlyOverlay = nullptr;
 
     // GL texture viewport — sole render surface, fills entire widget
     GLTextureViewport* m_glViewport = nullptr;

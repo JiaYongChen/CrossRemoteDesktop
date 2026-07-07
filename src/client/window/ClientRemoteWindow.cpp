@@ -15,6 +15,7 @@
 #include <QtGui/QPaintEvent>
 #include <QtGui/QCloseEvent>
 #include <QtGui/QEnterEvent>
+#include <QtWidgets/QLabel>
 #include <QtWidgets/QMessageBox>
 #include <QtGui/QScreen>
 #include "../../common/core/logging/LoggingCategories.h"
@@ -133,7 +134,18 @@ void ClientRemoteWindow::setInputEnabled(bool enabled) {
 }
 
 bool ClientRemoteWindow::isInputEnabled() const {
-    return true; // delegated to InputForwarder
+    return m_inputForwarder ? m_inputForwarder->isEnabled() : false;
+}
+
+void ClientRemoteWindow::setViewOnly(bool enabled) {
+    // 叠加层角标
+    if (m_viewOnlyOverlay) {
+        m_viewOnlyOverlay->setVisible(enabled);
+    }
+    // 窗口标题后缀（委托给 ConnectionLifecycle）
+    if (m_connectionLifecycle) {
+        m_connectionLifecycle->setViewOnly(enabled);
+    }
 }
 
 // ── Manager access ──
@@ -159,6 +171,20 @@ void ClientRemoteWindow::configureWindow() {
 }
 
 void ClientRemoteWindow::setupUI() {
+    // ── 仅查看模式叠加层角标 ──
+    m_viewOnlyOverlay = new QLabel(tr("👁 仅查看"), this);
+    m_viewOnlyOverlay->setAttribute(Qt::WA_TransparentForMouseEvents);
+    m_viewOnlyOverlay->setStyleSheet(
+        "QLabel {"
+        "  background: rgba(0, 0, 0, 160);"
+        "  color: #FFD54F;"
+        "  padding: 6px 14px;"
+        "  border-radius: 6px;"
+        "  font-size: 13px;"
+        "  font-weight: bold;"
+        "}");
+    m_viewOnlyOverlay->hide();
+
 #ifndef QT_NO_OPENGL
     m_glViewport = new GLTextureViewport(this);
     m_glViewport->setGeometry(rect());
@@ -199,6 +225,9 @@ void ClientRemoteWindow::resizeEvent(QResizeEvent* event) {
     }
 #endif
 
+    if (m_viewOnlyOverlay && m_viewOnlyOverlay->isVisible()) {
+        m_viewOnlyOverlay->move(width() - m_viewOnlyOverlay->width() - 16, 12);
+    }
 }
 
 void ClientRemoteWindow::mouseMoveEvent(QMouseEvent* event) {

@@ -27,6 +27,10 @@ public:
     void setHostName(const QString& name);
     QString hostName() const;
 
+    /// 设置仅查看模式（影响窗口标题后缀）
+    void setViewOnly(bool viewOnly) { m_viewOnly = viewOnly; updateWindowTitle(); }
+    bool isViewOnly() const { return m_viewOnly; }
+
 private:
     void updateWindowTitle();
     void showDisconnectionDialog();
@@ -34,4 +38,5 @@ private:
     QWidget* m_window = nullptr;
     ConnectionManager::ConnectionState m_connectionState = ConnectionManager::Disconnected;
     QString m_hostName;
+    bool m_viewOnly = false;
 };

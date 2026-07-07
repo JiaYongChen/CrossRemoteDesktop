@@ -40,6 +40,9 @@ public:
     /// 启用/禁用输入转发
     void setEnabled(bool enabled) { m_enabled = enabled; }
 
+    /// 查询输入转发是否启用
+    bool isEnabled() const { return m_enabled; }
+
 protected:
     bool eventFilter(QObject* obj, QEvent* event) override;
 

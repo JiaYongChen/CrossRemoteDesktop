@@ -140,10 +140,13 @@ void RemoteDesktopSession::createWindow() {
     // 仅查看模式 → 禁用输入转发
     m_window->setInputEnabled(!m_params.viewOnly);
 
+    // 仅查看模式 → 叠加层角标 + 标题后缀
+    m_window->setViewOnly(m_params.viewOnly);
+
     // 剪贴板同步
     ClipboardManager* clipboardMgr = m_window->findChild<ClipboardManager*>();
     if (clipboardMgr) {
-        clipboardMgr->setEnabled(m_params.shareClipboard);
+        clipboardMgr->setEnabled(m_params.shareClipboard && !m_params.viewOnly);
     }
 
     // 远程光标显隐

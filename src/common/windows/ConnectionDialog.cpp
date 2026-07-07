@@ -50,6 +50,8 @@ void ConnectionDialog::loadSettings()
 	if (!lastUsername.isEmpty()) {
 		ui->usernameLineEdit->setText(lastUsername);
 	}
+	ui->viewOnlyCheckBox->setChecked(
+		m_settings->value("Connection/viewOnly", false).toBool());
 }
 
 void ConnectionDialog::saveSettings()
@@ -60,6 +62,7 @@ void ConnectionDialog::saveSettings()
 	if (!ui->usernameLineEdit->text().isEmpty()) {
 		m_settings->setValue("Connection/lastUsername", ui->usernameLineEdit->text().trimmed());
 	}
+	m_settings->setValue("Connection/viewOnly", ui->viewOnlyCheckBox->isChecked());
 }
 
 void ConnectionDialog::onTogglePasswordClicked()

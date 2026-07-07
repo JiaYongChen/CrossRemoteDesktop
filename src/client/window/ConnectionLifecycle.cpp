@@ -85,6 +85,9 @@ void ConnectionLifecycle::updateWindowTitle() {
             title = m_hostName;
             break;
     }
+    if (m_viewOnly) {
+        title = tr("%1 [仅查看]").arg(title);
+    }
     m_window->setWindowTitle(title);
 }
 
