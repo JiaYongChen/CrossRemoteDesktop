@@ -17,7 +17,6 @@
 #endif
 
 #include "common/windows/MainWindow.h"
-#include "common/core/config/Config.h"
 #include "common/core/config/UiConstants.h"
 #include "common/core/config/Constants.h"
 #include "common/core/TranslationUtils.h"
@@ -153,7 +152,7 @@ void customMessageHandler(QtMsgType type, const QMessageLogContext& context, con
 }
 
 // 初始化日志系统
-void initializeLogging() {
+void initializeLogging(SettingsManager &settings) {
     // 创建日志目录
     QString logDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/logs";
     QDir().mkpath(logDir);
@@ -172,13 +171,13 @@ void initializeLogging() {
 
     // 配置日志系统（支持配置覆盖）
     // Logger已迁移到QLoggingCategory
-    QString configuredLevel = Config::instance()->value("Logging/level", "debug").toString();
+    QString configuredLevel = settings.getString("Logging/level", "debug");
     // QLoggingCategory不支持动态设置级别和文件输出
     // 日志文件输出需要通过自定义消息处理器实现
 
     // 应用 Qt 分类日志规则（优先环境变量 QT_LOGGING_RULES，其次配置项 Logging/rules）
     const QByteArray envRules = qgetenv("QT_LOGGING_RULES");
-    QString rules = envRules.isEmpty() ? Config::instance()->value("Logging/rules", QString()).toString() : QString::fromUtf8(envRules);
+    QString rules = envRules.isEmpty() ? settings.getString("Logging/rules") : QString::fromUtf8(envRules);
 
     // 如果没有配置规则，设置默认的debug规则
     if ( rules.isEmpty() ) {
@@ -204,23 +203,8 @@ void initializeLogging() {
     }
 }
 
-// 初始化配置系统
-void initializeConfig() {
-    // 创建配置目录
-    QString configDir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
-    QDir().mkpath(configDir);
-
-    // 初始化配置
-    Config::instance()->setConfigFile(configDir + "/settings.ini");
-    Config::instance()->load();
-
-    qCDebug(lcApp) << "Configuration loaded from:" << Config::instance()->configFile();
-}
-
 // 加载翻译文件
-void loadTranslations(QApplication& app) {
-    SettingsManager settings;
-    settings.load();
+void loadTranslations(QApplication& app, SettingsManager &settings) {
     initTranslation(app, settings);
 }
 
@@ -261,15 +245,21 @@ int main(int argc, char* argv[]) {
         parser.process(app);
 
         try {
-            initializeLogging();
-            initializeConfig();
-            loadTranslations(app);
+            // 1. 创建 SettingsManager（最先——后续所有组件依赖它）
+            SettingsManager settings(QCoreApplication::applicationDirPath() + "/config.json");
+            settings.load();  // 加载 JSON 或从旧 QSettings 迁移
+
+            // 2. 初始化日志（读取 Logging/level, Logging/rules）
+            initializeLogging(settings);
+
+            // 3. 加载翻译（读取 General/language）
+            loadTranslations(app, settings);
+
             applyStyles(app);
 
             bool clientMode = parser.isSet(clientModeOption);
 
-            SettingsManager settingsManager;
-            MainWindow window(&settingsManager);
+            MainWindow window(&settings);
             g_mainWindow = &window;
             installSignalHandlers();
 
@@ -306,13 +296,12 @@ int main(int argc, char* argv[]) {
             result = app.exec();
 
             g_mainWindow = nullptr;
-            Config::instance()->save();
+            settings.save();
             qCInfo(lcApp) << "应用程序即将退出";
             qCInfo(lcServer) << "Application exiting with code:" << result;
 
             window.gracefulShutdown();
             QThreadPool::globalInstance()->waitForDone(3000);
-            Config::destroyInstance();
 
             // ─────────────────────────────────────────────────────────
             // 跳过 QApplication 静态析构，解决终端挂死问题。
