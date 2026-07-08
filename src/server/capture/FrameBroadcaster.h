@@ -29,7 +29,7 @@ public slots:
     void start();
     void stop();
 
-private slots:
+public slots:
     void onFrameReady();
 
 private:
