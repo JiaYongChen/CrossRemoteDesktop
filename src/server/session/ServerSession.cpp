@@ -3,6 +3,7 @@
 #include "SessionQueuePair.h"
 #include "../dataprocessing/DataProcessingWorker.h"
 #include "../clienthandler/ClientHandlerWorker.h"
+#include "../capture/ScreenCaptureWorker.h"
 #include "../../common/core/threading/ThreadManager.h"
 #include "../../common/core/logging/LoggingCategories.h"
 
@@ -102,7 +103,7 @@ void ServerSession::cleanup() {
     // 逆序停止子线程
     if (m_dataWorker) {
         QMetaObject::invokeMethod(m_dataWorker, "stopProcessingAndClearQueues",
-                                  Qt::DirectConnection);
+                                  Qt::BlockingQueuedConnection);
     }
 
     if (!m_clientHandlerThreadName.isEmpty() && m_threadManager) {
@@ -136,6 +137,12 @@ void ServerSession::processTask() {
 void ServerSession::enqueueFrame(const CapturedFrame& frame) {
     if (m_shuttingDown || !m_queues) return;
     m_queues->captureQueue.tryEnqueueDrainToLatest(frame);  // Drain-to-Latest
+}
+
+void ServerSession::wireCursorUpdates(ScreenCaptureWorker* worker) {
+    if (m_clientHandler && worker) {
+        m_clientHandler->setScreenCaptureWorker(worker);
+    }
 }
 
 void ServerSession::shutdown() {

@@ -665,7 +665,7 @@ void ClientHandlerWorker::handleHandshakeRequest(const QByteArray& data) {
         qCDebug(lcServerClientHandler) << "客户端色深:" << request.colorDepth
                                        << "图像质量:" << request.imageQuality;
 
-        // 通过信号通知外部（ServerManager 负责桥接到 DataProcessingWorker）
+        // 通过信号通知外部
         emit qualitySettingsReceived(request.imageQuality);
     }
 
@@ -963,7 +963,7 @@ void ClientHandlerWorker::handleClipboardData(const QByteArray& data) {
         // 更新服务器端剪贴板
         emit clipboardTextReceived(message.text());
 
-        // 广播到其他客户端（通过 ServerManager）
+        // 广播到其他客户端
         emit broadcastClipboardText(message.text());
     } else if ( message.isImage() ) {
         qCDebug(lcServerClientHandler) << "接收到剪贴板图片，尺寸:" << message.width << "x" << message.height
@@ -972,7 +972,7 @@ void ClientHandlerWorker::handleClipboardData(const QByteArray& data) {
         // 更新服务器端剪贴板
         emit clipboardImageReceived(message.imageData());
 
-        // 广播到其他客户端（通过 ServerManager）
+        // 广播到其他客户端
         emit broadcastClipboardImage(message.imageData(), message.width, message.height);
     }
 }

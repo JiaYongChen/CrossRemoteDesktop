@@ -22,14 +22,13 @@ public:
     explicit FrameBroadcaster(QueueManager* queueMgr, QObject* parent = nullptr);
 
     bool isActive() const { return m_active; }
+    const QSet<ServerSession*>& subscribers() const { return m_subscribers; }
 
 public slots:
     void addSubscriber(ServerSession* session);
     void removeSubscriber(ServerSession* session);
     void start();
     void stop();
-
-public slots:
     void onFrameReady();
 
 private:

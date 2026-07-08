@@ -2,7 +2,7 @@
  * @file test_producer_consumer_integration.cpp
  * @brief 生产者-消费者模式集成测试
  *
- * 测试数据处理队列的生产者功能和ServerWorker的消费者功能，
+ * 测试数据处理队列的生产者功能和数据处理器消费者功能，
  * 验证队列的线程安全性和数据传输的完整性。
  *
  * @author Assistant
@@ -27,7 +27,7 @@
 /**
  * @brief 生产者-消费者模式集成测试类
  *
- * 测试数据处理队列和ServerWorker之间的协作，
+ * 测试数据处理队列和数据处理器之间的协作，
  * 验证生产者-消费者模式的正确性和性能。
  */
     class TestProducerConsumerIntegration : public QObject {

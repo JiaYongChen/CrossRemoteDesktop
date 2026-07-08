@@ -10,7 +10,6 @@ Q_LOGGING_CATEGORY(lcCoreConfig, "core.config", QtDebugMsg)
 
 // === server.* ===
 Q_LOGGING_CATEGORY(lcServer, "server", QtDebugMsg)
-Q_LOGGING_CATEGORY(lcServerManager, "server.manager", QtDebugMsg)
 Q_LOGGING_CATEGORY(lcServerNetwork, "server.network", QtDebugMsg)
 Q_LOGGING_CATEGORY(lcServerCapture, "server.capture", QtDebugMsg)
 Q_LOGGING_CATEGORY(lcServerCaptureDxgi, "server.capture.dxgi", QtDebugMsg)

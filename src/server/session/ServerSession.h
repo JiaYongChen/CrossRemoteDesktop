@@ -11,6 +11,7 @@
 class ThreadManager;
 class DataProcessingWorker;
 class ClientHandlerWorker;
+class ScreenCaptureWorker;
 struct SessionQueuePair;
 struct CapturedFrame;
 
@@ -35,6 +36,7 @@ public:
 
     // ── Q_INVOKABLE（跨线程调用）──
     Q_INVOKABLE void enqueueFrame(const CapturedFrame& frame);
+    Q_INVOKABLE void wireCursorUpdates(ScreenCaptureWorker* worker);
     Q_INVOKABLE void shutdown();
 
     // ── 查询 ──

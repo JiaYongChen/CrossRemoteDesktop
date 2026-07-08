@@ -80,6 +80,15 @@ void CapturePipeline::startCapture() {
 
     m_screenCapture->startCapture();
     m_broadcaster->start();
+
+    // 桥接光标更新信号到所有已订阅 session
+    if (captureWorker) {
+        for (auto* session : m_broadcaster->subscribers()) {
+            QMetaObject::invokeMethod(session, "wireCursorUpdates", Qt::QueuedConnection,
+                                      Q_ARG(ScreenCaptureWorker*, captureWorker));
+        }
+    }
+
     m_captureActive = true;
     emit captureStarted();
 }

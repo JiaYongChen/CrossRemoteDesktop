@@ -98,6 +98,8 @@ struct CapturedFrame {
     }
 };
 
+Q_DECLARE_METATYPE(CapturedFrame)
+
 /**
  * @brief 处理后的数据结构
  *

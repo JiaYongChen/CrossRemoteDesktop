@@ -55,7 +55,7 @@ bool TcpServer::startServer(quint16 port, const QHostAddress& address) {
 
     if ( !listen(address, port) ) {
         qCWarning(lcServer) << "Failed to start server:" << errorString();
-        emit errorOccurred(RdError(ErrorCode::ServerBindFailed, errorString(), "TcpServer"));
+        emit errorOccurred(RdError(ErrorCode::TcpListenerError, errorString(), "TcpServer"));
         return false;
     }
 
@@ -134,7 +134,7 @@ QHostAddress TcpServer::serverAddress() const {
 void TcpServer::incomingConnection(qintptr socketDescriptor) {
     qCDebug(lcServerNetwork) << "incomingConnection descriptor:" << socketDescriptor;
 
-    // 发出新连接信号，让 ServerManager 处理客户端管理
+    // 发出新连接信号，让 TcpListener 处理
     emit newClientConnection(socketDescriptor);
 }
 

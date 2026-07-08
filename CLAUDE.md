@@ -184,7 +184,7 @@ qWarning() << "message";                      // 错误 - 禁止无分类日志
 |------|---------|----------|
 | `app` | `lcApp` | 应用入口、生命周期、Translation |
 | `core.*` | `lcCoreProtocol`, `lcCoreThreading`, `lcCoreConfig` | 协议、线程、配置 |
-| `server.*` | `lcServer`, `lcServerManager`, `lcServerNetwork`, `lcServerCapture`, `lcServerCaptureDxgi`, `lcServerEncode`, `lcServerQueue`, `lcServerClientHandler`, `lcServerInput` | 服务端全链路 |
+| `server.*` | `lcServer`, `lcServerNetwork`, `lcServerCapture`, `lcServerCaptureDxgi`, `lcServerEncode`, `lcServerQueue`, `lcServerClientHandler`, `lcServerInput` | 服务端全链路 |
 | `client.*` | `lcClient`, `lcClientSession`, `lcClientSessionDecode`, `lcClientSessionProtocol`, `lcClientGL`, `lcClientRemoteWindow` | 客户端全链路 |
 | `ui.*` | `lcUI`, `lcUIMainWindow`, `lcUIConnectionDialog`, `lcUISettingsDialog` | 用户界面 |
 | `test.*` | `lcTest`, `lcTestScreenCapture`, `lcTestScreenCaptureIntegration`, `lcTestClientHandler`, `lcTestProducerConsumer` | 测试 |
