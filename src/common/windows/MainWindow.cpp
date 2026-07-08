@@ -43,7 +43,6 @@
 #include <QtCore/QTimer>
 #include <QtCore/QFile>
 #include <QtCore/QDateTime>
-#include <QtCore/QSettings>
 #include <QtCore/QStandardPaths>
 #include <QtCore/QDir>
 #include <QtCore/QUuid>
@@ -52,7 +51,7 @@
 #include <QtCore/QEvent>
 
 
-MainWindow::MainWindow(QWidget* parent)
+MainWindow::MainWindow(SettingsManager *settings, QWidget *parent)
     : QMainWindow(parent)
     , m_navPanel(nullptr)
     , m_connectionPanel(nullptr)
@@ -60,15 +59,14 @@ MainWindow::MainWindow(QWidget* parent)
     , m_connectionDialog(nullptr)
     , m_settingsDialog(nullptr)
     , m_serverManager(nullptr)
-    , m_settings(nullptr)
+    , m_settings(settings)
     , m_clientMode(false)
     , m_isShuttingDown(false) {
-    // 初始化设置
-    m_settings = new QSettings(this);
+    // 初始化设置（由 main.cpp 注入）
 
     // 主题初始化必须在所有 UI 组件创建之前完成
     // （createActions 中会通过 IconThemeProvider::icon() 加载主题图标）
-    m_themeMode = m_settings->value("UI/theme", "dark").toString();
+    m_themeMode = m_settings->getString("UI/theme", "dark");
     IconThemeProvider::setDarkMode(m_themeMode == "dark");
 
     // 创建UI组件
@@ -95,7 +93,7 @@ MainWindow::MainWindow(QWidget* parent)
 
     // 预创建设置对话框，避免首次点击时 UI 线程阻塞
     // （样式表解析 + 密码解密等操作集中在启动阶段完成）
-    m_settingsDialog = new SettingsDialog(new SettingsManager(QString(), this), this);
+    m_settingsDialog = new SettingsDialog(m_settings, this);
     m_settingsDialog->hide();
 
     // 加载设置
@@ -289,7 +287,7 @@ void MainWindow::closeEvent(QCloseEvent* event) {
     m_isShuttingDown = true;
 
     // 如果启用了"关闭时隐藏到托盘"，则隐藏窗口而非退出
-    if (m_settings->value("UI/closeToTray", false).toBool()
+    if (m_settings->getBool("UI/closeToTray", false)
         && m_trayIcon && m_trayIcon->isVisible()) {
         qCInfo(lcUIMainWindow) << "MainWindow::closeEvent() - Close to tray enabled, hiding window";
         m_isShuttingDown = false;
@@ -433,9 +431,8 @@ void MainWindow::startServer() {
     }
 #endif
 
-    // 从 QSettings 读取监听端口，与 SettingsDialog 通信页保持一致
-    QSettings settings;
-    int port = settings.value("Server/listenPort", UIConstants::DEFAULT_SERVER_PORT).toInt();
+    // 从 SettingsManager 读取监听端口，与 SettingsDialog 通信页保持一致
+    int port = m_settings->getInt("Server/listenPort", UIConstants::DEFAULT_SERVER_PORT);
     m_serverManager->startServer(port);
 }
 
@@ -660,20 +657,18 @@ void MainWindow::showConnectionDialog() {
         TitleBarTheme::apply(m_connectionDialog, m_themeMode == "dark");
     }
 
-    // 预填默认端口（优先服务端运行端口，否则从 QSettings 读取）
+    // 预填默认端口（优先服务端运行端口，否则从 SettingsManager 读取）
     int defaultPort = UIConstants::DEFAULT_SERVER_PORT;
     if (m_serverManager && m_serverManager->isServerRunning()) {
         defaultPort = m_serverManager->getCurrentPort();
     } else {
-        QSettings settings;
-        defaultPort = settings.value("Server/listenPort", UIConstants::DEFAULT_SERVER_PORT).toInt();
+        defaultPort = m_settings->getInt("Server/listenPort", UIConstants::DEFAULT_SERVER_PORT);
     }
     m_connectionDialog->setDefaultPort(defaultPort);
 
     // 预填用户名
     {
-        QSettings settings;
-        const QString username = settings.value("Server/username").toString();
+        const QString username = m_settings->getString("Server/username");
         if (!username.isEmpty()) {
             m_connectionDialog->setUsername(username);
         }
@@ -748,12 +743,6 @@ void MainWindow::onServerStarted(quint16 port) {
     qCInfo(lcApp) << "MainWindow::onServerStarted() called with port:" << port;
     updateServerStatus(tr("服务器启动成功，端口: %1").arg(port));
 
-    // 在UI层保存成功启动的端口到设置
-    if ( m_settings ) {
-        m_settings->setValue("Connection/defaultPort", port);
-        m_settings->setValue("server/port", port);
-        m_settings->sync();  // 立即同步到磁盘
-    }
 }
 
 void MainWindow::onServerStopped() {
@@ -840,7 +829,7 @@ void MainWindow::applyTheme()
         file.close();
     }
 
-    m_settings->setValue("UI/theme", m_themeMode);
+    m_settings->setString("UI/theme", m_themeMode);
 
     IconThemeProvider::setDarkMode(m_themeMode == "dark");
 

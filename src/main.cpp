@@ -268,7 +268,8 @@ int main(int argc, char* argv[]) {
 
             bool clientMode = parser.isSet(clientModeOption);
 
-            MainWindow window;
+            SettingsManager settingsManager;
+            MainWindow window(&settingsManager);
             g_mainWindow = &window;
             installSignalHandlers();
 

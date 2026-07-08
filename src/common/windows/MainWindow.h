@@ -4,7 +4,7 @@
 #include <QtWidgets/QSystemTrayIcon>
 #include <QtCore/QMap>
 #include <QtCore/QList>
-#include <QtCore/QSettings>
+class SettingsManager;
 #include <QtCore/QDateTime>
 #include "error/RdError.h"
 #include "../../client/session/RemoteDesktopSession.h"  // ConnectionParams
@@ -34,7 +34,7 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-   explicit MainWindow(QWidget *parent = nullptr);
+   explicit MainWindow(SettingsManager *settings, QWidget *parent = nullptr);
     ~MainWindow();
     
     void setClientMode(bool clientMode);
@@ -126,7 +126,7 @@ private:
     QList<RemoteDesktopSession*> m_sessions;
 
     // 设置
-    QSettings *m_settings;
+    SettingsManager *m_settings;
 
     // 主题模式
     QString m_themeMode;
