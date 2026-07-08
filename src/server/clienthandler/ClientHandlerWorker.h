@@ -2,6 +2,8 @@
 
 #include "../../common/core/threading/Worker.h"
 #include "../../common/core/network/Protocol.h"
+#include "../../common/core/threading/ThreadSafeQueue.h"
+#include "../dataflow/DataFlowStructures.h"
 #include <QtCore/QObject>
 #include <QtCore/QDateTime>
 #include <QtCore/QMutex>
@@ -14,7 +16,6 @@
 
 class InputSimulator;
 class IMessageCodec;
-class QueueManager;
 class AuthHandler;
 class ScreenCaptureWorker;
 
@@ -36,7 +37,7 @@ public:
      * @param parent 父对象
      */
     explicit ClientHandlerWorker(qintptr socketDescriptor,
-                                QueueManager* queueMgr,
+                                ThreadSafeQueue<ProcessedData>* processedQueue,
                                 const QSslCertificate& certificate = QSslCertificate(),
                                 const QSslKey& privateKey = QSslKey(),
                                 QObject* parent = nullptr);
@@ -323,7 +324,7 @@ private:
     InputSimulator* m_inputSimulator;     ///< 输入模拟器
 
     // 屏幕数据发送相关
-    QueueManager* m_queueManager;         ///< 队列管理器
+    ThreadSafeQueue<ProcessedData>* m_processedQueue = nullptr;  ///< 处理队列（数据来源）
 
     // Guard flag to prevent event queue accumulation:
     // processTask posts sendScreenDataFromQueue via QueuedConnection on each tick;

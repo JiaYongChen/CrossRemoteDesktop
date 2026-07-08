@@ -5,7 +5,6 @@
 #include "ClientHandlerWorker.h"
 #include "AuthHandler.h"
 #include "../simulator/InputSimulator.h"
-#include "../dataflow/QueueManager.h"
 #include "../dataflow/DataFlowStructures.h"
 #include "../capture/ScreenCaptureWorker.h"
 
@@ -37,7 +36,7 @@
 
 
 ClientHandlerWorker::ClientHandlerWorker(qintptr socketDescriptor,
-                                         QueueManager* queueMgr,
+                                         ThreadSafeQueue<ProcessedData>* processedQueue,
                                          const QSslCertificate& certificate,
                                          const QSslKey& privateKey,
                                          QObject* parent)
@@ -56,7 +55,7 @@ ClientHandlerWorker::ClientHandlerWorker(qintptr socketDescriptor,
     , m_bytesReceived(0)
     , m_bytesSent(0)
     , m_inputSimulator(nullptr)
-    , m_queueManager(queueMgr) {
+    , m_processedQueue(processedQueue) {
     qCDebug(lcServerClientHandler) << "ClientHandlerWorker 构造函数调用，套接字描述符:" << socketDescriptor;
     setName("ClientHandlerWorker");
 }
@@ -169,8 +168,8 @@ bool ClientHandlerWorker::initialize() {
         qCWarning(lcServerClientHandler) << "输入模拟器初始化失败，客户端:" << clientId();
     }
 
-    if ( !m_queueManager ) {
-        qCWarning(lcServerClientHandler) << "无法获取队列管理器实例";
+    if ( !m_processedQueue ) {
+        qCWarning(lcServerClientHandler) << "未设置处理队列指针";
     }
 
     // 启动心跳检查定时器
@@ -244,26 +243,26 @@ void ClientHandlerWorker::processTask() {
 
     // 认证成功后，异步从处理队列获取并发送屏幕数据
     // Guard flag prevents event queue accumulation: only post if no pending invocation
-    if ( isAuthenticated() && m_queueManager && !m_sendScreenDataPending.exchange(true) ) {
+    if ( isAuthenticated() && m_processedQueue && !m_sendScreenDataPending.exchange(true) ) {
         QMetaObject::invokeMethod(this, "sendScreenDataFromQueue", Qt::QueuedConnection);
     }
 
     // Hint to workLoop: if we posted a send, there's likely work to do — skip idle sleep.
-    setDidWork(isAuthenticated() && m_queueManager != nullptr);
+    setDidWork(isAuthenticated() && m_processedQueue != nullptr);
 }
 
 void ClientHandlerWorker::sendScreenDataFromQueue() {
     // Reset the guard flag so processTask can post the next invocation
     m_sendScreenDataPending.store(false);
 
-    // Fix 1: 在出队之前先检查 socket 连接状态和认证状态。
-    // 若 socket 已断开，dequeueProcessedData() 会静默消耗队列数据却无法发送，
+    // 在出队之前先检查 socket 连接状态和认证状态。
+    // 若 socket 已断开，tryDequeue() 会静默消耗队列数据却无法发送，
     // 造成数据丢失并给调用方留下"仍在传输"的假象。
     if ( !m_socket || m_socket->state() != QAbstractSocket::ConnectedState ) {
         return;
     }
 
-    if ( !m_queueManager || !isAuthenticated() ) {
+    if ( !m_processedQueue || !isAuthenticated() ) {
         return;
     }
 
@@ -279,7 +278,7 @@ void ClientHandlerWorker::sendScreenDataFromQueue() {
         }
 
         ProcessedData processedData;
-        if ( !m_queueManager->dequeueProcessedData(processedData) ) {
+        if ( !m_processedQueue->tryDequeue(processedData) ) {
             break; // Queue empty
         }
 

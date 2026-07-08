@@ -2,8 +2,8 @@
 
 #include "../../common/core/threading/Worker.h"
 #include "../../common/core/config/Constants.h"
+#include "../../common/core/threading/ThreadSafeQueue.h"
 #include "../dataflow/DataFlowStructures.h"
-#include "../dataflow/QueueManager.h"
 #include "DataProcessing.h"
 #include "error/RdError.h"
 
@@ -115,8 +115,9 @@ protected:
     bool initialize() override;
 
 public:
-    /// 设置队列管理器（DI 注入，必须在 Worker 启动前调用）
-    void setQueueManager(QueueManager* qm) { m_queueManager = qm; }
+    /// 设置输入/输出队列指针（DI 注入，必须在 Worker 启动前调用）
+    void setQueues(ThreadSafeQueue<CapturedFrame>* captureQueue,
+                   ThreadSafeQueue<ProcessedData>* processedQueue);
 
     /**
      * @brief 清理工作线程
@@ -147,20 +148,6 @@ private slots:
      * @brief 更新统计信息
      */
     void updateStats();
-
-    /**
-     * @brief 处理队列警告
-     * @param type 队列类型
-     * @param message 警告消息
-     */
-    void onQueueWarning(QueueManager::QueueType type, const QString& message);
-
-    /**
-     * @brief 处理队列错误
-     * @param type 队列类型
-     * @param error 错误消息
-     */
-    void onQueueError(const RdError& error);
 
 signals:
     /**
@@ -235,7 +222,8 @@ private:
     void checkPerformance();
 
 private:
-    QueueManager* m_queueManager;                                       ///< 队列管理器
+    ThreadSafeQueue<CapturedFrame>* m_captureQueue = nullptr;          ///< 输入队列（捕获帧）
+    ThreadSafeQueue<ProcessedData>* m_processedQueue = nullptr;        ///< 输出队列（处理后数据）
     std::unique_ptr<DataProcessor> m_dataProcessor;                     ///< 数据处理器
 
     QTimer* m_statsTimer;                                               ///< 统计更新定时器

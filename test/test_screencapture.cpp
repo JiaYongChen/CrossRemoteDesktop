@@ -146,7 +146,7 @@ void TestScreenCapture::initTestCase()
     QVERIFY(m_threadManager != nullptr);
     m_queueManager = new QueueManager(this);
     QVERIFY(m_queueManager != nullptr);
-    bool qmInit = m_queueManager->initialize(120, 120);
+    bool qmInit = m_queueManager->initialize(120);
     QVERIFY(qmInit);
 }
 

@@ -20,9 +20,8 @@ QueueManager::~QueueManager() {
     cleanup();
 }
 
-bool QueueManager::initialize(int captureQueueSize, int processedQueueSize) {
-    qCDebug(lcServerQueue) << "初始化队列管理器，捕获队列大小:" << captureQueueSize
-        << "处理队列大小:" << processedQueueSize;
+bool QueueManager::initialize(int captureQueueSize) {
+    qCDebug(lcServerQueue) << "初始化队列管理器，捕获队列大小:" << captureQueueSize;
 
     if ( m_initialized ) {
         qCDebug(lcServerQueue) << "队列管理器已经初始化";
@@ -37,8 +36,8 @@ bool QueueManager::initialize(int captureQueueSize, int processedQueueSize) {
             return false;
         }
 
-        // 创建处理队列
-        m_processedQueue = std::make_unique<ThreadSafeQueue<ProcessedData>>(processedQueueSize);
+        // 创建处理队列（临时保留，供 Task 10 移除）
+        m_processedQueue = std::make_unique<ThreadSafeQueue<ProcessedData>>(captureQueueSize);
         if ( !m_processedQueue ) {
             qCCritical(lcServerQueue) << "创建处理队列失败";
             return false;
@@ -49,9 +48,6 @@ bool QueueManager::initialize(int captureQueueSize, int processedQueueSize) {
             QMutexLocker locker(&m_statsMutex);
             m_captureStats = QueueStats();
             m_captureStats.maxSize = captureQueueSize;
-
-            m_processedStats = QueueStats();
-            m_processedStats.maxSize = processedQueueSize;
         }
 
         // 启动统计定时器
@@ -97,8 +93,6 @@ QueueStats QueueManager::getQueueStats(QueueType type) const {
     switch ( type ) {
         case CaptureQueue:
             return m_captureStats;
-        case ProcessedQueue:
-            return m_processedStats;
         default:
             qCWarning(lcServerQueue) << "未知的队列类型:" << type;
             return QueueStats();
@@ -116,13 +110,6 @@ void QueueManager::setQueueMaxSize(QueueType type, int maxSize) {
                 m_captureStats.maxSize = maxSize;
             }
             break;
-        case ProcessedQueue:
-            if ( m_processedQueue ) {
-                m_processedQueue->setMaxSize(maxSize);
-                QMutexLocker locker(&m_statsMutex);
-                m_processedStats.maxSize = maxSize;
-            }
-            break;
         default:
             qCWarning(lcServerQueue) << "设置队列大小失败，未知类型:" << type;
             break;
@@ -136,11 +123,6 @@ void QueueManager::clearQueue(QueueType type) {
         case CaptureQueue:
             if ( m_captureQueue ) {
                 m_captureQueue->clear();
-            }
-            break;
-        case ProcessedQueue:
-            if ( m_processedQueue ) {
-                m_processedQueue->clear();
             }
             break;
         default:
@@ -171,50 +153,30 @@ void QueueManager::updateStats() {
     }
 
     updateQueueStats(CaptureQueue);
-    updateQueueStats(ProcessedQueue);
 
     // 检查队列健康状态
     checkQueueHealth(CaptureQueue);
-    checkQueueHealth(ProcessedQueue);
 }
 
 void QueueManager::updateQueueStats(QueueType type) {
-    QMutexLocker locker(&m_statsMutex);
-
-    QueueStats* stats = nullptr;
-    ThreadSafeQueue<CapturedFrame>* captureQueue = nullptr;
-    ThreadSafeQueue<ProcessedData>* processedQueue = nullptr;
-
-    switch ( type ) {
-        case CaptureQueue:
-            stats = &m_captureStats;
-            captureQueue = m_captureQueue.get();
-            break;
-        case ProcessedQueue:
-            stats = &m_processedStats;
-            processedQueue = m_processedQueue.get();
-            break;
-        default:
-            return;
+    if ( type != CaptureQueue ) {
+        return;
     }
 
-    if ( !stats ) {
+    QMutexLocker locker(&m_statsMutex);
+
+    ThreadSafeQueue<CapturedFrame>* captureQueue = m_captureQueue.get();
+    if ( !captureQueue ) {
         return;
     }
 
     // 更新统计信息
-    if ( captureQueue ) {
-        stats->currentSize = captureQueue->size();
-        stats->totalEnqueued = captureQueue->getTotalEnqueued();
-        stats->totalDequeued = captureQueue->getTotalDequeued();
-    } else if ( processedQueue ) {
-        stats->currentSize = processedQueue->size();
-        stats->totalEnqueued = processedQueue->getTotalEnqueued();
-        stats->totalDequeued = processedQueue->getTotalDequeued();
-    }
+    m_captureStats.currentSize = captureQueue->size();
+    m_captureStats.totalEnqueued = captureQueue->getTotalEnqueued();
+    m_captureStats.totalDequeued = captureQueue->getTotalDequeued();
 
     // 更新时间戳
-    stats->lastUpdateTime = QDateTime::currentDateTime();
+    m_captureStats.lastUpdateTime = QDateTime::currentDateTime();
 
     locker.unlock();
 }
@@ -240,8 +202,6 @@ QString QueueManager::getQueueName(QueueType type) const {
     switch ( type ) {
         case CaptureQueue:
             return "捕获队列";
-        case ProcessedQueue:
-            return "处理队列";
         default:
             return "未知队列";
     }
@@ -282,51 +242,6 @@ bool QueueManager::dequeueCapturedFrame(CapturedFrame& frame) {
     return m_captureQueue->tryDequeue(frame);
 }
 
-// ==================== 处理队列统一接口实现 ====================
-
-bool QueueManager::enqueueProcessedData(const ProcessedData& data) {
-    if ( !m_processedQueue ) {
-        qCWarning(lcServerQueue) << "处理队列未初始化";
-        return false;
-    }
-
-    // 如果入队的数据无效，直接返回失败
-    if ( !data.isValid() ) {
-        qCWarning(lcServerQueue) << "尝试入队无效的处理数据，帧ID:" << data.originalFrameId;
-        return false;
-    }
-
-    // Drain-to-Latest：队列满时清空所有旧帧，仅保留最新帧。
-    const int dropped = m_processedQueue->tryEnqueueDrainToLatest(data);
-    if ( dropped > 0 ) {
-        qCDebug(lcServerQueue) << "ProcessedQueue drained:" << dropped << "old frames dropped";
-    }
-    return true;
-}
-
-bool QueueManager::dequeueProcessedData(ProcessedData& data) {
-    if ( !m_processedQueue ) {
-        qCWarning(lcServerQueue) << "处理队列未初始化";
-        return false;
-    }
-
-    // 流水池模型：FIFO 逐帧出队，不排空。
-    // 发送端每轮取 1-6 帧(MAX_SEND_BATCH)，逐帧发送保证画面连续性。
-    return m_processedQueue->tryDequeue(data);
-}
-
-bool QueueManager::isProcessedQueueFull() const {
-    return m_processedQueue && m_processedQueue->isFull();
-}
-
-int QueueManager::getProcessedQueueSize() const {
-    return m_processedQueue ? m_processedQueue->size() : 0;
-}
-
 int QueueManager::getCaptureQueueSize() const {
     return m_captureQueue ? m_captureQueue->size() : 0;
-}
-
-int QueueManager::getProcessedQueueMaxSize() const {
-    return m_processedQueue ? m_processedQueue->maxSize() : 0;
 }

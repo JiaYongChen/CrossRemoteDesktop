@@ -29,7 +29,6 @@ ServerManager::ServerManager(QObject* parent, ThreadManager* threadMgr, QueueMan
 
     m_queueManager = queueMgr;
     m_queueManager->initialize(
-        CoreConstants::Performance::MAX_QUEUE_SIZE,
         CoreConstants::Performance::MAX_QUEUE_SIZE);
 
     // 创建屏幕捕获管理器（在主线程创建，传递 DI）
@@ -566,7 +565,7 @@ void ServerManager::startWorkerThreads() {
         // 创建数据处理工作线程
         auto dataWorker = std::make_unique<DataProcessingWorker>();
         DataProcessingWorker* dataWorkerPtr = dataWorker.get();
-        dataWorkerPtr->setQueueManager(m_queueManager);
+        dataWorkerPtr->setQueues(m_queueManager->captureQueue(), m_queueManager->processedQueue());
         dataWorkerPtr->setProcessingTimeout(2000);
 
         if ( !m_threadManager->createThread(dataWorkerName, std::move(dataWorker), false, true, 3) ) {
@@ -639,7 +638,7 @@ void ServerManager::onNewClientConnection(qintptr socketDescriptor) {
         cert = sw->sslCertificate();
         key = sw->sslPrivateKey();
     }
-    auto worker = std::make_unique<ClientHandlerWorker>(socketDescriptor, m_queueManager, cert, key);
+    auto worker = std::make_unique<ClientHandlerWorker>(socketDescriptor, m_queueManager->processedQueue(), cert, key);
 
     // 保存Worker裸指针（在move之前）
     m_currentClient = worker.get();

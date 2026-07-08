@@ -38,16 +38,16 @@ private slots:
     // --- Basic lifecycle ---
 
     void testInitializeAndCleanup() {
-        QVERIFY(m_qm->initialize(5, 3));
+        QVERIFY(m_qm->initialize(5));
         // Double-init should succeed (idempotent)
-        QVERIFY(m_qm->initialize(5, 3));
+        QVERIFY(m_qm->initialize(5));
         m_qm->cleanup();
     }
 
     // --- CaptureQueue enqueue/dequeue ---
 
     void testCaptureQueueBasic() {
-        QVERIFY(m_qm->initialize(5, 5));
+        QVERIFY(m_qm->initialize(5));
 
         CapturedFrame sent = makeFrame(1);
         QVERIFY(m_qm->enqueueCapturedFrame(sent));
@@ -59,7 +59,7 @@ private slots:
 
     // FIFO: 入队多帧后逐帧按顺序出队
     void testCaptureQueueFIFO() {
-        QVERIFY(m_qm->initialize(10, 5));
+        QVERIFY(m_qm->initialize(10));
 
         for ( quint64 i = 1; i <= 5; ++i ) {
             QVERIFY(m_qm->enqueueCapturedFrame(makeFrame(i)));
@@ -81,20 +81,20 @@ private slots:
     // --- ProcessedQueue enqueue/dequeue ---
 
     void testProcessedQueueBasic() {
-        QVERIFY(m_qm->initialize(5, 5));
+        QVERIFY(m_qm->initialize(5));
 
         ProcessedData sent = makeProcessed(42);
-        QVERIFY(m_qm->enqueueProcessedData(sent));
+        m_qm->processedQueue()->tryEnqueueDrainToLatest(sent);
 
         ProcessedData received;
-        QVERIFY(m_qm->dequeueProcessedData(received));
+        QVERIFY(m_qm->processedQueue()->tryDequeue(received));
         QCOMPARE(received.originalFrameId, quint64(42));
     }
 
     // --- Queue stats ---
 
     void testQueueStats() {
-        QVERIFY(m_qm->initialize(10, 10));
+        QVERIFY(m_qm->initialize(10));
 
         // Enqueue a few frames (frameId must be >0 for isValid)
         for ( int i = 1; i <= 3; ++i ) {
@@ -109,7 +109,7 @@ private slots:
     // --- Clear queue ---
 
     void testClearQueue() {
-        QVERIFY(m_qm->initialize(10, 10));
+        QVERIFY(m_qm->initialize(10));
 
         for ( int i = 0; i < 5; ++i ) {
             (void)m_qm->enqueueCapturedFrame(makeFrame(static_cast<quint64>(i)));
@@ -124,7 +124,7 @@ private slots:
     // --- Drain-to-Latest: 满时清空旧帧保留新帧 ---
 
     void testCaptureQueueDrainToLatest() {
-        QVERIFY(m_qm->initialize(3, 5));
+        QVERIFY(m_qm->initialize(3));
 
         // 填满队列（3 帧）
         QVERIFY(m_qm->enqueueCapturedFrame(makeFrame(1)));
@@ -144,25 +144,28 @@ private slots:
     }
 
     void testProcessedQueueDrainToLatest() {
-        QVERIFY(m_qm->initialize(5, 3));
+        QVERIFY(m_qm->initialize(5));
+
+        // 设置处理队列容量为 3 以测试 drain-to-latest
+        m_qm->processedQueue()->setMaxSize(3);
 
         // 填满处理队列
-        QVERIFY(m_qm->enqueueProcessedData(makeProcessed(10)));
-        QVERIFY(m_qm->enqueueProcessedData(makeProcessed(20)));
-        QVERIFY(m_qm->enqueueProcessedData(makeProcessed(30)));
+        m_qm->processedQueue()->tryEnqueueDrainToLatest(makeProcessed(10));
+        m_qm->processedQueue()->tryEnqueueDrainToLatest(makeProcessed(20));
+        m_qm->processedQueue()->tryEnqueueDrainToLatest(makeProcessed(30));
 
         // 触发 drain
-        QVERIFY(m_qm->enqueueProcessedData(makeProcessed(40)));
+        m_qm->processedQueue()->tryEnqueueDrainToLatest(makeProcessed(40));
 
         // 仅应出队最新帧
         ProcessedData d;
-        QVERIFY(m_qm->dequeueProcessedData(d));
+        QVERIFY(m_qm->processedQueue()->tryDequeue(d));
         QCOMPARE(d.originalFrameId, quint64(40));
-        QVERIFY(!m_qm->dequeueProcessedData(d));
+        QVERIFY(!m_qm->processedQueue()->tryDequeue(d));
     }
 
     void testDrainToLatestNotTriggeredWhenNotFull() {
-        QVERIFY(m_qm->initialize(10, 10));
+        QVERIFY(m_qm->initialize(10));
 
         // 队列未满时正常 FIFO 行为
         QVERIFY(m_qm->enqueueCapturedFrame(makeFrame(1)));
@@ -178,12 +181,10 @@ private slots:
     // --- Health check ---
 
     void testQueueHealthy() {
-        QVERIFY(m_qm->initialize(10, 10));
+        QVERIFY(m_qm->initialize(10));
         // Verify queues are in a normal state after initialization
         QueueStats capStats = m_qm->getQueueStats(QueueManager::CaptureQueue);
-        QueueStats procStats = m_qm->getQueueStats(QueueManager::ProcessedQueue);
         QVERIFY(capStats.getUsagePercentage() >= 0.0);
-        QVERIFY(procStats.getUsagePercentage() >= 0.0);
     }
 
     // --- Concurrent enqueue/dequeue ---
@@ -191,7 +192,7 @@ private slots:
     // 并发环境下验证 Drain-to-Latest：队列满时清空旧帧保留新帧。
     // 消费者验证收到的帧 ID 有效且最终数量正确（drain 丢弃的帧不计数）。
     void testConcurrentAccess() {
-        QVERIFY(m_qm->initialize(3, 3));  // 小容量更容易触发 drain
+        QVERIFY(m_qm->initialize(3));  // 小容量更容易触发 drain
 
         constexpr int COUNT = 50;
         std::atomic<int> produced{0};

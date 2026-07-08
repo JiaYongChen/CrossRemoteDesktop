@@ -13,7 +13,8 @@
 
 DataProcessingWorker::DataProcessingWorker(QObject* parent)
     : Worker(parent)
-    , m_queueManager(nullptr)
+    , m_captureQueue(nullptr)
+    , m_processedQueue(nullptr)
     , m_dataProcessor(nullptr)
     , m_statsTimer(nullptr)
     , m_processedFrames(0)
@@ -43,6 +44,12 @@ DataProcessingWorker::~DataProcessingWorker() {
         // 注意：不要在线程停止后尝试 moveToThread，这会导致警告
         cleanup();
     }
+}
+
+void DataProcessingWorker::setQueues(ThreadSafeQueue<CapturedFrame>* captureQueue,
+                                     ThreadSafeQueue<ProcessedData>* processedQueue) {
+    m_captureQueue = captureQueue;
+    m_processedQueue = processedQueue;
 }
 
 void DataProcessingWorker::setJpegQuality(int quality) {
@@ -80,16 +87,10 @@ bool DataProcessingWorker::initialize() {
     qCDebug(lcServerEncode) << "初始化 DataProcessingWorker";
 
     try {
-        if ( !m_queueManager ) {
-            qCCritical(lcServerEncode) << "未设置队列管理器";
+        if ( !m_captureQueue || !m_processedQueue ) {
+            qCCritical(lcServerEncode) << "未设置队列指针";
             return false;
         }
-
-        // 连接队列信号
-        connect(m_queueManager, &QueueManager::queueWarning,
-            this, &DataProcessingWorker::onQueueWarning);
-        connect(m_queueManager, &QueueManager::queueError,
-            this, &DataProcessingWorker::onQueueError);
 
         // 创建数据处理器
         m_dataProcessor = std::make_unique<DataProcessor>(this);
@@ -145,16 +146,12 @@ void DataProcessingWorker::cleanup() {
         qCDebug(lcServerEncode) << "统计定时器已停止";
     }
 
-    // 断开队列管理器信号连接
-    if ( m_queueManager ) {
-        disconnect(m_queueManager, nullptr, this, nullptr);
-    }
-
     // 清理数据处理器
     m_dataProcessor.reset();
 
-    // 重置队列管理器引用
-    m_queueManager = nullptr;
+    // 重置队列指针
+    m_captureQueue = nullptr;
+    m_processedQueue = nullptr;
 
     Worker::cleanup();
     qCInfo(lcServerEncode) << "DataProcessingWorker清理完成";
@@ -167,7 +164,7 @@ void DataProcessingWorker::processTask() {
         return;
     }
 
-    if ( !m_queueManager ) {
+    if ( !m_captureQueue || !m_processedQueue ) {
         return;
     }
 
@@ -189,9 +186,8 @@ void DataProcessingWorker::processTask() {
         CapturedFrame firstFrame;
         bool hasFirstFrame = false;
 
-        // 第一次获取使用带超时的阻塞方式，实现自动处理
-        // 使用 QueueManager 统一接口出队
-        if ( m_queueManager->dequeueCapturedFrame(firstFrame) ) {
+        // 第一次获取：从捕获队列出队
+        if ( m_captureQueue->tryDequeue(firstFrame) ) {
             // 获取到数据后再次检查停止状态
             if ( shouldStop() ) {
                 qCDebug(lcServerEncode) << "获取帧数据后检测到停止信号，退出处理";
@@ -209,8 +205,7 @@ void DataProcessingWorker::processTask() {
         if ( hasFirstFrame ) {
             while ( frameBatch.size() < static_cast<size_t>(maxBatchSize) ) {
                 CapturedFrame additionalFrame;
-                // 使用 QueueManager 统一接口尝试出队
-                if ( !m_queueManager->dequeueCapturedFrame(additionalFrame) ) {
+                if ( !m_captureQueue->tryDequeue(additionalFrame) ) {
                     // 队列为空，退出收集
                     break;
                 }
@@ -302,7 +297,8 @@ void DataProcessingWorker::onAsyncBatchFinished() {
 
     for ( const auto& pd : results ) {
         if ( pd.isValid() ) {
-            if ( m_queueManager && m_queueManager->enqueueProcessedData(pd) ) {
+            if ( m_processedQueue ) {
+                m_processedQueue->tryEnqueueDrainToLatest(pd);
                 ++successCount;
                 m_processedFrames++;
             } else {
@@ -518,18 +514,6 @@ void DataProcessingWorker::checkPerformance() {
     }
 }
 
-void DataProcessingWorker::onQueueWarning(QueueManager::QueueType type, const QString& message) {
-    if ( type == QueueManager::CaptureQueue || type == QueueManager::ProcessedQueue ) {
-        qCWarning(lcServerEncode) << "队列警告:" << message;
-        emit processingWarning(message);
-    }
-}
-
-void DataProcessingWorker::onQueueError(const RdError& error) {
-    qCCritical(lcServerEncode) << "队列错误:" << error.logLabel();
-    emit processingError(RdError(ErrorCode::QueueEnqueueFailed, error.logLabel(), "DataProcessingWorker"));
-}
-
 void DataProcessingWorker::stopProcessingAndClearQueues() {
     qCDebug(lcServerEncode) << "停止数据处理并清空队列";
 
@@ -549,12 +533,14 @@ void DataProcessingWorker::stopProcessingAndClearQueues() {
         qCDebug(lcServerEncode) << "已等待飞行中的异步编码批次完成";
     }
 
-    // 使用 QueueManager 统一接口清空队列
-    if ( m_queueManager ) {
-        m_queueManager->clearQueue(QueueManager::CaptureQueue);
-        m_queueManager->clearQueue(QueueManager::ProcessedQueue);
-        qCDebug(lcServerEncode) << "已清空捕获队列和处理队列";
+    // 直接清空队列
+    if ( m_captureQueue ) {
+        m_captureQueue->clear();
     }
+    if ( m_processedQueue ) {
+        m_processedQueue->clear();
+    }
+    qCDebug(lcServerEncode) << "已清空捕获队列和处理队列";
 
     // 重置统计信息
     {

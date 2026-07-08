@@ -51,7 +51,7 @@ private slots:
 
         m_threadManager = std::make_unique<ThreadManager>();
         m_queueManager = std::make_unique<QueueManager>();
-        m_queueManager->initialize(10, 10);
+        m_queueManager->initialize(10);
 
         // 设置测试环境
         QCoreApplication::setAttribute(Qt::AA_UseOpenGLES, false);

@@ -12,9 +12,8 @@
 /**
  * @brief 队列管理器类
  *
- * 管理生产者-消费者模式中的两个主要队列：
+ * 管理生产者-消费者模式中的捕获队列：
  * 1. CaptureQueue: 屏幕捕获 -> 数据处理
- * 2. ProcessedQueue: 数据处理 -> 数据发送
  *
  * 提供队列统计、监控和配置功能。
  */
@@ -26,8 +25,7 @@ public:
      * @brief 队列类型枚举
      */
     enum QueueType {
-        CaptureQueue,    ///< 捕获队列
-        ProcessedQueue   ///< 处理队列
+        CaptureQueue    ///< 捕获队列
     };
 
     /**
@@ -52,9 +50,7 @@ public:
      * @param processedQueueSize 处理队列最大大小（0表示无限制）
      * @return true 初始化成功，false 初始化失败
      */
-    bool initialize(
-        int captureQueueSize   = CoreConstants::Performance::MAX_QUEUE_SIZE,
-        int processedQueueSize = CoreConstants::Performance::MAX_QUEUE_SIZE);
+    bool initialize(int captureQueueSize = CoreConstants::Performance::MAX_QUEUE_SIZE);
 
     /**
      * @brief 清理队列管理器
@@ -117,52 +113,15 @@ public:
     [[nodiscard]] bool dequeueCapturedFrame(CapturedFrame& frame);
 
     /**
-     * @brief 处理队列入队（Drain-to-Latest）
-     *
-     * 队列满时清空所有旧帧，仅保留最新帧入队。
-     *
-     * @param data 要入队的处理数据
-     * @return true 入队成功
-     */
-    [[nodiscard]] bool enqueueProcessedData(const ProcessedData& data);
-
-    /**
-     * @brief 处理队列出队（FIFO 逐帧出队）
-     *
-     * Drain-to-Latest 模型下逐帧出队，发送端每轮取 1-6 帧(MAX_SEND_BATCH)。
-     *
-     * @param data 用于接收出队数据的引用
-     * @return true 出队成功，false 队列为空
-     */
-    [[nodiscard]] bool dequeueProcessedData(ProcessedData& data);
-
-    /**
-     * @brief 检查处理队列是否已满（流水池背压）
-     *
-     * 编码线程在出队CQ前调用此方法：PQ满时跳过本轮编码，
-     * 等待发送端消化空间后再继续。主动背压，无阻塞无死锁。
-     *
-     * @return true 队列满，应暂停编码
-     */
-    [[nodiscard]] bool isProcessedQueueFull() const;
-
-    /**
-     * @brief 获取处理队列当前大小
-     * @return 当前队列中的帧数
-     */
-    [[nodiscard]] int getProcessedQueueSize() const;
-
-    /**
      * @brief 获取捕获队列当前大小
      * @return 当前队列中的帧数
      */
     [[nodiscard]] int getCaptureQueueSize() const;
 
-    /**
-     * @brief 获取处理队列最大容量
-     * @return 队列最大帧数
-     */
-    [[nodiscard]] int getProcessedQueueMaxSize() const;
+    /// @brief 临时访问器 — ServerManager 过渡用（Task 10 后移除）
+    ThreadSafeQueue<CapturedFrame>* captureQueue() const { return m_captureQueue.get(); }
+    /// @brief 临时访问器 — ServerManager 过渡用（Task 10 后移除）
+    ThreadSafeQueue<ProcessedData>* processedQueue() const { return m_processedQueue.get(); }
 
 signals:
     /**
@@ -212,7 +171,6 @@ private:
 
     mutable QMutex m_statsMutex;                                        ///< 统计互斥锁
     QueueStats m_captureStats;                                          ///< 捕获队列统计
-    QueueStats m_processedStats;                                        ///< 处理队列统计
 
     QTimer* m_statsTimer;                                               ///< 统计更新定时器
     bool m_statsEnabled;                                                ///< 统计是否启用
