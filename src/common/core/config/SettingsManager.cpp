@@ -70,7 +70,7 @@ bool SettingsManager::load()
         // JSON 不存在 → 尝试从旧 QSettings 迁移
         migrateFromQSettings();
         m_isModified = true;
-        save();
+        saveLocked();  // 调用者已持锁，用内部版本避免死锁
         return true;
     }
 
@@ -105,8 +105,12 @@ bool SettingsManager::load()
 bool SettingsManager::save()
 {
     QMutexLocker locker(&m_mutex);
+    return saveLocked();
+}
 
-    // 确保目标目录存在
+bool SettingsManager::saveLocked()
+{
+    // 确保目标目录存在（调用者已持有 m_mutex）
     QFileInfo fi(m_filePath);
     QDir().mkpath(fi.absolutePath());
 

@@ -69,6 +69,7 @@ signals:
 private:
     void migrateFromQSettings();
     void scheduleSave();
+    bool saveLocked();
 
     QJsonObject m_root;
     QString     m_filePath;
