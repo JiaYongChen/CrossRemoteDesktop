@@ -60,7 +60,6 @@ MainWindow::MainWindow(SettingsManager *settings, QWidget *parent)
     , m_settingsDialog(nullptr)
     , m_serverManager(nullptr)
     , m_settings(settings)
-    , m_clientMode(false)
     , m_isShuttingDown(false) {
     // 初始化设置（由 main.cpp 注入）
 
@@ -114,6 +113,9 @@ MainWindow::MainWindow(SettingsManager *settings, QWidget *parent)
     // 显式调用 retranslateUi 确保首次启动时所有子控件的 tr() 生效
     // （LanguageChange 事件在 MainWindow 构造之前的 installTranslator 阶段已发送）
     retranslateUi();
+
+    // 延迟启动服务器
+    QTimer::singleShot(500, this, &MainWindow::startServer);
 }
 
 MainWindow::~MainWindow() {
@@ -261,7 +263,7 @@ void MainWindow::loadSettings() {
         m_connectionPanel->loadHistory(*m_settings);
     }
 
-    // 服务器由 main() → setClientMode(false) 统一启动，此处不重复调用
+    // 服务器由构造函数末尾统一启动，此处不重复调用
 }
 
 void MainWindow::saveSettings() {
@@ -299,27 +301,7 @@ void MainWindow::closeEvent(QCloseEvent* event) {
     // 保存设置
     saveSettings();
 
-    // 在客户端模式下，直接退出应用程序
-    if ( m_clientMode ) {
-        qCInfo(lcUIMainWindow) << "MainWindow::closeEvent() - Client mode, closing main window and exiting application";
-
-        // 断开所有客户端连接（先断开 finished 信号，防止 close() 触发 removeOne 修改容器）
-        for (auto* session : m_sessions) {
-            disconnect(session, &RemoteDesktopSession::finished, this, nullptr);
-            session->close();
-        }
-        qDeleteAll(m_sessions);
-        m_sessions.clear();
-
-        // 接受关闭事件
-        event->accept();
-
-        // 强制退出应用程序
-        QApplication::exit(0);
-        return;
-    }
-
-    // 服务器模式下执行优雅停止序列
+    // 执行优雅停止序列
     gracefulShutdown();
 
     qCInfo(lcUIMainWindow) << "MainWindow::closeEvent() - Server stopped";
@@ -366,7 +348,7 @@ void MainWindow::showEvent(QShowEvent* event)
 
 void MainWindow::retranslateUi() {
     qCInfo(lcUIMainWindow) << "MainWindow::retranslateUi - starting UI retranslation";
-    setWindowTitle(m_clientMode ? tr("Qt远程桌面 - 客户端模式") : tr("Qt远程桌面"));
+    setWindowTitle(tr("Qt远程桌面"));
 
     // 全局快捷键动作
     m_exitAction->setText(tr("退出"));
@@ -854,40 +836,8 @@ void MainWindow::toggleTheme()
     applyTheme();
 }
 
-void MainWindow::setClientMode(bool clientMode) {
-    m_clientMode = clientMode;
-
-    if ( m_clientMode ) {
-        // 客户端模式：不启动服务器，隐藏服务器相关UI
-        setWindowTitle(tr("Qt远程桌面 - 客户端模式"));
-
-        // 停止服务器（如果正在运行）
-        if ( m_serverManager && m_serverManager->isServerRunning() ) {
-            m_serverManager->stopServer();
-        }
-
-        qCInfo(lcUIMainWindow) << "Application set to client mode";
-    } else {
-        // 服务器模式：正常启动服务器
-        setWindowTitle(tr("Qt远程桌面"));
-        qCInfo(lcUIMainWindow) << "Application set to server mode";
-
-        // 延迟启动服务器
-        QTimer::singleShot(500, this, &MainWindow::startServer);
-    }
-}
-
 void MainWindow::onAllConnectionsClosed() {
-    qCDebug(lcUIMainWindow) << "MainWindow::onAllConnectionsClosed() - All client connections closed";
-
-    // 只有在客户端模式下才退出应用程序
-    // 服务器模式下应该保持运行，等待新的客户端连接
-    if ( m_clientMode ) {
-        qCDebug(lcUIMainWindow) << "MainWindow::onAllConnectionsClosed() - Client mode, all connections closed, exiting application";
-        QApplication::quit();
-    } else {
-        qCDebug(lcUIMainWindow) << "服务器模式下所有连接已关闭，保持运行状态";
-    }
+    qCDebug(lcUIMainWindow) << "MainWindow::onAllConnectionsClosed() - All client connections closed, keeping server running";
 }
 
 #ifdef Q_OS_MACOS
