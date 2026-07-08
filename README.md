@@ -232,7 +232,6 @@ MainWindow → new ThreadManager(this)
                 → new ScreenCapture(m_threadManager, m_queueManager, this)
                 → new ClientHandlerWorker(..., m_queueManager)
                 → DataProcessingWorker::setQueueManager(m_queueManager)
-          → new ClientManager(this)
 ```
 
 **服务端数据管线**（生产者-消费者模式）：
