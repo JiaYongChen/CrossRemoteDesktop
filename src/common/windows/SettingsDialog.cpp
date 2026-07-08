@@ -9,6 +9,7 @@
 
 #include "common/core/config/SettingsManager.h"
 #include <QtCore/QEvent>
+#include <QtGui/QHideEvent>
 #include <QtCore/QVariant>
 #include <QtCore/QByteArray>
 #include <QtWidgets/QListWidget>
@@ -39,6 +40,8 @@ SettingsDialog::SettingsDialog(SettingsManager *settings, QWidget *parent)
 
 SettingsDialog::~SettingsDialog()
 {
+	// 析构前确保持久化所有未保存的配置变更
+	m_settings->save();
 	delete ui;
 }
 
@@ -332,4 +335,12 @@ void SettingsDialog::showEvent(QShowEvent* event)
 	// 每次显示对话框时重新应用标题栏主题
 	//（hide()/exec() 返回后 Windows 可能重置 DWM 属性）
 	TitleBarTheme::apply(this, IconThemeProvider::isDarkMode());
+}
+
+void SettingsDialog::hideEvent(QHideEvent* event)
+{
+	// 对话框隐藏时立即持久化所有设置变更
+	//（SettingsManager 使用 500ms 去抖定时器，但对话框关闭时应立即保存）
+	m_settings->save();
+	QDialog::hideEvent(event);
 }
