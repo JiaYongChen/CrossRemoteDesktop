@@ -2,7 +2,7 @@
 
 #include <QtWidgets/QDialog>
 #include <QtCore/QString>
-#include <QtCore/QSettings>
+class SettingsManager;
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class SettingsDialog; }
@@ -15,7 +15,7 @@ class SettingsDialog : public QDialog {
 	Q_OBJECT
 
 public:
-	explicit SettingsDialog(QWidget* parent = nullptr);
+	explicit SettingsDialog(SettingsManager *settings, QWidget *parent = nullptr);
 	~SettingsDialog();
 
 	void refreshIcons();
@@ -50,7 +50,7 @@ private:
 	void applyLogRules();
 
 	Ui::SettingsDialog* ui;
-	QSettings* m_settings;
+	SettingsManager* m_settings;
 	QString m_cachedPassword;
 	QAction* m_togglePasswordAction = nullptr;
 };

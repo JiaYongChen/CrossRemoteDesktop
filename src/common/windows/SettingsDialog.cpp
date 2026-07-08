@@ -1,6 +1,5 @@
 #include "SettingsDialog.h"
 #include "ui_SettingsDialog.h"
-#include "common/core/config/Config.h"
 #include "common/core/TranslationUtils.h"
 #include "common/core/logging/LoggingCategories.h"
 #include "common/core/config/UiConstants.h"
@@ -8,7 +7,7 @@
 #include "common/core/theme/IconThemeProvider.h"
 #include "common/core/theme/TitleBarTheme.h"
 
-#include <QtCore/QSettings>
+#include "common/core/config/SettingsManager.h"
 #include <QtCore/QEvent>
 #include <QtCore/QVariant>
 #include <QtCore/QByteArray>
@@ -22,10 +21,10 @@
 #include <QtWidgets/QPushButton>
 #include <QtGui/QIcon>
 
-SettingsDialog::SettingsDialog(QWidget* parent)
+SettingsDialog::SettingsDialog(SettingsManager *settings, QWidget *parent)
 	: QDialog(parent)
 	, ui(new Ui::SettingsDialog)
-	, m_settings(new QSettings())
+	, m_settings(settings)
 {
 	ui->setupUi(this);
 	setWindowIcon(IconThemeProvider::icon("settings"));
@@ -105,7 +104,7 @@ void SettingsDialog::updateLanguageList()
 	ui->languageComboBox->addItem(tr("中文"), QVariant(QStringLiteral("zh_CN")));
 	ui->languageComboBox->addItem(tr("English"), QVariant(QStringLiteral("en_US")));
 
-	const QString currentLang = Config::instance()->value("language", "zh_CN").toString();
+	const QString currentLang = m_settings->getString("General/language", "zh_CN");
 	const int idx = ui->languageComboBox->findData(QVariant(currentLang));
 	if (idx >= 0) ui->languageComboBox->setCurrentIndex(idx);
 
@@ -115,32 +114,32 @@ void SettingsDialog::updateLanguageList()
 void SettingsDialog::loadSettings()
 {
 	// 常规
-	const bool autoStart = m_settings->value("General/startWithSystem", false).toBool();
+	const bool autoStart = m_settings->getBool("General/startWithSystem", false);
 	ui->autoStartCheckBox->setChecked(autoStart);
 
-	const bool closeToTray = m_settings->value("UI/closeToTray", false).toBool();
+	const bool closeToTray = m_settings->getBool("UI/closeToTray", false);
 	ui->closeToTrayCheckBox->setChecked(closeToTray);
 
 	// 通信
-	const int listenPort = m_settings->value("Server/listenPort", UIConstants::DEFAULT_SERVER_PORT).toInt();
+	const int listenPort = m_settings->getInt("Server/listenPort", UIConstants::DEFAULT_SERVER_PORT);
 	ui->listenPortSpinBox->setValue(listenPort);
 
-	const QString username = m_settings->value("Server/username").toString();
+	const QString username = m_settings->getString("Server/username");
 	ui->usernameEdit->setText(username);
 
-	const QString encryptedPassword = m_settings->value("Server/password").toString();
+	const QString encryptedPassword = m_settings->getString("Server/password");
 	m_cachedPassword = PasswordCrypto::decrypt(username, encryptedPassword);
 	ui->passwordEdit->setText(m_cachedPassword);
 
 	// 高级
-	const QString logLevel = m_settings->value("Logging/level", "info").toString().toLower();
+	const QString logLevel = m_settings->getString("Logging/level", "info").toLower();
 	int levelIdx = 2; // default: info
 	if (logLevel == "error" || logLevel == QStringLiteral("错误")) levelIdx = 0;
 	else if (logLevel == "warning" || logLevel == QStringLiteral("警告")) levelIdx = 1;
 	else if (logLevel == "debug" || logLevel == QStringLiteral("调试")) levelIdx = 3;
 	ui->logLevelComboBox->setCurrentIndex(levelIdx);
 
-	const QString logRules = m_settings->value("Logging/rules").toString();
+	const QString logRules = m_settings->getString("Logging/rules");
 	ui->logRulesTextEdit->setPlainText(logRules);
 }
 
@@ -151,45 +150,44 @@ void SettingsDialog::onLanguageChanged(int index)
 	const QString lang = ui->languageComboBox->itemData(index).toString();
 	if (lang.isEmpty()) return;
 
-	Config::instance()->setValue("language", lang, Config::General);
-	m_settings->setValue("General/language", lang);
+	m_settings->setString("General/language", lang);
 	switchTranslation(*qApp, lang);
 	qCInfo(lcUISettingsDialog) << "SettingsDialog: language switched to" << lang;
 }
 
 void SettingsDialog::onAutoStartChanged(bool checked)
 {
-	m_settings->setValue("General/startWithSystem", checked);
+	m_settings->setBool("General/startWithSystem", checked);
 	qCDebug(lcUISettingsDialog) << "SettingsDialog: auto start set to" << checked;
 }
 
 void SettingsDialog::onCloseToTrayChanged(bool checked)
 {
-	m_settings->setValue("UI/closeToTray", checked);
+	m_settings->setBool("UI/closeToTray", checked);
 	qCDebug(lcUISettingsDialog) << "SettingsDialog: close to tray set to" << checked;
 }
 
 void SettingsDialog::onListenPortChanged(int value)
 {
-	m_settings->setValue("Server/listenPort", value);
+	m_settings->setInt("Server/listenPort", value);
 	qCDebug(lcUISettingsDialog) << "SettingsDialog: listen port set to" << value;
 }
 
 void SettingsDialog::onUsernameChanged()
 {
-	const QString oldUsername = m_settings->value("Server/username").toString();
+	const QString oldUsername = m_settings->getString("Server/username");
 	const QString newUsername = ui->usernameEdit->text();
 
 	if (newUsername == oldUsername) return;
 
 	// 如果已有密码，用旧用户名解密 → 新用户名重新加密
-	const QString oldEncrypted = m_settings->value("Server/password").toString();
+	const QString oldEncrypted = m_settings->getString("Server/password");
 	if (!oldEncrypted.isEmpty() && !m_cachedPassword.isEmpty()) {
 		const QString newEncrypted = PasswordCrypto::encrypt(newUsername, m_cachedPassword);
-		m_settings->setValue("Server/password", newEncrypted);
+		m_settings->setString("Server/password", newEncrypted);
 	}
 
-	m_settings->setValue("Server/username", newUsername);
+	m_settings->setString("Server/username", newUsername);
 	qCDebug(lcUISettingsDialog) << "SettingsDialog: username changed";
 }
 
@@ -199,13 +197,13 @@ void SettingsDialog::onPasswordChanged()
 	if (newPassword == m_cachedPassword) return;
 
 	m_cachedPassword = newPassword;
-	const QString username = m_settings->value("Server/username").toString();
+	const QString username = m_settings->getString("Server/username");
 
 	if (newPassword.isEmpty()) {
 		m_settings->remove("Server/password");
 	} else {
 		const QString encrypted = PasswordCrypto::encrypt(username, newPassword);
-		m_settings->setValue("Server/password", encrypted);
+		m_settings->setString("Server/password", encrypted);
 	}
 	qCDebug(lcUISettingsDialog) << "SettingsDialog: password updated";
 }
@@ -215,16 +213,14 @@ void SettingsDialog::onLogLevelChanged(int index)
 	static const char* levels[] = {"error", "warning", "info", "debug"};
 	if (index < 0 || index > 3) return;
 
-	m_settings->setValue("Logging/level", levels[index]);
-	Config::instance()->setValue("level", levels[index], Config::Logging);
+	m_settings->setString("Logging/level", levels[index]);
 	qCDebug(lcUISettingsDialog) << "SettingsDialog: log level set to" << levels[index];
 }
 
 void SettingsDialog::onLogRulesChanged()
 {
 	const QString rules = ui->logRulesTextEdit->toPlainText();
-	m_settings->setValue("Logging/rules", rules);
-	Config::instance()->setValue("rules", rules, Config::Logging);
+	m_settings->setString("Logging/rules", rules);
 	applyLogRules();
 }
 
@@ -266,7 +262,6 @@ void SettingsDialog::onRestoreDefaultsClicked()
 
 	ui->logRulesTextEdit->clear();
 	m_settings->remove("Logging/rules");
-	Config::instance()->remove("rules", Config::Logging);
 
 	qCDebug(lcUISettingsDialog) << "SettingsDialog: restored to defaults";
 }

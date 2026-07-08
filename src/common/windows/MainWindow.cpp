@@ -12,6 +12,7 @@
 #include "../../server/simulator/InputSimulator.h"
 
 #include "../core/config/UiConstants.h"
+#include "../core/config/SettingsManager.h"
 #include "../core/config/MessageConstants.h"
 #include "../core/logging/LoggingCategories.h"
 #include "../core/theme/IconThemeProvider.h"
@@ -94,7 +95,7 @@ MainWindow::MainWindow(QWidget* parent)
 
     // 预创建设置对话框，避免首次点击时 UI 线程阻塞
     // （样式表解析 + 密码解密等操作集中在启动阶段完成）
-    m_settingsDialog = new SettingsDialog(this);
+    m_settingsDialog = new SettingsDialog(new SettingsManager(QString(), this), this);
     m_settingsDialog->hide();
 
     // 加载设置
