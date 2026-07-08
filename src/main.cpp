@@ -238,10 +238,6 @@ int main(int argc, char* argv[]) {
             "自动连接到指定的主机", "host:port");
         parser.addOption(connectOption);
 
-        QCommandLineOption clientModeOption(QStringList() << "client",
-            "以客户端模式启动（不启动服务器）");
-        parser.addOption(clientModeOption);
-
         parser.process(app);
 
         try {
@@ -257,18 +253,9 @@ int main(int argc, char* argv[]) {
 
             applyStyles(app);
 
-            bool clientMode = parser.isSet(clientModeOption);
-
             MainWindow window(&settings);
             g_mainWindow = &window;
             installSignalHandlers();
-
-            if ( clientMode ) {
-                qCInfo(lcApp) << "Starting in client mode";
-                window.setClientMode(true);
-            } else {
-                window.setClientMode(false);
-            }
 
             window.show();
 
