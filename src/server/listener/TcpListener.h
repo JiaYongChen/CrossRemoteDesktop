@@ -37,7 +37,6 @@ public:
 signals:
     void listening(quint16 port);
     void stopped();
-    void errorOccurred(const RdError& error);
     void newConnection(qintptr socketDescriptor);
 
 protected:
@@ -62,5 +61,4 @@ private:
     bool m_isRunning = false;
     quint16 m_currentPort = 0;
 
-    QString m_pendingPassword;
 };
