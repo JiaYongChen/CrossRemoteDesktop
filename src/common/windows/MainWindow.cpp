@@ -91,7 +91,7 @@ MainWindow::MainWindow(SettingsManager *settings, QWidget *parent)
     m_queueManager->initialize(CoreConstants::Performance::MAX_QUEUE_SIZE);
 
     // TcpListener 和 CapturePipeline 在 startServer() 中延迟创建
-    // （与当前 ServerManager::startServer() 中创建 ServerWorker 的模式一致）
+    // （延迟创建，与旧 ServerManager::startServer() 模式一致）
 
     // 设置连接
     setupConnections();
@@ -850,6 +850,9 @@ void MainWindow::onNewServerConnection(qintptr socketDescriptor) {
         QMetaObject::invokeMethod(m_capturePipeline, "subscribe", Qt::QueuedConnection,
                                   Q_ARG(ServerSession*, sessionPtr));
     }
+
+    // 通知 UI 有新客户端连接
+    onClientConnected(QString::number(socketDescriptor));
 }
 
 void MainWindow::onServerSessionAuthenticated(const QString& sessionId) {
@@ -914,7 +917,7 @@ void MainWindow::cleanupConnection(const QString& connectionId) {
 
 
 void MainWindow::updateServerStatus(const QString& message) {
-    // 检查ServerManager的连接状态
+    // 检查服务端连接状态
     m_serverStatusLabel->setText(message);
 }
 
