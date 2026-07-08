@@ -3,9 +3,8 @@
 #include <QList>
 #include <QString>
 #include <QDateTime>
+#include <QJsonArray>
 #include "common/data/ConnectionParams.h"
-
-class QSettings;
 
 /// 单条历史连接记录
 struct HistoryEntry {
@@ -26,11 +25,11 @@ struct HistoryEntry {
 /// 不持有 QSettings，由调用方传入
 class ConnectionHistory {
 public:
-    /// 从 QSettings 加载历史（键名与现有格式兼容）
-    void load(QSettings &settings);
+    /// 从 JSON 数组加载历史
+    void load(const QJsonArray &entries);
 
-    /// 保存历史到 QSettings
-    void save(QSettings &settings) const;
+    /// 保存历史为 JSON 数组
+    [[nodiscard]] QJsonArray save() const;
 
     /// 去重：同 host+port 则更新时间戳 + 置顶；否则新增
     void addOrUpdate(const HistoryEntry &entry);
