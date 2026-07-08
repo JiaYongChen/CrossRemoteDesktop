@@ -420,7 +420,7 @@ void MainWindow::startServer() {
 
     // 1. 创建并启动 TcpListener 线程
     if (!m_threadManager->hasThread("TcpListener")) {
-        auto tcpListener = std::make_unique<TcpListener>(this);
+        auto tcpListener = std::make_unique<TcpListener>();  // 无 parent，确保 moveToThread 成功
         m_tcpListener = tcpListener.get();  // 保存裸指针，供后续信号连接和跨线程调用
         if (!m_threadManager->createThread("TcpListener", std::move(tcpListener))) {
             qCCritical(lcServer) << "Failed to create TcpListener thread";
@@ -454,7 +454,7 @@ void MainWindow::startServer() {
     // 2. 创建并启动 CapturePipeline 线程
     if (!m_threadManager->hasThread("CapturePipeline")) {
         auto capturePipeline = std::make_unique<CapturePipeline>(
-            m_threadManager, m_queueManager, this);
+            m_threadManager, m_queueManager);  // 无 parent，确保 moveToThread 成功
         m_capturePipeline = capturePipeline.get();
         if (!m_threadManager->createThread("CapturePipeline", std::move(capturePipeline))) {
             qCCritical(lcServer) << "Failed to create CapturePipeline thread";
