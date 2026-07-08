@@ -45,7 +45,7 @@ enum class ErrorCode {
     // ─ 服务端 ─
     ServerStartFailed,
     ServerBindFailed,
-    ServerWorkerError,
+    TcpListenerError,
 
     // ─ 配置 ─
     ConfigInvalid,

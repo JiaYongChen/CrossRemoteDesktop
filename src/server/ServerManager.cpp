@@ -289,7 +289,7 @@ void ServerManager::onWorkerServerError(const RdError& error) {
         m_isServerRunning = false;
         m_currentPort = 0;
     }
-    emit serverError(RdError(ErrorCode::ServerWorkerError, error.message, "ServerManager"));
+    emit serverError(RdError(ErrorCode::TcpListenerError, error.message, "ServerManager"));
 }
 
 void ServerManager::setupWorkerConnections() {
@@ -728,7 +728,7 @@ void ServerManager::onClientHandlerAuthenticated() {
 
 void ServerManager::onClientHandlerError(const RdError& error) {
     qCCritical(lcServerManager) << "ServerManager::onClientHandlerError() - Client error:" << error.logLabel();
-    emit serverError(RdError(ErrorCode::ServerWorkerError, error.logLabel(), "ServerManager"));
+    emit serverError(RdError(ErrorCode::TcpListenerError, error.logLabel(), "ServerManager"));
 }
 
 void ServerManager::onClientHandlerMessageReceived(MessageType type, const QByteArray& data) {
