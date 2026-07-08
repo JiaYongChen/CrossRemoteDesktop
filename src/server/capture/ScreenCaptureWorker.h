@@ -86,6 +86,14 @@ signals:
      */
     void cursorUpdateReady(const CursorMessage& cursor);
 
+    /**
+     * @brief 帧已入队信号（驱动 FrameBroadcaster 拉取）
+     *
+     * 每次成功 enqueueCapturedFrame 后发出。FrameBroadcaster
+     * 通过 QueuedConnection 接收，dequeue 最新帧并广播到各 session。
+     */
+    void frameEnqueued();
+
 protected:
     /**
      * @brief 初始化工作线程

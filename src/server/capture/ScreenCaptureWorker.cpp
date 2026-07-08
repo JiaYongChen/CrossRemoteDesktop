@@ -386,6 +386,7 @@ void ScreenCaptureWorker::performCapture() {
             // 使用 QueueManager 统一接口入队
             bool enqueued = m_queueManager->enqueueCapturedFrame(frame);
             if ( enqueued ) {
+                emit frameEnqueued();
                 //qCDebug(screenCaptureWorker, "成功将帧放入捕获队列，帧ID: %llu", frame.frameId);
             } else {
                 qCDebug(lcServerCapture) << "捕获队列已停止，无法入队，丢弃帧ID: " << frame.frameId;
