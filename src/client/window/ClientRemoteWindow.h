@@ -110,8 +110,8 @@ private:
     InputForwarder* m_inputForwarder = nullptr;
     ConnectionLifecycle* m_connectionLifecycle = nullptr;
 
-    // View-only overlay label
-    QLabel* m_viewOnlyOverlay = nullptr;
+    // View-only overlay (icon + text container)
+    QWidget* m_viewOnlyOverlay = nullptr;
 
     // GL texture viewport — sole render surface, fills entire widget
     GLTextureViewport* m_glViewport = nullptr;

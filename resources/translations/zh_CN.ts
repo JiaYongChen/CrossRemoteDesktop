@@ -4,13 +4,13 @@
 <context>
     <name>ClientRemoteWindow</name>
     <message>
-        <location filename="../../src/client/window/ClientRemoteWindow.cpp" line="49"/>
+        <location filename="../../src/client/window/ClientRemoteWindow.cpp" line="51"/>
         <source>Remote Desktop</source>
         <translation>远程桌面</translation>
     </message>
     <message>
-        <location filename="../../src/client/window/ClientRemoteWindow.cpp" line="175"/>
-        <source>👁 仅查看</source>
+        <location filename="../../src/client/window/ClientRemoteWindow.cpp" line="195"/>
+        <source>仅查看</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

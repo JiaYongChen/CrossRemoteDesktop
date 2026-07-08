@@ -16,7 +16,9 @@
 #include <QtGui/QCloseEvent>
 #include <QtGui/QEnterEvent>
 #include <QtWidgets/QLabel>
+#include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QMessageBox>
+#include <QtGui/QIcon>
 #include <QtGui/QScreen>
 #include "../../common/core/logging/LoggingCategories.h"
 #include <cmath>
@@ -172,17 +174,37 @@ void ClientRemoteWindow::configureWindow() {
 
 void ClientRemoteWindow::setupUI() {
     // ── 仅查看模式叠加层角标 ──
-    m_viewOnlyOverlay = new QLabel(tr("👁 仅查看"), this);
+    m_viewOnlyOverlay = new QWidget(this);
     m_viewOnlyOverlay->setAttribute(Qt::WA_TransparentForMouseEvents);
     m_viewOnlyOverlay->setStyleSheet(
-        "QLabel {"
+        "QWidget {"
         "  background: rgba(0, 0, 0, 160);"
-        "  color: #FFD54F;"
-        "  padding: 6px 14px;"
         "  border-radius: 6px;"
+        "}");
+
+    auto* overlayLayout = new QHBoxLayout(m_viewOnlyOverlay);
+    overlayLayout->setContentsMargins(10, 6, 14, 6);
+    overlayLayout->setSpacing(6);
+
+    auto* iconLabel = new QLabel();
+    iconLabel->setPixmap(QIcon(":/icons/eye.svg").pixmap(16, 16));
+    iconLabel->setFixedSize(16, 16);
+    iconLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
+    iconLabel->setStyleSheet("background: transparent;");
+
+    auto* textLabel = new QLabel(tr("仅查看"));
+    textLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
+    textLabel->setStyleSheet(
+        "QLabel {"
+        "  color: #FFD54F;"
         "  font-size: 13px;"
         "  font-weight: bold;"
+        "  background: transparent;"
         "}");
+
+    overlayLayout->addWidget(iconLabel);
+    overlayLayout->addWidget(textLabel);
+    m_viewOnlyOverlay->adjustSize();
     m_viewOnlyOverlay->hide();
 
 #ifndef QT_NO_OPENGL
@@ -191,6 +213,9 @@ void ClientRemoteWindow::setupUI() {
     m_glViewport->setAttribute(Qt::WA_TransparentForMouseEvents, true);
     m_glViewport->show();
     m_glViewport->raise();
+
+    // 确保仅查看角标渲染在 GL 视口之上
+    m_viewOnlyOverlay->raise();
 
     // Wire viewport to InputForwarder: event filter + coordinate mapping
     if (m_inputForwarder) {
