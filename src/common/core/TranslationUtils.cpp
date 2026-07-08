@@ -1,5 +1,5 @@
 #include "TranslationUtils.h"
-#include "config/Config.h"
+#include "config/SettingsManager.h"
 #include "logging/LoggingCategories.h"
 
 #include <QtCore/QTranslator>
@@ -35,9 +35,9 @@ static void manageQtBaseTranslation(QApplication& app, const QString& locale) {
     }
 }
 
-void initTranslation(QApplication& app) {
+void initTranslation(QApplication& app, SettingsManager &settings) {
     const QString defaultLocale = QStringLiteral("zh_CN");
-    const QString configLocale = Config::instance()->value("language", defaultLocale).toString();
+    const QString configLocale = settings.getString("General/language", defaultLocale);
 
     // 先安装 qtbase（低优先级），再安装 app 翻译（高优先级）
     manageQtBaseTranslation(app, configLocale);

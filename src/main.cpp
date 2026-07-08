@@ -21,6 +21,7 @@
 #include "common/core/config/UiConstants.h"
 #include "common/core/config/Constants.h"
 #include "common/core/TranslationUtils.h"
+#include "common/core/config/SettingsManager.h"
 
 // 应用程序信息
 const QString APP_NAME = "Cross Remote Desktop";
@@ -218,7 +219,9 @@ void initializeConfig() {
 
 // 加载翻译文件
 void loadTranslations(QApplication& app) {
-    initTranslation(app);
+    SettingsManager settings;
+    settings.load();
+    initTranslation(app, settings);
 }
 
 // 应用样式

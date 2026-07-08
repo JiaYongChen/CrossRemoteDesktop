@@ -3,14 +3,15 @@
 #include <QtCore/QString>
 
 class QApplication;
+class SettingsManager;
 
 /**
  * @brief 初始化应用程序翻译（启动时调用）
  *
- * 从 Config 读取 language 设置并加载对应的 .qm 文件。
+ * 从 SettingsManager 读取 language 设置并加载对应的 .qm 文件。
  * 若配置未设置则默认使用 zh_CN。
  */
-void initTranslation(QApplication& app);
+void initTranslation(QApplication& app, SettingsManager &settings);
 
 /**
  * @brief 运行时切换应用程序语言
