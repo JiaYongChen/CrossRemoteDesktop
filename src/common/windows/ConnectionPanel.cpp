@@ -7,7 +7,7 @@
 #include <QLabel>
 #include <QScrollArea>
 #include <QVBoxLayout>
-#include <QSettings>
+#include "common/core/config/SettingsManager.h"
 #include <QDateTime>
 #include <QMessageBox>
 #include <QSet>
@@ -51,14 +51,12 @@ ConnectionPanel::~ConnectionPanel()
 // 公开接口
 // ============================================================
 
-void ConnectionPanel::loadHistory(QSettings &settings)
+void ConnectionPanel::loadHistory(SettingsManager &sm)
 {
     qDeleteAll(m_cards);
     m_cards.clear();
 
-    m_history.load(settings);
-    // entries 是 newest-first，createCard 用 prepend 插入顶部。
-    // 反向遍历确保最旧的先被 prepend（沉到下面），最新的最后被 prepend（最终在顶部）。
+    m_history.load(sm.connectionHistory());
     const auto &entries = m_history.entries();
     for (int i = entries.size() - 1; i >= 0; --i) {
         (void)createCard(entries[i]);
@@ -68,9 +66,9 @@ void ConnectionPanel::loadHistory(QSettings &settings)
                            << m_cards.size() << "connection(s)";
 }
 
-void ConnectionPanel::saveHistory(QSettings &settings) const
+void ConnectionPanel::saveHistory(SettingsManager &sm) const
 {
-    m_history.save(settings);
+    sm.setConnectionHistory(m_history.save());
 }
 
 void ConnectionPanel::addEntry(const ConnectionParams& params)

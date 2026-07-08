@@ -5,7 +5,7 @@
 #include "ConnectionHistory.h"
 
 class ConnectionCard;
-class QSettings;
+class SettingsManager;
 class QVBoxLayout;
 
 QT_BEGIN_NAMESPACE
@@ -22,11 +22,11 @@ public:
     explicit ConnectionPanel(QWidget *parent = nullptr);
     ~ConnectionPanel() override;
 
-    /// 从 QSettings 加载历史并填充卡片
-    void loadHistory(QSettings &settings);
+    /// 从 SettingsManager 加载历史并填充卡片
+    void loadHistory(SettingsManager &sm);
 
-    /// 将当前历史保存到 QSettings
-    void saveHistory(QSettings &settings) const;
+    /// 将当前历史保存到 SettingsManager
+    void saveHistory(SettingsManager &sm) const;
 
     /// 添加或更新一个连接条目
     void addEntry(const ConnectionParams& params);
