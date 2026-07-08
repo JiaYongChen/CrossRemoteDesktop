@@ -443,8 +443,13 @@ void MainWindow::startServer() {
     connect(m_tcpListener, &TcpListener::newConnection,
             this, &MainWindow::onNewServerConnection);
 
-    QMetaObject::invokeMethod(m_tcpListener, "startListening", Qt::QueuedConnection,
-                              Q_ARG(quint16, port), Q_ARG(QString, QString()));
+    // 连接 Worker::started 信号——确保 initialize() 完成后再调用 startListening。
+    // Worker::doStart() 在 initialize() 之后、workLoop() 之前 emit started()，
+    // 此时 m_tcpServer 已创建，避免 "TCP服务器未初始化" 的竞态条件。
+    connect(m_tcpListener, &Worker::started, this, [this, port]() {
+        QMetaObject::invokeMethod(m_tcpListener, "startListening", Qt::QueuedConnection,
+                                  Q_ARG(quint16, port), Q_ARG(QString, QString()));
+    }, Qt::SingleShotConnection);
 
     // 2. 创建并启动 CapturePipeline 线程
     if (!m_threadManager->hasThread("CapturePipeline")) {
