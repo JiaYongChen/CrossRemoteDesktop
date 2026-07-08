@@ -9,6 +9,7 @@ class TestQueueManager : public QObject {
 
 private:
     QueueManager* m_qm = nullptr;
+    ThreadSafeQueue<ProcessedData>* m_pq = nullptr;  // 直接持有（替代已移除的 QueueManager::processedQueue）
 
     static CapturedFrame makeFrame(quint64 id, int width = 100, int height = 100) {
         QImage img(width, height, QImage::Format_RGB32);
@@ -25,9 +26,12 @@ private slots:
     void init() {
         // Each test gets a fresh QueueManager (not the singleton)
         m_qm = new QueueManager(this);
+        m_pq = new ThreadSafeQueue<ProcessedData>(5);
     }
 
     void cleanup() {
+        delete m_pq;
+        m_pq = nullptr;
         if ( m_qm ) {
             m_qm->cleanup();
             delete m_qm;
@@ -84,10 +88,10 @@ private slots:
         QVERIFY(m_qm->initialize(5));
 
         ProcessedData sent = makeProcessed(42);
-        m_qm->processedQueue()->tryEnqueueDrainToLatest(sent);
+        m_pq->tryEnqueueDrainToLatest(sent);
 
         ProcessedData received;
-        QVERIFY(m_qm->processedQueue()->tryDequeue(received));
+        QVERIFY(m_pq->tryDequeue(received));
         QCOMPARE(received.originalFrameId, quint64(42));
     }
 
@@ -147,21 +151,21 @@ private slots:
         QVERIFY(m_qm->initialize(5));
 
         // 设置处理队列容量为 3 以测试 drain-to-latest
-        m_qm->processedQueue()->setMaxSize(3);
+        m_pq->setMaxSize(3);
 
         // 填满处理队列
-        m_qm->processedQueue()->tryEnqueueDrainToLatest(makeProcessed(10));
-        m_qm->processedQueue()->tryEnqueueDrainToLatest(makeProcessed(20));
-        m_qm->processedQueue()->tryEnqueueDrainToLatest(makeProcessed(30));
+        m_pq->tryEnqueueDrainToLatest(makeProcessed(10));
+        m_pq->tryEnqueueDrainToLatest(makeProcessed(20));
+        m_pq->tryEnqueueDrainToLatest(makeProcessed(30));
 
         // 触发 drain
-        m_qm->processedQueue()->tryEnqueueDrainToLatest(makeProcessed(40));
+        m_pq->tryEnqueueDrainToLatest(makeProcessed(40));
 
         // 仅应出队最新帧
         ProcessedData d;
-        QVERIFY(m_qm->processedQueue()->tryDequeue(d));
+        QVERIFY(m_pq->tryDequeue(d));
         QCOMPARE(d.originalFrameId, quint64(40));
-        QVERIFY(!m_qm->processedQueue()->tryDequeue(d));
+        QVERIFY(!m_pq->tryDequeue(d));
     }
 
     void testDrainToLatestNotTriggeredWhenNotFull() {

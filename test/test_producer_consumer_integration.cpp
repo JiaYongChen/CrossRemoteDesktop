@@ -17,7 +17,6 @@
 #include <QtGui/QImage>
 #include <memory>
 
-#include "../src/server/service/ServerWorker.h"
 #include "../src/server/dataprocessing/DataProcessingWorker.h"
 #include "../src/server/dataflow/QueueManager.h"
 #include "../src/server/dataflow/DataFlowStructures.h"
@@ -130,7 +129,7 @@
     private:
         QueueManager* m_queueManager;                           ///< 队列管理器
         DataProcessingWorker* m_dataProcessor;                 ///< 数据处理器（生产者）
-        ServerWorker* m_serverWorker;                          ///< 服务器工作器（消费者）
+        ThreadSafeQueue<ProcessedData>* m_processedQueue;      ///< 处理队列（直接持有）
         ThreadManager* m_threadManager;                        ///< 线程管理器
         QThread* m_processingThread;                           ///< 处理线程
         QThread* m_serverThread;                               ///< 服务器线程
@@ -143,7 +142,7 @@
 TestProducerConsumerIntegration::TestProducerConsumerIntegration()
     : m_queueManager(nullptr)
     , m_dataProcessor(nullptr)
-    , m_serverWorker(nullptr)
+    , m_processedQueue(nullptr)
     , m_threadManager(nullptr)
     , m_processingThread(nullptr)
     , m_serverThread(nullptr)
@@ -167,9 +166,12 @@ void TestProducerConsumerIntegration::initTestCase() {
     bool initResult = m_queueManager->initialize(50);
     QVERIFY(initResult);
 
+    // 创建处理队列（直接持有，替代已移除的 QueueManager::processedQueue）
+    m_processedQueue = new ThreadSafeQueue<ProcessedData>(50);
+
     // 清空队列
     m_queueManager->clearQueue(QueueManager::CaptureQueue);
-    m_queueManager->processedQueue()->clear();
+    m_processedQueue->clear();
 }
 
 void TestProducerConsumerIntegration::cleanupTestCase() {
@@ -195,13 +197,12 @@ void TestProducerConsumerIntegration::cleanupTestCase() {
 
     // 清理对象
     delete m_dataProcessor;
-    delete m_serverWorker;
+    delete m_processedQueue;
     delete m_processingThread;
     delete m_serverThread;
 
     // 清空队列
     m_queueManager->clearQueue(QueueManager::CaptureQueue);
-    m_queueManager->processedQueue()->clear();
 }
 
 void TestProducerConsumerIntegration::init() {
@@ -214,7 +215,7 @@ void TestProducerConsumerIntegration::init() {
 void TestProducerConsumerIntegration::cleanup() {
     // 清空队列
     m_queueManager->clearQueue(QueueManager::CaptureQueue);
-    m_queueManager->processedQueue()->clear();
+    m_processedQueue->clear();
 }
 
 void TestProducerConsumerIntegration::test_basicProducerConsumer() {
@@ -227,7 +228,7 @@ void TestProducerConsumerIntegration::test_basicProducerConsumer() {
     // 验证队列初始状态
     auto captureStats = m_queueManager->getQueueStats(QueueManager::CaptureQueue);
     QCOMPARE(captureStats.currentSize, 0);
-    QCOMPARE(m_queueManager->processedQueue()->size(), 0);
+    QCOMPARE(m_processedQueue->size(), 0);
 
     // 生产者：添加数据到捕获队列
     bool enqueued = m_queueManager->enqueueCapturedFrame(testFrame);
@@ -239,7 +240,7 @@ void TestProducerConsumerIntegration::test_basicProducerConsumer() {
 
     // 创建数据处理器（生产者）
     m_dataProcessor = new DataProcessingWorker();
-    m_dataProcessor->setQueues(m_queueManager->captureQueue(), m_queueManager->processedQueue());
+    m_dataProcessor->setQueues(m_queueManager->captureQueue(), m_processedQueue);
     m_processingThread = new QThread();
     m_dataProcessor->moveToThread(m_processingThread);
 
@@ -265,11 +266,11 @@ void TestProducerConsumerIntegration::test_basicProducerConsumer() {
     captureStats = m_queueManager->getQueueStats(QueueManager::CaptureQueue);
     QCOMPARE(captureStats.currentSize, 0);
 
-    QCOMPARE(m_queueManager->processedQueue()->size(), 1);
+    QCOMPARE(m_processedQueue->size(), 1);
 
     // 验证处理后的数据
     ProcessedData processedData;
-    bool dequeued = m_queueManager->processedQueue()->tryDequeue(processedData);
+    bool dequeued = m_processedQueue->tryDequeue(processedData);
     QVERIFY(dequeued);
     QVERIFY(verifyProcessedData(processedData, testFrame));
 
@@ -411,7 +412,7 @@ void TestProducerConsumerIntegration::test_dataIntegrity() {
 
     // 创建数据处理器
     m_dataProcessor = new DataProcessingWorker();
-    m_dataProcessor->setQueues(m_queueManager->captureQueue(), m_queueManager->processedQueue());
+    m_dataProcessor->setQueues(m_queueManager->captureQueue(), m_processedQueue);
     m_processingThread = new QThread();
     m_dataProcessor->moveToThread(m_processingThread);
 
@@ -434,7 +435,7 @@ void TestProducerConsumerIntegration::test_dataIntegrity() {
     pollTimer.start();
     while ( pollTimer.elapsed() < 3000 ) {
         m_queueManager->forceUpdateStats();
-        if ( m_queueManager->processedQueue()->size() >= 1 ) {
+        if ( m_processedQueue->size() >= 1 ) {
             break;
         }
         QThread::msleep(50);
@@ -443,7 +444,7 @@ void TestProducerConsumerIntegration::test_dataIntegrity() {
 
     // 从处理队列中收集结果
     ProcessedData processedData;
-    while ( m_queueManager->processedQueue()->tryDequeue(processedData) ) {
+    while ( m_processedQueue->tryDequeue(processedData) ) {
         processedResults.append(processedData);
     }
 
@@ -714,7 +715,7 @@ bool TestProducerConsumerIntegration::waitForQueueProcessing(int maxWaitMs) {
 
     while ( timer.elapsed() < maxWaitMs ) {
         // 查询处理队列当前大小
-        int currentProcessedSize = m_queueManager->processedQueue()->size();
+        int currentProcessedSize = m_processedQueue->size();
 
         // 如果捕获队列为空且处理队列有数据，检查处理队列大小是否稳定
         auto captureStats = m_queueManager->getQueueStats(QueueManager::CaptureQueue);

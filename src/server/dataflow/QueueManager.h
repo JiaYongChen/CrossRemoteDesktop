@@ -117,6 +117,9 @@ public:
      */
     [[nodiscard]] int getCaptureQueueSize() const;
 
+    /// @brief 获取捕获队列指针（供 DataProcessingWorker::setQueues 使用）
+    ThreadSafeQueue<CapturedFrame>* captureQueue() const { return m_captureQueue.get(); }
+
 signals:
     /**
      * @brief 队列警告信号

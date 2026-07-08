@@ -279,7 +279,6 @@ add_rd_test(TARGET test_screen_data_flow  NAME ScreenDataFlowTest
 add_rd_test(TARGET test_producer_consumer_integration  NAME ProducerConsumerIntegrationTest
     SOURCES test_producer_consumer_integration.cpp
     EXTRA_SOURCES
-        ../src/server/service/ServerWorker.cpp
         ../src/server/dataprocessing/DataProcessingWorker.cpp
         ../src/server/dataprocessing/DataProcessing.cpp
         ../src/server/capture/ScreenCapture.cpp
