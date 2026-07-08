@@ -3,6 +3,9 @@
 # 直接从 third_party/libjpeg-turbo/ 预编译缓存读取（已提交 git）
 # 缓存缺失时 FATAL_ERROR —— 开发者应通过 vcpkg 获取后缓存到 third_party/
 #
+# 注意：项目仅使用 TurboJPEG API（turbojpeg.dll），不使用经典 libjpeg API（jpeg62.dll）。
+#       vcpkg 安装 libjpeg-turbo 时两者均生成，只需缓存 TurboJPEG 相关文件。
+#
 # Windows: x64-windows triplet → turbojpeg.dll + turbojpeg.lib（导入库）
 # Unix:    静态库 libturbojpeg.a
 #
@@ -30,17 +33,6 @@ endif()
 set(_MISSING "")
 if(NOT EXISTS "${_TJ_INC}/turbojpeg.h")
     list(APPEND _MISSING "  - 头文件: ${_TJ_INC}/turbojpeg.h")
-endif()
-if(NOT EXISTS "${_TJ_INC}/jpeglib.h")
-    list(APPEND _MISSING "  - 头文件: ${_TJ_INC}/jpeglib.h")
-endif()
-if(WIN32)
-    if(NOT EXISTS "${_TJ_LIB}/jpeg.lib")
-        list(APPEND _MISSING "  - 导入库: ${_TJ_LIB}/jpeg.lib")
-    endif()
-    if(NOT EXISTS "${_TJ_BIN}/jpeg62.dll")
-        list(APPEND _MISSING "  - DLL: ${_TJ_BIN}/jpeg62.dll")
-    endif()
 endif()
 if(WIN32)
     if(NOT EXISTS "${_TJ_LIB}/${_TJ_IMPLIB}")
