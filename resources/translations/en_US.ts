@@ -4,35 +4,35 @@
 <context>
     <name>ClientRemoteWindow</name>
     <message>
-        <location filename="../../src/client/window/ClientRemoteWindow.cpp" line="48"/>
+        <location filename="../../src/client/window/ClientRemoteWindow.cpp" line="49"/>
         <source>Remote Desktop</source>
         <translation>Remote Desktop</translation>
+    </message>
+    <message>
+        <location filename="../../src/client/window/ClientRemoteWindow.cpp" line="175"/>
+        <source>👁 仅查看</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>ConnectionCard</name>
     <message>
-        <location filename="../../src/ui/ConnectionCard.ui" line="57"/>
-        <location filename="../../src/common/windows/ConnectionCard.cpp" line="72"/>
+        <location filename="../../src/ui/ConnectionCard.ui" line="54"/>
+        <location filename="../../src/common/windows/ConnectionCard.cpp" line="70"/>
         <source>连接</source>
         <translation>Connection</translation>
     </message>
     <message>
-        <location filename="../../src/ui/ConnectionCard.ui" line="64"/>
-        <location filename="../../src/common/windows/ConnectionCard.cpp" line="73"/>
+        <location filename="../../src/ui/ConnectionCard.ui" line="61"/>
+        <location filename="../../src/common/windows/ConnectionCard.cpp" line="71"/>
         <source>修改参数</source>
         <translation>Edit Parameters</translation>
     </message>
     <message>
-        <location filename="../../src/ui/ConnectionCard.ui" line="71"/>
-        <location filename="../../src/common/windows/ConnectionCard.cpp" line="74"/>
+        <location filename="../../src/ui/ConnectionCard.ui" line="68"/>
+        <location filename="../../src/common/windows/ConnectionCard.cpp" line="72"/>
         <source>删除记录</source>
         <translation>Delete Record</translation>
-    </message>
-    <message>
-        <location filename="../../src/ui/ConnectionCard.ui" line="9"/>
-        <source>connectionCard</source>
-        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -199,12 +199,12 @@
         <translation>Reconnect Interval:</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/ConnectionDialog.cpp" line="90"/>
+        <location filename="../../src/common/windows/ConnectionDialog.cpp" line="62"/>
         <source>连接</source>
         <translation>Connection</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/ConnectionDialog.cpp" line="102"/>
+        <location filename="../../src/common/windows/ConnectionDialog.cpp" line="74"/>
         <source>主机地址不能包含空格</source>
         <translation>Host address cannot contain spaces</translation>
     </message>
@@ -224,17 +224,22 @@
         <translation>%1 - %2</translation>
     </message>
     <message>
-        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="97"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="89"/>
+        <source>%1 [仅查看]</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="100"/>
         <source>Connection Disconnected</source>
         <translation>Connection Disconnected</translation>
     </message>
     <message>
-        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="98"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="101"/>
         <source>Connection to remote host %1 has been disconnected.</source>
         <translation>Connection to remote host %1 has been disconnected.</translation>
     </message>
     <message>
-        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="100"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="103"/>
         <source>The window will close.</source>
         <translation>The window will close.</translation>
     </message>
@@ -248,7 +253,7 @@
     </message>
     <message>
         <location filename="../../src/ui/ConnectionPanel.ui" line="18"/>
-        <location filename="../../src/common/windows/ConnectionPanel.cpp" line="135"/>
+        <location filename="../../src/common/windows/ConnectionPanel.cpp" line="128"/>
         <source>搜索历史连接...</source>
         <translation>Search connection history...</translation>
     </message>
@@ -259,24 +264,24 @@
     </message>
     <message>
         <location filename="../../src/ui/ConnectionPanel.ui" line="32"/>
-        <location filename="../../src/common/windows/ConnectionPanel.cpp" line="226"/>
-        <location filename="../../src/common/windows/ConnectionPanel.cpp" line="248"/>
+        <location filename="../../src/common/windows/ConnectionPanel.cpp" line="219"/>
+        <location filename="../../src/common/windows/ConnectionPanel.cpp" line="241"/>
         <source>暂无连接历史</source>
         <translation>No connection history</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/ConnectionPanel.cpp" line="225"/>
-        <location filename="../../src/common/windows/ConnectionPanel.cpp" line="249"/>
+        <location filename="../../src/common/windows/ConnectionPanel.cpp" line="218"/>
+        <location filename="../../src/common/windows/ConnectionPanel.cpp" line="242"/>
         <source>无匹配的连接记录</source>
         <translation>No matching connection records</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/ConnectionPanel.cpp" line="200"/>
+        <location filename="../../src/common/windows/ConnectionPanel.cpp" line="193"/>
         <source>确认删除</source>
         <translation>Confirm Delete</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/ConnectionPanel.cpp" line="201"/>
+        <location filename="../../src/common/windows/ConnectionPanel.cpp" line="194"/>
         <source>确定删除此连接记录？</source>
         <translation>Are you sure you want to delete this connection record?</translation>
     </message>
@@ -285,9 +290,8 @@
     <name>MainWindow</name>
     <message>
         <location filename="../../src/ui/MainWindow.ui" line="14"/>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="104"/>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="370"/>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="880"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="102"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="351"/>
         <source>Qt远程桌面</source>
         <translation>Cross Remote Desktop</translation>
     </message>
@@ -304,20 +308,20 @@
         <translation type="vanished">Settings</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="373"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="354"/>
         <location filename="../../src/common/windows/MainWindowLayout.cpp" line="24"/>
         <location filename="../../src/common/windows/MainWindowLayout.cpp" line="25"/>
         <source>退出</source>
         <translation>Exit</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="376"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="357"/>
         <location filename="../../src/common/windows/MainWindowLayout.cpp" line="30"/>
         <source>恢复(&amp;R)</source>
         <translation>&amp;Restore</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="758"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="732"/>
         <source>服务器已停止</source>
         <translation>Server stopped</translation>
     </message>
@@ -327,7 +331,7 @@
         <translation>CPU: 0% | Memory: 0MB</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="382"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="363"/>
         <location filename="../../src/common/windows/MainWindowLayout.cpp" line="52"/>
         <source>就绪</source>
         <translation>Ready</translation>
@@ -343,92 +347,90 @@
         <translation>CrossRemoteDesktop</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="379"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="360"/>
         <location filename="../../src/common/windows/MainWindowLayout.cpp" line="39"/>
         <source>连接：未连接</source>
         <translation>Connection: Not Connected</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="380"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="361"/>
         <location filename="../../src/common/windows/MainWindowLayout.cpp" line="42"/>
         <source>服务器：已停止</source>
         <translation>Server: Stopped</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="417"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="398"/>
         <source>需要辅助功能权限</source>
         <translation>Accessibility Permission Required</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="418"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="399"/>
         <source>&lt;p&gt;Qt远程桌面需要&lt;b&gt;辅助功能权限&lt;/b&gt;才能模拟鼠标和键盘输入。&lt;/p&gt;&lt;p&gt;请按照以下步骤授予权限：&lt;/p&gt;&lt;ol&gt;&lt;li&gt;打开&lt;b&gt;系统偏好设置&lt;/b&gt;&lt;/li&gt;&lt;li&gt;选择&lt;b&gt;安全性与隐私&lt;/b&gt;&lt;/li&gt;&lt;li&gt;点击&lt;b&gt;隐私&lt;/b&gt;标签&lt;/li&gt;&lt;li&gt;在左侧列表中选择&lt;b&gt;辅助功能&lt;/b&gt;&lt;/li&gt;&lt;li&gt;点击左下角的锁图标解锁&lt;/li&gt;&lt;li&gt;在右侧列表中勾选&lt;b&gt;CrossRemoteDesktop&lt;/b&gt;&lt;/li&gt;&lt;/ol&gt;&lt;p&gt;授予权限后，请重启应用程序。&lt;/p&gt;</source>
         <translation>&lt;p&gt;Cross Remote Desktop requires &lt;b&gt;accessibility permissions&lt;/b&gt; to simulate mouse and keyboard input.&lt;/p&gt;&lt;p&gt;Please follow these steps to grant permissions:&lt;/p&gt;&lt;ol&gt;&lt;li&gt;Open &lt;b&gt;System Preferences&lt;/b&gt;&lt;/li&gt;&lt;li&gt;Select &lt;b&gt;Security &amp; Privacy&lt;/b&gt;&lt;/li&gt;&lt;li&gt;Click the &lt;b&gt;Privacy&lt;/b&gt; tab&lt;/li&gt;&lt;li&gt;In the left list, select &lt;b&gt;Accessibility&lt;/b&gt;&lt;/li&gt;&lt;li&gt;Click the lock icon in the bottom left to unlock&lt;/li&gt;&lt;li&gt;Check &lt;b&gt;CrossRemoteDesktop&lt;/b&gt; in the right list&lt;/li&gt;&lt;/ol&gt;&lt;p&gt;After granting permissions, please restart the application.&lt;/p&gt;</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="459"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="439"/>
         <source>关于Qt远程桌面</source>
         <translation>About Cross Remote Desktop</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="465"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="445"/>
         <source>&lt;h2&gt;Qt远程桌面 1.0&lt;/h2&gt;&lt;p&gt;基于Qt 6.9.1构建的跨平台远程桌面应用程序。&lt;/p&gt;&lt;p&gt;支持macOS和Windows系统之间的远程连接。&lt;/p&gt;</source>
         <translation>&lt;h2&gt;Cross Remote Desktop 1.0&lt;/h2&gt;&lt;p&gt;A cross-platform remote desktop application built with Qt 6.9.1.&lt;/p&gt;&lt;p&gt;Supports remote connections between macOS and Windows systems.&lt;/p&gt;</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="534"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="514"/>
         <source>CPU: --% | 内存: %1 MB</source>
         <translation>CPU: --% | Memory: %1 MB</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="567"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="547"/>
         <source>CPU: %1% | 内存: %2 MB</source>
         <translation>CPU: %1% | Memory: %2 MB</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="586"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="566"/>
         <source>CPU: %1%</source>
         <translation>CPU: %1%</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="600"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="580"/>
         <source>内存: %1 MB</source>
         <translation>Memory: %1 MB</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="746"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="726"/>
         <source>服务器启动成功，端口: %1</source>
         <translation>Server started successfully, port: %1</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="763"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="737"/>
         <source>服务器启动失败</source>
         <translation>Server failed to start</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="764"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="738"/>
         <source>服务器错误</source>
         <translation>Server Error</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="769"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="743"/>
         <source>客户端已连接: %1</source>
         <translation>Client connected: %1</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="774"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="748"/>
         <source>客户端已断开: %1</source>
         <translation>Client disconnected: %1</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="779"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="753"/>
         <source>客户端已认证: %1</source>
         <translation>Client authenticated: %1</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="370"/>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="870"/>
         <source>Qt远程桌面 - 客户端模式</source>
-        <translation>Cross Remote Desktop - Client Mode</translation>
+        <translation type="vanished">Cross Remote Desktop - Client Mode</translation>
     </message>
 </context>
 <context>
@@ -480,12 +482,12 @@
 <context>
     <name>QObject</name>
     <message>
-        <location filename="../../src/main.cpp" line="326"/>
+        <location filename="../../src/main.cpp" line="306"/>
         <source>发生严重错误：%1</source>
         <translation>A critical error occurred: %1</translation>
     </message>
     <message>
-        <location filename="../../src/main.cpp" line="331"/>
+        <location filename="../../src/main.cpp" line="311"/>
         <source>发生未知错误，应用程序将退出。</source>
         <translation>An unknown error occurred, the application will exit.</translation>
     </message>
@@ -637,29 +639,29 @@
     </message>
     <message>
         <location filename="../../src/ui/SettingsDialog.ui" line="586"/>
-        <location filename="../../src/common/windows/SettingsDialog.cpp" line="331"/>
+        <location filename="../../src/common/windows/SettingsDialog.cpp" line="329"/>
         <source>恢复默认值</source>
         <translation>Restore Defaults</translation>
     </message>
     <message>
         <location filename="../../src/ui/SettingsDialog.ui" line="503"/>
-        <location filename="../../src/common/windows/SettingsDialog.cpp" line="329"/>
+        <location filename="../../src/common/windows/SettingsDialog.cpp" line="327"/>
         <source>Enable Core Debug</source>
         <translation>Enable Core Debug</translation>
     </message>
     <message>
         <location filename="../../src/ui/SettingsDialog.ui" line="510"/>
-        <location filename="../../src/common/windows/SettingsDialog.cpp" line="330"/>
+        <location filename="../../src/common/windows/SettingsDialog.cpp" line="328"/>
         <source>Reset Rules</source>
         <translation>Reset Rules</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/SettingsDialog.cpp" line="105"/>
+        <location filename="../../src/common/windows/SettingsDialog.cpp" line="107"/>
         <source>中文</source>
         <translation>Chinese</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/SettingsDialog.cpp" line="106"/>
+        <location filename="../../src/common/windows/SettingsDialog.cpp" line="108"/>
         <source>English</source>
         <translation>English</translation>
     </message>
