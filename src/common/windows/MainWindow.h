@@ -37,7 +37,6 @@ public:
    explicit MainWindow(SettingsManager *settings, QWidget *parent = nullptr);
     ~MainWindow();
     
-    void setClientMode(bool clientMode);
     void connectToHostDirectly(const ConnectionParams& params);
     void gracefulShutdown();   // 供 main.cpp 在 std::_Exit 前手动调用
 
@@ -130,9 +129,6 @@ private:
 
     // 主题模式
     QString m_themeMode;
-
-    // 客户端模式标志
-    bool m_clientMode;
 
     // 停止状态标志
     bool m_isShuttingDown;
