@@ -36,13 +36,6 @@ bool QueueManager::initialize(int captureQueueSize) {
             return false;
         }
 
-        // 创建处理队列（临时保留，供 Task 10 移除）
-        m_processedQueue = std::make_unique<ThreadSafeQueue<ProcessedData>>(captureQueueSize);
-        if ( !m_processedQueue ) {
-            qCCritical(lcServerQueue) << "创建处理队列失败";
-            return false;
-        }
-
         // 初始化统计信息
         {
             QMutexLocker locker(&m_statsMutex);
@@ -81,7 +74,6 @@ void QueueManager::cleanup() {
 
     // 清理队列
     m_captureQueue.reset();
-    m_processedQueue.reset();
 
     m_initialized = false;
     qCInfo(lcServerQueue) << "队列管理器清理完成";
@@ -138,9 +130,6 @@ void QueueManager::stopAllQueues() {
         m_captureQueue->clear();
     }
 
-    if ( m_processedQueue ) {
-        m_processedQueue->clear();
-    }
 }
 
 void QueueManager::forceUpdateStats() {

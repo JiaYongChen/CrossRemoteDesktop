@@ -47,7 +47,6 @@ public:
     /**
      * @brief 初始化队列管理器
      * @param captureQueueSize 捕获队列最大大小（0表示无限制）
-     * @param processedQueueSize 处理队列最大大小（0表示无限制）
      * @return true 初始化成功，false 初始化失败
      */
     bool initialize(int captureQueueSize = CoreConstants::Performance::MAX_QUEUE_SIZE);
@@ -118,11 +117,6 @@ public:
      */
     [[nodiscard]] int getCaptureQueueSize() const;
 
-    /// @brief 临时访问器 — ServerManager 过渡用（Task 10 后移除）
-    ThreadSafeQueue<CapturedFrame>* captureQueue() const { return m_captureQueue.get(); }
-    /// @brief 临时访问器 — ServerManager 过渡用（Task 10 后移除）
-    ThreadSafeQueue<ProcessedData>* processedQueue() const { return m_processedQueue.get(); }
-
 signals:
     /**
      * @brief 队列警告信号
@@ -167,7 +161,6 @@ private:
 private:
 
     std::unique_ptr<ThreadSafeQueue<CapturedFrame>> m_captureQueue;     ///< 捕获队列
-    std::unique_ptr<ThreadSafeQueue<ProcessedData>> m_processedQueue;   ///< 处理队列
 
     mutable QMutex m_statsMutex;                                        ///< 统计互斥锁
     QueueStats m_captureStats;                                          ///< 捕获队列统计
