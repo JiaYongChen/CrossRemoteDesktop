@@ -204,42 +204,97 @@
         <translation>连接</translation>
     </message>
     <message>
+        <location filename="../../src/common/windows/ConnectionDialog.cpp" line="70"/>
+        <source>请输入有效的主机地址</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../../src/common/windows/ConnectionDialog.cpp" line="74"/>
         <source>主机地址不能包含空格</source>
         <translation>主机地址不能包含空格</translation>
+    </message>
+    <message>
+        <location filename="../../src/common/windows/ConnectionDialog.cpp" line="81"/>
+        <source>端口号必须在1-65535之间</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/common/windows/ConnectionDialog.cpp" line="120"/>
+        <source>验证错误</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>ConnectionLifecycle</name>
     <message>
-        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="61"/>
-        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="64"/>
-        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="67"/>
-        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="70"/>
-        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="73"/>
-        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="76"/>
-        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="79"/>
-        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="82"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="60"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="63"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="66"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="69"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="72"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="75"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="78"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="81"/>
         <source>%1 - %2</source>
         <translation>%1 - %2</translation>
     </message>
     <message>
-        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="89"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="60"/>
+        <source>正在连接...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="63"/>
+        <source>已连接</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="66"/>
+        <source>正在认证...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="69"/>
+        <source>已认证</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="72"/>
+        <source>正在断开连接...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="75"/>
+        <source>未连接</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="78"/>
+        <source>正在重连...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="81"/>
+        <source>连接错误</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="88"/>
         <source>%1 [仅查看]</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="100"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="99"/>
         <source>Connection Disconnected</source>
         <translation>连接已断开</translation>
     </message>
     <message>
-        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="101"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="100"/>
         <source>Connection to remote host %1 has been disconnected.</source>
         <translation>与远程主机 %1 的连接已断开。</translation>
     </message>
     <message>
-        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="103"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="102"/>
         <source>The window will close.</source>
         <translation>窗口将关闭。</translation>
     </message>
@@ -347,6 +402,17 @@
         <translation>服务器：已停止</translation>
     </message>
     <message>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="392"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="474"/>
+        <source>服务器状态</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="393"/>
+        <source>服务器已经在运行中。</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../../src/common/windows/MainWindow.cpp" line="400"/>
         <source>需要辅助功能权限</source>
         <translation>需要辅助功能权限</translation>
@@ -355,6 +421,11 @@
         <location filename="../../src/common/windows/MainWindow.cpp" line="401"/>
         <source>&lt;p&gt;Qt远程桌面需要&lt;b&gt;辅助功能权限&lt;/b&gt;才能模拟鼠标和键盘输入。&lt;/p&gt;&lt;p&gt;请按照以下步骤授予权限：&lt;/p&gt;&lt;ol&gt;&lt;li&gt;打开&lt;b&gt;系统偏好设置&lt;/b&gt;&lt;/li&gt;&lt;li&gt;选择&lt;b&gt;安全性与隐私&lt;/b&gt;&lt;/li&gt;&lt;li&gt;点击&lt;b&gt;隐私&lt;/b&gt;标签&lt;/li&gt;&lt;li&gt;在左侧列表中选择&lt;b&gt;辅助功能&lt;/b&gt;&lt;/li&gt;&lt;li&gt;点击左下角的锁图标解锁&lt;/li&gt;&lt;li&gt;在右侧列表中勾选&lt;b&gt;CrossRemoteDesktop&lt;/b&gt;&lt;/li&gt;&lt;/ol&gt;&lt;p&gt;授予权限后，请重启应用程序。&lt;/p&gt;</source>
         <translation>&lt;p&gt;Qt远程桌面需要&lt;b&gt;辅助功能权限&lt;/b&gt;才能模拟鼠标和键盘输入。&lt;/p&gt;&lt;p&gt;请按照以下步骤授予权限：&lt;/p&gt;&lt;ol&gt;&lt;li&gt;打开&lt;b&gt;系统偏好设置&lt;/b&gt;&lt;/li&gt;&lt;li&gt;选择&lt;b&gt;安全性与隐私&lt;/b&gt;&lt;/li&gt;&lt;li&gt;点击&lt;b&gt;隐私&lt;/b&gt;标签&lt;/li&gt;&lt;li&gt;在左侧列表中选择&lt;b&gt;辅助功能&lt;/b&gt;&lt;/li&gt;&lt;li&gt;点击左下角的锁图标解锁&lt;/li&gt;&lt;li&gt;在右侧列表中勾选&lt;b&gt;CrossRemoteDesktop&lt;/b&gt;&lt;/li&gt;&lt;/ol&gt;&lt;p&gt;授予权限后，请重启应用程序。&lt;/p&gt;</translation>
+    </message>
+    <message>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="475"/>
+        <source>服务器未运行。</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../src/common/windows/MainWindow.cpp" line="502"/>
@@ -466,12 +537,12 @@
 <context>
     <name>QObject</name>
     <message>
-        <location filename="../../src/main.cpp" line="306"/>
+        <location filename="../../src/main.cpp" line="304"/>
         <source>发生严重错误：%1</source>
         <translation>发生严重错误：%1</translation>
     </message>
     <message>
-        <location filename="../../src/main.cpp" line="311"/>
+        <location filename="../../src/main.cpp" line="309"/>
         <source>发生未知错误，应用程序将退出。</source>
         <translation>发生未知错误，应用程序将退出。</translation>
     </message>

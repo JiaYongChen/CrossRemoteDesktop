@@ -78,7 +78,6 @@ endif()
 qt_add_library(common_test_core STATIC
     ../src/common/core/logging/LoggingCategories.cpp
     ../src/common/core/config/SettingsManager.cpp
-    ../src/common/core/config/Constants.cpp
 )
 target_link_libraries(common_test_core PUBLIC Qt6::Core)
 

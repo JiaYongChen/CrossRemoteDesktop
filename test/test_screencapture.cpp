@@ -14,7 +14,7 @@
 #include "../src/server/capture/CaptureConfig.h"
 #include "../src/common/core/threading/ThreadManager.h"
 #include "../src/common/core/logging/LoggingCategories.h"
-#include "../src/common/core/config/Constants.h"
+#include "../src/common/core/config/CaptureConstants.h"
 #include "../src/server/dataflow/QueueManager.h"
 #include "../src/server/dataflow/DataFlowStructures.h"
 
@@ -218,14 +218,14 @@ void TestScreenCapture::test_frameRateControl()
         CaptureConfig cfg = m_screenCapture->getCaptureConfig();
         cfg.frameRate = 0;
         m_screenCapture->updateCaptureConfig(cfg);
-        QVERIFY(m_screenCapture->getCaptureConfig().frameRate >= CoreConstants::Capture::MIN_FRAME_RATE);
+        QVERIFY(m_screenCapture->getCaptureConfig().frameRate >= CaptureConstants::MinFrameRate);
     }
 
     {
         CaptureConfig cfg = m_screenCapture->getCaptureConfig();
         cfg.frameRate = 200;
         m_screenCapture->updateCaptureConfig(cfg);
-        QVERIFY(m_screenCapture->getCaptureConfig().frameRate <= CoreConstants::Capture::MAX_FRAME_RATE);
+        QVERIFY(m_screenCapture->getCaptureConfig().frameRate <= CaptureConstants::MaxFrameRate);
     }
 
     qCDebug(lcTestScreenCapture, "帧率控制测试通过");

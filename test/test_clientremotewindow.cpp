@@ -8,8 +8,6 @@
 #include "../src/client/session/ProtocolSession.h"
 #include "../src/client/session/DecodePipeline.h"
 #include "../src/client/network/ConnectionManager.h"
-#include "../src/common/core/config/MessageConstants.h"
-
 /**
  * @brief ClientRemoteWindow 组件的单元测试
  * 

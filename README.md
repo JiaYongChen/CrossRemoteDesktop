@@ -150,12 +150,13 @@ CrossRemoteDesktop/
 │   │   │   ├── logging/
 │   │   │   │   └── LoggingCategories.* # 日志分类（6 棵一级树）
 │   │   │   ├── config/
-│   │   │   │   ├── SettingsManager.*  # 配置管理器（基于 QSettings，含持久化）
-│   │   │   │   ├── Constants.*        # 常量定义
-│   │   │   │   ├── NetworkConstants.h # 网络常量
-│   │   │   │   ├── MessageConstants.h # UI 消息常量
-│   │   │   │   ├── UiConstants.h     # UI 尺寸常量
-│   │   │   │   └── RenderConfig.*    # 渲染配置
+│   │   │   │   ├── SettingsManager.*      # 配置管理器（基于 QSettings，含持久化）
+│   │   │   │   ├── NetworkConstants.h     # 网络常量
+│   │   │   │   ├── ProtocolConstants.h    # 协议标识、消息字段、帧尺寸
+│   │   │   │   ├── CaptureConstants.h     # 捕获帧率、JPEG质量、输入参数
+│   │   │   │   ├── ProcessingConstants.h  # 线程池、队列、性能阈值
+│   │   │   │   ├── SecurityConstants.h    # 加密参数、认证限制
+│   │   │   │   └── GuiConstants.h         # 窗口尺寸、OpenGL渲染
 │   │   │   ├── network/
 │   │   │   │   ├── Protocol.h        # RDCP 协议定义
 │   │   │   │   ├── ProtocolImpl.cpp  # 协议静态函数 + CRC32

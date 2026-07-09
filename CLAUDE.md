@@ -188,11 +188,18 @@ ConnectionManager (TCP) → SessionManager (状态管理) → ClientRemoteWindow
 
 ### 配置
 
-运行时配置通过 `Config` 类（基于 QSettings）管理。常量分布在：
-- `src/common/core/config/Constants.h` — `CoreConstants` 纯 struct，static constexpr 常量（非 QObject）
-- `src/common/core/config/NetworkConstants.h` — 网络参数
-- `src/common/core/config/MessageConstants.h` — UI 消息
-- `src/common/core/config/UiConstants.h` — UI 尺寸
+运行时配置通过 `SettingsManager` 类管理。编译期常量分布在 6 个域名空间文件中（`src/common/core/config/`）：
+
+| 文件 | 命名空间 | 领域 |
+|------|----------|------|
+| `ProtocolConstants.h` | `ProtocolConstants` | 协议标识、消息字段长度、帧尺寸、应用版本 |
+| `NetworkConstants.h` | `NetworkConstants` | 连接超时、心跳、缓冲区、默认端口 |
+| `CaptureConstants.h` | `CaptureConstants` | 捕获帧率、JPEG质量、缩放因子、输入参数 |
+| `ProcessingConstants.h` | `ProcessingConstants` | 线程池、队列、缓冲区、性能阈值 |
+| `SecurityConstants.h` | `SecurityConstants` | 加密参数、认证限制、会话超时 |
+| `GuiConstants.h` | `GuiConstants` | 窗口尺寸、OpenGL渲染、帧丢弃策略 |
+
+**常量规范**：统一 `namespace` + `inline constexpr`，`PascalCase` 命名。2 个及以上文件引用的常量必须放入公共文件。禁止将字符串常量放入 Constants 文件。
 
 ## Git 提交规范
 
