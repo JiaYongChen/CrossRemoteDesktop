@@ -29,7 +29,7 @@ TcpClient::TcpClient(QObject* parent)
         this, &TcpClient::onSslErrors);
 
     // 心跳超时检查定时器设置 - 用于检测服务端心跳超时
-    m_heartbeatCheckTimer->setInterval(NetworkConstants::HEARTBEAT_TIMEOUT);
+    m_heartbeatCheckTimer->setInterval(NetworkConstants::HeartbeatTimeout);
     connect(m_heartbeatCheckTimer, &QTimer::timeout, this, &TcpClient::checkHeartbeat);
 
     // Disconnect timeout timer: fallback abort if graceful disconnect takes too long.
@@ -151,10 +151,10 @@ void TcpClient::onEncrypted() {
     m_isConnected.store(true, std::memory_order_release);
 
     // 设置TCP优化选项
-    m_socket->setSocketOption(QAbstractSocket::KeepAliveOption, NetworkConstants::KEEP_ALIVE_ENABLED);
-    m_socket->setSocketOption(QAbstractSocket::LowDelayOption, NetworkConstants::TCP_NODELAY_ENABLED);
-    m_socket->setSocketOption(QAbstractSocket::SendBufferSizeSocketOption, NetworkConstants::SOCKET_SEND_BUFFER_SIZE);
-    m_socket->setSocketOption(QAbstractSocket::ReceiveBufferSizeSocketOption, NetworkConstants::SOCKET_RECEIVE_BUFFER_SIZE);
+    m_socket->setSocketOption(QAbstractSocket::KeepAliveOption, NetworkConstants::KeepAliveEnabled);
+    m_socket->setSocketOption(QAbstractSocket::LowDelayOption, NetworkConstants::TcpNoDelayEnabled);
+    m_socket->setSocketOption(QAbstractSocket::SendBufferSizeSocketOption, NetworkConstants::SocketSendBufferSize);
+    m_socket->setSocketOption(QAbstractSocket::ReceiveBufferSizeSocketOption, NetworkConstants::SocketReceiveBufferSize);
 
     // 启动心跳超时检查定时器（用于检测服务端心跳）
     m_lastHeartbeat = QDateTime::currentDateTime();
@@ -272,8 +272,8 @@ void TcpClient::onReadyRead() {
     }
 
     // 检查缓冲区大小，防止无限增长
-    if ( m_receiveBuffer.size() + newData.size() > NetworkConstants::MAX_PACKET_SIZE ) {
-        qCCritical(lcClient) << "接收缓冲区超过最大限制:" << NetworkConstants::MAX_PACKET_SIZE
+    if ( m_receiveBuffer.size() + newData.size() > NetworkConstants::MaxPacketSize ) {
+        qCCritical(lcClient) << "接收缓冲区超过最大限制:" << NetworkConstants::MaxPacketSize
             << "当前大小:" << m_receiveBuffer.size()
             << "新增数据:" << newData.size();
         abort();
@@ -334,7 +334,7 @@ void TcpClient::handleHeartbeat() {
 }
 
 void TcpClient::checkHeartbeat() {
-    if ( m_lastHeartbeat.secsTo(QDateTime::currentDateTime()) > NetworkConstants::HEARTBEAT_TIMEOUT / 1000 ) {
+    if ( m_lastHeartbeat.secsTo(QDateTime::currentDateTime()) > NetworkConstants::HeartbeatTimeout / 1000 ) {
         emit errorOccurred(RdError(ErrorCode::NetworkHeartbeatTimeout, "心跳超时", "TcpClient"));
         disconnectFromHost();
     }

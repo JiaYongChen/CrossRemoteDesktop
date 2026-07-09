@@ -104,10 +104,10 @@ bool ClientHandlerWorker::initialize() {
     }
 
     // 设置TCP优化选项
-    m_socket->setSocketOption(QAbstractSocket::KeepAliveOption, NetworkConstants::KEEP_ALIVE_ENABLED);
-    m_socket->setSocketOption(QAbstractSocket::LowDelayOption, NetworkConstants::TCP_NODELAY_ENABLED);
-    m_socket->setSocketOption(QAbstractSocket::SendBufferSizeSocketOption, NetworkConstants::SOCKET_SEND_BUFFER_SIZE);
-    m_socket->setSocketOption(QAbstractSocket::ReceiveBufferSizeSocketOption, NetworkConstants::SOCKET_RECEIVE_BUFFER_SIZE);
+    m_socket->setSocketOption(QAbstractSocket::KeepAliveOption, NetworkConstants::KeepAliveEnabled);
+    m_socket->setSocketOption(QAbstractSocket::LowDelayOption, NetworkConstants::TcpNoDelayEnabled);
+    m_socket->setSocketOption(QAbstractSocket::SendBufferSizeSocketOption, NetworkConstants::SocketSendBufferSize);
+    m_socket->setSocketOption(QAbstractSocket::ReceiveBufferSizeSocketOption, NetworkConstants::SocketReceiveBufferSize);
 
     // 获取客户端信息
     {
@@ -154,12 +154,12 @@ bool ClientHandlerWorker::initialize() {
 
     // 创建心跳检查定时器
     m_heartbeatCheckTimer = new QTimer(this);
-    m_heartbeatCheckTimer->setInterval(NetworkConstants::HEARTBEAT_TIMEOUT);
+    m_heartbeatCheckTimer->setInterval(NetworkConstants::HeartbeatTimeout);
     connect(m_heartbeatCheckTimer, &QTimer::timeout, this, &ClientHandlerWorker::checkHeartbeat);
 
     // 创建心跳发送定时器
     m_heartbeatSendTimer = new QTimer(this);
-    m_heartbeatSendTimer->setInterval(NetworkConstants::HEARTBEAT_INTERVAL);
+    m_heartbeatSendTimer->setInterval(NetworkConstants::HeartbeatInterval);
     connect(m_heartbeatSendTimer, &QTimer::timeout, this, &ClientHandlerWorker::sendHeartbeat);
 
     // 创建输入模拟器
@@ -489,8 +489,8 @@ void ClientHandlerWorker::onReadyRead() {
     }
 
     // 检查缓冲区大小，防止无限增长
-    if ( m_receiveBuffer.size() + newData.size() > NetworkConstants::MAX_PACKET_SIZE ) {
-        qCCritical(lcServerClientHandler) << "接收缓冲区超过最大限制:" << NetworkConstants::MAX_PACKET_SIZE
+    if ( m_receiveBuffer.size() + newData.size() > NetworkConstants::MaxPacketSize ) {
+        qCCritical(lcServerClientHandler) << "接收缓冲区超过最大限制:" << NetworkConstants::MaxPacketSize
             << "当前大小:" << m_receiveBuffer.size()
             << "新增数据:" << newData.size();
         forceDisconnect();
@@ -624,7 +624,7 @@ void ClientHandlerWorker::onError(QAbstractSocket::SocketError error) {
 
 void ClientHandlerWorker::checkHeartbeat() {
     QDateTime now = QDateTime::currentDateTime();
-    if ( m_lastHeartbeat.msecsTo(now) > NetworkConstants::HEARTBEAT_TIMEOUT ) {
+    if ( m_lastHeartbeat.msecsTo(now) > NetworkConstants::HeartbeatTimeout ) {
         qCWarning(lcServerClientHandler) << "客户端心跳超时:" << clientId();
         forceDisconnect();
     }

@@ -63,7 +63,7 @@ qsizetype Protocol::validateReceivedDataIntegrity(const QByteArray& data, Messag
     }
 
     // 步骤5：检查payload长度是否合理（防止恶意超大消息）
-    const quint32 MAX_PAYLOAD_SIZE = NetworkConstants::MAX_PACKET_SIZE - SERIALIZED_HEADER_SIZE;
+    const quint32 MAX_PAYLOAD_SIZE = NetworkConstants::MaxPacketSize - SERIALIZED_HEADER_SIZE;
     if ( header.length > MAX_PAYLOAD_SIZE ) {
         qCWarning(lcCoreProtocol) << "Protocol::validateReceivedDataIntegrity() - Payload size too large:" << header.length
             << "max allowed:" << MAX_PAYLOAD_SIZE;
