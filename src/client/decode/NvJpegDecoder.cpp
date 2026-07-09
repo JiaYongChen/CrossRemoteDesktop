@@ -1,5 +1,6 @@
 #include "NvJpegDecoder.h"
 #include "../../common/core/logging/LoggingCategories.h"
+#include "../../common/core/config/GuiConstants.h"
 
 #ifdef HAS_NVJPEG
 #include "TurboJpegDecoder.h"
@@ -248,8 +249,7 @@ bool NvJpegDecoder::decodeGpu(const QByteArray& jpegData,
     if (!dst) return false;
 
     // 3. 确保临时设备缓冲区
-    constexpr int kRGB = 3;
-    const size_t need = static_cast<size_t>(w) * h * kRGB;
+    const size_t need = static_cast<size_t>(w) * h * GuiConstants::RgbChannels;
     if (!m_tmpBuf || m_tmpBufSize < need) {
         if (m_tmpBuf) cudaFree(m_tmpBuf);
         if (cudaMalloc(reinterpret_cast<void**>(&m_tmpBuf), need) != cudaSuccess) {
@@ -263,7 +263,7 @@ bool NvJpegDecoder::decodeGpu(const QByteArray& jpegData,
     // 4. nvJPEG 异步 GPU 解码
     nvjpegImage_t imgDst{};
     imgDst.channel[0] = m_tmpBuf;
-    imgDst.pitch[0]   = static_cast<size_t>(w) * kRGB;
+    imgDst.pitch[0]   = static_cast<size_t>(w) * GuiConstants::RgbChannels;
     if (nvjpegDecode(m_handle, m_state, src, len,
                      NVJPEG_OUTPUT_RGBI, &imgDst, m_stream) != NVJPEG_STATUS_SUCCESS) {
         return false;

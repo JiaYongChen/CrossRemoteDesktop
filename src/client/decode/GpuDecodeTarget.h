@@ -2,6 +2,7 @@
 
 #ifndef QT_NO_OPENGL
 
+#include "../../common/core/config/GuiConstants.h"
 #include "IDecodeTarget.h"
 #include <QtOpenGL/QOpenGLBuffer>
 #include <QtGui/QOpenGLFunctions>
@@ -25,9 +26,6 @@ class QOpenGLContext;
 class GpuDecodeTarget : public IDecodeTarget,
                          protected QOpenGLFunctions {
 public:
-    static constexpr int kPboCount = 2;
-    static constexpr int kTexCount = 2;
-    static constexpr int kRGB = 3;
 
     explicit GpuDecodeTarget(QOpenGLContext* shareContext);
     ~GpuDecodeTarget() override;
@@ -60,17 +58,17 @@ private:
     QOpenGLContext*    m_shareContext = nullptr;
     QOpenGLContext*    m_workerContext = nullptr;
     QOffscreenSurface* m_offSurface = nullptr;
-    GLuint             m_textureId[kTexCount] = {0, 0};
+    GLuint             m_textureId[GuiConstants::TexCount] = {0, 0};
     std::atomic<int>   m_displayTexIndex{0};
-    QOpenGLBuffer      m_pbo[kPboCount] = {
+    QOpenGLBuffer      m_pbo[GuiConstants::PboCount] = {
         QOpenGLBuffer(QOpenGLBuffer::PixelUnpackBuffer),
         QOpenGLBuffer(QOpenGLBuffer::PixelUnpackBuffer)
     };
     int                m_pboWriteIdx = 0;
     int                m_pboAllocatedBytes = 0;
     bool               m_usePersistent = false;
-    GLuint             m_persistentPboId[kPboCount] = {0, 0};
-    void*              m_persistentPtr[kPboCount] = {nullptr, nullptr};
+    GLuint             m_persistentPboId[GuiConstants::PboCount] = {0, 0};
+    void*              m_persistentPtr[GuiConstants::PboCount] = {nullptr, nullptr};
     int                m_texWidth = 0;
     int                m_texHeight = 0;
     int                m_pendingWidth = 0;

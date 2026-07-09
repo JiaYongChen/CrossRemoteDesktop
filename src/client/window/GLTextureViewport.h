@@ -16,6 +16,7 @@
 #include <chrono>
 #include <atomic>
 
+#include "../../common/core/config/GuiConstants.h"
 #include "../core/TripleBuffer.h"
 #include "../core/FrameSlot.h"
 
@@ -52,9 +53,8 @@ public:
     /// supported format before uploading.
     static bool chooseGLFormat(QImage::Format f, GLPixelLayout& out);
 
-    static constexpr int kPboCount = 2;
     /// Pure function: next PBO index in the double-buffered ring.
-    static int nextPboIndex(int current) { return (current + 1) % kPboCount; }
+    static int nextPboIndex(int current) { return (current + 1) % GuiConstants::PboCount; }
 
     explicit GLTextureViewport(QWidget* parent = nullptr);
     ~GLTextureViewport() override;
@@ -276,13 +276,11 @@ private:
     quint64 m_metricsFrameCount = 0;
     qint64  m_metricsLatencyAccumUs = 0;
     qint64  m_metricsLatencyMaxUs = 0;
-    static constexpr quint64 kMetricsReportInterval = 10;  // frames
 
     // FPS 统计（EMA 指数滑动平均，显示帧率）
     double m_currentFPS = 0.0;
     std::chrono::steady_clock::time_point m_lastPaintTime{};
     double m_smoothedFrameDuration = 0.0;
-    static constexpr double kFpsAlpha = 0.1;
 
     // 远程光标叠加渲染
     CursorManager* m_cursorManager = nullptr;

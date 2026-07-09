@@ -532,7 +532,7 @@ void GLTextureViewport::paintGL() {
         if (m_smoothedFrameDuration == 0.0) {
             m_smoothedFrameDuration = instant;
         } else {
-            m_smoothedFrameDuration = kFpsAlpha * instant + (1.0 - kFpsAlpha) * m_smoothedFrameDuration;
+            m_smoothedFrameDuration = GuiConstants::FpsAlpha * instant + (1.0 - GuiConstants::FpsAlpha) * m_smoothedFrameDuration;
         }
         m_currentFPS = (m_smoothedFrameDuration > 0.0) ? (1.0 / m_smoothedFrameDuration) : 0.0;
     }
@@ -544,7 +544,7 @@ void GLTextureViewport::paintGL() {
             steady_clock::now() - m_pendingArrivalTs).count();
         m_metricsLatencyAccumUs += latencyUs;
         m_metricsLatencyMaxUs = std::max(m_metricsLatencyMaxUs, latencyUs);
-        if ( ++m_metricsFrameCount >= kMetricsReportInterval ) {
+        if ( ++m_metricsFrameCount >= GuiConstants::MetricsReportInterval ) {
             const double avgMs = (m_metricsLatencyAccumUs / double(m_metricsFrameCount)) / 1000.0;
             const double maxMs = m_metricsLatencyMaxUs / 1000.0;
             qCDebug(lcClientGL)

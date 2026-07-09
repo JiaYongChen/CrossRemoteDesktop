@@ -139,13 +139,13 @@ void GpuDecodeTarget::cleanup() {
     destroyPersistentPBOs();
 
     if (m_textureId[0] != 0) {
-        glDeleteTextures(kTexCount, m_textureId);
+        glDeleteTextures(GuiConstants::TexCount, m_textureId);
         m_textureId[0] = 0;
         m_textureId[1] = 0;
         m_displayTexIndex.store(0);
     }
 
-    for (int i = 0; i < kPboCount; ++i) {
+    for (int i = 0; i < GuiConstants::PboCount; ++i) {
         if (m_pbo[i].isCreated()) m_pbo[i].destroy();
     }
     m_pboAllocatedBytes = 0;
@@ -182,7 +182,7 @@ unsigned char* GpuDecodeTarget::mapWriteBuffer(int width, int height) {
     if (!f) { pbo.release(); return nullptr; }
 
     void* mapped = f->glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0,
-        static_cast<GLsizeiptr>(width) * height * kRGB,
+        static_cast<GLsizeiptr>(width) * height * GuiConstants::RgbChannels,
         GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
     pbo.release();
 
@@ -227,7 +227,7 @@ GLsync GpuDecodeTarget::commitWriteBuffer() {
     GLsync fence = f->glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
     f->glFlush();
 
-    m_pboWriteIdx = (m_pboWriteIdx + 1) % kPboCount;
+    m_pboWriteIdx = (m_pboWriteIdx + 1) % GuiConstants::PboCount;
     return fence;
 }
 
@@ -255,7 +255,7 @@ GLsync GpuDecodeTarget::uploadPixels(const unsigned char* data,
         return fence;
     }
 
-    const int totalBytes = width * height * kRGB;
+    const int totalBytes = width * height * GuiConstants::RgbChannels;
     std::memcpy(dst, data, static_cast<size_t>(totalBytes));
     return commitWriteBuffer();
 }
@@ -277,13 +277,13 @@ bool GpuDecodeTarget::ensureTextureSize(int width, int height) {
         return false;
 
     if (m_textureId[0] != 0) {
-        glDeleteTextures(kTexCount, m_textureId);
+        glDeleteTextures(GuiConstants::TexCount, m_textureId);
         m_textureId[0] = 0;
         m_textureId[1] = 0;
     }
 
-    glGenTextures(kTexCount, m_textureId);
-    for (int i = 0; i < kTexCount; ++i) {
+    glGenTextures(GuiConstants::TexCount, m_textureId);
+    for (int i = 0; i < GuiConstants::TexCount; ++i) {
         glBindTexture(GL_TEXTURE_2D, m_textureId[i]);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -304,7 +304,7 @@ bool GpuDecodeTarget::ensureTextureSize(int width, int height) {
 // ════════════════ ensurePboSize ════════════════
 
 bool GpuDecodeTarget::ensurePboSize(int width, int height) {
-    const int need = width * height * kRGB;
+    const int need = width * height * GuiConstants::RgbChannels;
     if (need == m_pboAllocatedBytes) return true;
 
     // 首次分配时使用持久映射 PBO
@@ -321,7 +321,7 @@ bool GpuDecodeTarget::ensurePboSize(int width, int height) {
 
     if (!m_usePersistent) {
         // 标准 PBO 路径
-        for (int i = 0; i < kPboCount; ++i) {
+        for (int i = 0; i < GuiConstants::PboCount; ++i) {
             if (!m_pbo[i].isCreated()) {
                 if (!m_pbo[i].create()) {
                     qCCritical(lcClientGL) << "GpuDecodeTarget: PBO" << i << "创建失败";
@@ -364,7 +364,7 @@ void GpuDecodeTarget::createPersistentPBOs(int size) {
     auto* f = m_workerContext->extraFunctions();
     if (!f) { m_usePersistent = false; return; }
 
-    for (int i = 0; i < kPboCount; ++i) {
+    for (int i = 0; i < GuiConstants::PboCount; ++i) {
         f->glGenBuffers(1, &m_persistentPboId[i]);
         f->glBindBuffer(GL_PIXEL_UNPACK_BUFFER, m_persistentPboId[i]);
 
@@ -386,12 +386,12 @@ void GpuDecodeTarget::createPersistentPBOs(int size) {
 
     m_usePersistent = true;
     qCInfo(lcClientGL) << "GpuDecodeTarget: 持久 PBO 已创建 —"
-                          << size << "bytes x" << kPboCount;
+                          << size << "bytes x" << GuiConstants::PboCount;
 }
 
 void GpuDecodeTarget::destroyPersistentPBOs() {
     auto* f = m_workerContext ? m_workerContext->extraFunctions() : nullptr;
-    for (int i = 0; i < kPboCount; ++i) {
+    for (int i = 0; i < GuiConstants::PboCount; ++i) {
         if (m_persistentPboId[i] != 0 && f) {
             f->glBindBuffer(GL_PIXEL_UNPACK_BUFFER, m_persistentPboId[i]);
             if (m_persistentPtr[i]) {
