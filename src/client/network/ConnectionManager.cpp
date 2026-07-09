@@ -402,7 +402,7 @@ void ConnectionManager::handleAuthChallenge(const QByteArray& data) {
 
 void ConnectionManager::sendHandshakeRequest() {
     HandshakeRequest request{};
-    request.clientVersion = PROTOCOL_VERSION;
+    request.clientVersion = ProtocolConstants::ProtocolVersion;
     request.screenWidth = 1920;
     request.screenHeight = 1080;
     request.colorDepth = static_cast<quint8>(m_colorDepth);

@@ -296,18 +296,6 @@
         <translation>Qt远程桌面</translation>
     </message>
     <message>
-        <source>新建连接</source>
-        <translation type="vanished">新建连接</translation>
-    </message>
-    <message>
-        <source>连接</source>
-        <translation type="vanished">连接</translation>
-    </message>
-    <message>
-        <source>设置</source>
-        <translation type="vanished">设置</translation>
-    </message>
-    <message>
         <location filename="../../src/common/windows/MainWindow.cpp" line="359"/>
         <location filename="../../src/common/windows/MainWindowLayout.cpp" line="24"/>
         <location filename="../../src/common/windows/MainWindowLayout.cpp" line="25"/>
@@ -321,7 +309,7 @@
         <translation>恢复(&amp;R)</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="795"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="808"/>
         <source>服务器已停止</source>
         <translation>服务器已停止</translation>
     </message>
@@ -369,68 +357,64 @@
         <translation>&lt;p&gt;Qt远程桌面需要&lt;b&gt;辅助功能权限&lt;/b&gt;才能模拟鼠标和键盘输入。&lt;/p&gt;&lt;p&gt;请按照以下步骤授予权限：&lt;/p&gt;&lt;ol&gt;&lt;li&gt;打开&lt;b&gt;系统偏好设置&lt;/b&gt;&lt;/li&gt;&lt;li&gt;选择&lt;b&gt;安全性与隐私&lt;/b&gt;&lt;/li&gt;&lt;li&gt;点击&lt;b&gt;隐私&lt;/b&gt;标签&lt;/li&gt;&lt;li&gt;在左侧列表中选择&lt;b&gt;辅助功能&lt;/b&gt;&lt;/li&gt;&lt;li&gt;点击左下角的锁图标解锁&lt;/li&gt;&lt;li&gt;在右侧列表中勾选&lt;b&gt;CrossRemoteDesktop&lt;/b&gt;&lt;/li&gt;&lt;/ol&gt;&lt;p&gt;授予权限后，请重启应用程序。&lt;/p&gt;</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="497"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="502"/>
         <source>关于Qt远程桌面</source>
         <translation>关于Qt远程桌面</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="503"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="508"/>
         <source>&lt;h2&gt;Qt远程桌面 1.0&lt;/h2&gt;&lt;p&gt;基于Qt 6.9.1构建的跨平台远程桌面应用程序。&lt;/p&gt;&lt;p&gt;支持macOS和Windows系统之间的远程连接。&lt;/p&gt;</source>
         <translation>&lt;h2&gt;Qt远程桌面 1.0&lt;/h2&gt;&lt;p&gt;基于Qt 6.9.1构建的跨平台远程桌面应用程序。&lt;/p&gt;&lt;p&gt;支持macOS和Windows系统之间的远程连接。&lt;/p&gt;</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="578"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="583"/>
         <source>CPU: --% | 内存: %1 MB</source>
         <translation>CPU: --% | 内存: %1 MB</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="611"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="616"/>
         <source>CPU: %1% | 内存: %2 MB</source>
         <translation>CPU: %1% | 内存: %2 MB</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="630"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="635"/>
         <source>CPU: %1%</source>
         <translation>CPU: %1%</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="644"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="649"/>
         <source>内存: %1 MB</source>
         <translation>内存: %1 MB</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="789"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="802"/>
         <source>服务器启动成功，端口: %1</source>
         <translation>服务器启动成功，端口: %1</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="800"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="813"/>
         <source>服务器启动失败</source>
         <translation>服务器启动失败</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="801"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="814"/>
         <source>服务器错误</source>
         <translation>服务器错误</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="806"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="819"/>
         <source>客户端已连接: %1</source>
         <translation>客户端已连接: %1</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="811"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="824"/>
         <source>客户端已断开: %1</source>
         <translation>客户端已断开: %1</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="816"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="829"/>
         <source>客户端已认证: %1</source>
         <translation>客户端已认证: %1</translation>
-    </message>
-    <message>
-        <source>Qt远程桌面 - 客户端模式</source>
-        <translation type="vanished">Qt远程桌面 - 客户端模式</translation>
     </message>
 </context>
 <context>
@@ -490,13 +474,6 @@
         <location filename="../../src/main.cpp" line="311"/>
         <source>发生未知错误，应用程序将退出。</source>
         <translation>发生未知错误，应用程序将退出。</translation>
-    </message>
-</context>
-<context>
-    <name>ServerWorker</name>
-    <message>
-        <source>服务器启动失败</source>
-        <translation type="vanished">服务器启动失败</translation>
     </message>
 </context>
 <context>

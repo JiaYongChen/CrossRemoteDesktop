@@ -18,6 +18,7 @@
 
 #include "../../common/core/network/Protocol.h"
 #include "../../common/core/config/NetworkConstants.h"
+#include "../../common/core/config/ProtocolConstants.h"
 #include "../../common/core/logging/LoggingCategories.h"
 #include <QtNetwork/QSslSocket>
 #include <QtNetwork/QSslConfiguration>
@@ -886,7 +887,7 @@ void ClientHandlerWorker::handleKeyboardEvent(const QByteArray& data) {
 
 void ClientHandlerWorker::sendHandshakeResponse() {
     HandshakeResponse response;
-    response.serverVersion = PROTOCOL_VERSION;
+    response.serverVersion = ProtocolConstants::ProtocolVersion;
     response.screenWidth = 1920; // 默认屏幕宽度
     response.screenHeight = 1080; // 默认屏幕高度
     response.colorDepth = 32; // 32位色深

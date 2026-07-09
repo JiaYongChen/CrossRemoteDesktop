@@ -89,21 +89,50 @@ cmake/
 ```
 MainWindow → new ThreadManager(this)
           → new QueueManager(this)
-          → new ServerManager(this, m_threadManager, m_queueManager)
-                → new ScreenCapture(m_threadManager, m_queueManager, this)
-                → new ClientHandlerWorker(..., m_queueManager)
-                → DataProcessingWorker::setQueueManager(m_queueManager)
+          → [startServer()] new TcpListener（监听端口，接受连接）
+          → [startServer()] new CapturePipeline（屏幕捕获 + 帧广播）
+                → new ScreenCapture(m_threadManager, m_queueManager)
+                → new FrameBroadcaster(m_queueManager)
+          → [onNewConnection] new ServerSession（每客户端独立会话）
+                → SessionQueuePair（每会话私有队列对）
+                → DataProcessingWorker（JPEG 编码）
+                → ClientHandlerWorker（发送到客户端）
+```
+
+**说明**：`TcpListener` 和 `CapturePipeline` 在 `startServer()` 中延迟创建（由 500ms QTimer 触发）。`ServerSession` 在 `TcpListener::newConnection` 信号触发时按需创建，每个客户端连接对应一个独立会话。
+
+### 服务端会话架构
+
+```
+TcpListener（接受连接）
+  └─ newConnection(qintptr) → MainWindow 创建 ServerSession
+                                  ├── SessionQueuePair（私有队列对）
+                                  │     ├── captureQueue（FrameBroadcaster → 编码）
+                                  │     └── processedQueue（编码 → 网络发送）
+                                  ├── DataProcessingWorker（JPEG 编码线程）
+                                  └── ClientHandlerWorker（网络发送线程）
+
+CapturePipeline（捕获线程）
+  ├── ScreenCapture（屏幕捕获 + ScreenCaptureWorker 子线程）
+  └── FrameBroadcaster（帧广播器）
+        └── subscribe/unsubscribe → 广播到各 ServerSession::enqueueFrame()
 ```
 
 ### 服务端数据管线（生产者-消费者模式）
 
 ```
-ScreenCaptureWorker → CaptureQueue → DataProcessingWorker → ProcessedQueue → ClientHandlerWorker
-（屏幕捕获）          FCapture队列）    （JPEG编码）   （？Processed队列）    （发送到客户端）
+ScreenCapture → QueueManager(captureQueue)
+  → FrameBroadcaster（拉帧，广播到所有订阅 session）
+    → SessionQueuePair.captureQueue（每 session 私有）
+      → DataProcessingWorker（JPEG 编码）
+        → SessionQueuePair.processedQueue
+          → ClientHandlerWorker（TCP 发送）
 ```
 
-- **QueueManager** 拥有 `ThreadSafeQueue<CapturedFrame>` 和 `ThreadSafeQueue<ProcessedData>` 两个队列
-- 通过 `QueueManager::initialize(captureQueueSize, processedQueueSize)` 初始化（默认 3/3）
+- **QueueManager** 拥有共享的 `ThreadSafeQueue<CapturedFrame>`（捕获队列，Drain-to-Latest 语义）
+- **SessionQueuePair** 是每 session 私有的队列对（纯数据结构，非 QObject），包含 captureQueue 和 processedQueue
+- **FrameBroadcaster** 从共享队列拉帧，通过 `QMetaObject::invokeMethod` 跨线程投递到各 ServerSession
+- 通过 `QueueManager::initialize(captureQueueSize)` 初始化（默认 `MAX_QUEUE_SIZE`）
 - Worker 直接从队列拉取数据（非信号槽），以获得更高性能
 
 ### 客户端架构
@@ -240,4 +269,5 @@ qCWarning(lcServer) << error.logLabel();      // 推荐
 - **文件传输协议**：FILE_TRANSFER_* 枚举 + FileTransferStatus + FileTransferRequest/Response/FileData（未实现）
 - **FileTransferManager**：整类删除（仅处理客户端拖放 UI，无服务端处理）
 - **性能叠加层**：ClientRemoteWindow::drawPerformanceInfo()（m_showPerformanceInfo 恒为 false）
+- **ServerManager / ServerWorker**：整类删除，服务端启动逻辑合并到 MainWindow，会话管理由 ServerSession 接管
 - **ConfigBinding<T> 模板类** + 7 个 CONFIG_* 便利宏（零引用死代码）

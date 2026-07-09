@@ -16,11 +16,8 @@
 #endif
 #endif
 
-// Protocol constants
-inline constexpr quint32 PROTOCOL_VERSION = 1;
-inline constexpr quint32 PROTOCOL_MAGIC = 0x52444350;  // "RDCP" in hex
-// Serialized header size: 5 × quint32 + 1 × quint64 = 28 bytes
-inline constexpr quint32 SERIALIZED_HEADER_SIZE = 5 * sizeof(quint32) + sizeof(quint64);
+// Protocol constants -- defined in ProtocolConstants.h
+#include "../config/ProtocolConstants.h"
 
 // 消息类型枚举
 enum class MessageType : quint32 {

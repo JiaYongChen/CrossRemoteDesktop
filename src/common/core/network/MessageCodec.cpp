@@ -1,6 +1,7 @@
 // MessageCodec.cpp — 消息结构体序列化/反序列化实现
 // 从 ProtocolImpl.cpp 分离，聚焦于 IMessageCodec encode/decode 方法
 #include "Protocol.h"
+#include "../config/ProtocolConstants.h"
 #include <QtCore/QDataStream>
 #include <QtCore/QIODevice>
 #include <QtCore/QtEndian>
@@ -15,18 +16,9 @@ static void writePrefixedString(QDataStream& ds, const QString& s) {
     }
 }
 
-// Per-field string length limits to prevent memory exhaustion from malicious input
-static constexpr quint32 MAX_USERNAME_LENGTH = 256;
-static constexpr quint32 MAX_PASSWORD_HASH_LENGTH = 512;
-static constexpr quint32 MAX_SESSION_ID_LENGTH = 512;
-static constexpr quint32 MAX_HOSTNAME_LENGTH = 1024;
-static constexpr quint32 MAX_FILENAME_LENGTH = 4096;
-static constexpr quint32 MAX_TEXT_LENGTH = 64 * 1024;
-static constexpr quint32 MAX_ERROR_MESSAGE_LENGTH = 4096;
-static constexpr quint32 MAX_GENERIC_STRING_LENGTH = 4096;
 
 // 辅助函数：读取长度前缀字符串
-static QString readPrefixedString(QDataStream& ds, quint32 maxLen = MAX_GENERIC_STRING_LENGTH) {
+static QString readPrefixedString(QDataStream& ds, quint32 maxLen = ProtocolConstants::MaxGenericStringLength) {
     quint32 len = 0;
     ds >> len;
     if (ds.status() != QDataStream::Ok || len > maxLen) return QString();
@@ -53,7 +45,7 @@ QByteArray MessageHeader::encode() const {
 }
 
 bool MessageHeader::decode(const QByteArray& data) {
-    if ( data.size() < static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) ) {
+    if ( data.size() < static_cast<qsizetype>(ProtocolConstants::SerializedHeaderSize) ) {
         return false;
     }
 
@@ -112,8 +104,8 @@ bool HandshakeRequest::decode(const QByteArray& bytes) {
     ds >> screenHeight;
     ds >> colorDepth;
     ds >> imageQuality;
-    clientName = readPrefixedString(ds, MAX_HOSTNAME_LENGTH);
-    clientOS = readPrefixedString(ds, MAX_HOSTNAME_LENGTH);
+    clientName = readPrefixedString(ds, ProtocolConstants::MaxHostnameLength);
+    clientOS = readPrefixedString(ds, ProtocolConstants::MaxHostnameLength);
     return ds.status() == QDataStream::Ok;
 }
 
@@ -140,8 +132,8 @@ bool HandshakeResponse::decode(const QByteArray& bytes) {
     ds >> screenHeight;
     ds >> colorDepth;
     ds >> supportedFeatures;
-    serverName = readPrefixedString(ds, MAX_HOSTNAME_LENGTH);
-    serverOS = readPrefixedString(ds, MAX_HOSTNAME_LENGTH);
+    serverName = readPrefixedString(ds, ProtocolConstants::MaxHostnameLength);
+    serverOS = readPrefixedString(ds, ProtocolConstants::MaxHostnameLength);
     return ds.status() == QDataStream::Ok;
 }
 
@@ -159,8 +151,8 @@ QByteArray AuthenticationRequest::encode() const {
 bool AuthenticationRequest::decode(const QByteArray& bytes) {
     QDataStream ds(bytes);
     ds.setByteOrder(QDataStream::LittleEndian);
-    username = readPrefixedString(ds, MAX_USERNAME_LENGTH);
-    passwordHash = readPrefixedString(ds, MAX_PASSWORD_HASH_LENGTH);
+    username = readPrefixedString(ds, ProtocolConstants::MaxUsernameLength);
+    passwordHash = readPrefixedString(ds, ProtocolConstants::MaxPasswordHashLength);
     quint32 method = 0;
     ds >> method;
     if ( ds.status() != QDataStream::Ok ) return false;
@@ -184,7 +176,7 @@ bool AuthenticationResponse::decode(const QByteArray& bytes) {
     ds.setByteOrder(QDataStream::LittleEndian);
     quint8 res8 = 0;
     ds >> res8;
-    sessionId = readPrefixedString(ds, MAX_SESSION_ID_LENGTH);
+    sessionId = readPrefixedString(ds, ProtocolConstants::MaxSessionIdLength);
     quint32 perms = 0;
     ds >> perms;
     if ( ds.status() != QDataStream::Ok ) return false;
@@ -234,7 +226,7 @@ bool KeyboardEvent::decode(const QByteArray& bytes) {
     ds.setByteOrder(QDataStream::LittleEndian);
     quint8 type8 = 0; quint32 key = 0, mods = 0;
     ds >> type8; ds >> key; ds >> mods;
-    text = readPrefixedString(ds, MAX_TEXT_LENGTH);
+    text = readPrefixedString(ds, ProtocolConstants::MaxTextLength);
     if ( ds.status() != QDataStream::Ok ) return false;
     eventType = static_cast<KeyboardEventType>(type8);
     keyCode = key; modifiers = mods;
@@ -389,7 +381,7 @@ bool AuthChallenge::decode(const QByteArray& bytes) {
     ds >> method;
     ds >> iterations;
     ds >> keyLength;
-    saltHex = readPrefixedString(ds, MAX_PASSWORD_HASH_LENGTH);
+    saltHex = readPrefixedString(ds, ProtocolConstants::MaxPasswordHashLength);
     return ds.status() == QDataStream::Ok;
 }
 

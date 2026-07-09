@@ -2,6 +2,7 @@
 #include <QtCore/QDateTime>
 #include "../logging/LoggingCategories.h"
 #include "../config/NetworkConstants.h"
+#include "../config/ProtocolConstants.h"
 
 // Protocol 类的静态函数实现（TLS负责传输层加密，协议层不再加密）
 QByteArray Protocol::createMessage(MessageType type, const IMessageCodec& message) {
@@ -10,8 +11,8 @@ QByteArray Protocol::createMessage(MessageType type, const IMessageCodec& messag
 
     // 步骤2：构建消息头
     MessageHeader header;
-    header.magic = PROTOCOL_MAGIC;
-    header.version = PROTOCOL_VERSION;
+    header.magic = ProtocolConstants::ProtocolMagic;
+    header.version = ProtocolConstants::ProtocolVersion;
     header.type = type;
     header.length = static_cast<quint32>(payload.size());
     header.timestamp = QDateTime::currentMSecsSinceEpoch();
@@ -30,40 +31,40 @@ qsizetype Protocol::parseMessage(const QByteArray& data, MessageHeader& header, 
     }
 
     // 步骤2：获取消息载荷（明文，由TLS保护）
-    payload = data.mid(static_cast<qsizetype>(SERIALIZED_HEADER_SIZE), static_cast<qsizetype>(header.length));
+    payload = data.mid(static_cast<qsizetype>(ProtocolConstants::SerializedHeaderSize), static_cast<qsizetype>(header.length));
 
     return validationResult;
 }
 
 qsizetype Protocol::validateReceivedDataIntegrity(const QByteArray& data, MessageHeader& header) {
     // 步骤1：检查数据是否足够包含消息头
-    if ( data.size() < static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) ) {
+    if ( data.size() < static_cast<qsizetype>(ProtocolConstants::SerializedHeaderSize) ) {
         return -1;
     }
 
     // 步骤2：反序列化消息头（明文，由TLS保护）
-    QByteArray headerData = data.left(static_cast<qsizetype>(SERIALIZED_HEADER_SIZE));
+    QByteArray headerData = data.left(static_cast<qsizetype>(ProtocolConstants::SerializedHeaderSize));
     if ( !header.decode(headerData) ) {
         qCWarning(lcCoreProtocol) << "Protocol::validateReceivedDataIntegrity() - Failed to parse message header";
         return 0;
     }
 
     // 步骤3：验证魔数
-    if ( header.magic != PROTOCOL_MAGIC ) {
+    if ( header.magic != ProtocolConstants::ProtocolMagic ) {
         qCWarning(lcCoreProtocol) << "Protocol::validateReceivedDataIntegrity() - Invalid magic number:" << Qt::hex << header.magic
-            << "expected:" << Qt::hex << PROTOCOL_MAGIC;
+            << "expected:" << Qt::hex << ProtocolConstants::ProtocolMagic;
         return 0;
     }
 
     // 步骤4：验证协议版本
-    if ( header.version != PROTOCOL_VERSION ) {
+    if ( header.version != ProtocolConstants::ProtocolVersion ) {
         qCWarning(lcCoreProtocol) << "Protocol::validateReceivedDataIntegrity() - Unsupported protocol version:" << header.version
-            << "expected:" << PROTOCOL_VERSION;
+            << "expected:" << ProtocolConstants::ProtocolVersion;
         return 0;
     }
 
     // 步骤5：检查payload长度是否合理（防止恶意超大消息）
-    const quint32 MAX_PAYLOAD_SIZE = NetworkConstants::MaxPacketSize - SERIALIZED_HEADER_SIZE;
+    const quint32 MAX_PAYLOAD_SIZE = NetworkConstants::MaxPacketSize - ProtocolConstants::SerializedHeaderSize;
     if ( header.length > MAX_PAYLOAD_SIZE ) {
         qCWarning(lcCoreProtocol) << "Protocol::validateReceivedDataIntegrity() - Payload size too large:" << header.length
             << "max allowed:" << MAX_PAYLOAD_SIZE;
@@ -71,7 +72,7 @@ qsizetype Protocol::validateReceivedDataIntegrity(const QByteArray& data, Messag
     }
 
     // 步骤6：计算完整消息需要的总长度
-    qsizetype totalMessageSize = static_cast<qsizetype>(SERIALIZED_HEADER_SIZE) + static_cast<qsizetype>(header.length);
+    qsizetype totalMessageSize = static_cast<qsizetype>(ProtocolConstants::SerializedHeaderSize) + static_cast<qsizetype>(header.length);
 
     // 步骤7：检查当前接收的数据是否包含完整消息
     if ( data.size() < totalMessageSize ) {
@@ -79,7 +80,7 @@ qsizetype Protocol::validateReceivedDataIntegrity(const QByteArray& data, Messag
     }
 
     // 步骤8：验证校验和
-    QByteArray payload = data.mid(static_cast<qsizetype>(SERIALIZED_HEADER_SIZE), static_cast<qsizetype>(header.length));
+    QByteArray payload = data.mid(static_cast<qsizetype>(ProtocolConstants::SerializedHeaderSize), static_cast<qsizetype>(header.length));
     quint32 calculatedChecksum = calculateChecksum(payload);
     if ( calculatedChecksum != header.checksum ) {
         qCWarning(lcCoreProtocol)

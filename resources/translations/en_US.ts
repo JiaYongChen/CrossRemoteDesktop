@@ -296,18 +296,6 @@
         <translation>Cross Remote Desktop</translation>
     </message>
     <message>
-        <source>新建连接</source>
-        <translation type="vanished">New Connection</translation>
-    </message>
-    <message>
-        <source>连接</source>
-        <translation type="vanished">Connect</translation>
-    </message>
-    <message>
-        <source>设置</source>
-        <translation type="vanished">Settings</translation>
-    </message>
-    <message>
         <location filename="../../src/common/windows/MainWindow.cpp" line="359"/>
         <location filename="../../src/common/windows/MainWindowLayout.cpp" line="24"/>
         <location filename="../../src/common/windows/MainWindowLayout.cpp" line="25"/>
@@ -321,7 +309,7 @@
         <translation>&amp;Restore</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="795"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="808"/>
         <source>服务器已停止</source>
         <translation>Server stopped</translation>
     </message>
@@ -369,68 +357,64 @@
         <translation>&lt;p&gt;Cross Remote Desktop requires &lt;b&gt;accessibility permissions&lt;/b&gt; to simulate mouse and keyboard input.&lt;/p&gt;&lt;p&gt;Please follow these steps to grant permissions:&lt;/p&gt;&lt;ol&gt;&lt;li&gt;Open &lt;b&gt;System Preferences&lt;/b&gt;&lt;/li&gt;&lt;li&gt;Select &lt;b&gt;Security &amp; Privacy&lt;/b&gt;&lt;/li&gt;&lt;li&gt;Click the &lt;b&gt;Privacy&lt;/b&gt; tab&lt;/li&gt;&lt;li&gt;In the left list, select &lt;b&gt;Accessibility&lt;/b&gt;&lt;/li&gt;&lt;li&gt;Click the lock icon in the bottom left to unlock&lt;/li&gt;&lt;li&gt;Check &lt;b&gt;CrossRemoteDesktop&lt;/b&gt; in the right list&lt;/li&gt;&lt;/ol&gt;&lt;p&gt;After granting permissions, please restart the application.&lt;/p&gt;</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="497"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="502"/>
         <source>关于Qt远程桌面</source>
         <translation>About Cross Remote Desktop</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="503"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="508"/>
         <source>&lt;h2&gt;Qt远程桌面 1.0&lt;/h2&gt;&lt;p&gt;基于Qt 6.9.1构建的跨平台远程桌面应用程序。&lt;/p&gt;&lt;p&gt;支持macOS和Windows系统之间的远程连接。&lt;/p&gt;</source>
         <translation>&lt;h2&gt;Cross Remote Desktop 1.0&lt;/h2&gt;&lt;p&gt;A cross-platform remote desktop application built with Qt 6.9.1.&lt;/p&gt;&lt;p&gt;Supports remote connections between macOS and Windows systems.&lt;/p&gt;</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="578"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="583"/>
         <source>CPU: --% | 内存: %1 MB</source>
         <translation>CPU: --% | Memory: %1 MB</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="611"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="616"/>
         <source>CPU: %1% | 内存: %2 MB</source>
         <translation>CPU: %1% | Memory: %2 MB</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="630"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="635"/>
         <source>CPU: %1%</source>
         <translation>CPU: %1%</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="644"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="649"/>
         <source>内存: %1 MB</source>
         <translation>Memory: %1 MB</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="789"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="802"/>
         <source>服务器启动成功，端口: %1</source>
         <translation>Server started successfully, port: %1</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="800"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="813"/>
         <source>服务器启动失败</source>
         <translation>Server failed to start</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="801"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="814"/>
         <source>服务器错误</source>
         <translation>Server Error</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="806"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="819"/>
         <source>客户端已连接: %1</source>
         <translation>Client connected: %1</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="811"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="824"/>
         <source>客户端已断开: %1</source>
         <translation>Client disconnected: %1</translation>
     </message>
     <message>
-        <location filename="../../src/common/windows/MainWindow.cpp" line="816"/>
+        <location filename="../../src/common/windows/MainWindow.cpp" line="829"/>
         <source>客户端已认证: %1</source>
         <translation>Client authenticated: %1</translation>
-    </message>
-    <message>
-        <source>Qt远程桌面 - 客户端模式</source>
-        <translation type="vanished">Cross Remote Desktop - Client Mode</translation>
     </message>
 </context>
 <context>
@@ -490,13 +474,6 @@
         <location filename="../../src/main.cpp" line="311"/>
         <source>发生未知错误，应用程序将退出。</source>
         <translation>An unknown error occurred, the application will exit.</translation>
-    </message>
-</context>
-<context>
-    <name>ServerWorker</name>
-    <message>
-        <source>服务器启动失败</source>
-        <translation type="vanished">Server failed to start</translation>
     </message>
 </context>
 <context>

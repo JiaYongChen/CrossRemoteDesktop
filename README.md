@@ -20,7 +20,7 @@
 
 - **架构特性**
     - 依赖注入（DI）：所有核心组件通过构造函数注入，无全局单例
-    - 生产者-消费者管线：`ScreenCaptureWorker → CaptureQueue → DataProcessingWorker → ProcessedQueue → ClientHandlerWorker`
+    - 会话化管线：`ScreenCapture → QueueManager → FrameBroadcaster → ServerSession（私有队列对） → DataProcessingWorker → ClientHandlerWorker`
     - 线程安全队列（`ThreadSafeQueue`）：纯队列通信，避免信号槽开销
     - 客户端三缓冲帧管理（`TripleBuffer`）：零拷贝帧共享
     - Worker 基类状态机：Stopped → Starting → Running ⇄ Paused → Stopping → Stopped
@@ -113,29 +113,34 @@ CrossRemoteDesktop/
 │   │       ├── ConnectionLifecycle.* # 连接状态机 + 断连管理
 │   │       └── CursorManager.*       # 光标显示管理
 │   ├── server/                       # 服务器模块
-│   │   ├── ServerManager.*           # 服务器总管理器
+│   │   ├── listener/
+│   │   │   └── TcpListener.*          # TCP 监听器 Worker
 │   │   ├── capture/
-│   │   │   ├── ScreenCapture.*       # 屏幕捕获管理
-│   │   │   ├── ScreenCaptureWorker.* # 捕获工作线程
-│   │   │   ├── DxgiCapture.*         # DXGI 桌面复制（Windows）
-│   │   │   └── CaptureConfig.h       # 捕获配置
+│   │   │   ├── CapturePipeline.*      # 捕获管线（ScreenCapture + FrameBroadcaster）
+│   │   │   ├── ScreenCapture.*        # 屏幕捕获管理
+│   │   │   ├── ScreenCaptureWorker.*  # 捕获工作线程
+│   │   │   ├── FrameBroadcaster.*     # 帧广播器（订阅/广播模型）
+│   │   │   ├── DxgiCapture.*          # DXGI 桌面复制（Windows）
+│   │   │   └── CaptureConfig.h        # 捕获配置
+│   │   ├── session/
+│   │   │   ├── ServerSession.*        # 每客户端独立会话 Worker
+│   │   │   └── SessionQueuePair.h     # 每会话私有队列对
 │   │   ├── clienthandler/
-│   │   │   ├── ClientHandlerWorker.* # 客户端处理 Worker
-│   │   │   └── AuthHandler.*         # 密码认证处理
+│   │   │   ├── ClientHandlerWorker.*  # 客户端处理 Worker
+│   │   │   └── AuthHandler.*          # 密码认证处理
 │   │   ├── dataflow/
-│   │   │   ├── QueueManager.*        # 队列管理器（DI 注入）
-│   │   │   └── DataFlowStructures.*  # 数据结构定义
+│   │   │   ├── QueueManager.*         # 共享队列管理器（DI 注入）
+│   │   │   └── DataFlowStructures.*   # 数据结构定义
 │   │   ├── dataprocessing/
-│   │   │   ├── DataProcessing.*      # JPEG 编码逻辑
+│   │   │   ├── DataProcessing.*       # JPEG 编码逻辑
 │   │   │   ├── DataProcessingWorker.* # 编码工作线程
 │   │   │   └── DataProcessingConfig.* # 编码配置
 │   │   ├── service/
-│   │   │   ├── ServerWorker.*        # 服务器工作线程
-│   │   │   └── TcpServer.*           # TCP 服务器
-│   │   └── simulator/                # 输入模拟（跨平台）
-│   │       ├── InputSimulator.*      # 输入模拟基类
-│   │       ├── KeyboardSimulator*.*  # 键盘模拟（3 平台）
-│   │       └── MouseSimulator*.*     # 鼠标模拟（3 平台）
+│   │   │   └── TcpServer.*            # QTcpServer 封装
+│   │   └── simulator/                 # 输入模拟（跨平台）
+│   │       ├── InputSimulator.*       # 输入模拟基类
+│   │       ├── KeyboardSimulator*.*   # 键盘模拟（3 平台）
+│   │       └── MouseSimulator*.*      # 鼠标模拟（3 平台）
 │   ├── common/                       # 公共模块
 │   │   ├── core/
 │   │   │   ├── threading/            # 线程管理
@@ -145,8 +150,8 @@ CrossRemoteDesktop/
 │   │   │   ├── logging/
 │   │   │   │   └── LoggingCategories.* # 日志分类（6 棵一级树）
 │   │   │   ├── config/
-│   │   │   │   ├── Config.*          # 配置管理器
-│   │   │   │   ├── Constants.*       # 常量定义
+│   │   │   │   ├── SettingsManager.*  # 配置管理器（基于 QSettings，含持久化）
+│   │   │   │   ├── Constants.*        # 常量定义
 │   │   │   │   ├── NetworkConstants.h # 网络常量
 │   │   │   │   ├── MessageConstants.h # UI 消息常量
 │   │   │   │   ├── UiConstants.h     # UI 尺寸常量
@@ -167,7 +172,8 @@ CrossRemoteDesktop/
 │   │   ├── clipboard/
 │   │   │   └── ClipboardManager.*    # 剪贴板管理（预置）
 │   │   ├── data/
-│   │   │   └── DataRecord.h          # 数据记录
+│   │   │   ├── ConnectionParams.h     # 连接参数定义
+│   │   │   └── DataRecord.h           # 数据记录
 │   │   └── windows/                  # 窗口实现
 │   │       ├── MainWindow.*          # 主窗口（DI 入口）
 │   │       ├── MainWindowLayout.*    # 主窗口布局管理
@@ -223,22 +229,30 @@ CrossRemoteDesktop/
 
 ### 核心架构说明
 
-**依赖注入链**（`MainWindow` 构造函数为入口）：
+**依赖注入链**（`MainWindow` 构造函数为入口，`startServer()` 延迟创建核心组件）：
 
 ```
 MainWindow → new ThreadManager(this)
           → new QueueManager(this)
-          → new ServerManager(this, m_threadManager, m_queueManager)
-                → new ScreenCapture(m_threadManager, m_queueManager, this)
-                → new ClientHandlerWorker(..., m_queueManager)
-                → DataProcessingWorker::setQueueManager(m_queueManager)
+          → [startServer()] new TcpListener（监听端口）
+          → [startServer()] new CapturePipeline
+                → new ScreenCapture（捕获管理）
+                → new FrameBroadcaster（帧广播）
+          → [onNewConnection] new ServerSession（每客户端独立会话）
+                → SessionQueuePair（私有队列对）
+                → DataProcessingWorker（JPEG 编码）
+                → ClientHandlerWorker（TCP 发送）
 ```
 
-**服务端数据管线**（生产者-消费者模式）：
+**服务端数据管线**（会话化广播模型）：
 
 ```
-ScreenCaptureWorker → CaptureQueue → DataProcessingWorker → ProcessedQueue → ClientHandlerWorker
-（屏幕捕获: DXGI/Qt）  (ThreadSafeQueue)   (JPEG 编码: nvJPEG/turbojpeg)  (ThreadSafeQueue)    (发送到客户端)
+ScreenCapture → QueueManager（共享捕获队列，Drain-to-Latest）
+  → FrameBroadcaster（拉帧 → 广播到所有订阅 ServerSession）
+    → SessionQueuePair.captureQueue（每 session 私有）
+      → DataProcessingWorker（JPEG 编码）
+        → SessionQueuePair.processedQueue
+          → ClientHandlerWorker（TCP 发送）
 ```
 
 **客户端解码管线**：
@@ -251,6 +265,7 @@ ConnectionManager (TCP) → ProtocolSession (RDCP) → DecodePipeline → GLText
 
 **关键特性**：
 - **依赖注入**：所有核心组件通过构造函数注入，无全局单例
+- **会话化架构**：每客户端独立 `ServerSession`，`FrameBroadcaster` 一次捕获多方广播，避免重复编码
 - **队列驱动**：所有数据传输通过 `ThreadSafeQueue`，避免信号槽开销
 - **三缓冲**：客户端使用 `TripleBuffer` 实现解码线程与渲染线程间的零拷贝帧共享
 - **GPU 加速**：nvJPEG 硬件解码 + CUDA 纹理（可选），运行时缺失自动降级为 CPU 解码

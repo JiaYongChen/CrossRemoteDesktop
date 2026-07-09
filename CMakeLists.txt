@@ -183,7 +183,7 @@ find_program(LUPDATE_EXECUTABLE lupdate
 
 if(LUPDATE_EXECUTABLE)
     add_custom_target(update_translations
-        COMMAND ${LUPDATE_EXECUTABLE} ${TRANSLATABLE_SOURCES} -ts ${TS_FILES}
+        COMMAND ${LUPDATE_EXECUTABLE} ${TRANSLATABLE_SOURCES} -ts ${TS_FILES} -no-obsolete
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
         COMMENT "Syncing translation files with source tr() calls..."
     )

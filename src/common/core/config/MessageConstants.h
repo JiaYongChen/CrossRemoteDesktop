@@ -26,10 +26,7 @@ namespace MessageConstants {
         const QString STATUS_ERROR = "连接错误";
         const QString SERVER_STATUS_TITLE = "服务器状态";
         const QString SERVER_ALREADY_RUNNING = "服务器已经在运行中。";
-        const QString ERROR_TITLE = "错误";
-        const QString SERVER_MANAGER_NOT_INITIALIZED = "服务器管理器未初始化。";
         const QString SERVER_NOT_RUNNING = "服务器未运行。";
-        const QString INPUT_ERROR_TITLE = "输入错误";
         const QString INVALID_HOST_ADDRESS = "请输入有效的主机地址";
         const QString INVALID_PORT_RANGE = "端口号必须在1-65535之间";
         const QString VALIDATION_ERROR_TITLE = "验证错误";
