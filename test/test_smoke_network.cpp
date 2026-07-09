@@ -26,10 +26,10 @@ private slots:
     void connMgr_defaultConfig() {
         ConnectionManager mgr;
         QVERIFY(!mgr.autoReconnect());
-        QCOMPARE(mgr.reconnectInterval(), 3000);   // DEFAULT_RECONNECT_INTERVAL
-        QCOMPARE(mgr.maxReconnectAttempts(), 5);     // DEFAULT_MAX_RECONNECT_ATTEMPTS
+        QCOMPARE(mgr.reconnectInterval(), 3000);   // NetworkConstants::DefaultReconnectInterval
+        QCOMPARE(mgr.maxReconnectAttempts(), 5);     // NetworkConstants::DefaultMaxReconnectAttempts
         QCOMPARE(mgr.currentReconnectAttempts(), 0);
-        QCOMPARE(mgr.connectionTimeout(), 15000);    // CONNECTION_TIMEOUT
+        QCOMPARE(mgr.connectionTimeout(), 15000);    // NetworkConstants::DefaultConnectionTimeout
     }
 
     void connMgr_setAutoReconnect() {

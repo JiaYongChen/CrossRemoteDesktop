@@ -23,6 +23,9 @@ class QOpenGLContext;
  *   - GUI 线程 (paintGL) 从 texture[displayIdx] 渲染
  *   - swapDisplay() 原子交换 displayIdx
  */
+static_assert(GuiConstants::PboCount == 2, "PboCount 变更需同步修改 GpuDecodeTarget 初始化器");
+static_assert(GuiConstants::TexCount == 2, "TexCount 变更需同步修改 GpuDecodeTarget 初始化器");
+
 class GpuDecodeTarget : public IDecodeTarget,
                          protected QOpenGLFunctions {
 public:

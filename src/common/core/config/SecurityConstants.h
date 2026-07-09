@@ -13,7 +13,8 @@ inline constexpr int IvSize             = 16;    // bytes
 inline constexpr int HashIterations     = 10000;
 inline constexpr int Pbkdf2Iterations   = 100000;
 inline constexpr int Pbkdf2KeyLength    = 32;    // bytes
-inline const QString DefaultCipherSuite = QStringLiteral("AES256-GCM-SHA384");
+/// Meyer's Singleton — 保证首次访问时初始化，消除 SIOF 风险
+inline QString DefaultCipherSuite() { return QStringLiteral("AES256-GCM-SHA384"); }
 inline constexpr const char* DefaultCryptoUsername = "CrossRemoteDesktop";
 
 // ---- 会话 ----

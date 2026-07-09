@@ -1,7 +1,5 @@
 #pragma once
 
-#include <QtCore/QThread>
-
 namespace ProcessingConstants {
 
 // ---- 线程与并发 ----
@@ -28,11 +26,5 @@ inline constexpr int GarbageCollectionIntervalMs = 30000;  // 30s
 inline constexpr double MaxProcessingLatencyMs  = 100.0;
 inline constexpr double MinProcessingRateFps    = 10.0;
 inline constexpr int DefaultProcessingTimeoutMs = 5000;
-
-/// 获取推荐的线程池大小（基于硬件并发数）
-inline int GetRecommendedThreadPoolSize() {
-    int coreCount = QThread::idealThreadCount();
-    return qMax(DefaultThreadPoolSize, coreCount);
-}
 
 } // namespace ProcessingConstants
