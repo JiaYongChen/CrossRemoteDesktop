@@ -148,8 +148,5 @@ private:
     // 连接超时
     int m_connectionTimeout;
 
-    static const int CONNECTION_TIMEOUT = NetworkConstants::DefaultConnectionTimeout;
-    static const int DEFAULT_RECONNECT_INTERVAL = NetworkConstants::DefaultReconnectInterval;
-    static const int DEFAULT_MAX_RECONNECT_ATTEMPTS = 5;
 };
 

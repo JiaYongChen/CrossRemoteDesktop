@@ -2,7 +2,6 @@
 #include "../../common/core/logging/LoggingCategories.h"
 #include <QtCore/QTimer>
 #include "TcpClient.h"
-#include "../common/core/config/MessageConstants.h"
 #include <QtNetwork/QPasswordDigestor>
 #include <QtCore/QCryptographicHash>
 
@@ -14,10 +13,10 @@ ConnectionManager::ConnectionManager(QObject* parent)
     , m_connectionTimer(new QTimer(this))
     , m_reconnectTimer(new QTimer(this))
     , m_autoReconnect(false)
-    , m_reconnectInterval(DEFAULT_RECONNECT_INTERVAL)
-    , m_maxReconnectAttempts(DEFAULT_MAX_RECONNECT_ATTEMPTS)
+    , m_reconnectInterval(NetworkConstants::DefaultReconnectInterval)
+    , m_maxReconnectAttempts(NetworkConstants::DefaultMaxReconnectAttempts)
     , m_currentReconnectAttempts(0)
-    , m_connectionTimeout(CONNECTION_TIMEOUT) {
+    , m_connectionTimeout(NetworkConstants::DefaultConnectionTimeout) {
     setupTcpClient();
 
     // 设置连接超时定时器
@@ -121,7 +120,7 @@ int ConnectionManager::currentPort() const {
 // 业务逻辑接口实现
 void ConnectionManager::authenticate(const QString& username, const QString& password) {
     if ( !isConnected() ) {
-        qCWarning(lcClient) << MessageConstants::Network::NOT_CONNECTED;
+        qCWarning(lcClient) << "Not connected to server";
         return;
     }
 
@@ -322,7 +321,7 @@ void ConnectionManager::handleHandshakeResponse(const QByteArray& data) {
     HandshakeResponse response;
     if ( response.decode(data) ) {
         qCDebug(lcClient)
-            << MessageConstants::Network::HANDSHAKE_RESPONSE_RECEIVED;
+            << "Received handshake response from server";
         qCDebug(lcClient)
             << "Server version:" << response.serverVersion;
         qCDebug(lcClient)
@@ -344,13 +343,13 @@ void ConnectionManager::handleAuthenticationResponse(const QByteArray& data) {
     AuthenticationResponse response;
     if ( response.decode(data) ) {
         qCDebug(lcClient)
-            << MessageConstants::Network::AUTH_RESPONSE_RECEIVED;
+            << "Received authentication response from server";
         qCDebug(lcClient)
             << "Auth result:" << static_cast<int>(response.result);
 
         if ( response.result == AuthResult::SUCCESS ) {
             qCInfo(lcClient)
-                << MessageConstants::Network::AUTH_SUCCESSFUL.arg(response.sessionId);
+                << "Authentication successful, session ID:" << response.sessionId;
 
             stopAutoReconnect();
             m_currentReconnectAttempts = 0;
@@ -413,7 +412,7 @@ void ConnectionManager::sendHandshakeRequest() {
     m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST, request);
 
     qCDebug(lcClient)
-        << MessageConstants::Network::HANDSHAKE_REQUEST_SENT;
+        << "Sent handshake request to server";
 }
 
 void ConnectionManager::sendAuthenticationRequest(const QString& username, const QString& password) {
@@ -426,7 +425,7 @@ void ConnectionManager::sendAuthenticationRequest(const QString& username, const
     m_tcpClient->sendMessage(MessageType::AUTHENTICATION_REQUEST, ar);
 
     qCDebug(lcClient)
-        << MessageConstants::Network::AUTH_REQUEST_SENT.arg(username);
+        << "Sent authentication request to server for user:" << username;
 }
 
 QString ConnectionManager::getClientOS() {

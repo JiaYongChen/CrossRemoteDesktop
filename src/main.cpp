@@ -17,8 +17,6 @@
 #endif
 
 #include "common/windows/MainWindow.h"
-#include "common/core/config/UiConstants.h"
-#include "common/core/config/Constants.h"
 #include "common/core/TranslationUtils.h"
 #include "common/core/config/SettingsManager.h"
 

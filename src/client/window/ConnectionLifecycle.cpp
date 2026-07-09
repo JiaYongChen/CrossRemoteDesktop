@@ -1,5 +1,4 @@
 #include "ConnectionLifecycle.h"
-#include "../../common/core/config/MessageConstants.h"
 #include "../../common/core/logging/LoggingCategories.h"
 #include <QtWidgets/QMessageBox>
 #include <QtCore/QTimer>
@@ -58,28 +57,28 @@ void ConnectionLifecycle::updateWindowTitle() {
     QString title;
     switch (m_connectionState) {
         case ConnectionManager::Connecting:
-            title = tr("%1 - %2").arg(m_hostName).arg(MessageConstants::UI::STATUS_CONNECTING);
+            title = tr("%1 - %2").arg(m_hostName, tr("正在连接..."));
             break;
         case ConnectionManager::Connected:
-            title = tr("%1 - %2").arg(m_hostName).arg(MessageConstants::UI::STATUS_CONNECTED);
+            title = tr("%1 - %2").arg(m_hostName, tr("已连接"));
             break;
         case ConnectionManager::Authenticating:
-            title = tr("%1 - %2").arg(m_hostName).arg(MessageConstants::UI::STATUS_AUTHENTICATING);
+            title = tr("%1 - %2").arg(m_hostName, tr("正在认证..."));
             break;
         case ConnectionManager::Authenticated:
-            title = tr("%1 - %2").arg(m_hostName).arg(MessageConstants::UI::STATUS_AUTHENTICATED);
+            title = tr("%1 - %2").arg(m_hostName, tr("已认证"));
             break;
         case ConnectionManager::Disconnecting:
-            title = tr("%1 - %2").arg(m_hostName).arg(MessageConstants::UI::STATUS_DISCONNECTING);
+            title = tr("%1 - %2").arg(m_hostName, tr("正在断开连接..."));
             break;
         case ConnectionManager::Disconnected:
-            title = tr("%1 - %2").arg(m_hostName).arg(MessageConstants::UI::STATUS_DISCONNECTED);
+            title = tr("%1 - %2").arg(m_hostName, tr("未连接"));
             break;
         case ConnectionManager::Reconnecting:
-            title = tr("%1 - %2").arg(m_hostName).arg(MessageConstants::UI::STATUS_RECONNECTING);
+            title = tr("%1 - %2").arg(m_hostName, tr("正在重连..."));
             break;
         case ConnectionManager::Error:
-            title = tr("%1 - %2").arg(m_hostName).arg(MessageConstants::UI::STATUS_ERROR);
+            title = tr("%1 - %2").arg(m_hostName, tr("连接错误"));
             break;
         default:
             title = m_hostName;

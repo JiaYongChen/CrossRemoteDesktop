@@ -1,7 +1,7 @@
 #include "ConnectionDialog.h"
 #include "ui_ConnectionDialog.h"
-#include "../core/config/MessageConstants.h"
-#include "../core/config/UiConstants.h"
+#include "../core/config/GuiConstants.h"
+#include "../core/config/NetworkConstants.h"
 #include "common/core/theme/IconThemeProvider.h"
 #include "common/core/theme/TitleBarTheme.h"
 
@@ -12,7 +12,7 @@
 ConnectionDialog::ConnectionDialog(QWidget* parent)
 	: QDialog(parent)
 	, ui(new Ui::ConnectionDialog)
-	, m_defaultPort(UIConstants::DEFAULT_SERVER_PORT)
+	, m_defaultPort(NetworkConstants::DefaultServerPort)
 {
 	ui->setupUi(this);
 	m_togglePasswordAction = ui->passwordLineEdit->addAction(
@@ -67,7 +67,7 @@ bool ConnectionDialog::validateConnectionInfo(QString& errorMessage) const
 {
 	const QString input = ui->hostLineEdit->text().trimmed();
 	if (input.isEmpty()) {
-		errorMessage = MessageConstants::UI::INVALID_HOST_ADDRESS;
+		errorMessage = tr("请输入有效的主机地址");
 		return false;
 	}
 	if (input.contains(' ')) {
@@ -78,7 +78,7 @@ bool ConnectionDialog::validateConnectionInfo(QString& errorMessage) const
 	int port;
 	parseHostPort(input, m_defaultPort, host, port);
 	if (port < 1 || port > 65535) {
-		errorMessage = MessageConstants::UI::INVALID_PORT_RANGE;
+		errorMessage = tr("端口号必须在1-65535之间");
 		return false;
 	}
 	return true;
@@ -117,7 +117,7 @@ void ConnectionDialog::accept()
 {
 	QString errorMessage;
 	if (!validateConnectionInfo(errorMessage)) {
-		QMessageBox::warning(this, MessageConstants::UI::VALIDATION_ERROR_TITLE, errorMessage);
+		QMessageBox::warning(this, tr("验证错误"), errorMessage);
 		return;
 	}
 	QDialog::accept();

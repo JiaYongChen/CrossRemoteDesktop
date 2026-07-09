@@ -2,7 +2,6 @@
 #include <QtNetwork/QSslSocket>
 #include <QtNetwork/QSslConfiguration>
 #include <QtCore/QTimer>
-#include "../common/core/config/MessageConstants.h"
 #include <QtNetwork/QHostAddress>
 #include "../common/core/logging/LoggingCategories.h"
 #include <QtCore/QDataStream>
@@ -69,7 +68,7 @@ TcpClient::~TcpClient() {
 
 void TcpClient::connectToHost(const QString& hostName, quint16 port) {
     if ( m_socket->state() != QAbstractSocket::UnconnectedState ) {
-        qCDebug(lcClient) << MessageConstants::Network::ALREADY_CONNECTED;
+        qCDebug(lcClient) << "Already connected or connecting";
         return;
     }
 
@@ -130,7 +129,7 @@ quint16 TcpClient::serverPort() const {
 
 void TcpClient::sendMessage(MessageType type, const IMessageCodec& message) {
     if ( !isConnected() ) {
-        qCWarning(lcClient) << MessageConstants::Network::NOT_CONNECTED;
+        qCWarning(lcClient) << "Not connected to server";
         return;
     }
 

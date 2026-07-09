@@ -2,7 +2,7 @@
 #include "ui_SettingsDialog.h"
 #include "common/core/TranslationUtils.h"
 #include "common/core/logging/LoggingCategories.h"
-#include "common/core/config/UiConstants.h"
+#include "common/core/config/NetworkConstants.h"
 #include "common/core/crypto/PasswordCrypto.h"
 #include "common/core/theme/IconThemeProvider.h"
 #include "common/core/theme/TitleBarTheme.h"
@@ -124,7 +124,7 @@ void SettingsDialog::loadSettings()
 	ui->closeToTrayCheckBox->setChecked(closeToTray);
 
 	// 通信
-	const int listenPort = m_settings->getInt("Server/listenPort", UIConstants::DEFAULT_SERVER_PORT);
+	const int listenPort = m_settings->getInt("Server/listenPort", NetworkConstants::DefaultServerPort);
 	ui->listenPortSpinBox->setValue(listenPort);
 
 	const QString username = m_settings->getString("Server/username");
@@ -251,8 +251,8 @@ void SettingsDialog::onRestoreDefaultsClicked()
 	ui->closeToTrayCheckBox->setChecked(false);
 	onCloseToTrayChanged(false);
 
-	ui->listenPortSpinBox->setValue(UIConstants::DEFAULT_SERVER_PORT);
-	onListenPortChanged(UIConstants::DEFAULT_SERVER_PORT);
+	ui->listenPortSpinBox->setValue(NetworkConstants::DefaultServerPort);
+	onListenPortChanged(NetworkConstants::DefaultServerPort);
 
 	ui->usernameEdit->clear();
 	ui->passwordEdit->clear();

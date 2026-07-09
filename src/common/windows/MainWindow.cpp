@@ -15,9 +15,9 @@
 
 #include <memory>
 
-#include "../core/config/UiConstants.h"
+#include "../core/config/NetworkConstants.h"
 #include "../core/config/SettingsManager.h"
-#include "../core/config/MessageConstants.h"
+#include "../core/config/ProcessingConstants.h"
 #include "../core/logging/LoggingCategories.h"
 #include "../core/theme/IconThemeProvider.h"
 #include "../core/theme/TitleBarTheme.h"
@@ -389,8 +389,8 @@ void MainWindow::newConnection() {
 void MainWindow::startServer() {
     // 检查是否已在监听
     if (m_tcpListener && m_tcpListener->isListening()) {
-        QMessageBox::information(this, MessageConstants::UI::SERVER_STATUS_TITLE,
-                                 MessageConstants::UI::SERVER_ALREADY_RUNNING);
+        QMessageBox::information(this, tr("服务器状态"),
+                                 tr("服务器已经在运行中。"));
         return;
     }
 
@@ -416,7 +416,7 @@ void MainWindow::startServer() {
 #endif
 
     // 从 SettingsManager 读取监听端口，与 SettingsDialog 通信页保持一致
-    int port = m_settings->getInt("Server/listenPort", UIConstants::DEFAULT_SERVER_PORT);
+    int port = m_settings->getInt("Server/listenPort", NetworkConstants::DefaultServerPort);
 
     // 1. 创建并启动 TcpListener 线程
     if (!m_threadManager->hasThread("TcpListener")) {
@@ -471,8 +471,8 @@ void MainWindow::startServer() {
 void MainWindow::stopServer() {
     if (!m_threadManager->hasThread("TcpListener") ||
         !m_threadManager->isThreadRunning("TcpListener")) {
-        QMessageBox::information(this, MessageConstants::UI::SERVER_STATUS_TITLE,
-                                 MessageConstants::UI::SERVER_NOT_RUNNING);
+        QMessageBox::information(this, tr("服务器状态"),
+                                 tr("服务器未运行。"));
         return;
     }
 
@@ -716,11 +716,11 @@ void MainWindow::showConnectionDialog() {
     }
 
     // 预填默认端口（优先服务端运行端口，否则从 SettingsManager 读取）
-    int defaultPort = UIConstants::DEFAULT_SERVER_PORT;
+    int defaultPort = NetworkConstants::DefaultServerPort;
     if (m_tcpListener && m_tcpListener->isListening()) {
         defaultPort = static_cast<int>(m_tcpListener->port());
     } else {
-        defaultPort = m_settings->getInt("Server/listenPort", UIConstants::DEFAULT_SERVER_PORT);
+        defaultPort = m_settings->getInt("Server/listenPort", NetworkConstants::DefaultServerPort);
     }
     m_connectionDialog->setDefaultPort(defaultPort);
 
