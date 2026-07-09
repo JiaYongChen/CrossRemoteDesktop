@@ -68,6 +68,28 @@ bool GpuDecodeTarget::ensureWorkerContext() {
     if (m_workerContext) return true;
     if (!m_shareContext) return false;
 
+    // ── Windows wglShareLists 修复 ──
+    // wglShareLists 要求两个上下文都不能在任何线程上为 current。
+    // m_shareContext 是 GUI 线程的主渲染上下文，初始化后可能被 Qt 保持
+    // 为 current。若不解绑，worker context 的 create() 内部 wglShareLists
+    // 会因 ERROR_BUSY 失败，导致 worker context 与主上下文不共享——
+    // GL 纹理、fence 等对象在主渲染线程中不可见，画面渲染为黑色。
+    //
+    // 服务端重构加快了认证→解码管线启动速度，使 ensureWorkerContext()
+    // 更早执行，恰恰落入主上下文仍为 current 的时间窗口。重构前因服务端
+    // 启动较慢反而避开了此竞态。
+    //
+    // 修复：在创建 worker context 之前，通过阻塞式跨线程调用释放主上下文。
+    if (m_shareContext->thread() != QThread::currentThread()) {
+        QMetaObject::invokeMethod(m_shareContext, [ctx = m_shareContext]() {
+            if (QOpenGLContext::currentContext() == ctx) {
+                ctx->doneCurrent();
+            }
+        }, Qt::BlockingQueuedConnection);
+    } else if (QOpenGLContext::currentContext() == m_shareContext) {
+        m_shareContext->doneCurrent();
+    }
+
     m_workerContext = new QOpenGLContext();
     m_workerContext->setShareContext(m_shareContext);
     m_workerContext->setFormat(m_shareContext->format());
