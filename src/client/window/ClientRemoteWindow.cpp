@@ -2,7 +2,6 @@
 #include "InputForwarder.h"
 #include "ConnectionLifecycle.h"
 #include "../session/ProtocolSession.h"
-#include "../../common/core/config/GuiConstants.h"
 #include "CursorManager.h"
 #include "../../common/clipboard/ClipboardManager.h"
 

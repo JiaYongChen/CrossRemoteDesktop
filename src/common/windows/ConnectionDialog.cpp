@@ -1,6 +1,5 @@
 #include "ConnectionDialog.h"
 #include "ui_ConnectionDialog.h"
-#include "../core/config/GuiConstants.h"
 #include "../core/config/NetworkConstants.h"
 #include "common/core/theme/IconThemeProvider.h"
 #include "common/core/theme/TitleBarTheme.h"

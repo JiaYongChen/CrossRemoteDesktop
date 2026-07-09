@@ -199,7 +199,7 @@ ConnectionManager (TCP) → SessionManager (状态管理) → ClientRemoteWindow
 | `SecurityConstants.h` | `SecurityConstants` | 加密参数、认证限制、会话超时 |
 | `GuiConstants.h` | `GuiConstants` | 窗口尺寸、OpenGL渲染、帧丢弃策略 |
 
-**常量规范**：统一 `namespace` + `inline constexpr`，`PascalCase` 命名。2 个及以上文件引用的常量必须放入公共文件。禁止将字符串常量放入 Constants 文件。
+**常量规范**：统一 `namespace` + `inline constexpr`，`PascalCase` 命名。2 个及以上文件引用的常量必须放入公共文件。禁止将 UI 文本/日志消息等面向用户的字符串常量放入 Constants 文件（应使用 `tr()` 内联或流式日志字面量）。例外：加密套件名称、默认用户名等非用户可见的配置字符串常量允许放在 SecurityConstants 中。
 
 ## Git 提交规范
 
