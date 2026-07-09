@@ -2,6 +2,7 @@
 
 #include <QtCore/QString>
 #include <QtCore/QByteArray>
+#include "../config/SecurityConstants.h"
 
 /**
  * @brief 密码加解密工具类
@@ -17,8 +18,4 @@ public:
 private:
     static QByteArray deriveKey(const QString& username);
     static QByteArray generateIV();
-
-    static constexpr int AES_KEY_SIZE = 32;
-    static constexpr int IV_SIZE = 16;
-    static constexpr const char* DEFAULT_USERNAME = "CrossRemoteDesktop";
 };

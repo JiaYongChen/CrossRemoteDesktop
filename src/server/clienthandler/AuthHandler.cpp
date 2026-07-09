@@ -23,8 +23,8 @@ bool AuthHandler::isRateLimited() const {
     if (m_failedAuthCount <= 0 || !m_lastFailedAuthTime.isValid()) return false;
 
     int requiredDelayMs = std::min(
-        AUTH_BASE_DELAY_MS * (1 << (m_failedAuthCount - 1)),
-        AUTH_MAX_DELAY_MS);
+        SecurityConstants::AuthBaseDelayMs * (1 << (m_failedAuthCount - 1)),
+        SecurityConstants::AuthMaxDelayMs);
     qint64 elapsedMs = m_lastFailedAuthTime.msecsTo(QDateTime::currentDateTime());
     return elapsedMs < requiredDelayMs;
 }
@@ -55,9 +55,9 @@ int AuthHandler::authenticate(const QString& username, const QString& passwordHa
 
     m_failedAuthCount++;
     m_lastFailedAuthTime = QDateTime::currentDateTime();
-    qCWarning(lcServerClientHandler) << "客户端认证失败 (失败次数:" << m_failedAuthCount << "/" << MAX_AUTH_FAILURES << ")";
+    qCWarning(lcServerClientHandler) << "客户端认证失败 (失败次数:" << m_failedAuthCount << "/" << SecurityConstants::MaxAuthFailures << ")";
 
-    if (m_failedAuthCount >= MAX_AUTH_FAILURES) {
+    if (m_failedAuthCount >= SecurityConstants::MaxAuthFailures) {
         return 3; // ACCESS_DENIED → 断开连接
     }
 

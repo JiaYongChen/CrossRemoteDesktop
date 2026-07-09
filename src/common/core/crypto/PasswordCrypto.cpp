@@ -23,7 +23,7 @@ const QByteArray& saltBytes() {
 QByteArray PasswordCrypto::deriveKey(const QString& username)
 {
     const QByteArray input = (username.isEmpty()
-                              ? QByteArray(DEFAULT_USERNAME)
+                              ? QByteArray(SecurityConstants::DefaultCryptoUsername)
                               : username.toUtf8()) + saltBytes();
 
     QByteArray hash(SHA256_DIGEST_LENGTH, '\0');
@@ -35,8 +35,8 @@ QByteArray PasswordCrypto::deriveKey(const QString& username)
 
 QByteArray PasswordCrypto::generateIV()
 {
-    QByteArray iv(IV_SIZE, '\0');
-    if (RAND_bytes(reinterpret_cast<unsigned char*>(iv.data()), IV_SIZE) != 1) {
+    QByteArray iv(SecurityConstants::IvSize, '\0');
+    if (RAND_bytes(reinterpret_cast<unsigned char*>(iv.data()), SecurityConstants::IvSize) != 1) {
         return {};
     }
     return iv;
@@ -98,12 +98,12 @@ QString PasswordCrypto::decrypt(const QString& username, const QString& cipherTe
     const QByteArray key = deriveKey(username);
     const QByteArray combined = QByteArray::fromBase64(cipherText.toLatin1());
 
-    if (combined.size() <= IV_SIZE) {
+    if (combined.size() <= SecurityConstants::IvSize) {
         return {};
     }
 
-    const QByteArray iv = combined.left(IV_SIZE);
-    const QByteArray encrypted = combined.mid(IV_SIZE);
+    const QByteArray iv = combined.left(SecurityConstants::IvSize);
+    const QByteArray encrypted = combined.mid(SecurityConstants::IvSize);
 
     EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
     if (!ctx) {

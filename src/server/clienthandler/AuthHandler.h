@@ -4,6 +4,7 @@
 #include <QtCore/QString>
 #include <QtCore/QDateTime>
 #include <QtCore/QMutex>
+#include "../../common/core/config/SecurityConstants.h"
 
 /// 认证处理器 — 从 ClientHandlerWorker 分离出的认证逻辑
 ///
@@ -59,8 +60,4 @@ private:
 
     int m_failedAuthCount = 0;
     QDateTime m_lastFailedAuthTime;
-
-    static constexpr int MAX_AUTH_FAILURES = 5;
-    static constexpr int AUTH_BASE_DELAY_MS = 1000;
-    static constexpr int AUTH_MAX_DELAY_MS = 30000;
 };

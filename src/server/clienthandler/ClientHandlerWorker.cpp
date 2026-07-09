@@ -19,6 +19,8 @@
 #include "../../common/core/network/Protocol.h"
 #include "../../common/core/config/NetworkConstants.h"
 #include "../../common/core/config/ProtocolConstants.h"
+#include "../../common/core/config/ProcessingConstants.h"
+#include "../../common/core/config/SecurityConstants.h"
 #include "../../common/core/logging/LoggingCategories.h"
 #include <QtNetwork/QSslSocket>
 #include <QtNetwork/QSslConfiguration>
@@ -267,12 +269,11 @@ void ClientHandlerWorker::sendScreenDataFromQueue() {
         return;
     }
 
-    // Batch send: dequeue and send up to MAX_SEND_BATCH frames per invocation.
+    // Batch send: dequeue and send up to ProcessingConstants::MaxSendBatch frames per invocation.
     // 批量为 6：小队列（容量 2）下多数触发时为 1-2 帧，批量开销可忽略。
-    static constexpr int MAX_SEND_BATCH = 6;
     int sent = 0;
 
-    while ( sent < MAX_SEND_BATCH ) {
+    while ( sent < ProcessingConstants::MaxSendBatch ) {
         // Re-check connection before each send in the batch
         if ( !m_socket || m_socket->state() != QAbstractSocket::ConnectedState ) {
             break;
@@ -721,11 +722,9 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
 
     // result == 2 → INVALID_PASSWORD（含回退延迟）
     int failCount = m_authHandler->failedAuthCount();
-    constexpr int AUTH_BASE_DELAY_MS = 1000;
-    constexpr int AUTH_MAX_DELAY_MS = 30000;
     int delayMs = std::min(
-        AUTH_BASE_DELAY_MS * (1 << (failCount - 1)),
-        AUTH_MAX_DELAY_MS);
+        SecurityConstants::AuthBaseDelayMs * (1 << (failCount - 1)),
+        SecurityConstants::AuthMaxDelayMs);
     qCDebug(lcServerClientHandler) << "认证速率限制: 延迟" << delayMs << "ms 后发送响应";
     QTimer::singleShot(delayMs, this, [this]() {
         sendAuthenticationResponse(AuthResult::INVALID_PASSWORD);
