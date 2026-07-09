@@ -382,10 +382,11 @@ void GLTextureViewport::paintGL() {
                 Q_ASSERT(f);
                 // 诊断：测量 fence 等待耗时
                 const auto fenceStart = std::chrono::steady_clock::now();
-                // timeout=2ms: 给 GPU DMA 上传一个短暂的完成窗口，
-                // 避免零超时导致差几微秒的帧被直接丢弃。
+                // timeout=16ms: 冷 GPU 首次 DMA 传输可能超过 5ms（GTX 650 等老旧显卡）。
+                // 过短的超时导致连续 fence 超时 → 强制跳过 → 渲染未就绪纹理（黑屏）。
+                // 16ms = 一帧时长（60fps），给 GPU 充足完成窗口且不引入可见延迟。
                 const GLenum result = f->glClientWaitSync(
-                    slot->uploadFence, GL_SYNC_FLUSH_COMMANDS_BIT, 5000000 /* 5ms */);
+                    slot->uploadFence, GL_SYNC_FLUSH_COMMANDS_BIT, 16000000 /* 16ms */);
                 const auto fenceUs = std::chrono::duration_cast<std::chrono::microseconds>(
                     std::chrono::steady_clock::now() - fenceStart).count();
                 static int s_fenceDiagCount = 0;

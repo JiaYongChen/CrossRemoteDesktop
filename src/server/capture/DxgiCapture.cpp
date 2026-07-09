@@ -110,11 +110,18 @@ bool DxgiCapture::createD3DDevice() {
     D3D_FEATURE_LEVEL featureLevel{};
 
     UINT createFlags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
-#ifndef NDEBUG
-    // Enable D3D debug layer in debug builds (helps catch API misuse)
-    // Only if the SDK debug layer is installed
-    createFlags |= D3D11_CREATE_DEVICE_DEBUG;
-#endif
+
+    // ── D3D11_CREATE_DEVICE_DEBUG 修复 ──
+    // D3D11_CREATE_DEVICE_DEBUG 加载 debug layer DLL（D3D11SDKLayers.dll）。
+    // 首次加载需要 5-10 秒（尤其老旧 GPU 如 GTX 650 + NVIDIA 472.12）。
+    // 由于该标志仅用于开发期 API 校验（非功能必需），其代价远超收益：
+    // 首次连接 DXGI 初始化耗时 7+ 秒 → 用户看到黑屏 → 误判为故障 → 关闭窗口。
+    // 修复：仅在 API 调用失败时回退到不带 DEBUG 标志重试，而非默认启用。
+    // 开发者需要调试时可临时手动打开此标志。
+    //
+    // #ifndef NDEBUG
+    //     createFlags |= D3D11_CREATE_DEVICE_DEBUG;
+    // #endif
 
     HRESULT hr = D3D11CreateDevice(
         nullptr,                    // Default adapter
