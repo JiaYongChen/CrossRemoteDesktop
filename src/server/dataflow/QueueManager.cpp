@@ -177,10 +177,10 @@ void QueueManager::checkQueueHealth(QueueType type) {
     double usage = stats.getUsagePercentage();
 
     // 检查队列使用率警告
-    if ( usage > QUEUE_ERROR_THRESHOLD ) {
+    if ( usage > ProcessingConstants::QueueErrorThreshold ) {
         QString error = QString("队列 %1 使用率过高: %2%").arg(queueName).arg(usage, 0, 'f', 1);
         emit queueError(RdError(ErrorCode::QueueOverflow, error, "QueueManager"));
-    } else if ( usage > QUEUE_WARNING_THRESHOLD ) {
+    } else if ( usage > ProcessingConstants::QueueWarningThreshold ) {
         QString warning = QString("队列 %1 使用率较高: %2%").arg(queueName).arg(usage, 0, 'f', 1);
         emit queueWarning(type, warning);
     }

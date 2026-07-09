@@ -1,7 +1,8 @@
 #pragma once
 
 #include "../../common/core/threading/Worker.h"
-#include "../../common/core/config/Constants.h"
+#include "../../common/core/config/CaptureConstants.h"
+#include "../../common/core/config/ProcessingConstants.h"
 #include "../../common/core/threading/ThreadSafeQueue.h"
 #include "../dataflow/DataFlowStructures.h"
 #include "DataProcessing.h"
@@ -198,8 +199,8 @@ private:
      * @param scaleFactor 缩放因子 (0.1-1.0)
      * @return 处理后的数据
      */
-    static ProcessedData encodeImageParallel(const QImage& image, quint64 frameId, 
-                                             int quality = CoreConstants::Compression::DEFAULT_JPEG_QUALITY,
+    static ProcessedData encodeImageParallel(const QImage& image, quint64 frameId,
+                                             int quality = CaptureConstants::DefaultJpegQuality,
                                              double scaleFactor = 1.0);
 
     /**
@@ -242,7 +243,7 @@ private:
     // 配置参数
     int m_processingTimeout;                                            ///< 处理超时时间（毫秒）
     int m_statsUpdateInterval;                                          ///< 统计更新间隔（毫秒）
-    std::atomic<int> m_jpegQuality{CoreConstants::Compression::DEFAULT_JPEG_QUALITY};  ///< JPEG 编码质量（线程安全）
+    std::atomic<int> m_jpegQuality{CaptureConstants::DefaultJpegQuality};  ///< JPEG 编码质量（线程安全）
 
     // 并行处理
     int m_maxParallelTasks;                                             ///< 最大并行任务数
@@ -252,14 +253,7 @@ private:
     // 异步非阻塞编码（替代 waitForFinished 阻断）
     QFutureWatcher<ProcessedData>* m_asyncWatcher = nullptr;            ///< 异步编码观察器
     std::atomic<int> m_inFlightBatches{0};                              ///< 当前飞行中的批次数
-    static constexpr int kMaxInFlightBatches = 1;                       ///< 最多同时飞行 1 批
     std::shared_ptr<std::vector<CapturedFrame>> m_inFlightFrames;       ///< 飞行中批次的帧数据（智能指针管理生命周期）
-
-    // 性能监控阈值
-    static constexpr double MAX_PROCESSING_LATENCY = 100.0;             ///< 最大处理延迟阈值（毫秒）
-    static constexpr double MIN_PROCESSING_RATE = 10.0;                 ///< 最小处理速率阈值（帧/秒）
-
-    static constexpr int DEFAULT_PROCESSING_TIMEOUT = 5000;             ///< 默认处理超时时间（毫秒）
-    static constexpr int DEFAULT_STATS_INTERVAL = 1000;                 ///< 默认统计更新间隔（毫秒）
+    // 常量已迁移至 CaptureConstants.h / ProcessingConstants.h
 };
 

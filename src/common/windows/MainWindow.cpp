@@ -88,7 +88,7 @@ MainWindow::MainWindow(SettingsManager *settings, QWidget *parent)
     // 创建核心基础设施（DI 注入链的起点）
     m_threadManager = new ThreadManager(this);
     m_queueManager = new QueueManager(this);
-    m_queueManager->initialize(CoreConstants::Performance::MAX_QUEUE_SIZE);
+    m_queueManager->initialize(ProcessingConstants::MaxQueueSize);
 
     // TcpListener 和 CapturePipeline 在 startServer() 中延迟创建
     // （延迟创建，与旧 ServerManager::startServer() 模式一致）

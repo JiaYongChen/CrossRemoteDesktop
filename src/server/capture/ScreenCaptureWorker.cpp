@@ -1,6 +1,7 @@
 #include "ScreenCaptureWorker.h"
 #include "../../common/core/threading/ThreadSafeQueue.h"
-#include "../../common/core/config/Constants.h"
+#include "../../common/core/config/CaptureConstants.h"
+#include "../../common/core/config/ProcessingConstants.h"
 #include "../../common/core/logging/LoggingCategories.h"
 #include <QtGui/QGuiApplication>
 #include <QtGui/QScreen>
@@ -25,7 +26,7 @@ ScreenCaptureWorker::ScreenCaptureWorker(QueueManager* queueManager, QObject* pa
     qCDebug(lcServerCapture) << "ScreenCaptureWorker构造函数: 初始化基础配置";
 
     // 初始化配置
-    m_config.frameRate = CoreConstants::Capture::DEFAULT_FRAME_RATE;
+    m_config.frameRate = CaptureConstants::DefaultFrameRate;
     m_config.highDefinition = true;
     m_config.antiAliasing = true;
     m_config.maxQueueSize = 10; // 仅作为配置保留，不再用于实际队列
@@ -81,7 +82,7 @@ bool ScreenCaptureWorker::initialize() {
     // 在工作线程中创建并配置统计定时器
     if ( !m_statsTimer ) {
         m_statsTimer = new QTimer(this);
-        m_statsTimer->setInterval(STATS_UPDATE_INTERVAL);
+        m_statsTimer->setInterval(ProcessingConstants::StatsUpdateIntervalMs);
         m_statsTimer->setSingleShot(false);
         m_statsTimer->stop();
         disconnect(m_statsTimer, &QTimer::timeout, this, &ScreenCaptureWorker::updateStats);
@@ -295,9 +296,9 @@ void ScreenCaptureWorker::performCapture() {
             } else if ( !m_dxgiCapture->isInitialized() ) {
                 // DXGI access-lost — attempt reinit
                 qCWarning(lcServerCapture) << "DXGI access lost, attempting reinitialize"
-                    << "(attempt" << (m_dxgiReinitAttempts + 1) << "/" << MAX_DXGI_REINIT_ATTEMPTS << ")";
+                    << "(attempt" << (m_dxgiReinitAttempts + 1) << "/" << CaptureConstants::MaxDxgiReinitAttempts << ")";
                 ++m_dxgiReinitAttempts;
-                if ( m_dxgiReinitAttempts <= MAX_DXGI_REINIT_ATTEMPTS ) {
+                if ( m_dxgiReinitAttempts <= CaptureConstants::MaxDxgiReinitAttempts ) {
                     if ( m_dxgiCapture->reinitialize() ) {
                         m_dxgiReinitAttempts = 0;
                         qCInfo(lcServerCapture) << "DXGI reinitialized successfully";
@@ -365,7 +366,7 @@ void ScreenCaptureWorker::performCapture() {
             QMutexLocker locker(&m_statsMutex);
             m_stats.totalFramesCaptured++;
             m_frameTimestamps.push_back(QDateTime::currentMSecsSinceEpoch());
-            if ( m_frameTimestamps.size() > MAX_FRAME_TIMESTAMP_HISTORY ) {
+            if ( m_frameTimestamps.size() > CaptureConstants::MaxFrameTimestampHistory ) {
                 m_frameTimestamps.pop_front();
             }
         }
@@ -413,7 +414,7 @@ void ScreenCaptureWorker::sampleCursorPosition() {
     auto now = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
         now - m_lastCursorSampleTime);
-    if (elapsed.count() < CURSOR_SAMPLE_INTERVAL_MS) {
+    if (elapsed.count() < CaptureConstants::CursorSampleIntervalMs) {
         return;  // 未到采样间隔
     }
     m_lastCursorSampleTime = now;
@@ -492,7 +493,7 @@ void ScreenCaptureWorker::calculateFrameDelay() {
         QMutexLocker locker(&m_configMutex);
         fps = m_config.frameRate;
     }
-    fps = std::clamp(fps, MIN_FRAME_RATE, MAX_FRAME_RATE);
+    fps = std::clamp(fps, CaptureConstants::MinFrameRate, CaptureConstants::MaxFrameRate);
     m_frameDelay = std::chrono::milliseconds(1000 / fps);
     qCDebug(lcServerCapture) << "计算帧延迟: " << fps << " fps -> " << m_frameDelay.count() << " ms";
 }
@@ -512,7 +513,7 @@ void ScreenCaptureWorker::recordCaptureTime(std::chrono::milliseconds time) {
         m_stats.minCaptureTime = time;
     }
     m_captureTimeHistory.push_back(time);
-    if ( m_captureTimeHistory.size() > MAX_CAPTURE_TIME_HISTORY ) {
+    if ( m_captureTimeHistory.size() > CaptureConstants::MaxCaptureTimeHistory ) {
         m_captureTimeHistory.pop_front();
     }
     if ( !m_captureTimeHistory.empty() ) {
@@ -552,7 +553,7 @@ void ScreenCaptureWorker::handleCaptureError(const QString& error) {
     qCWarning(lcServerCapture) << "捕获错误: " << error;
     m_lastError = error;
     m_errorCount.fetch_add(1);
-    if ( m_errorCount.load() > MAX_ERROR_COUNT ) {
+    if ( m_errorCount.load() > CaptureConstants::MaxErrorCount ) {
         m_recoveryMode.store(true);
         qCCritical(lcServerCapture) << "错误次数过多，进入恢复模式";
     }
@@ -580,8 +581,8 @@ void ScreenCaptureWorker::updateConfig(const CaptureConfig& config) {
     CaptureConfig normalized = config;
     {
         // 边界裁剪：帧率
-        if ( normalized.frameRate < MIN_FRAME_RATE ) normalized.frameRate = MIN_FRAME_RATE;
-        if ( normalized.frameRate > MAX_FRAME_RATE ) normalized.frameRate = MAX_FRAME_RATE;
+        if ( normalized.frameRate < CaptureConstants::MinFrameRate ) normalized.frameRate = CaptureConstants::MinFrameRate;
+        if ( normalized.frameRate > CaptureConstants::MaxFrameRate ) normalized.frameRate = CaptureConstants::MaxFrameRate;
         QMutexLocker locker(&m_configMutex);
         m_config = normalized;
     }

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "DataFlowStructures.h"
-#include "../../common/core/config/Constants.h"
+#include "../../common/core/config/ProcessingConstants.h"
 #include "../../common/core/threading/ThreadSafeQueue.h"
 #include <QtCore/QObject>
 #include <QtCore/QTimer>
@@ -49,7 +49,7 @@ public:
      * @param captureQueueSize 捕获队列最大大小（0表示无限制）
      * @return true 初始化成功，false 初始化失败
      */
-    bool initialize(int captureQueueSize = CoreConstants::Performance::MAX_QUEUE_SIZE);
+    bool initialize(int captureQueueSize = ProcessingConstants::MaxQueueSize);
 
     /**
      * @brief 清理队列管理器
@@ -174,8 +174,6 @@ private:
 
     bool m_initialized;                                                 ///< 是否已初始化
 
-    // 健康检查阈值
-    static constexpr int QUEUE_WARNING_THRESHOLD = 80;                  ///< 队列警告阈值（百分比）
-    static constexpr int QUEUE_ERROR_THRESHOLD = 95;                    ///< 队列错误阈值（百分比）
+    // 健康检查阈值（已迁移至 ProcessingConstants）
 };
 

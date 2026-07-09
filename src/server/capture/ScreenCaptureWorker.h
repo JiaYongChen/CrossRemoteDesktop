@@ -6,6 +6,8 @@
 #include "../dataflow/QueueManager.h"
 #include "../dataprocessing/DataProcessing.h"
 #include "CaptureConfig.h"
+#include "../../common/core/config/CaptureConstants.h"
+#include "../../common/core/config/ProcessingConstants.h"
 #include "../../common/core/network/Protocol.h"
 #include <QtGui/QImage>
 #include <QtGui/QScreen>
@@ -167,7 +169,6 @@ private:
 
     // 光标独立采样（与帧率解耦）
     std::chrono::steady_clock::time_point m_lastCursorSampleTime;
-    static constexpr int CURSOR_SAMPLE_INTERVAL_MS = 8;  ///< 光标采样间隔（~125Hz）
 
     // 性能统计
     mutable QMutex m_statsMutex;
@@ -185,20 +186,13 @@ private:
     std::atomic<bool> m_recoveryMode{ false };
     QString m_lastError;
 
-    // 常量定义
-    static constexpr int STATS_UPDATE_INTERVAL = 1000;     ///< 统计更新间隔(ms)
-    static constexpr int MAX_CAPTURE_TIME_HISTORY = 100;   ///< 最大捕获时间历史记录数
-    static constexpr int MAX_FRAME_TIMESTAMP_HISTORY = 60; ///< 最大帧时间戳历史记录数
-    static constexpr int MAX_ERROR_COUNT = 10;             ///< 最大错误计数
-    static constexpr int MIN_FRAME_RATE = 1;              ///< 最小帧率
-    static constexpr int MAX_FRAME_RATE = 120;            ///< 最大帧率
+    // 常量定义（已迁移至 CaptureConstants.h / ProcessingConstants.h）
 
     // DXGI Desktop Duplication engine (Windows only)
 #ifdef Q_OS_WIN
     std::unique_ptr<DxgiCapture> m_dxgiCapture;    ///< DXGI capture engine
     bool m_dxgiAvailable = false;                   ///< Whether DXGI init succeeded
     int m_dxgiReinitAttempts = 0;                   ///< Consecutive reinit attempts
-    static constexpr int MAX_DXGI_REINIT_ATTEMPTS = 3; ///< Max reinit attempts before fallback
 #endif
 };
 

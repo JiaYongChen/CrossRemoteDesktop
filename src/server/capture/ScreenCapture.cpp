@@ -2,7 +2,8 @@
 #include "ScreenCaptureWorker.h"
 #include "../../common/core/threading/ThreadManager.h"
 #include "../dataflow/QueueManager.h"
-#include "../../common/core/config/Constants.h"
+#include "../../common/core/config/CaptureConstants.h"
+#include "../../common/core/config/ProcessingConstants.h"
 #include "../../common/core/logging/LoggingCategories.h"
 #include <QtCore/QTimer>
 #include <QtCore/QMutex>
@@ -23,7 +24,7 @@ ScreenCapture::ScreenCapture(ThreadManager* threadMgr, QueueManager* queueMgr, Q
     qCDebug(lcServerCapture) << "ScreenCapture 多线程管理器构造函数调用";
 
     // 初始化默认配置
-    m_captureConfig.frameRate = CoreConstants::Capture::DEFAULT_FRAME_RATE;
+    m_captureConfig.frameRate = CaptureConstants::DefaultFrameRate;
     m_captureConfig.highDefinition = true;
     m_captureConfig.antiAliasing = true;
     m_captureConfig.highScaleQuality = true;
@@ -40,7 +41,7 @@ ScreenCapture::ScreenCapture(ThreadManager* threadMgr, QueueManager* queueMgr, Q
     resetPerformanceStats();
 
     // 设置统计更新定时器
-    m_statsTimer->setInterval(STATS_UPDATE_INTERVAL);
+    m_statsTimer->setInterval(ProcessingConstants::StatsUpdateIntervalMs);
     connect(m_statsTimer, &QTimer::timeout, this, &ScreenCapture::updatePerformanceStats);
 
     // 连接ThreadManager信号以监控线程状态
@@ -359,8 +360,8 @@ void ScreenCapture::updateCaptureConfig(const CaptureConfig& config) {
     // 帧率裁剪到平台允许范围
     normalized.frameRate = std::clamp(
         normalized.frameRate,
-        CoreConstants::Capture::MIN_FRAME_RATE,
-        CoreConstants::Capture::MAX_FRAME_RATE
+        CaptureConstants::MinFrameRate,
+        CaptureConstants::MaxFrameRate
     );
 
     {

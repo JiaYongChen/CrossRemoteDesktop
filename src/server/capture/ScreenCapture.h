@@ -10,6 +10,7 @@
 #include <memory>
 #include <atomic>
 #include "CaptureConfig.h"
+#include "../../common/core/config/ProcessingConstants.h"
 
 // 前向声明
 class ScreenCaptureWorker;
@@ -142,6 +143,6 @@ private:
     QTimer* m_statsTimer;                                              ///< 统计更新定时器
     
     // 常量定义
-    static constexpr int STATS_UPDATE_INTERVAL = 1000;                 ///< 统计更新间隔（毫秒）
+    // 统计更新间隔由 ProcessingConstants::StatsUpdateIntervalMs 定义
 };
 

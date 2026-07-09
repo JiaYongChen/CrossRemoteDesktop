@@ -3,7 +3,7 @@
 
 #include "../../common/core/threading/ThreadSafeQueue.h"
 #include "../dataflow/DataFlowStructures.h"
-#include "../../common/core/config/Constants.h"
+#include "../../common/core/config/ProcessingConstants.h"
 
 /**
  * @brief 每 session 私有队列对
@@ -17,8 +17,8 @@ struct SessionQueuePair {
     ThreadSafeQueue<CapturedFrame>  captureQueue;
     ThreadSafeQueue<ProcessedData>  processedQueue;
 
-    void initialize(int captureSize = CoreConstants::Performance::MAX_QUEUE_SIZE,
-                    int processedSize = CoreConstants::Performance::MAX_QUEUE_SIZE) {
+    void initialize(int captureSize = ProcessingConstants::MaxQueueSize,
+                    int processedSize = ProcessingConstants::MaxQueueSize) {
         captureQueue.setMaxSize(captureSize);
         processedQueue.setMaxSize(processedSize);
     }

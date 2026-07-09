@@ -1,6 +1,7 @@
 #include "DataProcessingWorker.h"
 #include "../../common/core/logging/LoggingCategories.h"
-#include "../../common/core/config/Constants.h"
+#include "../../common/core/config/CaptureConstants.h"
+#include "../../common/core/config/ProcessingConstants.h"
 #include <QtCore/QMutexLocker>
 #include <QtCore/QThread>
 #include <QtCore/QIODevice>
@@ -23,8 +24,8 @@ DataProcessingWorker::DataProcessingWorker(QObject* parent)
     , m_averageLatency(0.0)
     , m_processingRate(0.0)
     , m_lastStatsUpdate(0)
-    , m_processingTimeout(DEFAULT_PROCESSING_TIMEOUT)
-    , m_statsUpdateInterval(DEFAULT_STATS_INTERVAL)
+    , m_processingTimeout(ProcessingConstants::DefaultProcessingTimeoutMs)
+    , m_statsUpdateInterval(ProcessingConstants::StatsUpdateIntervalMs)
     , m_maxParallelTasks(QThread::idealThreadCount())
     , m_activeParallelTasks(0) {
     qCDebug(lcServerEncode) << "DataProcessingWorker 构造函数";
@@ -170,7 +171,7 @@ void DataProcessingWorker::processTask() {
 
     // 非阻塞模式：有飞行中的编码批次时直接返回，由 Worker 的事件循环
     // 在下一次 processTask 中重新检查。避免 waitForFinished 阻断线程。
-    if ( m_inFlightBatches.load() >= kMaxInFlightBatches ) {
+    if ( m_inFlightBatches.load() >= ProcessingConstants::MaxInFlightBatches ) {
         setDidWork(false);  // 告知 workLoop 本回合空闲，应进入 1ms 睡眠
         return;
     }
@@ -253,7 +254,7 @@ void DataProcessingWorker::processTask() {
 
 void DataProcessingWorker::processBatchAsync(std::vector<CapturedFrame>&& frames) {
     const int currentQuality = m_jpegQuality.load(std::memory_order_relaxed);
-    const double currentScale = CoreConstants::Compression::SCALE_FACTOR_HIGH;
+    const double currentScale = CaptureConstants::ScaleFactorHigh;
 
     // 将帧存入 shared_ptr，确保线程池异步编码期间不会被销毁
     auto sharedFrames = std::make_shared<std::vector<CapturedFrame>>();
@@ -502,13 +503,13 @@ void DataProcessingWorker::checkPerformance() {
     double processingRate = m_processingRate.load();
 
     // 检查处理延迟
-    if ( avgLatency > MAX_PROCESSING_LATENCY ) {
+    if ( avgLatency > ProcessingConstants::MaxProcessingLatencyMs ) {
         QString warning = QString("处理延迟过高: %1ms").arg(avgLatency, 0, 'f', 2);
         emit processingWarning(warning);
     }
 
     // 检查处理速率
-    if ( processingRate < MIN_PROCESSING_RATE && m_processedFrames.load() > 10 ) {
+    if ( processingRate < ProcessingConstants::MinProcessingRateFps && m_processedFrames.load() > 10 ) {
         QString warning = QString("处理速率过低: %1fps").arg(processingRate, 0, 'f', 2);
         emit processingWarning(warning);
     }
