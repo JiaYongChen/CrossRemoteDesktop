@@ -652,6 +652,14 @@ void MainWindow::updatePerformanceInfo()
 }
 
 void MainWindow::gracefulShutdown() {
+    // 幂等保护：closeEvent() 调用一次，main() 在 app.exec() 返回后再调用一次。
+    // 第二次调用时线程已被第一次的 destroyAllThreads() 销毁，
+    // BlockingQueuedConnection 会因目标事件循环不存在而永久阻塞。
+    if (m_gracefulShutdownDone.exchange(true)) {
+        qCDebug(lcUIMainWindow) << "MainWindow::gracefulShutdown() - Already completed, skipping";
+        return;
+    }
+
     qCInfo(lcUIMainWindow) << "MainWindow::gracefulShutdown() - Starting graceful shutdown";
 
     // 1. 断开所有客户端连接

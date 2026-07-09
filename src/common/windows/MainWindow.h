@@ -6,6 +6,7 @@
 #include <QtCore/QList>
 class SettingsManager;
 #include <QtCore/QDateTime>
+#include <atomic>
 #include "error/RdError.h"
 #include "../../client/session/RemoteDesktopSession.h"  // ConnectionParams
 
@@ -140,5 +141,6 @@ private:
 
     // 停止状态标志
     bool m_isShuttingDown;
+    std::atomic<bool> m_gracefulShutdownDone{false};  // 防止 gracefulShutdown 重入
 };
 

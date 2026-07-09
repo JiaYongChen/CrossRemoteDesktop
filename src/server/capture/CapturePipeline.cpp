@@ -68,25 +68,29 @@ void CapturePipeline::startCapture() {
 
     qCInfo(lcServerCapture) << "CapturePipeline::startCapture()";
 
-    // 连接 ScreenCaptureWorker::frameEnqueued → FrameBroadcaster::onFrameReady
-    // 通过 ScreenCapture 内部获取 worker 连接（或通过 ThreadManager 获取 ScreenCaptureWorker）
-    auto* captureWorker = qobject_cast<ScreenCaptureWorker*>(
-        m_threadManager->getWorker(QStringLiteral("ScreenCaptureWorker")));
-    if (captureWorker) {
-        m_frameConnection = connect(captureWorker, &ScreenCaptureWorker::frameEnqueued,
-                                    m_broadcaster, &FrameBroadcaster::onFrameReady,
-                                    Qt::QueuedConnection);
-    }
-
+    // 必须先启动屏幕捕获（内部创建 ScreenCaptureWorker），再获取 worker 建立信号连接。
+    // 修复：原来的 getWorker() 调用在 startCapture() 之前，此时 worker 尚未创建，
+    // 导致 frameEnqueued → onFrameReady 连接从未建立，帧数据无法广播到客户端（黑屏）。
     m_screenCapture->startCapture();
     m_broadcaster->start();
 
-    // 桥接光标更新信号到所有已订阅 session
+    // 获取 ScreenCaptureWorker 并建立帧广播管线
+    auto* captureWorker = qobject_cast<ScreenCaptureWorker*>(
+        m_threadManager->getWorker(QStringLiteral("ScreenCaptureWorker")));
     if (captureWorker) {
+        // 帧入队信号 → 帧广播器：此为数据管线的核心桥接
+        m_frameConnection = connect(captureWorker, &ScreenCaptureWorker::frameEnqueued,
+                                    m_broadcaster, &FrameBroadcaster::onFrameReady,
+                                    Qt::QueuedConnection);
+
+        // 桥接光标更新信号到所有已订阅 session
         for (auto* session : m_broadcaster->subscribers()) {
             QMetaObject::invokeMethod(session, "wireCursorUpdates", Qt::QueuedConnection,
                                       Q_ARG(ScreenCaptureWorker*, captureWorker));
         }
+    } else {
+        qCWarning(lcServerCapture) << "CapturePipeline::startCapture() - "
+                                      "无法获取 ScreenCaptureWorker，帧数据将无法广播到客户端";
     }
 
     m_captureActive = true;
