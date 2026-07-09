@@ -23,9 +23,4 @@ inline constexpr int MaxFrameSize          = 10 * 1024 * 1024;  // 10 MB
 inline constexpr int MinFrameSize          = 1024;              // 1 KB
 inline constexpr int FrameHeaderSize       = 32;                // bytes
 
-// ---- 应用版本 ----
-inline constexpr int VersionMajor = 1;
-inline constexpr int VersionMinor = 0;
-inline constexpr int VersionPatch = 0;
-
 } // namespace ProtocolConstants

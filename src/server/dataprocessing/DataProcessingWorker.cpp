@@ -1,6 +1,5 @@
 #include "DataProcessingWorker.h"
 #include "../../common/core/logging/LoggingCategories.h"
-#include "../../common/core/config/CaptureConstants.h"
 #include "../../common/core/config/ProcessingConstants.h"
 #include <QtCore/QMutexLocker>
 #include <QtCore/QThread>
@@ -254,7 +253,7 @@ void DataProcessingWorker::processTask() {
 
 void DataProcessingWorker::processBatchAsync(std::vector<CapturedFrame>&& frames) {
     const int currentQuality = m_jpegQuality.load(std::memory_order_relaxed);
-    const double currentScale = CaptureConstants::ScaleFactorHigh;
+    const double currentScale = ProcessingConstants::ScaleFactorHigh;
 
     // 将帧存入 shared_ptr，确保线程池异步编码期间不会被销毁
     auto sharedFrames = std::make_shared<std::vector<CapturedFrame>>();

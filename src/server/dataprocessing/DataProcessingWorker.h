@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../../common/core/threading/Worker.h"
-#include "../../common/core/config/CaptureConstants.h"
 #include "../../common/core/config/ProcessingConstants.h"
 #include "../../common/core/threading/ThreadSafeQueue.h"
 #include "../dataflow/DataFlowStructures.h"
@@ -200,7 +199,7 @@ private:
      * @return 处理后的数据
      */
     static ProcessedData encodeImageParallel(const QImage& image, quint64 frameId,
-                                             int quality = CaptureConstants::DefaultJpegQuality,
+                                             int quality = ProcessingConstants::DefaultJpegQuality,
                                              double scaleFactor = 1.0);
 
     /**
@@ -243,7 +242,7 @@ private:
     // 配置参数
     int m_processingTimeout;                                            ///< 处理超时时间（毫秒）
     int m_statsUpdateInterval;                                          ///< 统计更新间隔（毫秒）
-    std::atomic<int> m_jpegQuality{CaptureConstants::DefaultJpegQuality};  ///< JPEG 编码质量（线程安全）
+    std::atomic<int> m_jpegQuality{ProcessingConstants::DefaultJpegQuality};  ///< JPEG 编码质量（线程安全）
 
     // 并行处理
     int m_maxParallelTasks;                                             ///< 最大并行任务数

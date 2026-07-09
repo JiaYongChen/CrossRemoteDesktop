@@ -16,6 +16,18 @@ inline constexpr int MaxQueueSize           = 1;    // Drain-to-Latest
 inline constexpr int QueueWarningThreshold  = 80;   // % 容量
 inline constexpr int QueueErrorThreshold    = 95;   // % 容量
 
+// ---- JPEG 压缩质量 ----
+inline constexpr int JpegQualityHigh      = 85;
+inline constexpr int JpegQualityMedium    = 70;
+inline constexpr int JpegQualityLow       = 50;
+inline constexpr int JpegQualityMin       = 30;
+inline constexpr int DefaultJpegQuality   = 85;
+
+// ---- 缩放因子 ----
+inline constexpr double ScaleFactorHigh   = 1.0;
+inline constexpr double ScaleFactorMedium = 0.75;
+inline constexpr double ScaleFactorLow    = 0.5;
+
 // ---- 统计与监控 ----
 inline constexpr int StatsUpdateIntervalMs       = 1000;   // 1s
 inline constexpr int MemoryWarningThresholdMb    = 512;
