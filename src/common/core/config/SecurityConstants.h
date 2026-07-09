@@ -15,7 +15,7 @@ inline constexpr int Pbkdf2Iterations   = 100000;
 inline constexpr int Pbkdf2KeyLength    = 32;    // bytes
 /// Meyer's Singleton — 保证首次访问时初始化，消除 SIOF 风险
 inline QString DefaultCipherSuite() { return QStringLiteral("AES256-GCM-SHA384"); }
-inline constexpr const char* DefaultCryptoUsername = "CrossRemoteDesktop";
+inline constexpr char DefaultCryptoUsername[] = "CrossRemoteDesktop";  // 数组类型避免指针退化
 
 // ---- 会话 ----
 inline constexpr int SessionTimeoutMs   = 3600000;  // 1 hour
