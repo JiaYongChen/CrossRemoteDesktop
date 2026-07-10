@@ -667,6 +667,9 @@ void ClientHandlerWorker::handleHandshakeRequest(const QByteArray& data) {
         qCDebug(lcServerClientHandler) << "客户端色深:" << request.colorDepth
                                        << "图像质量:" << request.imageQuality;
 
+        // 记录协商后的色深，供 sendHandshakeResponse 回显
+        m_negotiatedColorDepth = request.colorDepth;
+
         // 通过信号通知外部
         emit qualitySettingsReceived(request.imageQuality);
         emit colorDepthReceived(request.colorDepth);
@@ -890,7 +893,7 @@ void ClientHandlerWorker::sendHandshakeResponse() {
     response.serverVersion = ProtocolConstants::ProtocolVersion;
     response.screenWidth = 1920; // 默认屏幕宽度
     response.screenHeight = 1080; // 默认屏幕高度
-    response.colorDepth = 32; // 32位色深
+    response.colorDepth = static_cast<quint8>(m_negotiatedColorDepth); // 回显协商后的色深
     response.supportedFeatures = 0; // 可以根据需要设置服务器特性
     response.serverName = QStringLiteral("CrossRemoteDesktop Server");
 #ifdef Q_OS_WIN
