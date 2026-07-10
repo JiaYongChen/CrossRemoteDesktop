@@ -18,6 +18,8 @@
 
 #include "../../common/network/Protocol.h"
 #include "../../common/config/NetworkConstants.h"
+#include <QtGui/QGuiApplication>
+#include <QtGui/QScreen>
 #include "../../common/config/ProtocolConstants.h"
 #include "../../common/config/ProcessingConstants.h"
 #include "../../common/config/SecurityConstants.h"
@@ -891,8 +893,15 @@ void ClientHandlerWorker::handleKeyboardEvent(const QByteArray& data) {
 void ClientHandlerWorker::sendHandshakeResponse() {
     HandshakeResponse response;
     response.serverVersion = ProtocolConstants::ProtocolVersion;
-    response.screenWidth = 1920; // 默认屏幕宽度
-    response.screenHeight = 1080; // 默认屏幕高度
+    QScreen* screen = QGuiApplication::primaryScreen();
+    if (screen) {
+        QSize size = screen->size();
+        response.screenWidth  = static_cast<quint16>(size.width());
+        response.screenHeight = static_cast<quint16>(size.height());
+    } else {
+        response.screenWidth  = 1920;
+        response.screenHeight = 1080;
+    }
     response.colorDepth = static_cast<quint8>(m_negotiatedColorDepth); // 回显协商后的色深
     response.supportedFeatures = 0; // 可以根据需要设置服务器特性
     response.serverName = QStringLiteral("CrossRemoteDesktop Server");
