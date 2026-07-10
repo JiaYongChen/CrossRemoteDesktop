@@ -139,6 +139,12 @@ signals:
     void qualitySettingsReceived(int imageQuality);
 
     /**
+     * @brief 客户端握手携带的色深参数
+     * @param colorDepth 色深值 (16/24/32)
+     */
+    void colorDepthReceived(int colorDepth);
+
+    /**
      * @brief 接收到剪贴板文本信号（更新服务器端剪贴板）
      * @param text 文本内容
      */
