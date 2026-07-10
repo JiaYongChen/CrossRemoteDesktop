@@ -2,7 +2,7 @@
 #include <QtWidgets/QStyleFactory>
 #include <QtCore/QDir>
 #include <QtCore/QStandardPaths>
-#include "common/core/logging/LoggingCategories.h"
+#include "common/logging/LoggingCategories.h"
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QSplashScreen>
 #include <QtGui/QPixmap>
@@ -17,8 +17,8 @@
 #endif
 
 #include "app/MainWindow.h"
-#include "common/core/TranslationUtils.h"
-#include "common/core/config/SettingsManager.h"
+#include "common/config/TranslationUtils.h"
+#include "common/config/SettingsManager.h"
 
 // 应用程序信息
 const QString APP_NAME = "Cross Remote Desktop";

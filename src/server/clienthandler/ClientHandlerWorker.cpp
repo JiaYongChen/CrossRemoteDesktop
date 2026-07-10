@@ -16,12 +16,12 @@
 #undef KEYBOARD_EVENT
 #endif
 
-#include "../../common/core/network/Protocol.h"
-#include "../../common/core/config/NetworkConstants.h"
-#include "../../common/core/config/ProtocolConstants.h"
-#include "../../common/core/config/ProcessingConstants.h"
-#include "../../common/core/config/SecurityConstants.h"
-#include "../../common/core/logging/LoggingCategories.h"
+#include "../../common/network/Protocol.h"
+#include "../../common/config/NetworkConstants.h"
+#include "../../common/config/ProtocolConstants.h"
+#include "../../common/config/ProcessingConstants.h"
+#include "../../common/config/SecurityConstants.h"
+#include "../../common/logging/LoggingCategories.h"
 #include <QtNetwork/QSslSocket>
 #include <QtNetwork/QSslConfiguration>
 #include <QtCore/QTimer>

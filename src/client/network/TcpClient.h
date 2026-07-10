@@ -4,8 +4,8 @@
 #include <QtCore/QDateTime>
 #include <QtNetwork/QAbstractSocket>
 #include <QtNetwork/QSslError>
-#include "../common/core/network/Protocol.h"
-#include "../common/core/config/NetworkConstants.h"
+#include "../common/network/Protocol.h"
+#include "../common/config/NetworkConstants.h"
 #include "error/RdError.h"
 #include <atomic>
 

@@ -10,7 +10,7 @@
 #include <memory>
 #include <atomic>
 #include "CaptureConfig.h"
-#include "../../common/core/config/ProcessingConstants.h"
+#include "../../common/config/ProcessingConstants.h"
 
 // 前向声明
 class ScreenCaptureWorker;

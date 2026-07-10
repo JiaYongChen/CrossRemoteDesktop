@@ -2,7 +2,7 @@
 // 从 MainWindow.cpp 分离，保持文件聚焦于业务逻辑
 
 #include "MainWindow.h"
-#include "common/core/theme/IconThemeProvider.h"
+#include "common/theme/IconThemeProvider.h"
 
 #include <QAction>
 #include <QApplication>

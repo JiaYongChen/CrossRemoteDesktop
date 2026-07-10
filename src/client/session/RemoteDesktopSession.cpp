@@ -10,7 +10,7 @@
 #include "../window/InputForwarder.h"
 #include "../window/CursorManager.h"
 #include "../../common/clipboard/ClipboardManager.h"
-#include "../../common/core/logging/LoggingCategories.h"
+#include "../../common/logging/LoggingCategories.h"
 
 #include <QtWidgets/QApplication>
 

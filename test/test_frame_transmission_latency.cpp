@@ -12,7 +12,7 @@
 #include <QtCore/QDataStream>
 #include <QtNetwork/QTcpServer>
 #include <QtNetwork/QTcpSocket>
-#include "../src/common/core/network/Protocol.h"
+#include "../src/common/network/Protocol.h"
 
 /**
  * @brief 帧传输延迟测量测试类

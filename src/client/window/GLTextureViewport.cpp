@@ -2,7 +2,7 @@
 
 #include "GLTextureViewport.h"
 #include "../decode/GpuDecodeTarget.h"
-#include "../../common/core/logging/LoggingCategories.h"
+#include "../../common/logging/LoggingCategories.h"
 #include "CursorManager.h"
 
 #include <QtGui/QOpenGLExtraFunctions>

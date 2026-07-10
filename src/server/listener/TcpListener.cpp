@@ -1,7 +1,7 @@
 // src/server/listener/TcpListener.cpp
 #include "TcpListener.h"
 #include "../service/TcpServer.h"
-#include "../../common/core/logging/LoggingCategories.h"
+#include "../../common/logging/LoggingCategories.h"
 
 #include <QtCore/QTimer>
 #include <QtCore/QThread>

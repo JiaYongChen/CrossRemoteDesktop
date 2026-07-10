@@ -10,17 +10,17 @@
 #include "../client/session/RemoteDesktopSession.h"
 #include "../client/network/ConnectionManager.h"
 #include "../server/dataflow/QueueManager.h"
-#include "common/core/threading/ThreadManager.h"
+#include "common/threading/ThreadManager.h"
 #include "../server/simulator/InputSimulator.h"
 
 #include <memory>
 
-#include "common/core/config/NetworkConstants.h"
-#include "common/core/config/SettingsManager.h"
-#include "common/core/config/ProcessingConstants.h"
-#include "common/core/logging/LoggingCategories.h"
-#include "common/core/theme/IconThemeProvider.h"
-#include "common/core/theme/TitleBarTheme.h"
+#include "common/config/NetworkConstants.h"
+#include "common/config/SettingsManager.h"
+#include "common/config/ProcessingConstants.h"
+#include "common/logging/LoggingCategories.h"
+#include "common/theme/IconThemeProvider.h"
+#include "common/theme/TitleBarTheme.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>

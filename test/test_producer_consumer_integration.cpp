@@ -20,8 +20,8 @@
 #include "../src/server/dataprocessing/DataProcessingWorker.h"
 #include "../src/server/dataflow/QueueManager.h"
 #include "../src/server/dataflow/DataFlowStructures.h"
-#include "../src/common/core/threading/ThreadSafeQueue.h"
-#include "../src/common/core/threading/ThreadManager.h"
+#include "../src/common/threading/ThreadSafeQueue.h"
+#include "../src/common/threading/ThreadManager.h"
 
 
 /**

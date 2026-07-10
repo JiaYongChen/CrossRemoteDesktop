@@ -1,13 +1,13 @@
 #include "SettingsDialog.h"
 #include "ui_SettingsDialog.h"
-#include "common/core/TranslationUtils.h"
-#include "common/core/logging/LoggingCategories.h"
-#include "common/core/config/NetworkConstants.h"
-#include "common/core/crypto/PasswordCrypto.h"
-#include "common/core/theme/IconThemeProvider.h"
-#include "common/core/theme/TitleBarTheme.h"
+#include "common/config/TranslationUtils.h"
+#include "common/logging/LoggingCategories.h"
+#include "common/config/NetworkConstants.h"
+#include "common/crypto/PasswordCrypto.h"
+#include "common/theme/IconThemeProvider.h"
+#include "common/theme/TitleBarTheme.h"
 
-#include "common/core/config/SettingsManager.h"
+#include "common/config/SettingsManager.h"
 #include <QtCore/QEvent>
 #include <QtGui/QHideEvent>
 #include <QtCore/QVariant>

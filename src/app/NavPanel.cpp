@@ -1,6 +1,6 @@
 #include "NavPanel.h"
 #include "ui_NavPanel.h"
-#include "common/core/theme/IconThemeProvider.h"
+#include "common/theme/IconThemeProvider.h"
 
 #include <QIcon>
 #include <QToolButton>

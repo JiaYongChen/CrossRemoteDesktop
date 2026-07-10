@@ -3,7 +3,7 @@
 #include <QtNetwork/QSslConfiguration>
 #include <QtCore/QTimer>
 #include <QtNetwork/QHostAddress>
-#include "../common/core/logging/LoggingCategories.h"
+#include "../common/logging/LoggingCategories.h"
 #include <QtCore/QDataStream>
 #include <QtNetwork/QNetworkProxy>
 

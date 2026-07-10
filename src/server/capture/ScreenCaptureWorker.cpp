@@ -1,8 +1,8 @@
 #include "ScreenCaptureWorker.h"
-#include "../../common/core/threading/ThreadSafeQueue.h"
-#include "../../common/core/config/CaptureConstants.h"
-#include "../../common/core/config/ProcessingConstants.h"
-#include "../../common/core/logging/LoggingCategories.h"
+#include "../../common/threading/ThreadSafeQueue.h"
+#include "../../common/config/CaptureConstants.h"
+#include "../../common/config/ProcessingConstants.h"
+#include "../../common/logging/LoggingCategories.h"
 #include <QtGui/QGuiApplication>
 #include <QtGui/QScreen>
 #include <QtGui/QPainter>

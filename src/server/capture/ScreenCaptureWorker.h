@@ -1,14 +1,14 @@
 #pragma once
 
-#include "../../common/core/threading/Worker.h"
-#include "../../common/core/threading/ThreadSafeQueue.h"
+#include "../../common/threading/Worker.h"
+#include "../../common/threading/ThreadSafeQueue.h"
 #include "../dataflow/DataFlowStructures.h"
 #include "../dataflow/QueueManager.h"
 #include "../dataprocessing/DataProcessing.h"
 #include "CaptureConfig.h"
-#include "../../common/core/config/CaptureConstants.h"
-#include "../../common/core/config/ProcessingConstants.h"
-#include "../../common/core/network/Protocol.h"
+#include "../../common/config/CaptureConstants.h"
+#include "../../common/config/ProcessingConstants.h"
+#include "../../common/network/Protocol.h"
 #include <QtGui/QImage>
 #include <QtGui/QScreen>
 #include <QtCore/QTimer>

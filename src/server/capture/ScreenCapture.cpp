@@ -1,10 +1,10 @@
 #include "ScreenCapture.h"
 #include "ScreenCaptureWorker.h"
-#include "../../common/core/threading/ThreadManager.h"
+#include "../../common/threading/ThreadManager.h"
 #include "../dataflow/QueueManager.h"
-#include "../../common/core/config/CaptureConstants.h"
-#include "../../common/core/config/ProcessingConstants.h"
-#include "../../common/core/logging/LoggingCategories.h"
+#include "../../common/config/CaptureConstants.h"
+#include "../../common/config/ProcessingConstants.h"
+#include "../../common/logging/LoggingCategories.h"
 #include <QtCore/QTimer>
 #include <QtCore/QMutex>
 #include <QtCore/QMutexLocker>

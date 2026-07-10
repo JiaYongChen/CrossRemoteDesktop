@@ -1,5 +1,5 @@
 #include "DecodeWorker.h"
-#include "../../common/core/logging/LoggingCategories.h"
+#include "../../common/logging/LoggingCategories.h"
 #ifndef QT_NO_OPENGL
 #include "../window/GLTextureViewport.h"
 #include "../decode/GpuDecodeTarget.h"

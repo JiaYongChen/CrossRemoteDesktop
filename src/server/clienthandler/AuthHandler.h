@@ -4,7 +4,7 @@
 #include <QtCore/QString>
 #include <QtCore/QDateTime>
 #include <QtCore/QMutex>
-#include "../../common/core/config/SecurityConstants.h"
+#include "../../common/config/SecurityConstants.h"
 
 /// 认证处理器 — 从 ClientHandlerWorker 分离出的认证逻辑
 ///

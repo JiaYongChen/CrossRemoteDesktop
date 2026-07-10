@@ -16,7 +16,7 @@
 #include <chrono>
 #include <atomic>
 
-#include "../../common/core/config/GuiConstants.h"
+#include "../../common/config/GuiConstants.h"
 #include "../core/TripleBuffer.h"
 #include "../core/FrameSlot.h"
 

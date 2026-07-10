@@ -1,6 +1,6 @@
 #include "NvJpegDecoder.h"
-#include "../../common/core/logging/LoggingCategories.h"
-#include "../../common/core/config/GuiConstants.h"
+#include "../../common/logging/LoggingCategories.h"
+#include "../../common/config/GuiConstants.h"
 
 #ifdef HAS_NVJPEG
 #include "TurboJpegDecoder.h"

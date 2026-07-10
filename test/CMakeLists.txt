@@ -40,7 +40,7 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/common
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/server
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/common/core
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/common/core/threading
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/common/threading
     ${CMAKE_CURRENT_SOURCE_DIR}/../include
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${TURBOJPEG_INCLUDE_DIR}
@@ -76,22 +76,22 @@ endif()
 
 # ── 共享静态库 ──
 qt_add_library(common_test_core STATIC
-    ../src/common/core/logging/LoggingCategories.cpp
-    ../src/common/core/config/SettingsManager.cpp
+    ../src/common/logging/LoggingCategories.cpp
+    ../src/common/config/SettingsManager.cpp
 )
 target_link_libraries(common_test_core PUBLIC Qt6::Core)
 
 qt_add_library(threading_test_core STATIC
-    ../src/common/core/threading/Worker.cpp
-    ../src/common/core/threading/ThreadManager.cpp
+    ../src/common/threading/Worker.cpp
+    ../src/common/threading/ThreadManager.cpp
 )
 target_link_libraries(threading_test_core PUBLIC Qt6::Core common_test_core)
 
 qt_add_library(capture_test_core STATIC
     ../src/server/capture/ScreenCaptureWorker.cpp
     ../src/server/dataflow/QueueManager.cpp
-    ../src/common/core/network/ProtocolImpl.cpp
-    ../src/common/core/network/MessageCodec.cpp
+    ../src/common/network/ProtocolImpl.cpp
+    ../src/common/network/MessageCodec.cpp
 )
 if(WIN32)
     target_sources(capture_test_core PRIVATE ../src/server/capture/DxgiCapture.cpp)
@@ -153,7 +153,7 @@ add_rd_test(TARGET test_screencapture  NAME ScreenCaptureTest
 
 add_rd_test(TARGET test_dxgi_capture  NAME DxgiCaptureTest
     SOURCES test_dxgi_capture.cpp
-    EXTRA_SOURCES ../src/common/core/network/ProtocolImpl.cpp ../src/common/core/network/MessageCodec.cpp
+    EXTRA_SOURCES ../src/common/network/ProtocolImpl.cpp ../src/common/network/MessageCodec.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui common_test_core
     TIMEOUT 30  LABELS unit capture dxgi windows  NO_OPENGL)
 if(WIN32)
@@ -194,8 +194,8 @@ add_rd_test(TARGET test_session_latest_wins  NAME SessionLatestWinsTest
 
         ../src/client/network/ConnectionManager.cpp
         ../src/client/network/TcpClient.cpp
-        ../src/common/core/network/ProtocolImpl.cpp
-        ../src/common/core/network/MessageCodec.cpp
+        ../src/common/network/ProtocolImpl.cpp
+        ../src/common/network/MessageCodec.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Network common_test_core OpenSSL::SSL OpenSSL::Crypto LibJpegTurbo::turbojpeg
     TIMEOUT 30  LABELS unit client queue  NO_OPENGL)
 
@@ -244,8 +244,8 @@ add_rd_test(TARGET test_clientremotewindow  NAME ClientRemoteWindowTest
 
         ../src/client/network/ConnectionManager.cpp
         ../src/client/network/TcpClient.cpp
-        ../src/common/core/network/ProtocolImpl.cpp
-        ../src/common/core/network/MessageCodec.cpp
+        ../src/common/network/ProtocolImpl.cpp
+        ../src/common/network/MessageCodec.cpp
         ../src/common/clipboard/ClipboardManager.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network OpenSSL::SSL OpenSSL::Crypto common_test_core LibJpegTurbo::turbojpeg
     TIMEOUT 30  LABELS unit client window  NO_OPENGL)
@@ -265,13 +265,13 @@ add_rd_test(TARGET test_screen_capture_integration  NAME ScreenCaptureIntegratio
 
 add_rd_test(TARGET test_data_consistency  NAME DataConsistencyTest
     SOURCES test_data_consistency.cpp
-    EXTRA_SOURCES ../src/common/core/network/ProtocolImpl.cpp ../src/common/core/network/MessageCodec.cpp
+    EXTRA_SOURCES ../src/common/network/ProtocolImpl.cpp ../src/common/network/MessageCodec.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Network threading_test_core
     TIMEOUT 30  LABELS integration consistency network  NO_OPENGL)
 
 add_rd_test(TARGET test_screen_data_flow  NAME ScreenDataFlowTest
     SOURCES test_screen_data_flow.cpp
-    EXTRA_SOURCES ../src/common/core/network/ProtocolImpl.cpp ../src/common/core/network/MessageCodec.cpp
+    EXTRA_SOURCES ../src/common/network/ProtocolImpl.cpp ../src/common/network/MessageCodec.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network Qt6::Concurrent OpenSSL::SSL OpenSSL::Crypto common_test_core
     TIMEOUT 120  LABELS integration screen data flow network  NO_OPENGL)
 
@@ -287,8 +287,8 @@ add_rd_test(TARGET test_producer_consumer_integration  NAME ProducerConsumerInte
         ../src/server/simulator/InputSimulator.cpp
         ../src/server/simulator/MouseSimulator.cpp
         ../src/server/simulator/KeyboardSimulator.cpp
-        ../src/common/core/network/ProtocolImpl.cpp
-        ../src/common/core/network/MessageCodec.cpp
+        ../src/common/network/ProtocolImpl.cpp
+        ../src/common/network/MessageCodec.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Network Qt6::Concurrent OpenSSL::SSL OpenSSL::Crypto capture_test_core LibJpegTurbo::turbojpeg
     TIMEOUT 300  LABELS integration producer consumer queue threading  NO_OPENGL)
 if(WIN32)
@@ -315,7 +315,7 @@ add_rd_test(TARGET test_close_event  NAME CloseEventTest
 # performance
 add_rd_test(TARGET test_frame_transmission_latency  NAME FrameTransmissionLatencyTest
     SOURCES test_frame_transmission_latency.cpp
-    EXTRA_SOURCES ../src/common/core/network/ProtocolImpl.cpp ../src/common/core/network/MessageCodec.cpp
+    EXTRA_SOURCES ../src/common/network/ProtocolImpl.cpp ../src/common/network/MessageCodec.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Network threading_test_core
     TIMEOUT 30  LABELS performance latency network  NO_OPENGL)
 
@@ -330,8 +330,8 @@ add_rd_test(TARGET test_frame_transmission_latency  NAME FrameTransmissionLatenc
 #
 #         ../src/client/network/ConnectionManager.cpp
 #         ../src/client/network/TcpClient.cpp
-#         ../src/common/core/network/ProtocolImpl.cpp
-#         ../src/common/core/network/MessageCodec.cpp
+#         ../src/common/network/ProtocolImpl.cpp
+#         ../src/common/network/MessageCodec.cpp
 #     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network common_test_core OpenSSL::SSL OpenSSL::Crypto LibJpegTurbo::turbojpeg
 #     TIMEOUT 30  LABELS unit client session  NO_OPENGL)
 #
@@ -345,8 +345,8 @@ add_rd_test(TARGET test_frame_transmission_latency  NAME FrameTransmissionLatenc
 #
 #         ../src/client/network/ConnectionManager.cpp
 #         ../src/client/network/TcpClient.cpp
-#         ../src/common/core/network/ProtocolImpl.cpp
-#         ../src/common/core/network/MessageCodec.cpp
+#         ../src/common/network/ProtocolImpl.cpp
+#         ../src/common/network/MessageCodec.cpp
 #     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network common_test_core OpenSSL::SSL OpenSSL::Crypto LibJpegTurbo::turbojpeg
 #     TIMEOUT 30  LABELS unit client session data  NO_OPENGL)
 #
@@ -360,8 +360,8 @@ add_rd_test(TARGET test_frame_transmission_latency  NAME FrameTransmissionLatenc
 #
 #         ../src/client/network/ConnectionManager.cpp
 #         ../src/client/network/TcpClient.cpp
-#         ../src/common/core/network/ProtocolImpl.cpp
-#         ../src/common/core/network/MessageCodec.cpp
+#         ../src/common/network/ProtocolImpl.cpp
+#         ../src/common/network/MessageCodec.cpp
 #     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network common_test_core OpenSSL::SSL OpenSSL::Crypto LibJpegTurbo::turbojpeg
 #     TIMEOUT 30  LABELS unit client session lifecycle  NO_OPENGL)
 
@@ -377,7 +377,7 @@ add_rd_test(TARGET test_smoke_network  NAME SmokeNetworkTest
     EXTRA_SOURCES
         ../src/client/network/ConnectionManager.cpp
         ../src/client/network/TcpClient.cpp
-        ../src/common/core/network/ProtocolImpl.cpp
-        ../src/common/core/network/MessageCodec.cpp
+        ../src/common/network/ProtocolImpl.cpp
+        ../src/common/network/MessageCodec.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Network common_test_core
     TIMEOUT 30  LABELS smoke network unit  NO_OPENGL)

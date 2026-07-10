@@ -3,7 +3,7 @@
 #include "../session/ServerSession.h"
 #include "../dataflow/QueueManager.h"
 #include "../dataflow/DataFlowStructures.h"
-#include "../../common/core/logging/LoggingCategories.h"
+#include "../../common/logging/LoggingCategories.h"
 
 #include <QtCore/QMetaObject>
 

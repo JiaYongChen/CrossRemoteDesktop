@@ -4,7 +4,7 @@
 #include <QtCore/QBuffer>
 #include <QtGui/QImageReader>   // 修正：QImageReader 属于 QtGui 模块
 #include <QtCore/QCoreApplication>
-#include "../../common/core/logging/LoggingCategories.h"
+#include "../../common/logging/LoggingCategories.h"
 #include <QtCore/QDateTime>
 #include <cstring>
 

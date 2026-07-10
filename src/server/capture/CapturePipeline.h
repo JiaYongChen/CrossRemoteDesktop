@@ -1,7 +1,7 @@
 // src/server/capture/CapturePipeline.h
 #pragma once
 
-#include "../../common/core/threading/Worker.h"
+#include "../../common/threading/Worker.h"
 #include "error/RdError.h"
 
 class ThreadManager;

@@ -5,9 +5,9 @@
 #include <QtGui/QImage>
 #include <atomic>
 #include <chrono>
-#include "../../common/core/network/Protocol.h"
+#include "../../common/network/Protocol.h"
 #include "error/RdError.h"
-#include "../../common/core/threading/ThreadSafeQueue.h"
+#include "../../common/threading/ThreadSafeQueue.h"
 #include "../core/FrameSlot.h"
 #include "../core/TripleBuffer.h"
 

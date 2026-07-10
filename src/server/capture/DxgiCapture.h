@@ -11,7 +11,7 @@
 #include <dxgi1_2.h>
 #include <wrl/client.h>  // Microsoft::WRL::ComPtr
 
-#include "../../common/core/network/Protocol.h"
+#include "../../common/network/Protocol.h"
 
 /**
  * @brief Result of a single capture operation.

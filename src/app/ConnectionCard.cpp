@@ -1,6 +1,6 @@
 #include "ConnectionCard.h"
 #include "ui_ConnectionCard.h"
-#include "common/core/theme/IconThemeProvider.h"
+#include "common/theme/IconThemeProvider.h"
 
 ConnectionCard::ConnectionCard(QWidget *parent)
     : QWidget(parent)

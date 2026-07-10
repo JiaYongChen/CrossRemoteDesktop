@@ -1,8 +1,8 @@
 #include "ConnectionDialog.h"
 #include "ui_ConnectionDialog.h"
-#include "common/core/config/NetworkConstants.h"
-#include "common/core/theme/IconThemeProvider.h"
-#include "common/core/theme/TitleBarTheme.h"
+#include "common/config/NetworkConstants.h"
+#include "common/theme/IconThemeProvider.h"
+#include "common/theme/TitleBarTheme.h"
 
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QPushButton>

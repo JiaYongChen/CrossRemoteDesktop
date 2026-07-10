@@ -1,8 +1,8 @@
 #pragma once
 
-#include "../../common/core/threading/Worker.h"
-#include "../../common/core/network/Protocol.h"
-#include "../../common/core/threading/ThreadSafeQueue.h"
+#include "../../common/threading/Worker.h"
+#include "../../common/network/Protocol.h"
+#include "../../common/threading/ThreadSafeQueue.h"
 #include "../dataflow/DataFlowStructures.h"
 #include <QtCore/QObject>
 #include <QtCore/QDateTime>

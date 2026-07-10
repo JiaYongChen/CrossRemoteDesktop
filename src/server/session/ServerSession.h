@@ -1,7 +1,7 @@
 // src/server/session/ServerSession.h
 #pragma once
 
-#include "../../common/core/threading/Worker.h"
+#include "../../common/threading/Worker.h"
 
 #include <QtCore/QObject>
 #include <QtNetwork/QSslCertificate>

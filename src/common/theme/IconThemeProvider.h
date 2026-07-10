@@ -3,7 +3,7 @@
 #include <QIcon>
 #include <QString>
 
-#include "common/core/logging/LoggingCategories.h"
+#include "common/logging/LoggingCategories.h"
 
 /**
  * @brief 图标加载提供器

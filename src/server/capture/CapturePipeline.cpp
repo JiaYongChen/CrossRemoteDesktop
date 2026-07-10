@@ -5,8 +5,8 @@
 #include "ScreenCaptureWorker.h"
 #include "../session/ServerSession.h"
 #include "../dataflow/QueueManager.h"
-#include "../../common/core/threading/ThreadManager.h"
-#include "../../common/core/logging/LoggingCategories.h"
+#include "../../common/threading/ThreadManager.h"
+#include "../../common/logging/LoggingCategories.h"
 
 #include <QtCore/QMetaObject>
 #include <QtCore/QThread>

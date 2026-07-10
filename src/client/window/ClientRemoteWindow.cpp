@@ -19,7 +19,7 @@
 #include <QtWidgets/QMessageBox>
 #include <QtGui/QIcon>
 #include <QtGui/QScreen>
-#include "../../common/core/logging/LoggingCategories.h"
+#include "../../common/logging/LoggingCategories.h"
 #include <cmath>
 
 

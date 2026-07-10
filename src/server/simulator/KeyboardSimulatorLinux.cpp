@@ -2,7 +2,7 @@
 
 #ifdef Q_OS_LINUX
 
-#include "../../common/core/logging/LoggingCategories.h"
+#include "../../common/logging/LoggingCategories.h"
 
 
 KeyboardSimulatorLinux::KeyboardSimulatorLinux() : KeyboardSimulator(), m_display(nullptr) {

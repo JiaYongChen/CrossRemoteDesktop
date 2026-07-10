@@ -2,7 +2,7 @@
 #include <QtNetwork/QTcpSocket>
 #include <QtNetwork/QHostAddress>
 #include <QtCore/QTimer>
-#include "../../common/core/logging/LoggingCategories.h"
+#include "../../common/logging/LoggingCategories.h"
 #include <QtCore/QThread>
 #include <QtCore/QCoreApplication>
 

@@ -1,7 +1,7 @@
 #ifdef _WIN32
 
 #include "DxgiCapture.h"
-#include "../../common/core/logging/LoggingCategories.h"
+#include "../../common/logging/LoggingCategories.h"
 
 #include <vector>
 #include <dxgi.h>

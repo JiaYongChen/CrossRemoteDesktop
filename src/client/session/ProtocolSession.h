@@ -5,7 +5,7 @@
 #include <QtCore/QSize>
 #include <QtCore/Qt>
 
-#include "../../common/core/network/Protocol.h"
+#include "../../common/network/Protocol.h"
 #include "../network/ConnectionManager.h"
 #include "error/RdError.h"
 

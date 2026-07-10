@@ -2,7 +2,7 @@
 
 #ifndef QT_NO_OPENGL
 
-#include "../../common/core/config/GuiConstants.h"
+#include "../../common/config/GuiConstants.h"
 #include "IDecodeTarget.h"
 #include <QtOpenGL/QOpenGLBuffer>
 #include <QtGui/QOpenGLFunctions>

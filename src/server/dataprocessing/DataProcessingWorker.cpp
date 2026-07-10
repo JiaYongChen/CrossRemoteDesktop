@@ -1,6 +1,6 @@
 #include "DataProcessingWorker.h"
-#include "../../common/core/logging/LoggingCategories.h"
-#include "../../common/core/config/ProcessingConstants.h"
+#include "../../common/logging/LoggingCategories.h"
+#include "../../common/config/ProcessingConstants.h"
 #include <QtCore/QMutexLocker>
 #include <QtCore/QThread>
 #include <QtCore/QIODevice>

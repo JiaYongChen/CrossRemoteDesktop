@@ -1,8 +1,8 @@
 // src/server/listener/TcpListener.h
 #pragma once
 
-#include "../../common/core/threading/Worker.h"
-#include "../../common/core/network/Protocol.h"
+#include "../../common/threading/Worker.h"
+#include "../../common/network/Protocol.h"
 #include "error/RdError.h"
 
 #include <QtCore/QObject>

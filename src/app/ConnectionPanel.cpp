@@ -1,13 +1,13 @@
 #include "ConnectionPanel.h"
 #include "ui_ConnectionPanel.h"
 #include "ConnectionCard.h"
-#include "common/core/logging/LoggingCategories.h"
+#include "common/logging/LoggingCategories.h"
 
 #include <QLineEdit>
 #include <QLabel>
 #include <QScrollArea>
 #include <QVBoxLayout>
-#include "common/core/config/SettingsManager.h"
+#include "common/config/SettingsManager.h"
 #include <QDateTime>
 #include <QMessageBox>
 #include <QSet>

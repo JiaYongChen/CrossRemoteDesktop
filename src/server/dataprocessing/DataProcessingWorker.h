@@ -1,8 +1,8 @@
 #pragma once
 
-#include "../../common/core/threading/Worker.h"
-#include "../../common/core/config/ProcessingConstants.h"
-#include "../../common/core/threading/ThreadSafeQueue.h"
+#include "../../common/threading/Worker.h"
+#include "../../common/config/ProcessingConstants.h"
+#include "../../common/threading/ThreadSafeQueue.h"
 #include "../dataflow/DataFlowStructures.h"
 #include "DataProcessing.h"
 #include "error/RdError.h"

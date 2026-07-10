@@ -1,5 +1,5 @@
 #include "ConnectionLifecycle.h"
-#include "../../common/core/logging/LoggingCategories.h"
+#include "../../common/logging/LoggingCategories.h"
 #include <QtWidgets/QMessageBox>
 #include <QtCore/QTimer>
 

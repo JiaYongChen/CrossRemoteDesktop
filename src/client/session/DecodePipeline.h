@@ -7,7 +7,7 @@
 #include "../core/TripleBuffer.h"
 #include "../core/FrameSlot.h"
 #include "../decode/IDecoder.h"
-#include "../../common/core/network/Protocol.h"
+#include "../../common/network/Protocol.h"
 #include "error/RdError.h"
 
 class DecodeWorker;

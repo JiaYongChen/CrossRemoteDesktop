@@ -1,6 +1,6 @@
 #include "CursorManager.h"
-#include "common/core/network/Protocol.h"
-#include "common/core/logging/LoggingCategories.h"
+#include "common/network/Protocol.h"
+#include "common/logging/LoggingCategories.h"
 
 CursorManager::CursorManager(QObject* parent) : QObject(parent) {}
 

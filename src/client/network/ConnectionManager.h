@@ -6,8 +6,8 @@
 #include <QtCore/QMutex>
 #include <QtGui/QImage>
 #include <functional>
-#include "../../common/core/config/NetworkConstants.h"
-#include "../../common/core/network/Protocol.h"
+#include "../../common/config/NetworkConstants.h"
+#include "../../common/network/Protocol.h"
 #include "error/RdError.h"
 
 class QTimer;

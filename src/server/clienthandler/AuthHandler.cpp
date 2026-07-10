@@ -1,5 +1,5 @@
 #include "AuthHandler.h"
-#include "../../common/core/logging/LoggingCategories.h"
+#include "../../common/logging/LoggingCategories.h"
 #include <QtCore/QMutexLocker>
 #include <QtCore/QDateTime>
 #include <algorithm>

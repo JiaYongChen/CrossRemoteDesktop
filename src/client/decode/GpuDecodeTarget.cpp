@@ -1,7 +1,7 @@
 #ifndef QT_NO_OPENGL
 
 #include "GpuDecodeTarget.h"
-#include "../../common/core/logging/LoggingCategories.h"
+#include "../../common/logging/LoggingCategories.h"
 
 #include <QtCore/QThread>
 #include <QtGui/QOpenGLContext>

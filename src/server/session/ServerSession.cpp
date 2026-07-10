@@ -4,8 +4,8 @@
 #include "../dataprocessing/DataProcessingWorker.h"
 #include "../clienthandler/ClientHandlerWorker.h"
 #include "../capture/ScreenCaptureWorker.h"
-#include "../../common/core/threading/ThreadManager.h"
-#include "../../common/core/logging/LoggingCategories.h"
+#include "../../common/threading/ThreadManager.h"
+#include "../../common/logging/LoggingCategories.h"
 
 #include <QtCore/QMetaObject>
 #include <QtCore/QThread>

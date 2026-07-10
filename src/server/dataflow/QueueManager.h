@@ -1,8 +1,8 @@
 #pragma once
 
 #include "DataFlowStructures.h"
-#include "../../common/core/config/ProcessingConstants.h"
-#include "../../common/core/threading/ThreadSafeQueue.h"
+#include "../../common/config/ProcessingConstants.h"
+#include "../../common/threading/ThreadSafeQueue.h"
 #include <QtCore/QObject>
 #include <QtCore/QTimer>
 #include <QtCore/QMutex>
