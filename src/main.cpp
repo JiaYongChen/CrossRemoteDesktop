@@ -16,7 +16,7 @@
 #include <unistd.h>
 #endif
 
-#include "common/windows/MainWindow.h"
+#include "app/MainWindow.h"
 #include "common/core/TranslationUtils.h"
 #include "common/core/config/SettingsManager.h"
 

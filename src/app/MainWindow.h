@@ -8,7 +8,7 @@ class SettingsManager;
 #include <QtCore/QDateTime>
 #include <atomic>
 #include "error/RdError.h"
-#include "../../client/session/RemoteDesktopSession.h"  // ConnectionParams
+#include "../client/session/RemoteDesktopSession.h"  // ConnectionParams
 
 class QAction;
 class QMenu;

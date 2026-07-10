@@ -1,6 +1,6 @@
 #include "ConnectionHistory.h"
-#include "../core/logging/LoggingCategories.h"
-#include "../core/crypto/PasswordCrypto.h"
+#include "common/core/logging/LoggingCategories.h"
+#include "common/core/crypto/PasswordCrypto.h"
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QJsonValue>

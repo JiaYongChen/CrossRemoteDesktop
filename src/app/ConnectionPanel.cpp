@@ -1,7 +1,7 @@
 #include "ConnectionPanel.h"
 #include "ui_ConnectionPanel.h"
 #include "ConnectionCard.h"
-#include "../core/logging/LoggingCategories.h"
+#include "common/core/logging/LoggingCategories.h"
 
 #include <QLineEdit>
 #include <QLabel>

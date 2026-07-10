@@ -4,23 +4,23 @@
 #include "ConnectionPanel.h"
 #include "SettingsDialog.h"
 #include "NavPanel.h"
-#include "../../server/listener/TcpListener.h"
-#include "../../server/capture/CapturePipeline.h"
-#include "../../server/session/ServerSession.h"
-#include "../../client/session/RemoteDesktopSession.h"
-#include "../../client/network/ConnectionManager.h"
-#include "../../server/dataflow/QueueManager.h"
-#include "../core/threading/ThreadManager.h"
-#include "../../server/simulator/InputSimulator.h"
+#include "../server/listener/TcpListener.h"
+#include "../server/capture/CapturePipeline.h"
+#include "../server/session/ServerSession.h"
+#include "../client/session/RemoteDesktopSession.h"
+#include "../client/network/ConnectionManager.h"
+#include "../server/dataflow/QueueManager.h"
+#include "common/core/threading/ThreadManager.h"
+#include "../server/simulator/InputSimulator.h"
 
 #include <memory>
 
-#include "../core/config/NetworkConstants.h"
-#include "../core/config/SettingsManager.h"
-#include "../core/config/ProcessingConstants.h"
-#include "../core/logging/LoggingCategories.h"
-#include "../core/theme/IconThemeProvider.h"
-#include "../core/theme/TitleBarTheme.h"
+#include "common/core/config/NetworkConstants.h"
+#include "common/core/config/SettingsManager.h"
+#include "common/core/config/ProcessingConstants.h"
+#include "common/core/logging/LoggingCategories.h"
+#include "common/core/theme/IconThemeProvider.h"
+#include "common/core/theme/TitleBarTheme.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>
