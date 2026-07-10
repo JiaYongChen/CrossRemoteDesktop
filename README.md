@@ -28,17 +28,17 @@
     - 网络协议 RDCP：28 字节头部，CRC-32 校验和，14 种消息类型
 
 - **系统功能**
+    - 剪贴板同步（`ClipboardManager`，`src/client/clipboard/`）
     - 明暗双主题 QSS 样式（`light.qss` / `dark.qss`）
     - 多语言支持（zh_CN / en_US），含翻译同步工具链
     - 分类流式日志系统（6 棵一级分类树，按大小滚动）
     - 灵活的配置系统（QSettings，支持运行时更新）
     - 密码认证（`PasswordCrypto`，SHA-256 哈希）
-    - 27 个测试目标，覆盖单元 / 集成 / 性能测试
+    - 23 个测试目标，覆盖单元 / 集成 / 性能测试（镜像 src/ 结构组织）
     - 跨平台输入模拟（Windows / macOS / Linux 键盘鼠标注入）
 
 ### 规划中 ⏳
 
-- 剪贴板同步（文本 / 图片）— `ClipboardManager` 已预置
 - 文件传输（双向、断点续传）
 - 音频传输（捕获 / 播放，编解码）
 - H.264 / H.265 视频编码
@@ -87,7 +87,25 @@ CrossRemoteDesktop/
 │   └── resources.qrc                 # Qt 资源集合
 ├── src/                              # 源代码
 │   ├── main.cpp                      # 程序入口
+│   ├── app/                          # 应用壳层（窗口类 + 生命周期管理）
+│   │   ├── MainWindow.*              # 主窗口（DI 入口，组装客户端/服务端）
+│   │   ├── MainWindowLayout.*        # 主窗口布局管理
+│   │   ├── ConnectionDialog.*        # 连接对话框
+│   │   ├── ConnectionPanel.*         # 连接面板
+│   │   ├── ConnectionCard.*          # 连接卡片控件
+│   │   ├── ConnectionHistory.*       # 连接历史管理
+│   │   ├── NavPanel.*                # 导航面板
+│   │   └── SettingsDialog.*          # 设置对话框
+│   ├── ui/                           # Qt Designer .ui 文件（6 个，仅静态布局）
+│   │   ├── MainWindow.ui
+│   │   ├── ConnectionDialog.ui
+│   │   ├── ConnectionPanel.ui
+│   │   ├── ConnectionCard.ui
+│   │   ├── NavPanel.ui
+│   │   └── SettingsDialog.ui
 │   ├── client/                       # 客户端模块
+│   │   ├── clipboard/                # 剪贴板同步
+│   │   │   └── ClipboardManager.*
 │   │   ├── core/
 │   │   │   ├── TripleBuffer.h        # 三缓冲帧管理（零拷贝）
 │   │   │   └── FrameSlot.h           # 帧槽位定义
@@ -106,7 +124,7 @@ CrossRemoteDesktop/
 │   │   │   ├── RemoteDesktopSession.* # 会话总控（状态机）
 │   │   │   ├── ProtocolSession.*     # RDCP 协议会话
 │   │   │   └── DecodePipeline.*      # 解码管线
-│   │   └── window/
+│   │   └── windows/                  # 客户端窗口
 │   │       ├── ClientRemoteWindow.*  # 远程桌面窗口（QWidget + GL）
 │   │       ├── GLTextureViewport.*   # OpenGL 纹理视口
 │   │       ├── InputForwarder.*      # 键鼠事件转发
@@ -114,112 +132,74 @@ CrossRemoteDesktop/
 │   │       └── CursorManager.*       # 光标显示管理
 │   ├── server/                       # 服务器模块
 │   │   ├── listener/
-│   │   │   └── TcpListener.*          # TCP 监听器 Worker
+│   │   │   └── TcpListener.*         # TCP 监听器 Worker
 │   │   ├── capture/
-│   │   │   ├── CapturePipeline.*      # 捕获管线（ScreenCapture + FrameBroadcaster）
-│   │   │   ├── ScreenCapture.*        # 屏幕捕获管理
-│   │   │   ├── ScreenCaptureWorker.*  # 捕获工作线程
-│   │   │   ├── FrameBroadcaster.*     # 帧广播器（订阅/广播模型）
-│   │   │   ├── DxgiCapture.*          # DXGI 桌面复制（Windows）
-│   │   │   └── CaptureConfig.h        # 捕获配置
+│   │   │   ├── CapturePipeline.*     # 捕获管线（ScreenCapture + FrameBroadcaster）
+│   │   │   ├── ScreenCapture.*       # 屏幕捕获管理
+│   │   │   ├── ScreenCaptureWorker.* # 捕获工作线程
+│   │   │   ├── FrameBroadcaster.*    # 帧广播器（订阅/广播模型）
+│   │   │   ├── DxgiCapture.*         # DXGI 桌面复制（Windows）
+│   │   │   └── CaptureConfig.h       # 捕获配置
 │   │   ├── session/
-│   │   │   ├── ServerSession.*        # 每客户端独立会话 Worker
-│   │   │   └── SessionQueuePair.h     # 每会话私有队列对
+│   │   │   ├── ServerSession.*       # 每客户端独立会话 Worker
+│   │   │   └── SessionQueuePair.h    # 每会话私有队列对
 │   │   ├── clienthandler/
-│   │   │   ├── ClientHandlerWorker.*  # 客户端处理 Worker
-│   │   │   └── AuthHandler.*          # 密码认证处理
+│   │   │   ├── ClientHandlerWorker.* # 客户端处理 Worker
+│   │   │   └── AuthHandler.*         # 密码认证处理
 │   │   ├── dataflow/
-│   │   │   ├── QueueManager.*         # 共享队列管理器（DI 注入）
-│   │   │   └── DataFlowStructures.*   # 数据结构定义
+│   │   │   ├── QueueManager.*        # 共享队列管理器（DI 注入）
+│   │   │   └── DataFlowStructures.*  # 数据结构定义
 │   │   ├── dataprocessing/
-│   │   │   ├── DataProcessing.*       # JPEG 编码逻辑
+│   │   │   ├── DataProcessing.*      # JPEG 编码逻辑
 │   │   │   ├── DataProcessingWorker.* # 编码工作线程
 │   │   │   └── DataProcessingConfig.* # 编码配置
 │   │   ├── service/
-│   │   │   └── TcpServer.*            # QTcpServer 封装
-│   │   └── simulator/                 # 输入模拟（跨平台）
-│   │       ├── InputSimulator.*       # 输入模拟基类
-│   │       ├── KeyboardSimulator*.*   # 键盘模拟（3 平台）
-│   │       └── MouseSimulator*.*      # 鼠标模拟（3 平台）
-│   ├── common/                       # 公共模块
-│   │   ├── core/
-│   │   │   ├── threading/            # 线程管理
-│   │   │   │   ├── Worker.*          # Worker 基类
-│   │   │   │   ├── ThreadManager.*   # 线程管理器
-│   │   │   │   └── ThreadSafeQueue.h # 线程安全队列
-│   │   │   ├── logging/
-│   │   │   │   └── LoggingCategories.* # 日志分类（6 棵一级树）
-│   │   │   ├── config/
-│   │   │   │   ├── SettingsManager.*      # 配置管理器（基于 QSettings，含持久化）
-│   │   │   │   ├── NetworkConstants.h     # 网络常量
-│   │   │   │   ├── ProtocolConstants.h    # 协议标识、消息字段、帧尺寸
-│   │   │   │   ├── CaptureConstants.h     # 捕获帧率、JPEG质量、输入参数
-│   │   │   │   ├── ProcessingConstants.h  # 线程池、队列、性能阈值
-│   │   │   │   ├── SecurityConstants.h    # 加密参数、认证限制
-│   │   │   │   └── GuiConstants.h         # 窗口尺寸、OpenGL渲染
-│   │   │   ├── network/
-│   │   │   │   ├── Protocol.h        # RDCP 协议定义
-│   │   │   │   ├── ProtocolImpl.cpp  # 协议静态函数 + CRC32
-│   │   │   │   └── MessageCodec.cpp  # 14 种消息编解码
-│   │   │   ├── error/
-│   │   │   │   ├── RdError.h         # 统一错误类型
-│   │   │   │   └── ErrorCode.h       # 26 个错误码枚举
-│   │   │   ├── crypto/
-│   │   │   │   └── PasswordCrypto.*  # 密码哈希与验证
-│   │   │   ├── theme/
-│   │   │   │   ├── TitleBarTheme.*   # 标题栏主题适配
-│   │   │   │   └── IconThemeProvider.* # SVG 图标主题
-│   │   │   └── TranslationUtils.*    # 翻译工具函数
-│   │   ├── clipboard/
-│   │   │   └── ClipboardManager.*    # 剪贴板管理（预置）
-│   │   ├── data/
-│   │   │   ├── ConnectionParams.h     # 连接参数定义
-│   │   │   └── DataRecord.h           # 数据记录
-│   │   └── windows/                  # 窗口实现
-│   │       ├── MainWindow.*          # 主窗口（DI 入口）
-│   │       ├── MainWindowLayout.*    # 主窗口布局管理
-│   │       ├── ConnectionDialog.*    # 连接对话框
-│   │       ├── ConnectionPanel.*     # 连接面板
-│   │       ├── ConnectionCard.*      # 连接卡片控件
-│   │       ├── ConnectionHistory.*   # 连接历史管理
-│   │       ├── NavPanel.*            # 导航面板
-│   │       └── SettingsDialog.*      # 设置对话框
-│   └── ui/                           # UI 界面文件（6 个 .ui）
-│       ├── MainWindow.ui
-│       ├── ConnectionDialog.ui
-│       ├── ConnectionPanel.ui
-│       ├── ConnectionCard.ui
-│       ├── NavPanel.ui
-│       └── SettingsDialog.ui
-├── test/                             # 测试套件（27 个测试目标）
-│   ├── test_threadmanager.cpp                # 线程管理器测试
-│   ├── test_queuemanager.cpp                 # 队列管理器测试
-│   ├── test_screencapture.cpp                # 屏幕捕获测试
-│   ├── test_screencaptureworker.cpp          # 捕获 Worker 测试
-│   ├── test_dxgi_capture.cpp                 # DXGI 捕获测试
-│   ├── test_dataprocessing.cpp               # 数据处理测试
-│   ├── test_clienthandlerworker.cpp          # 客户端处理 Worker 测试
-│   ├── test_clientremotewindow.cpp           # 远程窗口测试
-│   ├── test_producer_consumer_integration.cpp # 生产者-消费者集成测试
-│   ├── test_screen_data_flow.cpp             # 屏幕数据流测试
-│   ├── test_screen_capture_integration.cpp   # 屏幕捕获集成测试
-│   ├── test_data_consistency.cpp             # 数据一致性测试
-│   ├── test_frame_transmission_latency.cpp   # 帧传输延迟测试
-│   ├── test_close_event.cpp                  # 关闭事件测试
-│   ├── test_nvjpegdecoder.cpp                # nvJPEG 解码器测试
-│   ├── test_captured_frame.cpp               # 捕获帧测试
-│   ├── test_gl_upload_formats.cpp            # GL 上传格式测试
-│   ├── test_gl_worker_upload.cpp             # GL Worker 上传测试
-│   ├── test_render_surface.cpp               # 渲染表面测试
-│   ├── test_render_config.cpp                # 渲染配置测试
-│   ├── test_triple_buffer_swap.cpp           # 三缓冲交换测试
-│   ├── test_refresh_latency_metric.cpp       # 刷新延迟指标测试
-│   ├── test_session_latest_wins.cpp          # 会话最新帧策略测试
-│   ├── test_sessionmanager_lifecycle.cpp     # SessionManager 生命周期测试
-│   ├── test_sessionmanager_logic.cpp         # SessionManager 逻辑测试
-│   ├── test_sessionmanager_data.cpp          # SessionManager 数据测试
-│   ├── test_smoke_network.cpp                # 网络冒烟测试
-│   └── test_sessionmanager_common.h          # SessionManager 测试公共头
+│   │   │   ├── TcpServer.*           # QTcpServer 封装（TLS + 监听）
+│   │   │   └── ServerService.*       # 服务端编排门面（TcpListener + CapturePipeline + 会话管理）
+│   │   └── simulator/                # 输入模拟（按平台分子目录）
+│   │       ├── InputSimulator.*      # 输入模拟基类
+│   │       ├── KeyboardSimulator.*   # 键盘模拟基类
+│   │       ├── MouseSimulator.*      # 鼠标模拟基类
+│   │       ├── windows/              # Windows 平台实现
+│   │       ├── macos/                # macOS 平台实现
+│   │       └── linux/                # Linux 平台实现
+│   └── common/                       # 共享代码（8 个平级子目录，无 core/ 中间层）
+│       ├── threading/                # 线程管理
+│       │   ├── Worker.*              # Worker 基类
+│       │   ├── ThreadManager.*       # 线程管理器
+│       │   └── ThreadSafeQueue.h     # 线程安全队列
+│       ├── logging/
+│       │   └── LoggingCategories.*   # 日志分类（6 棵一级树）
+│       ├── config/                   # 编译期常量 + 运行时配置
+│       │   ├── SettingsManager.*     # 配置管理器（基于 QSettings，含持久化）
+│       │   ├── TranslationUtils.*    # 翻译工具函数
+│       │   ├── NetworkConstants.h    # 网络常量
+│       │   ├── ProtocolConstants.h   # 协议标识、消息字段、帧尺寸
+│       │   ├── CaptureConstants.h    # 捕获帧率、JPEG质量、输入参数
+│       │   ├── ProcessingConstants.h # 线程池、队列、性能阈值
+│       │   ├── SecurityConstants.h   # 加密参数、认证限制
+│       │   └── GuiConstants.h        # 窗口尺寸、OpenGL渲染
+│       ├── network/
+│       │   ├── Protocol.h            # RDCP 协议定义
+│       │   ├── ProtocolImpl.cpp      # 协议静态函数 + CRC32
+│       │   └── MessageCodec.cpp      # 14 种消息编解码
+│       ├── error/
+│       │   ├── RdError.h             # 统一错误类型
+│       │   └── ErrorCode.h           # 26 个错误码枚举
+│       ├── crypto/
+│       │   └── PasswordCrypto.*      # 密码哈希与验证
+│       ├── theme/
+│       │   ├── TitleBarTheme.*       # 标题栏主题适配
+│       │   └── IconThemeProvider.*   # SVG 图标主题
+│       └── data/
+│           ├── ConnectionParams.h    # 连接参数定义
+│           └── DataRecord.h          # 数据记录
+├── test/                             # 测试套件（23 个测试目标，镜像 src/ 结构）
+│   ├── app/                          # 应用壳层测试
+│   ├── client/                       # 客户端测试（decode / session / windows / network）
+│   ├── server/                       # 服务端测试（capture / clienthandler / dataprocessing / dataflow）
+│   ├── common/                       # 共享代码测试（threading）
+│   └── integration/                  # 跨模块集成测试
 ├── third_party/                      # 预编译第三方库缓存（提交 git）
 │   ├── openssl/                      # OpenSSL（SSL + Crypto）
 │   ├── libjpeg-turbo/                # libjpeg-turbo（JPEG 编解码）
@@ -230,19 +210,20 @@ CrossRemoteDesktop/
 
 ### 核心架构说明
 
-**依赖注入链**（`MainWindow` 构造函数为入口，`startServer()` 延迟创建核心组件）：
+**依赖注入链**（`MainWindow` 构造函数为入口，`ServerService` 管理服务端生命周期）：
 
 ```
 MainWindow → new ThreadManager(this)
           → new QueueManager(this)
-          → [startServer()] new TcpListener（监听端口）
-          → [startServer()] new CapturePipeline
-                → new ScreenCapture（捕获管理）
-                → new FrameBroadcaster（帧广播）
-          → [onNewConnection] new ServerSession（每客户端独立会话）
-                → SessionQueuePair（私有队列对）
-                → DataProcessingWorker（JPEG 编码）
-                → ClientHandlerWorker（TCP 发送）
+          → new ServerService(m_threadManager, m_queueManager)（服务端编排门面）
+                → [start()] new TcpListener（监听端口）
+                → [start()] new CapturePipeline
+                      → new ScreenCapture（捕获管理）
+                      → new FrameBroadcaster（帧广播）
+                → [onNewConnection] new ServerSession（每客户端独立会话）
+                      → SessionQueuePair（私有队列对）
+                      → DataProcessingWorker（JPEG 编码）
+                      → ClientHandlerWorker（TCP 发送）
 ```
 
 **服务端数据管线**（会话化广播模型）：
@@ -365,7 +346,27 @@ cmake -B build -DQt6_DIR=/path/to/qt6/lib/cmake/Qt6
 
 ## 测试
 
-项目包含 27 个测试目标，位于 `test/` 目录，通过 `add_subdirectory(test)` 自动构建。测试定义使用 `add_rd_test()` 辅助函数，单个测试定义约 8 行。
+项目包含 23 个测试目标，位于 `test/` 目录，镜像 `src/` 结构按模块组织：
+
+```
+test/
+├── app/                          # 应用壳层测试
+├── client/
+│   ├── decode/                   # GPU 解码 + GL 上传格式
+│   ├── network/                  # 网络冒烟测试
+│   ├── session/                  # SessionManager（32 个用例）
+│   └── windows/                  # ClientRemoteWindow + 三缓冲 + 延迟指标
+├── server/
+│   ├── capture/                  # ScreenCapture + DXGI 捕获
+│   ├── clienthandler/            # ClientHandler 测试
+│   ├── dataflow/                 # QueueManager + 捕获帧 + 数据一致性
+│   └── dataprocessing/           # DataProcessing 测试
+├── common/
+│   └── threading/                # ThreadManager 测试
+└── integration/                  # 跨模块集成 + 帧传输延迟
+```
+
+测试定义使用 `add_rd_test()` 辅助函数，单个测试定义约 8 行。
 
 ### 测试分类
 
@@ -373,7 +374,6 @@ cmake -B build -DQt6_DIR=/path/to/qt6/lib/cmake/Qt6
 - `test_threadmanager`：线程管理器测试
 - `test_queuemanager`：队列管理器测试
 - `test_triple_buffer_swap`：三缓冲交换测试
-- `test_render_config`：渲染配置测试
 - `test_captured_frame`：捕获帧测试
 - `test_sessionmanager_lifecycle`、`test_sessionmanager_logic`、`test_sessionmanager_data`：SessionManager 测试（32 个用例）
 
