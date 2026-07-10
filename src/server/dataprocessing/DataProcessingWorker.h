@@ -249,6 +249,7 @@ private:
     int m_processingTimeout;                                            ///< 处理超时时间（毫秒）
     int m_statsUpdateInterval;                                          ///< 统计更新间隔（毫秒）
     std::atomic<int> m_jpegQuality{ProcessingConstants::DefaultJpegQuality};  ///< JPEG 编码质量（线程安全）
+    std::atomic<int> m_chromaSubsampling{TJSAMP_420};                    ///< JPEG 色度子采样（线程安全）
 
     // 并行处理
     int m_maxParallelTasks;                                             ///< 最大并行任务数

@@ -317,7 +317,9 @@ void DataProcessingWorker::onAsyncBatchFinished() {
 }
 
 ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, quint64 frameId,
-                                                        int quality, double scaleFactor) {
+                                                        int quality, double scaleFactor,
+                                                        int chromaSubsampling) {
+    Q_UNUSED(chromaSubsampling);
     ProcessedData result;
 
     try {
