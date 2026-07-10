@@ -93,6 +93,11 @@ bool ServerSession::initialize() {
             m_dataWorker, &DataProcessingWorker::setJpegQuality,
             Qt::QueuedConnection);
 
+    // 6. 色深参数闭环：ClientHandlerWorker → DataProcessingWorker
+    connect(m_clientHandler, &ClientHandlerWorker::colorDepthReceived,
+            m_dataWorker, &DataProcessingWorker::setChromaSubsampling,
+            Qt::QueuedConnection);
+
     qCInfo(lcServer) << "ServerSession initialized:" << m_sessionId;
     return true;
 }
