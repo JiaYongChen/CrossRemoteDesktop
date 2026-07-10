@@ -109,7 +109,6 @@ qt_add_executable(CrossRemoteDesktop WIN32
 target_include_directories(CrossRemoteDesktop PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/common
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/core
     ${CMAKE_CURRENT_SOURCE_DIR}/src/client
     ${CMAKE_CURRENT_SOURCE_DIR}/src/server
     ${TURBOJPEG_INCLUDE_DIR}
