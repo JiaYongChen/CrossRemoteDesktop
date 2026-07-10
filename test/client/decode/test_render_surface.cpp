@@ -3,7 +3,7 @@
 #include <QtGui/QImage>
 
 #ifndef QT_NO_OPENGL
-#include "../src/client/windows/GLTextureViewport.h"
+#include "../../src/client/windows/GLTextureViewport.h"
 
 class TestRenderSurface : public QObject {
     Q_OBJECT

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../src/client/network/ConnectionManager.h"
-#include "../src/common/network/Protocol.h"
+#include "../../src/client/network/ConnectionManager.h"
+#include "../../src/common/network/Protocol.h"
 
 /// Mock ConnectionManager — 重写 5 个 virtual 方法用于测试控制
 class MockConnectionManager : public ConnectionManager {

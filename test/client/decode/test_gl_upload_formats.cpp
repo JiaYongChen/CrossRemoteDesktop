@@ -4,7 +4,7 @@
 #include <QtGui/QImage>
 
 // Expose the pure-function helper for testing via header-only include.
-#include "../src/client/windows/GLTextureViewport.h"
+#include "../../src/client/windows/GLTextureViewport.h"
 
 class TestGLUploadFormats : public QObject {
     Q_OBJECT

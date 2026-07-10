@@ -7,8 +7,8 @@
 #include <QtCore/QBuffer>
 
 // 包含需要测试的类
-#include "../src/common/logging/LoggingCategories.h"
-#include "../src/common/network/Protocol.h"
+#include "../../src/common/logging/LoggingCategories.h"
+#include "../../src/common/network/Protocol.h"
 
 /**
  * @brief 测试屏幕数据传输流程的核心功能

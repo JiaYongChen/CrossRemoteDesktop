@@ -1,7 +1,7 @@
 #include <QtTest/QTest>
 #include <QtTest/QSignalSpy>
 #include "test_sessionmanager_common.h"
-#include "../src/client/managers/SessionManager.h"
+#include "../../src/client/managers/SessionManager.h"
 
 class TestSessionManagerLifecycle : public QObject {
     Q_OBJECT

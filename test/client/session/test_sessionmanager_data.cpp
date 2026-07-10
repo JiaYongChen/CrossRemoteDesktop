@@ -1,8 +1,8 @@
 #include <QtTest/QTest>
 #include <QtTest/QSignalSpy>
 #include "test_sessionmanager_common.h"
-#include "../src/client/managers/SessionManager.h"
-#include "../src/common/network/Protocol.h"
+#include "../../src/client/managers/SessionManager.h"
+#include "../../src/common/network/Protocol.h"
 
 class TestSessionManagerData : public QObject {
     Q_OBJECT

@@ -135,24 +135,24 @@ add_custom_target(run_integration_tests
 
 # unit / threading
 add_rd_test(TARGET test_threadmanager  NAME ThreadManagerTest
-    SOURCES test_threadmanager.cpp
+    SOURCES common/threading/test_threadmanager.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Network Qt6::Concurrent threading_test_core
     TIMEOUT 30  LABELS unit threading manager)
 
 # unit / capture
 add_rd_test(TARGET test_screencaptureworker  NAME ScreenCaptureWorkerTest
-    SOURCES test_screencaptureworker.cpp
+    SOURCES server/capture/test_screencaptureworker.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Network Qt6::Concurrent capture_test_core
     TIMEOUT 30  LABELS unit capture worker  NO_OPENGL)
 
 add_rd_test(TARGET test_screencapture  NAME ScreenCaptureTest
-    SOURCES test_screencapture.cpp
+    SOURCES server/capture/test_screencapture.cpp
     EXTRA_SOURCES ../src/server/capture/ScreenCapture.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Network Qt6::Concurrent capture_test_core
     TIMEOUT 60  LABELS unit capture main  NO_OPENGL)
 
 add_rd_test(TARGET test_dxgi_capture  NAME DxgiCaptureTest
-    SOURCES test_dxgi_capture.cpp
+    SOURCES server/capture/test_dxgi_capture.cpp
     EXTRA_SOURCES ../src/common/network/ProtocolImpl.cpp ../src/common/network/MessageCodec.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui common_test_core
     TIMEOUT 30  LABELS unit capture dxgi windows  NO_OPENGL)
@@ -163,29 +163,29 @@ endif()
 
 # unit / server
 add_rd_test(TARGET test_queuemanager  NAME QueueManagerTest
-    SOURCES test_queuemanager.cpp
+    SOURCES server/dataflow/test_queuemanager.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network capture_test_core
     TIMEOUT 30  LABELS unit server queue  NO_OPENGL)
 
 add_rd_test(TARGET test_dataprocessing  NAME DataProcessingTest
-    SOURCES test_dataprocessing.cpp
+    SOURCES server/dataprocessing/test_dataprocessing.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui common_test_core
     TIMEOUT 30  LABELS unit server dataprocessing  NO_OPENGL)
 
 # unit / dataflow
 add_rd_test(TARGET test_captured_frame  NAME CapturedFrameTest
-    SOURCES test_captured_frame.cpp
+    SOURCES server/dataflow/test_captured_frame.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui common_test_core
     TIMEOUT 30  LABELS unit server dataflow  NO_OPENGL)
 
 # unit / client
 add_rd_test(TARGET test_refresh_latency_metric  NAME RefreshLatencyMetricTest
-    SOURCES test_refresh_latency_metric.cpp
+    SOURCES client/windows/test_refresh_latency_metric.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui common_test_core
     TIMEOUT 30  LABELS unit client metrics  NO_OPENGL)
 
 add_rd_test(TARGET test_session_latest_wins  NAME SessionLatestWinsTest
-    SOURCES test_session_latest_wins.cpp
+    SOURCES client/session/test_session_latest_wins.cpp
     EXTRA_SOURCES
         ../src/client/session/ProtocolSession.cpp
         ../src/client/session/DecodePipeline.cpp
@@ -200,13 +200,13 @@ add_rd_test(TARGET test_session_latest_wins  NAME SessionLatestWinsTest
     TIMEOUT 30  LABELS unit client queue  NO_OPENGL)
 
 add_rd_test(TARGET test_triple_buffer_swap  NAME TripleBufferSwapTest
-    SOURCES test_triple_buffer_swap.cpp
+    SOURCES client/windows/test_triple_buffer_swap.cpp
     LIBRARIES Qt6::Core Qt6::Test
     TIMEOUT 30  LABELS unit client threading)
 
 # unit / render + GL
 add_rd_test(TARGET test_render_surface  NAME RenderSurfaceTest
-    SOURCES test_render_surface.cpp
+    SOURCES client/decode/test_render_surface.cpp
     EXTRA_SOURCES ../src/client/windows/GLTextureViewport.cpp
                   ../src/client/decode/GpuDecodeTarget.cpp
                   ../src/client/windows/CursorManager.cpp
@@ -214,7 +214,7 @@ add_rd_test(TARGET test_render_surface  NAME RenderSurfaceTest
     TIMEOUT 30  LABELS unit client render)
 
 add_rd_test(TARGET test_gl_upload_formats  NAME GLUploadFormatsTest
-    SOURCES test_gl_upload_formats.cpp
+    SOURCES client/decode/test_gl_upload_formats.cpp
     EXTRA_SOURCES ../src/client/windows/GLTextureViewport.cpp
                   ../src/client/decode/GpuDecodeTarget.cpp
                   ../src/client/windows/CursorManager.cpp
@@ -222,7 +222,7 @@ add_rd_test(TARGET test_gl_upload_formats  NAME GLUploadFormatsTest
     TIMEOUT 30  LABELS unit client gl)
 
 add_rd_test(TARGET test_gl_worker_upload  NAME GLWorkerUploadTest
-    SOURCES test_gl_worker_upload.cpp
+    SOURCES client/decode/test_gl_worker_upload.cpp
     EXTRA_SOURCES ../src/client/windows/GLTextureViewport.cpp
                   ../src/client/decode/GpuDecodeTarget.cpp
                   ../src/client/windows/CursorManager.cpp
@@ -231,7 +231,7 @@ add_rd_test(TARGET test_gl_worker_upload  NAME GLWorkerUploadTest
 
 # unit / client window
 add_rd_test(TARGET test_clientremotewindow  NAME ClientRemoteWindowTest
-    SOURCES test_clientremotewindow.cpp
+    SOURCES client/windows/test_clientremotewindow.cpp
     EXTRA_SOURCES
         ../src/client/windows/ClientRemoteWindow.cpp
         ../src/client/windows/InputForwarder.cpp
@@ -252,31 +252,31 @@ add_rd_test(TARGET test_clientremotewindow  NAME ClientRemoteWindowTest
 
 # unit / server worker
 add_rd_test(TARGET test_clienthandlerworker  NAME ClientHandlerWorkerTest
-    SOURCES test_clienthandlerworker.cpp
+    SOURCES server/clienthandler/test_clienthandlerworker.cpp
     LIBRARIES Qt6::Core Qt6::Test common_test_core
     TIMEOUT 60  LABELS unit server worker network  NO_OPENGL)
 
 # integration
 add_rd_test(TARGET test_screen_capture_integration  NAME ScreenCaptureIntegrationTest
-    SOURCES test_screen_capture_integration.cpp
+    SOURCES integration/test_screen_capture_integration.cpp
     EXTRA_SOURCES ../src/server/capture/ScreenCapture.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Network Qt6::Concurrent capture_test_core
     TIMEOUT 300  LABELS integration screencapture redundancy  NO_OPENGL)
 
 add_rd_test(TARGET test_data_consistency  NAME DataConsistencyTest
-    SOURCES test_data_consistency.cpp
+    SOURCES server/dataflow/test_data_consistency.cpp
     EXTRA_SOURCES ../src/common/network/ProtocolImpl.cpp ../src/common/network/MessageCodec.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Network threading_test_core
     TIMEOUT 30  LABELS integration consistency network  NO_OPENGL)
 
 add_rd_test(TARGET test_screen_data_flow  NAME ScreenDataFlowTest
-    SOURCES test_screen_data_flow.cpp
+    SOURCES integration/test_screen_data_flow.cpp
     EXTRA_SOURCES ../src/common/network/ProtocolImpl.cpp ../src/common/network/MessageCodec.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network Qt6::Concurrent OpenSSL::SSL OpenSSL::Crypto common_test_core
     TIMEOUT 120  LABELS integration screen data flow network  NO_OPENGL)
 
 add_rd_test(TARGET test_producer_consumer_integration  NAME ProducerConsumerIntegrationTest
-    SOURCES test_producer_consumer_integration.cpp
+    SOURCES integration/test_producer_consumer_integration.cpp
     EXTRA_SOURCES
         ../src/server/dataprocessing/DataProcessingWorker.cpp
         ../src/server/dataprocessing/DataProcessing.cpp
@@ -307,21 +307,21 @@ endif()
 
 # integration / UI（需额外环境变量）
 add_rd_test(TARGET test_close_event  NAME CloseEventTest
-    SOURCES test_close_event.cpp
+    SOURCES app/test_close_event.cpp
     LIBRARIES Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network Qt6::Test Qt6::Concurrent
     TIMEOUT 60  LABELS integration ui closeevent app  NO_OPENGL
     EXTRA_ENV "AUTO_RUN=1" "RD_MAIN_APP_PATH=${CMAKE_SOURCE_DIR}/Debug/CrossRemoteDesktop.app/Contents/MacOS/CrossRemoteDesktop")
 
 # performance
 add_rd_test(TARGET test_frame_transmission_latency  NAME FrameTransmissionLatencyTest
-    SOURCES test_frame_transmission_latency.cpp
+    SOURCES integration/test_frame_transmission_latency.cpp
     EXTRA_SOURCES ../src/common/network/ProtocolImpl.cpp ../src/common/network/MessageCodec.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Network threading_test_core
     TIMEOUT 30  LABELS performance latency network  NO_OPENGL)
 
 # SessionManager 单元测试 — 暂时跳过，等待新架构适配（后续 Task 处理）
 # add_rd_test(TARGET test_sessionmanager_logic  NAME SessionManagerLogicTest
-#     SOURCES test_sessionmanager_logic.cpp
+#     SOURCES client/session/test_sessionmanager_logic.cpp
 #     EXTRA_SOURCES
 #         ../src/client/session/ProtocolSession.cpp
 #         ../src/client/session/DecodePipeline.cpp
@@ -336,7 +336,7 @@ add_rd_test(TARGET test_frame_transmission_latency  NAME FrameTransmissionLatenc
 #     TIMEOUT 30  LABELS unit client session  NO_OPENGL)
 #
 # add_rd_test(TARGET test_sessionmanager_data  NAME SessionManagerDataTest
-#     SOURCES test_sessionmanager_data.cpp
+#     SOURCES client/session/test_sessionmanager_data.cpp
 #     EXTRA_SOURCES
 #         ../src/client/session/ProtocolSession.cpp
 #         ../src/client/session/DecodePipeline.cpp
@@ -351,7 +351,7 @@ add_rd_test(TARGET test_frame_transmission_latency  NAME FrameTransmissionLatenc
 #     TIMEOUT 30  LABELS unit client session data  NO_OPENGL)
 #
 # add_rd_test(TARGET test_sessionmanager_lifecycle  NAME SessionManagerLifecycleTest
-#     SOURCES test_sessionmanager_lifecycle.cpp
+#     SOURCES client/session/test_sessionmanager_lifecycle.cpp
 #     EXTRA_SOURCES
 #         ../src/client/session/ProtocolSession.cpp
 #         ../src/client/session/DecodePipeline.cpp
@@ -367,13 +367,13 @@ add_rd_test(TARGET test_frame_transmission_latency  NAME FrameTransmissionLatenc
 
 # unit / nvJPEG decoder
 add_rd_test(TARGET test_nvjpegdecoder  NAME NvJpegDecoderTest
-    SOURCES test_nvjpegdecoder.cpp
+    SOURCES client/decode/test_nvjpegdecoder.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui common_test_core
     TIMEOUT 30  LABELS unit client decode)
 
 # smoke / network components
 add_rd_test(TARGET test_smoke_network  NAME SmokeNetworkTest
-    SOURCES test_smoke_network.cpp
+    SOURCES client/network/test_smoke_network.cpp
     EXTRA_SOURCES
         ../src/client/network/ConnectionManager.cpp
         ../src/client/network/TcpClient.cpp

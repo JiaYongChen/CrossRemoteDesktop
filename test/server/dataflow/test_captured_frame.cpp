@@ -3,7 +3,7 @@
 #include <memory>
 #include <utility>
 
-#include "../src/server/dataflow/DataFlowStructures.h"
+#include "../../src/server/dataflow/DataFlowStructures.h"
 
 /**
  * @brief Unit tests for CapturedFrame after zero-copy refactor.

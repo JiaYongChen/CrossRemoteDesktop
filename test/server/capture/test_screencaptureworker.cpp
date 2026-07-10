@@ -6,11 +6,11 @@
 #include <QtGui/QGuiApplication>
 #include <memory>
 
-#include "../src/server/capture/ScreenCaptureWorker.h"
-#include "../src/server/capture/CaptureConfig.h"
-#include "../src/common/threading/ThreadManager.h"
-#include "../src/server/dataflow/QueueManager.h"
-#include "../src/server/dataflow/DataFlowStructures.h"
+#include "../../src/server/capture/ScreenCaptureWorker.h"
+#include "../../src/server/capture/CaptureConfig.h"
+#include "../../src/common/threading/ThreadManager.h"
+#include "../../src/server/dataflow/QueueManager.h"
+#include "../../src/server/dataflow/DataFlowStructures.h"
 
 /**
  * @brief ScreenCaptureWorker单元测试类

@@ -1,8 +1,8 @@
 #include <QtTest/QTest>
 #include <QtCore/QThread>
 #include <QtCore/QElapsedTimer>
-#include "../src/server/dataflow/QueueManager.h"
-#include "../src/server/dataflow/DataFlowStructures.h"
+#include "../../src/server/dataflow/QueueManager.h"
+#include "../../src/server/dataflow/DataFlowStructures.h"
 
 class TestQueueManager : public QObject {
     Q_OBJECT

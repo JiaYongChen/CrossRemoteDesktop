@@ -1,6 +1,6 @@
 #include <QtTest/QTest>
-#include "../src/client/core/TripleBuffer.h"
-#include "../src/client/core/FrameSlot.h"
+#include "../../src/client/core/TripleBuffer.h"
+#include "../../src/client/core/FrameSlot.h"
 
 class TestRefreshLatencyMetric : public QObject {
     Q_OBJECT

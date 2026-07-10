@@ -5,8 +5,8 @@
 #include <QtCore/QElapsedTimer>
 #include <memory>
 
-#include "../src/common/threading/ThreadManager.h"
-#include "../src/common/threading/Worker.h"
+#include "../../src/common/threading/ThreadManager.h"
+#include "../../src/common/threading/Worker.h"
 
 /**
  * @brief ThreadManager单元测试类

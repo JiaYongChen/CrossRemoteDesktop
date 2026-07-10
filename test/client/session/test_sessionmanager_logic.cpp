@@ -1,5 +1,5 @@
 #include <QtTest/QTest>
-#include "../src/client/managers/SessionManager.h"
+#include "../../src/client/managers/SessionManager.h"
 
 class TestSessionManagerLogic : public QObject {
     Q_OBJECT
