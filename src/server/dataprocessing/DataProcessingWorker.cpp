@@ -60,6 +60,18 @@ int DataProcessingWorker::jpegQuality() const {
     return m_jpegQuality.load(std::memory_order_relaxed);
 }
 
+void DataProcessingWorker::setChromaSubsampling(int colorDepth) {
+    int samp;
+    switch (colorDepth) {
+        case 32: samp = TJSAMP_444; break;
+        case 24: samp = TJSAMP_422; break;
+        default: samp = TJSAMP_420; break;  // 16位、无效值均走 4:2:0
+    }
+    m_chromaSubsampling.store(samp, std::memory_order_relaxed);
+    qCDebug(lcServerEncode) << "色度子采样策略更新: colorDepth=" << colorDepth
+                            << "TJSAMP=" << samp;
+}
+
 QString DataProcessingWorker::getProcessingStats() const {
     QMutexLocker locker(&m_statsMutex);
 
