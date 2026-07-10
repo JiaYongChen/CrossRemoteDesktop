@@ -2,7 +2,7 @@
 
 本文件为 Claude Code (claude.ai/code) 在本仓库中工作时提供指导。
 
-> 最后更新：2026-06-17
+> 最后更新：2026-07-10
 
 ## 构建命令
 
@@ -89,23 +89,24 @@ cmake/
 ```
 MainWindow → new ThreadManager(this)
           → new QueueManager(this)
-          → [startServer()] new TcpListener（监听端口，接受连接）
-          → [startServer()] new CapturePipeline（屏幕捕获 + 帧广播）
-                → new ScreenCapture(m_threadManager, m_queueManager)
-                → new FrameBroadcaster(m_queueManager)
-          → [onNewConnection] new ServerSession（每客户端独立会话）
-                → SessionQueuePair（每会话私有队列对）
-                → DataProcessingWorker（JPEG 编码）
-                → ClientHandlerWorker（发送到客户端）
+          → new ServerService(m_threadManager, m_queueManager)（服务端门面）
+                → [start()] new TcpListener（监听端口，接受连接）
+                → [start()] new CapturePipeline（屏幕捕获 + 帧广播）
+                      → new ScreenCapture(m_threadManager, m_queueManager)
+                      → new FrameBroadcaster(m_queueManager)
+                → [onNewConnection] new ServerSession（每客户端独立会话）
+                      → SessionQueuePair（每会话私有队列对）
+                      → DataProcessingWorker（JPEG 编码）
+                      → ClientHandlerWorker（发送到客户端）
 ```
 
-**说明**：`TcpListener` 和 `CapturePipeline` 在 `startServer()` 中延迟创建（由 500ms QTimer 触发）。`ServerSession` 在 `TcpListener::newConnection` 信号触发时按需创建，每个客户端连接对应一个独立会话。
+**说明**：`ServerService`（`src/server/service/`）是服务端编排门面，管理 `TcpListener` + `CapturePipeline` + 会话生命周期，从 MainWindow 分离以提升可测试性。`ServerSession` 在 `TcpListener::newConnection` 信号触发时按需创建，每个客户端连接对应一个独立会话。
 
 ### 服务端会话架构
 
 ```
 TcpListener（接受连接）
-  └─ newConnection(qintptr) → MainWindow 创建 ServerSession
+  └─ newConnection(qintptr) → ServerService 创建 ServerSession
                                   ├── SessionQueuePair（私有队列对）
                                   │     ├── captureQueue（FrameBroadcaster → 编码）
                                   │     └── processedQueue（编码 → 网络发送）
@@ -153,7 +154,7 @@ ConnectionManager (TCP) → SessionManager (状态管理) → ClientRemoteWindow
 
 ### 线程模型
 
-所有 Worker 继承 `Worker` 基类（`src/common/core/threading/Worker.h`），提供：
+所有 Worker 继承 `Worker` 基类（`src/common/threading/Worker.h`），提供：
 - 状态机：Stopped → Starting → Running ⇄ Paused → Stopping → Stopped
 - 信号：started, stopped, paused, resumed, errorOccurred
 - 重写 `processTask()` 实现工作循环，`initialize()`/`cleanup()` 管理生命周期
@@ -167,7 +168,7 @@ ConnectionManager (TCP) → SessionManager (状态管理) → ClientRemoteWindow
 
 ### 错误处理系统
 
-**统一错误类型**（`src/common/core/error/`）：
+**统一错误类型**（`src/common/error/`）：
 - `RdError`：轻量值类型结构体，含 `code`（ErrorCode 枚举）、`message`、`source`、`timestampMs` 四字段
 - `ErrorCode`：26 个枚举值，按模块分类（网络/认证/会话/捕获/数据处理/队列/线程/服务端/配置）
 - 项目中 13 个错误信号全部迁移到 `const RdError&` 参数
@@ -175,10 +176,10 @@ ConnectionManager (TCP) → SessionManager (状态管理) → ClientRemoteWindow
 
 ### 网络协议（RDCP）
 
-定义在 `src/common/core/network/Protocol.h`：
+定义在 `src/common/network/Protocol.h`：
 - 魔数：`0x52444350`，28 字节头部（魔数 + 版本 + 类型 + 长度 + 校验和 + 时间戳）
 - 关键消息类型：HANDSHAKE, AUTHENTICATION, HEARTBEAT, SCREEN_DATA, MOUSE_EVENT, KEYBOARD_EVENT, CLIPBOARD_DATA
-- 默认端口：5921（见 `src/common/core/config/NetworkConstants.h`）
+- 默认端口：5921（见 `src/common/config/NetworkConstants.h`）
 - 校验和：CRC-32（非安全哈希，仅完整性校验）
 - **已移除协议**：AUDIO_DATA/...（音频未实现）、FILE_TRANSFER_*/...（文件传输未实现）
 
@@ -188,7 +189,7 @@ ConnectionManager (TCP) → SessionManager (状态管理) → ClientRemoteWindow
 
 ### 配置
 
-运行时配置通过 `SettingsManager` 类管理。编译期常量分布在 6 个域名空间文件中（`src/common/core/config/`）：
+运行时配置通过 `SettingsManager` 类管理。编译期常量分布在 6 个域名空间文件中（`src/common/config/`）：
 
 | 文件 | 命名空间 | 领域 |
 |------|----------|------|
@@ -234,7 +235,7 @@ qWarning() << "message";                      // 错误 - 禁止无分类日志
 qCWarning(lcServer) << error.logLabel();      // 推荐
 ```
 
-所有日志分类在 `src/common/core/logging/LoggingCategories.h` 中声明，在对应 `.cpp` 中定义。禁止在其他文件中定义 `Q_LOGGING_CATEGORY` 或 `Q_DECLARE_LOGGING_CATEGORY`。新增分类时必须添加到 `LoggingCategories.h/.cpp`。
+所有日志分类在 `src/common/logging/LoggingCategories.h` 中声明，在对应 `.cpp` 中定义。禁止在其他文件中定义 `Q_LOGGING_CATEGORY` 或 `Q_DECLARE_LOGGING_CATEGORY`。新增分类时必须添加到 `LoggingCategories.h/.cpp`。
 
 ### 日志级别语义规范
 
@@ -261,12 +262,17 @@ qCWarning(lcServer) << error.logLabel();      // 推荐
 
 ## 平台特定代码
 
-输入模拟器有平台变体：`*Windows.cpp`、`*MacOS.cpp`、`*Linux.cpp`，位于 `src/server/simulator/` 下。CMake 根据平台自动选择对应的源文件。
+输入模拟器有平台变体，位于 `src/server/simulator/` 下按平台分子目录：`windows/`、`macos/`、`linux/`。CMake 通过 GLOB_RECURSE 自动收集全部源文件，平台选择通过文件内 `#ifdef Q_OS_*` 编译期守卫实现。
 
 ## 测试
 
-26 个测试目标（含 32 个 SessionManager 专用用例），关键技术：
-- **MockConnectionManager**：重写 `isConnected()`/`isAuthenticated()` 等 virtual 方法，用于 SessionManager 测试（`test/test_sessionmanager_common.h`）
+26 个测试目标（含 32 个 SessionManager 专用用例），测试目录镜像 `src/` 结构按模块组织：
+- **`test/app/`** — 应用壳层测试
+- **`test/client/`** — 客户端测试（`decode/`、`session/`、`windows/`、`network/`）
+- **`test/server/`** — 服务端测试（`capture/`、`clienthandler/`、`dataprocessing/`、`dataflow/`）
+- **`test/common/`** — 共享代码测试（`threading/`）
+- **`test/integration/`** — 跨模块集成测试
+- **MockConnectionManager**：重写 `isConnected()`/`isAuthenticated()` 等 virtual 方法，用于 SessionManager 测试（`test/client/session/test_sessionmanager_common.h`）
 - **SessionManager DI**：受保护构造函数 + friend 声明，测试可直接注入 MockConnectionManager
 - **`add_rd_test()`**：测试目标创建辅助函数（见 `cmake/TestHelpers.cmake`），支持 NO_OPENGL 标志、EXTRA_SOURCES、EXTRA_ENV 等可选参数
 
@@ -276,5 +282,5 @@ qCWarning(lcServer) << error.logLabel();      // 推荐
 - **文件传输协议**：FILE_TRANSFER_* 枚举 + FileTransferStatus + FileTransferRequest/Response/FileData（未实现）
 - **FileTransferManager**：整类删除（仅处理客户端拖放 UI，无服务端处理）
 - **性能叠加层**：ClientRemoteWindow::drawPerformanceInfo()（m_showPerformanceInfo 恒为 false）
-- **ServerManager / ServerWorker**：整类删除，服务端启动逻辑合并到 MainWindow，会话管理由 ServerSession 接管
+- **ServerManager / ServerWorker**：整类删除，服务端编排逻辑由 `ServerService`（`src/server/service/`）接管，`TcpListener` + `CapturePipeline` + 会话管理统一封装
 - **ConfigBinding<T> 模板类** + 7 个 CONFIG_* 便利宏（零引用死代码）
