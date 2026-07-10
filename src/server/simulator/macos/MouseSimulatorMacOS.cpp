@@ -4,7 +4,7 @@
 
 #include <QGuiApplication>
 #include <QScreen>
-#include "../../common/logging/LoggingCategories.h"
+#include "../../../common/logging/LoggingCategories.h"
 
 
 MouseSimulatorMacOS::MouseSimulatorMacOS() : MouseSimulator() {

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "KeyboardSimulator.h"
+#include "../KeyboardSimulator.h"
 
 #ifdef Q_OS_LINUX
 #include <X11/Xlib.h>

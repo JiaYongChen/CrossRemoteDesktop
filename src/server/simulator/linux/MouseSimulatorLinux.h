@@ -1,15 +1,16 @@
 #pragma once
 
-#include "MouseSimulator.h"
+#include "../MouseSimulator.h"
 
-#ifdef Q_OS_WIN
-#include <windows.h>
+#ifdef Q_OS_LINUX
+#include <X11/Xlib.h>
+#include <X11/extensions/XTest.h>
 
 
-class MouseSimulatorWindows : public MouseSimulator {
+class MouseSimulatorLinux : public MouseSimulator {
 public:
-    MouseSimulatorWindows();
-    ~MouseSimulatorWindows() override;
+    MouseSimulatorLinux();
+    ~MouseSimulatorLinux() override;
 
     // 初始化和清理
     bool initialize() override;
@@ -26,12 +27,14 @@ public:
     QPoint getCursorPosition() const override;
 
 private:
-    // 鼠标事件模拟
-    bool simulateMouseEvent(int x, int y, DWORD flags, DWORD data = 0);
+    Display* m_display;
     
-    // Qt 按钮转 Windows 标志
-    DWORD qtButtonToWindowsFlags(Qt::MouseButton button, bool isPress) const;
+    // 鼠标事件模拟
+    bool simulateMouseEvent(int x, int y, unsigned int button, bool press);
+    
+    // Qt 按钮转 X11 按钮
+    unsigned int qtButtonToX11Button(Qt::MouseButton button) const;
 };
 
-#endif // Q_OS_WIN
+#endif // Q_OS_LINUX
 

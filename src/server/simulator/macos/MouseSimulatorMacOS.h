@@ -1,6 +1,6 @@
 #pragma once
 
-#include "MouseSimulator.h"
+#include "../MouseSimulator.h"
 
 #ifdef Q_OS_MACOS
 #include <CoreGraphics/CoreGraphics.h>

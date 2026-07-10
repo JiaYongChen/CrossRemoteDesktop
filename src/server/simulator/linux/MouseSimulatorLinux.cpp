@@ -2,7 +2,7 @@
 
 #ifdef Q_OS_LINUX
 
-#include "../../common/logging/LoggingCategories.h"
+#include "../../../common/logging/LoggingCategories.h"
 
 
 MouseSimulatorLinux::MouseSimulatorLinux() : MouseSimulator(), m_display(nullptr) {

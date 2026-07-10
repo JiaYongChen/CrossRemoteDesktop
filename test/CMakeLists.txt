@@ -293,16 +293,16 @@ add_rd_test(TARGET test_producer_consumer_integration  NAME ProducerConsumerInte
     TIMEOUT 300  LABELS integration producer consumer queue threading  NO_OPENGL)
 if(WIN32)
     target_sources(test_producer_consumer_integration PRIVATE
-        ../src/server/simulator/MouseSimulatorWindows.cpp
-        ../src/server/simulator/KeyboardSimulatorWindows.cpp)
+        ../src/server/simulator/windows/MouseSimulatorWindows.cpp
+        ../src/server/simulator/windows/KeyboardSimulatorWindows.cpp)
 elseif(APPLE)
     target_sources(test_producer_consumer_integration PRIVATE
-        ../src/server/simulator/MouseSimulatorMacOS.cpp
-        ../src/server/simulator/KeyboardSimulatorMacOS.cpp)
+        ../src/server/simulator/macos/MouseSimulatorMacOS.cpp
+        ../src/server/simulator/macos/KeyboardSimulatorMacOS.cpp)
 elseif(UNIX)
     target_sources(test_producer_consumer_integration PRIVATE
-        ../src/server/simulator/MouseSimulatorLinux.cpp
-        ../src/server/simulator/KeyboardSimulatorLinux.cpp)
+        ../src/server/simulator/linux/MouseSimulatorLinux.cpp
+        ../src/server/simulator/linux/KeyboardSimulatorLinux.cpp)
 endif()
 
 # integration / UI（需额外环境变量）

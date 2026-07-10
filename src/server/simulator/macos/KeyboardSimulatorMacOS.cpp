@@ -2,7 +2,7 @@
 
 #ifdef Q_OS_MACOS
 
-#include "../../common/logging/LoggingCategories.h"
+#include "../../../common/logging/LoggingCategories.h"
 
 
 KeyboardSimulatorMacOS::KeyboardSimulatorMacOS() : KeyboardSimulator() {

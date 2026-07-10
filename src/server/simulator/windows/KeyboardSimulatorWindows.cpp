@@ -1,5 +1,5 @@
 #include "KeyboardSimulatorWindows.h"
-#include "../../common/logging/LoggingCategories.h"
+#include "../../../common/logging/LoggingCategories.h"
 
 #ifdef Q_OS_WIN
 

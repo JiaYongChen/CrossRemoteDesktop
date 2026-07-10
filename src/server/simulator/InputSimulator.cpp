@@ -4,14 +4,14 @@
 
 // 平台特定的包含
 #ifdef Q_OS_MACOS
-#include "MouseSimulatorMacOS.h"
-#include "KeyboardSimulatorMacOS.h"
+#include "macos/MouseSimulatorMacOS.h"
+#include "macos/KeyboardSimulatorMacOS.h"
 #elif defined(Q_OS_WIN)
-#include "MouseSimulatorWindows.h"
-#include "KeyboardSimulatorWindows.h"
+#include "windows/MouseSimulatorWindows.h"
+#include "windows/KeyboardSimulatorWindows.h"
 #elif defined(Q_OS_LINUX)
-#include "MouseSimulatorLinux.h"
-#include "KeyboardSimulatorLinux.h"
+#include "linux/MouseSimulatorLinux.h"
+#include "linux/KeyboardSimulatorLinux.h"
 #endif
 
 #include "../../common/logging/LoggingCategories.h"
