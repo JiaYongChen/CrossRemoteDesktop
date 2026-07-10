@@ -125,7 +125,9 @@ void ServerService::startCapturePipeline()
         }
     }
 
-    // 转发 CapturePipeline 错误信号
+    // 转发 CapturePipeline 错误信号（先断开避免 stop/start 循环累积）
+    disconnect(m_capturePipeline, &Worker::errorOccurred,
+               this, &ServerService::errorOccurred);
     connect(m_capturePipeline, &Worker::errorOccurred,
             this, &ServerService::errorOccurred);
 
