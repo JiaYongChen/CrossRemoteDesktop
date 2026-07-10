@@ -85,12 +85,14 @@ void ServerService::stop()
 
     if (m_tcpListener) {
         QMetaObject::invokeMethod(m_tcpListener, "stopListening", Qt::QueuedConnection);
+        // 等待 TcpListener 线程停止后再由 onTcpListenerStopped 设置 Stopped 状态
         static_cast<void>(m_threadManager->stopThread("TcpListener", false));
+    } else {
+        // 无 TcpListener 时直接进入 Stopped
+        m_state = State::Stopped;
+        emit stateChanged(m_state);
+        emit stopped();
     }
-
-    m_state = State::Stopped;
-    emit stateChanged(m_state);
-    emit stopped();
 }
 
 bool ServerService::isRunning() const
@@ -128,12 +130,15 @@ void ServerService::stopCapturePipeline()
 {
     if (m_capturePipeline) {
         QMetaObject::invokeMethod(m_capturePipeline, "stopCapture", Qt::QueuedConnection);
+        static_cast<void>(m_threadManager->stopThread("CapturePipeline", false));
     }
 }
 
 void ServerService::cleanupSessions()
 {
     for (auto *session : m_sessions) {
+        // 断开信号避免 shutdown 后 stale 回调
+        disconnect(session, nullptr, this, nullptr);
         QMetaObject::invokeMethod(session, "shutdown", Qt::QueuedConnection);
     }
     m_sessions.clear();
@@ -148,8 +153,18 @@ void ServerService::onTcpListenerListening(quint16 port)
 
 void ServerService::onTcpListenerStopped()
 {
-    m_state = State::Stopped;
-    emit stateChanged(m_state);
+    // 仅当通过正常 stop() 路径进入 Stopping 状态时，才在此设置 Stopped
+    // 如果是 TcpListener 意外停止，也通知外部
+    if (m_state == State::Stopping) {
+        m_state = State::Stopped;
+        emit stateChanged(m_state);
+        emit stopped();
+    } else {
+        // 意外停止——仍需通知
+        m_state = State::Stopped;
+        emit stateChanged(m_state);
+        emit stopped();
+    }
 }
 
 void ServerService::onTcpListenerError(const RdError &error)
