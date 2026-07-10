@@ -2,13 +2,13 @@
 #include "ProtocolSession.h"
 #include "DecodePipeline.h"
 #include "../network/ConnectionManager.h"
-#include "../window/ClientRemoteWindow.h"
+#include "../windows/ClientRemoteWindow.h"
 #ifndef QT_NO_OPENGL
-#include "../window/GLTextureViewport.h"
+#include "../windows/GLTextureViewport.h"
 #include "../decode/GpuDecodeTarget.h"
 #endif
-#include "../window/InputForwarder.h"
-#include "../window/CursorManager.h"
+#include "../windows/InputForwarder.h"
+#include "../windows/CursorManager.h"
 #include "../clipboard/ClipboardManager.h"
 #include "../../common/logging/LoggingCategories.h"
 

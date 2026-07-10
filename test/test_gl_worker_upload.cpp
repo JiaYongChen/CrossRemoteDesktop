@@ -1,7 +1,7 @@
 #include <QtTest/QTest>
 #include <QtGui/QImage>
 
-#include "../src/client/window/GLTextureViewport.h"
+#include "../src/client/windows/GLTextureViewport.h"
 
 class TestGLWorkerUpload : public QObject {
     Q_OBJECT

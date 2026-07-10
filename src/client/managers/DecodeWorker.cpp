@@ -1,7 +1,7 @@
 #include "DecodeWorker.h"
 #include "../../common/logging/LoggingCategories.h"
 #ifndef QT_NO_OPENGL
-#include "../window/GLTextureViewport.h"
+#include "../windows/GLTextureViewport.h"
 #include "../decode/GpuDecodeTarget.h"
 #include <QtGui/QOpenGLExtraFunctions>
 #endif
