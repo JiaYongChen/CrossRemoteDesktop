@@ -3,7 +3,7 @@
 #include "ConnectionLifecycle.h"
 #include "../session/ProtocolSession.h"
 #include "CursorManager.h"
-#include "../../common/clipboard/ClipboardManager.h"
+#include "../clipboard/ClipboardManager.h"
 
 #include <QtGui/QCursor>
 #ifndef QT_NO_OPENGL
