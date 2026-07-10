@@ -47,6 +47,10 @@ public:
     /// 获取当前 JPEG 编码质量
     int jpegQuality() const;
 
+    /// 设置色度子采样策略（线程安全，可在任意线程调用）
+    /// @param colorDepth 客户端请求的色深（16/24/32），内部映射为 TJSAMP_*
+    void setChromaSubsampling(int colorDepth);
+
     /**
       * @brief 获取处理统计信息
       * @return 处理统计信息字符串
