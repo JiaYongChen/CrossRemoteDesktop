@@ -265,6 +265,7 @@ void DataProcessingWorker::processTask() {
 
 void DataProcessingWorker::processBatchAsync(std::vector<CapturedFrame>&& frames) {
     const int currentQuality = m_jpegQuality.load(std::memory_order_relaxed);
+    const int currentSubsampling = m_chromaSubsampling.load(std::memory_order_relaxed);
     const double currentScale = ProcessingConstants::ScaleFactorHigh;
 
     // 将帧存入 shared_ptr，确保线程池异步编码期间不会被销毁
@@ -290,9 +291,9 @@ void DataProcessingWorker::processBatchAsync(std::vector<CapturedFrame>&& frames
 
     // Lambda 按值捕获 shared_ptr —— 帧数据生命周期与异步任务绑定
     QFuture<ProcessedData> future = QtConcurrent::mapped(*sharedFrames,
-        [currentQuality, currentScale, sharedFrames](const CapturedFrame& frame) -> ProcessedData {
+        [currentQuality, currentScale, currentSubsampling, sharedFrames](const CapturedFrame& frame) -> ProcessedData {
         auto pd = DataProcessingWorker::encodeImageParallel(
-            *frame.image, frame.frameId, currentQuality, currentScale);
+            *frame.image, frame.frameId, currentQuality, currentScale, currentSubsampling);
         pd.captureTimestamp = static_cast<quint64>(frame.timestamp.toMSecsSinceEpoch());
         return pd;
     });
@@ -331,7 +332,6 @@ void DataProcessingWorker::onAsyncBatchFinished() {
 ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, quint64 frameId,
                                                         int quality, double scaleFactor,
                                                         int chromaSubsampling) {
-    Q_UNUSED(chromaSubsampling);
     ProcessedData result;
 
     try {
@@ -393,7 +393,7 @@ ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, qui
             convertedImage.height(),
             TJPF_RGB,
             &jpegBuf, &jpegSize,
-            TJSAMP_420,       // 4:2:0 色度子采样——视觉无差异，体积 -55%
+            chromaSubsampling,  // 色度子采样策略（由客户端色深偏好驱动）
             quality,
             TJFLAG_FASTDCT);  // 快速 DCT 算法
 
