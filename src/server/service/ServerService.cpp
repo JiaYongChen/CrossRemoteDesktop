@@ -45,7 +45,10 @@ bool ServerService::start(quint16 port)
         }
     }
 
-    // 连接信号（必须在 startThread 前连接）
+    // 断开旧连接避免 stop/start 重复调用时信号累积
+    disconnect(m_tcpListener, nullptr, this, nullptr);
+
+    // 连接信号（必须在 startThread 前连接以避免 Worker::started 竞态）
     connect(m_tcpListener, &TcpListener::listening,
             this, &ServerService::onTcpListenerListening);
     connect(m_tcpListener, &TcpListener::stopped,
@@ -55,17 +58,17 @@ bool ServerService::start(quint16 port)
     connect(m_tcpListener, &TcpListener::newConnection,
             this, &ServerService::onNewConnection);
 
+    // Worker::started 连接必须在 startThread 之前（修复竞态窗口）
+    connect(m_tcpListener, &Worker::started, this, [this]() {
+        QMetaObject::invokeMethod(m_tcpListener, "startListening", Qt::QueuedConnection,
+                                  Q_ARG(quint16, m_port), Q_ARG(QString, QString()));
+    }, Qt::SingleShotConnection);
+
     if (!m_threadManager->startThread("TcpListener")) {
         qCCritical(lcServer) << "ServerService: failed to start TcpListener thread";
         m_state = State::Stopped;
         return false;
     }
-
-    // Worker::started 后调用 startListening
-    connect(m_tcpListener, &Worker::started, this, [this]() {
-        QMetaObject::invokeMethod(m_tcpListener, "startListening", Qt::QueuedConnection,
-                                  Q_ARG(quint16, m_port), Q_ARG(QString, QString()));
-    }, Qt::SingleShotConnection);
 
     // 2. 创建 CapturePipeline
     startCapturePipeline();
@@ -121,6 +124,11 @@ void ServerService::startCapturePipeline()
             return;
         }
     }
+
+    // 转发 CapturePipeline 错误信号
+    connect(m_capturePipeline, &Worker::errorOccurred,
+            this, &ServerService::errorOccurred);
+
     if (!m_threadManager->startThread("CapturePipeline")) {
         qCWarning(lcServer) << "ServerService: failed to start CapturePipeline";
     }
