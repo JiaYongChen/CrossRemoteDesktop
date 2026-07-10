@@ -669,6 +669,7 @@ void ClientHandlerWorker::handleHandshakeRequest(const QByteArray& data) {
 
         // 通过信号通知外部
         emit qualitySettingsReceived(request.imageQuality);
+        emit colorDepthReceived(request.colorDepth);
     }
 
     sendHandshakeResponse();
