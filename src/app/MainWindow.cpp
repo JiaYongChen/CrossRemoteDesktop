@@ -4,16 +4,12 @@
 #include "ConnectionPanel.h"
 #include "SettingsDialog.h"
 #include "NavPanel.h"
-#include "../server/listener/TcpListener.h"
-#include "../server/capture/CapturePipeline.h"
-#include "../server/session/ServerSession.h"
+#include "../server/service/ServerService.h"
 #include "../client/session/RemoteDesktopSession.h"
 #include "../client/network/ConnectionManager.h"
 #include "../server/dataflow/QueueManager.h"
 #include "common/threading/ThreadManager.h"
 #include "../server/simulator/InputSimulator.h"
-
-#include <memory>
 
 #include "common/config/NetworkConstants.h"
 #include "common/config/SettingsManager.h"
@@ -62,8 +58,7 @@ MainWindow::MainWindow(SettingsManager *settings, QWidget *parent)
     , m_trayIcon(nullptr)
     , m_connectionDialog(nullptr)
     , m_settingsDialog(nullptr)
-    , m_tcpListener(nullptr)
-    , m_capturePipeline(nullptr)
+    , m_serverService(nullptr)
     , m_settings(settings)
     , m_isShuttingDown(false) {
     // 初始化设置（由 main.cpp 注入）
@@ -90,8 +85,20 @@ MainWindow::MainWindow(SettingsManager *settings, QWidget *parent)
     m_queueManager = new QueueManager(this);
     m_queueManager->initialize(ProcessingConstants::MaxQueueSize);
 
-    // TcpListener 和 CapturePipeline 在 startServer() 中延迟创建
-    // （延迟创建，与旧 ServerManager::startServer() 模式一致）
+    // 创建 ServerService — 管理全部服务端生命周期
+    m_serverService = new ServerService(m_threadManager, m_queueManager, this);
+    connect(m_serverService, &ServerService::listening,
+            this, &MainWindow::onServerStarted);
+    connect(m_serverService, &ServerService::stopped,
+            this, &MainWindow::onServerStopped);
+    connect(m_serverService, &ServerService::errorOccurred,
+            this, &MainWindow::onServerError);
+    connect(m_serverService, &ServerService::clientConnected,
+            this, &MainWindow::onClientConnected);
+    connect(m_serverService, &ServerService::clientDisconnected,
+            this, &MainWindow::onClientDisconnected);
+    connect(m_serverService, &ServerService::clientAuthenticated,
+            this, &MainWindow::onClientAuthenticated);
 
     // 设置连接
     setupConnections();
@@ -133,24 +140,10 @@ MainWindow::~MainWindow() {
     // 1. 断开所有信号连接，防止在析构过程中触发信号
     delete ui;
 
-    // 断开 TcpListener/CapturePipeline 信号
-    if (m_tcpListener) {
-        disconnect(m_tcpListener, nullptr, this, nullptr);
-    }
-    if (m_capturePipeline) {
-        disconnect(m_capturePipeline, nullptr, this, nullptr);
-    }
-
     // 断开并清理所有客户端会话
     for (auto* session : m_clientSessions) {
         disconnect(session, nullptr, this, nullptr);
         session->close();
-    }
-
-    // 清理所有服务端会话
-    for (auto* session : m_serverSessions) {
-        disconnect(session, nullptr, this, nullptr);
-        QMetaObject::invokeMethod(session, "shutdown", Qt::QueuedConnection);
     }
 
     // 2. 清理系统托盘图标
@@ -173,9 +166,6 @@ MainWindow::~MainWindow() {
 // createActions/createStatusBar/createSystemTrayIcon 实现见 MainWindowLayout.cpp
 
 void MainWindow::setupConnections() {
-    // TcpListener 信号连接——在 startServer() 中创建 m_tcpListener 后连接
-    // （此处 m_tcpListener 尚未创建，保留注释说明信号流向）
-
     // 快捷键全局连接（无系统托盘时仍有效）
     connect(m_exitAction, &QAction::triggered, this, &MainWindow::exitApplication);
 
@@ -387,8 +377,7 @@ void MainWindow::newConnection() {
 
 
 void MainWindow::startServer() {
-    // 检查是否已在监听
-    if (m_tcpListener && m_tcpListener->isListening()) {
+    if (m_serverService->isRunning()) {
         QMessageBox::information(this, tr("服务器状态"),
                                  tr("服务器已经在运行中。"));
         return;
@@ -415,80 +404,18 @@ void MainWindow::startServer() {
     }
 #endif
 
-    // 从 SettingsManager 读取监听端口，与 SettingsDialog 通信页保持一致
-    int port = m_settings->getInt("Server/listenPort", NetworkConstants::DefaultServerPort);
-
-    // 1. 创建并启动 TcpListener 线程
-    if (!m_threadManager->hasThread("TcpListener")) {
-        auto tcpListener = std::make_unique<TcpListener>();  // 无 parent，确保 moveToThread 成功
-        m_tcpListener = tcpListener.get();  // 保存裸指针，供后续信号连接和跨线程调用
-        if (!m_threadManager->createThread("TcpListener", std::move(tcpListener))) {
-            qCCritical(lcServer) << "Failed to create TcpListener thread";
-            m_tcpListener = nullptr;
-            return;
-        }
-    }
-    if (!m_threadManager->startThread("TcpListener")) {
-        qCCritical(lcServer) << "Failed to start TcpListener thread";
-        return;
-    }
-
-    // 连接 TcpListener 信号（在创建后、启动监听前连接）
-    connect(m_tcpListener, &TcpListener::listening,
-            this, &MainWindow::onServerStarted);
-    connect(m_tcpListener, &TcpListener::stopped,
-            this, &MainWindow::onServerStopped);
-    connect(m_tcpListener, &TcpListener::errorOccurred,
-            this, &MainWindow::onServerError);
-    connect(m_tcpListener, &TcpListener::newConnection,
-            this, &MainWindow::onNewServerConnection);
-
-    // 连接 Worker::started 信号——确保 initialize() 完成后再调用 startListening。
-    // Worker::doStart() 在 initialize() 之后、workLoop() 之前 emit started()，
-    // 此时 m_tcpServer 已创建，避免 "TCP服务器未初始化" 的竞态条件。
-    connect(m_tcpListener, &Worker::started, this, [this, port]() {
-        QMetaObject::invokeMethod(m_tcpListener, "startListening", Qt::QueuedConnection,
-                                  Q_ARG(quint16, port), Q_ARG(QString, QString()));
-    }, Qt::SingleShotConnection);
-
-    // 2. 创建并启动 CapturePipeline 线程
-    if (!m_threadManager->hasThread("CapturePipeline")) {
-        auto capturePipeline = std::make_unique<CapturePipeline>(
-            m_threadManager, m_queueManager);  // 无 parent，确保 moveToThread 成功
-        m_capturePipeline = capturePipeline.get();
-        if (!m_threadManager->createThread("CapturePipeline", std::move(capturePipeline))) {
-            qCCritical(lcServer) << "Failed to create CapturePipeline thread";
-            m_capturePipeline = nullptr;
-            return;
-        }
-    }
-    if (!m_threadManager->startThread("CapturePipeline")) {
-        qCWarning(lcServer) << "Failed to start CapturePipeline thread";
-    }
-    // 捕获不立即启动——等首个 session 认证后再启动
+    int port = m_settings->getInt("Server/listenPort",
+                                  NetworkConstants::DefaultServerPort);
+    m_serverService->start(static_cast<quint16>(port));
 }
 
 void MainWindow::stopServer() {
-    if (!m_threadManager->hasThread("TcpListener") ||
-        !m_threadManager->isThreadRunning("TcpListener")) {
+    if (!m_serverService->isRunning()) {
         QMessageBox::information(this, tr("服务器状态"),
                                  tr("服务器未运行。"));
         return;
     }
-
-    // 停止所有服务端 session
-    for (auto* session : m_serverSessions) {
-        QMetaObject::invokeMethod(session, "shutdown", Qt::QueuedConnection);
-    }
-
-    // 停止捕获
-    if (m_capturePipeline) {
-        QMetaObject::invokeMethod(m_capturePipeline, "stopCapture", Qt::QueuedConnection);
-    }
-
-    // 停止 TCP 监听
-    QMetaObject::invokeMethod(m_tcpListener, "stopListening", Qt::QueuedConnection);
-    static_cast<void>(m_threadManager->stopThread("TcpListener", false));
+    m_serverService->stop();
 }
 
 void MainWindow::showSettings() {
@@ -525,15 +452,9 @@ void MainWindow::exitApplication() {
     qDeleteAll(m_clientSessions);
     m_clientSessions.clear();
 
-    // 停止服务端会话
-    for (auto* session : m_serverSessions) {
-        QMetaObject::invokeMethod(session, "shutdown", Qt::QueuedConnection);
-    }
-    if (m_capturePipeline) {
-        QMetaObject::invokeMethod(m_capturePipeline, "stopCapture", Qt::QueuedConnection);
-    }
-    if (m_tcpListener) {
-        QMetaObject::invokeMethod(m_tcpListener, "stopListening", Qt::QueuedConnection);
+    // 停止服务端
+    if (m_serverService) {
+        m_serverService->stop();
     }
 
     // 保存设置
@@ -654,7 +575,7 @@ void MainWindow::updatePerformanceInfo()
 void MainWindow::gracefulShutdown() {
     // 幂等保护：closeEvent() 调用一次，main() 在 app.exec() 返回后再调用一次。
     // 第二次调用时线程已被第一次的 destroyAllThreads() 销毁，
-    // BlockingQueuedConnection 会因目标事件循环不存在而永久阻塞。
+    // 重复调用 destroyAllThreads() 会导致未定义行为。
     if (m_gracefulShutdownDone.exchange(true)) {
         qCDebug(lcUIMainWindow) << "MainWindow::gracefulShutdown() - Already completed, skipping";
         return;
@@ -673,28 +594,18 @@ void MainWindow::gracefulShutdown() {
         m_clientSessions.clear();
     }
 
-    // 2. 断开所有服务端会话
-    for (auto* session : m_serverSessions) {
-        disconnect(session, nullptr, this, nullptr);
-        QMetaObject::invokeMethod(session, "shutdown", Qt::BlockingQueuedConnection);
-    }
-    m_serverSessions.clear();
-
-    // 3. 停止捕获管线
-    if (m_capturePipeline) {
-        QMetaObject::invokeMethod(m_capturePipeline, "stopCapture",
-                                  Qt::BlockingQueuedConnection);
+    // 2. 停止服务端
+    if (m_serverService) {
+        m_serverService->stop();
     }
 
-    // 4. 停止 TCP 监听并销毁所有线程
+    // 3. 销毁所有线程
     if ( m_threadManager ) {
-        static_cast<void>(m_threadManager->stopThread("TcpListener", true));
-        static_cast<void>(m_threadManager->stopThread("CapturePipeline", true));
         m_threadManager->destroyAllThreads();
         qCInfo(lcUIMainWindow) << "MainWindow::gracefulShutdown() - All threads destroyed";
     }
 
-    // 5. 隐藏系统托盘图标——std::_Exit 跳过 ~MainWindow() 析构，
+    // 4. 隐藏系统托盘图标——std::_Exit 跳过 ~MainWindow() 析构，
     // 必须在此显式调用 hide() 以发送 NIM_DELETE 通知 Windows 移除图标，
     // 否则每次退出都会残留一个孤儿托盘图标，多次启动后累积成多个。
     if ( m_trayIcon ) {
@@ -717,8 +628,8 @@ void MainWindow::showConnectionDialog() {
 
     // 预填默认端口（优先服务端运行端口，否则从 SettingsManager 读取）
     int defaultPort = NetworkConstants::DefaultServerPort;
-    if (m_tcpListener && m_tcpListener->isListening()) {
-        defaultPort = static_cast<int>(m_tcpListener->port());
+    if (m_serverService->isRunning()) {
+        defaultPort = static_cast<int>(m_serverService->port());
     } else {
         defaultPort = m_settings->getInt("Server/listenPort", NetworkConstants::DefaultServerPort);
     }
@@ -827,83 +738,6 @@ void MainWindow::onClientDisconnected(const QString& clientId) {
 void MainWindow::onClientAuthenticated(const QString& clientId) {
     qCInfo(lcApp) << "MainWindow::onClientAuthenticated() called with clientId:" << clientId;
     updateConnectionStatus(tr("客户端已认证: %1").arg(clientId));
-}
-
-// ── 新架构：服务端连接管理槽 ──
-
-void MainWindow::onNewServerConnection(qintptr socketDescriptor) {
-    qCInfo(lcServer) << "New server connection, descriptor:" << socketDescriptor;
-
-    auto cert = m_tcpListener->sslCertificate();
-    auto key  = m_tcpListener->sslPrivateKey();
-
-    auto session = std::make_unique<ServerSession>(socketDescriptor, cert, key,
-                                                    m_threadManager);
-    ServerSession* sessionPtr = session.get();
-
-    QString threadName = QString("ServerSession_%1").arg(socketDescriptor);
-    if (!m_threadManager->createThread(threadName, std::move(session), true)) {
-        qCCritical(lcServer) << "Failed to create ServerSession thread";
-        return;
-    }
-
-    connect(sessionPtr, &ServerSession::authenticated,
-            this, &MainWindow::onServerSessionAuthenticated);
-    connect(sessionPtr, &ServerSession::disconnected,
-            this, &MainWindow::onServerSessionDisconnected);
-    connect(sessionPtr, &ServerSession::errorOccurred,
-            this, [this](const RdError& err) {
-                qCWarning(lcServer) << "ServerSession error:" << err.logLabel();
-            });
-
-    m_serverSessions.append(sessionPtr);
-
-    // 注册到捕获管线
-    if (m_capturePipeline) {
-        QMetaObject::invokeMethod(m_capturePipeline, "subscribe", Qt::QueuedConnection,
-                                  Q_ARG(ServerSession*, sessionPtr));
-    }
-
-    // 通知 UI 有新客户端连接
-    onClientConnected(QString::number(socketDescriptor));
-}
-
-void MainWindow::onServerSessionAuthenticated(const QString& sessionId) {
-    qCInfo(lcServer) << "Server session authenticated:" << sessionId;
-
-    // 首个客户端 → 启动捕获
-    if (m_serverSessions.size() == 1 && m_capturePipeline) {
-        QMetaObject::invokeMethod(m_capturePipeline, "startCapture", Qt::QueuedConnection);
-    }
-
-    // → UI 更新
-    onClientAuthenticated(sessionId);
-}
-
-void MainWindow::onServerSessionDisconnected(const QString& sessionId) {
-    qCInfo(lcServer) << "Server session disconnected:" << sessionId;
-
-    // 从列表移除并取消订阅
-    for (int i = 0; i < m_serverSessions.size(); ++i) {
-        if (m_serverSessions[i]->sessionId() == sessionId) {
-            auto* session = m_serverSessions[i];
-            if (m_capturePipeline) {
-                QMetaObject::invokeMethod(m_capturePipeline, "unsubscribe",
-                                          Qt::QueuedConnection,
-                                          Q_ARG(ServerSession*, session));
-            }
-            m_serverSessions.removeAt(i);
-            break;
-        }
-    }
-
-    // 无客户端 → 停止捕获
-    if (m_serverSessions.isEmpty() && m_capturePipeline) {
-        QMetaObject::invokeMethod(m_capturePipeline, "stopCapture", Qt::QueuedConnection);
-    }
-
-    // → UI 更新
-    onClientDisconnected(sessionId);
 }
 
 void MainWindow::iconActivated(QSystemTrayIcon::ActivationReason reason) {

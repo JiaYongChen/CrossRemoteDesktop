@@ -25,9 +25,7 @@ class ConnectionDialog;
 class SettingsDialog;
 class ThreadManager;
 class QueueManager;
-class TcpListener;
-class CapturePipeline;
-class ServerSession;
+class ServerService;
 class RemoteDesktopSession;
 class NavPanel;
 class ConnectionPanel;
@@ -69,11 +67,6 @@ private slots:
     void onClientDisconnected(const QString &clientId);
     void onClientAuthenticated(const QString &clientId);
 
-    // 新架构：服务端连接管理
-    void onNewServerConnection(qintptr socketDescriptor);
-    void onServerSessionAuthenticated(const QString &sessionId);
-    void onServerSessionDisconnected(const QString &sessionId);
-    
     // 系统托盘
     void iconActivated(QSystemTrayIcon::ActivationReason reason);
     
@@ -128,10 +121,8 @@ private:
     // 管理器
     ThreadManager *m_threadManager;
     QueueManager *m_queueManager;
-    TcpListener *m_tcpListener;
-    CapturePipeline *m_capturePipeline;
+    ServerService *m_serverService = nullptr;
     QList<RemoteDesktopSession*> m_clientSessions;
-    QList<ServerSession*> m_serverSessions;
 
     // 设置
     SettingsManager *m_settings;
