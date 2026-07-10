@@ -65,7 +65,12 @@ void DataProcessingWorker::setChromaSubsampling(int colorDepth) {
     switch (colorDepth) {
         case 32: samp = TJSAMP_444; break;
         case 24: samp = TJSAMP_422; break;
-        default: samp = TJSAMP_420; break;  // 16位、无效值均走 4:2:0
+        case 16: samp = TJSAMP_420; break;
+        default:
+            samp = TJSAMP_420;
+            qCWarning(lcServerEncode) << "非预期的色深值:" << colorDepth
+                                      << "— 回退为 TJSAMP_420 (4:2:0)";
+            break;
     }
     m_chromaSubsampling.store(samp, std::memory_order_relaxed);
     qCDebug(lcServerEncode) << "色度子采样策略更新: colorDepth=" << colorDepth
