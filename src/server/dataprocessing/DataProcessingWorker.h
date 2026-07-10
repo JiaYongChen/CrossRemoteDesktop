@@ -15,6 +15,7 @@
 #include <QtCore/QFutureWatcher>
 #include <QtConcurrent/QtConcurrent>
 #include <memory>
+#include <turbojpeg.h>
 #include <atomic>
 #include <vector>
 
@@ -204,7 +205,8 @@ private:
      */
     static ProcessedData encodeImageParallel(const QImage& image, quint64 frameId,
                                              int quality = ProcessingConstants::DefaultJpegQuality,
-                                             double scaleFactor = 1.0);
+                                             double scaleFactor = 1.0,
+                                             int chromaSubsampling = TJSAMP_420);
 
     /**
      * @brief 验证帧数据
