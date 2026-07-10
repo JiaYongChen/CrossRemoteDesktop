@@ -118,7 +118,6 @@ QByteArray HandshakeResponse::encode() const {
     ds << screenWidth;
     ds << screenHeight;
     ds << colorDepth;
-    ds << supportedFeatures;
     writePrefixedString(ds, serverName);
     writePrefixedString(ds, serverOS);
     return bytes;
@@ -131,7 +130,6 @@ bool HandshakeResponse::decode(const QByteArray& bytes) {
     ds >> screenWidth;
     ds >> screenHeight;
     ds >> colorDepth;
-    ds >> supportedFeatures;
     serverName = readPrefixedString(ds, ProtocolConstants::MaxHostnameLength);
     serverOS = readPrefixedString(ds, ProtocolConstants::MaxHostnameLength);
     return ds.status() == QDataStream::Ok;

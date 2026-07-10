@@ -131,7 +131,6 @@ struct HandshakeResponse : public IMessageCodec {
     quint16 screenWidth;
     quint16 screenHeight;
     quint8 colorDepth;
-    quint8 supportedFeatures;
     QString serverName;
     QString serverOS;
 

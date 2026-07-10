@@ -903,7 +903,6 @@ void ClientHandlerWorker::sendHandshakeResponse() {
         response.screenHeight = 1080;
     }
     response.colorDepth = static_cast<quint8>(m_negotiatedColorDepth); // 回显协商后的色深
-    response.supportedFeatures = 0; // 可以根据需要设置服务器特性
     response.serverName = QStringLiteral("CrossRemoteDesktop Server");
 #ifdef Q_OS_WIN
     response.serverOS = QStringLiteral("Windows");
