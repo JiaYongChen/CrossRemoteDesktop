@@ -1,4 +1,4 @@
-# Cross Remote Desktop
+# UltraDesktop
 
 一个基于 Qt 6.9+ 的高性能跨平台远程桌面应用程序，支持 Windows、macOS 与 Linux 之间的远程连接与控制。
 
@@ -69,7 +69,7 @@
 ## 代码结构
 
 ```
-CrossRemoteDesktop/
+UltraDesktop/
 ├── CMakeLists.txt                    # 主构建配置
 ├── cmake/                            # CMake 模块（8 个）
 │   ├── PlatformDetect.cmake          #  OS / 架构自动识别
@@ -332,8 +332,8 @@ cmake -B build -DQt6_DIR=/path/to/qt6/lib/cmake/Qt6
 ### 日志系统
 
 - **日志路径**：
-    - Windows：`%APPDATA%/CrossRemoteDesktop/logs/`
-    - macOS：`~/Library/Application Support/CrossRemoteDesktop/logs/`
+    - Windows：`%APPDATA%/UltraDesktop/logs/`
+    - macOS：`~/Library/Application Support/UltraDesktop/logs/`
 - **滚动策略**：按大小滚动（size-based rolling）
 - **日志级别**：Debug / Info / Warning / Critical
 - **分类体系**：6 棵一级分类树（`app` / `core.*` / `server.*` / `client.*` / `ui.*` / `test.*`）
@@ -403,7 +403,7 @@ test/
 - **启用详细日志**：`export QT_LOGGING_RULES="*.debug=true"`（或设置环境变量）
 - **查看队列统计**：日志中搜索 `lcServerQueue` 类别
 - **性能分析**：使用 Qt Creator 的 Profiler 工具
-- **内存检查**（Linux）：`valgrind --leak-check=full ./CrossRemoteDesktop`
+- **内存检查**（Linux）：`valgrind --leak-check=full ./UltraDesktop`
 
 ## 技术文档
 
@@ -434,8 +434,8 @@ test/
 
 ## 联系方式
 
-- **项目主页**：https://github.com/JiaYongChen/CrossRemoteDesktop
-- **问题反馈**：https://github.com/JiaYongChen/CrossRemoteDesktop/issues
+- **项目主页**：https://github.com/JiaYongChen/UltraDesktop
+- **问题反馈**：https://github.com/JiaYongChen/UltraDesktop/issues
 
 ## 致谢
 

@@ -38,11 +38,6 @@
 <context>
     <name>ConnectionDialog</name>
     <message>
-        <location filename="../../src/ui/ConnectionDialog.ui" line="6"/>
-        <source>远程桌面连接</source>
-        <translation>远程桌面连接</translation>
-    </message>
-    <message>
         <location filename="../../src/ui/ConnectionDialog.ui" line="37"/>
         <source>连接信息</source>
         <translation>连接信息</translation>
@@ -96,6 +91,11 @@
         <location filename="../../src/ui/ConnectionDialog.ui" line="47"/>
         <source>IP 或主机名，可含端口如 192.168.1.100:5921</source>
         <translation>IP 或主机名，可含端口如 192.168.1.100:5921</translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="6"/>
+        <source>极域桌面连接</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../src/ui/ConnectionDialog.ui" line="67"/>
@@ -344,13 +344,6 @@
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../../src/ui/MainWindow.ui" line="14"/>
-        <location filename="../../src/app/MainWindow.cpp" line="117"/>
-        <location filename="../../src/app/MainWindow.cpp" line="348"/>
-        <source>Qt远程桌面</source>
-        <translation>Qt远程桌面</translation>
-    </message>
-    <message>
         <location filename="../../src/app/MainWindow.cpp" line="351"/>
         <location filename="../../src/app/MainWindowLayout.cpp" line="24"/>
         <location filename="../../src/app/MainWindowLayout.cpp" line="25"/>
@@ -362,6 +355,11 @@
         <location filename="../../src/app/MainWindowLayout.cpp" line="30"/>
         <source>恢复(&amp;R)</source>
         <translation>恢复(&amp;R)</translation>
+    </message>
+    <message>
+        <location filename="../../src/app/MainWindow.cpp" line="431"/>
+        <source>关于极域桌面</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="457"/>
@@ -388,16 +386,6 @@
         <location filename="../../src/app/MainWindowLayout.cpp" line="52"/>
         <source>就绪</source>
         <translation>就绪</translation>
-    </message>
-    <message>
-        <location filename="../../src/app/MainWindowLayout.cpp" line="74"/>
-        <source>远程桌面</source>
-        <translation>远程桌面</translation>
-    </message>
-    <message>
-        <location filename="../../src/ui/MainWindow.ui" line="135"/>
-        <source>CrossRemoteDesktop</source>
-        <translation>CrossRemoteDesktop</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="357"/>
@@ -429,8 +417,8 @@
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="392"/>
-        <source>&lt;p&gt;Qt远程桌面需要&lt;b&gt;辅助功能权限&lt;/b&gt;才能模拟鼠标和键盘输入。&lt;/p&gt;&lt;p&gt;请按照以下步骤授予权限：&lt;/p&gt;&lt;ol&gt;&lt;li&gt;打开&lt;b&gt;系统偏好设置&lt;/b&gt;&lt;/li&gt;&lt;li&gt;选择&lt;b&gt;安全性与隐私&lt;/b&gt;&lt;/li&gt;&lt;li&gt;点击&lt;b&gt;隐私&lt;/b&gt;标签&lt;/li&gt;&lt;li&gt;在左侧列表中选择&lt;b&gt;辅助功能&lt;/b&gt;&lt;/li&gt;&lt;li&gt;点击左下角的锁图标解锁&lt;/li&gt;&lt;li&gt;在右侧列表中勾选&lt;b&gt;CrossRemoteDesktop&lt;/b&gt;&lt;/li&gt;&lt;/ol&gt;&lt;p&gt;授予权限后，请重启应用程序。&lt;/p&gt;</source>
-        <translation>&lt;p&gt;Qt远程桌面需要&lt;b&gt;辅助功能权限&lt;/b&gt;才能模拟鼠标和键盘输入。&lt;/p&gt;&lt;p&gt;请按照以下步骤授予权限：&lt;/p&gt;&lt;ol&gt;&lt;li&gt;打开&lt;b&gt;系统偏好设置&lt;/b&gt;&lt;/li&gt;&lt;li&gt;选择&lt;b&gt;安全性与隐私&lt;/b&gt;&lt;/li&gt;&lt;li&gt;点击&lt;b&gt;隐私&lt;/b&gt;标签&lt;/li&gt;&lt;li&gt;在左侧列表中选择&lt;b&gt;辅助功能&lt;/b&gt;&lt;/li&gt;&lt;li&gt;点击左下角的锁图标解锁&lt;/li&gt;&lt;li&gt;在右侧列表中勾选&lt;b&gt;CrossRemoteDesktop&lt;/b&gt;&lt;/li&gt;&lt;/ol&gt;&lt;p&gt;授予权限后，请重启应用程序。&lt;/p&gt;</translation>
+        <source>&lt;p&gt;极域桌面需要&lt;b&gt;辅助功能权限&lt;/b&gt;才能模拟鼠标和键盘输入。&lt;/p&gt;&lt;p&gt;请按照以下步骤授予权限：&lt;/p&gt;&lt;ol&gt;&lt;li&gt;打开&lt;b&gt;系统偏好设置&lt;/b&gt;&lt;/li&gt;&lt;li&gt;选择&lt;b&gt;安全性与隐私&lt;/b&gt;&lt;/li&gt;&lt;li&gt;点击&lt;b&gt;隐私&lt;/b&gt;标签&lt;/li&gt;&lt;li&gt;在左侧列表中选择&lt;b&gt;辅助功能&lt;/b&gt;&lt;/li&gt;&lt;li&gt;点击左下角的锁图标解锁&lt;/li&gt;&lt;li&gt;在右侧列表中勾选&lt;b&gt;UltraDesktop&lt;/b&gt;&lt;/li&gt;&lt;/ol&gt;&lt;p&gt;授予权限后，请重启应用程序。&lt;/p&gt;</source>
+        <translation>&lt;p&gt;极域桌面需要&lt;b&gt;辅助功能权限&lt;/b&gt;才能模拟鼠标和键盘输入。&lt;/p&gt;&lt;p&gt;请按照以下步骤授予权限：&lt;/p&gt;&lt;ol&gt;&lt;li&gt;打开&lt;b&gt;系统偏好设置&lt;/b&gt;&lt;/li&gt;&lt;li&gt;选择&lt;b&gt;安全性与隐私&lt;/b&gt;&lt;/li&gt;&lt;li&gt;点击&lt;b&gt;隐私&lt;/b&gt;标签&lt;/li&gt;&lt;li&gt;在左侧列表中选择&lt;b&gt;辅助功能&lt;/b&gt;&lt;/li&gt;&lt;li&gt;点击左下角的锁图标解锁&lt;/li&gt;&lt;li&gt;在右侧列表中勾选&lt;b&gt;UltraDesktop&lt;/b&gt;&lt;/li&gt;&lt;/ol&gt;&lt;p&gt;授予权限后，请重启应用程序。&lt;/p&gt;</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="417"/>
@@ -438,13 +426,8 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="431"/>
-        <source>关于Qt远程桌面</source>
-        <translation>关于Qt远程桌面</translation>
-    </message>
-    <message>
         <location filename="../../src/app/MainWindow.cpp" line="444"/>
-        <source>&lt;h2&gt;CrossRemoteDesktop 1.0&lt;/h2&gt;&lt;p&gt;基于 Qt %1 构建的跨平台远程桌面应用程序。&lt;/p&gt;&lt;p&gt;支持 Windows、macOS 和 Linux 系统之间的远程连接与控制。&lt;/p&gt;&lt;hr&gt;&lt;p&gt;本软件遵循 &lt;b&gt;MIT License&lt;/b&gt; 开源发布。&lt;/p&gt;&lt;p&gt;详情请见程序目录下的 LICENSE 文件。&lt;/p&gt;</source>
+        <source>&lt;h2&gt;%1 %2&lt;/h2&gt;&lt;p&gt;基于 Qt %3 构建的跨平台远程桌面应用程序。&lt;/p&gt;&lt;p&gt;支持 Windows、macOS 和 Linux 系统之间的远程连接与控制。&lt;/p&gt;&lt;hr&gt;&lt;p&gt;本软件遵循 &lt;b&gt;MIT License&lt;/b&gt; 开源发布。&lt;/p&gt;&lt;p&gt;详情请见程序目录下的 LICENSE 文件。&lt;/p&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -501,6 +484,16 @@
         <location filename="../../src/app/MainWindow.cpp" line="813"/>
         <source>客户端已认证: %1</source>
         <translation>客户端已认证: %1</translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/MainWindow.ui" line="14"/>
+        <location filename="../../src/ui/MainWindow.ui" line="135"/>
+        <location filename="../../src/app/MainWindow.cpp" line="117"/>
+        <location filename="../../src/app/MainWindow.cpp" line="348"/>
+        <location filename="../../src/app/MainWindow.cpp" line="451"/>
+        <location filename="../../src/app/MainWindowLayout.cpp" line="74"/>
+        <source>极域桌面</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

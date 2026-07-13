@@ -406,7 +406,7 @@ void ConnectionManager::sendHandshakeRequest() {
     request.screenHeight = 1080;
     request.colorDepth = static_cast<quint8>(m_colorDepth);
     request.imageQuality = static_cast<quint8>(m_imageQuality);
-    request.clientName = QStringLiteral("CrossRemoteDesktop Client");
+    request.clientName = QStringLiteral("UltraDesktop Client");
     request.clientOS = getClientOS();
 
     m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST, request);

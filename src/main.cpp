@@ -21,10 +21,10 @@
 #include "common/config/SettingsManager.h"
 
 // 应用程序信息
-const QString APP_NAME = "Cross Remote Desktop";
+const QString APP_NAME = "UltraDesktop";
 const QString APP_VERSION = "1.0.0";
-const QString APP_ORGANIZATION = "CrossRemoteDesktop";
-const QString APP_DOMAIN = "qtremotedesktop.com";
+const QString APP_ORGANIZATION = "UltraDesktop";
+const QString APP_DOMAIN = "ultradesktop.com";
 
 // 全局变量用于信号处理
 static MainWindow* g_mainWindow = nullptr;
@@ -228,7 +228,7 @@ int main(int argc, char* argv[]) {
         qCInfo(lcApp) << "setQuitOnLastWindowClosed(false) applied to prevent auto-quit when closing last window";
 
         QCommandLineParser parser;
-        parser.setApplicationDescription("Cross Remote Desktop - 远程桌面应用程序");
+        parser.setApplicationDescription("UltraDesktop - 跨平台远程桌面应用程序");
         parser.addHelpOption();
         parser.addVersionOption();
 

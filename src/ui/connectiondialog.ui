@@ -3,7 +3,7 @@
  <class>ConnectionDialog</class>
  <widget class="QDialog" name="ConnectionDialog">
   <property name="geometry"><rect><x>0</x><y>0</y><width>520</width><height>540</height></rect></property>
-  <property name="windowTitle"><string>远程桌面连接</string></property>
+  <property name="windowTitle"><string>极域桌面连接</string></property>
   <property name="minimumSize">
    <size>
     <width>520</width>

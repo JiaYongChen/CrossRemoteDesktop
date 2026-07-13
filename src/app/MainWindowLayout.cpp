@@ -71,6 +71,6 @@ void MainWindow::createSystemTrayIcon()
 
     m_trayIcon->setContextMenu(m_trayIconMenu);
     m_trayIcon->setIcon(IconThemeProvider::icon("app"));
-    m_trayIcon->setToolTip(tr("远程桌面"));
+    m_trayIcon->setToolTip(tr("极域桌面"));
     m_trayIcon->show();
 }

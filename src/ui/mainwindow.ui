@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Qt远程桌面</string>
+   <string>极域桌面</string>
   </property>
   <property name="windowIcon">
    <iconset resource="../../resources/resources.qrc">
@@ -132,7 +132,7 @@
          <item alignment="Qt::AlignHCenter">
           <widget class="QLabel" name="titleLabel">
            <property name="text">
-            <string>CrossRemoteDesktop</string>
+            <string>极域桌面</string>
            </property>
           </widget>
          </item>

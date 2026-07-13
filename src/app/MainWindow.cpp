@@ -114,7 +114,7 @@ MainWindow::MainWindow(SettingsManager *settings, QWidget *parent)
     loadSettings();
 
     // 设置窗口属性
-    setWindowTitle(tr("Qt远程桌面"));
+    setWindowTitle(tr("极域桌面"));
     setFixedSize(960, 680);
     // Qt::Window 在 Windows 上无论如何都会包含 WS_MAXIMIZEBOX,
     // 需通过 showEvent 中的 Win32 API 延迟移除 (见 showEvent 实现)
@@ -345,7 +345,7 @@ void MainWindow::showEvent(QShowEvent* event)
 
 void MainWindow::retranslateUi() {
     qCInfo(lcUIMainWindow) << "MainWindow::retranslateUi - starting UI retranslation";
-    setWindowTitle(tr("Qt远程桌面"));
+    setWindowTitle(tr("极域桌面"));
 
     // 全局快捷键动作
     m_exitAction->setText(tr("退出"));
@@ -389,7 +389,7 @@ void MainWindow::startServer() {
     // macOS 平台：检查辅助功能权限
     if ( !checkMacOSAccessibilityPermission() ) {
         QMessageBox::warning(this, tr("需要辅助功能权限"),
-            tr("<p>Qt远程桌面需要<b>辅助功能权限</b>才能模拟鼠标和键盘输入。</p>"
+            tr("<p>极域桌面需要<b>辅助功能权限</b>才能模拟鼠标和键盘输入。</p>"
                 "<p>请按照以下步骤授予权限：</p>"
                 "<ol>"
                 "<li>打开<b>系统偏好设置</b></li>"
@@ -397,7 +397,7 @@ void MainWindow::startServer() {
                 "<li>点击<b>隐私</b>标签</li>"
                 "<li>在左侧列表中选择<b>辅助功能</b></li>"
                 "<li>点击左下角的锁图标解锁</li>"
-                "<li>在右侧列表中勾选<b>CrossRemoteDesktop</b></li>"
+                "<li>在右侧列表中勾选<b>UltraDesktop</b></li>"
                 "</ol>"
                 "<p>授予权限后，请重启应用程序。</p>"));
         // 尝试打开系统设置
@@ -428,7 +428,7 @@ void MainWindow::showSettings() {
 
 void MainWindow::showAbout() {
     QDialog dialog(this);
-    dialog.setWindowTitle(tr("关于Qt远程桌面"));
+    dialog.setWindowTitle(tr("关于极域桌面"));
     dialog.setFixedSize(500, 440);
 
     auto *mainLayout = new QVBoxLayout(&dialog);
@@ -442,13 +442,13 @@ void MainWindow::showAbout() {
     aboutLayout->setContentsMargins(20, 16, 20, 16);
 
     auto *aboutLabel = new QLabel(tr(
-        "<h2>CrossRemoteDesktop 1.0</h2>"
-        "<p>基于 Qt %1 构建的跨平台远程桌面应用程序。</p>"
+        "<h2>%1 %2</h2>"
+        "<p>基于 Qt %3 构建的跨平台远程桌面应用程序。</p>"
         "<p>支持 Windows、macOS 和 Linux 系统之间的远程连接与控制。</p>"
         "<hr>"
         "<p>本软件遵循 <b>MIT License</b> 开源发布。</p>"
         "<p>详情请见程序目录下的 LICENSE 文件。</p>"
-    ).arg(QString::fromLatin1(qVersion())));
+    ).arg(tr("极域桌面"), QStringLiteral("1.0"), QString::fromLatin1(qVersion())));
     aboutLabel->setWordWrap(true);
     aboutLabel->setTextFormat(Qt::RichText);
     aboutLayout->addWidget(aboutLabel);

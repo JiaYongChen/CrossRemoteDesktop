@@ -288,8 +288,10 @@ static QString oldStr(QSettings &s, const QString &key, const QString &def = {})
 
 void SettingsManager::migrateFromQSettings()
 {
-    // 检测旧数据
-    QSettings old;
+    // 检测旧数据 — 使用旧 App 名称，确保跨版本迁移能找到历史数据
+    // （APP_ORGANIZATION/APP_NAME 可能随品牌更名而变化，迁移路径必须硬编码旧值）
+    QSettings old(QStringLiteral("CrossRemoteDesktop"),
+                  QStringLiteral("Cross Remote Desktop"));
     if (old.allKeys().isEmpty()) {
         qCInfo(lcCoreConfig) << "SettingsManager: No old QSettings data, starting fresh";
         m_migrationDone = true;

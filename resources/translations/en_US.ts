@@ -38,11 +38,6 @@
 <context>
     <name>ConnectionDialog</name>
     <message>
-        <location filename="../../src/ui/ConnectionDialog.ui" line="6"/>
-        <source>远程桌面连接</source>
-        <translation>Remote Desktop Connection</translation>
-    </message>
-    <message>
         <location filename="../../src/ui/ConnectionDialog.ui" line="37"/>
         <source>连接信息</source>
         <translation>Connection Info</translation>
@@ -96,6 +91,11 @@
         <location filename="../../src/ui/ConnectionDialog.ui" line="47"/>
         <source>IP 或主机名，可含端口如 192.168.1.100:5921</source>
         <translation>IP or hostname, optionally with port</translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/ConnectionDialog.ui" line="6"/>
+        <source>极域桌面连接</source>
+        <translation>UltraDesktop Connection</translation>
     </message>
     <message>
         <location filename="../../src/ui/ConnectionDialog.ui" line="67"/>
@@ -344,13 +344,6 @@
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../../src/ui/MainWindow.ui" line="14"/>
-        <location filename="../../src/app/MainWindow.cpp" line="117"/>
-        <location filename="../../src/app/MainWindow.cpp" line="348"/>
-        <source>Qt远程桌面</source>
-        <translation>Cross Remote Desktop</translation>
-    </message>
-    <message>
         <location filename="../../src/app/MainWindow.cpp" line="351"/>
         <location filename="../../src/app/MainWindowLayout.cpp" line="24"/>
         <location filename="../../src/app/MainWindowLayout.cpp" line="25"/>
@@ -362,6 +355,11 @@
         <location filename="../../src/app/MainWindowLayout.cpp" line="30"/>
         <source>恢复(&amp;R)</source>
         <translation>&amp;Restore</translation>
+    </message>
+    <message>
+        <location filename="../../src/app/MainWindow.cpp" line="431"/>
+        <source>关于极域桌面</source>
+        <translation>About UltraDesktop</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="457"/>
@@ -388,16 +386,6 @@
         <location filename="../../src/app/MainWindowLayout.cpp" line="52"/>
         <source>就绪</source>
         <translation>Ready</translation>
-    </message>
-    <message>
-        <location filename="../../src/app/MainWindowLayout.cpp" line="74"/>
-        <source>远程桌面</source>
-        <translation>Remote Desktop</translation>
-    </message>
-    <message>
-        <location filename="../../src/ui/MainWindow.ui" line="135"/>
-        <source>CrossRemoteDesktop</source>
-        <translation>CrossRemoteDesktop</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="357"/>
@@ -429,8 +417,8 @@
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="392"/>
-        <source>&lt;p&gt;Qt远程桌面需要&lt;b&gt;辅助功能权限&lt;/b&gt;才能模拟鼠标和键盘输入。&lt;/p&gt;&lt;p&gt;请按照以下步骤授予权限：&lt;/p&gt;&lt;ol&gt;&lt;li&gt;打开&lt;b&gt;系统偏好设置&lt;/b&gt;&lt;/li&gt;&lt;li&gt;选择&lt;b&gt;安全性与隐私&lt;/b&gt;&lt;/li&gt;&lt;li&gt;点击&lt;b&gt;隐私&lt;/b&gt;标签&lt;/li&gt;&lt;li&gt;在左侧列表中选择&lt;b&gt;辅助功能&lt;/b&gt;&lt;/li&gt;&lt;li&gt;点击左下角的锁图标解锁&lt;/li&gt;&lt;li&gt;在右侧列表中勾选&lt;b&gt;CrossRemoteDesktop&lt;/b&gt;&lt;/li&gt;&lt;/ol&gt;&lt;p&gt;授予权限后，请重启应用程序。&lt;/p&gt;</source>
-        <translation>&lt;p&gt;Cross Remote Desktop requires &lt;b&gt;accessibility permissions&lt;/b&gt; to simulate mouse and keyboard input.&lt;/p&gt;&lt;p&gt;Please follow these steps to grant permissions:&lt;/p&gt;&lt;ol&gt;&lt;li&gt;Open &lt;b&gt;System Preferences&lt;/b&gt;&lt;/li&gt;&lt;li&gt;Select &lt;b&gt;Security &amp; Privacy&lt;/b&gt;&lt;/li&gt;&lt;li&gt;Click the &lt;b&gt;Privacy&lt;/b&gt; tab&lt;/li&gt;&lt;li&gt;In the left list, select &lt;b&gt;Accessibility&lt;/b&gt;&lt;/li&gt;&lt;li&gt;Click the lock icon in the bottom left to unlock&lt;/li&gt;&lt;li&gt;Check &lt;b&gt;CrossRemoteDesktop&lt;/b&gt; in the right list&lt;/li&gt;&lt;/ol&gt;&lt;p&gt;After granting permissions, please restart the application.&lt;/p&gt;</translation>
+        <source>&lt;p&gt;极域桌面需要&lt;b&gt;辅助功能权限&lt;/b&gt;才能模拟鼠标和键盘输入。&lt;/p&gt;&lt;p&gt;请按照以下步骤授予权限：&lt;/p&gt;&lt;ol&gt;&lt;li&gt;打开&lt;b&gt;系统偏好设置&lt;/b&gt;&lt;/li&gt;&lt;li&gt;选择&lt;b&gt;安全性与隐私&lt;/b&gt;&lt;/li&gt;&lt;li&gt;点击&lt;b&gt;隐私&lt;/b&gt;标签&lt;/li&gt;&lt;li&gt;在左侧列表中选择&lt;b&gt;辅助功能&lt;/b&gt;&lt;/li&gt;&lt;li&gt;点击左下角的锁图标解锁&lt;/li&gt;&lt;li&gt;在右侧列表中勾选&lt;b&gt;UltraDesktop&lt;/b&gt;&lt;/li&gt;&lt;/ol&gt;&lt;p&gt;授予权限后，请重启应用程序。&lt;/p&gt;</source>
+        <translation>&lt;p&gt;UltraDesktop needs &lt;b&gt;Accessibility permissions&lt;/b&gt; to simulate mouse and keyboard input.&lt;/p&gt;&lt;p&gt;Please follow these steps to grant permission:&lt;/p&gt;&lt;ol&gt;&lt;li&gt;Open &lt;b&gt;System Preferences&lt;/b&gt;&lt;/li&gt;&lt;li&gt;Select &lt;b&gt;Security &amp;amp; Privacy&lt;/b&gt;&lt;/li&gt;&lt;li&gt;Click the &lt;b&gt;Privacy&lt;/b&gt; tab&lt;/li&gt;&lt;li&gt;Select &lt;b&gt;Accessibility&lt;/b&gt; in the left sidebar&lt;/li&gt;&lt;li&gt;Click the lock icon in the lower-left corner to unlock&lt;/li&gt;&lt;li&gt;Check &lt;b&gt;UltraDesktop&lt;/b&gt; in the right list&lt;/li&gt;&lt;/ol&gt;&lt;p&gt;Please restart the application after granting permission.&lt;/p&gt;</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="417"/>
@@ -438,19 +426,14 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="431"/>
-        <source>关于Qt远程桌面</source>
-        <translation>About Cross Remote Desktop</translation>
-    </message>
-    <message>
         <location filename="../../src/app/MainWindow.cpp" line="444"/>
-        <source>&lt;h2&gt;CrossRemoteDesktop 1.0&lt;/h2&gt;&lt;p&gt;基于 Qt %1 构建的跨平台远程桌面应用程序。&lt;/p&gt;&lt;p&gt;支持 Windows、macOS 和 Linux 系统之间的远程连接与控制。&lt;/p&gt;&lt;hr&gt;&lt;p&gt;本软件遵循 &lt;b&gt;MIT License&lt;/b&gt; 开源发布。&lt;/p&gt;&lt;p&gt;详情请见程序目录下的 LICENSE 文件。&lt;/p&gt;</source>
-        <translation type="unfinished"></translation>
+        <source>&lt;h2&gt;%1 %2&lt;/h2&gt;&lt;p&gt;基于 Qt %3 构建的跨平台远程桌面应用程序。&lt;/p&gt;&lt;p&gt;支持 Windows、macOS 和 Linux 系统之间的远程连接与控制。&lt;/p&gt;&lt;hr&gt;&lt;p&gt;本软件遵循 &lt;b&gt;MIT License&lt;/b&gt; 开源发布。&lt;/p&gt;&lt;p&gt;详情请见程序目录下的 LICENSE 文件。&lt;/p&gt;</source>
+        <translation>&lt;h2&gt;%1 %2&lt;/h2&gt;&lt;p&gt;A cross-platform remote desktop application built with Qt %3.&lt;/p&gt;&lt;p&gt;Supports remote connection and control across Windows, macOS and Linux.&lt;/p&gt;&lt;hr&gt;&lt;p&gt;This software is released under the &lt;b&gt;MIT License&lt;/b&gt;.&lt;/p&gt;&lt;p&gt;See the LICENSE file in the application directory for details.&lt;/p&gt;</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="466"/>
         <source>&lt;h3&gt;第三方开源库许可声明&lt;/h3&gt;&lt;h4&gt;Qt %1 &amp;mdash; LGPLv3&lt;/h4&gt;&lt;p&gt;Copyright &amp;copy; The Qt Company Ltd. and other contributors.&lt;/p&gt;&lt;p&gt;Qt 采用 GNU Lesser General Public License v3 (LGPLv3) 许可。本应用程序通过动态链接方式使用 Qt 库，符合 LGPLv3 的闭源分发条件。Qt 源代码可从 &lt;a href=&apos;https://download.qt.io&apos;&gt;https://download.qt.io&lt;/a&gt; 获取。&lt;/p&gt;&lt;p&gt;LGPLv3 全文：&lt;a href=&apos;https://www.gnu.org/licenses/lgpl-3.0.html&apos;&gt;https://www.gnu.org/licenses/lgpl-3.0.html&lt;/a&gt;&lt;/p&gt;&lt;h4&gt;OpenSSL 3.x &amp;mdash; Apache License 2.0&lt;/h4&gt;&lt;p&gt;Copyright &amp;copy; The OpenSSL Project Authors. All Rights Reserved.&lt;/p&gt;&lt;p&gt;Licensed under the Apache License 2.0 (the &quot;License&quot;); you may not use this file except in compliance with the License. You may obtain a copy of the License at &lt;a href=&apos;https://www.apache.org/licenses/LICENSE-2.0&apos;&gt;https://www.apache.org/licenses/LICENSE-2.0&lt;/a&gt;&lt;/p&gt;&lt;p&gt;本产品包含由 OpenSSL Project 开发的、用于 OpenSSL Toolkit 的软件(&lt;a href=&apos;https://www.openssl.org/&apos;&gt;https://www.openssl.org/&lt;/a&gt;)。&lt;/p&gt;&lt;h4&gt;libjpeg-turbo &amp;mdash; BSD 3-Clause&lt;/h4&gt;&lt;p&gt;Copyright &amp;copy; 2009-2026 D. R. Commander. All Rights Reserved.&lt;br&gt;Copyright &amp;copy; 2015 Viktor Szathm&amp;aacute;ry. All Rights Reserved.&lt;/p&gt;&lt;p&gt;在满足下列条件的前提下，允许以源代码和二进制形式重新分发和使用（无论是否修改）：&lt;/p&gt;&lt;ul&gt;&lt;li&gt;源代码的再分发必须保留上述版权声明、本条件列表以及下述免责声明。&lt;/li&gt;&lt;li&gt;二进制形式的再分发必须在文档和/或随分发提供的其他材料中复现上述版权声明、本条件列表以及下述免责声明。&lt;/li&gt;&lt;li&gt;未经事先书面许可，不得使用 libjpeg-turbo 项目或其贡献者的名称来背书或推广从本软件衍生的产品。&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot; ...&lt;/p&gt;&lt;h4&gt;nvJPEG / CUDA Runtime &amp;mdash; NVIDIA 专有许可&lt;/h4&gt;&lt;p&gt;Copyright &amp;copy; NVIDIA Corporation. All Rights Reserved.&lt;/p&gt;&lt;p&gt;nvJPEG 和 CUDA Runtime 库为 NVIDIA Corporation 的专有软件，受 NVIDIA CUDA Toolkit 最终用户许可协议 (EULA) 约束。仅可在搭载 NVIDIA GPU 的系统上使用和分发。详情请参阅：&lt;a href=&apos;https://docs.nvidia.com/cuda/eula/index.html&apos;&gt;https://docs.nvidia.com/cuda/eula/index.html&lt;/a&gt;&lt;/p&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;h3&gt;Third-Party Open Source License Notices&lt;/h3&gt;&lt;h4&gt;Qt %1 &amp;mdash; LGPLv3&lt;/h4&gt;&lt;p&gt;Copyright &amp;copy; The Qt Company Ltd. and other contributors.&lt;/p&gt;&lt;p&gt;Qt is licensed under the GNU Lesser General Public License v3 (LGPLv3). This application uses Qt libraries via dynamic linking, which complies with LGPLv3 closed-source distribution terms. Qt source code is available at &lt;a href=&apos;https://download.qt.io&apos;&gt;https://download.qt.io&lt;/a&gt;.&lt;/p&gt;&lt;p&gt;LGPLv3 full text: &lt;a href=&apos;https://www.gnu.org/licenses/lgpl-3.0.html&apos;&gt;https://www.gnu.org/licenses/lgpl-3.0.html&lt;/a&gt;&lt;/p&gt;&lt;h4&gt;OpenSSL 3.x &amp;mdash; Apache License 2.0&lt;/h4&gt;&lt;p&gt;Copyright &amp;copy; The OpenSSL Project Authors. All Rights Reserved.&lt;/p&gt;&lt;p&gt;Licensed under the Apache License 2.0 (the &quot;License&quot;); you may not use this file except in compliance with the License. You may obtain a copy of the License at &lt;a href=&apos;https://www.apache.org/licenses/LICENSE-2.0&apos;&gt;https://www.apache.org/licenses/LICENSE-2.0&lt;/a&gt;&lt;/p&gt;&lt;p&gt;This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit (&lt;a href=&apos;https://www.openssl.org/&apos;&gt;https://www.openssl.org/&lt;/a&gt;).&lt;/p&gt;&lt;h4&gt;libjpeg-turbo &amp;mdash; BSD 3-Clause&lt;/h4&gt;&lt;p&gt;Copyright &amp;copy; 2009-2026 D. R. Commander. All Rights Reserved.&lt;br&gt;Copyright &amp;copy; 2015 Viktor Szathm&amp;aacute;ry. All Rights Reserved.&lt;/p&gt;&lt;p&gt;Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.&lt;/li&gt;&lt;li&gt;Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.&lt;/li&gt;&lt;li&gt;Neither the name of the libjpeg-turbo Project nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot; ...&lt;/p&gt;&lt;h4&gt;nvJPEG / CUDA Runtime &amp;mdash; NVIDIA Proprietary License&lt;/h4&gt;&lt;p&gt;Copyright &amp;copy; NVIDIA Corporation. All Rights Reserved.&lt;/p&gt;&lt;p&gt;nvJPEG and CUDA Runtime libraries are proprietary software of NVIDIA Corporation, governed by the NVIDIA CUDA Toolkit End User License Agreement (EULA). May only be used and distributed on systems with NVIDIA GPUs. For details see: &lt;a href=&apos;https://docs.nvidia.com/cuda/eula/index.html&apos;&gt;https://docs.nvidia.com/cuda/eula/index.html&lt;/a&gt;&lt;/p&gt;</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="577"/>
@@ -501,6 +484,16 @@
         <location filename="../../src/app/MainWindow.cpp" line="813"/>
         <source>客户端已认证: %1</source>
         <translation>Client authenticated: %1</translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/MainWindow.ui" line="14"/>
+        <location filename="../../src/ui/MainWindow.ui" line="135"/>
+        <location filename="../../src/app/MainWindow.cpp" line="117"/>
+        <location filename="../../src/app/MainWindow.cpp" line="348"/>
+        <location filename="../../src/app/MainWindow.cpp" line="451"/>
+        <location filename="../../src/app/MainWindowLayout.cpp" line="74"/>
+        <source>极域桌面</source>
+        <translation>UltraDesktop</translation>
     </message>
 </context>
 <context>
