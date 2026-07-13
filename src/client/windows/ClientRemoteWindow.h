@@ -24,6 +24,7 @@ class CursorManager;
 class ClipboardManager;
 class InputForwarder;
 class ConnectionLifecycle;
+class FullscreenToolbar;
 
 class ClientRemoteWindow : public QWidget {
     Q_OBJECT
@@ -59,6 +60,9 @@ public:
 
     // View-only mode (delegates to overlay + ConnectionLifecycle)
     void setViewOnly(bool enabled);
+
+    /// 运行时切换仅查看模式（供全屏工具栏调用）
+    void toggleViewOnly();
 
     // Manager access
     CursorManager* cursorManager() const;
@@ -115,4 +119,7 @@ private:
 
     // GL texture viewport — sole render surface, fills entire widget
     GLTextureViewport* m_glViewport = nullptr;
+
+    // Fullscreen toolbar (only active in fullscreen mode)
+    FullscreenToolbar* m_fullscreenToolbar = nullptr;
 };
