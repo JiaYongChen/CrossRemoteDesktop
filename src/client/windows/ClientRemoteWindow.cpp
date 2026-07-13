@@ -143,7 +143,8 @@ bool ClientRemoteWindow::isFullScreen() const {
 }
 
 void ClientRemoteWindow::toggleViewOnly() {
-    bool newViewOnly = !isInputEnabled();
+    bool currentlyViewOnly = !isInputEnabled();
+    bool newViewOnly = !currentlyViewOnly;
     setInputEnabled(!newViewOnly);
     setViewOnly(newViewOnly);
     if (m_clipboardManager) {
