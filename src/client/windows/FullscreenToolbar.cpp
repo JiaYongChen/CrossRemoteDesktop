@@ -151,9 +151,12 @@ bool FullscreenToolbar::eventFilter(QObject* obj, QEvent* event)
             if (!m_showDelayTimer->isActive()) {
                 m_showDelayTimer->start(SHOW_DELAY_MS);
             }
-        } else {
+        } else if (m_showDelayTimer->isActive()) {
             m_showDelayTimer->stop();
         }
+    } else if (event->type() == QEvent::Leave) {
+        // 鼠标离开窗口时取消延迟弹出计时
+        m_showDelayTimer->stop();
     }
 
     return QWidget::eventFilter(obj, event);

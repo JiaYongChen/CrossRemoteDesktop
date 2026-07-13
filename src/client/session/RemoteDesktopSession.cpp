@@ -143,6 +143,9 @@ void RemoteDesktopSession::createWindow() {
     // 仅查看模式 → 叠加层角标 + 标题后缀
     m_window->setViewOnly(m_params.viewOnly);
 
+    // 剪贴板共享标志（供 toggleViewOnly 恢复时使用）
+    m_window->setShareClipboard(m_params.shareClipboard);
+
     // 剪贴板同步
     ClipboardManager* clipboardMgr = m_window->findChild<ClipboardManager*>();
     if (clipboardMgr) {

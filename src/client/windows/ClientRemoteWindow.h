@@ -64,6 +64,9 @@ public:
     /// 运行时切换仅查看模式（供全屏工具栏调用）
     void toggleViewOnly();
 
+    /// 设置剪贴板共享开关（供 toggleViewOnly 恢复时使用）
+    void setShareClipboard(bool enabled);
+
     // Manager access
     CursorManager* cursorManager() const;
 
@@ -83,6 +86,7 @@ protected:
     void mouseMoveEvent(QMouseEvent* event) override;
     void enterEvent(QEnterEvent* event) override;
     void leaveEvent(QEvent* event) override;
+    void changeEvent(QEvent* event) override;
 
 private slots:
     void onConnectionClosed();
@@ -102,6 +106,9 @@ private:
 
     // Cached host name for title display
     QString m_hostName;
+
+    // Share clipboard flag (persisted for toggleViewOnly restore)
+    bool m_shareClipboard = true;
 
     // Scale factor (replaces RenderManager scaling)
     double m_scaleFactor = 1.0;

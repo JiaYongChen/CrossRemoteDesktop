@@ -142,13 +142,30 @@ bool ClientRemoteWindow::isFullScreen() const {
     return m_isFullScreen;
 }
 
+void ClientRemoteWindow::setShareClipboard(bool enabled) {
+    m_shareClipboard = enabled;
+}
+
+void ClientRemoteWindow::changeEvent(QEvent* event) {
+    if (event->type() == QEvent::WindowStateChange) {
+        bool isNowFullScreen = windowState().testFlag(Qt::WindowFullScreen);
+        if (isNowFullScreen != m_isFullScreen) {
+            m_isFullScreen = isNowFullScreen;
+            if (m_fullscreenToolbar) {
+                m_fullscreenToolbar->setActive(isNowFullScreen);
+            }
+        }
+    }
+    QWidget::changeEvent(event);
+}
+
 void ClientRemoteWindow::toggleViewOnly() {
     bool currentlyViewOnly = !isInputEnabled();
     bool newViewOnly = !currentlyViewOnly;
     setInputEnabled(!newViewOnly);
     setViewOnly(newViewOnly);
     if (m_clipboardManager) {
-        m_clipboardManager->setEnabled(!newViewOnly);
+        m_clipboardManager->setEnabled(m_shareClipboard && !newViewOnly);
     }
     if (m_fullscreenToolbar) {
         m_fullscreenToolbar->setViewOnly(newViewOnly);
@@ -178,6 +195,10 @@ void ClientRemoteWindow::setViewOnly(bool enabled) {
     // 窗口标题后缀（委托给 ConnectionLifecycle）
     if (m_connectionLifecycle) {
         m_connectionLifecycle->setViewOnly(enabled);
+    }
+    // 同步全屏工具栏按钮状态
+    if (m_fullscreenToolbar) {
+        m_fullscreenToolbar->setViewOnly(enabled);
     }
 }
 
@@ -283,6 +304,11 @@ void ClientRemoteWindow::resizeEvent(QResizeEvent* event) {
 
     if (m_viewOnlyOverlay && m_viewOnlyOverlay->isVisible()) {
         m_viewOnlyOverlay->move(width() - m_viewOnlyOverlay->width() - 16, 12);
+    }
+
+    // 全屏工具栏可见时随窗口宽度同步更新
+    if (m_fullscreenToolbar && m_fullscreenToolbar->isVisible()) {
+        m_fullscreenToolbar->setGeometry(0, 0, width(), m_fullscreenToolbar->height());
     }
 }
 
