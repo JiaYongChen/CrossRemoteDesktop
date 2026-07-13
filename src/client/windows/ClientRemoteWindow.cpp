@@ -257,6 +257,7 @@ void ClientRemoteWindow::setupUI() {
     overlayLayout->addWidget(iconLabel);
     overlayLayout->addWidget(textLabel);
     m_viewOnlyOverlay->adjustSize();
+    m_viewOnlyOverlay->move(12, 12);  // 固定于左上角
     m_viewOnlyOverlay->hide();
 
 #ifndef QT_NO_OPENGL
@@ -302,9 +303,7 @@ void ClientRemoteWindow::resizeEvent(QResizeEvent* event) {
     }
 #endif
 
-    if (m_viewOnlyOverlay && m_viewOnlyOverlay->isVisible()) {
-        m_viewOnlyOverlay->move(width() - m_viewOnlyOverlay->width() - 16, 12);
-    }
+    // 仅查看标识保持在左上角，无需跟随窗口移动
 
     // 全屏工具栏可见时随窗口宽度同步更新
     if (m_fullscreenToolbar && m_fullscreenToolbar->isVisible()) {
