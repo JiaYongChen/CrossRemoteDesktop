@@ -53,5 +53,6 @@ private:
 	Ui::SettingsDialog* ui;
 	SettingsManager* m_settings;
 	QString m_cachedPassword;
+	QString m_lastLang; // 防重入：跳过重复的语言切换请求
 	QAction* m_togglePasswordAction = nullptr;
 };

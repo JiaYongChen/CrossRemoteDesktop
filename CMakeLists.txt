@@ -184,8 +184,28 @@ if(LUPDATE_EXECUTABLE)
     add_custom_target(update_translations
         COMMAND ${LUPDATE_EXECUTABLE} ${TRANSLATABLE_SOURCES} -ts ${TS_FILES} -no-obsolete
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-        COMMENT "Syncing translation files with source tr() calls..."
+        COMMENT "Syncing TS files with source tr() calls..."
     )
+
+    find_program(LRELEASE_EXECUTABLE lrelease
+        HINTS "${QT6_ROOT_DIR}/bin"
+        DOC "Path to Qt lrelease tool"
+    )
+    if(LRELEASE_EXECUTABLE)
+        add_custom_target(release_translations
+            COMMAND ${LRELEASE_EXECUTABLE} ${TS_FILES} -qm ${CMAKE_CURRENT_SOURCE_DIR}/resources/translations/
+            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+            COMMENT "Compiling TS → QM translation files..."
+        )
+        # 组合目标：lupdate → lrelease 一键完成
+        add_custom_target(sync_translations
+            COMMAND ${LUPDATE_EXECUTABLE} ${TRANSLATABLE_SOURCES} -ts ${TS_FILES} -no-obsolete
+            COMMAND ${LRELEASE_EXECUTABLE} ${TS_FILES} -qm ${CMAKE_CURRENT_SOURCE_DIR}/resources/translations/
+            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+            COMMENT "Running lupdate + lrelease: syncing and compiling translations..."
+        )
+        message(STATUS "[Translation] lupdate + lrelease configured")
+    endif()
 endif()
 
 enable_testing()

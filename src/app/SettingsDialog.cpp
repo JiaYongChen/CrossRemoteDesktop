@@ -151,7 +151,8 @@ void SettingsDialog::loadSettings()
 void SettingsDialog::onLanguageChanged(int index)
 {
 	const QString lang = ui->languageComboBox->itemData(index).toString();
-	if (lang.isEmpty()) return;
+	if (lang.isEmpty() || lang == m_lastLang) return;
+	m_lastLang = lang;
 
 	m_settings->setString("General/language", lang);
 	switchTranslation(*qApp, lang);
