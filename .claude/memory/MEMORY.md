@@ -1,6 +1,10 @@
 # Memory Index
 
+## User
+- [user_profile.md](user_profile.md) — 熟练的 C++/Qt 开发者，中文沟通，直接高效
+
 ## Project
+- [project_overview.md](project_overview.md) — UltraDesktop（极域桌面）项目核心目标和架构方向
 - [project_qss_layered_template.md](project_qss_layered_template.md) — QSS 三段式分层编写规范，修改或新增 QSS 规则时必须遵守
 - [project_ui_creation_rule.md](project_ui_creation_rule.md) — 新建 UI 控件优先用 .ui 文件定义静态布局，动态逻辑保留在代码中
 - [project_local_persistence_rule.md](project_local_persistence_rule.md) — 本地持久化数据统一使用 JSON 文件格式，通过 Config DI 存取，位于可执行文件同目录
@@ -17,3 +21,5 @@
 - [feedback_third_party_libs.md](feedback_third_party_libs.md) — 预编译包缓存于third_party/并提交git，CMake直接使用不调vcpkg；vcpkg仅开发者获取库时使用
 - [feedback_macro_usage.md](feedback_macro_usage.md) — 编译期特征宏仅隔离真不可编译的平台，不冗余覆盖运行时已有的能力检测
 - [feedback_bash_heredoc_commit.md](feedback_bash_heredoc_commit.md) — Git Bash 中 @'@ 语法不可用于 git commit -m，应用 POSIX heredoc + git commit -F
+- [feedback_commit_style.md](feedback/feedback_commit_style.md) — Git 提交使用中文，格式：`类型: 描述`
+- [feedback_windows_build.md](feedback/feedback_windows_build.md) — Windows 必须用 VS 生成器（非 Ninja），需要 /FS 避免 PDB 锁冲突
