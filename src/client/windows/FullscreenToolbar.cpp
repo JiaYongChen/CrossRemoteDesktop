@@ -36,17 +36,17 @@ void FullscreenToolbar::setupUi()
     setAutoFillBackground(false);
 
     auto* layout = new QHBoxLayout(this);
-    layout->setContentsMargins(12, 8, 12, 8);
-    layout->setSpacing(8);
+    layout->setContentsMargins(8, 4, 8, 4);
+    layout->setSpacing(6);
 
     const QString btnStyle = QStringLiteral(
         "QPushButton {"
         "  color: #E0E0E0;"
         "  background: rgba(255, 255, 255, 0.08);"
         "  border: none;"
-        "  border-radius: 4px;"
-        "  padding: 4px 12px;"
-        "  font-size: 13px;"
+        "  border-radius: 3px;"
+        "  padding: 2px 10px;"
+        "  font-size: 11px;"
         "}"
         "QPushButton:hover {"
         "  background: rgba(255, 255, 255, 0.16);"
@@ -77,6 +77,7 @@ void FullscreenToolbar::setupUi()
     connect(m_toggleViewOnlyBtn, &QPushButton::clicked,
             this, &FullscreenToolbar::toggleViewOnlyRequested);
 
+    layout->addStretch();
     layout->addWidget(m_toggleFullscreenBtn);
     layout->addWidget(m_disconnectBtn);
     layout->addWidget(m_toggleViewOnlyBtn);

@@ -52,5 +52,5 @@ private:
     static constexpr int TRIGGER_HEIGHT = 5;
     static constexpr int SHOW_DELAY_MS  = 300;
     static constexpr int AUTO_HIDE_MS   = 5000;
-    static constexpr int TOOLBAR_HEIGHT = 44;
+    static constexpr int TOOLBAR_HEIGHT = 32;
 };
