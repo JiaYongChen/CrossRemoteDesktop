@@ -27,6 +27,15 @@ ConnectionDialog::~ConnectionDialog()
 	delete ui;
 }
 
+void ConnectionDialog::changeEvent(QEvent* event)
+{
+	QDialog::changeEvent(event);
+	if (event->type() == QEvent::LanguageChange) {
+		ui->retranslateUi(this);
+		retranslateButtons();
+	}
+}
+
 void ConnectionDialog::setupConnections()
 {
 	connect(ui->fullScreenCheckBox, &QCheckBox::toggled,

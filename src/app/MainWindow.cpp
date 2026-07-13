@@ -345,7 +345,11 @@ void MainWindow::showEvent(QShowEvent* event)
 
 void MainWindow::retranslateUi() {
     qCInfo(lcUIMainWindow) << "MainWindow::retranslateUi - starting UI retranslation";
-    setWindowTitle(tr("极域桌面"));
+
+    // UIC 生成的重翻译（覆盖 titleLabel 等 .ui 文件定义的所有静态文本）
+    ui->retranslateUi(this);
+
+    // 手动重翻译（动态创建的控件 + 运行时设置的文本）
 
     // 全局快捷键动作
     m_exitAction->setText(tr("退出"));

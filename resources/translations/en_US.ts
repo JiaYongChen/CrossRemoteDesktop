@@ -11,7 +11,7 @@
     <message>
         <location filename="../../src/client/windows/ClientRemoteWindow.cpp" line="194"/>
         <source>仅查看</source>
-        <translation type="unfinished"></translation>
+        <translation>View Only</translation>
     </message>
 </context>
 <context>
@@ -206,7 +206,7 @@
     <message>
         <location filename="../../src/app/ConnectionDialog.cpp" line="69"/>
         <source>请输入有效的主机地址</source>
-        <translation type="unfinished"></translation>
+        <translation>Please enter a valid host address</translation>
     </message>
     <message>
         <location filename="../../src/app/ConnectionDialog.cpp" line="73"/>
@@ -216,12 +216,12 @@
     <message>
         <location filename="../../src/app/ConnectionDialog.cpp" line="80"/>
         <source>端口号必须在1-65535之间</source>
-        <translation type="unfinished"></translation>
+        <translation>Port must be between 1-65535</translation>
     </message>
     <message>
         <location filename="../../src/app/ConnectionDialog.cpp" line="119"/>
         <source>验证错误</source>
-        <translation type="unfinished"></translation>
+        <translation>Validation Error</translation>
     </message>
 </context>
 <context>
@@ -241,47 +241,47 @@
     <message>
         <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="60"/>
         <source>正在连接...</source>
-        <translation type="unfinished"></translation>
+        <translation>Connecting...</translation>
     </message>
     <message>
         <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="63"/>
         <source>已连接</source>
-        <translation type="unfinished"></translation>
+        <translation>Connected</translation>
     </message>
     <message>
         <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="66"/>
         <source>正在认证...</source>
-        <translation type="unfinished"></translation>
+        <translation>Authenticating...</translation>
     </message>
     <message>
         <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="69"/>
         <source>已认证</source>
-        <translation type="unfinished"></translation>
+        <translation>Authenticated</translation>
     </message>
     <message>
         <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="72"/>
         <source>正在断开连接...</source>
-        <translation type="unfinished"></translation>
+        <translation>Disconnecting...</translation>
     </message>
     <message>
         <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="75"/>
         <source>未连接</source>
-        <translation type="unfinished"></translation>
+        <translation>Not Connected</translation>
     </message>
     <message>
         <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="78"/>
         <source>正在重连...</source>
-        <translation type="unfinished"></translation>
+        <translation>Reconnecting...</translation>
     </message>
     <message>
         <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="81"/>
         <source>连接错误</source>
-        <translation type="unfinished"></translation>
+        <translation>Connection Error</translation>
     </message>
     <message>
         <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="88"/>
         <source>%1 [仅查看]</source>
-        <translation type="unfinished"></translation>
+        <translation>%1 [View Only]</translation>
     </message>
     <message>
         <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="99"/>
@@ -304,7 +304,7 @@
     <message>
         <location filename="../../src/ui/ConnectionPanel.ui" line="16"/>
         <source>searchBox</source>
-        <translation type="unfinished"></translation>
+        <translation>searchBox</translation>
     </message>
     <message>
         <location filename="../../src/ui/ConnectionPanel.ui" line="18"/>
@@ -315,7 +315,7 @@
     <message>
         <location filename="../../src/ui/ConnectionPanel.ui" line="31"/>
         <source>emptyStateLabel</source>
-        <translation type="unfinished"></translation>
+        <translation>emptyStateLabel</translation>
     </message>
     <message>
         <location filename="../../src/ui/ConnectionPanel.ui" line="32"/>
@@ -364,12 +364,12 @@
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="457"/>
         <source>关于</source>
-        <translation type="unfinished">About</translation>
+        <translation>About</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="511"/>
         <source>开源许可</source>
-        <translation type="unfinished"></translation>
+        <translation>Open Source Licenses</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="792"/>
@@ -403,12 +403,12 @@
         <location filename="../../src/app/MainWindow.cpp" line="383"/>
         <location filename="../../src/app/MainWindow.cpp" line="416"/>
         <source>服务器状态</source>
-        <translation type="unfinished"></translation>
+        <translation>Server Status</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="384"/>
         <source>服务器已经在运行中。</source>
-        <translation type="unfinished"></translation>
+        <translation>The server is already running.</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="391"/>
@@ -423,7 +423,7 @@
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="417"/>
         <source>服务器未运行。</source>
-        <translation type="unfinished"></translation>
+        <translation>The server is not running.</translation>
     </message>
     <message>
         <location filename="../../src/app/MainWindow.cpp" line="444"/>
@@ -726,12 +726,12 @@
     <message>
         <location filename="../../src/server/listener/TcpListener.cpp" line="78"/>
         <source>TCP服务器未初始化</source>
-        <translation type="unfinished"></translation>
+        <translation>TCP Server Not Initialized</translation>
     </message>
     <message>
         <location filename="../../src/server/listener/TcpListener.cpp" line="95"/>
         <source>服务器启动失败</source>
-        <translation type="unfinished">Server failed to start</translation>
+        <translation>Server Failed to Start</translation>
     </message>
 </context>
 </TS>
