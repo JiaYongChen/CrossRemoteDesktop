@@ -1,7 +1,7 @@
 #include "FullscreenToolbar.h"
 #include "../../common/logging/LoggingCategories.h"
 
-#include <QtWidgets/QPushButton>
+#include <QtWidgets/QToolButton>
 #include <QtWidgets/QHBoxLayout>
 #include <QtGui/QPainter>
 #include <QtGui/QPaintEvent>
@@ -40,41 +40,53 @@ void FullscreenToolbar::setupUi()
     layout->setSpacing(6);
 
     const QString btnStyle = QStringLiteral(
-        "QPushButton {"
-        "  color: #E0E0E0;"
+        "QToolButton {"
         "  background: rgba(255, 255, 255, 0.08);"
         "  border: none;"
         "  border-radius: 3px;"
-        "  padding: 2px 10px;"
-        "  font-size: 11px;"
+        "  padding: 2px;"
         "}"
-        "QPushButton:hover {"
+        "QToolButton:hover {"
         "  background: rgba(255, 255, 255, 0.16);"
         "}"
-        "QPushButton:pressed {"
+        "QToolButton:pressed {"
         "  background: rgba(255, 255, 255, 0.22);"
         "}"
     );
 
-    m_toggleFullscreenBtn = new QPushButton(tr("窗口模式"), this);
+    const QSize iconSize(16, 16);
+
+    m_toggleFullscreenBtn = new QToolButton(this);
+    m_toggleFullscreenBtn->setIcon(QIcon(":/icons/fullscreen.svg"));
+    m_toggleFullscreenBtn->setIconSize(iconSize);
+    m_toggleFullscreenBtn->setToolTip(tr("全屏切换"));
     m_toggleFullscreenBtn->setStyleSheet(btnStyle);
     m_toggleFullscreenBtn->setCursor(Qt::PointingHandCursor);
     m_toggleFullscreenBtn->setFocusPolicy(Qt::NoFocus);
-    connect(m_toggleFullscreenBtn, &QPushButton::clicked,
+    m_toggleFullscreenBtn->setAutoRaise(true);
+    connect(m_toggleFullscreenBtn, &QToolButton::clicked,
             this, &FullscreenToolbar::toggleFullscreenRequested);
 
-    m_disconnectBtn = new QPushButton(tr("断开连接"), this);
+    m_disconnectBtn = new QToolButton(this);
+    m_disconnectBtn->setIcon(QIcon(":/icons/disconnect.svg"));
+    m_disconnectBtn->setIconSize(iconSize);
+    m_disconnectBtn->setToolTip(tr("断开连接"));
     m_disconnectBtn->setStyleSheet(btnStyle);
     m_disconnectBtn->setCursor(Qt::PointingHandCursor);
     m_disconnectBtn->setFocusPolicy(Qt::NoFocus);
-    connect(m_disconnectBtn, &QPushButton::clicked,
+    m_disconnectBtn->setAutoRaise(true);
+    connect(m_disconnectBtn, &QToolButton::clicked,
             this, &FullscreenToolbar::disconnectRequested);
 
-    m_toggleViewOnlyBtn = new QPushButton(tr("仅查看: 关"), this);
+    m_toggleViewOnlyBtn = new QToolButton(this);
+    m_toggleViewOnlyBtn->setIcon(QIcon(":/icons/eye.svg"));
+    m_toggleViewOnlyBtn->setIconSize(iconSize);
+    m_toggleViewOnlyBtn->setToolTip(tr("仅查看切换"));
     m_toggleViewOnlyBtn->setStyleSheet(btnStyle);
     m_toggleViewOnlyBtn->setCursor(Qt::PointingHandCursor);
     m_toggleViewOnlyBtn->setFocusPolicy(Qt::NoFocus);
-    connect(m_toggleViewOnlyBtn, &QPushButton::clicked,
+    m_toggleViewOnlyBtn->setAutoRaise(true);
+    connect(m_toggleViewOnlyBtn, &QToolButton::clicked,
             this, &FullscreenToolbar::toggleViewOnlyRequested);
 
     layout->addStretch();
@@ -96,8 +108,10 @@ void FullscreenToolbar::setActive(bool active)
 void FullscreenToolbar::setViewOnly(bool viewOnly)
 {
     m_viewOnly = viewOnly;
-    m_toggleViewOnlyBtn->setText(m_viewOnly
-        ? tr("仅查看: 开") : tr("仅查看: 关"));
+    m_toggleViewOnlyBtn->setIcon(QIcon(m_viewOnly
+        ? ":/icons/eye-off.svg" : ":/icons/eye.svg"));
+    m_toggleViewOnlyBtn->setToolTip(m_viewOnly
+        ? tr("退出仅查看") : tr("仅查看切换"));
 }
 
 void FullscreenToolbar::showToolbar()

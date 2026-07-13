@@ -3,7 +3,7 @@
 #include <QtWidgets/QWidget>
 #include <QtCore/QTimer>
 
-class QPushButton;
+class QToolButton;
 
 /// 全屏悬浮工具栏 — 鼠标触顶弹出，提供全屏切换/断开/仅查看操作
 ///
@@ -17,7 +17,7 @@ public:
     /// 启用/禁用触发区检测（仅在父窗口全屏时启用）
     void setActive(bool active);
 
-    /// 同步仅查看按钮文字
+    /// 同步仅查看按钮图标
     void setViewOnly(bool viewOnly);
 
 signals:
@@ -40,9 +40,9 @@ private:
     void showToolbar();
     void hideToolbar();
 
-    QPushButton* m_toggleFullscreenBtn = nullptr;
-    QPushButton* m_disconnectBtn      = nullptr;
-    QPushButton* m_toggleViewOnlyBtn  = nullptr;
+    QToolButton* m_toggleFullscreenBtn = nullptr;
+    QToolButton* m_disconnectBtn      = nullptr;
+    QToolButton* m_toggleViewOnlyBtn  = nullptr;
     QTimer*      m_showDelayTimer     = nullptr;
     QTimer*      m_autoHideTimer      = nullptr;
     bool         m_active             = false;
@@ -52,5 +52,5 @@ private:
     static constexpr int TRIGGER_HEIGHT = 5;
     static constexpr int SHOW_DELAY_MS  = 300;
     static constexpr int AUTO_HIDE_MS   = 5000;
-    static constexpr int TOOLBAR_HEIGHT = 32;
+    static constexpr int TOOLBAR_HEIGHT = 28;
 };
