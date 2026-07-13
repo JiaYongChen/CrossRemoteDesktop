@@ -13,7 +13,7 @@ type: feedback
 
 ## 日志分类管理
 
-- **所有分类集中定义**：`Q_DECLARE_LOGGING_CATEGORY` 放在 `src/common/core/logging/LoggingCategories.h`，`Q_LOGGING_CATEGORY` 放在对应的 `.cpp`
+- **所有分类集中定义**：`Q_DECLARE_LOGGING_CATEGORY` 放在 `src/common/logging/LoggingCategories.h`，`Q_LOGGING_CATEGORY` 放在对应的 `.cpp`
 - **禁止在其他文件中散落定义** `Q_LOGGING_CATEGORY` 或 `Q_DECLARE_LOGGING_CATEGORY`
 - 新增日志分类时，统一添加到 `LoggingCategories.h/.cpp`
 

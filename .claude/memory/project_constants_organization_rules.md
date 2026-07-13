@@ -28,7 +28,7 @@ inline constexpr int SomeConstant = 42;
 - **枚举值**：`PascalCase`，如 `FrameDropPolicy::LatestOnly`
 - **函数名**：`PascalCase`，如 `GetVersionString()`、`IsValidPort()`
 
-## 常量文件（6 个，全部位于 `src/common/core/config/`）
+## 常量文件（6 个，全部位于 `src/common/config/`）
 
 | 文件 | 归属领域 |
 |------|----------|
