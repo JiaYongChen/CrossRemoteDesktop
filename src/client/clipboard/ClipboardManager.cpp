@@ -4,7 +4,7 @@
 #include <QtGui/QImage>
 #include <QtCore/QMimeData>
 #include <QtCore/QBuffer>
-#include "../logging/LoggingCategories.h"
+#include "logging/LoggingCategories.h"
 
 ClipboardManager::ClipboardManager(QObject* parent)
     : QObject(parent)

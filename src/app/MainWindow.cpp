@@ -31,6 +31,8 @@
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QDialog>
 #include <QtWidgets/QMessageBox>
+#include <QtWidgets/QTabWidget>
+#include <QtWidgets/QTextBrowser>
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QPushButton>
@@ -427,17 +429,88 @@ void MainWindow::showSettings() {
 void MainWindow::showAbout() {
     QDialog dialog(this);
     dialog.setWindowTitle(tr("关于Qt远程桌面"));
-    dialog.setFixedSize(360, 160);
+    dialog.setFixedSize(500, 440);
 
-    auto *layout = new QVBoxLayout(&dialog);
-    layout->setContentsMargins(24, 20, 24, 20);
+    auto *mainLayout = new QVBoxLayout(&dialog);
+    mainLayout->setContentsMargins(16, 12, 16, 12);
 
-    auto *label = new QLabel(tr("<h2>Qt远程桌面 1.0</h2>"
-                                 "<p>基于Qt 6.9.1构建的跨平台远程桌面应用程序。</p>"
-                                 "<p>支持macOS和Windows系统之间的远程连接。</p>"));
-    label->setWordWrap(true);
-    label->setTextFormat(Qt::RichText);
-    layout->addWidget(label);
+    auto *tabWidget = new QTabWidget(&dialog);
+
+    // ── 标签页 1：关于 ──
+    auto *aboutTab = new QWidget(tabWidget);
+    auto *aboutLayout = new QVBoxLayout(aboutTab);
+    aboutLayout->setContentsMargins(20, 16, 20, 16);
+
+    auto *aboutLabel = new QLabel(tr(
+        "<h2>CrossRemoteDesktop 1.0</h2>"
+        "<p>基于 Qt %1 构建的跨平台远程桌面应用程序。</p>"
+        "<p>支持 Windows、macOS 和 Linux 系统之间的远程连接与控制。</p>"
+        "<hr>"
+        "<p>本软件遵循 <b>MIT License</b> 开源发布。</p>"
+        "<p>详情请见程序目录下的 LICENSE 文件。</p>"
+    ).arg(QString::fromLatin1(qVersion())));
+    aboutLabel->setWordWrap(true);
+    aboutLabel->setTextFormat(Qt::RichText);
+    aboutLayout->addWidget(aboutLabel);
+    aboutLayout->addStretch();
+
+    tabWidget->addTab(aboutTab, tr("关于"));
+
+    // ── 标签页 2：开源许可 ──
+    auto *licenseTab = new QWidget(tabWidget);
+    auto *licenseLayout = new QVBoxLayout(licenseTab);
+    licenseLayout->setContentsMargins(0, 0, 0, 0);
+
+    auto *licenseBrowser = new QTextBrowser(licenseTab);
+    licenseBrowser->setOpenExternalLinks(true);
+    licenseBrowser->setHtml(tr(
+        "<h3>第三方开源库许可声明</h3>"
+
+        "<h4>Qt %1 &mdash; LGPLv3</h4>"
+        "<p>Copyright &copy; The Qt Company Ltd. and other contributors.</p>"
+        "<p>Qt 采用 GNU Lesser General Public License v3 (LGPLv3) 许可。"
+        "本应用程序通过动态链接方式使用 Qt 库，符合 LGPLv3 的闭源分发条件。"
+        "Qt 源代码可从 <a href='https://download.qt.io'>https://download.qt.io</a> 获取。</p>"
+        "<p>LGPLv3 全文：<a href='https://www.gnu.org/licenses/lgpl-3.0.html'>"
+        "https://www.gnu.org/licenses/lgpl-3.0.html</a></p>"
+
+        "<h4>OpenSSL 3.x &mdash; Apache License 2.0</h4>"
+        "<p>Copyright &copy; The OpenSSL Project Authors. All Rights Reserved.</p>"
+        "<p>Licensed under the Apache License 2.0 (the \"License\"); "
+        "you may not use this file except in compliance with the License. "
+        "You may obtain a copy of the License at "
+        "<a href='https://www.apache.org/licenses/LICENSE-2.0'>"
+        "https://www.apache.org/licenses/LICENSE-2.0</a></p>"
+        "<p>本产品包含由 OpenSSL Project 开发的、用于 OpenSSL Toolkit 的软件"
+        "(<a href='https://www.openssl.org/'>https://www.openssl.org/</a>)。</p>"
+
+        "<h4>libjpeg-turbo &mdash; BSD 3-Clause</h4>"
+        "<p>Copyright &copy; 2009-2026 D. R. Commander. All Rights Reserved.<br>"
+        "Copyright &copy; 2015 Viktor Szathm&aacute;ry. All Rights Reserved.</p>"
+        "<p>在满足下列条件的前提下，允许以源代码和二进制形式重新分发和使用（无论是否修改）：</p>"
+        "<ul>"
+        "<li>源代码的再分发必须保留上述版权声明、本条件列表以及下述免责声明。</li>"
+        "<li>二进制形式的再分发必须在文档和/或随分发提供的其他材料中"
+        "复现上述版权声明、本条件列表以及下述免责声明。</li>"
+        "<li>未经事先书面许可，不得使用 libjpeg-turbo 项目或其贡献者的名称"
+        "来背书或推广从本软件衍生的产品。</li>"
+        "</ul>"
+        "<p>THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "
+        "\"AS IS\" ...</p>"
+
+        "<h4>nvJPEG / CUDA Runtime &mdash; NVIDIA 专有许可</h4>"
+        "<p>Copyright &copy; NVIDIA Corporation. All Rights Reserved.</p>"
+        "<p>nvJPEG 和 CUDA Runtime 库为 NVIDIA Corporation 的专有软件，"
+        "受 NVIDIA CUDA Toolkit 最终用户许可协议 (EULA) 约束。"
+        "仅可在搭载 NVIDIA GPU 的系统上使用和分发。"
+        "详情请参阅：<a href='https://docs.nvidia.com/cuda/eula/index.html'>"
+        "https://docs.nvidia.com/cuda/eula/index.html</a></p>"
+    ).arg(QString::fromLatin1(qVersion())));
+    licenseLayout->addWidget(licenseBrowser);
+
+    tabWidget->addTab(licenseTab, tr("开源许可"));
+
+    mainLayout->addWidget(tabWidget);
 
     TitleBarTheme::apply(&dialog, m_themeMode == "dark");
     dialog.exec();
