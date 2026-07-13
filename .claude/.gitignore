@@ -1,0 +1,3 @@
+# 本地会话状态（不提交）
+sessions.db
+settings.local.json

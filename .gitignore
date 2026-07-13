@@ -40,4 +40,10 @@ REQUIREMENTS.md
 
 #claude
 .claude/
+!.claude/memory/
+!.claude/.gitignore
 settings.local.json
+
+#scripts（仅排除，保留 setup-* 脚本）
+scripts/
+!scripts/setup-memory-symlink.*

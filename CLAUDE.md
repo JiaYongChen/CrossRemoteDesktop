@@ -2,7 +2,21 @@
 
 本文件为 Claude Code (claude.ai/code) 在本仓库中工作时提供指导。
 
-> 最后更新：2026-07-10
+> 最后更新：2026-07-13
+
+## 首次设置（新设备）
+
+```bash
+# 建立 Claude 项目记忆 symlink（使 memory/ 跟随 git 跨设备同步）
+# Windows:
+scripts\setup-memory-symlink.bat
+
+# macOS / Linux:
+chmod +x scripts/setup-memory-symlink.sh && ./scripts/setup-memory-symlink.sh
+```
+
+项目记忆（编码规范、反馈、工作流）存放在 `.claude/memory/`（已提交 git）。
+上述脚本将 Claude 的本地记忆路径通过 symlink 重定向到此目录。
 
 ## 构建命令
 
