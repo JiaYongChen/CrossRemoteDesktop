@@ -36,7 +36,7 @@ void FullscreenToolbar::setupUi()
     setAutoFillBackground(false);
 
     auto* layout = new QHBoxLayout(this);
-    layout->setContentsMargins(8, 4, 8, 4);
+    layout->setContentsMargins(8, 0, 8, 0);
     layout->setSpacing(6);
 
     const QString btnStyle = QStringLiteral(
