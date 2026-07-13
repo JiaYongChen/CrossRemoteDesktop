@@ -1,6 +1,7 @@
 #include "ClientRemoteWindow.h"
 #include "InputForwarder.h"
 #include "ConnectionLifecycle.h"
+#include "FullscreenToolbar.h"
 #include "../session/ProtocolSession.h"
 #include "CursorManager.h"
 #include "../clipboard/ClipboardManager.h"
@@ -52,6 +53,15 @@ ClientRemoteWindow::ClientRemoteWindow(ProtocolSession* sessionManager, QWidget*
     if (m_protocolSession) {
         setupManagerConnections();
     }
+
+    // ── 全屏悬浮工具栏 ──
+    m_fullscreenToolbar = new FullscreenToolbar(this);
+    connect(m_fullscreenToolbar, &FullscreenToolbar::toggleFullscreenRequested,
+            this, [this]() { setFullScreen(!m_isFullScreen); });
+    connect(m_fullscreenToolbar, &FullscreenToolbar::disconnectRequested,
+            this, [this]() { close(); });
+    connect(m_fullscreenToolbar, &FullscreenToolbar::toggleViewOnlyRequested,
+            this, &ClientRemoteWindow::toggleViewOnly);
 }
 
 ClientRemoteWindow::~ClientRemoteWindow() {
@@ -117,13 +127,34 @@ void ClientRemoteWindow::setFullScreen(bool fullScreen) {
     m_isFullScreen = fullScreen;
     if (fullScreen) {
         setWindowState(windowState() | Qt::WindowFullScreen);
+        if (m_fullscreenToolbar) {
+            m_fullscreenToolbar->setActive(true);
+        }
     } else {
         setWindowState(windowState() & ~Qt::WindowFullScreen);
+        if (m_fullscreenToolbar) {
+            m_fullscreenToolbar->setActive(false);
+        }
     }
 }
 
 bool ClientRemoteWindow::isFullScreen() const {
     return m_isFullScreen;
+}
+
+void ClientRemoteWindow::toggleViewOnly() {
+    bool newViewOnly = !isInputEnabled();
+    setInputEnabled(!newViewOnly);
+    setViewOnly(newViewOnly);
+    if (m_clipboardManager) {
+        m_clipboardManager->setEnabled(!newViewOnly);
+    }
+    if (m_fullscreenToolbar) {
+        m_fullscreenToolbar->setViewOnly(newViewOnly);
+    }
+
+    qCInfo(lcClientRemoteWindow) << "View-only mode toggled:"
+                                 << (newViewOnly ? "ON" : "OFF");
 }
 
 // ── Input control ──
