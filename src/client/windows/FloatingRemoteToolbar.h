@@ -11,6 +11,8 @@ class QToolButton;
 class FloatingRemoteToolbar : public QWidget {
     Q_OBJECT
 public:
+    static constexpr int ToolbarHeight = 28;
+
     explicit FloatingRemoteToolbar(QWidget* parent = nullptr);
 
     /// 同步仅查看按钮图标
@@ -31,6 +33,4 @@ private:
     QToolButton* m_disconnectBtn       = nullptr;
     QToolButton* m_toggleViewOnlyBtn   = nullptr;
     bool         m_viewOnly            = false;
-
-    static constexpr int ToolbarHeight = 28;
 };

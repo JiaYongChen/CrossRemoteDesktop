@@ -81,22 +81,15 @@ signals:
 
 protected:
     void closeEvent(QCloseEvent* event) override;
-    void paintEvent(QPaintEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void enterEvent(QEnterEvent* event) override;
     void leaveEvent(QEvent* event) override;
     void changeEvent(QEvent* event) override;
 
-private slots:
-    void onConnectionClosed();
-    void onConnectionError(const QString& error);
-    void onScreenUpdated(const QImage& screen);
-
 private:
     void initializeManagers();
     void configureWindow();
-    void setupManagerConnections();
     void setupUI();
     void repositionToolbar();
 

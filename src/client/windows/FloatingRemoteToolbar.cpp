@@ -93,5 +93,6 @@ void FloatingRemoteToolbar::setViewOnly(bool viewOnly)
 void FloatingRemoteToolbar::paintEvent(QPaintEvent* /*event*/)
 {
     QPainter painter(this);
+    painter.setCompositionMode(QPainter::CompositionMode_Source);
     painter.fillRect(rect(), QColor(30, 30, 30, 200));
 }

@@ -46,15 +46,8 @@ ClientRemoteWindow::ClientRemoteWindow(ProtocolSession* sessionManager, QWidget*
     initializeManagers();
 
     configureWindow();
-    setupUI();
 
-    setWindowTitle(tr("Remote Desktop"));
-
-    if (m_protocolSession) {
-        setupManagerConnections();
-    }
-
-    // ── 全屏悬浮工具栏 ──
+    // ── 全屏悬浮工具栏（必须在 setupUI 之前创建——setupUI 中引用）──
     m_floatingToolbar = new FloatingRemoteToolbar(this);
     connect(m_floatingToolbar, &FloatingRemoteToolbar::toggleFullscreenRequested,
             this, [this]() { setFullScreen(!m_isFullScreen); });
@@ -62,7 +55,11 @@ ClientRemoteWindow::ClientRemoteWindow(ProtocolSession* sessionManager, QWidget*
             this, [this]() { close(); });
     connect(m_floatingToolbar, &FloatingRemoteToolbar::toggleViewOnlyRequested,
             this, &ClientRemoteWindow::toggleViewOnly);
-}
+
+    setupUI();
+
+    setWindowTitle(tr("Remote Desktop"));
+
 
 ClientRemoteWindow::~ClientRemoteWindow() {
     // Qt parent-child cleanup handles everything
@@ -149,6 +146,12 @@ void ClientRemoteWindow::changeEvent(QEvent* event) {
             m_glViewport->forceRepaint();
         }
     #endif
+        // 全屏过渡期间原生窗口可能重建 → 子控件 Z 序可能重置
+        if (m_floatingToolbar) {
+            m_floatingToolbar->raise();
+            m_floatingToolbar->show();
+            repositionToolbar();
+        }
     }
     QWidget::changeEvent(event);
 }
@@ -261,11 +264,6 @@ void ClientRemoteWindow::setupUI() {
     // 确保仅查看角标渲染在 GL 视口之上
     m_viewOnlyOverlay->raise();
 
-    // 工具栏作为子控件渲染在最顶层
-    m_floatingToolbar->raise();
-    m_floatingToolbar->show();
-    repositionToolbar();
-
     // Wire viewport to InputForwarder: event filter + coordinate mapping
     if (m_inputForwarder) {
         m_inputForwarder->installOn(m_glViewport);
@@ -276,25 +274,23 @@ void ClientRemoteWindow::setupUI() {
         update();
     });
 #endif
-}
 
-void ClientRemoteWindow::setupManagerConnections() {
-    // 所有信号接线已由 RemoteDesktopSession::wireSignals() 集中管理
-    // 保留空壳以兼容现有调用点
-    Q_UNUSED(m_protocolSession);
+    // 工具栏作为子控件渲染在最顶层（无 GL 依赖，放在 endif 之后）
+    m_floatingToolbar->raise();
+    m_floatingToolbar->show();
+    repositionToolbar();
 }
 
 // ── Event handlers ──
 
-void ClientRemoteWindow::paintEvent(QPaintEvent* event) {
-    Q_UNUSED(event);
-}
-
 void ClientRemoteWindow::repositionToolbar() {
     if (!m_floatingToolbar) return;
-    const int naturalWidth = qMax(m_floatingToolbar->sizeHint().width(), 56);
+    constexpr int minWidth = 2 * FloatingRemoteToolbar::ToolbarHeight;
+    const int naturalWidth = qMax(m_floatingToolbar->sizeHint().width(), minWidth);
     const int x = (width() - naturalWidth) / 2;
-    m_floatingToolbar->setGeometry(x, 0, naturalWidth, 28);
+    m_floatingToolbar->setGeometry(x, 0, naturalWidth,
+                                   FloatingRemoteToolbar::ToolbarHeight);
+    m_floatingToolbar->raise();  // Z 序保护：resize 后保持在 GL 视口之上
 }
 
 void ClientRemoteWindow::resizeEvent(QResizeEvent* event) {
@@ -353,17 +349,4 @@ bool ClientRemoteWindow::isClosing() const {
     return m_isClosing;
 }
 
-// ── Slots ──
-
-void ClientRemoteWindow::onConnectionClosed() {
-    // Placeholder — lifecycle events handled by ConnectionLifecycle
-}
-
-void ClientRemoteWindow::onConnectionError(const QString& error) {
-    QMessageBox::critical(this, "Connection Error", error);
-}
-
-void ClientRemoteWindow::onScreenUpdated(const QImage& screen) {
-    updateRemoteScreen(screen);
-}
 
