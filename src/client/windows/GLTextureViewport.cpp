@@ -316,6 +316,11 @@ void GLTextureViewport::renderNow() {
     update();
 }
 
+void GLTextureViewport::forceRepaint() {
+    m_textureDirty = true;
+    update();
+}
+
 bool GLTextureViewport::requestRepaint() {
     // 仅当前一帧已被 paintGL 消费后才排队新的 paint 事件，
     // 避免在 GUI 线程事件队列中堆积冗余事件。

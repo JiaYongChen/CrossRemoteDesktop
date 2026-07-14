@@ -143,10 +143,10 @@ void ClientRemoteWindow::changeEvent(QEvent* event) {
     if (event->type() == QEvent::WindowStateChange) {
         // 同步 m_isFullScreen 到实际窗口状态（覆盖 setFullScreen 和 OS 触发的切换）
         m_isFullScreen = windowState().testFlag(Qt::WindowFullScreen);
-        // 窗口状态切换后强制 GL 视口重绘，避免画面残留
+        // 窗口状态切换后强制 GL 重绘（无视 m_textureDirty）
     #ifndef QT_NO_OPENGL
         if (m_glViewport) {
-            m_glViewport->update();
+            m_glViewport->forceRepaint();
         }
     #endif
     }

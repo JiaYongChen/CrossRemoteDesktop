@@ -93,6 +93,13 @@ public:
     void renderNow();
 
     /**
+     * @brief 强制下一帧 paintGL 渲染，无视 m_textureDirty 状态。
+     *
+     * 用于窗口状态切换（全屏↔窗口）后确保纹理在新视口下重绘。
+     */
+    void forceRepaint();
+
+    /**
      * @brief 请求重绘（去重版）。线程安全，可从任意线程调用。
      *
      * 仅当上一帧已被 paintGL 消费后才排队新的 update()，

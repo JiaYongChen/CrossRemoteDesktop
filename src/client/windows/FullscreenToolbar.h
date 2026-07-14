@@ -52,7 +52,7 @@ private:
     bool          m_viewOnly            = false;
 
     static constexpr int TriggerHeight = 5;
-    static constexpr int ShowDelayMs   = 300;
-    static constexpr int AutoHideMs    = 5000;
+    static constexpr int ShowDelayMs   = 100;
+    static constexpr int AutoHideMs    = 2000;
     static constexpr int ToolbarHeight = 28;
 };
