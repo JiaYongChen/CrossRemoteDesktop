@@ -10,18 +10,14 @@
 #ifndef QT_NO_OPENGL
 #include "GLTextureViewport.h"
 #endif
-#include <QtGui/QPainter>
 #include <QtGui/QResizeEvent>
-#include <QtGui/QPaintEvent>
 #include <QtGui/QCloseEvent>
 #include <QtGui/QEnterEvent>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QHBoxLayout>
-#include <QtWidgets/QMessageBox>
 #include <QtGui/QIcon>
 #include <QtGui/QScreen>
 #include "../../common/logging/LoggingCategories.h"
-#include <cmath>
 
 
 ClientRemoteWindow::ClientRemoteWindow(ProtocolSession* sessionManager, QWidget* parent)
