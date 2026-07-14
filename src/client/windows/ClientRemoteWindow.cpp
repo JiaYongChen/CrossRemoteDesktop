@@ -302,12 +302,7 @@ void ClientRemoteWindow::resizeEvent(QResizeEvent* event) {
 #endif
 
     // 仅查看标识保持在左上角，无需跟随窗口移动
-
-    // 工具栏可见时随窗口 resize 重新居中
-    if (m_fullscreenToolbar && m_fullscreenToolbar->isVisible()) {
-        const int tw = m_fullscreenToolbar->width();
-        m_fullscreenToolbar->move((width() - tw) / 2, 0);
-    }
+    // 工具栏位置由 FullscreenToolbar::eventFilter 中 Move/Resize 事件自行管理
 }
 
 void ClientRemoteWindow::mouseMoveEvent(QMouseEvent* event) {

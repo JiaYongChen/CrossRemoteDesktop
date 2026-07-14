@@ -7,6 +7,7 @@ class QToolButton;
 
 /// 全屏悬浮工具栏 — 鼠标触顶弹出，提供全屏切换/断开/仅查看操作
 ///
+/// 作为独立顶层窗口（Qt::Tool）浮于父窗口上方，避免被 QOpenGLWidget 渲染内容遮挡。
 /// 安装为父窗口的事件过滤器，监听顶部 5px 触发区。
 /// 300ms 延迟防止误触，5 秒无操作自动隐藏。
 class FullscreenToolbar : public QWidget {
@@ -14,7 +15,7 @@ class FullscreenToolbar : public QWidget {
 public:
     explicit FullscreenToolbar(QWidget* parentWindow);
 
-    /// 启用/禁用触发区检测（仅在父窗口全屏时启用）
+    /// 启用/禁用触发区检测
     void setActive(bool active);
 
     /// 同步仅查看按钮图标
@@ -39,15 +40,18 @@ private:
     void setupUi();
     void showToolbar();
     void hideToolbar();
+    void updatePosition();
 
-    QToolButton* m_toggleFullscreenBtn = nullptr;
-    QToolButton* m_disconnectBtn      = nullptr;
-    QToolButton* m_toggleViewOnlyBtn  = nullptr;
-    QTimer*      m_showDelayTimer     = nullptr;
-    QTimer*      m_autoHideTimer      = nullptr;
-    bool         m_active             = true;
-    bool         m_toolbarVisible     = false;
-    bool         m_viewOnly           = false;
+    /// 记录安装 eventFilter 的目标窗口，用于坐标映射和可见性跟踪
+    QWidget*      m_ownerWindow        = nullptr;
+    QToolButton*  m_toggleFullscreenBtn = nullptr;
+    QToolButton*  m_disconnectBtn       = nullptr;
+    QToolButton*  m_toggleViewOnlyBtn   = nullptr;
+    QTimer*       m_showDelayTimer      = nullptr;
+    QTimer*       m_autoHideTimer       = nullptr;
+    bool          m_active              = true;
+    bool          m_toolbarVisible      = false;
+    bool          m_viewOnly            = false;
 
     static constexpr int TRIGGER_HEIGHT = 5;
     static constexpr int SHOW_DELAY_MS  = 300;

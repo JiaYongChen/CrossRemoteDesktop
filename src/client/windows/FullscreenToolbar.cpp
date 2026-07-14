@@ -9,14 +9,20 @@
 #include <QtGui/QEnterEvent>
 
 FullscreenToolbar::FullscreenToolbar(QWidget* parentWindow)
-    : QWidget(parentWindow)
+    : QWidget(nullptr)            // 无 Qt 父控件——顶层窗口
+    , m_ownerWindow(parentWindow)  // 记录关联窗口，用于坐标映射
 {
+    // 设置为无边框顶层弹出窗口，避免被 QOpenGLWidget 渲染内容遮挡
+    setWindowFlags(Qt::Tool | Qt::FramelessWindowHint);
+    setAttribute(Qt::WA_TranslucentBackground);
+    setAttribute(Qt::WA_ShowWithoutActivating);
+
     setupUi();
     hide();
 
-    if (parentWindow) {
-        parentWindow->setMouseTracking(true);
-        parentWindow->installEventFilter(this);
+    if (m_ownerWindow) {
+        m_ownerWindow->setMouseTracking(true);
+        m_ownerWindow->installEventFilter(this);
     }
 
     m_showDelayTimer = new QTimer(this);
@@ -114,24 +120,30 @@ void FullscreenToolbar::setViewOnly(bool viewOnly)
         ? tr("退出仅查看") : tr("仅查看切换"));
 }
 
+void FullscreenToolbar::updatePosition()
+{
+    if (!m_ownerWindow || !m_ownerWindow->isVisible()) return;
+
+    const int naturalWidth = qMax(layout()->sizeHint().width(), TOOLBAR_HEIGHT * 2);
+    // 将 owner 窗口客户区顶部中点映射为全局坐标
+    const QPoint ownerTopCenter = m_ownerWindow->mapToGlobal(
+        QPoint(m_ownerWindow->width() / 2, 0));
+    setGeometry(ownerTopCenter.x() - naturalWidth / 2,
+                ownerTopCenter.y(),
+                naturalWidth, TOOLBAR_HEIGHT);
+}
+
 void FullscreenToolbar::showToolbar()
 {
     if (!m_active || m_toolbarVisible) return;
+    if (!m_ownerWindow || !m_ownerWindow->isVisible()) return;
 
-    QWidget* p = parentWidget();
-    if (!p) return;
-
-    // 使用布局 sizeHint 计算自然宽度，避免 adjustSize 对隐藏 widget 的不确定行为
-    const int naturalWidth = qMax(layout()->sizeHint().width(), TOOLBAR_HEIGHT * 2);
-    const int x = (p->width() - naturalWidth) / 2;
-    setGeometry(x, 0, naturalWidth, TOOLBAR_HEIGHT);
-
+    updatePosition();
     show();
-    raise();
     m_toolbarVisible = true;
 
     qCDebug(lcClientRemoteWindow) << "FullscreenToolbar: 已显示"
-                                  << "pos:" << x << "size:" << naturalWidth;
+                                  << "pos:" << pos() << "size:" << size();
 }
 
 void FullscreenToolbar::hideToolbar()
@@ -159,8 +171,22 @@ void FullscreenToolbar::onAutoHideTimeout()
 
 bool FullscreenToolbar::eventFilter(QObject* obj, QEvent* event)
 {
-    // 工具栏不可用或已可见时不检测触发区
-    if (!m_active || m_toolbarVisible) {
+    if (obj != m_ownerWindow) {
+        return QWidget::eventFilter(obj, event);
+    }
+
+    // 工具栏可见时跟随 owner 窗口移动/缩放
+    if (m_toolbarVisible) {
+        if (event->type() == QEvent::Move || event->type() == QEvent::Resize) {
+            updatePosition();
+        } else if (event->type() == QEvent::Hide) {
+            hideToolbar();
+        }
+        return QWidget::eventFilter(obj, event);
+    }
+
+    // 工具栏隐藏时检测触发区
+    if (!m_active) {
         return QWidget::eventFilter(obj, event);
     }
 
@@ -174,7 +200,6 @@ bool FullscreenToolbar::eventFilter(QObject* obj, QEvent* event)
             m_showDelayTimer->stop();
         }
     } else if (event->type() == QEvent::Leave) {
-        // 鼠标离开窗口时取消延迟弹出计时
         m_showDelayTimer->stop();
     }
 
