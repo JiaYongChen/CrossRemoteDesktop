@@ -10,13 +10,11 @@
 class QMouseEvent;
 class QKeyEvent;
 class QWheelEvent;
-class QPaintEvent;
 class QResizeEvent;
 class QFocusEvent;
 class QCloseEvent;
 class QEnterEvent;
 class QEvent;
-class QPainter;
 class QLabel;
 class GLTextureViewport;
 class ProtocolSession;
