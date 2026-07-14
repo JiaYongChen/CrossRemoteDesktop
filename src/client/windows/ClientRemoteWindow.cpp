@@ -127,14 +127,12 @@ void ClientRemoteWindow::setFullScreen(bool fullScreen) {
     m_isFullScreen = fullScreen;
     if (fullScreen) {
         setWindowState(windowState() | Qt::WindowFullScreen);
-        if (m_fullscreenToolbar) {
-            m_fullscreenToolbar->setActive(true);
-        }
     } else {
         setWindowState(windowState() & ~Qt::WindowFullScreen);
-        if (m_fullscreenToolbar) {
-            m_fullscreenToolbar->setActive(false);
-        }
+    }
+    // 工具栏在全屏和窗口模式下均保持活跃
+    if (m_fullscreenToolbar) {
+        m_fullscreenToolbar->setActive(true);
     }
 }
 

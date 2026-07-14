@@ -118,9 +118,11 @@ void FullscreenToolbar::showToolbar()
 {
     if (!m_active || m_toolbarVisible) return;
 
+    // 按内容自适应宽度并居中
+    adjustSize();
     QWidget* p = parentWidget();
     if (p) {
-        setGeometry(0, 0, p->width(), TOOLBAR_HEIGHT);
+        move((p->width() - width()) / 2, 0);
     }
 
     show();

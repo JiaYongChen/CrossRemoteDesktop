@@ -45,7 +45,7 @@ private:
     QToolButton* m_toggleViewOnlyBtn  = nullptr;
     QTimer*      m_showDelayTimer     = nullptr;
     QTimer*      m_autoHideTimer      = nullptr;
-    bool         m_active             = false;
+    bool         m_active             = true;
     bool         m_toolbarVisible     = false;
     bool         m_viewOnly           = false;
 
