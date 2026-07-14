@@ -25,6 +25,11 @@ FullscreenToolbar::FullscreenToolbar(QWidget* parentWindow)
         m_ownerWindow->installEventFilter(this);
     }
 
+    qCDebug(lcClientRemoteWindow) << "FullscreenToolbar 构造完成"
+        << "owner:" << (m_ownerWindow ? "ok" : "null")
+        << "active:" << m_active
+        << "ownerTracking:" << (m_ownerWindow ? m_ownerWindow->hasMouseTracking() : false);
+
     m_showDelayTimer = new QTimer(this);
     m_showDelayTimer->setSingleShot(true);
     connect(m_showDelayTimer, &QTimer::timeout,
@@ -104,6 +109,8 @@ void FullscreenToolbar::setupUi()
 
 void FullscreenToolbar::setActive(bool active)
 {
+    qCDebug(lcClientRemoteWindow) << "FullscreenToolbar::setActive(" << active
+        << ") old:" << m_active;
     m_active = active;
     if (!active) {
         m_showDelayTimer->stop();
@@ -135,6 +142,11 @@ void FullscreenToolbar::updatePosition()
 
 void FullscreenToolbar::showToolbar()
 {
+    qCDebug(lcClientRemoteWindow) << "FullscreenToolbar::showToolbar() 入口"
+        << "active:" << m_active << "visible:" << m_toolbarVisible
+        << "owner:" << (m_ownerWindow ? "ok" : "null")
+        << "ownerVisible:" << (m_ownerWindow ? m_ownerWindow->isVisible() : false);
+
     if (!m_active || m_toolbarVisible) return;
     if (!m_ownerWindow || !m_ownerWindow->isVisible()) return;
 
@@ -160,6 +172,7 @@ void FullscreenToolbar::hideToolbar()
 
 void FullscreenToolbar::onShowDelayTimeout()
 {
+    qCDebug(lcClientRemoteWindow) << "FullscreenToolbar::onShowDelayTimeout → 调用 showToolbar";
     showToolbar();
     m_autoHideTimer->start(AUTO_HIDE_MS);
 }
@@ -174,6 +187,17 @@ bool FullscreenToolbar::eventFilter(QObject* obj, QEvent* event)
     if (obj != m_ownerWindow) {
         return QWidget::eventFilter(obj, event);
     }
+
+    // ── 诊断：统计事件类型 ──
+    static int s_eventCount = 0;
+    static int s_moveCount  = 0;
+    ++s_eventCount;
+    const bool isMove = (event->type() == QEvent::MouseMove);
+    if (isMove) ++s_moveCount;
+    if (s_eventCount <= 5 || s_eventCount % 60 == 0)
+        qCDebug(lcClientRemoteWindow) << "FullscreenToolbar::eventFilter #" << s_eventCount
+            << "type:" << event->type() << "moves:" << s_moveCount
+            << "active:" << m_active << "visible:" << m_toolbarVisible;
 
     // 工具栏可见时跟随 owner 窗口移动/缩放
     if (m_toolbarVisible) {
@@ -194,12 +218,15 @@ bool FullscreenToolbar::eventFilter(QObject* obj, QEvent* event)
         const auto* me = static_cast<QMouseEvent*>(event);
         if (me->pos().y() <= TRIGGER_HEIGHT) {
             if (!m_showDelayTimer->isActive()) {
+                qCDebug(lcClientRemoteWindow) << "FullscreenToolbar: 触发区检测 y=" << me->pos().y()
+                    << "→ 启动 showDelayTimer(" << SHOW_DELAY_MS << "ms)";
                 m_showDelayTimer->start(SHOW_DELAY_MS);
             }
         } else if (m_showDelayTimer->isActive()) {
             m_showDelayTimer->stop();
         }
     } else if (event->type() == QEvent::Leave) {
+        qCDebug(lcClientRemoteWindow) << "FullscreenToolbar: Leave → 取消 showDelayTimer";
         m_showDelayTimer->stop();
     }
 
