@@ -105,11 +105,6 @@ void TcpServer::stopServer(bool synchronous) {
         // 同步执行清理操作，用于应用程序关闭时
         pauseAccepting();
         close();
-
-        // Windows下需要短暂延迟以确保端口释放
-        QCoreApplication::processEvents();
-        QThread::msleep(100);
-
         m_isRunning = false;
         qCInfo(lcServer) << "Server stopped synchronously, port released";
         emit serverStopped();
