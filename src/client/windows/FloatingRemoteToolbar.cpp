@@ -140,13 +140,21 @@ bool FloatingRemoteToolbar::eventFilter(QObject* obj, QEvent* event)
         m_hideDebounce->stop();   // 取消待处理的隐藏
         m_shown = true;
         updatePosition();
-        show();
-        raise();
-        update();                  // 确保 layered window 重建后首次绘制
+        // 延迟显示：首次全屏连接时 owner 的 Show 事件期间 native HWND
+        // 可能尚未完全就绪。立即 show() 创建的 owned layered window
+        // (Qt::Tool + WA_TranslucentBackground) 会因父 HWND 状态未定
+        // 而进入"已映射但未绘制"状态——工具栏存在可点击但不渲染。
+        QTimer::singleShot(0, this, [this]() {
+            if (!m_shown || !m_ownerWindow) return;
+            updatePosition();
+            show();
+            raise();
+            update();           // 确保 layered window 重建后首次绘制
+        });
         qCDebug(lcClientRemoteWindow)
             << "[Toolbar] Show → shown=" << m_shown
             << "ownerVisible=" << m_ownerWindow->isVisible()
-            << "toolbarVisible=" << QWidget::isVisible();
+            << "deferredShow=true";
         break;
     case QEvent::Move:
     case QEvent::Resize:
