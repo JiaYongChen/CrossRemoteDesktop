@@ -12,8 +12,9 @@ FullscreenToolbar::FullscreenToolbar(QWidget* parentWindow)
     : QWidget(nullptr)            // 无 Qt 父控件——顶层窗口
     , m_ownerWindow(parentWindow)  // 记录关联窗口，用于坐标映射
 {
-    // 设置为无边框顶层弹出窗口，避免被 QOpenGLWidget 渲染内容遮挡
-    setWindowFlags(Qt::Tool | Qt::FramelessWindowHint);
+    // 设置为无边框顶层弹出窗口，避免被 QOpenGLWidget 渲染内容遮挡。
+    // WindowStaysOnTopHint 确保全屏模式下不被 owner 窗口遮挡。
+    setWindowFlags(Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
     setAttribute(Qt::WA_TranslucentBackground);
     setAttribute(Qt::WA_ShowWithoutActivating);
 

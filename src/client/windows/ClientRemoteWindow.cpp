@@ -153,6 +153,12 @@ void ClientRemoteWindow::changeEvent(QEvent* event) {
                 m_fullscreenToolbar->setActive(isNowFullScreen);
             }
         }
+        // 窗口状态切换后强制 GL 视口重绘，避免画面残留
+    #ifndef QT_NO_OPENGL
+        if (m_glViewport) {
+            m_glViewport->update();
+        }
+    #endif
     }
     QWidget::changeEvent(event);
 }
