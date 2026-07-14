@@ -9,6 +9,10 @@
 #include <QtGui/QIcon>
 #include <QtCore/QTimer>
 
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
+
 FloatingRemoteToolbar::FloatingRemoteToolbar(QWidget* ownerWindow)
     : QWidget(ownerWindow)       // transient parent 确保 Z-order 正确
     , m_ownerWindow(ownerWindow)
@@ -145,21 +149,14 @@ bool FloatingRemoteToolbar::eventFilter(QObject* obj, QEvent* event)
         m_hideDebounce->stop();   // 取消待处理的隐藏
         m_shown = true;
         updatePosition();
-        // 延迟显示：首次全屏连接时 owner 的 Show 事件期间 native HWND
-        // 可能尚未完全就绪。立即 show() 创建的 owned layered window
-        // (Qt::Tool + WA_TranslucentBackground) 会因父 HWND 状态未定
-        // 而进入"已映射但未绘制"状态——工具栏存在可点击但不渲染。
-        QTimer::singleShot(0, this, [this]() {
-            if (!m_shown || !m_ownerWindow) return;
-            updatePosition();
-            show();
-            raise();
-            update();           // 确保 layered window 重建后首次绘制
-        });
+        show();
+        raise();
+        update();
+        forceTopMost();           // 全屏 owner 可能遮挡 tool window——强制 HWND_TOPMOST
         qCDebug(lcClientRemoteWindow)
             << "[Toolbar] Show → shown=" << m_shown
             << "ownerVisible=" << m_ownerWindow->isVisible()
-            << "deferredShow=true";
+            << "toolbarVisible=" << QWidget::isVisible();
         break;
     case QEvent::Move:
     case QEvent::Resize:
@@ -168,6 +165,7 @@ bool FloatingRemoteToolbar::eventFilter(QObject* obj, QEvent* event)
             updatePosition();
             show();
             raise();
+            forceTopMost();       // 保持 Z-order 在所有窗口之上
         }
         break;
     case QEvent::Hide:
@@ -193,6 +191,16 @@ bool FloatingRemoteToolbar::eventFilter(QObject* obj, QEvent* event)
     }
 
     return QWidget::eventFilter(obj, event);
+}
+
+void FloatingRemoteToolbar::forceTopMost()
+{
+#ifdef Q_OS_WIN
+    if (HWND hwnd = HWND(winId())) {
+        SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0,
+                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    }
+#endif
 }
 
 void FloatingRemoteToolbar::paintEvent(QPaintEvent* /*event*/)

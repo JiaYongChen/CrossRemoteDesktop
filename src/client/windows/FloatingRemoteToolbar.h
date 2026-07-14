@@ -29,6 +29,7 @@ protected:
 private:
     void setupUi();
     void updatePosition();
+    void forceTopMost();
 
     QWidget*     m_ownerWindow         = nullptr;
     QToolButton* m_toggleFullscreenBtn = nullptr;
