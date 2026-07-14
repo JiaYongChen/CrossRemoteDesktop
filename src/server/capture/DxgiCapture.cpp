@@ -440,9 +440,20 @@ CursorMessage DxgiCapture::extractCursorShape(const DXGI_OUTDUPL_FRAME_INFO& fra
     // 返回 S_OK 但 shapeInfo 含垃圾值，如 Debug 版 MSVC 的 0xCCCCCCCC）
     if (shapeInfo.Width < 0 || shapeInfo.Width > 512 ||
         shapeInfo.Height < 0 || shapeInfo.Height > 512) {
-        if (s_extractCount <= 5)
+        static int s_garbageRejectCount = 0;
+        if (++s_garbageRejectCount <= 3)
             qCDebug(lcServerCaptureDxgi) << "extractCursorShape #" << s_extractCount
                 << ": REJECTED garbage size" << shapeInfo.Width << "x" << shapeInfo.Height;
+        // 回退到缓存光标而非返回空——避免垃圾期间光标闪烁消失
+        if (m_cachedCursor.width > 0) {
+            POINT cursorPos{};
+            if (GetCursorPos(&cursorPos)) {
+                msg = m_cachedCursor;
+                msg.posX = cursorPos.x;
+                msg.posY = cursorPos.y;
+                return msg;
+            }
+        }
         return msg;
     }
 
