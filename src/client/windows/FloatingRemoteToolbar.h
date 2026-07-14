@@ -34,6 +34,7 @@ private:
     QToolButton* m_disconnectBtn       = nullptr;
     QToolButton* m_toggleViewOnlyBtn   = nullptr;
     bool         m_viewOnly            = false;
+    bool         m_shown               = false;
 
     static constexpr int ToolbarHeight = 28;
 };
