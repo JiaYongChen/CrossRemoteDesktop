@@ -24,8 +24,11 @@ FullscreenToolbar::FullscreenToolbar(QWidget* parentWindow)
     if (m_ownerWindow) {
         m_ownerWindow->setMouseTracking(true);
         m_ownerWindow->installEventFilter(this);
-        // owner 销毁时 toolbar 自动跟随销毁
-        connect(m_ownerWindow, &QObject::destroyed, this, &QObject::deleteLater);
+        // owner 销毁时清空指针避免 use-after-free，延迟销毁 toolbar
+        connect(m_ownerWindow, &QObject::destroyed, this, [this]() {
+            m_ownerWindow = nullptr;
+            deleteLater();
+        });
     }
 
     qCDebug(lcClientRemoteWindow) << "FullscreenToolbar 构造完成"
