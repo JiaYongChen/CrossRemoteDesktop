@@ -135,6 +135,10 @@ void ClientRemoteWindow::setShareClipboard(bool enabled) {
 
 void ClientRemoteWindow::changeEvent(QEvent* event) {
     if (event->type() == QEvent::WindowStateChange) {
+        if (m_isClosing) {
+            QWidget::changeEvent(event);
+            return;
+        }
         // 同步 m_isFullScreen 到实际窗口状态（覆盖 setFullScreen 和 OS 触发的切换）
         m_isFullScreen = windowState().testFlag(Qt::WindowFullScreen);
         // 窗口状态切换后强制 GL 重绘（无视 m_textureDirty）
@@ -320,6 +324,7 @@ void ClientRemoteWindow::enterEvent(QEnterEvent* event) {
 
 void ClientRemoteWindow::leaveEvent(QEvent* event) {
     QWidget::leaveEvent(event);
+    if (m_isClosing) return;
     // 若因进入子控件（工具栏）触发 leave，不恢复光标
     if (m_floatingToolbar && m_floatingToolbar->isVisible()) {
         const QPoint localPos = mapFromGlobal(QCursor::pos());
