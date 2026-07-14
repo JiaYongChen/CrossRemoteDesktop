@@ -261,6 +261,11 @@ void ClientRemoteWindow::setupUI() {
     // 确保仅查看角标渲染在 GL 视口之上
     m_viewOnlyOverlay->raise();
 
+    // 工具栏作为子控件渲染在最顶层
+    m_floatingToolbar->raise();
+    m_floatingToolbar->show();
+    repositionToolbar();
+
     // Wire viewport to InputForwarder: event filter + coordinate mapping
     if (m_inputForwarder) {
         m_inputForwarder->installOn(m_glViewport);
@@ -285,6 +290,13 @@ void ClientRemoteWindow::paintEvent(QPaintEvent* event) {
     Q_UNUSED(event);
 }
 
+void ClientRemoteWindow::repositionToolbar() {
+    if (!m_floatingToolbar) return;
+    const int naturalWidth = qMax(m_floatingToolbar->sizeHint().width(), 56);
+    const int x = (width() - naturalWidth) / 2;
+    m_floatingToolbar->setGeometry(x, 0, naturalWidth, 28);
+}
+
 void ClientRemoteWindow::resizeEvent(QResizeEvent* event) {
     QWidget::resizeEvent(event);
 
@@ -294,8 +306,7 @@ void ClientRemoteWindow::resizeEvent(QResizeEvent* event) {
     }
 #endif
 
-    // 仅查看标识保持在左上角，无需跟随窗口移动
-    // 工具栏位置由 FloatingRemoteToolbar::eventFilter 中 Move/Resize 事件自行管理
+    repositionToolbar();  // 窗口大小改变时重新居中工具栏
 }
 
 void ClientRemoteWindow::mouseMoveEvent(QMouseEvent* event) {

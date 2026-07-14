@@ -98,6 +98,7 @@ private:
     void configureWindow();
     void setupManagerConnections();
     void setupUI();
+    void repositionToolbar();
 
     QString m_connectionId;
     ProtocolSession* m_protocolSession;
