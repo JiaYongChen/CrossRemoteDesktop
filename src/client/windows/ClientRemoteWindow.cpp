@@ -1,7 +1,7 @@
 #include "ClientRemoteWindow.h"
 #include "InputForwarder.h"
 #include "ConnectionLifecycle.h"
-#include "FullscreenToolbar.h"
+#include "FloatingRemoteToolbar.h"
 #include "../session/ProtocolSession.h"
 #include "CursorManager.h"
 #include "../clipboard/ClipboardManager.h"
@@ -55,12 +55,12 @@ ClientRemoteWindow::ClientRemoteWindow(ProtocolSession* sessionManager, QWidget*
     }
 
     // ── 全屏悬浮工具栏 ──
-    m_fullscreenToolbar = new FullscreenToolbar(this);
-    connect(m_fullscreenToolbar, &FullscreenToolbar::toggleFullscreenRequested,
+    m_floatingToolbar = new FloatingRemoteToolbar(this);
+    connect(m_floatingToolbar, &FloatingRemoteToolbar::toggleFullscreenRequested,
             this, [this]() { setFullScreen(!m_isFullScreen); });
-    connect(m_fullscreenToolbar, &FullscreenToolbar::disconnectRequested,
+    connect(m_floatingToolbar, &FloatingRemoteToolbar::disconnectRequested,
             this, [this]() { close(); });
-    connect(m_fullscreenToolbar, &FullscreenToolbar::toggleViewOnlyRequested,
+    connect(m_floatingToolbar, &FloatingRemoteToolbar::toggleViewOnlyRequested,
             this, &ClientRemoteWindow::toggleViewOnly);
 }
 
@@ -188,8 +188,8 @@ void ClientRemoteWindow::setViewOnly(bool enabled) {
         m_connectionLifecycle->setViewOnly(enabled);
     }
     // 同步全屏工具栏按钮状态
-    if (m_fullscreenToolbar) {
-        m_fullscreenToolbar->setViewOnly(enabled);
+    if (m_floatingToolbar) {
+        m_floatingToolbar->setViewOnly(enabled);
     }
 }
 
@@ -295,7 +295,7 @@ void ClientRemoteWindow::resizeEvent(QResizeEvent* event) {
 #endif
 
     // 仅查看标识保持在左上角，无需跟随窗口移动
-    // 工具栏位置由 FullscreenToolbar::eventFilter 中 Move/Resize 事件自行管理
+    // 工具栏位置由 FloatingRemoteToolbar::eventFilter 中 Move/Resize 事件自行管理
 }
 
 void ClientRemoteWindow::mouseMoveEvent(QMouseEvent* event) {

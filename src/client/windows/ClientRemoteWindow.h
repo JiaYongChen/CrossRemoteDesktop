@@ -24,7 +24,7 @@ class CursorManager;
 class ClipboardManager;
 class InputForwarder;
 class ConnectionLifecycle;
-class FullscreenToolbar;
+class FloatingRemoteToolbar;
 
 class ClientRemoteWindow : public QWidget {
     Q_OBJECT
@@ -127,6 +127,6 @@ private:
     // GL texture viewport — sole render surface, fills entire widget
     GLTextureViewport* m_glViewport = nullptr;
 
-    // Fullscreen toolbar (only active in fullscreen mode)
-    FullscreenToolbar* m_fullscreenToolbar = nullptr;
+    // 浮动远程桌面工具栏
+    FloatingRemoteToolbar* m_floatingToolbar = nullptr;
 };
