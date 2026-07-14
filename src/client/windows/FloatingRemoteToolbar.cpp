@@ -13,7 +13,6 @@ FloatingRemoteToolbar::FloatingRemoteToolbar(QWidget* parent)
     setFixedHeight(ToolbarHeight);
     setAutoFillBackground(false);
     setAttribute(Qt::WA_TransparentForMouseEvents);  // stretch 区域穿透鼠标事件
-    setAttribute(Qt::WA_NativeWindow);               // 独立 HWND 确保在 QOpenGLWidget 之上
     setupUi();
     hide();  // 初始隐藏，由父窗口在 setupUI 完成后显式 show()
 
