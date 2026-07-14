@@ -21,12 +21,17 @@ FloatingRemoteToolbar::FloatingRemoteToolbar(QWidget* ownerWindow)
     setupUi();
     hide();
 
-    // ── 隐藏防抖：全屏过渡期间 owner 可能短暂发送 Hide 后立即 Move/Resize
-    // 直接用 hide() 会销毁原生窗口；0ms 定时器让事件循环有机会合并取消
+    // ── 隐藏防抖：全屏过渡期间 owner 可能短暂发送 Hide 后立即 Move/Resize。
+    // 直接用 hide() 会销毁原生窗口；防抖允许后续 Show/Resize 取消隐藏。
+    // 回调中额外检查 owner 可见性：若全屏过渡已完成则跳过隐藏。
     m_hideDebounce = new QTimer(this);
     m_hideDebounce->setSingleShot(true);
     m_hideDebounce->setInterval(200);  // 200ms 覆盖全屏过渡的跨迭代 Hide→Show 序列
     connect(m_hideDebounce, &QTimer::timeout, this, [this]() {
+        if (m_ownerWindow && m_ownerWindow->isVisible()) {
+            qCDebug(lcClientRemoteWindow) << "[Toolbar] 防抖触发 → owner 已恢复可见，跳过隐藏";
+            return;
+        }
         qCDebug(lcClientRemoteWindow) << "[Toolbar] 防抖定时器触发 → hide()";
         QWidget::hide();
     });
