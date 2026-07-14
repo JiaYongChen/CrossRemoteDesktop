@@ -43,6 +43,12 @@ FullscreenToolbar::FullscreenToolbar(QWidget* parentWindow)
     m_autoHideTimer->setSingleShot(true);
     connect(m_autoHideTimer, &QTimer::timeout,
             this, &FullscreenToolbar::onAutoHideTimeout);
+
+    m_deactivateTimer = new QTimer(this);
+    m_deactivateTimer->setSingleShot(true);
+    m_deactivateTimer->setInterval(200);
+    connect(m_deactivateTimer, &QTimer::timeout,
+            this, &FullscreenToolbar::onDeactivateDelay);
 }
 
 void FullscreenToolbar::setupUi()
@@ -175,13 +181,21 @@ void FullscreenToolbar::onAutoHideTimeout()
     hideToolbar();
 }
 
+void FullscreenToolbar::onDeactivateDelay()
+{
+    // 200ms 后 owner 仍未激活 → 确认为 Alt+Tab，隐藏工具栏
+    if (m_ownerWindow && !m_ownerWindow->isActiveWindow()) {
+        hideToolbar();
+    }
+}
+
 bool FullscreenToolbar::eventFilter(QObject* obj, QEvent* event)
 {
     if (obj != m_ownerWindow) {
         return QWidget::eventFilter(obj, event);
     }
 
-    // 工具栏可见时：跟随移动、窗口失焦时隐藏、owner 隐藏时跟随
+    // 工具栏可见时：跟随移动、窗口失焦时延迟隐藏、owner 隐藏时跟随
     if (m_toolbarVisible) {
         switch (event->type()) {
         case QEvent::Move:
@@ -189,8 +203,15 @@ bool FullscreenToolbar::eventFilter(QObject* obj, QEvent* event)
             updatePosition();
             break;
         case QEvent::Hide:
-        case QEvent::WindowDeactivate:
             hideToolbar();
+            break;
+        case QEvent::WindowDeactivate:
+            // 延迟隐藏：区分 Alt+Tab（持续失活）和全屏切换（瞬态失活）
+            m_deactivateTimer->start();
+            break;
+        case QEvent::WindowActivate:
+            // 全屏切换后立即恢复，取消延迟隐藏
+            m_deactivateTimer->stop();
             break;
         default:
             break;

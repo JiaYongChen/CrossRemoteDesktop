@@ -32,6 +32,7 @@ protected:
 private slots:
     void onShowDelayTimeout();
     void onAutoHideTimeout();
+    void onDeactivateDelay();
 
 private:
     void setupUi();
@@ -46,6 +47,7 @@ private:
     QToolButton*  m_toggleViewOnlyBtn   = nullptr;
     QTimer*       m_showDelayTimer      = nullptr;
     QTimer*       m_autoHideTimer       = nullptr;
+    QTimer*       m_deactivateTimer     = nullptr;
     bool          m_toolbarVisible      = false;
     bool          m_viewOnly            = false;
 
