@@ -125,12 +125,12 @@ bool FloatingRemoteToolbar::eventFilter(QObject* obj, QEvent* event)
     case QEvent::Show:
     case QEvent::Move:
     case QEvent::Resize:
-        // Show/Move/Resize 都恢复显示——全屏切换时 Hide/Show 可能乱序
-        if (m_ownerWindow->isVisible()) {
-            updatePosition();
-            show();
-            raise();
-        }
+        // Show/Move/Resize 均由窗口系统触发，owner 必然正在/已经显示。
+        // 移除 isVisible() 守卫——全屏连接时 QEvent::Show 递送期间
+        // native handle 可能尚未 fully realized，isVisible() 返回 false 导致跳过显示。
+        updatePosition();
+        show();
+        raise();
         break;
     case QEvent::Hide:
         hide();
