@@ -118,18 +118,20 @@ void FullscreenToolbar::showToolbar()
 {
     if (!m_active || m_toolbarVisible) return;
 
-    // 按内容自适应宽度并居中
-    adjustSize();
     QWidget* p = parentWidget();
-    if (p) {
-        move((p->width() - width()) / 2, 0);
-    }
+    if (!p) return;
+
+    // 使用布局 sizeHint 计算自然宽度，避免 adjustSize 对隐藏 widget 的不确定行为
+    const int naturalWidth = qMax(layout()->sizeHint().width(), TOOLBAR_HEIGHT * 2);
+    const int x = (p->width() - naturalWidth) / 2;
+    setGeometry(x, 0, naturalWidth, TOOLBAR_HEIGHT);
 
     show();
     raise();
     m_toolbarVisible = true;
 
-    qCDebug(lcClientRemoteWindow) << "FullscreenToolbar: 已显示";
+    qCDebug(lcClientRemoteWindow) << "FullscreenToolbar: 已显示"
+                                  << "pos:" << x << "size:" << naturalWidth;
 }
 
 void FullscreenToolbar::hideToolbar()
