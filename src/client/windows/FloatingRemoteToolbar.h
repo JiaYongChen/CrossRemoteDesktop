@@ -13,7 +13,7 @@ class FloatingRemoteToolbar : public QWidget {
 public:
     static constexpr int ToolbarHeight = 28;
 
-    explicit FloatingRemoteToolbar(QWidget* parent = nullptr);
+    explicit FloatingRemoteToolbar(QWidget* parent);
 
     /// 同步仅查看按钮图标
     void setViewOnly(bool viewOnly);

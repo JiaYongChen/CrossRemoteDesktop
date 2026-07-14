@@ -12,6 +12,8 @@ FloatingRemoteToolbar::FloatingRemoteToolbar(QWidget* parent)
 {
     setFixedHeight(ToolbarHeight);
     setAutoFillBackground(false);
+    setAttribute(Qt::WA_TransparentForMouseEvents);  // stretch 区域穿透鼠标事件
+    setAttribute(Qt::WA_NativeWindow);               // 独立 HWND 确保在 QOpenGLWidget 之上
     setupUi();
     hide();  // 初始隐藏，由父窗口在 setupUI 完成后显式 show()
 
@@ -47,6 +49,7 @@ void FloatingRemoteToolbar::setupUi()
     m_toggleFullscreenBtn->setToolTip(tr("全屏切换"));
     m_toggleFullscreenBtn->setStyleSheet(btnStyle);
     m_toggleFullscreenBtn->setCursor(Qt::PointingHandCursor);
+    m_toggleFullscreenBtn->setAttribute(Qt::WA_TransparentForMouseEvents, false);
     m_toggleFullscreenBtn->setFocusPolicy(Qt::NoFocus);
     m_toggleFullscreenBtn->setAutoRaise(true);
     connect(m_toggleFullscreenBtn, &QToolButton::clicked,
@@ -58,6 +61,7 @@ void FloatingRemoteToolbar::setupUi()
     m_disconnectBtn->setToolTip(tr("断开连接"));
     m_disconnectBtn->setStyleSheet(btnStyle);
     m_disconnectBtn->setCursor(Qt::PointingHandCursor);
+    m_disconnectBtn->setAttribute(Qt::WA_TransparentForMouseEvents, false);
     m_disconnectBtn->setFocusPolicy(Qt::NoFocus);
     m_disconnectBtn->setAutoRaise(true);
     connect(m_disconnectBtn, &QToolButton::clicked,
@@ -69,6 +73,7 @@ void FloatingRemoteToolbar::setupUi()
     m_toggleViewOnlyBtn->setToolTip(tr("仅查看切换"));
     m_toggleViewOnlyBtn->setStyleSheet(btnStyle);
     m_toggleViewOnlyBtn->setCursor(Qt::PointingHandCursor);
+    m_toggleViewOnlyBtn->setAttribute(Qt::WA_TransparentForMouseEvents, false);
     m_toggleViewOnlyBtn->setFocusPolicy(Qt::NoFocus);
     m_toggleViewOnlyBtn->setAutoRaise(true);
     connect(m_toggleViewOnlyBtn, &QToolButton::clicked,
