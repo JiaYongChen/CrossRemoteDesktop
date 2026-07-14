@@ -123,16 +123,17 @@ bool FloatingRemoteToolbar::eventFilter(QObject* obj, QEvent* event)
 
     switch (event->type()) {
     case QEvent::Show:
-        updatePosition();
-        show();
-        raise();
+    case QEvent::Move:
+    case QEvent::Resize:
+        // Show/Move/Resize 都恢复显示——全屏切换时 Hide/Show 可能乱序
+        if (m_ownerWindow->isVisible()) {
+            updatePosition();
+            show();
+            raise();
+        }
         break;
     case QEvent::Hide:
         hide();
-        break;
-    case QEvent::Move:
-    case QEvent::Resize:
-        updatePosition();
         break;
     default:
         break;
