@@ -124,15 +124,10 @@ double ClientRemoteWindow::scaleFactor() const {
 
 void ClientRemoteWindow::setFullScreen(bool fullScreen) {
     if (m_isFullScreen == fullScreen) return;
-    m_isFullScreen = fullScreen;
     if (fullScreen) {
         setWindowState(windowState() | Qt::WindowFullScreen);
     } else {
         setWindowState(windowState() & ~Qt::WindowFullScreen);
-    }
-    // 工具栏在全屏和窗口模式下均保持活跃
-    if (m_fullscreenToolbar) {
-        m_fullscreenToolbar->setActive(true);
     }
 }
 
@@ -146,13 +141,8 @@ void ClientRemoteWindow::setShareClipboard(bool enabled) {
 
 void ClientRemoteWindow::changeEvent(QEvent* event) {
     if (event->type() == QEvent::WindowStateChange) {
-        bool isNowFullScreen = windowState().testFlag(Qt::WindowFullScreen);
-        if (isNowFullScreen != m_isFullScreen) {
-            m_isFullScreen = isNowFullScreen;
-            if (m_fullscreenToolbar) {
-                m_fullscreenToolbar->setActive(isNowFullScreen);
-            }
-        }
+        // 同步 m_isFullScreen 到实际窗口状态（覆盖 setFullScreen 和 OS 触发的切换）
+        m_isFullScreen = windowState().testFlag(Qt::WindowFullScreen);
         // 窗口状态切换后强制 GL 视口重绘，避免画面残留
     #ifndef QT_NO_OPENGL
         if (m_glViewport) {
@@ -170,9 +160,6 @@ void ClientRemoteWindow::toggleViewOnly() {
     setViewOnly(newViewOnly);
     if (m_clipboardManager) {
         m_clipboardManager->setEnabled(m_shareClipboard && !newViewOnly);
-    }
-    if (m_fullscreenToolbar) {
-        m_fullscreenToolbar->setViewOnly(newViewOnly);
     }
 
     qCInfo(lcClientRemoteWindow) << "View-only mode toggled:"

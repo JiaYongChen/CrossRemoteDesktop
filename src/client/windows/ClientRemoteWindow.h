@@ -107,7 +107,7 @@ private:
     // Cached host name for title display
     QString m_hostName;
 
-    // Share clipboard flag (persisted for toggleViewOnly restore)
+    // 剪贴板共享标志（供 toggleViewOnly 恢复时使用）
     bool m_shareClipboard = true;
 
     // Scale factor (replaces RenderManager scaling)

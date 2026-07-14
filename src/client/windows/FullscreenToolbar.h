@@ -53,8 +53,8 @@ private:
     bool          m_toolbarVisible      = false;
     bool          m_viewOnly            = false;
 
-    static constexpr int TRIGGER_HEIGHT = 5;
-    static constexpr int SHOW_DELAY_MS  = 300;
-    static constexpr int AUTO_HIDE_MS   = 5000;
-    static constexpr int TOOLBAR_HEIGHT = 28;
+    static constexpr int TriggerHeight = 5;
+    static constexpr int ShowDelayMs   = 300;
+    static constexpr int AutoHideMs    = 5000;
+    static constexpr int ToolbarHeight = 28;
 };
