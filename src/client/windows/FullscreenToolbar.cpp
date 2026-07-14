@@ -27,12 +27,13 @@ FullscreenToolbar::FullscreenToolbar(QWidget* parentWindow)
         // owner 销毁时清空指针避免 use-after-free，延迟销毁 toolbar
         connect(m_ownerWindow, &QObject::destroyed, this, [this]() {
             m_ownerWindow = nullptr;
+            m_showDelayTimer->stop();
+            m_autoHideTimer->stop();
             deleteLater();
         });
     }
 
-    qCDebug(lcClientRemoteWindow) << "FullscreenToolbar 构造完成"
-        << "active:" << m_active;
+    qCDebug(lcClientRemoteWindow) << "FullscreenToolbar 构造完成";
 
     m_showDelayTimer = new QTimer(this);
     m_showDelayTimer->setSingleShot(true);
@@ -111,15 +112,6 @@ void FullscreenToolbar::setupUi()
     layout->addStretch();
 }
 
-void FullscreenToolbar::setActive(bool active)
-{
-    m_active = active;
-    if (!active) {
-        m_showDelayTimer->stop();
-        hideToolbar();
-    }
-}
-
 void FullscreenToolbar::setViewOnly(bool viewOnly)
 {
     m_viewOnly = viewOnly;
@@ -145,11 +137,10 @@ void FullscreenToolbar::updatePosition()
 void FullscreenToolbar::showToolbar()
 {
     qCDebug(lcClientRemoteWindow) << "FullscreenToolbar::showToolbar() 入口"
-        << "active:" << m_active << "visible:" << m_toolbarVisible
-        << "owner:" << (m_ownerWindow ? "ok" : "null")
-        << "ownerVisible:" << (m_ownerWindow ? m_ownerWindow->isVisible() : false);
+        << "visible:" << m_toolbarVisible
+        << "owner:" << (m_ownerWindow ? "ok" : "null");
 
-    if (!m_active || m_toolbarVisible) return;
+    if (m_toolbarVisible) return;
     if (!m_ownerWindow || !m_ownerWindow->isVisible()) return;
 
     updatePosition();
@@ -209,10 +200,6 @@ bool FullscreenToolbar::eventFilter(QObject* obj, QEvent* event)
     }
 
     // 工具栏隐藏时检测触发区
-    if (!m_active) {
-        return QWidget::eventFilter(obj, event);
-    }
-
     if (event->type() == QEvent::MouseMove) {
         const auto* me = static_cast<QMouseEvent*>(event);
         if (me->pos().y() <= TriggerHeight) {

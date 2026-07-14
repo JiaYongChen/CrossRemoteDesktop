@@ -15,9 +15,6 @@ class FullscreenToolbar : public QWidget {
 public:
     explicit FullscreenToolbar(QWidget* parentWindow);
 
-    /// 启用/禁用触发区检测
-    void setActive(bool active);
-
     /// 同步仅查看按钮图标
     void setViewOnly(bool viewOnly);
 
@@ -49,7 +46,6 @@ private:
     QToolButton*  m_toggleViewOnlyBtn   = nullptr;
     QTimer*       m_showDelayTimer      = nullptr;
     QTimer*       m_autoHideTimer       = nullptr;
-    bool          m_active              = true;
     bool          m_toolbarVisible      = false;
     bool          m_viewOnly            = false;
 
