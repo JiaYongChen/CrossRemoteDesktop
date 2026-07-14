@@ -294,17 +294,13 @@ CaptureResult DxgiCapture::captureFrame(int timeoutMs) {
         return result;
     }
 
-    if ( hr == DXGI_ERROR_ACCESS_LOST ) {
-        m_lastError = "Desktop Duplication access lost (desktop switch/resolution change)";
-        qCWarning(lcServerCaptureDxgi) << m_lastError;
-        m_initialized = false;  // Caller should call reinitialize()
-        return CaptureResult{};
-    }
-
     if ( FAILED(hr) ) {
         m_lastError = QString("AcquireNextFrame failed: 0x%1")
             .arg(static_cast<unsigned long>(hr), 8, 16, QChar('0'));
         qCWarning(lcServerCaptureDxgi) << m_lastError;
+        // 任何非超时的 AcquireNextFrame 错误都说明 DXGI 接口失效，
+        // 统一标记为未初始化以触发调用方重初始化（caller 有重试上限保护）。
+        m_initialized = false;
         return CaptureResult{};
     }
 
