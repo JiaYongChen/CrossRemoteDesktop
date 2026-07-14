@@ -3,6 +3,7 @@
 #include <QtWidgets/QWidget>
 
 class QToolButton;
+class QTimer;
 
 /// 浮动远程桌面工具栏 — 始终悬浮在远程窗口上方，提供全屏切换/断开/仅查看操作。
 ///
@@ -35,6 +36,7 @@ private:
     QToolButton* m_toggleViewOnlyBtn   = nullptr;
     bool         m_viewOnly            = false;
     bool         m_shown               = false;
+    QTimer*      m_hideDebounce        = nullptr;
 
     static constexpr int ToolbarHeight = 28;
 };

@@ -6,6 +6,7 @@
 #include <QtGui/QPainter>
 #include <QtGui/QPaintEvent>
 #include <QtGui/QIcon>
+#include <QtCore/QTimer>
 
 FloatingRemoteToolbar::FloatingRemoteToolbar(QWidget* ownerWindow)
     : QWidget(ownerWindow)       // transient parent 确保 Z-order 正确
@@ -18,6 +19,16 @@ FloatingRemoteToolbar::FloatingRemoteToolbar(QWidget* ownerWindow)
 
     setupUi();
     hide();
+
+    // ── 隐藏防抖：全屏过渡期间 owner 可能短暂发送 Hide 后立即 Move/Resize
+    // 直接用 hide() 会销毁原生窗口；0ms 定时器让事件循环有机会合并取消
+    m_hideDebounce = new QTimer(this);
+    m_hideDebounce->setSingleShot(true);
+    m_hideDebounce->setInterval(0);
+    connect(m_hideDebounce, &QTimer::timeout, this, [this]() {
+        qCDebug(lcClientRemoteWindow) << "[Toolbar] 防抖定时器触发 → hide()";
+        QWidget::hide();
+    });
 
     if (m_ownerWindow) {
         m_ownerWindow->installEventFilter(this);
@@ -106,7 +117,9 @@ void FloatingRemoteToolbar::setViewOnly(bool viewOnly)
 
 void FloatingRemoteToolbar::updatePosition()
 {
-    if (!m_ownerWindow || !m_ownerWindow->isVisible()) return;
+    // 用 width > 0 替代 isVisible()：全屏过渡 / 远程刷新期间 isVisible()
+    // 可能短暂返回 false，但窗口几何数据仍然有效。
+    if (!m_ownerWindow || m_ownerWindow->width() <= 0) return;
 
     const int naturalWidth = qMax(layout()->sizeHint().width(), ToolbarHeight * 2);
     const QPoint ownerTopCenter = m_ownerWindow->mapToGlobal(
@@ -123,14 +136,19 @@ bool FloatingRemoteToolbar::eventFilter(QObject* obj, QEvent* event)
 
     switch (event->type()) {
     case QEvent::Show:
+        m_hideDebounce->stop();   // 取消待处理的隐藏
         m_shown = true;
         updatePosition();
         show();
         raise();
+        qCDebug(lcClientRemoteWindow)
+            << "[Toolbar] Show → shown=" << m_shown
+            << "ownerVisible=" << m_ownerWindow->isVisible()
+            << "toolbarVisible=" << QWidget::isVisible();
         break;
     case QEvent::Move:
     case QEvent::Resize:
-        // 用 m_shown 而非 isVisible：远程刷新时 isVisible 可能短暂返回 false
+        m_hideDebounce->stop();   // 取消待处理的隐藏
         if (m_shown) {
             updatePosition();
             show();
@@ -138,7 +156,13 @@ bool FloatingRemoteToolbar::eventFilter(QObject* obj, QEvent* event)
         }
         break;
     case QEvent::Hide:
-        hide();
+        // 延迟隐藏：全屏过渡可能短暂发送 Hide 后立即 Move/Resize/Show
+        // 直接用 hide() → 销毁原生窗口 → 后续 show() 重建时 layered window
+        // 可能处于"已映射但未绘制"状态，导致工具栏不可见但可点击。
+        m_hideDebounce->start();
+        qCDebug(lcClientRemoteWindow)
+            << "[Toolbar] Hide → 启动防抖定时器"
+            << "ownerVisible=" << m_ownerWindow->isVisible();
         break;
     default:
         break;
