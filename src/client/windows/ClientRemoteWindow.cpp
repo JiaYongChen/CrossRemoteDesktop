@@ -312,16 +312,15 @@ void ClientRemoteWindow::mouseMoveEvent(QMouseEvent* event) {
     if (!m_isClosing) {
         const bool inHotZone = (event->pos().y() <= 10);
         if (inHotZone != m_toolbarHovering) {
-        m_toolbarHovering = inHotZone;
-        if (m_floatingToolbar) {
+            m_toolbarHovering = inHotZone;
+            if (m_floatingToolbar) {
             if (inHotZone) {
                 m_floatingToolbar->showAnimated();
             } else {
                 m_floatingToolbar->hideAnimated();
             }
+            }
         }
-        }
-    }
 
     QWidget::mouseMoveEvent(event);
     if (m_cursorManager) {
