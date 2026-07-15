@@ -1,27 +1,30 @@
 #pragma once
 
-#include "../../common/threading/Worker.h"
-#include "../../common/threading/ThreadSafeQueue.h"
-#include "../dataflow/DataFlowStructures.h"
-#include "../dataflow/QueueManager.h"
-#include "../dataprocessing/DataProcessing.h"
-#include "CaptureConfig.h"
-#include "../../common/config/CaptureConstants.h"
-#include "../../common/config/ProcessingConstants.h"
-#include "../../common/network/Protocol.h"
-#include <QtGui/QImage>
-#include <QtGui/QScreen>
-#include <QtCore/QTimer>
-#include <QtCore/QMutex>
-#include <QtCore/QElapsedTimer>
-#include <QtCore/QBuffer>
-#include <memory>
+// ── 标准库 ──
 #include <atomic>
 #include <chrono>
 #include <deque>
+#include <memory>
+
+// ── Qt ──
+#include <QtCore/QElapsedTimer>
+#include <QtCore/QMutex>
+#include <QtCore/QObject>
+#include <QtCore/QTimer>
+#include <QtGui/QImage>
+#include <QtGui/QScreen>
+
+// ── 项目内部 ──
+#include "../../common/threading/Worker.h"
+#include "../dataflow/DataFlowStructures.h"
+#include "CaptureConfig.h"
+#include "../../common/network/Protocol.h"
 #ifdef Q_OS_WIN
 #include "DxgiCapture.h"
 #endif
+
+// ── 前向声明 ──
+class QueueManager;
 
 /**
  * @brief 屏幕捕获工作线程类

@@ -3,6 +3,7 @@
 #include "../../common/config/CaptureConstants.h"
 #include "../../common/config/ProcessingConstants.h"
 #include "../../common/logging/LoggingCategories.h"
+#include "../dataflow/QueueManager.h"
 #include <QtGui/QGuiApplication>
 #include <QtGui/QScreen>
 #include <QtGui/QPainter>
