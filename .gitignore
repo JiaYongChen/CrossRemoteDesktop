@@ -39,7 +39,7 @@ scripts/
 REQUIREMENTS.md
 
 #claude
-.claude/
+.claude/*
 !.claude/memory/
 !.claude/.gitignore
 settings.local.json

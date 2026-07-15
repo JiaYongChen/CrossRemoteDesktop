@@ -23,3 +23,4 @@
 - [feedback_commit_style.md](feedback/feedback_commit_style.md) — Git 提交中文，格式：`类型: 描述`
 - [feedback_windows_build.md](feedback/feedback_windows_build.md) — Windows 必须用 VS 生成器（非 Ninja），需 /FS 避免 PDB 锁冲突
 - [feedback_bash_heredoc_commit.md](feedback/feedback_bash_heredoc_commit.md) — Git Bash 中用 POSIX heredoc + git commit -F
+- [构建验证：grep error 而非 tail 截断](feedback/feedback_build_verification.md) — 每次构建后用 grep 扫描完整输出中的错误
