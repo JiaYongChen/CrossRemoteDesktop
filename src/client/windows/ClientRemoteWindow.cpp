@@ -308,9 +308,15 @@ void ClientRemoteWindow::resizeEvent(QResizeEvent* event) {
 }
 
 void ClientRemoteWindow::mouseMoveEvent(QMouseEvent* event) {
-    // ── 工具栏 hover 热区检测（顶部 10px）──
+    // ── 工具栏 hover 热区检测（顶部 10px × 工具栏宽度）──
     if (!m_isClosing) {
-        const bool inHotZone = (event->pos().y() <= 10);
+        const bool inHotZone = [&]() {
+            if (event->pos().y() > 10) return false;
+            if (!m_floatingToolbar) return false;
+            const int barLeft = m_floatingToolbar->x();
+            const int barRight = barLeft + m_floatingToolbar->width();
+            return event->pos().x() >= barLeft && event->pos().x() <= barRight;
+        }();
         if (inHotZone != m_toolbarHovering) {
             m_toolbarHovering = inHotZone;
             if (m_floatingToolbar) {
