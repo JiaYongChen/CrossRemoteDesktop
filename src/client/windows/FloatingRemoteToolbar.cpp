@@ -97,14 +97,19 @@ void FloatingRemoteToolbar::paintEvent(QPaintEvent* /*event*/)
 {
     QPainter painter(this);
     painter.setCompositionMode(QPainter::CompositionMode_Source);
-    painter.fillRect(QRect(0, 0, width(), ToolbarHeight), QColor(30, 30, 30, 200));
+    painter.fillRect(QRect(0, 0, width(), height()), QColor(30, 30, 30, 200));
 }
 
 void FloatingRemoteToolbar::setupAnimation()
 {
     m_heightAnim = new QPropertyAnimation(this, "toolbarHeight");
     m_heightAnim->setDuration(250);
-    m_heightAnim->setEasingCurve(QEasingCurve::OutCubic);
+    // 动画完成后同步可见性状态：高度为 0 时隐藏 widget，使 isVisible() 正确反映状态
+    connect(m_heightAnim, &QPropertyAnimation::finished, this, [this]() {
+        if (toolbarHeight() == 0) {
+            hide();
+        }
+    });
 }
 
 int FloatingRemoteToolbar::toolbarHeight() const

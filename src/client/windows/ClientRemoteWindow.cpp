@@ -150,7 +150,7 @@ void ClientRemoteWindow::changeEvent(QEvent* event) {
         // 全屏过渡期间原生窗口可能重建 → 子控件 Z 序可能重置。
         // 不调用 show()：子控件可见性由父窗口自动管理，强制 show()
         // 会覆盖将来可能的用户隐藏逻辑。
-        if (m_floatingToolbar && !m_floatingToolbar->isAnimating()) {
+        if (m_floatingToolbar) {
             m_floatingToolbar->raise();
             repositionToolbar();
         }
@@ -302,7 +302,7 @@ void ClientRemoteWindow::resizeEvent(QResizeEvent* event) {
     }
 #endif
 
-    if (m_floatingToolbar && !m_floatingToolbar->isAnimating()) {
+    if (m_floatingToolbar) {
         repositionToolbar();
     }
 }
