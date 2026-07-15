@@ -2,15 +2,11 @@
 // 从 MainWindow.cpp 分离，保持文件聚焦于业务逻辑
 
 #include "MainWindow.h"
-#include "common/theme/IconThemeProvider.h"
 
-#include <QAction>
-#include <QApplication>
-#include <QLabel>
-#include <QMenu>
-#include <QStatusBar>
-#include <QSystemTrayIcon>
-#include <QToolButton>
+#include <QtWidgets/QStatusBar>
+#include <QtWidgets/QSystemTrayIcon>
+
+#include "common/theme/IconThemeProvider.h"
 
 // ============================================================
 // 创建 Actions（托盘菜单所需的全局 Action）

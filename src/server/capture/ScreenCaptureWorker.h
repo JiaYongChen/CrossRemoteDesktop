@@ -1,12 +1,10 @@
 #pragma once
 
-// ── 标准库 ──
 #include <atomic>
 #include <chrono>
 #include <deque>
 #include <memory>
 
-// ── Qt ──
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QMutex>
 #include <QtCore/QObject>
@@ -14,7 +12,6 @@
 #include <QtGui/QImage>
 #include <QtGui/QScreen>
 
-// ── 项目内部 ──
 #include "../../common/threading/Worker.h"
 #include "../dataflow/DataFlowStructures.h"
 #include "CaptureConfig.h"
@@ -23,7 +20,6 @@
 #include "DxgiCapture.h"
 #endif
 
-// ── 前向声明 ──
 class QueueManager;
 
 /**

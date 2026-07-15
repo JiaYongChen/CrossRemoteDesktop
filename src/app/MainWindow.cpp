@@ -1,22 +1,5 @@
 #include "MainWindow.h"
 #include "ui_MainWindow.h"
-#include "ConnectionDialog.h"
-#include "ConnectionPanel.h"
-#include "SettingsDialog.h"
-#include "NavPanel.h"
-#include "../server/service/ServerService.h"
-#include "../client/session/RemoteDesktopSession.h"
-#include "../client/network/ConnectionManager.h"
-#include "../server/dataflow/QueueManager.h"
-#include "common/threading/ThreadManager.h"
-#include "../server/simulator/InputSimulator.h"
-
-#include "common/config/NetworkConstants.h"
-#include "common/config/SettingsManager.h"
-#include "common/config/ProcessingConstants.h"
-#include "common/logging/LoggingCategories.h"
-#include "common/theme/IconThemeProvider.h"
-#include "common/theme/TitleBarTheme.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -28,29 +11,35 @@
 #include <mach/task.h>
 #endif
 
+#include <QtCore/QDateTime>
+#include <QtCore/QEvent>
+#include <QtCore/QFile>
+#include <QtCore/QTimer>
+#include <QtCore/QUuid>
+#include <QtGui/QCloseEvent>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QDialog>
 #include <QtWidgets/QMessageBox>
+#include <QtWidgets/QStatusBar>
+#include <QtWidgets/QSystemTrayIcon>
 #include <QtWidgets/QTabWidget>
 #include <QtWidgets/QTextBrowser>
 #include <QtWidgets/QVBoxLayout>
-#include <QtWidgets/QHBoxLayout>
-#include <QtWidgets/QPushButton>
-#include <QtWidgets/QSystemTrayIcon>
-#include <QtWidgets/QMenu>
-#include <QtGui/QAction>
-#include <QtWidgets/QStatusBar>
-#include <QtWidgets/QLabel>
-#include <QtWidgets/QLineEdit>
-#include <QtCore/QTimer>
-#include <QtCore/QFile>
-#include <QtCore/QDateTime>
-#include <QtCore/QStandardPaths>
-#include <QtCore/QDir>
-#include <QtCore/QUuid>
-#include <QtGui/QIcon>
-#include <QtGui/QCloseEvent>
-#include <QtCore/QEvent>
+
+#include "client/session/RemoteDesktopSession.h"
+#include "common/config/NetworkConstants.h"
+#include "common/config/ProcessingConstants.h"
+#include "common/config/SettingsManager.h"
+#include "common/logging/LoggingCategories.h"
+#include "common/theme/IconThemeProvider.h"
+#include "common/theme/TitleBarTheme.h"
+#include "common/threading/ThreadManager.h"
+#include "ConnectionDialog.h"
+#include "ConnectionPanel.h"
+#include "NavPanel.h"
+#include "server/dataflow/QueueManager.h"
+#include "server/service/ServerService.h"
+#include "SettingsDialog.h"
 
 
 MainWindow::MainWindow(SettingsManager *settings, QWidget *parent)
@@ -415,15 +404,6 @@ void MainWindow::startServer() {
     m_serverService->start(static_cast<quint16>(port));
 }
 
-void MainWindow::stopServer() {
-    if (!m_serverService->isRunning()) {
-        QMessageBox::information(this, tr("服务器状态"),
-                                 tr("服务器未运行。"));
-        return;
-    }
-    m_serverService->stop();
-}
-
 void MainWindow::showSettings() {
 	m_settingsDialog->show();
 	m_settingsDialog->raise();
@@ -558,6 +538,10 @@ static ULONGLONG fileTimeToU64(const FILETIME& ft) {
 
 void MainWindow::updatePerformanceInfo()
 {
+    // Skip polling when window is not visible (minimized/hidden to tray)
+    if (!isVisible())
+        return;
+
 #ifdef Q_OS_WIN
     FILETIME createTime, exitTime, kernelTime, userTime, currentTime;
     GetProcessTimes(GetCurrentProcess(), &createTime, &exitTime, &kernelTime, &userTime);
@@ -779,12 +763,6 @@ void MainWindow::connectToHostDirectly(const ConnectionParams& params) {
     session->start();
 }
 
-void MainWindow::onConnectionEstablished(const QString& connectionId) {
-    qCInfo(lcApp) << "MainWindow::onConnectionEstablished - Connection established for:" << connectionId;
-    // 注：历史记录已在 connectToHostDirectly() 中完整保存（含 hostname/分辨率），
-    // 此处不再重复调用 addConnectionToHistory，避免以空参数覆盖已有完整数据。
-}
-
 void MainWindow::onServerStarted(quint16 port) {
     qCInfo(lcApp) << "MainWindow::onServerStarted() called with port:" << port;
     updateServerStatus(tr("服务器启动成功，端口: %1").arg(port));
@@ -833,12 +811,6 @@ void MainWindow::iconActivated(QSystemTrayIcon::ActivationReason reason) {
             break;
     }
 }
-
-void MainWindow::cleanupConnection(const QString& connectionId) {
-    qCDebug(lcApp) << "MainWindow::cleanupConnection for:" << connectionId;
-}
-
-
 
 void MainWindow::updateServerStatus(const QString& message) {
     // 检查服务端连接状态

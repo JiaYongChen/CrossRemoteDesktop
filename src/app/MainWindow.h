@@ -1,18 +1,17 @@
 #pragma once
 
-#include <QtWidgets/QMainWindow>
-#include <QtWidgets/QSystemTrayIcon>
-#include <QtCore/QMap>
-#include <QtCore/QList>
-#include <QtCore/QDateTime>
 #include <atomic>
 
-#include "error/RdError.h"
-#include "common/data/ConnectionParams.h"
+#include <QtCore/QList>
+#include <QtGui/QAction>
+#include <QtWidgets/QLabel>
+#include <QtWidgets/QMainWindow>
+#include <QtWidgets/QMenu>
+#include <QtWidgets/QSystemTrayIcon>
 
-class QAction;
-class QMenu;
-class QLabel;
+#include "common/data/ConnectionParams.h"
+#include "error/RdError.h"
+
 class QCloseEvent;
 
 QT_BEGIN_NAMESPACE
@@ -21,15 +20,15 @@ namespace Ui {
 }
 QT_END_NAMESPACE
 
-class SettingsManager;
 class ConnectionDialog;
-class SettingsDialog;
-class ThreadManager;
-class QueueManager;
-class ServerService;
-class RemoteDesktopSession;
-class NavPanel;
 class ConnectionPanel;
+class NavPanel;
+class QueueManager;
+class RemoteDesktopSession;
+class ServerService;
+class SettingsDialog;
+class SettingsManager;
+class ThreadManager;
 
 class MainWindow : public QMainWindow
 {
@@ -51,13 +50,11 @@ private slots:
     // 菜单和工具栏动作
     void newConnection();
     void startServer();
-    void stopServer();
     void showSettings();
     void showAbout();
     void exitApplication();
     
     // 连接相关槽函数
-    void onConnectionEstablished(const QString &connectionId);
     void onAllConnectionsClosed();       // 处理所有客户端连接关闭
     
     // 服务器相关槽函数
@@ -88,7 +85,6 @@ private:
     void retranslateUi();
     
     void showConnectionDialog();
-    void cleanupConnection(const QString &connectionId);
     void updatePerformanceInfo();
 
 #ifdef Q_OS_MACOS
