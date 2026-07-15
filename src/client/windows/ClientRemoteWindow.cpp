@@ -150,7 +150,7 @@ void ClientRemoteWindow::changeEvent(QEvent* event) {
         // 全屏过渡期间原生窗口可能重建 → 子控件 Z 序可能重置。
         // 不调用 show()：子控件可见性由父窗口自动管理，强制 show()
         // 会覆盖将来可能的用户隐藏逻辑。
-        if (m_floatingToolbar) {
+        if (m_floatingToolbar && !m_floatingToolbar->isAnimating()) {
             m_floatingToolbar->raise();
             repositionToolbar();
         }
@@ -288,7 +288,7 @@ void ClientRemoteWindow::repositionToolbar() {
     constexpr int minWidth = 2 * FloatingRemoteToolbar::ToolbarHeight;
     const int naturalWidth = qMax(m_floatingToolbar->sizeHint().width(), minWidth);
     const int x = (width() - naturalWidth) / 2;
-    m_floatingToolbar->setGeometry(x, 0, naturalWidth,
+    m_floatingToolbar->setGeometry(x, m_floatingToolbar->y(), naturalWidth,
                                    FloatingRemoteToolbar::ToolbarHeight);
     m_floatingToolbar->raise();  // Z 序保护：resize 后保持在 GL 视口之上
 }
@@ -309,8 +309,9 @@ void ClientRemoteWindow::resizeEvent(QResizeEvent* event) {
 
 void ClientRemoteWindow::mouseMoveEvent(QMouseEvent* event) {
     // ── 工具栏 hover 热区检测（顶部 10px）──
-    const bool inHotZone = (event->pos().y() <= 10);
-    if (inHotZone != m_toolbarHovering) {
+    if (!m_isClosing) {
+        const bool inHotZone = (event->pos().y() <= 10);
+        if (inHotZone != m_toolbarHovering) {
         m_toolbarHovering = inHotZone;
         if (m_floatingToolbar) {
             if (inHotZone) {
@@ -318,6 +319,7 @@ void ClientRemoteWindow::mouseMoveEvent(QMouseEvent* event) {
             } else {
                 m_floatingToolbar->hideAnimated();
             }
+        }
         }
     }
 
