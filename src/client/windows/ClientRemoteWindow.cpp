@@ -277,10 +277,8 @@ void ClientRemoteWindow::setupUI() {
     });
 #endif
 
-    // 工具栏作为子控件渲染在最顶层（无 GL 依赖，放在 endif 之后）
+    // 工具栏作为子控件渲染在最顶层——初始不可见，由 hover 热区触发 showAnimated
     m_floatingToolbar->raise();
-    m_floatingToolbar->show();
-    repositionToolbar();
 }
 
 // ── Event handlers ──
@@ -304,10 +302,25 @@ void ClientRemoteWindow::resizeEvent(QResizeEvent* event) {
     }
 #endif
 
-    repositionToolbar();  // 窗口大小改变时重新居中工具栏
+    if (m_floatingToolbar && !m_floatingToolbar->isAnimating()) {
+        repositionToolbar();
+    }
 }
 
 void ClientRemoteWindow::mouseMoveEvent(QMouseEvent* event) {
+    // ── 工具栏 hover 热区检测（顶部 10px）──
+    const bool inHotZone = (event->pos().y() <= 10);
+    if (inHotZone != m_toolbarHovering) {
+        m_toolbarHovering = inHotZone;
+        if (m_floatingToolbar) {
+            if (inHotZone) {
+                m_floatingToolbar->showAnimated();
+            } else {
+                m_floatingToolbar->hideAnimated();
+            }
+        }
+    }
+
     QWidget::mouseMoveEvent(event);
     if (m_cursorManager) {
         m_cursorManager->setCursorPosition(event->pos().x(), event->pos().y());

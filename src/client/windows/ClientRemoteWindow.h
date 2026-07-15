@@ -121,4 +121,6 @@ private:
 
     // 浮动远程桌面工具栏
     FloatingRemoteToolbar* m_floatingToolbar = nullptr;
+
+    bool m_toolbarHovering = false;  // 热区防重入
 };
