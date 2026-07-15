@@ -4,11 +4,11 @@
 #include <QtWidgets/QSystemTrayIcon>
 #include <QtCore/QMap>
 #include <QtCore/QList>
-class SettingsManager;
 #include <QtCore/QDateTime>
 #include <atomic>
+
 #include "error/RdError.h"
-#include "../client/session/RemoteDesktopSession.h"  // ConnectionParams
+#include "common/data/ConnectionParams.h"
 
 class QAction;
 class QMenu;
@@ -21,6 +21,7 @@ namespace Ui {
 }
 QT_END_NAMESPACE
 
+class SettingsManager;
 class ConnectionDialog;
 class SettingsDialog;
 class ThreadManager;

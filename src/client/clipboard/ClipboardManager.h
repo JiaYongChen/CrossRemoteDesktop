@@ -6,8 +6,6 @@
 #include <QtGui/QClipboard>
 #include <QtGui/QImage>
 
-class QClipboard;
-
 /**
  * @brief 剪贴板管理器类
  * 

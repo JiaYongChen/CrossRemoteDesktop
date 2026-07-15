@@ -8,7 +8,6 @@
 #include "../../common/config/NetworkConstants.h"
 #include "error/RdError.h"
 
-class QHostAddress;
 class InputSimulator;
 
 class TcpServer : public QTcpServer {

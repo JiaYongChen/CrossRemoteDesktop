@@ -16,7 +16,6 @@
 class ScreenCaptureWorker;
 class ThreadManager;
 class QueueManager;
-class QTimer;
 
 /**
  * @brief 多线程屏幕捕获管理器
