@@ -11,6 +11,7 @@
 - [project_constants_organization_rules.md](project_constants_organization_rules.md) — 常量组织与命名规范，新增或修改常量时必须遵守
 - [project_directory_organization_rules.md](project_directory_organization_rules.md) — 源码目录组织规范，新增或移动文件时必须遵守
 - [project_i18n_workflow.md](project_i18n_workflow.md) — 翻译文件维护流程：修改 tr() 后必须 lupdate+lrelease，QM 与 TS 一起提交
+- [project_include_forward_declare_rules.md](project_include_forward_declare_rules.md) — .h 文件中 #include 与前向声明的判断规则
 
 ## Feedback
 - [feedback_logging_rules.md](feedback/feedback_logging_rules.md) — Qt 日志必须使用流式分类日志，分类集中在 LoggingCategories.h/.cpp
