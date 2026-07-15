@@ -304,3 +304,15 @@ qCWarning(lcServer) << error.logLabel();      // 推荐
 - **性能叠加层**：ClientRemoteWindow::drawPerformanceInfo()（m_showPerformanceInfo 恒为 false）
 - **ServerManager / ServerWorker**：整类删除，服务端编排逻辑由 `ServerService`（`src/server/service/`）接管，`TcpListener` + `CapturePipeline` + 会话管理统一封装
 - **ConfigBinding<T> 模板类** + 7 个 CONFIG_* 便利宏（零引用死代码）
+
+## 代码风格
+
+### Include / 前向声明
+
+`.h` 文件中的 `#include` 和前向声明遵循统一规范（详见 `.claude/memory/project_include_forward_declare_rules.md`）：
+
+- **项目内部类型**：优先前向声明，仅值类型 / 基类 / 内联访问成员时 `#include`
+- **Qt 类型**：用到即 `#include`，不做前向声明（MOC 兼容）
+- **标准库**：用到即 `#include`，不做前向声明
+- **模板**：头文件按 ①标准库 → ②Qt → ③项目内部 → ④前向声明 四区块组织，每区块字母序
+- **仅 .cpp 用到的类型**：`.h` 中不写任何东西，`.cpp` 自行 include
