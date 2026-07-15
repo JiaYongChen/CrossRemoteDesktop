@@ -1,7 +1,9 @@
 ---
 name: 极域桌面项目概况
-description: UltraDesktop（极域桌面）项目的核心目标和当前阶段
-type: project
+description: UltraDesktop（极域桌面）项目的核心目标和架构方向
+metadata:
+  node_type: memory
+  type: project
 ---
 
 UltraDesktop（极域桌面）是一个基于 Qt 6.9+/C++20 的跨平台远程桌面应用，客户端和服务端打包在同一个可执行文件中。

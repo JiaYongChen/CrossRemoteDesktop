@@ -1,5 +1,5 @@
 ---
-name: feedback_bash_heredoc_commit
+name: Git Bash 提交使用 heredoc
 description: "Git Bash here-string @''@ 语法不能用于 git commit -m，首尾 @ 会写入提交信息"
 metadata: 
   node_type: memory
@@ -24,4 +24,4 @@ metadata:
    git commit -m "标题" -m "正文第一段" -m "正文第二段"
    ```
 
-**Why:** Git Bash 是 POSIX shell，`@'...'@` 是 PowerShell 专有语法，在 POSIX shell 中 `@` 只是普通字符。[[feedback_prefer_qt_builtin]]
+**Why:** Git Bash 是 POSIX shell，`@'...'@` 是 PowerShell 专有语法，在 POSIX shell 中 `@` 只是普通字符。

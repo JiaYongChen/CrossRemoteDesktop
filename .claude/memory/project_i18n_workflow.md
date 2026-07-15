@@ -1,5 +1,5 @@
 ---
-name: project_i18n_workflow
+name: 翻译系统维护规范
 description: 翻译文件维护的完整流程和常见问题，修改 tr() 字符串后必须遵循
 metadata: 
   node_type: memory
@@ -69,6 +69,8 @@ cmake --build build --target sync_translations
 1. **`lupdate` 只更新 TS，不编译 QM** — 这是最常见的遗漏。TS 是源码，QM 是运行时使用的二进制。只改 TS 不改 QM 等于没改。
 2. **TS 文件提交了但 QM 未提交** — 协作者拉取后看到的是旧 QM，本地构建不会自动重新编译。
 3. **新字符串未填写翻译** — lupdate 提取后默认 `type="unfinished"`，运行时回退显示源语言（中文）。对英语用户来说就是中文残留。
+4. **误以为需手动维护 TS `<location>` 行号** — TS 文件中 `<location>` 行号仅给 Qt Linguist 导航用，不影响运行时翻译，无需手动更新。`lupdate` 会自动刷新行号。
+5. **担心 lupdate 覆盖已有翻译** — `lupdate` 保留已有译文不变（仅新增缺失条目、标记废弃条目为 `type="vanished"`），安全可重复执行。
 
 ## 翻译统计速查
 

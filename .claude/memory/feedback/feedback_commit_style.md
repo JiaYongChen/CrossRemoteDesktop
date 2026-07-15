@@ -1,7 +1,9 @@
 ---
-name: Git提交风格
-description: 项目的commit信息风格和提交习惯
-type: feedback
+name: Git 提交风格
+description: "项目 commit 信息使用中文（格式：类型 + 描述）"
+metadata:
+  node_type: memory
+  type: feedback
 ---
 
 Git commit 信息使用中文描述，常见格式为：`类型: 中文描述`

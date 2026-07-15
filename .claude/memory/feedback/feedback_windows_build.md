@@ -1,7 +1,9 @@
 ---
-name: Windows构建注意事项
-description: Windows下必须使用Visual Studio生成器而非Ninja，避免UCRT头文件缺失和PDB锁冲突
-type: feedback
+name: Windows 构建注意事项
+description: Windows 下必须使用 VS 生成器（非 Ninja），需 /FS 避免 PDB 锁冲突
+metadata:
+  node_type: memory
+  type: feedback
 ---
 
 Windows 构建必须使用 Visual Studio 生成器（MSBuild），不要使用 Ninja 生成器。

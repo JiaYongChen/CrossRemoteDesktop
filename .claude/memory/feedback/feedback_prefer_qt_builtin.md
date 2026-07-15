@@ -1,8 +1,10 @@
 ---
-name: 优先使用Qt6.9+内置库
-description: Qt6.9+框架已包含的功能库不要引入第三方替代，必须使用Qt内置版本；但如果Qt内置库功能无法完全满足需求，则完全由第三方库替代
-type: feedback
-originSessionId: 9c147562-dfa4-4994-8934-0ef63600d01c
+name: 优先使用 Qt 内置库
+description: Qt6.9+ 已包含的功能使用内置版本；若内置不完整则完全由第三方库替代
+metadata:
+  node_type: memory
+  type: feedback
+  originSessionId: 9c147562-dfa4-4994-8934-0ef63600d01c
 ---
 在Qt6.9+技术框架内已包含的技术库，不要使用第三方库，必须使用Qt6.9+内置的库。但如果Qt内置库的功能无法完全满足开发所需的功能，则完全由第三方库替代，不做混合使用。
 

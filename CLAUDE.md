@@ -62,7 +62,7 @@ cmake --build build --target sync_translations
 输出目录：项目根目录下的 `Debug/` 和 `Release/`（不在 `build/` 内）。
 测试自动使用 `QT_QPA_PLATFORM=offscreen`（在 CMake 中设置），适用于无头/CI 环境。
 
-**翻译文件维护**：修改源码中的 `tr()` 调用或 `.ui` 文件后，运行 `cmake --build build --target sync_translations` 一键完成扫描+编译（`lupdate` → `lrelease`）。TS 文件中 `<location>` 行号仅给 Qt Linguist 导航用，不影响运行时翻译。`lupdate` 会保留已有译文不变。
+**翻译文件维护**：修改源码中的 `tr()` 调用或 `.ui` 文件后，运行 `cmake --build build --target sync_translations` 一键完成扫描+编译（`lupdate` → `lrelease`）。完整流程和常见问题见 [[翻译系统维护规范]]。
 
 ## 依赖
 
@@ -74,11 +74,11 @@ cmake --build build --target sync_translations
 
 ### 第三方库管理
 
+> 详细规则（目录结构、CMake 模块模式、开发者流程）见 [[第三方库管理规则]]。
+
 项目使用 [vcpkg](https://github.com/microsoft/vcpkg) 作为开发者获取预编译包的工具。**CMake 构建时不调用 vcpkg**——所有产物缓存于 `third_party/` 并提交 git，构建时直接使用，支持 `git clone` 后离线构建。
 
 **开发者流程**：vcpkg 下载 → 按约定重组到 `third_party/<lib>/` → 提交 git。
-
-**前置条件**：需设置 `VCPKG_ROOT` 环境变量。
 
 ### CMake 模块结构
 
@@ -220,13 +220,15 @@ ConnectionManager (TCP) → SessionManager (状态管理) → ClientRemoteWindow
 | `SecurityConstants.h` | `SecurityConstants` | 加密参数、认证限制、会话超时 |
 | `GuiConstants.h` | `GuiConstants` | 窗口尺寸、OpenGL渲染、帧丢弃策略 |
 
-**常量规范**：统一 `namespace` + `inline constexpr`，`PascalCase` 命名。2 个及以上文件引用的常量必须放入公共文件。禁止将 UI 文本/日志消息等面向用户的字符串常量放入 Constants 文件（应使用 `tr()` 内联或流式日志字面量）。例外：加密套件名称、默认用户名等非用户可见的配置字符串常量允许放在 SecurityConstants 中。
+**常量规范**：统一 `namespace` + `inline constexpr`，`PascalCase` 命名。完整决策树、类型规范、禁止事项见 [[常量组织规范]]。2 个及以上文件引用的常量必须放入公共文件。
 
 ## Git 提交规范
 
 - **禁止在 commit message 末尾追加 `Co-Authored-By` 署名**，所有提交信息仅包含用户指定的内容。
 
 ## 日志规范
+
+> 详细规则见 [[日志规范]]，本节为日志分类树和级别语义概要参考。
 
 **所有日志必须使用分类流式宏：**
 ```cpp
@@ -309,10 +311,10 @@ qCWarning(lcServer) << error.logLabel();      // 推荐
 
 ### Include / 前向声明
 
-`.h` 文件中的 `#include` 和前向声明遵循统一规范（详见 `.claude/memory/project_include_forward_declare_rules.md`）：
+`.h` 文件中的 `#include` 和前向声明遵循统一规范（详见 [[Include 前向声明规范]]）：
 
 - **项目内部类型**：优先前向声明，仅值类型 / 基类 / 内联访问成员时 `#include`
 - **Qt 类型**：用到即 `#include`，不做前向声明（MOC 兼容）
 - **标准库**：用到即 `#include`，不做前向声明
-- **模板**：头文件按 ①标准库 → ②Qt → ③项目内部 → ④前向声明 四区块组织，每区块字母序
+- **模板**：头文件按 标准库 → Qt → 项目内部 → 前向声明 四区块组织，每区块字母序
 - **仅 .cpp 用到的类型**：`.h` 中不写任何东西，`.cpp` 自行 include

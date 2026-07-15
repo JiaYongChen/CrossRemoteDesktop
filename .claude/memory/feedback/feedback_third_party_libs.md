@@ -1,5 +1,5 @@
 ---
-name: feedback_third_party_libs
+name: 第三方库管理规则
 description: 第三方库预编译包缓存于third_party/并提交git，CMake直接使用无需vcpkg；开发者通过vcpkg获取库后缓存
 metadata: 
   node_type: memory
@@ -35,6 +35,8 @@ third_party/<lib>/
 - Debug DLL 使用大写 `D` 后缀区分：`turbojpegD.dll`（Debug）vs `turbojpeg.dll`（Release）
 
 ### 开发者新增/更新库流程
+
+**前置条件**：需设置 `VCPKG_ROOT` 环境变量（指向 vcpkg 安装目录）。
 
 1. 通过 vcpkg 下载预编译包
 2. 将产物按上述目录结构重组到 `third_party/<lib>/`

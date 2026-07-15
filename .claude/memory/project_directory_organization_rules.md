@@ -1,5 +1,5 @@
 ---
-name: project_directory_organization_rules
+name: 源码目录组织规范
 description: 源码目录组织规范，新增或移动文件时必须遵守
 metadata: 
   node_type: memory

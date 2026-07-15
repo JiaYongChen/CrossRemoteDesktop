@@ -1,5 +1,5 @@
 ---
-name: qss-layered-template
+name: QSS 三段式分层规范
 description: QSS 文件三段式分层编写规范 — 修改或新增任何 QSS 规则时必须遵循此模板
 metadata: 
   node_type: memory
@@ -9,7 +9,7 @@ metadata:
 
 # QSS 三段式分层编写规范
 
-修改 `resources/styles/dark.qss` 或 `resources/styles/light.qss` 时必须遵守此规范。设计文档见 [[2026-07-03-qss-layered-rewrite-design]]。
+修改 `resources/styles/dark.qss` 或 `resources/styles/light.qss` 时必须遵守此规范。设计文档见 `docs/superpowers/specs/2026-07-03-qss-layered-rewrite-design.md`。
 
 ## 三层架构
 

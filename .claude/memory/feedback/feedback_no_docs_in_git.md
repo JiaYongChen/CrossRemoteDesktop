@@ -1,5 +1,5 @@
 ---
-name: feedback_no_docs_in_git
+name: docs 目录不入 git
 description: 不要将 docs/ 目录下的文件添加到 git 追踪中
 metadata: 
   node_type: memory

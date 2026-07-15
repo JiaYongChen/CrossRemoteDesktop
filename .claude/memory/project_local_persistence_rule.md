@@ -1,5 +1,5 @@
 ---
-name: project_local_persistence_rule
+name: 本地持久化规范
 description: 本地持久化数据的文件格式、存储位置、存取方式的统一规范
 metadata: 
   node_type: memory

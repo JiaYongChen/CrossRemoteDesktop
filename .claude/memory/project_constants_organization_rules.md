@@ -1,5 +1,5 @@
 ---
-name: project_constants_organization_rules
+name: 常量组织规范
 description: 常量组织与命名规范，新增或修改常量时必须遵守
 metadata: 
   node_type: memory

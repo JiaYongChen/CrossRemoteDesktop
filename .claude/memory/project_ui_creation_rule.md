@@ -1,5 +1,5 @@
 ---
-name: project_ui_creation_rule
+name: UI 创建规范
 description: 新建 UI 控件时优先使用 .ui 文件定义静态布局，动态逻辑保留在代码中
 metadata: 
   node_type: memory
@@ -20,4 +20,4 @@ metadata:
 2. 静态部分创建对应的 `.ui` 文件，放入 `src/ui/` 目录
 3. 在 CMakeLists.txt 中添加 `.ui` 文件
 4. 控件类使用 `Ui::Xxx *ui` 成员，构造函数中调用 `ui->setupUi(this)`
-5. 参照 [[project_qss_layered_template]] 为控件编写对应的 QSS 规则
+5. 参照 [[QSS 三段式分层规范]] 为控件编写对应的 QSS 规则

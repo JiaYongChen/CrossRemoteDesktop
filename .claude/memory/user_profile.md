@@ -1,7 +1,9 @@
 ---
 name: 用户技术背景
-description: 用户是熟练的C++/Qt开发者，偏好高效直接的沟通风格
-type: user
+description: 熟练的 C++/Qt 开发者，中文沟通，直接高效
+metadata:
+  node_type: memory
+  type: user
 ---
 
 用户是有经验的 C++/Qt 开发者，熟悉：
@@ -11,7 +13,7 @@ type: user
 - CMake 构建系统
 
 沟通偏好：
-- 中文交流，代码注释用英文
+- 中文交流，代码注释用中文
 - 直接高效，不需要冗余解释
 - 偏好直接在 master 提交，不走 PR/分支流程
 - 重视代码质量：-Werror 零警告、统一的日志规范

@@ -1,5 +1,5 @@
 ---
-name: feedback_macro_usage
+name: 编译期特征宏使用规则
 description: 编译期特征宏的使用规则——仅隔离真不可编译的场景，不冗余运行时检测
 metadata: 
   node_type: memory

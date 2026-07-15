@@ -1,7 +1,9 @@
 ---
 name: 日志规范
-description: Qt日志必须使用流式分类日志，所有分类集中在LoggingCategories.h/.cpp，禁止散落定义
-type: feedback
+description: Qt 日志必须使用流式分类日志，所有分类集中在 LoggingCategories.h/.cpp，禁止散落定义
+metadata:
+  node_type: memory
+  type: feedback
 ---
 
 ## 日志输出格式

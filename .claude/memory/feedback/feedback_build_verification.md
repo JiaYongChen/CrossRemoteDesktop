@@ -1,5 +1,5 @@
 ---
-name: feedback-build-verification
+name: 构建验证用 grep 扫描错误
 description: 构建/测试验证必须用 grep 过滤 error 而非 tail 截断
 metadata: 
   node_type: memory

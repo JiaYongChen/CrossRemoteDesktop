@@ -1,7 +1,8 @@
 ---
-name: project_include_forward_declare_rules
+name: Include 前向声明规范
 description: .h 文件中 #include 与前向声明的判断规则，新增或修改 .h 文件时必须遵守
 metadata:
+  node_type: memory
   type: project
 ---
 
@@ -50,28 +51,24 @@ metadata:
 
 ## 头文件组织模板
 
-所有 `.h` 文件按以下统一结构组织：
+所有 `.h` 文件按以下统一结构组织（空行分隔区块）：
 
 ```cpp
 #pragma once
 
-// ── ① 标准库 ──
 #include <atomic>
 #include <memory>
 #include <vector>
 
-// ── ② Qt 库 ──
 #include <QtCore/QObject>
 #include <QtCore/QTimer>
 #include <QtGui/QImage>
 #include <QtWidgets/QWidget>
 #include <QtNetwork/QSslSocket>
 
-// ── ③ 项目内部 ──
 #include "common/error/RdError.h"
 #include "common/threading/Worker.h"
 
-// ── ④ 前向声明 ──
 class QCloseEvent;
 class ServerSession;
 class ThreadManager;
@@ -86,10 +83,10 @@ QT_END_NAMESPACE
 
 | 区块 | 排序规则 | 块尾 |
 |------|----------|------|
-| ① 标准库 `<...>` | 字母序 | 空一行 |
-| ② Qt `<QtModule/Class>` | 先按模块字母序（Core → Gui → Network → Widgets），模块内类名字母序 | 空一行 |
-| ③ 项目内部 `"..."` | 按路径字母序（common/ < client/ < server/ < app/） | 空一行 |
-| ④ 前向声明 `class Xxx;` | 字母序 | — |
+| 标准库 `<...>` | 字母序 | 空一行 |
+| Qt `<QtModule/Class>` | 先按模块字母序（Core → Gui → Network → Widgets），模块内类名字母序 | 空一行 |
+| 项目内部 `"..."` | 按路径字母序（common/ < client/ < server/ < app/） | 空一行 |
+| 前向声明 `class Xxx;` | 字母序 | — |
 
 ### 设计决策
 
