@@ -218,6 +218,7 @@ void ClientRemoteWindow::configureWindow() {
     resize(1600, 900);
     setFocusPolicy(Qt::StrongFocus);
     setMouseTracking(true); // still needed even with event filter
+    setAttribute(Qt::WA_DontClipChildren);  // 允许工具栏滑出动画渲染在客户区之外
 }
 
 void ClientRemoteWindow::setupUI() {
