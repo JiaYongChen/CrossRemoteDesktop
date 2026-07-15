@@ -3,6 +3,9 @@
 #include <QtWidgets/QWidget>
 
 class QToolButton;
+class QGraphicsOpacityEffect;
+class QParallelAnimationGroup;
+class QPropertyAnimation;
 
 /// 远程桌面工具栏 — 作为 ClientRemoteWindow 的子控件渲染在 GL 视口之上。
 ///
@@ -10,6 +13,8 @@ class QToolButton;
 /// 与父窗口的生命周期绑定：父窗口隐藏/销毁时自动跟随，无需独立窗口管理。
 class FloatingRemoteToolbar : public QWidget {
     Q_OBJECT
+    Q_PROPERTY(int toolbarY READ toolbarY WRITE setToolbarY)
+
 public:
     static constexpr int ToolbarHeight = 28;
 
@@ -17,6 +22,10 @@ public:
 
     /// 同步仅查看按钮图标
     void setViewOnly(bool viewOnly);
+
+    void showAnimated();
+    void hideAnimated();
+    bool isAnimating() const;
 
 signals:
     void toggleFullscreenRequested();
@@ -29,8 +38,17 @@ protected:
 private:
     void setupUi();
 
+    int  toolbarY() const;
+    void setToolbarY(int y);
+    void setupAnimation();
+
     QToolButton* m_toggleFullscreenBtn = nullptr;
     QToolButton* m_disconnectBtn       = nullptr;
     QToolButton* m_toggleViewOnlyBtn   = nullptr;
     bool         m_viewOnly            = false;
+
+    QGraphicsOpacityEffect* m_opacityEffect = nullptr;
+    QParallelAnimationGroup* m_animGroup    = nullptr;
+    QPropertyAnimation*      m_yAnim        = nullptr;
+    QPropertyAnimation*      m_opacityAnim  = nullptr;
 };

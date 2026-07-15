@@ -3,9 +3,13 @@
 
 #include <QtWidgets/QToolButton>
 #include <QtWidgets/QHBoxLayout>
+#include <QtWidgets/QGraphicsOpacityEffect>
 #include <QtGui/QPainter>
 #include <QtGui/QPaintEvent>
 #include <QtGui/QIcon>
+#include <QtCore/QPropertyAnimation>
+#include <QtCore/QParallelAnimationGroup>
+#include <QtCore/QEasingCurve>
 
 FloatingRemoteToolbar::FloatingRemoteToolbar(QWidget* parent)
     : QWidget(parent)
@@ -13,7 +17,10 @@ FloatingRemoteToolbar::FloatingRemoteToolbar(QWidget* parent)
     setFixedHeight(ToolbarHeight);
     setAutoFillBackground(false);
     setupUi();
-    hide();  // 初始隐藏，由父窗口在 setupUI 完成后显式 show()
+    setupAnimation();
+
+    move(width() / 2, -ToolbarHeight);  // 初始位置在视口外、不可见
+    m_opacityEffect->setOpacity(0.0);   // 初始透明
 
     qCDebug(lcClientRemoteWindow) << "FloatingRemoteToolbar 构造完成";
 }
@@ -95,4 +102,64 @@ void FloatingRemoteToolbar::paintEvent(QPaintEvent* /*event*/)
     QPainter painter(this);
     painter.setCompositionMode(QPainter::CompositionMode_Source);
     painter.fillRect(rect(), QColor(30, 30, 30, 200));
+}
+
+void FloatingRemoteToolbar::setupAnimation()
+{
+    // 透明度效果
+    m_opacityEffect = new QGraphicsOpacityEffect(this);
+    m_opacityEffect->setOpacity(0.0);
+    setGraphicsEffect(m_opacityEffect);
+
+    // Y 坐标动画
+    m_yAnim = new QPropertyAnimation(this, "toolbarY");
+    m_yAnim->setDuration(250);
+    m_yAnim->setEasingCurve(QEasingCurve::OutCubic);
+
+    // 透明度动画
+    m_opacityAnim = new QPropertyAnimation(m_opacityEffect, "opacity");
+    m_opacityAnim->setDuration(250);
+    m_opacityAnim->setEasingCurve(QEasingCurve::OutCubic);
+
+    // 并行动画组
+    m_animGroup = new QParallelAnimationGroup(this);
+    m_animGroup->addAnimation(m_yAnim);
+    m_animGroup->addAnimation(m_opacityAnim);
+}
+
+int FloatingRemoteToolbar::toolbarY() const
+{
+    return pos().y();
+}
+
+void FloatingRemoteToolbar::setToolbarY(int y)
+{
+    move(x(), y);
+}
+
+void FloatingRemoteToolbar::showAnimated()
+{
+    m_animGroup->stop();
+    m_yAnim->setStartValue(toolbarY());
+    m_yAnim->setEndValue(0);
+    m_yAnim->setEasingCurve(QEasingCurve::OutCubic);
+    m_opacityAnim->setStartValue(m_opacityEffect->opacity());
+    m_opacityAnim->setEndValue(1.0);
+    m_animGroup->start();
+}
+
+void FloatingRemoteToolbar::hideAnimated()
+{
+    m_animGroup->stop();
+    m_yAnim->setStartValue(toolbarY());
+    m_yAnim->setEndValue(-ToolbarHeight);
+    m_yAnim->setEasingCurve(QEasingCurve::InCubic);
+    m_opacityAnim->setStartValue(m_opacityEffect->opacity());
+    m_opacityAnim->setEndValue(0.0);
+    m_animGroup->start();
+}
+
+bool FloatingRemoteToolbar::isAnimating() const
+{
+    return m_animGroup && m_animGroup->state() == QAbstractAnimation::Running;
 }
