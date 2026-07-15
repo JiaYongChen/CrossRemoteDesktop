@@ -15,7 +15,6 @@
 #include <QtCore/QFutureWatcher>
 #include <QtConcurrent/QtConcurrent>
 #include <memory>
-#include <turbojpeg.h>
 #include <atomic>
 #include <vector>
 
@@ -206,7 +205,7 @@ private:
     static ProcessedData encodeImageParallel(const QImage& image, quint64 frameId,
                                              int quality = ProcessingConstants::DefaultJpegQuality,
                                              double scaleFactor = 1.0,
-                                             int chromaSubsampling = TJSAMP_420);
+                                             int chromaSubsampling = ProcessingConstants::DefaultChromaSubsampling);
 
     /**
      * @brief 验证帧数据
@@ -249,7 +248,7 @@ private:
     int m_processingTimeout;                                            ///< 处理超时时间（毫秒）
     int m_statsUpdateInterval;                                          ///< 统计更新间隔（毫秒）
     std::atomic<int> m_jpegQuality{ProcessingConstants::DefaultJpegQuality};  ///< JPEG 编码质量（线程安全）
-    std::atomic<int> m_chromaSubsampling{TJSAMP_420};                    ///< JPEG 色度子采样（线程安全）
+    std::atomic<int> m_chromaSubsampling{ProcessingConstants::DefaultChromaSubsampling};                    ///< JPEG 色度子采样（线程安全）
 
     // 并行处理
     int m_maxParallelTasks;                                             ///< 最大并行任务数

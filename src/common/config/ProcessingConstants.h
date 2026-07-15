@@ -16,6 +16,11 @@ inline constexpr int MaxQueueSize           = 1;    // Drain-to-Latest
 inline constexpr int QueueWarningThreshold  = 80;   // % 容量
 inline constexpr int QueueErrorThreshold    = 95;   // % 容量
 
+// ---- JPEG 色度子采样 ----
+/// 默认 JPEG 色度子采样模式：4:2:0（对应 TJSAMP_420 = 2）
+/// 值必须与 turbojpeg.h 中 TJSAMP_* 枚举保持一致
+inline constexpr int DefaultChromaSubsampling = 2;  // TJSAMP_420
+
 // ---- JPEG 压缩质量 ----
 inline constexpr int JpegQualityHigh      = 85;
 inline constexpr int JpegQualityMedium    = 70;
