@@ -321,6 +321,7 @@ void ClientRemoteWindow::mouseMoveEvent(QMouseEvent* event) {
                 }
             }
         }
+    }
 
     QWidget::mouseMoveEvent(event);
     if (m_cursorManager) {
