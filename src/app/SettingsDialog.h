@@ -18,8 +18,6 @@ public:
 	explicit SettingsDialog(SettingsManager *settings, QWidget *parent = nullptr);
 	~SettingsDialog();
 
-	void refreshIcons();
-
 protected:
 	void changeEvent(QEvent* event) override;
 	void showEvent(QShowEvent* event) override;

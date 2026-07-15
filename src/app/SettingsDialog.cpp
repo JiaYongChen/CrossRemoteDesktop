@@ -279,13 +279,6 @@ void SettingsDialog::onTogglePasswordClicked()
 		: "eye-off"));
 }
 
-void SettingsDialog::refreshIcons()
-{
-	setWindowIcon(IconThemeProvider::icon("settings"));
-	const bool isMasked = (ui->passwordEdit->echoMode() == QLineEdit::Password);
-	m_togglePasswordAction->setIcon(IconThemeProvider::icon(isMasked ? "eye" : "eye-off"));
-}
-
 void SettingsDialog::onPresetDebugClicked()
 {
 	const QString coreRules =

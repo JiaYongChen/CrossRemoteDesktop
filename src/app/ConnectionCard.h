@@ -19,10 +19,8 @@ public:
     void setAddressPort(const QString &host, int port);
     void setResolution(int width, int height);
     void setLastConnected(const QDateTime &time);
-    void setOnline(bool online);
 
     void retranslateUi();
-    void refreshIcons();
 
 signals:
     void connectClicked();

@@ -13,14 +13,9 @@ class ConnectionDialog : public QDialog {
 public:
 	explicit ConnectionDialog(QWidget* parent = nullptr);
 	~ConnectionDialog();
-	void refreshIcons();
-
 
 	void setDefaultPort(int port);
 	void setUsername(const QString& username);
-	void setHostname(const QString& hostname);
-	void setHostAddress(const QString& host);
-	void setPort(int port);
 
 	/// 从 ConnectionParams 设置全部控件值
 	void setConnectionParams(const ConnectionParams& params);

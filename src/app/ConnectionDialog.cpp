@@ -51,12 +51,6 @@ void ConnectionDialog::onTogglePasswordClicked()
 		: "eye-off"));
 }
 
-void ConnectionDialog::refreshIcons()
-{
-	const bool isMasked = (ui->passwordLineEdit->echoMode() == QLineEdit::Password);
-	m_togglePasswordAction->setIcon(IconThemeProvider::icon(isMasked ? "eye" : "eye-off"));
-}
-
 void ConnectionDialog::onFullScreenToggled(bool checked)
 {
 	ui->windowWidthSpinBox->setEnabled(!checked);
@@ -147,21 +141,6 @@ void ConnectionDialog::setDefaultPort(int port)
 void ConnectionDialog::setUsername(const QString& username)
 {
 	ui->usernameLineEdit->setText(username);
-}
-
-void ConnectionDialog::setHostname(const QString& hostname)
-{
-	ui->hostnameLineEdit->setText(hostname);
-}
-
-void ConnectionDialog::setHostAddress(const QString& host)
-{
-	ui->hostLineEdit->setText(host);
-}
-
-void ConnectionDialog::setPort(int port)
-{
-	m_defaultPort = port;
 }
 
 void ConnectionDialog::setConnectionParams(const ConnectionParams& params)

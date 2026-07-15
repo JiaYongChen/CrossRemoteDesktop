@@ -57,25 +57,9 @@ void ConnectionCard::setLastConnected(const QDateTime &time)
         QStringLiteral("🕐 %1").arg(time.toString("yyyy-MM-dd HH:mm")));
 }
 
-void ConnectionCard::setOnline(bool online)
-{
-    ui->statusIndicator->setStyleSheet(
-        online
-            ? "background-color: #4CAF50; border-radius: 4px;"
-            : "background-color: #9E9E9E; border-radius: 4px;");
-}
-
 void ConnectionCard::retranslateUi()
 {
     ui->connectButton->setToolTip(tr("连接"));
     ui->editButton->setToolTip(tr("修改参数"));
     ui->deleteButton->setToolTip(tr("删除记录"));
 }
-
-void ConnectionCard::refreshIcons()
-{
-    ui->connectButton->setIcon(IconThemeProvider::icon("connect"));
-    ui->editButton->setIcon(IconThemeProvider::icon("edit"));
-    ui->deleteButton->setIcon(IconThemeProvider::icon("delete"));
-}
-

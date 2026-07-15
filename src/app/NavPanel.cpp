@@ -115,12 +115,3 @@ void NavPanel::retranslateUi()
     ui->aboutItem->setToolTip(tr("关于"));
     ui->themeButton->setToolTip(tr("切换主题"));
 }
-
-void NavPanel::refreshIcons()
-{
-    ui->menuToggleButton->setIcon(IconThemeProvider::icon("menu"));
-    ui->newConnectionItem->setIcon(IconThemeProvider::icon("new_connection"));
-    ui->settingsItem->setIcon(IconThemeProvider::icon("settings"));
-    ui->aboutItem->setIcon(IconThemeProvider::icon("about"));
-    ui->themeButton->setIcon(IconThemeProvider::icon("theme"));
-}

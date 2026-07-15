@@ -1,7 +1,6 @@
 #ifndef NAVPANEL_H
 #define NAVPANEL_H
 
-#include <QIcon>
 #include <QWidget>
 #include <QPropertyAnimation>
 #include <QGraphicsOpacityEffect>
@@ -20,10 +19,7 @@ public:
     explicit NavPanel(QWidget *parent = nullptr);
     ~NavPanel() override;
 
-    [[nodiscard]] bool isExpanded() const { return m_expanded; }
-
     void retranslateUi();
-    void refreshIcons();
 
 public slots:
     void setExpanded(bool expanded);

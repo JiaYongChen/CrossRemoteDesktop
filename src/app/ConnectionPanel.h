@@ -38,7 +38,6 @@ public:
     [[nodiscard]] HistoryEntry entryFor(const QString &host, int port) const;
 
     void retranslateUi();
-    void refreshIcons();
 
 signals:
     void connectRequested(const QString &host, int port, const QString &hostname);
