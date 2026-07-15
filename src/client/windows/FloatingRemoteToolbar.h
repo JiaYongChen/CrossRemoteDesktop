@@ -3,8 +3,6 @@
 #include <QtWidgets/QWidget>
 
 class QToolButton;
-class QGraphicsOpacityEffect;
-class QParallelAnimationGroup;
 class QPropertyAnimation;
 
 /// 远程桌面工具栏 — 作为 ClientRemoteWindow 的子控件渲染在 GL 视口之上。
@@ -47,8 +45,5 @@ private:
     QToolButton* m_toggleViewOnlyBtn   = nullptr;
     bool         m_viewOnly            = false;
 
-    QGraphicsOpacityEffect* m_opacityEffect = nullptr;
-    QParallelAnimationGroup* m_animGroup    = nullptr;
-    QPropertyAnimation*      m_heightAnim   = nullptr;
-    QPropertyAnimation*      m_opacityAnim  = nullptr;
+    QPropertyAnimation* m_heightAnim = nullptr;
 };
