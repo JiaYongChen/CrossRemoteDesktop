@@ -73,8 +73,10 @@ set(CMAKE_AUTOUIC_SEARCH_PATHS src/ui)
 # ============================================================================
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang|GNU")
     add_compile_options(-Werror)
+    add_compile_options(-Wmisleading-indentation)
 elseif(MSVC)
     add_compile_options(/WX)
+    add_compile_options(/w34768)
 endif()
 
 # ============================================================================
