@@ -314,11 +314,11 @@ void ClientRemoteWindow::mouseMoveEvent(QMouseEvent* event) {
         if (inHotZone != m_toolbarHovering) {
             m_toolbarHovering = inHotZone;
             if (m_floatingToolbar) {
-            if (inHotZone) {
-                m_floatingToolbar->showAnimated();
-            } else {
-                m_floatingToolbar->hideAnimated();
-            }
+                if (inHotZone) {
+                    m_floatingToolbar->showAnimated();
+                } else {
+                    m_floatingToolbar->hideAnimated();
+                }
             }
         }
 
