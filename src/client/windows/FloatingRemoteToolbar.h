@@ -13,7 +13,7 @@ class QPropertyAnimation;
 /// 与父窗口的生命周期绑定：父窗口隐藏/销毁时自动跟随，无需独立窗口管理。
 class FloatingRemoteToolbar : public QWidget {
     Q_OBJECT
-    Q_PROPERTY(int toolbarY READ toolbarY WRITE setToolbarY)
+    Q_PROPERTY(int toolbarHeight READ toolbarHeight WRITE setToolbarHeight)
 
 public:
     static constexpr int ToolbarHeight = 28;
@@ -38,8 +38,8 @@ protected:
 private:
     void setupUi();
 
-    int  toolbarY() const;
-    void setToolbarY(int y);
+    int  toolbarHeight() const;
+    void setToolbarHeight(int h);
     void setupAnimation();
 
     QToolButton* m_toggleFullscreenBtn = nullptr;
@@ -49,6 +49,6 @@ private:
 
     QGraphicsOpacityEffect* m_opacityEffect = nullptr;
     QParallelAnimationGroup* m_animGroup    = nullptr;
-    QPropertyAnimation*      m_yAnim        = nullptr;
+    QPropertyAnimation*      m_heightAnim   = nullptr;
     QPropertyAnimation*      m_opacityAnim  = nullptr;
 };

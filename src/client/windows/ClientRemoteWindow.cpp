@@ -218,7 +218,6 @@ void ClientRemoteWindow::configureWindow() {
     resize(1600, 900);
     setFocusPolicy(Qt::StrongFocus);
     setMouseTracking(true); // still needed even with event filter
-    setAttribute(Qt::WA_DontClipChildren);  // 允许工具栏滑出动画渲染在客户区之外
 }
 
 void ClientRemoteWindow::setupUI() {
@@ -289,7 +288,7 @@ void ClientRemoteWindow::repositionToolbar() {
     constexpr int minWidth = 2 * FloatingRemoteToolbar::ToolbarHeight;
     const int naturalWidth = qMax(m_floatingToolbar->sizeHint().width(), minWidth);
     const int x = (width() - naturalWidth) / 2;
-    m_floatingToolbar->setGeometry(x, m_floatingToolbar->y(), naturalWidth,
+    m_floatingToolbar->setGeometry(x, 0, naturalWidth,
                                    FloatingRemoteToolbar::ToolbarHeight);
     m_floatingToolbar->raise();  // Z 序保护：resize 后保持在 GL 视口之上
 }
