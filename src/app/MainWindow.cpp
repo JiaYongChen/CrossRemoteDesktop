@@ -40,6 +40,7 @@
 #include "server/dataflow/QueueManager.h"
 #include "server/service/ServerService.h"
 #include "SettingsDialog.h"
+#include "common/platform/AutoStartManager.h"
 
 
 MainWindow::MainWindow(SettingsManager *settings, QWidget *parent)
@@ -96,7 +97,8 @@ MainWindow::MainWindow(SettingsManager *settings, QWidget *parent)
 
     // 预创建设置对话框，避免首次点击时 UI 线程阻塞
     // （样式表解析 + 密码解密等操作集中在启动阶段完成）
-    m_settingsDialog = new SettingsDialog(m_settings, this);
+    auto *autoStartMgr = new AutoStartManager(this);
+    m_settingsDialog = new SettingsDialog(m_settings, autoStartMgr, this);
     m_settingsDialog->hide();
 
     // 加载设置
@@ -120,6 +122,13 @@ MainWindow::MainWindow(SettingsManager *settings, QWidget *parent)
 
     // 延迟启动服务器
     QTimer::singleShot(500, this, &MainWindow::startServer);
+
+    // 开机自启动：静默启动到系统托盘
+    if (m_settings->getBool("General/startWithSystem", false)
+        && QSystemTrayIcon::isSystemTrayAvailable()) {
+        hide();
+        qCInfo(lcUIMainWindow) << "开机自启动模式：已最小化到系统托盘";
+    }
 }
 
 MainWindow::~MainWindow() {
