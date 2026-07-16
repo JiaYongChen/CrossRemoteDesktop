@@ -129,6 +129,7 @@ private:
 
     // 停止状态标志
     bool m_isShuttingDown;
+    bool m_isFirstShow = true;  // 用于 showEvent 中首次显示时处理开机自启动隐藏
     std::atomic<bool> m_gracefulShutdownDone{false};  // 防止 gracefulShutdown 重入
 };
 

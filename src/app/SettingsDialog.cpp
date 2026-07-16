@@ -128,11 +128,15 @@ void SettingsDialog::loadSettings()
 		// 配置与 OS 不一致 → 以 OS 为准，修正配置
 		m_settings->setBool("General/startWithSystem", osAutoStart);
 		if (configAutoStart && !osAutoStart) {
-			qCInfo(lcUISettingsDialog) << "开机自启动注册失效（可能应用已移动），已自动禁用";
+			qCWarning(lcUISettingsDialog) << "开机自启动注册失效（可能应用已移动），已自动禁用";
 		}
 	}
 
+	// 使用 blockSignals 防止 setChecked 的 toggled 信号触发 onAutoStartChanged
+	// 进而产生不必要的 OS API 调用（loadSettings 只是加载状态，不是用户操作）
+	ui->autoStartCheckBox->blockSignals(true);
 	ui->autoStartCheckBox->setChecked(osAutoStart);
+	ui->autoStartCheckBox->blockSignals(false);
 
 	const bool closeToTray = m_settings->getBool("UI/closeToTray", false);
 	ui->closeToTrayCheckBox->setChecked(closeToTray);
@@ -175,9 +179,7 @@ void SettingsDialog::onLanguageChanged(int index)
 
 void SettingsDialog::onAutoStartChanged(bool checked)
 {
-	m_settings->setBool("General/startWithSystem", checked);
-
-	// 调用 OS API 注册/注销自启动
+	// 先调用 OS API 注册/注销自启动，成功后再持久化配置
 	if (!m_autoStartMgr->setAutoStart(checked)) {
 		qCWarning(lcUISettingsDialog) << "开机自启动注册失败:"
 		                              << m_autoStartMgr->lastError();
@@ -187,6 +189,8 @@ void SettingsDialog::onAutoStartChanged(bool checked)
 		ui->autoStartCheckBox->blockSignals(false);
 		return;
 	}
+
+	m_settings->setBool("General/startWithSystem", checked);
 
 	qCInfo(lcUISettingsDialog) << "开机自启动设置为" << checked;
 }
@@ -273,7 +277,10 @@ void SettingsDialog::onRestoreDefaultsClicked()
 	onLanguageChanged(0);
 
 	ui->autoStartCheckBox->setChecked(false);
-	onAutoStartChanged(false);
+	// 自启动：直接设置配置并尝试取消 OS 注册
+	// （不能调用 onAutoStartChanged(false)，因为 OS 失败会提前 return 跳过后续重置）
+	m_settings->setBool("General/startWithSystem", false);
+	static_cast<void>(m_autoStartMgr->setAutoStart(false));
 
 	ui->closeToTrayCheckBox->setChecked(false);
 	onCloseToTrayChanged(false);

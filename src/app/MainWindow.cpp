@@ -122,13 +122,6 @@ MainWindow::MainWindow(SettingsManager *settings, QWidget *parent)
 
     // 延迟启动服务器
     QTimer::singleShot(500, this, &MainWindow::startServer);
-
-    // 开机自启动：静默启动到系统托盘
-    if (m_settings->getBool("General/startWithSystem", false)
-        && QSystemTrayIcon::isSystemTrayAvailable()) {
-        hide();
-        qCInfo(lcUIMainWindow) << "开机自启动模式：已最小化到系统托盘";
-    }
 }
 
 MainWindow::~MainWindow() {
@@ -333,6 +326,17 @@ void MainWindow::showEvent(QShowEvent* event)
         }
     });
 #endif
+
+    // 开机自启动：首次 show 后立即隐藏到系统托盘
+    // （不能放在构造函数中，因为 main.cpp 在构造后无条件调用 window.show()）
+    if (m_isFirstShow && m_settings->getBool("General/startWithSystem", false)
+        && QSystemTrayIcon::isSystemTrayAvailable()) {
+        QTimer::singleShot(0, this, [this]() {
+            hide();
+            qCInfo(lcUIMainWindow) << "开机自启动模式：已最小化到系统托盘";
+        });
+    }
+    m_isFirstShow = false;
 
     // 窗口首次显示后，DWM 标题栏属性可能在 Qt 内部窗口创建过程中被重置，
     // 因此需要在 showEvent 中再次应用标题栏主题

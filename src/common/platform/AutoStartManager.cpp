@@ -5,8 +5,6 @@
 #include <QtCore/QDir>
 #include <QtCore/QFile>
 #include <QtCore/QFileInfo>
-#include <QtCore/QStandardPaths>
-
 #ifdef Q_OS_WIN
 #include <qt_windows.h>
 #elif defined(Q_OS_MACOS)
@@ -274,12 +272,16 @@ bool AutoStartManager::setAutoStart(bool enable)
         }
 
         QTextStream stream(&file);
+        // Exec= 路径需要引号包裹，防止含空格的路径被拆分执行
+        const QString quotedPath = QStringLiteral("\"%1\"").arg(applicationPath());
         stream << "[Desktop Entry]\n"
                << "Type=Application\n"
                << "Name=" << applicationName() << "\n"
-               << "Exec=" << applicationPath() << "\n"
+               << "Exec=" << quotedPath << "\n"
                << "Terminal=false\n"
+               << "Hidden=false\n"
                << "X-GNOME-Autostart-enabled=true\n";
+        stream.flush();  // QTextStream 析构在 file.close() 之后，需显式刷新
         file.close();
 
         qCInfo(lcCoreConfig) << "AutoStartManager: 已注册 autostart 开机自启动";
@@ -307,17 +309,20 @@ bool AutoStartManager::isAutoStartEnabled() const
         return false;
     }
 
-    const QString currentPath = QDir::toNativeSeparators(
-        QCoreApplication::applicationFilePath());
+    const QString currentPath = applicationPath();
     QTextStream stream(&file);
     while (!stream.atEnd()) {
         QString line = stream.readLine().trimmed();
         if (line.startsWith(QStringLiteral("Exec="))) {
+            // Exec= 路径可能带引号，剥离后比较
             QString registeredPath = line.mid(5).trimmed();
+            if (registeredPath.startsWith('\"') && registeredPath.endsWith('\"')) {
+                registeredPath = registeredPath.mid(1, registeredPath.size() - 2);
+            }
             file.close();
             return (QString::compare(
                 QDir::toNativeSeparators(registeredPath),
-                currentPath, Qt::CaseInsensitive) == 0);
+                currentPath, Qt::CaseSensitive) == 0);
         }
     }
     file.close();
