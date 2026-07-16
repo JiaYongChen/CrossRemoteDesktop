@@ -31,7 +31,6 @@ Q_DECLARE_LOGGING_CATEGORY(lcClientRemoteWindow)
 // === ui.* ===
 Q_DECLARE_LOGGING_CATEGORY(lcUI)
 Q_DECLARE_LOGGING_CATEGORY(lcUIMainWindow)
-Q_DECLARE_LOGGING_CATEGORY(lcUIConnectionDialog)
 Q_DECLARE_LOGGING_CATEGORY(lcUISettingsDialog)
 
 // === test.* ===

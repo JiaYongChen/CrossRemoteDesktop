@@ -245,7 +245,7 @@ qWarning() << "message";                      // 错误 - 禁止无分类日志
 | `core.*` | `lcCoreProtocol`, `lcCoreThreading`, `lcCoreConfig` | 协议、线程、配置 |
 | `server.*` | `lcServer`, `lcServerNetwork`, `lcServerCapture`, `lcServerCaptureDxgi`, `lcServerEncode`, `lcServerQueue`, `lcServerClientHandler`, `lcServerInput` | 服务端全链路 |
 | `client.*` | `lcClient`, `lcClientSession`, `lcClientSessionDecode`, `lcClientSessionProtocol`, `lcClientGL`, `lcClientRemoteWindow` | 客户端全链路 |
-| `ui.*` | `lcUI`, `lcUIMainWindow`, `lcUIConnectionDialog`, `lcUISettingsDialog` | 用户界面 |
+| `ui.*` | `lcUI`, `lcUIMainWindow`, `lcUISettingsDialog` | 用户界面 |
 | `test.*` | `lcTest`, `lcTestScreenCapture`, `lcTestScreenCaptureIntegration`, `lcTestClientHandler`, `lcTestProducerConsumer` | 测试 |
 
 **类别字符串命名**：统一 `domain.component[.subcomponent]` 点分格式，默认两级，三级仅用于独立调试子组件。

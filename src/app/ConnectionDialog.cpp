@@ -188,7 +188,6 @@ ConnectionParams ConnectionDialog::getConnectionParams() const
 
 void ConnectionDialog::setEditingMode(bool editing)
 {
-	m_isEditingMode = editing;
 	m_togglePasswordAction->setVisible(!editing);
 	// 编辑模式下强制密码遮盖，防止通过其他途径切换为明文
 	if (editing && ui->passwordLineEdit->echoMode() == QLineEdit::Normal) {

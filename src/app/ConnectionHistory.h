@@ -43,9 +43,6 @@ public:
     /// 全部条目（按时间倒序：最新在前）
     [[nodiscard]] const QList<HistoryEntry> &entries() const;
 
-    /// 无任何历史记录
-    [[nodiscard]] bool isEmpty() const;
-
 private:
     QList<HistoryEntry> m_entries;
 };

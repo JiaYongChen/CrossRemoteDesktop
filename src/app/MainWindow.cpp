@@ -327,17 +327,6 @@ void MainWindow::showEvent(QShowEvent* event)
     });
 #endif
 
-    // 开机自启动：兜底隐藏逻辑（主要判断在 main.cpp 中跳过 show()）
-    // 此分支处理从托盘恢复显示后再次隐藏、或直接调用 show() 的异常路径
-    if (m_isFirstShow && m_settings->getBool("General/startWithSystem", false)
-        && QSystemTrayIcon::isSystemTrayAvailable()) {
-        QTimer::singleShot(0, this, [this]() {
-            hide();
-            qCInfo(lcUIMainWindow) << "开机自启动模式：已最小化到系统托盘";
-        });
-    }
-    m_isFirstShow = false;
-
     // 窗口首次显示后，DWM 标题栏属性可能在 Qt 内部窗口创建过程中被重置，
     // 因此需要在 showEvent 中再次应用标题栏主题
     const bool isDark = (m_themeMode == "dark");

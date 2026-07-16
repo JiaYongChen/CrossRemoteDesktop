@@ -64,5 +64,4 @@ private:
 	Ui::ConnectionDialog* ui;
 	int m_defaultPort;
 	QAction* m_togglePasswordAction = nullptr;
-	bool m_isEditingMode = false;
 };

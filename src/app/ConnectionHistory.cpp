@@ -151,7 +151,3 @@ const QList<HistoryEntry> &ConnectionHistory::entries() const
     return m_entries;
 }
 
-bool ConnectionHistory::isEmpty() const
-{
-    return m_entries.isEmpty();
-}

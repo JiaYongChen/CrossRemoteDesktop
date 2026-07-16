@@ -29,7 +29,6 @@ Q_LOGGING_CATEGORY(lcClientRemoteWindow, "client.remotewindow", QtDebugMsg)
 // === ui.* ===
 Q_LOGGING_CATEGORY(lcUI, "ui", QtDebugMsg)
 Q_LOGGING_CATEGORY(lcUIMainWindow, "ui.mainwindow", QtDebugMsg)
-Q_LOGGING_CATEGORY(lcUIConnectionDialog, "ui.connectiondialog", QtDebugMsg)
 Q_LOGGING_CATEGORY(lcUISettingsDialog, "ui.settingsdialog", QtDebugMsg)
 
 // === test.* ===
