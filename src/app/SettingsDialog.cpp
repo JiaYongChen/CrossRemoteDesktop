@@ -276,9 +276,11 @@ void SettingsDialog::onRestoreDefaultsClicked()
 	ui->languageComboBox->setCurrentIndex(0);
 	onLanguageChanged(0);
 
+	// 自启动：用 blockSignals 阻止 setChecked 触发 onAutoStartChanged
+	// （直接设置配置 + 调用 OS API，避免信号竞态和提前 return）
+	ui->autoStartCheckBox->blockSignals(true);
 	ui->autoStartCheckBox->setChecked(false);
-	// 自启动：直接设置配置并尝试取消 OS 注册
-	// （不能调用 onAutoStartChanged(false)，因为 OS 失败会提前 return 跳过后续重置）
+	ui->autoStartCheckBox->blockSignals(false);
 	m_settings->setBool("General/startWithSystem", false);
 	static_cast<void>(m_autoStartMgr->setAutoStart(false));
 
