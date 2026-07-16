@@ -1,5 +1,6 @@
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QStyleFactory>
+#include <QtWidgets/QSystemTrayIcon>
 #include <QtCore/QDir>
 #include <QtCore/QStandardPaths>
 #include "common/logging/LoggingCategories.h"
@@ -255,7 +256,11 @@ int main(int argc, char* argv[]) {
             g_mainWindow = &window;
             installSignalHandlers();
 
-            window.show();
+            // 开机自启动：跳过显示主窗口，直接进入托盘模式
+            if (!settings.getBool("General/startWithSystem", false)
+                || !QSystemTrayIcon::isSystemTrayAvailable()) {
+                window.show();
+            }
 
             if ( parser.isSet(connectOption) ) {
                 QString connectTo = parser.value(connectOption);

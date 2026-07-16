@@ -327,8 +327,8 @@ void MainWindow::showEvent(QShowEvent* event)
     });
 #endif
 
-    // 开机自启动：首次 show 后立即隐藏到系统托盘
-    // （不能放在构造函数中，因为 main.cpp 在构造后无条件调用 window.show()）
+    // 开机自启动：兜底隐藏逻辑（主要判断在 main.cpp 中跳过 show()）
+    // 此分支处理从托盘恢复显示后再次隐藏、或直接调用 show() 的异常路径
     if (m_isFirstShow && m_settings->getBool("General/startWithSystem", false)
         && QSystemTrayIcon::isSystemTrayAvailable()) {
         QTimer::singleShot(0, this, [this]() {
