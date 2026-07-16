@@ -3,6 +3,7 @@
 #include <QtWidgets/QDialog>
 #include <QtCore/QString>
 class SettingsManager;
+class AutoStartManager;
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class SettingsDialog; }
@@ -15,7 +16,9 @@ class SettingsDialog : public QDialog {
 	Q_OBJECT
 
 public:
-	explicit SettingsDialog(SettingsManager *settings, QWidget *parent = nullptr);
+	explicit SettingsDialog(SettingsManager *settings,
+	                        AutoStartManager *autoStartMgr,
+	                        QWidget *parent = nullptr);
 	~SettingsDialog();
 
 protected:
@@ -50,6 +53,7 @@ private:
 
 	Ui::SettingsDialog* ui;
 	SettingsManager* m_settings;
+	AutoStartManager *m_autoStartMgr;
 	QString m_cachedPassword;
 	QString m_lastLang; // 防重入：跳过重复的语言切换请求
 	QAction* m_togglePasswordAction = nullptr;

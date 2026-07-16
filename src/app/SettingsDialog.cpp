@@ -8,6 +8,7 @@
 #include "common/theme/TitleBarTheme.h"
 
 #include "common/config/SettingsManager.h"
+#include "common/platform/AutoStartManager.h"
 #include <QtCore/QEvent>
 #include <QtGui/QHideEvent>
 #include <QtCore/QVariant>
@@ -22,10 +23,13 @@
 #include <QtWidgets/QPushButton>
 #include <QtGui/QIcon>
 
-SettingsDialog::SettingsDialog(SettingsManager *settings, QWidget *parent)
+SettingsDialog::SettingsDialog(SettingsManager *settings,
+                               AutoStartManager *autoStartMgr,
+                               QWidget *parent)
 	: QDialog(parent)
 	, ui(new Ui::SettingsDialog)
 	, m_settings(settings)
+	, m_autoStartMgr(autoStartMgr)
 {
 	ui->setupUi(this);
 	setWindowIcon(IconThemeProvider::icon("settings"));
@@ -116,9 +120,19 @@ void SettingsDialog::updateLanguageList()
 
 void SettingsDialog::loadSettings()
 {
-	// 常规
-	const bool autoStart = m_settings->getBool("General/startWithSystem", false);
-	ui->autoStartCheckBox->setChecked(autoStart);
+	// 常规 — 开机自启动：以 OS 实际状态为准
+	const bool configAutoStart = m_settings->getBool("General/startWithSystem", false);
+	const bool osAutoStart = m_autoStartMgr->isAutoStartEnabled();
+
+	if (configAutoStart != osAutoStart) {
+		// 配置与 OS 不一致 → 以 OS 为准，修正配置
+		m_settings->setBool("General/startWithSystem", osAutoStart);
+		if (configAutoStart && !osAutoStart) {
+			qCInfo(lcUISettingsDialog) << "开机自启动注册失效（可能应用已移动），已自动禁用";
+		}
+	}
+
+	ui->autoStartCheckBox->setChecked(osAutoStart);
 
 	const bool closeToTray = m_settings->getBool("UI/closeToTray", false);
 	ui->closeToTrayCheckBox->setChecked(closeToTray);
@@ -162,7 +176,19 @@ void SettingsDialog::onLanguageChanged(int index)
 void SettingsDialog::onAutoStartChanged(bool checked)
 {
 	m_settings->setBool("General/startWithSystem", checked);
-	qCDebug(lcUISettingsDialog) << "SettingsDialog: auto start set to" << checked;
+
+	// 调用 OS API 注册/注销自启动
+	if (!m_autoStartMgr->setAutoStart(checked)) {
+		qCWarning(lcUISettingsDialog) << "开机自启动注册失败:"
+		                              << m_autoStartMgr->lastError();
+		// 回滚 UI 状态
+		ui->autoStartCheckBox->blockSignals(true);
+		ui->autoStartCheckBox->setChecked(!checked);
+		ui->autoStartCheckBox->blockSignals(false);
+		return;
+	}
+
+	qCInfo(lcUISettingsDialog) << "开机自启动设置为" << checked;
 }
 
 void SettingsDialog::onCloseToTrayChanged(bool checked)
