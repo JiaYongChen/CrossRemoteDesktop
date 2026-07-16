@@ -77,8 +77,10 @@ endif()
 qt_add_library(common_test_core STATIC
     ../src/common/logging/LoggingCategories.cpp
     ../src/common/config/SettingsManager.cpp
+    ../src/common/config/ConnectionHistory.cpp
+    ../src/common/crypto/PasswordCrypto.cpp
 )
-target_link_libraries(common_test_core PUBLIC Qt6::Core)
+target_link_libraries(common_test_core PUBLIC Qt6::Core OpenSSL::SSL OpenSSL::Crypto)
 
 qt_add_library(threading_test_core STATIC
     ../src/common/threading/Worker.cpp
@@ -129,7 +131,7 @@ add_custom_target(run_integration_tests
 )
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 测试定义（22 个目标，使用 add_rd_test() 辅助函数）
+# 测试定义（24 个目标，使用 add_rd_test() 辅助函数）
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # unit / threading
@@ -137,6 +139,12 @@ add_rd_test(TARGET test_threadmanager  NAME ThreadManagerTest
     SOURCES common/threading/test_threadmanager.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Network Qt6::Concurrent threading_test_core
     TIMEOUT 30  LABELS unit threading manager)
+
+# unit / config
+add_rd_test(TARGET test_settingsmanager_migration  NAME SettingsManagerMigrationTest
+    SOURCES common/config/test_settingsmanager_migration.cpp
+    LIBRARIES Qt6::Core Qt6::Test common_test_core
+    TIMEOUT 30  LABELS unit config migration  NO_OPENGL)
 
 # unit / capture
 add_rd_test(TARGET test_screencaptureworker  NAME ScreenCaptureWorkerTest

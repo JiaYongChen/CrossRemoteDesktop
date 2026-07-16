@@ -1,8 +1,9 @@
 #include "SettingsManager.h"
 #include "../logging/LoggingCategories.h"
-#include "../crypto/PasswordCrypto.h"
+#include "ConnectionHistory.h"
 
 #include <QtCore/QCoreApplication>
+#include <QtCore/QDateTime>
 #include <QtCore/QDir>
 #include <QtCore/QFile>
 #include <QtCore/QFileInfo>
@@ -10,8 +11,8 @@
 #include <QtCore/QJsonObject>
 #include <QtCore/QJsonArray>
 #include <QtCore/QMutexLocker>
+#include <QtCore/QSaveFile>
 #include <QtCore/QSettings>
-#include <QtCore/QStandardPaths>
 #include <QtCore/QTimer>
 
 // ============================================================
@@ -68,9 +69,17 @@ bool SettingsManager::load()
     QFileInfo fi(m_filePath);
     if (!fi.exists()) {
         // JSON 不存在 → 尝试从旧 QSettings 迁移
-        migrateFromQSettings();
+        const bool migrated = migrateFromQSettings();
         m_isModified = true;
-        saveLocked();  // 调用者已持锁，用内部版本避免死锁
+        // 旧数据清理延迟到任意一次 saveLocked() 成功后执行（见 saveLocked 尾部），
+        // 保证"新 JSON 落盘成功才销毁旧数据"在首次写盘失败、后续去抖/析构保存成功时依然闭环
+        m_pendingLegacyCleanup = migrated;
+        // 调用者已持锁，用内部版本避免死锁；成功时会顺带清理旧 QSettings（见 saveLocked()）
+        const bool persisted = saveLocked();
+        if (migrated && !persisted) {
+            qCWarning(lcCoreConfig) << "SettingsManager: Failed to persist migrated config,"
+                                    << "legacy QSettings data kept until next successful save";
+        }
         return true;
     }
 
@@ -86,13 +95,17 @@ bool SettingsManager::load()
     file.close();
 
     if (parseError.error != QJsonParseError::NoError) {
-        qCWarning(lcCoreConfig) << "SettingsManager: JSON parse error:"
-                                << parseError.errorString();
+        // 产品决策：不做损坏文件备份（.bak），解析失败视为全新启动，
+        // 后续保存将覆写损坏文件——saveLocked() 的 QSaveFile 原子写入已从源头消除截断损坏
+        qCCritical(lcCoreConfig) << "SettingsManager: JSON parse error:"
+                                 << parseError.errorString()
+                                 << "- config will be reset on next save";
         return false;
     }
 
     if (!doc.isObject()) {
-        qCWarning(lcCoreConfig) << "SettingsManager: JSON root is not an object";
+        qCCritical(lcCoreConfig) << "SettingsManager: JSON root is not an object"
+                                 << "- config will be reset on next save";
         return false;
     }
 
@@ -114,7 +127,9 @@ bool SettingsManager::saveLocked()
     QFileInfo fi(m_filePath);
     QDir().mkpath(fi.absolutePath());
 
-    QFile file(m_filePath);
+    // QSaveFile 原子写入：先写临时文件，commit() 时原子替换目标文件，
+    // 进程中断不会留下截断的半个 JSON
+    QSaveFile file(m_filePath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
         qCWarning(lcCoreConfig) << "SettingsManager: Cannot open config file for writing:"
                                 << m_filePath;
@@ -123,9 +138,20 @@ bool SettingsManager::saveLocked()
 
     QJsonDocument doc(m_root);
     file.write(doc.toJson(QJsonDocument::Indented));
-    file.close();
+    if (!file.commit()) {
+        qCWarning(lcCoreConfig) << "SettingsManager: Failed to commit config file:"
+                                << m_filePath << file.errorString();
+        return false;
+    }
 
     m_isModified = false;
+
+    // 迁移数据已确认落盘 → 此时销毁旧 QSettings 数据才是安全的
+    if (m_pendingLegacyCleanup) {
+        m_pendingLegacyCleanup = false;
+        clearLegacyQSettings();
+    }
+
     emit saved();
     return true;
 }
@@ -276,17 +302,14 @@ void SettingsManager::scheduleSave()
 // ============================================================
 
 namespace {
-constexpr const char *ENC_PREFIX = "ENC:";
-constexpr int ENC_PREFIX_LEN = 4;
-
 /** 安全读取旧 QSettings 字符串值 */
-static QString oldStr(QSettings &s, const QString &key, const QString &def = {})
+QString oldStr(QSettings &s, const QString &key, const QString &def = {})
 {
     return s.value(key, def).toString();
 }
 } // anonymous namespace
 
-void SettingsManager::migrateFromQSettings()
+bool SettingsManager::migrateFromQSettings()
 {
     // 检测旧数据 — 使用旧 App 名称，确保跨版本迁移能找到历史数据
     // （APP_ORGANIZATION/APP_NAME 可能随品牌更名而变化，迁移路径必须硬编码旧值）
@@ -294,8 +317,7 @@ void SettingsManager::migrateFromQSettings()
                   QStringLiteral("Cross Remote Desktop"));
     if (old.allKeys().isEmpty()) {
         qCInfo(lcCoreConfig) << "SettingsManager: No old QSettings data, starting fresh";
-        m_migrationDone = true;
-        return;
+        return false;
     }
 
     qCInfo(lcCoreConfig) << "SettingsManager: Migrating from QSettings to JSON...";
@@ -303,8 +325,7 @@ void SettingsManager::migrateFromQSettings()
     // ── 读取 General ──
     {
         QJsonObject general;
-        QString lang = oldStr(old, "General/language", "zh_CN");
-        general["language"] = lang;
+        general["language"] = oldStr(old, "General/language", "zh_CN");
         general["startWithSystem"] = old.value("General/startWithSystem", false).toBool();
         m_root["General"] = general;
     }
@@ -335,83 +356,17 @@ void SettingsManager::migrateFromQSettings()
     }
 
     // ── 读取 ConnectionHistory ──
-    {
-        old.beginGroup("ConnectionHistory");
-        QStringList hosts       = old.value("hosts").toStringList();
-        QStringList hostnames   = old.value("hostnames").toStringList();
-        QStringList ports       = old.value("ports").toStringList();
-        QStringList times       = old.value("times").toStringList();
-        QStringList usernames   = old.value("usernames").toStringList();
-        QStringList passwords   = old.value("passwords").toStringList();
-        QStringList fullScreens  = old.value("fullScreens").toStringList();
-        QStringList windowWidths = old.value("windowWidths").toStringList();
-        QStringList windowHeights = old.value("windowHeights").toStringList();
-        QStringList colorDepths  = old.value("colorDepths").toStringList();
-        QStringList imageQualities = old.value("imageQualities").toStringList();
-        QStringList viewOnlys    = old.value("viewOnlys").toStringList();
-        QStringList shareClipboards = old.value("shareClipboards").toStringList();
-        QStringList showCursors  = old.value("showCursors").toStringList();
-        QStringList connectionTimeouts   = old.value("connectionTimeouts").toStringList();
-        QStringList autoReconnects       = old.value("autoReconnects").toStringList();
-        QStringList reconnectIntervals   = old.value("reconnectIntervals").toStringList();
-        old.endGroup();
-
-        QJsonArray history;
-        const int count = hosts.size();
-        for (int i = 0; i < count; ++i) {
-            bool ok = false;
-            int port = ports.at(i).toInt(&ok);
-            if (!ok || port <= 0 || port > 65535) continue;
-
-            QDateTime time = QDateTime::fromString(times.at(i), Qt::ISODate);
-            if (!time.isValid()) continue;
-
-            QJsonObject entry;
-            entry["host"]       = hosts.at(i);
-            entry["hostname"]   = (i < hostnames.size() && !hostnames.at(i).isEmpty())
-                                         ? hostnames.at(i) : hosts.at(i);
-            entry["port"]       = port;
-            entry["lastConnected"] = time.toString(Qt::ISODate);
-
-            auto safeStr = [](const QStringList &list, int idx, const QString &def = {}) -> QString {
-                return (idx < list.size()) ? list.at(idx) : def;
-            };
-            auto safeBool = [](const QStringList &list, int idx, bool def = false) -> bool {
-                return (idx < list.size()) ? QVariant(list.at(idx)).toBool() : def;
-            };
-            auto safeInt = [](const QStringList &list, int idx, int def = 0) -> int {
-                return (idx < list.size()) ? list.at(idx).toInt() : def;
-            };
-
-            entry["username"] = safeStr(usernames, i);
-            QString storedPass = safeStr(passwords, i);
-            if (storedPass.startsWith(QLatin1String(ENC_PREFIX))) {
-                entry["password"] = PasswordCrypto::decrypt(
-                    safeStr(usernames, i), storedPass.mid(ENC_PREFIX_LEN));
-            } else {
-                entry["password"] = storedPass;
-            }
-            entry["fullScreen"]       = safeBool(fullScreens, i);
-            entry["windowWidth"]      = safeInt(windowWidths, i, 1600);
-            entry["windowHeight"]     = safeInt(windowHeights, i, 900);
-            entry["colorDepth"]       = safeInt(colorDepths, i, 32);
-            entry["imageQuality"]     = safeInt(imageQualities, i, 85);
-            entry["viewOnly"]         = safeBool(viewOnlys, i);
-            entry["shareClipboard"]   = safeBool(shareClipboards, i, true);
-            entry["showCursor"]       = safeBool(showCursors, i, true);
-            entry["connectionTimeout"] = safeInt(connectionTimeouts, i, 30000);
-            entry["autoReconnect"]     = safeBool(autoReconnects, i);
-            entry["reconnectInterval"] = safeInt(reconnectIntervals, i, 5000);
-
-            history.append(entry);
-        }
-        m_root["ConnectionHistory"] = history;
-    }
+    m_root["ConnectionHistory"] = readLegacyConnectionHistory(old);
 
     m_root["version"] = QStringLiteral("1.0");
-    m_migrationDone = true;
+    qCInfo(lcCoreConfig) << "SettingsManager: Migration data prepared";
+    return true;
+}
 
-    // ── 清理旧数据 ──
+void SettingsManager::clearLegacyQSettings()
+{
+    QSettings old(QStringLiteral("CrossRemoteDesktop"),
+                  QStringLiteral("Cross Remote Desktop"));
 #ifdef Q_OS_WIN
     // Windows: 清空注册表项
     old.clear();
@@ -425,7 +380,98 @@ void SettingsManager::migrateFromQSettings()
         QFile::remove(oldPath);
     }
 #endif
-
     qCInfo(lcCoreConfig) << "SettingsManager: Migration complete."
                           << "Cleaned old QSettings storage.";
+}
+
+QJsonArray SettingsManager::readLegacyConnectionHistory(QSettings &oldSettings)
+{
+    oldSettings.beginGroup("ConnectionHistory");
+    const QStringList hosts       = oldSettings.value("hosts").toStringList();
+    const QStringList hostnames   = oldSettings.value("hostnames").toStringList();
+    const QStringList ports       = oldSettings.value("ports").toStringList();
+    const QStringList times       = oldSettings.value("times").toStringList();
+    const QStringList usernames   = oldSettings.value("usernames").toStringList();
+    const QStringList passwords   = oldSettings.value("passwords").toStringList();
+    const QStringList fullScreens  = oldSettings.value("fullScreens").toStringList();
+    const QStringList windowWidths = oldSettings.value("windowWidths").toStringList();
+    const QStringList windowHeights = oldSettings.value("windowHeights").toStringList();
+    const QStringList colorDepths  = oldSettings.value("colorDepths").toStringList();
+    const QStringList imageQualities = oldSettings.value("imageQualities").toStringList();
+    const QStringList viewOnlys    = oldSettings.value("viewOnlys").toStringList();
+    const QStringList shareClipboards = oldSettings.value("shareClipboards").toStringList();
+    const QStringList showCursors  = oldSettings.value("showCursors").toStringList();
+    const QStringList connectionTimeouts   = oldSettings.value("connectionTimeouts").toStringList();
+    const QStringList autoReconnects       = oldSettings.value("autoReconnects").toStringList();
+    const QStringList reconnectIntervals   = oldSettings.value("reconnectIntervals").toStringList();
+    oldSettings.endGroup();
+
+    // 旧格式全部为字符串（int 为数字串，bool 为 "1"/"0"），必须先做类型转换
+    // 再写入 JSON——ConnectionHistory::load() 的 QJsonValue::toInt()/toBool()
+    // 严格类型化，对 String 类型不做解析。解析失败的可选字段省略键，
+    // 由 load() 统一填默认值；port/时间非法则整条剔除（与旧迁移行为一致）。
+    QJsonArray raw;
+    const int count = hosts.size();
+    int skipped = 0;
+    for (int i = 0; i < count; ++i) {
+        bool portOk = false;
+        const int port = ports.value(i).toInt(&portOk);
+        if (!portOk || port <= 0 || port > 65535) {
+            ++skipped;
+            continue;
+        }
+
+        const QDateTime time = QDateTime::fromString(times.value(i), Qt::ISODate);
+        if (!time.isValid()) {
+            ++skipped;
+            continue;
+        }
+
+        QJsonObject entry;
+        entry["host"] = hosts.at(i);
+        entry["port"] = port;
+        entry["lastConnected"] = time.toString(Qt::ISODate);
+        entry["username"] = usernames.value(i);
+        entry["password"] = passwords.value(i);
+
+        // hostname 为空时省略键，由 load() 回退到 host
+        const QString hostname = hostnames.value(i);
+        if (!hostname.isEmpty()) {
+            entry["hostname"] = hostname;
+        }
+
+        auto setInt = [&entry](const char *key, const QStringList &list, int idx) {
+            bool ok = false;
+            const int v = list.value(idx).toInt(&ok);
+            if (ok) entry[QLatin1String(key)] = v;
+        };
+        auto setBool = [&entry](const char *key, const QStringList &list, int idx) {
+            const QString s = list.value(idx);
+            if (!s.isEmpty()) entry[QLatin1String(key)] = QVariant(s).toBool();
+        };
+        setBool("fullScreen",       fullScreens, i);
+        setInt("windowWidth",       windowWidths, i);
+        setInt("windowHeight",      windowHeights, i);
+        setInt("colorDepth",        colorDepths, i);
+        setInt("imageQuality",      imageQualities, i);
+        setBool("viewOnly",         viewOnlys, i);
+        setBool("shareClipboard",   shareClipboards, i);
+        setBool("showCursor",       showCursors, i);
+        setInt("connectionTimeout", connectionTimeouts, i);
+        setBool("autoReconnect",    autoReconnects, i);
+        setInt("reconnectInterval", reconnectIntervals, i);
+
+        raw.append(entry);
+    }
+
+    if (skipped > 0) {
+        qCWarning(lcCoreConfig) << "SettingsManager: Skipped" << skipped
+                                << "invalid legacy connection history entries during migration";
+    }
+
+    // 统一处理：解密 + 验证 + 默认值 + 规范化（密码解密后以 ENC: 格式重新加密写回，
+    // load() 内部会对其剔除的条目自行告警）
+    ConnectionHistory history;
+    history.load(raw);
+    return history.save();
 }

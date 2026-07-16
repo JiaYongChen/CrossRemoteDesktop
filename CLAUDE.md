@@ -288,11 +288,11 @@ qCWarning(lcServer) << error.logLabel();      // 推荐
 
 ## 测试
 
-26 个测试目标（含 32 个 SessionManager 专用用例），测试目录镜像 `src/` 结构按模块组织：
+24 个测试目标，测试目录镜像 `src/` 结构按模块组织：
 - **`test/app/`** — 应用壳层测试
 - **`test/client/`** — 客户端测试（`decode/`、`session/`、`windows/`、`network/`）
 - **`test/server/`** — 服务端测试（`capture/`、`clienthandler/`、`dataprocessing/`、`dataflow/`）
-- **`test/common/`** — 共享代码测试（`threading/`）
+- **`test/common/`** — 共享代码测试（`threading/`、`config/`）
 - **`test/integration/`** — 跨模块集成测试
 - **MockConnectionManager**：重写 `isConnected()`/`isAuthenticated()` 等 virtual 方法，用于 SessionManager 测试（`test/client/session/test_sessionmanager_common.h`）
 - **SessionManager DI**：受保护构造函数 + friend 声明，测试可直接注入 MockConnectionManager
