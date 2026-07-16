@@ -2,7 +2,7 @@
 
 #include <QWidget>
 #include <QList>
-#include "ConnectionHistory.h"
+#include "common/config/ConnectionHistory.h"
 
 class ConnectionCard;
 class SettingsManager;

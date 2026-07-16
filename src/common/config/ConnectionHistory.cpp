@@ -1,10 +1,15 @@
 #include "ConnectionHistory.h"
-#include "common/logging/LoggingCategories.h"
+#include "common/config/NetworkConstants.h"
 #include "common/crypto/PasswordCrypto.h"
-#include <QJsonArray>
-#include <QJsonObject>
-#include <QJsonValue>
-#include <algorithm>
+#include "common/logging/LoggingCategories.h"
+
+#include <QtCore/QJsonObject>
+#include <QtCore/QJsonValue>
+
+namespace {
+/// 加密密码存储前缀："ENC:<密文>"
+constexpr QLatin1String EncPrefix("ENC:");
+} // anonymous namespace
 
 // ============================================================
 // HistoryEntry 方法实现
@@ -32,23 +37,30 @@ QString HistoryEntry::searchKey() const
 void ConnectionHistory::load(const QJsonArray &entries)
 {
     m_entries.clear();
+    int dropped = 0;
 
     for (const QJsonValue &val : entries) {
-        if (!val.isObject()) continue;
+        if (!val.isObject()) {
+            ++dropped;
+            continue;
+        }
         QJsonObject obj = val.toObject();
 
         HistoryEntry entry;
         entry.params.host     = obj.value("host").toString();
-        entry.params.port     = obj.value("port").toInt(5921);
+        entry.params.port     = obj.value("port").toInt(NetworkConstants::DefaultServerPort);
         entry.params.hostname = obj.value("hostname").toString(entry.params.host);
 
-        if (entry.params.host.isEmpty() || entry.params.port <= 0) continue;
+        if (entry.params.host.isEmpty() || entry.params.port <= 0) {
+            ++dropped;
+            continue;
+        }
 
         entry.params.username = obj.value("username").toString();
         QString storedPass = obj.value("password").toString();
-        if (storedPass.startsWith(QLatin1String("ENC:"))) {
+        if (storedPass.startsWith(EncPrefix)) {
             entry.params.password = PasswordCrypto::decrypt(
-                entry.params.username, storedPass.mid(4));
+                entry.params.username, storedPass.mid(EncPrefix.size()));
         } else {
             entry.params.password = storedPass;
         }
@@ -72,6 +84,11 @@ void ConnectionHistory::load(const QJsonArray &entries)
 
         m_entries.append(entry);
     }
+
+    if (dropped > 0) {
+        qCWarning(lcCoreConfig) << "ConnectionHistory: Dropped" << dropped
+                                << "invalid entries during load";
+    }
 }
 
 QJsonArray ConnectionHistory::save() const
@@ -84,7 +101,7 @@ QJsonArray ConnectionHistory::save() const
         obj["port"]     = e.params.port;
         obj["username"] = e.params.username;
         if (!e.params.password.isEmpty()) {
-            obj["password"] = QLatin1String("ENC:")
+            obj["password"] = EncPrefix
                               + PasswordCrypto::encrypt(e.params.username, e.params.password);
         } else {
             obj["password"] = QString();

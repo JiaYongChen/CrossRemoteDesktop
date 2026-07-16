@@ -32,9 +32,9 @@
     - 明暗双主题 QSS 样式（`light.qss` / `dark.qss`）
     - 多语言支持（zh_CN / en_US），含翻译同步工具链
     - 分类流式日志系统（6 棵一级分类树，按大小滚动）
-    - 灵活的配置系统（QSettings，支持运行时更新）
+    - 灵活的配置系统（JSON 文件持久化，支持运行时更新）
     - 密码认证（`PasswordCrypto`，SHA-256 哈希）
-    - 23 个测试目标，覆盖单元 / 集成 / 性能测试（镜像 src/ 结构组织）
+    - 24 个测试目标，覆盖单元 / 集成 / 性能测试（镜像 src/ 结构组织）
     - 跨平台输入模拟（Windows / macOS / Linux 键盘鼠标注入）
 
 ### 规划中 ⏳
@@ -93,7 +93,6 @@ UltraDesktop/
 │   │   ├── ConnectionDialog.*        # 连接对话框
 │   │   ├── ConnectionPanel.*         # 连接面板
 │   │   ├── ConnectionCard.*          # 连接卡片控件
-│   │   ├── ConnectionHistory.*       # 连接历史管理
 │   │   ├── NavPanel.*                # 导航面板
 │   │   └── SettingsDialog.*          # 设置对话框
 │   ├── ui/                           # Qt Designer .ui 文件（6 个，仅静态布局）
@@ -171,7 +170,8 @@ UltraDesktop/
 │       ├── logging/
 │       │   └── LoggingCategories.*   # 日志分类（6 棵一级树）
 │       ├── config/                   # 编译期常量 + 运行时配置
-│       │   ├── SettingsManager.*     # 配置管理器（基于 QSettings，含持久化）
+│       │   ├── SettingsManager.*     # 配置管理器（JSON 文件持久化，含旧 QSettings 迁移）
+│       │   ├── ConnectionHistory.*   # 连接历史数据管理
 │       │   ├── TranslationUtils.*    # 翻译工具函数
 │       │   ├── NetworkConstants.h    # 网络常量
 │       │   ├── ProtocolConstants.h   # 协议标识、消息字段、帧尺寸

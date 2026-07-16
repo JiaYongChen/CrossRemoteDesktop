@@ -1,9 +1,10 @@
 #pragma once
 
-#include <QList>
-#include <QString>
-#include <QDateTime>
-#include <QJsonArray>
+#include <QtCore/QDateTime>
+#include <QtCore/QJsonArray>
+#include <QtCore/QList>
+#include <QtCore/QString>
+
 #include "common/data/ConnectionParams.h"
 
 /// 单条历史连接记录

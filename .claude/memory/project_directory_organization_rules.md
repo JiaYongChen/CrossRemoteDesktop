@@ -29,7 +29,7 @@ src/
 
 - `MainWindow` — 主窗口，组装客户端/服务端两侧
 - `SettingsDialog` — 设置对话框
-- `ConnectionDialog`、`ConnectionPanel`、`ConnectionCard`、`ConnectionHistory` — 连接管理 UI
+- `ConnectionDialog`、`ConnectionPanel`、`ConnectionCard` — 连接管理 UI
 - `NavPanel` — 侧边导航面板
 - `MainWindowLayout` — 主窗口布局构建
 
