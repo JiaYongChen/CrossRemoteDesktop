@@ -192,8 +192,7 @@ UltraDesktop/
 │       │   ├── TitleBarTheme.*       # 标题栏主题适配
 │       │   └── IconThemeProvider.*   # SVG 图标主题
 │       └── data/
-│           ├── ConnectionParams.h    # 连接参数定义
-│           └── DataRecord.h          # 数据记录
+│           └── ConnectionParams.h    # 连接参数定义
 ├── test/                             # 测试套件（23 个测试目标，镜像 src/ 结构）
 │   ├── app/                          # 应用壳层测试
 │   ├── client/                       # 客户端测试（decode / session / windows / network）

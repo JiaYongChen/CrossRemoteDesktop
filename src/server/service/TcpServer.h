@@ -4,11 +4,7 @@
 #include <QtNetwork/QHostAddress>
 #include <QtNetwork/QSslCertificate>
 #include <QtNetwork/QSslKey>
-#include "../../common/network/Protocol.h"
-#include "../../common/config/NetworkConstants.h"
 #include "error/RdError.h"
-
-class InputSimulator;
 
 class TcpServer : public QTcpServer {
     Q_OBJECT

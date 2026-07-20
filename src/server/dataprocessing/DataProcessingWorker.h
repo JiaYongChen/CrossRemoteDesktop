@@ -4,14 +4,12 @@
 #include "../../common/config/ProcessingConstants.h"
 #include "../../common/threading/ThreadSafeQueue.h"
 #include "../dataflow/DataFlowStructures.h"
-#include "DataProcessing.h"
 #include "error/RdError.h"
 
 #include <QtCore/QObject>
 #include <QtCore/QTimer>
 #include <QtCore/QMutex>
 #include <QtCore/QElapsedTimer>
-#include <QtCore/QThreadPool>
 #include <QtCore/QFutureWatcher>
 #include <QtConcurrent/QtConcurrent>
 #include <memory>
@@ -208,20 +206,6 @@ private:
                                              int chromaSubsampling = ProcessingConstants::DefaultChromaSubsampling);
 
     /**
-     * @brief 验证帧数据
-     * @param frame 帧数据
-     * @return true 数据有效，false 数据无效
-     */
-    bool validateFrame(const CapturedFrame& frame) const;
-
-    /**
-     * @brief 更新处理统计
-     * @param processingTime 处理耗时（毫秒）
-     * @param success 是否处理成功
-     */
-    void updateProcessingStats(qint64 processingTime, bool success);
-
-    /**
      * @brief 检查处理性能
      */
     void checkPerformance();
@@ -229,7 +213,6 @@ private:
 private:
     ThreadSafeQueue<CapturedFrame>* m_captureQueue = nullptr;          ///< 输入队列（捕获帧）
     ThreadSafeQueue<ProcessedData>* m_processedQueue = nullptr;        ///< 输出队列（处理后数据）
-    std::unique_ptr<DataProcessor> m_dataProcessor;                     ///< 数据处理器
 
     QTimer* m_statsTimer;                                               ///< 统计更新定时器
     mutable QMutex m_statsMutex;                                        ///< 统计互斥锁
@@ -237,7 +220,6 @@ private:
     // 处理统计
     std::atomic<quint64> m_processedFrames;                             ///< 已处理帧数
     std::atomic<quint64> m_droppedFrames;                               ///< 丢弃帧数
-    std::atomic<quint64> m_totalProcessingTime;                         ///< 总处理时间（毫秒）
     std::atomic<double> m_averageLatency;                               ///< 平均延迟（毫秒）
     std::atomic<double> m_processingRate;                               ///< 处理速率（帧/秒）
 
@@ -249,11 +231,6 @@ private:
     int m_statsUpdateInterval;                                          ///< 统计更新间隔（毫秒）
     std::atomic<int> m_jpegQuality{ProcessingConstants::DefaultJpegQuality};  ///< JPEG 编码质量（线程安全）
     std::atomic<int> m_chromaSubsampling{ProcessingConstants::DefaultChromaSubsampling};                    ///< JPEG 色度子采样（线程安全）
-
-    // 并行处理
-    int m_maxParallelTasks;                                             ///< 最大并行任务数
-    std::atomic<int> m_activeParallelTasks;                             ///< 当前活跃的并行任务数
-    mutable QMutex m_batchMutex;                                        ///< 批处理互斥锁
 
     // 异步非阻塞编码（替代 waitForFinished 阻断）
     QFutureWatcher<ProcessedData>* m_asyncWatcher = nullptr;            ///< 异步编码观察器

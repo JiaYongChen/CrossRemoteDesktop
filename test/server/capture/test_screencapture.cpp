@@ -254,43 +254,25 @@ void TestScreenCapture::test_scaleQuality()
 void TestScreenCapture::test_queueManagement()
 {
     qCDebug(lcTestScreenCapture, "测试队列管理");
-    
-    // 简化测试：验证性能统计的可用性（不再校验队列利用率）
-    auto stats = m_screenCapture->getPerformanceStats();
-    QVERIFY(stats.totalFramesCaptured >= 0);
-    QVERIFY(stats.totalFramesProcessed >= 0);
-    QVERIFY(stats.droppedFrames >= 0);
-    
-    // 测试重置统计
-    m_screenCapture->resetPerformanceStats();
-    auto resetStats = m_screenCapture->getPerformanceStats();
-    QCOMPARE(resetStats.totalFramesCaptured, quint64(0));
-    QCOMPARE(resetStats.totalFramesProcessed, quint64(0));
-    QCOMPARE(resetStats.droppedFrames, quint64(0));
-    
+
+    // 验证捕获启动/停止不会影响配置的可读性
+    CaptureConfig cfg = m_screenCapture->getCaptureConfig();
+    QVERIFY(cfg.isValid());
+
     qCDebug(lcTestScreenCapture, "队列管理测试通过");
 }
 
 void TestScreenCapture::test_performanceStats()
 {
-    qCDebug(lcTestScreenCapture, "测试性能统计");
-    
-    // 获取初始统计数据
-    auto stats = m_screenCapture->getPerformanceStats();
-    QVERIFY(stats.totalFramesCaptured >= 0);
-    QVERIFY(stats.totalFramesProcessed >= 0);
-    QVERIFY(stats.droppedFrames >= 0);
-    QVERIFY(stats.captureFrameRate >= 0.0);
-    QVERIFY(stats.processingFrameRate >= 0.0);
-    
-    // 重置统计数据
-    m_screenCapture->resetPerformanceStats();
-    auto resetStats = m_screenCapture->getPerformanceStats();
-    QCOMPARE(resetStats.totalFramesCaptured, 0ULL);
-    QCOMPARE(resetStats.totalFramesProcessed, 0ULL);
-    QCOMPARE(resetStats.droppedFrames, 0ULL);
-    
-    qCDebug(lcTestScreenCapture, "性能统计测试通过");
+    qCDebug(lcTestScreenCapture, "测试配置状态");
+
+    // 验证默认配置有效性（PerformanceStats 结构体已移除，
+    // 统计追踪由 ScreenCaptureWorker 内部的 CaptureStats 管理）
+    CaptureConfig cfg = m_screenCapture->getCaptureConfig();
+    QVERIFY(cfg.frameRate > 0);
+    QVERIFY(cfg.frameRate <= 120);
+
+    qCDebug(lcTestScreenCapture, "配置状态测试通过");
 }
 
 void TestScreenCapture::test_syncCapture()
@@ -406,12 +388,6 @@ void TestScreenCapture::test_memoryManagement()
         // tempCapture会在作用域结束时自动销毁
     }
     
-    // 简化测试：验证性能统计的基本字段（不再校验队列利用率）
-    auto stats = m_screenCapture->getPerformanceStats();
-    QVERIFY(stats.totalFramesCaptured >= 0);
-    QVERIFY(stats.totalFramesProcessed >= 0);
-    QVERIFY(stats.droppedFrames >= 0);
-    
     // 验证当前状态
     QVERIFY(m_screenCapture->isCapturing() || !m_screenCapture->isCapturing());
     
@@ -460,10 +436,9 @@ void TestScreenCapture::test_frameRate()
 void TestScreenCapture::test_getPerformanceStats()
 {
     qCDebug(lcTestScreenCapture, "test_getPerformanceStats");
-    auto stats = m_screenCapture->getPerformanceStats();
-    QVERIFY(stats.totalFramesCaptured >= 0);
-    QVERIFY(stats.totalFramesProcessed >= 0);
-    QVERIFY(stats.droppedFrames >= 0);
+    // PerformanceStats 结构体已移除 — 验证 getCaptureConfig 可正常调用
+    CaptureConfig cfg = m_screenCapture->getCaptureConfig();
+    QVERIFY(cfg.isValid());
 }
 
 void TestScreenCapture::test_stopCapture_errorPath()

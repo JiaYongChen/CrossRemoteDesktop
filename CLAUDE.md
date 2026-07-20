@@ -307,6 +307,9 @@ qCWarning(lcServer) << error.logLabel();      // 推荐
 - **性能叠加层**：ClientRemoteWindow::drawPerformanceInfo()（m_showPerformanceInfo 恒为 false）
 - **ServerManager / ServerWorker**：整类删除，服务端编排逻辑由 `ServerService`（`src/server/service/`）接管，`TcpListener` + `CapturePipeline` + 会话管理统一封装
 - **ConfigBinding<T> 模板类** + 7 个 CONFIG_* 便利宏（零引用死代码）
+- **DataProcessor / DataValidator / DataCleanerFormatter / IDataStore / InMemoryDataStore**：整类链删除（创建但方法从未调用，原管线已被 JPEG 直编码替代）
+- **DataRecord 数据结构**：仅被 DataProcessing 类链引用，随其一并删除
+- **test_dataprocessing**：占位测试（类已删除后仅剩 QVERIFY(true)，目标随源代码一并移除）
 
 ## 代码风格
 

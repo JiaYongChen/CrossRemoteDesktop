@@ -3,7 +3,6 @@
 #include "../../common/threading/ThreadManager.h"
 #include "../dataflow/QueueManager.h"
 #include "../../common/config/CaptureConstants.h"
-#include "../../common/config/ProcessingConstants.h"
 #include "../../common/logging/LoggingCategories.h"
 #include <QtCore/QTimer>
 #include <QtCore/QMutex>
@@ -19,8 +18,7 @@ ScreenCapture::ScreenCapture(ThreadManager* threadMgr, QueueManager* queueMgr, Q
     : QObject(parent)
     , m_threadManager(threadMgr)
     , m_queueManager(queueMgr)
-    , m_isCapturing(false)
-    , m_statsTimer(new QTimer(this)) {
+    , m_isCapturing(false) {
     qCDebug(lcServerCapture) << "ScreenCapture 多线程管理器构造函数调用";
 
     // 初始化默认配置
@@ -36,13 +34,6 @@ ScreenCapture::ScreenCapture(ThreadManager* threadMgr, QueueManager* queueMgr, Q
         emit captureError(RdError(ErrorCode::CaptureInitFailed, "QueueManager 为空", "ScreenCapture"));
         return;
     }
-
-    // 初始化性能统计
-    resetPerformanceStats();
-
-    // 设置统计更新定时器
-    m_statsTimer->setInterval(ProcessingConstants::StatsUpdateIntervalMs);
-    connect(m_statsTimer, &QTimer::timeout, this, &ScreenCapture::updatePerformanceStats);
 
     // 连接ThreadManager信号以监控线程状态
     connect(m_threadManager, &ThreadManager::threadStarted, this, &ScreenCapture::onThreadStarted);
@@ -93,27 +84,12 @@ void ScreenCapture::startCapture() {
     if ( m_threadManager->hasThread(threadName) ) {
         bool startSuccess = m_threadManager->startThread(threadName);
         if ( startSuccess ) {
-            // 在线程启动后，连接worker信号到本类信号/槽
-            if ( m_captureWorker ) {
-                // 统计信号：将CaptureStats映射到PerformanceStats（不再计算队列使用率）
-                connect(m_captureWorker, &ScreenCaptureWorker::captureStatsUpdated, this,
-                    [this](const CaptureStats& stats) {
-                    QMutexLocker locker(&m_statsMutex);
-                    m_performanceStats.captureFrameRate = stats.currentFrameRate;
-                    m_performanceStats.totalFramesCaptured = stats.totalFramesCaptured;
-                    m_performanceStats.droppedFrames = stats.droppedFrames;
-                    m_performanceStats.averageCaptureTime = static_cast<quint64>(stats.avgCaptureTime.count());
-                    // 队列已移除，直接发出统计更新
-                    emit performanceStatsUpdated(m_performanceStats);
-                });
-            }
             // 调用worker的捕获启动方法
             if ( m_captureWorker ) {
                 QMetaObject::invokeMethod(m_captureWorker, "startCapturing", Qt::QueuedConnection);
             }
             m_isCapturing.store(true);
-            m_statsTimer->start();
-            qCInfo(lcServerCapture) << "使用ThreadManager启动ScreenCaptureWorker线程成功，已连接直接信号";
+            qCInfo(lcServerCapture) << "使用ThreadManager启动ScreenCaptureWorker线程成功";
         } else {
             qCCritical(lcServerCapture) << "ThreadManager启动ScreenCaptureWorker线程失败";
             emit captureError(RdError(ErrorCode::CaptureStartFailed, "线程启动失败", "ScreenCapture"));
@@ -139,9 +115,6 @@ void ScreenCapture::stopCapture() {
 
     qCInfo(lcServerCapture) << "停止多线程屏幕捕获 (wasCapturing=" << wasCapturing
         << ", threadExists=" << threadExists << ")";
-
-    // 停止统计定时器
-    m_statsTimer->stop();
 
     // 优先停止队列以唤醒可能阻塞的生产者，确保后续线程停止不会卡住
     if ( m_queueManager ) {
@@ -321,30 +294,6 @@ void ScreenCapture::onThreadRestarted(const QString& name, int restartCount) {
 void ScreenCapture::configureWorkers() {
     updateCaptureConfig(m_captureConfig);
 }
-
-void ScreenCapture::updatePerformanceStats() {
-    if ( !m_isCapturing.load() ) {
-        return;
-    }
-
-    // 更新统计信息
-    // if ( m_captureWorker ) {
-    //     qCDebug(lcServerCapture) << "捕获Worker状态正常";
-    // }
-}
-
-void ScreenCapture::resetPerformanceStats() {
-    // 重置性能统计数据
-    qCDebug(lcServerCapture) << "重置性能统计数据";
-}
-
-ScreenCapture::PerformanceStats ScreenCapture::getPerformanceStats() const {
-    QMutexLocker locker(&m_statsMutex);
-    PerformanceStats stats = m_performanceStats;
-    // 移除：队列使用率计算
-    return stats;
-}
-
 
 void ScreenCapture::onCaptureError(const RdError& error) {
     // 处理捕获错误

@@ -110,25 +110,21 @@ private slots:
      * 检查统计信息收集是否在多个类中重复实现
      */
     void test_statisticsRedundancy() {
-        qCDebug(lcTestScreenCaptureIntegration, "测试统计信息冗余");
-        
+        qCDebug(lcTestScreenCaptureIntegration, "测试配置信息冗余");
+
         try {
             ScreenCapture capture(m_threadManager.get(), m_queueManager.get());
-            
-            // 测试统计信息获取（不启动实际捕获）
-            auto stats = capture.getPerformanceStats();
-            
-            // 验证初始状态
-            QCOMPARE(stats.totalFramesCaptured, 0ULL);
-            QCOMPARE(stats.totalFramesProcessed, 0ULL);
-            QCOMPARE(stats.droppedFrames, 0ULL);
-            
-            qCDebug(lcTestScreenCaptureIntegration, "统计信息测试通过");
-            
+
+            // 验证配置可正常获取（PerformanceStats 已移除）
+            CaptureConfig cfg = capture.getCaptureConfig();
+            QVERIFY(cfg.isValid());
+
+            qCDebug(lcTestScreenCaptureIntegration, "配置信息测试通过");
+
         } catch (const std::exception& e) {
-            QFAIL(QString("统计信息冗余测试异常: %1").arg(e.what()).toUtf8().constData());
+            QFAIL(QString("配置信息测试异常: %1").arg(e.what()).toUtf8().constData());
         } catch (...) {
-            QFAIL("统计信息冗余测试发生未知异常");
+            QFAIL("配置信息测试发生未知异常");
         }
     }
 
@@ -171,11 +167,11 @@ private slots:
             bool isCapturing2 = capture.isCapturing(); // 冗余调用
             QVERIFY(isCapturing1 == isCapturing2);
             
-            // 测试性能统计获取冗余
-            auto stats1 = capture.getPerformanceStats();
-            auto stats2 = capture.getPerformanceStats(); // 冗余调用
-            QVERIFY(stats1.totalFramesCaptured == stats2.totalFramesCaptured);
-            
+            // 验证配置一致性
+            auto cfg1 = capture.getCaptureConfig();
+            auto cfg2 = capture.getCaptureConfig();
+            QCOMPARE(cfg1.frameRate, cfg2.frameRate);
+
             qCDebug(lcTestScreenCaptureIntegration, "错误处理测试通过");
             
         } catch (const std::exception& e) {

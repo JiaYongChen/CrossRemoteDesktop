@@ -2,7 +2,6 @@
 #pragma once
 
 #include "../../common/threading/Worker.h"
-#include "../../common/network/Protocol.h"
 #include "error/RdError.h"
 
 #include <QtCore/QObject>

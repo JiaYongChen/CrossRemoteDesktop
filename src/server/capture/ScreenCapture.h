@@ -1,16 +1,11 @@
 #pragma once
 
 #include <QtCore/QObject>
-#include <QtCore/QTimer>
 #include <QtCore/QMutex>
-#include <QtCore/QVariant>
 #include <QtCore/QPointer>
-#include <QtGui/QImage>
 #include "error/RdError.h"
-#include <memory>
 #include <atomic>
 #include "CaptureConfig.h"
-#include "../../common/config/ProcessingConstants.h"
 
 // 前向声明
 class ScreenCaptureWorker;
@@ -41,32 +36,12 @@ public:
     void updateCaptureConfig(const CaptureConfig& config);
     CaptureConfig getCaptureConfig() const;
 
-    // 性能统计结构体
-    struct PerformanceStats {
-        quint64 totalFramesCaptured = 0;
-        quint64 totalFramesProcessed = 0;
-        quint64 droppedFrames = 0;
-        double captureFrameRate = 0.0;
-        double processingFrameRate = 0.0;
-        quint64 averageCaptureTime = 0;
-        quint64 averageProcessingTime = 0;
-    };
-    
-    PerformanceStats getPerformanceStats() const;
-    void resetPerformanceStats();
-
 signals:
     /**
      * @brief 捕获错误信号
      * @param error 错误描述
      */
     void captureError(const RdError& error);
-
-    /**
-     * @brief 性能统计更新信号
-     * @param stats 性能统计数据
-     */
-    void performanceStatsUpdated(const PerformanceStats& stats);
 
 private slots:
     /**
@@ -75,11 +50,6 @@ private slots:
      */
     void onCaptureError(const RdError& error);
 
-    /**
-     * @brief 更新性能统计
-     */
-    void updatePerformanceStats();
-    
     /**
      * @brief 处理线程启动信号
      * @param name 线程名称
@@ -135,13 +105,5 @@ private:
     // 配置参数（线程安全）- 统一使用CaptureConfig管理
     mutable QMutex m_configMutex;                                      ///< 配置互斥锁
     CaptureConfig m_captureConfig;                                     ///< 捕获配置结构
-    
-    // 性能统计
-    mutable QMutex m_statsMutex;                                       ///< 统计数据互斥锁
-    PerformanceStats m_performanceStats;                               ///< 性能统计数据
-    QTimer* m_statsTimer;                                              ///< 统计更新定时器
-    
-    // 常量定义
-    // 统计更新间隔由 ProcessingConstants::StatsUpdateIntervalMs 定义
 };
 

@@ -174,10 +174,8 @@ add_rd_test(TARGET test_queuemanager  NAME QueueManagerTest
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network capture_test_core
     TIMEOUT 30  LABELS unit server queue  NO_OPENGL)
 
-add_rd_test(TARGET test_dataprocessing  NAME DataProcessingTest
-    SOURCES server/dataprocessing/test_dataprocessing.cpp
-    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui common_test_core
-    TIMEOUT 30  LABELS unit server dataprocessing  NO_OPENGL)
+# DataProcessing 测试已移除——原 DataProcessor/Validator/Cleaner 管线已删除
+# DataProcessingTest 已移除——原 DataProcessor/Validator/Cleaner 类链已从源码删除
 
 # unit / dataflow
 add_rd_test(TARGET test_captured_frame  NAME CapturedFrameTest
@@ -271,7 +269,7 @@ add_rd_test(TARGET test_producer_consumer_integration  NAME ProducerConsumerInte
     SOURCES integration/test_producer_consumer_integration.cpp
     EXTRA_SOURCES
         ../src/server/dataprocessing/DataProcessingWorker.cpp
-        ../src/server/dataprocessing/DataProcessing.cpp
+
         ../src/server/capture/ScreenCapture.cpp
         ../src/server/clienthandler/ClientHandlerWorker.cpp
         ../src/server/clienthandler/AuthHandler.cpp

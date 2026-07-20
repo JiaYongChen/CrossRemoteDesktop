@@ -1,5 +1,4 @@
 #include "TcpServer.h"
-#include <QtNetwork/QTcpSocket>
 #include <QtNetwork/QHostAddress>
 #include <QtCore/QTimer>
 #include "../../common/logging/LoggingCategories.h"
