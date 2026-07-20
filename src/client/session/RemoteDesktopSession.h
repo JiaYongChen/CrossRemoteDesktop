@@ -32,14 +32,6 @@ public:
     /// 优雅关闭（幂等）：停止管线 → 断开连接 → 关闭窗口
     void close();
 
-    QString connectionId() const { return m_connectionId; }
-
-    // ── 组件访问（供 MainWindow 查询状态）──
-    ProtocolSession*   protocolSession() const   { return m_protocolSession; }
-    ConnectionManager* connectionManager() const  { return m_connectionManager; }
-    ClientRemoteWindow* remoteWindow() const      { return m_window; }
-    DecodePipeline*    decodePipeline() const     { return m_decodePipeline; }
-
 signals:
     /// 连接完全关闭（RemoteDesktopSession 可安全销毁）
     void finished(const QString& connectionId);

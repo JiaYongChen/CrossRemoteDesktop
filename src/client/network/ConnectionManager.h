@@ -3,10 +3,6 @@
 #include <QtCore/QObject>
 #include <QtCore/QString>
 #include <QtCore/QSize>
-#include <QtCore/QMutex>
-#include <QtGui/QImage>
-#include <functional>
-#include "../../common/config/NetworkConstants.h"
 #include "../../common/network/Protocol.h"
 #include "error/RdError.h"
 
@@ -25,7 +21,7 @@ class IMessageCodec;
  *
  * 不负责：
  * - 业务数据处理（屏幕数据、输入事件等）
- * - 这些由 SessionManager 处理
+ * - 这些由 ProtocolSession 处理
  */
 class ConnectionManager : public QObject {
     Q_OBJECT
@@ -34,12 +30,12 @@ public:
     enum ConnectionState {
         Connecting,
         Connected,
-        Authenticating,
         Authenticated,
         Reconnecting,
         Disconnecting,
         Disconnected,
-        Error
+        Error,
+        AuthFailed       ///< 认证被拒——永久终端态，阻止自动重连
     };
     Q_ENUM(ConnectionState);
 
@@ -47,20 +43,12 @@ public:
     ~ConnectionManager();
 
     // 连接控制
-    Q_INVOKABLE void connectToHost(const QString& host, int port);
+    void connectToHost(const QString& host, int port);
     void disconnectFromHost();
-    void abort();
 
     // 状态查询
     virtual bool isConnected() const;
     virtual bool isAuthenticated() const;
-
-    // 连接信息
-    virtual QString currentHost() const;
-    virtual int currentPort() const;
-
-    // 认证接口
-    void authenticate(const QString& username, const QString& password);
 
     /// 预设认证凭证（在 connectToHost 前调用），不触发认证流程
     void setCredentials(const QString& username, const QString& password);
@@ -75,16 +63,10 @@ public:
 
     // 自动重连管理
     void setAutoReconnect(bool enable);
-    bool autoReconnect() const;
     void setReconnectInterval(int msecs);
-    int reconnectInterval() const;
-    void setMaxReconnectAttempts(int attempts);
-    int maxReconnectAttempts() const;
-    int currentReconnectAttempts() const;
 
     // 连接超时管理
     void setConnectionTimeout(int msecs);
-    int connectionTimeout() const;
 
     /// 握手响应中获取的远程屏幕尺寸
     QSize remoteScreenSize() const { return m_remoteScreenSize; }
@@ -92,6 +74,9 @@ public:
 signals:
     // 状态变化通知信号（用于 UI 状态显示）
     void connectionStateChanged(ConnectionState state);
+
+    /// 连接层错误（携带可读原因，如认证失败的具体类型）
+    void errorOccurred(const RdError& error);
 
     // 通用消息转发信号 - 供上层业务处理
     void messageReceived(MessageType type, const QByteArray& payload);
@@ -108,7 +93,8 @@ private:
     void setConnectionState(ConnectionState state);
     void setupTcpClient();
     void cleanupConnection();
-    void startAutoReconnect();
+    /// @return true 表示重连定时器已武装（含已活跃），false 表示不重连
+    [[nodiscard]] bool startAutoReconnect();
     void stopAutoReconnect();
 
     // 连接相关处理方法（握手和认证）
@@ -117,8 +103,12 @@ private:
     void handleAuthChallenge(const QByteArray& data);
 
     void sendHandshakeRequest();
-    void sendAuthenticationRequest(const QString& username, const QString& password);
+    void sendAuthenticationRequest(const QString& username);
     QString getClientOS();
+
+    /// 内部：保持 host/port 并发起 TCP 连接（供 onReconnectTimer 使用，
+    /// 绕过 public connectToHost 的用户意图复位）
+    void startConnection(const QString& host, int port);
 
 private:
     TcpClient* m_tcpClient;
@@ -147,6 +137,11 @@ private:
 
     // 连接超时
     int m_connectionTimeout;
+
+    /// 一次性用户意图标记：disconnectFromHost 无条件置 true，
+    /// onTcpDisconnected 消费后清零。connectToHost 在 abort 后二次清零。
+    /// 不持久化——不会被 onTcpError/onConnectionTimeout 读取或修改。
+    bool m_userInitiatedDisconnect = false;
 
 };
 

@@ -18,10 +18,11 @@ void ConnectionLifecycle::setConnectionState(ConnectionManager::ConnectionState 
     m_connectionState = state;
     updateWindowTitle();
 
+    // 仅在真正"终态断开"时弹对话框（AuthFailed/Reconnecting 不弹——
+    // AuthFailed 已有专属错误信号，Reconnecting 可能恢复）
     if (state == ConnectionManager::Disconnected) {
         if (oldState == ConnectionManager::Connected ||
             oldState == ConnectionManager::Authenticated ||
-            oldState == ConnectionManager::Authenticating ||
             oldState == ConnectionManager::Error) {
 
             qCInfo(lcClientRemoteWindow) << "ConnectionLifecycle: Connection lost, scheduling disconnection dialog";
@@ -34,10 +35,6 @@ void ConnectionLifecycle::setConnectionState(ConnectionManager::ConnectionState 
     }
 }
 
-ConnectionManager::ConnectionState ConnectionLifecycle::connectionState() const {
-    return m_connectionState;
-}
-
 void ConnectionLifecycle::setHostName(const QString& name) {
     if (!name.isEmpty()) {
         m_hostName = name;
@@ -45,10 +42,6 @@ void ConnectionLifecycle::setHostName(const QString& name) {
             m_window->setWindowTitle(name);
         }
     }
-}
-
-QString ConnectionLifecycle::hostName() const {
-    return m_hostName;
 }
 
 void ConnectionLifecycle::updateWindowTitle() {
@@ -62,11 +55,11 @@ void ConnectionLifecycle::updateWindowTitle() {
         case ConnectionManager::Connected:
             title = tr("%1 - %2").arg(m_hostName, tr("已连接"));
             break;
-        case ConnectionManager::Authenticating:
-            title = tr("%1 - %2").arg(m_hostName, tr("正在认证..."));
-            break;
         case ConnectionManager::Authenticated:
             title = tr("%1 - %2").arg(m_hostName, tr("已认证"));
+            break;
+        case ConnectionManager::Reconnecting:
+            title = tr("%1 - %2").arg(m_hostName, tr("正在重连..."));
             break;
         case ConnectionManager::Disconnecting:
             title = tr("%1 - %2").arg(m_hostName, tr("正在断开连接..."));
@@ -74,11 +67,11 @@ void ConnectionLifecycle::updateWindowTitle() {
         case ConnectionManager::Disconnected:
             title = tr("%1 - %2").arg(m_hostName, tr("未连接"));
             break;
-        case ConnectionManager::Reconnecting:
-            title = tr("%1 - %2").arg(m_hostName, tr("正在重连..."));
-            break;
         case ConnectionManager::Error:
             title = tr("%1 - %2").arg(m_hostName, tr("连接错误"));
+            break;
+        case ConnectionManager::AuthFailed:
+            title = tr("%1 - %2").arg(m_hostName, tr("认证失败"));
             break;
         default:
             title = m_hostName;

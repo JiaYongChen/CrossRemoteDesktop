@@ -1,4 +1,5 @@
 #include "ConnectionManager.h"
+#include "../../common/config/NetworkConstants.h"
 #include "../../common/logging/LoggingCategories.h"
 #include <QtCore/QTimer>
 #include "TcpClient.h"
@@ -19,25 +20,18 @@ ConnectionManager::ConnectionManager(QObject* parent)
     , m_connectionTimeout(NetworkConstants::DefaultConnectionTimeout) {
     setupTcpClient();
 
-    // 设置连接超时定时器
     m_connectionTimer->setSingleShot(true);
     m_connectionTimer->setInterval(m_connectionTimeout);
     connect(m_connectionTimer, &QTimer::timeout, this, &ConnectionManager::onConnectionTimeout);
 
-    // 设置重连定时器
     m_reconnectTimer->setSingleShot(true);
     connect(m_reconnectTimer, &QTimer::timeout, this, &ConnectionManager::onReconnectTimer);
 }
 
 ConnectionManager::~ConnectionManager() {
-    // Stop all timers to prevent callbacks during destruction
     m_connectionTimer->stop();
     m_reconnectTimer->stop();
 
-    // Disconnect all TcpClient signals BEFORE cleanup to prevent signal
-    // cascade during parent-child auto-destruction (TcpClient::~TcpClient
-    // calls socket->abort() which triggers disconnected/error signals that
-    // chain back to this partially-destroyed object)
     if ( m_tcpClient ) {
         m_tcpClient->disconnect();
     }
@@ -45,63 +39,77 @@ ConnectionManager::~ConnectionManager() {
     cleanupConnection();
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// 连接控制
+// ═══════════════════════════════════════════════════════════════════
+
 void ConnectionManager::connectToHost(const QString& host, int port) {
-    if ( m_connectionState != Disconnected ) {
-        qCDebug(lcClient) << "ConnectionManager: Already connecting or connected, disconnecting first";
-        disconnectFromHost();
+    // 非 Disconnected/Reconnecting/AuthFailed → 同步硬断旧连接
+    if ( m_connectionState != Disconnected
+         && m_connectionState != Reconnecting
+         && m_connectionState != AuthFailed ) {
+        disconnectFromHost();         // 停定时器 + 置 Disconnecting + 置标记
+        if ( m_tcpClient ) {
+            m_tcpClient->abort();    // 同步硬断，不发信号，标记由 onTcpDisconnected 消费
+        }
     }
 
-    m_currentHost = host;
-    m_currentPort = port;
+    // AuthFailed 终态重试：服务端 FIN 可能尚未到达，需显式强制重置 socket 到 UnconnectedState
+    if ( m_connectionState == AuthFailed ) {
+        if ( m_tcpClient && m_tcpClient->isConnected() ) {
+            m_tcpClient->abort();
+        }
+    }
 
-    setConnectionState(Connecting);
+    // 显式连接请求重置预算
+    m_currentReconnectAttempts = 0;
 
-    // 启动连接超时定时器
-    m_connectionTimer->start();
-
-    // 发起连接
-    m_tcpClient->connectToHost(host, port);
+    startConnection(host, port);
 }
 
 void ConnectionManager::disconnectFromHost() {
+    stopAutoReconnect();
+
     if ( m_connectionState == Disconnected ) {
         return;
     }
 
-    // 停止自动重连
-    stopAutoReconnect();
+    // Error/AuthFailed 态 + socket 已死 → 无 disconnected 信号会来，直接收敛
+    if ( m_tcpClient && !m_tcpClient->isConnected()
+         && (m_connectionState == Error || m_connectionState == AuthFailed) ) {
+        m_currentReconnectAttempts = 0;
+        cleanupConnection();
+        setConnectionState(Disconnected);
+        return;
+    }
+
     m_currentReconnectAttempts = 0;
-
     setConnectionState(Disconnecting);
-
-    // 停止超时定时器
     m_connectionTimer->stop();
 
-    // 断开TCP连接
+    // 仅在实际将产生异步 disconnected 信号时置标记（提前返回路径已排除）
+    m_userInitiatedDisconnect = true;
+
     if ( m_tcpClient ) {
         m_tcpClient->disconnectFromHost();
     }
 }
 
-void ConnectionManager::abort() {
-    m_connectionTimer->stop();
+void ConnectionManager::startConnection(const QString& host, int port) {
+    m_currentHost = host;
+    m_currentPort = port;
 
-    if ( m_tcpClient ) {
-        m_tcpClient->abort();
-    }
-
-    cleanupConnection();
-    setConnectionState(Disconnected);
+    setConnectionState(Connecting);
+    m_connectionTimer->start();
+    m_tcpClient->connectToHost(host, port);
 }
 
-bool ConnectionManager::isConnected() const
-{
-    // 改用 socket 的实际状态，而非状态机标志
-    // ConnectedState 是唯一允许双向通信的状态；
-    // ClosingState（TCP 半关闭）期间服务端仍可发数据，应视为"未连接"
-    if ( !m_tcpClient ) {
-        return false;
-    }
+// ═══════════════════════════════════════════════════════════════════
+// 状态查询
+// ═══════════════════════════════════════════════════════════════════
+
+bool ConnectionManager::isConnected() const {
+    if ( !m_tcpClient ) return false;
     return m_tcpClient->isConnected();
 }
 
@@ -109,26 +117,9 @@ bool ConnectionManager::isAuthenticated() const {
     return m_connectionState == Authenticated;
 }
 
-QString ConnectionManager::currentHost() const {
-    return m_currentHost;
-}
-
-int ConnectionManager::currentPort() const {
-    return m_currentPort;
-}
-
-// 业务逻辑接口实现
-void ConnectionManager::authenticate(const QString& username, const QString& password) {
-    if ( !isConnected() ) {
-        qCWarning(lcClient) << "Not connected to server";
-        return;
-    }
-
-    m_username = username;
-    m_password = password;
-
-    sendAuthenticationRequest(username, password);
-}
+// ═══════════════════════════════════════════════════════════════════
+// 配置
+// ═══════════════════════════════════════════════════════════════════
 
 void ConnectionManager::setCredentials(const QString& username, const QString& password) {
     m_username = username;
@@ -143,7 +134,6 @@ void ConnectionManager::setImageQuality(int quality) {
     m_imageQuality = qBound(1, quality, 100);
 }
 
-// 自动重连管理方法
 void ConnectionManager::setAutoReconnect(bool enable) {
     m_autoReconnect = enable;
     if ( !enable ) {
@@ -152,116 +142,149 @@ void ConnectionManager::setAutoReconnect(bool enable) {
     }
 }
 
-bool ConnectionManager::autoReconnect() const {
-    return m_autoReconnect;
-}
-
 void ConnectionManager::setReconnectInterval(int msecs) {
-    m_reconnectInterval = qMax(1000, msecs); // 最小1秒
+    m_reconnectInterval = qMax(1000, msecs);
 }
 
-int ConnectionManager::reconnectInterval() const {
-    return m_reconnectInterval;
+void ConnectionManager::setConnectionTimeout(int msecs) {
+    m_connectionTimeout = qMax(1000, msecs);
+    if ( m_connectionTimer ) {
+        m_connectionTimer->setInterval(m_connectionTimeout);
+    }
 }
 
-void ConnectionManager::setMaxReconnectAttempts(int attempts) {
-    m_maxReconnectAttempts = qMax(0, attempts);
-}
+// ═══════════════════════════════════════════════════════════════════
+// 自动重连 — FSM 单一权威入口（调用方不预置状态，以返回值驱动）
+// ═══════════════════════════════════════════════════════════════════
 
-int ConnectionManager::maxReconnectAttempts() const {
-    return m_maxReconnectAttempts;
-}
-
-int ConnectionManager::currentReconnectAttempts() const {
-    return m_currentReconnectAttempts;
-}
-
-void ConnectionManager::startAutoReconnect() {
+bool ConnectionManager::startAutoReconnect() {
     if ( !m_autoReconnect || m_currentReconnectAttempts >= m_maxReconnectAttempts ) {
-        return;
+        return false;
+    }
+
+    // 已有待触发定时器：不重复计数（error+disconnected 双路径去重）
+    if ( m_reconnectTimer->isActive() ) {
+        return true;
     }
 
     m_currentReconnectAttempts++;
     m_reconnectTimer->setInterval(m_reconnectInterval);
     m_reconnectTimer->start();
+    setConnectionState(Reconnecting);
+    return true;
 }
 
 void ConnectionManager::stopAutoReconnect() {
     m_reconnectTimer->stop();
 }
 
-void ConnectionManager::onReconnectTimer() {
-    if ( m_connectionState != Disconnected && m_connectionState != Error ) {
-        return;
-    }
-
-    if ( !m_currentHost.isEmpty() && m_currentPort > 0 ) {
-        connectToHost(m_currentHost, m_currentPort);
-    }
-}
+// ═══════════════════════════════════════════════════════════════════
+// 事件处理
+// ═══════════════════════════════════════════════════════════════════
 
 void ConnectionManager::onTcpConnected() {
     m_connectionTimer->stop();
     stopAutoReconnect();
-    m_currentReconnectAttempts = 0; // 重置重连计数
+    // 不在此清零计数——TCP 成功 ≠ 认证成功，预算只在用户 connectToHost 和认证成功时复位
     setConnectionState(Connected);
-
-    // 连接成功后发送握手请求
     sendHandshakeRequest();
 }
 
 void ConnectionManager::onTcpDisconnected() {
     m_connectionTimer->stop();
-    cleanupConnection();
 
-    setConnectionState(Disconnected);
-
-    // 如果启用了自动重连且未达到最大重连次数，则启动重连
-    if ( m_autoReconnect && m_currentReconnectAttempts < m_maxReconnectAttempts ) {
-        startAutoReconnect();
-    } else {
-        // 重置重连计数
+    // ── 分支 1：用户主动断开 ──
+    if ( m_userInitiatedDisconnect ) {
+        m_userInitiatedDisconnect = false;
         m_currentReconnectAttempts = 0;
+        setConnectionState(Disconnected);
+        cleanupConnection();
+        return;
     }
+
+    // ── 分支 2：AuthFailed 永久终端态 → 收敛 Disconnected ──
+    if ( m_connectionState == AuthFailed ) {
+        setConnectionState(Disconnected);
+        cleanupConnection();
+        return;
+    }
+
+    // ── 分支 3：意外断线 — startAutoReconnect 单一决策点 ──
+    // 调用方不预置状态：startAutoReconnect 成功返回则状态已为 Reconnecting，
+    // 失败（!autoReconnect || 预算耗尽）则收敛 Disconnected。
+    // 若定时器已活跃（前置 onTcpError 已武装），返回 true 且只修正状态不重复计数。
+    if ( !startAutoReconnect() ) {
+        // autoReconnect=false（默认）或预算耗尽或 AuthFailed 已在此→Disconnected
+        setConnectionState(Disconnected);
+        cleanupConnection();
+    }
+    // 成功路径：状态已由 startAutoReconnect 置为 Reconnecting
 }
 
 void ConnectionManager::onTcpError(const RdError& error) {
-    Q_UNUSED(error);  // 参数在当前实现中未使用，但保留以供将来扩展
-    m_connectionTimer->stop();
-    setConnectionState(Error);
+    if ( m_userInitiatedDisconnect ) {
+        m_connectionTimer->stop();
+        return;
+    }
 
-    // 如果启用了自动重连且未达到最大重连次数，则启动重连
-    if ( m_autoReconnect && m_currentReconnectAttempts < m_maxReconnectAttempts ) {
-        startAutoReconnect();
-    } else {
-        // 重置重连计数
+    // AuthFailed 态收到 error 是预期内（服务端在拒绝认证后关闭连接）——静默
+    if ( m_connectionState == AuthFailed ) {
+        m_connectionTimer->stop();
+        return;
+    }
+
+    // 通过守卫检查后转发 TcpClient 已翻译的详细错误信息到上层（含中文诊断）
+    emit errorOccurred(error);
+
+    m_connectionTimer->stop();
+
+    if ( !startAutoReconnect() ) {
+        setConnectionState(Error);
         m_currentReconnectAttempts = 0;
     }
 }
 
 void ConnectionManager::onConnectionTimeout() {
     qCWarning(lcClient) << "ConnectionManager: Connection timeout";
-    setConnectionState(Error);
+
+    if ( m_userInitiatedDisconnect ) {
+        m_connectionTimer->stop();
+        return;
+    }
+
+    m_connectionTimer->stop();
 
     if ( m_tcpClient ) {
         m_tcpClient->abort();
     }
 
-    // 如果启用了自动重连且未达到最大重连次数，则启动重连
-    if ( m_autoReconnect && m_currentReconnectAttempts < m_maxReconnectAttempts ) {
-        startAutoReconnect();
-    } else {
-        // 重置重连计数
+    if ( !startAutoReconnect() ) {
+        // 连接超时且不重连：发射具体错误消息（替代 wireSignals 中的通用兜底）
+        emit errorOccurred(RdError(ErrorCode::NetworkConnectionFailed,
+            QStringLiteral("连接超时"), "ConnectionManager"));
+        setConnectionState(Error);
         m_currentReconnectAttempts = 0;
     }
 }
+
+void ConnectionManager::onReconnectTimer() {
+    if ( m_connectionState != Reconnecting ) {
+        return;
+    }
+
+    if ( !m_currentHost.isEmpty() && m_currentPort > 0 ) {
+        startConnection(m_currentHost, m_currentPort);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 状态管理
+// ═══════════════════════════════════════════════════════════════════
 
 void ConnectionManager::setConnectionState(ConnectionState state) {
     if ( m_connectionState != state ) {
         qCInfo(lcClient) << "ConnectionManager: State changed from" << m_connectionState << "to" << state;
         m_connectionState = state;
-
-        // 发射状态变化信号，供 UI 层使用
         emit connectionStateChanged(state);
     }
 }
@@ -269,7 +292,6 @@ void ConnectionManager::setConnectionState(ConnectionState state) {
 void ConnectionManager::setupTcpClient() {
     m_tcpClient = new TcpClient(this);
 
-    // 连接TCP客户端信号
     connect(m_tcpClient, &TcpClient::connected, this, &ConnectionManager::onTcpConnected);
     connect(m_tcpClient, &TcpClient::disconnected, this, &ConnectionManager::onTcpDisconnected);
     connect(m_tcpClient, &TcpClient::errorOccurred, this, &ConnectionManager::onTcpError);
@@ -280,25 +302,14 @@ void ConnectionManager::cleanupConnection() {
     m_connectionTimer->stop();
     stopAutoReconnect();
     m_currentReconnectAttempts = 0;
-
     m_currentHost.clear();
     m_currentPort = 0;
 }
 
-// 设置连接超时
-void ConnectionManager::setConnectionTimeout(int msecs) {
-    // 最小1秒，避免过小值导致误判
-    m_connectionTimeout = qMax(1000, msecs);
-    if ( m_connectionTimer ) {
-        m_connectionTimer->setInterval(m_connectionTimeout);
-    }
-}
+// ═══════════════════════════════════════════════════════════════════
+// 消息处理
+// ═══════════════════════════════════════════════════════════════════
 
-int ConnectionManager::connectionTimeout() const {
-    return m_connectionTimeout;
-}
-
-// 消息处理 - 只处理连接相关消息，其他转发给上层
 void ConnectionManager::onTcpMessageReceived(MessageType type, const QByteArray& payload) {
     switch ( type ) {
         case MessageType::HANDSHAKE_RESPONSE:
@@ -311,7 +322,6 @@ void ConnectionManager::onTcpMessageReceived(MessageType type, const QByteArray&
             handleAuthChallenge(payload);
             break;
         default:
-            // 其他消息转发给上层业务处理
             emit messageReceived(type, payload);
             break;
     }
@@ -320,61 +330,43 @@ void ConnectionManager::onTcpMessageReceived(MessageType type, const QByteArray&
 void ConnectionManager::handleHandshakeResponse(const QByteArray& data) {
     HandshakeResponse response;
     if ( response.decode(data) ) {
-        qCDebug(lcClient)
-            << "Received handshake response from server";
-        qCDebug(lcClient)
-            << "Server version:" << response.serverVersion;
-        qCDebug(lcClient)
-            << "Screen resolution:" << response.screenWidth << "x" << response.screenHeight;
-
-        // 存储远程屏幕尺寸（CursorManager 坐标映射使用）
+        qCDebug(lcClient) << "Received handshake response from server";
         m_remoteScreenSize = QSize(response.screenWidth, response.screenHeight);
-
-        // 发送认证请求
-        sendAuthenticationRequest(m_username.isEmpty() ? "guest" : m_username,
-            m_password.isEmpty() ? "" : m_password);
+        sendAuthenticationRequest(m_username.isEmpty() ? "guest" : m_username);
     } else {
-        qCWarning(lcClient)
-            << "Failed to parse handshake response";
+        qCWarning(lcClient) << "Failed to parse handshake response";
     }
 }
 
 void ConnectionManager::handleAuthenticationResponse(const QByteArray& data) {
     AuthenticationResponse response;
     if ( response.decode(data) ) {
-        qCDebug(lcClient)
-            << "Received authentication response from server";
-        qCDebug(lcClient)
-            << "Auth result:" << static_cast<int>(response.result);
-
         if ( response.result == AuthResult::SUCCESS ) {
-            qCInfo(lcClient)
-                << "Authentication successful, session ID:" << response.sessionId;
-
+            qCInfo(lcClient) << "Authentication successful, session ID:" << response.sessionId;
             stopAutoReconnect();
             m_currentReconnectAttempts = 0;
             setConnectionState(Authenticated);
         } else {
-            QString errorMsg;
+            QString reason;
             switch ( response.result ) {
                 case AuthResult::INVALID_PASSWORD:
-                    errorMsg = "密码错误";
-                    break;
+                    reason = tr("密码错误"); break;
                 case AuthResult::ACCESS_DENIED:
-                    errorMsg = "访问被拒绝";
-                    break;
+                    reason = tr("访问被拒绝"); break;
                 case AuthResult::SERVER_FULL:
-                    errorMsg = "服务器已满";
-                    break;
+                    reason = tr("服务器已满"); break;
                 default:
-                    errorMsg = "认证失败";
-                    break;
+                    reason = tr("认证失败"); break;
             }
-            setConnectionState(Error);
+            const RdError error(ErrorCode::AuthFailed, reason, "ConnectionManager");
+            qCWarning(lcClient) << error.logLabel();
+            // AuthFailed 是永久终端态——阻止所有自动重连（消除 m_fatalError 冗余标记）
+            setConnectionState(AuthFailed);
+            emit errorOccurred(error);
+            stopAutoReconnect();
         }
     } else {
-        qCWarning(lcClient)
-            << "Failed to parse authentication response";
+        qCWarning(lcClient) << "Failed to parse authentication response";
     }
 }
 
@@ -383,17 +375,14 @@ void ConnectionManager::handleAuthChallenge(const QByteArray& data) {
     if ( ch.decode(data) ) {
         QByteArray salt = QByteArray::fromHex(ch.saltHex.toUtf8());
         if ( !salt.isEmpty() ) {
-            // 本地派生 PBKDF2-SHA256
             QByteArray derived = QPasswordDigestor::deriveKeyPbkdf2(
                 QCryptographicHash::Sha256, m_password.toUtf8(), salt,
                 int(ch.iterations), quint64(ch.keyLength));
 
-            // 构造 AuthenticationRequest 并序列化发送
             AuthenticationRequest ar{};
             ar.username = m_username.isEmpty() ? QStringLiteral("guest") : m_username;
             ar.passwordHash = QString::fromLatin1(derived.toHex());
             ar.authMethod = 1u;
-
             m_tcpClient->sendMessage(MessageType::AUTHENTICATION_REQUEST, ar);
         }
     }
@@ -408,24 +397,14 @@ void ConnectionManager::sendHandshakeRequest() {
     request.imageQuality = static_cast<quint8>(m_imageQuality);
     request.clientName = QStringLiteral("UltraDesktop Client");
     request.clientOS = getClientOS();
-
     m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST, request);
-
-    qCDebug(lcClient)
-        << "Sent handshake request to server";
 }
 
-void ConnectionManager::sendAuthenticationRequest(const QString& username, const QString& password) {
-    Q_UNUSED(password);
-    // 第一次发送不带hash，触发服务端下发挑战
+void ConnectionManager::sendAuthenticationRequest(const QString& username) {
     AuthenticationRequest ar{};
     ar.username = username;
-    ar.authMethod = 1u; // 请求PBKDF2
-
+    ar.authMethod = 1u;
     m_tcpClient->sendMessage(MessageType::AUTHENTICATION_REQUEST, ar);
-
-    qCDebug(lcClient)
-        << "Sent authentication request to server for user:" << username;
 }
 
 QString ConnectionManager::getClientOS() {

@@ -4,12 +4,12 @@
 <context>
     <name>ClientRemoteWindow</name>
     <message>
-        <location filename="../../src/client/windows/ClientRemoteWindow.cpp" line="50"/>
+        <location filename="../../src/client/windows/ClientRemoteWindow.cpp" line="55"/>
         <source>Remote Desktop</source>
         <translation>Remote Desktop</translation>
     </message>
     <message>
-        <location filename="../../src/client/windows/ClientRemoteWindow.cpp" line="194"/>
+        <location filename="../../src/client/windows/ClientRemoteWindow.cpp" line="198"/>
         <source>仅查看</source>
         <translation>View Only</translation>
     </message>
@@ -18,19 +18,19 @@
     <name>ConnectionCard</name>
     <message>
         <location filename="../../src/ui/ConnectionCard.ui" line="54"/>
-        <location filename="../../src/app/ConnectionCard.cpp" line="70"/>
+        <location filename="../../src/app/ConnectionCard.cpp" line="62"/>
         <source>连接</source>
         <translation>Connection</translation>
     </message>
     <message>
         <location filename="../../src/ui/ConnectionCard.ui" line="61"/>
-        <location filename="../../src/app/ConnectionCard.cpp" line="71"/>
+        <location filename="../../src/app/ConnectionCard.cpp" line="63"/>
         <source>修改参数</source>
         <translation>Edit Parameters</translation>
     </message>
     <message>
         <location filename="../../src/ui/ConnectionCard.ui" line="68"/>
-        <location filename="../../src/app/ConnectionCard.cpp" line="72"/>
+        <location filename="../../src/app/ConnectionCard.cpp" line="64"/>
         <source>删除记录</source>
         <translation>Delete Record</translation>
     </message>
@@ -199,27 +199,27 @@
         <translation>Reconnect Interval:</translation>
     </message>
     <message>
-        <location filename="../../src/app/ConnectionDialog.cpp" line="61"/>
+        <location filename="../../src/app/ConnectionDialog.cpp" line="64"/>
         <source>连接</source>
         <translation>Connection</translation>
     </message>
     <message>
-        <location filename="../../src/app/ConnectionDialog.cpp" line="69"/>
+        <location filename="../../src/app/ConnectionDialog.cpp" line="72"/>
         <source>请输入有效的主机地址</source>
         <translation>Please enter a valid host address</translation>
     </message>
     <message>
-        <location filename="../../src/app/ConnectionDialog.cpp" line="73"/>
+        <location filename="../../src/app/ConnectionDialog.cpp" line="76"/>
         <source>主机地址不能包含空格</source>
         <translation>Host address cannot contain spaces</translation>
     </message>
     <message>
-        <location filename="../../src/app/ConnectionDialog.cpp" line="80"/>
+        <location filename="../../src/app/ConnectionDialog.cpp" line="83"/>
         <source>端口号必须在1-65535之间</source>
         <translation>Port must be between 1-65535</translation>
     </message>
     <message>
-        <location filename="../../src/app/ConnectionDialog.cpp" line="119"/>
+        <location filename="../../src/app/ConnectionDialog.cpp" line="122"/>
         <source>验证错误</source>
         <translation>Validation Error</translation>
     </message>
@@ -227,76 +227,93 @@
 <context>
     <name>ConnectionLifecycle</name>
     <message>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="60"/>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="63"/>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="66"/>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="69"/>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="72"/>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="75"/>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="78"/>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="81"/>
+        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="53"/>
+        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="56"/>
+        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="59"/>
+        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="62"/>
+        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="65"/>
+        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="68"/>
+        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="71"/>
         <source>%1 - %2</source>
         <translation>%1 - %2</translation>
     </message>
     <message>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="60"/>
+        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="53"/>
         <source>正在连接...</source>
         <translation>Connecting...</translation>
     </message>
     <message>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="63"/>
+        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="56"/>
         <source>已连接</source>
         <translation>Connected</translation>
     </message>
     <message>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="66"/>
-        <source>正在认证...</source>
-        <translation>Authenticating...</translation>
-    </message>
-    <message>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="69"/>
+        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="59"/>
         <source>已认证</source>
         <translation>Authenticated</translation>
     </message>
     <message>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="72"/>
+        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="62"/>
+        <source>正在重连...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="65"/>
         <source>正在断开连接...</source>
         <translation>Disconnecting...</translation>
     </message>
     <message>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="75"/>
+        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="68"/>
         <source>未连接</source>
         <translation>Not Connected</translation>
     </message>
     <message>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="78"/>
-        <source>正在重连...</source>
-        <translation>Reconnecting...</translation>
-    </message>
-    <message>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="81"/>
+        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="71"/>
         <source>连接错误</source>
         <translation>Connection Error</translation>
     </message>
     <message>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="88"/>
+        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="78"/>
         <source>%1 [仅查看]</source>
         <translation>%1 [View Only]</translation>
     </message>
     <message>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="99"/>
+        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="89"/>
         <source>Connection Disconnected</source>
         <translation>Connection Disconnected</translation>
     </message>
     <message>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="100"/>
+        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="90"/>
         <source>Connection to remote host %1 has been disconnected.</source>
         <translation>Connection to remote host %1 has been disconnected.</translation>
     </message>
     <message>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="102"/>
+        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="92"/>
         <source>The window will close.</source>
         <translation>The window will close.</translation>
+    </message>
+</context>
+<context>
+    <name>ConnectionManager</name>
+    <message>
+        <location filename="../../src/client/network/ConnectionManager.cpp" line="387"/>
+        <source>密码错误</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/client/network/ConnectionManager.cpp" line="390"/>
+        <source>访问被拒绝</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/client/network/ConnectionManager.cpp" line="393"/>
+        <source>服务器已满</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/client/network/ConnectionManager.cpp" line="396"/>
+        <source>认证失败</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -319,179 +336,196 @@
     </message>
     <message>
         <location filename="../../src/ui/ConnectionPanel.ui" line="32"/>
-        <location filename="../../src/app/ConnectionPanel.cpp" line="219"/>
-        <location filename="../../src/app/ConnectionPanel.cpp" line="241"/>
+        <location filename="../../src/app/ConnectionPanel.cpp" line="212"/>
+        <location filename="../../src/app/ConnectionPanel.cpp" line="234"/>
         <source>暂无连接历史</source>
         <translation>No connection history</translation>
     </message>
     <message>
-        <location filename="../../src/app/ConnectionPanel.cpp" line="218"/>
-        <location filename="../../src/app/ConnectionPanel.cpp" line="242"/>
+        <location filename="../../src/app/ConnectionPanel.cpp" line="211"/>
+        <location filename="../../src/app/ConnectionPanel.cpp" line="235"/>
         <source>无匹配的连接记录</source>
         <translation>No matching connection records</translation>
     </message>
     <message>
-        <location filename="../../src/app/ConnectionPanel.cpp" line="193"/>
+        <location filename="../../src/app/ConnectionPanel.cpp" line="186"/>
         <source>确认删除</source>
         <translation>Confirm Delete</translation>
     </message>
     <message>
-        <location filename="../../src/app/ConnectionPanel.cpp" line="194"/>
+        <location filename="../../src/app/ConnectionPanel.cpp" line="187"/>
         <source>确定删除此连接记录？</source>
         <translation>Are you sure you want to delete this connection record?</translation>
     </message>
 </context>
 <context>
+    <name>FloatingRemoteToolbar</name>
+    <message>
+        <location filename="../../src/client/windows/FloatingRemoteToolbar.cpp" line="50"/>
+        <source>全屏切换</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/client/windows/FloatingRemoteToolbar.cpp" line="61"/>
+        <source>断开连接</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/client/windows/FloatingRemoteToolbar.cpp" line="73"/>
+        <location filename="../../src/client/windows/FloatingRemoteToolbar.cpp" line="93"/>
+        <source>仅查看切换</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/client/windows/FloatingRemoteToolbar.cpp" line="93"/>
+        <source>退出仅查看</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>MainWindow</name>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="351"/>
-        <location filename="../../src/app/MainWindowLayout.cpp" line="24"/>
-        <location filename="../../src/app/MainWindowLayout.cpp" line="25"/>
+        <location filename="../../src/app/MainWindow.cpp" line="346"/>
+        <location filename="../../src/app/MainWindowLayout.cpp" line="20"/>
+        <location filename="../../src/app/MainWindowLayout.cpp" line="21"/>
         <source>退出</source>
         <translation>Exit</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="354"/>
-        <location filename="../../src/app/MainWindowLayout.cpp" line="30"/>
+        <location filename="../../src/app/MainWindow.cpp" line="349"/>
+        <location filename="../../src/app/MainWindowLayout.cpp" line="26"/>
         <source>恢复(&amp;R)</source>
         <translation>&amp;Restore</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="431"/>
+        <location filename="../../src/app/MainWindow.cpp" line="417"/>
         <source>关于极域桌面</source>
         <translation>About UltraDesktop</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="457"/>
+        <location filename="../../src/app/MainWindow.cpp" line="443"/>
         <source>关于</source>
         <translation>About</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="511"/>
+        <location filename="../../src/app/MainWindow.cpp" line="497"/>
         <source>开源许可</source>
         <translation>Open Source Licenses</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="792"/>
+        <location filename="../../src/app/MainWindow.cpp" line="776"/>
         <source>服务器已停止</source>
         <translation>Server stopped</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindowLayout.cpp" line="45"/>
+        <location filename="../../src/app/MainWindowLayout.cpp" line="41"/>
         <source>CPU: 0% | 内存: 0MB</source>
         <translation>CPU: 0% | Memory: 0MB</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="360"/>
-        <location filename="../../src/app/MainWindowLayout.cpp" line="52"/>
+        <location filename="../../src/app/MainWindow.cpp" line="355"/>
+        <location filename="../../src/app/MainWindowLayout.cpp" line="48"/>
         <source>就绪</source>
         <translation>Ready</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="357"/>
-        <location filename="../../src/app/MainWindowLayout.cpp" line="39"/>
+        <location filename="../../src/app/MainWindow.cpp" line="352"/>
+        <location filename="../../src/app/MainWindowLayout.cpp" line="35"/>
         <source>连接：未连接</source>
         <translation>Connection: Not Connected</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="358"/>
-        <location filename="../../src/app/MainWindowLayout.cpp" line="42"/>
+        <location filename="../../src/app/MainWindow.cpp" line="353"/>
+        <location filename="../../src/app/MainWindowLayout.cpp" line="38"/>
         <source>服务器：已停止</source>
         <translation>Server: Stopped</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="383"/>
-        <location filename="../../src/app/MainWindow.cpp" line="416"/>
+        <location filename="../../src/app/MainWindow.cpp" line="378"/>
         <source>服务器状态</source>
         <translation>Server Status</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="384"/>
+        <location filename="../../src/app/MainWindow.cpp" line="379"/>
         <source>服务器已经在运行中。</source>
         <translation>The server is already running.</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="391"/>
+        <location filename="../../src/app/MainWindow.cpp" line="386"/>
         <source>需要辅助功能权限</source>
         <translation>Accessibility Permission Required</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="392"/>
+        <location filename="../../src/app/MainWindow.cpp" line="387"/>
         <source>&lt;p&gt;极域桌面需要&lt;b&gt;辅助功能权限&lt;/b&gt;才能模拟鼠标和键盘输入。&lt;/p&gt;&lt;p&gt;请按照以下步骤授予权限：&lt;/p&gt;&lt;ol&gt;&lt;li&gt;打开&lt;b&gt;系统偏好设置&lt;/b&gt;&lt;/li&gt;&lt;li&gt;选择&lt;b&gt;安全性与隐私&lt;/b&gt;&lt;/li&gt;&lt;li&gt;点击&lt;b&gt;隐私&lt;/b&gt;标签&lt;/li&gt;&lt;li&gt;在左侧列表中选择&lt;b&gt;辅助功能&lt;/b&gt;&lt;/li&gt;&lt;li&gt;点击左下角的锁图标解锁&lt;/li&gt;&lt;li&gt;在右侧列表中勾选&lt;b&gt;UltraDesktop&lt;/b&gt;&lt;/li&gt;&lt;/ol&gt;&lt;p&gt;授予权限后，请重启应用程序。&lt;/p&gt;</source>
         <translation>&lt;p&gt;UltraDesktop needs &lt;b&gt;Accessibility permissions&lt;/b&gt; to simulate mouse and keyboard input.&lt;/p&gt;&lt;p&gt;Please follow these steps to grant permission:&lt;/p&gt;&lt;ol&gt;&lt;li&gt;Open &lt;b&gt;System Preferences&lt;/b&gt;&lt;/li&gt;&lt;li&gt;Select &lt;b&gt;Security &amp;amp; Privacy&lt;/b&gt;&lt;/li&gt;&lt;li&gt;Click the &lt;b&gt;Privacy&lt;/b&gt; tab&lt;/li&gt;&lt;li&gt;Select &lt;b&gt;Accessibility&lt;/b&gt; in the left sidebar&lt;/li&gt;&lt;li&gt;Click the lock icon in the lower-left corner to unlock&lt;/li&gt;&lt;li&gt;Check &lt;b&gt;UltraDesktop&lt;/b&gt; in the right list&lt;/li&gt;&lt;/ol&gt;&lt;p&gt;Please restart the application after granting permission.&lt;/p&gt;</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="417"/>
-        <source>服务器未运行。</source>
-        <translation>The server is not running.</translation>
-    </message>
-    <message>
-        <location filename="../../src/app/MainWindow.cpp" line="444"/>
+        <location filename="../../src/app/MainWindow.cpp" line="430"/>
         <source>&lt;h2&gt;%1 %2&lt;/h2&gt;&lt;p&gt;基于 Qt %3 构建的跨平台远程桌面应用程序。&lt;/p&gt;&lt;p&gt;支持 Windows、macOS 和 Linux 系统之间的远程连接与控制。&lt;/p&gt;&lt;hr&gt;&lt;p&gt;本软件遵循 &lt;b&gt;MIT License&lt;/b&gt; 开源发布。&lt;/p&gt;&lt;p&gt;详情请见程序目录下的 LICENSE 文件。&lt;/p&gt;</source>
         <translation>&lt;h2&gt;%1 %2&lt;/h2&gt;&lt;p&gt;A cross-platform remote desktop application built with Qt %3.&lt;/p&gt;&lt;p&gt;Supports remote connection and control across Windows, macOS and Linux.&lt;/p&gt;&lt;hr&gt;&lt;p&gt;This software is released under the &lt;b&gt;MIT License&lt;/b&gt;.&lt;/p&gt;&lt;p&gt;See the LICENSE file in the application directory for details.&lt;/p&gt;</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="466"/>
+        <location filename="../../src/app/MainWindow.cpp" line="452"/>
         <source>&lt;h3&gt;第三方开源库许可声明&lt;/h3&gt;&lt;h4&gt;Qt %1 &amp;mdash; LGPLv3&lt;/h4&gt;&lt;p&gt;Copyright &amp;copy; The Qt Company Ltd. and other contributors.&lt;/p&gt;&lt;p&gt;Qt 采用 GNU Lesser General Public License v3 (LGPLv3) 许可。本应用程序通过动态链接方式使用 Qt 库，符合 LGPLv3 的闭源分发条件。Qt 源代码可从 &lt;a href=&apos;https://download.qt.io&apos;&gt;https://download.qt.io&lt;/a&gt; 获取。&lt;/p&gt;&lt;p&gt;LGPLv3 全文：&lt;a href=&apos;https://www.gnu.org/licenses/lgpl-3.0.html&apos;&gt;https://www.gnu.org/licenses/lgpl-3.0.html&lt;/a&gt;&lt;/p&gt;&lt;h4&gt;OpenSSL 3.x &amp;mdash; Apache License 2.0&lt;/h4&gt;&lt;p&gt;Copyright &amp;copy; The OpenSSL Project Authors. All Rights Reserved.&lt;/p&gt;&lt;p&gt;Licensed under the Apache License 2.0 (the &quot;License&quot;); you may not use this file except in compliance with the License. You may obtain a copy of the License at &lt;a href=&apos;https://www.apache.org/licenses/LICENSE-2.0&apos;&gt;https://www.apache.org/licenses/LICENSE-2.0&lt;/a&gt;&lt;/p&gt;&lt;p&gt;本产品包含由 OpenSSL Project 开发的、用于 OpenSSL Toolkit 的软件(&lt;a href=&apos;https://www.openssl.org/&apos;&gt;https://www.openssl.org/&lt;/a&gt;)。&lt;/p&gt;&lt;h4&gt;libjpeg-turbo &amp;mdash; BSD 3-Clause&lt;/h4&gt;&lt;p&gt;Copyright &amp;copy; 2009-2026 D. R. Commander. All Rights Reserved.&lt;br&gt;Copyright &amp;copy; 2015 Viktor Szathm&amp;aacute;ry. All Rights Reserved.&lt;/p&gt;&lt;p&gt;在满足下列条件的前提下，允许以源代码和二进制形式重新分发和使用（无论是否修改）：&lt;/p&gt;&lt;ul&gt;&lt;li&gt;源代码的再分发必须保留上述版权声明、本条件列表以及下述免责声明。&lt;/li&gt;&lt;li&gt;二进制形式的再分发必须在文档和/或随分发提供的其他材料中复现上述版权声明、本条件列表以及下述免责声明。&lt;/li&gt;&lt;li&gt;未经事先书面许可，不得使用 libjpeg-turbo 项目或其贡献者的名称来背书或推广从本软件衍生的产品。&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot; ...&lt;/p&gt;&lt;h4&gt;nvJPEG / CUDA Runtime &amp;mdash; NVIDIA 专有许可&lt;/h4&gt;&lt;p&gt;Copyright &amp;copy; NVIDIA Corporation. All Rights Reserved.&lt;/p&gt;&lt;p&gt;nvJPEG 和 CUDA Runtime 库为 NVIDIA Corporation 的专有软件，受 NVIDIA CUDA Toolkit 最终用户许可协议 (EULA) 约束。仅可在搭载 NVIDIA GPU 的系统上使用和分发。详情请参阅：&lt;a href=&apos;https://docs.nvidia.com/cuda/eula/index.html&apos;&gt;https://docs.nvidia.com/cuda/eula/index.html&lt;/a&gt;&lt;/p&gt;</source>
         <translation>&lt;h3&gt;Third-Party Open Source License Notices&lt;/h3&gt;&lt;h4&gt;Qt %1 &amp;mdash; LGPLv3&lt;/h4&gt;&lt;p&gt;Copyright &amp;copy; The Qt Company Ltd. and other contributors.&lt;/p&gt;&lt;p&gt;Qt is licensed under the GNU Lesser General Public License v3 (LGPLv3). This application uses Qt libraries via dynamic linking, which complies with LGPLv3 closed-source distribution terms. Qt source code is available at &lt;a href=&apos;https://download.qt.io&apos;&gt;https://download.qt.io&lt;/a&gt;.&lt;/p&gt;&lt;p&gt;LGPLv3 full text: &lt;a href=&apos;https://www.gnu.org/licenses/lgpl-3.0.html&apos;&gt;https://www.gnu.org/licenses/lgpl-3.0.html&lt;/a&gt;&lt;/p&gt;&lt;h4&gt;OpenSSL 3.x &amp;mdash; Apache License 2.0&lt;/h4&gt;&lt;p&gt;Copyright &amp;copy; The OpenSSL Project Authors. All Rights Reserved.&lt;/p&gt;&lt;p&gt;Licensed under the Apache License 2.0 (the &quot;License&quot;); you may not use this file except in compliance with the License. You may obtain a copy of the License at &lt;a href=&apos;https://www.apache.org/licenses/LICENSE-2.0&apos;&gt;https://www.apache.org/licenses/LICENSE-2.0&lt;/a&gt;&lt;/p&gt;&lt;p&gt;This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit (&lt;a href=&apos;https://www.openssl.org/&apos;&gt;https://www.openssl.org/&lt;/a&gt;).&lt;/p&gt;&lt;h4&gt;libjpeg-turbo &amp;mdash; BSD 3-Clause&lt;/h4&gt;&lt;p&gt;Copyright &amp;copy; 2009-2026 D. R. Commander. All Rights Reserved.&lt;br&gt;Copyright &amp;copy; 2015 Viktor Szathm&amp;aacute;ry. All Rights Reserved.&lt;/p&gt;&lt;p&gt;Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.&lt;/li&gt;&lt;li&gt;Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.&lt;/li&gt;&lt;li&gt;Neither the name of the libjpeg-turbo Project nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot; ...&lt;/p&gt;&lt;h4&gt;nvJPEG / CUDA Runtime &amp;mdash; NVIDIA Proprietary License&lt;/h4&gt;&lt;p&gt;Copyright &amp;copy; NVIDIA Corporation. All Rights Reserved.&lt;/p&gt;&lt;p&gt;nvJPEG and CUDA Runtime libraries are proprietary software of NVIDIA Corporation, governed by the NVIDIA CUDA Toolkit End User License Agreement (EULA). May only be used and distributed on systems with NVIDIA GPUs. For details see: &lt;a href=&apos;https://docs.nvidia.com/cuda/eula/index.html&apos;&gt;https://docs.nvidia.com/cuda/eula/index.html&lt;/a&gt;&lt;/p&gt;</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="577"/>
+        <location filename="../../src/app/MainWindow.cpp" line="567"/>
         <source>CPU: --% | 内存: %1 MB</source>
         <translation>CPU: --% | Memory: %1 MB</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="610"/>
+        <location filename="../../src/app/MainWindow.cpp" line="600"/>
         <source>CPU: %1% | 内存: %2 MB</source>
         <translation>CPU: %1% | Memory: %2 MB</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="629"/>
+        <location filename="../../src/app/MainWindow.cpp" line="619"/>
         <source>CPU: %1%</source>
         <translation>CPU: %1%</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="643"/>
+        <location filename="../../src/app/MainWindow.cpp" line="633"/>
         <source>内存: %1 MB</source>
         <translation>Memory: %1 MB</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="786"/>
+        <location filename="../../src/app/MainWindow.cpp" line="770"/>
         <source>服务器启动成功，端口: %1</source>
         <translation>Server started successfully, port: %1</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="797"/>
+        <location filename="../../src/app/MainWindow.cpp" line="781"/>
         <source>服务器启动失败</source>
         <translation>Server failed to start</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="798"/>
+        <location filename="../../src/app/MainWindow.cpp" line="782"/>
         <source>服务器错误</source>
         <translation>Server Error</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="803"/>
+        <location filename="../../src/app/MainWindow.cpp" line="787"/>
         <source>客户端已连接: %1</source>
         <translation>Client connected: %1</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="808"/>
+        <location filename="../../src/app/MainWindow.cpp" line="792"/>
         <source>客户端已断开: %1</source>
         <translation>Client disconnected: %1</translation>
     </message>
     <message>
-        <location filename="../../src/app/MainWindow.cpp" line="813"/>
+        <location filename="../../src/app/MainWindow.cpp" line="797"/>
         <source>客户端已认证: %1</source>
         <translation>Client authenticated: %1</translation>
     </message>
     <message>
         <location filename="../../src/ui/MainWindow.ui" line="14"/>
         <location filename="../../src/ui/MainWindow.ui" line="135"/>
-        <location filename="../../src/app/MainWindow.cpp" line="117"/>
-        <location filename="../../src/app/MainWindow.cpp" line="348"/>
-        <location filename="../../src/app/MainWindow.cpp" line="451"/>
-        <location filename="../../src/app/MainWindowLayout.cpp" line="74"/>
+        <location filename="../../src/app/MainWindow.cpp" line="108"/>
+        <location filename="../../src/app/MainWindow.cpp" line="437"/>
+        <location filename="../../src/app/MainWindowLayout.cpp" line="70"/>
         <source>极域桌面</source>
         <translation>UltraDesktop</translation>
     </message>
@@ -532,12 +566,12 @@
 <context>
     <name>ProtocolSession</name>
     <message>
-        <location filename="../../src/client/session/ProtocolSession.cpp" line="36"/>
+        <location filename="../../src/client/session/ProtocolSession.cpp" line="30"/>
         <source>无法启动会话 - 未认证</source>
         <translation>Cannot start session - not authenticated</translation>
     </message>
     <message>
-        <location filename="../../src/client/session/ProtocolSession.cpp" line="42"/>
+        <location filename="../../src/client/session/ProtocolSession.cpp" line="36"/>
         <source>解码管线未初始化</source>
         <translation>Decode pipeline not initialized</translation>
     </message>
@@ -545,12 +579,12 @@
 <context>
     <name>QObject</name>
     <message>
-        <location filename="../../src/main.cpp" line="304"/>
+        <location filename="../../src/main.cpp" line="309"/>
         <source>发生严重错误：%1</source>
         <translation>A critical error occurred: %1</translation>
     </message>
     <message>
-        <location filename="../../src/main.cpp" line="309"/>
+        <location filename="../../src/main.cpp" line="314"/>
         <source>发生未知错误，应用程序将退出。</source>
         <translation>An unknown error occurred, the application will exit.</translation>
     </message>
@@ -694,29 +728,29 @@
     </message>
     <message>
         <location filename="../../src/ui/SettingsDialog.ui" line="586"/>
-        <location filename="../../src/app/SettingsDialog.cpp" line="329"/>
+        <location filename="../../src/app/SettingsDialog.cpp" line="358"/>
         <source>恢复默认值</source>
         <translation>Restore Defaults</translation>
     </message>
     <message>
         <location filename="../../src/ui/SettingsDialog.ui" line="503"/>
-        <location filename="../../src/app/SettingsDialog.cpp" line="327"/>
+        <location filename="../../src/app/SettingsDialog.cpp" line="356"/>
         <source>Enable Core Debug</source>
         <translation>Enable Core Debug</translation>
     </message>
     <message>
         <location filename="../../src/ui/SettingsDialog.ui" line="510"/>
-        <location filename="../../src/app/SettingsDialog.cpp" line="328"/>
+        <location filename="../../src/app/SettingsDialog.cpp" line="357"/>
         <source>Reset Rules</source>
         <translation>Reset Rules</translation>
     </message>
     <message>
-        <location filename="../../src/app/SettingsDialog.cpp" line="107"/>
+        <location filename="../../src/app/SettingsDialog.cpp" line="111"/>
         <source>中文</source>
         <translation>Chinese</translation>
     </message>
     <message>
-        <location filename="../../src/app/SettingsDialog.cpp" line="108"/>
+        <location filename="../../src/app/SettingsDialog.cpp" line="112"/>
         <source>English</source>
         <translation>English</translation>
     </message>

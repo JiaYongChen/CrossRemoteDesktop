@@ -10,11 +10,10 @@
 #include "../../src/client/network/ConnectionManager.h"
 /**
  * @brief ClientRemoteWindow 组件的单元测试
- * 
+ *
  * 主要验证：
- * 1. 连接状态正确设置和获取
- * 2. 窗口标题根据连接状态动态更新
- * 3. 默认窗口大小设置正确
+ * 1. 窗口标题根据连接状态动态更新
+ * 2. 默认窗口大小设置正确
  */
 class TestClientRemoteWindow : public QObject
 {
@@ -26,8 +25,6 @@ private slots:
     void init();
     void cleanup();
 
-    void testConnectionStateSetGet();
-    void testConnectionStateDisplay();
     void testDefaultWindowSize();
     void testWindowTitleUpdate();
 
@@ -68,7 +65,6 @@ void TestClientRemoteWindow::init()
     m_connectionManager = new ConnectionManager(m_parentWidget);
     m_decodePipeline = new DecodePipeline(testConnectionId, m_parentWidget);
     m_protocolSession = new ProtocolSession(m_connectionManager, m_decodePipeline, m_parentWidget);
-    m_protocolSession->setConnectionId(testConnectionId);
 
     // 创建 ClientRemoteWindow，传入 ProtocolSession
     m_window = new ClientRemoteWindow(m_protocolSession, m_parentWidget);
@@ -98,77 +94,6 @@ void TestClientRemoteWindow::cleanup()
     }
 }
 
-void TestClientRemoteWindow::testConnectionStateSetGet()
-{
-    // 测试连接状态的设置和获取
-    QVERIFY(m_window != nullptr);
-    
-    // 初始状态应为 Disconnected
-    QCOMPARE(m_window->connectionState(), ConnectionManager::Disconnected);
-    
-    // 测试设置不同的连接状态
-    m_window->setConnectionState(ConnectionManager::Connecting);
-    QCOMPARE(m_window->connectionState(), ConnectionManager::Connecting);
-    
-    m_window->setConnectionState(ConnectionManager::Connected);
-    QCOMPARE(m_window->connectionState(), ConnectionManager::Connected);
-    
-    m_window->setConnectionState(ConnectionManager::Authenticating);
-    QCOMPARE(m_window->connectionState(), ConnectionManager::Authenticating);
-    
-    m_window->setConnectionState(ConnectionManager::Authenticated);
-    QCOMPARE(m_window->connectionState(), ConnectionManager::Authenticated);
-    
-    m_window->setConnectionState(ConnectionManager::Disconnecting);
-    QCOMPARE(m_window->connectionState(), ConnectionManager::Disconnecting);
-    
-    m_window->setConnectionState(ConnectionManager::Reconnecting);
-    QCOMPARE(m_window->connectionState(), ConnectionManager::Reconnecting);
-    
-    m_window->setConnectionState(ConnectionManager::Error);
-    QCOMPARE(m_window->connectionState(), ConnectionManager::Error);
-    
-    m_window->setConnectionState(ConnectionManager::Disconnected);
-    QCOMPARE(m_window->connectionState(), ConnectionManager::Disconnected);
-}
-
-void TestClientRemoteWindow::testConnectionStateDisplay()
-{
-    // 综合测试：验证连接状态显示的完整流程
-    QVERIFY(m_window != nullptr);
-    
-    // 模拟连接过程：Disconnected -> Connecting -> Connected -> Authenticated
-    m_window->setConnectionState(ConnectionManager::Disconnected);
-    QCOMPARE(m_window->connectionState(), ConnectionManager::Disconnected);
-    
-    m_window->setConnectionState(ConnectionManager::Connecting);
-    QCOMPARE(m_window->connectionState(), ConnectionManager::Connecting);
-    
-    m_window->setConnectionState(ConnectionManager::Connected);
-    QCOMPARE(m_window->connectionState(), ConnectionManager::Connected);
-    
-    m_window->setConnectionState(ConnectionManager::Authenticated);
-    QCOMPARE(m_window->connectionState(), ConnectionManager::Authenticated);
-    
-    // 模拟断开过程：Authenticated -> Disconnecting -> Disconnected
-    m_window->setConnectionState(ConnectionManager::Disconnecting);
-    QCOMPARE(m_window->connectionState(), ConnectionManager::Disconnecting);
-    
-    m_window->setConnectionState(ConnectionManager::Disconnected);
-    QCOMPARE(m_window->connectionState(), ConnectionManager::Disconnected);
-    
-    // 模拟错误状态
-    m_window->setConnectionState(ConnectionManager::Error);
-    QCOMPARE(m_window->connectionState(), ConnectionManager::Error);
-    
-    // 模拟重连过程
-    m_window->setConnectionState(ConnectionManager::Reconnecting);
-    QCOMPARE(m_window->connectionState(), ConnectionManager::Reconnecting);
-    
-    m_window->setConnectionState(ConnectionManager::Connected);
-    QCOMPARE(m_window->connectionState(), ConnectionManager::Connected);
-}
-
 void TestClientRemoteWindow::testDefaultWindowSize()
 {
     // 测试默认窗口大小是否为 1600x900 (16:9 宽高比)
@@ -180,7 +105,6 @@ void TestClientRemoteWindow::testDefaultWindowSize()
     auto* connMgr = new ConnectionManager(testParent);
     auto* pipeline = new DecodePipeline(testConnectionId, testParent);
     auto* proto = new ProtocolSession(connMgr, pipeline, testParent);
-    proto->setConnectionId(testConnectionId);
     ClientRemoteWindow *testWindow = new ClientRemoteWindow(proto, testParent);
 
     // 验证默认窗口大小 (1600x900, 符合现代显示器的 16:9 比例)

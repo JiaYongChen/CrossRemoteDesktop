@@ -36,9 +36,6 @@ TcpClient::TcpClient(QObject* parent)
     // moves with the object during moveToThread() and is safely destroyed with it.
     m_disconnectTimeoutTimer->setSingleShot(true);
     m_disconnectTimeoutTimer->setInterval(1000);
-    // Fix 2a: 命名此计时器，以便 shutdownPhase1 在批量停止子计时器时
-    // 可以通过名称识别并跳过它，确保断开超时回退逻辑（abort）仍能触发。
-    m_disconnectTimeoutTimer->setObjectName("disconnectTimeoutTimer");
     connect(m_disconnectTimeoutTimer, &QTimer::timeout, this, [this]() {
         if ( m_socket && m_socket->state() != QAbstractSocket::UnconnectedState ) {
             m_socket->abort();
@@ -72,8 +69,6 @@ void TcpClient::connectToHost(const QString& hostName, quint16 port) {
         return;
     }
 
-    m_hostName = hostName;
-    m_port = port;
     m_isConnected.store(false, std::memory_order_release);
 
     // 使用TLS加密连接
@@ -108,6 +103,7 @@ void TcpClient::disconnectFromHost() {
 
 void TcpClient::abort() {
     m_heartbeatCheckTimer->stop();
+    m_disconnectTimeoutTimer->stop();
 
     // 清理接收缓冲区
     m_receiveBuffer.clear();
@@ -117,14 +113,6 @@ void TcpClient::abort() {
 
 bool TcpClient::isConnected() const {
     return m_isConnected.load(std::memory_order_acquire);
-}
-
-QString TcpClient::serverAddress() const {
-    return m_hostName;
-}
-
-quint16 TcpClient::serverPort() const {
-    return m_port;
 }
 
 void TcpClient::sendMessage(MessageType type, const IMessageCodec& message) {
@@ -137,11 +125,6 @@ void TcpClient::sendMessage(MessageType type, const IMessageCodec& message) {
     QByteArray messageData = Protocol::createMessage(type, message);
 
     m_socket->write(messageData);
-}
-
-void TcpClient::onConnected() {
-    // TCP连接建立，TLS握手将自动开始
-    qCInfo(lcClient) << "TcpClient::onConnected - TCP connection established, TLS handshake starting...";
 }
 
 void TcpClient::onEncrypted() {

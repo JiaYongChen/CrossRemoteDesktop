@@ -23,7 +23,6 @@ public:
 
     void showAnimated();
     void hideAnimated();
-    bool isAnimating() const;
 
 signals:
     void toggleFullscreenRequested();

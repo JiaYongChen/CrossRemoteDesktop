@@ -194,15 +194,17 @@ if(LUPDATE_EXECUTABLE)
         DOC "Path to Qt lrelease tool"
     )
     if(LRELEASE_EXECUTABLE)
+        # 不带 -qm：lrelease 为每个 .ts 在同目录生成同名 .qm（TS 本就位于 resources/translations/；
+        # -qm 只接受单个输出文件名，多 TS + 目录参数会导致 "cannot create" 失败）
         add_custom_target(release_translations
-            COMMAND ${LRELEASE_EXECUTABLE} ${TS_FILES} -qm ${CMAKE_CURRENT_SOURCE_DIR}/resources/translations/
+            COMMAND ${LRELEASE_EXECUTABLE} ${TS_FILES}
             WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
             COMMENT "Compiling TS → QM translation files..."
         )
         # 组合目标：lupdate → lrelease 一键完成
         add_custom_target(sync_translations
             COMMAND ${LUPDATE_EXECUTABLE} ${TRANSLATABLE_SOURCES} -ts ${TS_FILES} -no-obsolete
-            COMMAND ${LRELEASE_EXECUTABLE} ${TS_FILES} -qm ${CMAKE_CURRENT_SOURCE_DIR}/resources/translations/
+            COMMAND ${LRELEASE_EXECUTABLE} ${TS_FILES}
             WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
             COMMENT "Running lupdate + lrelease: syncing and compiling translations..."
         )

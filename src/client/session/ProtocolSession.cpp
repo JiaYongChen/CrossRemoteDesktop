@@ -14,17 +14,11 @@ ProtocolSession::ProtocolSession(ConnectionManager* connectionManager,
     }
 }
 
-ProtocolSession::~ProtocolSession() {
-    terminateSession();
-}
-
-QString ProtocolSession::connectionId() const {
-    return m_connectionId;
-}
-
 void ProtocolSession::setupConnections() {
     connect(m_connectionManager, &ConnectionManager::connectionStateChanged,
         this, &ProtocolSession::connectionStateChanged);
+    connect(m_connectionManager, &ConnectionManager::errorOccurred,
+        this, &ProtocolSession::sessionError);
     connect(m_connectionManager, &ConnectionManager::messageReceived,
         this, &ProtocolSession::onMessageReceived);
 }
@@ -42,40 +36,14 @@ void ProtocolSession::startSession() {
             tr("解码管线未初始化"), "ProtocolSession"));
         return;
     }
-    m_sessionActive = true;
     m_pipeline->start();
 }
 
-void ProtocolSession::suspendSession() {
-    // 暂停 pipeline（保持 worker 存活但停止处理）
-}
-
-void ProtocolSession::resumeSession() {
-    if (m_connectionManager && m_connectionManager->isAuthenticated()) {
-        m_connectionManager->sendMessage(MessageType::HANDSHAKE_REQUEST, BaseMessage());
-    }
-}
-
-void ProtocolSession::terminateSession() {
-    m_sessionActive = false;
-    m_remoteScreenSize = QSize();
-}
-
 bool ProtocolSession::isActive() const {
-    return m_sessionActive && m_connectionManager
-        && m_connectionManager->isAuthenticated();
-}
-
-bool ProtocolSession::isAuthenticated() const {
-    return m_connectionManager && m_connectionManager->isAuthenticated();
-}
-
-QString ProtocolSession::currentHost() const {
-    return m_connectionManager ? m_connectionManager->currentHost() : QString();
-}
-
-int ProtocolSession::currentPort() const {
-    return m_connectionManager ? m_connectionManager->currentPort() : 0;
+    // 无独立会话标志：认证态 + 管线运行态即为激活。
+    // close() 流程中管线先停 → isActive 立即为 false，输入事件停止序列化
+    return m_connectionManager && m_connectionManager->isAuthenticated()
+        && m_pipeline && m_pipeline->isRunning();
 }
 
 bool ProtocolSession::isConnected() const {
@@ -117,17 +85,7 @@ void ProtocolSession::handleScreenData(const QByteArray& data) {
         return;
     }
 
-    // 2. JPEG 头部校验
-    if (screenData.imageData.size() >= 2) {
-        unsigned char b0 = static_cast<unsigned char>(screenData.imageData[0]);
-        unsigned char b1 = static_cast<unsigned char>(screenData.imageData[1]);
-        if (b0 != 0xFF || b1 != 0xD8) {
-            qCWarning(lcClientSessionProtocol) << "ProtocolSession::handleScreenData() — invalid JPEG header";
-            return;
-        }
-    }
-
-    // 3. 更新远程屏幕尺寸
+    // 2. 更新远程屏幕尺寸
     if (screenData.flags & static_cast<quint8>(ScreenDataFlags::SCALED)) {
         if (screenData.originalWidth > 0 && screenData.originalHeight > 0) {
             QSize newSz(screenData.originalWidth, screenData.originalHeight);
@@ -145,7 +103,7 @@ void ProtocolSession::handleScreenData(const QByteArray& data) {
         }
     }
 
-    // 4. 投递到解码管线（同线程直接调用）
+    // 3. 投递到解码管线（同线程直接调用）
     if (m_pipeline && m_pipeline->isRunning()) {
         m_pipeline->enqueueFrame(std::move(screenData), m_remoteScreenSize);
     }
@@ -229,21 +187,8 @@ void ProtocolSession::sendClipboardImage(const QByteArray& imageData, quint32 wi
 
 // ── 连接控制 ──
 
-void ProtocolSession::connectToHost(const QString& host, int port) {
-    if (m_connectionManager) {
-        m_connectionManager->connectToHost(host, port);
-    }
-}
-
 void ProtocolSession::disconnectFromHost() {
     if (m_connectionManager) {
         m_connectionManager->disconnectFromHost();
     }
-}
-
-void ProtocolSession::resetConnection() {
-    m_remoteScreenSize = QSize();
-    m_sessionActive = false;
-    emit connectionReset();
-    qCInfo(lcClientSessionProtocol) << "ProtocolSession::resetConnection() — complete";
 }

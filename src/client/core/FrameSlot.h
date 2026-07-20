@@ -12,7 +12,6 @@ struct FrameSlot {
     QImage image;
     QSize   remoteSize;
     std::chrono::steady_clock::time_point arrivalTs;
-    quint64 frameId = 0;
 #ifndef QT_NO_OPENGL
     GLsync  uploadFence = nullptr;  // Set by worker thread when GL upload is done
 #endif

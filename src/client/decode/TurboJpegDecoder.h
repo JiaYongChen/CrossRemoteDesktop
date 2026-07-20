@@ -14,8 +14,6 @@ public:
     TurboJpegDecoder();
     ~TurboJpegDecoder() override;
 
-    [[nodiscard]] bool isAvailable() const override { return true; }
-
 #ifndef QT_NO_OPENGL
     [[nodiscard]] bool decode(const QByteArray& jpegData,
                                int* outWidth,

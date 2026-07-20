@@ -27,8 +27,10 @@ public:
     /// @brief 逆序释放所有 nvJPEG/CUDA 资源
     ~NvJpegDecoder() override;
 
+    /// @brief 构造探测结果：解码器是否可用（DecodeWorker 选择解码器时调用）
+    [[nodiscard]] bool isAvailable() const { return m_available; }
+
     // ── IDecoder 接口 ──
-    [[nodiscard]] bool isAvailable() const override { return m_available; }
     [[nodiscard]] bool decode(const QByteArray&, int*, int*,
                                GLsync*, QImage* = nullptr) override;
     [[nodiscard]] const char* name() const override { return "nvJPEG"; }
@@ -63,7 +65,6 @@ private:
     unsigned char*       m_tmpBuf     = nullptr;  ///< 解码输出临时设备缓冲
     size_t               m_tmpBufSize = 0;        ///< 临时缓冲当前大小
 
-    nvjpegBackend_t      m_backend    = NVJPEG_BACKEND_DEFAULT;  ///< 选定的后端
     bool                 m_available  = false;                   ///< 解码器是否可用
 
     std::unique_ptr<TurboJpegDecoder> m_fallbackDecoder;  ///< GPU 失败时惰性回退
@@ -77,7 +78,7 @@ public:
     NvJpegDecoder() = default;
     ~NvJpegDecoder() override = default;
 
-    [[nodiscard]] bool isAvailable() const override { return false; }
+    [[nodiscard]] bool isAvailable() const { return false; }
     [[nodiscard]] bool decode(const QByteArray&, int*, int*,
                                GLsync*, QImage* = nullptr) override { return false; }
     [[nodiscard]] const char* name() const override { return "nvJPEG"; }

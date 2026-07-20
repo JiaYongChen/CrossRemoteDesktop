@@ -2,6 +2,7 @@
 
 #include "GLTextureViewport.h"
 #include "../decode/GpuDecodeTarget.h"
+#include "../../common/config/GuiConstants.h"
 #include "../../common/logging/LoggingCategories.h"
 #include "CursorManager.h"
 
@@ -50,20 +51,6 @@
 #  define GL_MAP_INVALIDATE_BUFFER_BIT 0x0004
 #endif
 
-bool GLTextureViewport::chooseGLFormat(QImage::Format f, GLPixelLayout& out) {
-    switch ( f ) {
-        case QImage::Format_RGB888:
-            out = {GL_RGB8,  GL_RGB,  GL_UNSIGNED_BYTE, 3};
-            return true;
-        case QImage::Format_RGBA8888:
-        case QImage::Format_RGBA8888_Premultiplied:
-            out = {GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, 4};
-            return true;
-        default:
-            return false;
-    }
-}
-
 // Vertex shader: pass through position and texture coordinates
 static const char* s_vertexShaderSource = R"(
     #version 330 core
@@ -89,33 +76,27 @@ static const char* s_fragmentShaderSource = R"(
 
 GLTextureViewport::GLTextureViewport(QWidget* parent)
     : QOpenGLWidget(parent)
-    , m_vertexBuffer(QOpenGLBuffer::VertexBuffer)
-    , m_pollTimer(new QTimer(this)) {
+    , m_vertexBuffer(QOpenGLBuffer::VertexBuffer) {
     // Request OpenGL 3.3 Core profile
     QSurfaceFormat format;
     format.setVersion(3, 3);
     format.setProfile(QSurfaceFormat::CoreProfile);
-    m_vsyncEnabled = true;
     format.setSwapInterval(1);
     setFormat(format);
-
-    // Frame-polling timer — only active when VSync is off and a frame buffer
-    // is attached. 16ms (60fps) is the default cadence.
-    m_pollTimer->setInterval(16);
-    m_pollTimer->setTimerType(Qt::PreciseTimer);
-    connect(m_pollTimer, &QTimer::timeout, this, [this]() { update(); });
 }
 
 GLTextureViewport::~GLTextureViewport() {
-    if (m_pollTimer) {
-        m_pollTimer->stop();
-    }
-
     // 在 vtable 降级前断开 aboutToBeDestroyed 信号，避免基类析构时 Qt 断言崩溃
     if (QOpenGLContext* ctx = context()) {
         disconnect(ctx, &QOpenGLContext::aboutToBeDestroyed,
                    this, &GLTextureViewport::cleanupGL);
     }
+
+    // TripleBuffer（归属 DecodePipeline）在关窗路径中可能先于本视口析构
+    // （session deleteLater 先入队，窗口 WA_DeleteOnClose 后入队）。
+    // 清空 pending-fence 引用，避免后续 cleanupGL 解引用已释放内存（UAF）。
+    m_pendingFenceSlot = nullptr;
+    m_pendingFenceIdx = -1;
 
     // 仅在上下文有效时清理 GL 资源
     if (QOpenGLContext* ctx = context(); ctx && ctx->isValid()) {
@@ -158,7 +139,8 @@ void GLTextureViewport::initializeGL() {
         << "renderer:" << reinterpret_cast<const char*>(glGetString(GL_RENDERER))
         << "version:" << reinterpret_cast<const char*>(glGetString(GL_VERSION));
 
-    // Notify listeners (SessionManager) that the GL context is ready for sharing
+    // 通知监听者（RemoteDesktopSession → DecodePipeline）GL 已就绪；
+    // worker 解码上下文由 GpuDecodeTarget 在解码线程内自建，不与此上下文共享
     emit glContextReady(context());
 }
 
@@ -220,6 +202,29 @@ void GLTextureViewport::initializeGeometry() {
 }
 
 void GLTextureViewport::cleanupGL() {
+    // 通知外部持有者：GL 资源（包括 GpuDecodeTarget）即将被销毁——
+    // RemoteDesktopSession 应在此信号后停止解码管线，避免 DecodeWorker
+    // 持有的裸指针在 processOneFrame 中悬空（use-after-free）
+    emit glResourcesAboutToBeDestroyed();
+
+    // aboutToBeDestroyed 路径不保证上下文为 current：析构路径已 makeCurrent，
+    // 此处加防御性 makeCurrent 避免无 current 下 glDeleteSync/glDeleteTextures UB。
+    // QOpenGLContext::surface() 返回 QOpenGLWidget 的 QWindow（始终非空），
+    // API 要求 makeCurrent(curSurface) 而非 surrogates。
+    if (QOpenGLContext* ctx = context(); ctx && ctx->surface()) {
+        ctx->makeCurrent(ctx->surface());
+    }
+
+    // 丢弃未决的超时重试 fence（上下文即将销毁）
+    if (m_pendingFenceSlot && m_pendingFenceSlot->uploadFence) {
+        if (QOpenGLContext* ctx = context()) {
+            ctx->extraFunctions()->glDeleteSync(m_pendingFenceSlot->uploadFence);
+        }
+        m_pendingFenceSlot->uploadFence = nullptr;
+    }
+    m_pendingFenceSlot = nullptr;
+    m_pendingFenceIdx = -1;
+
     if (m_decodeTarget) {
         m_decodeTarget->cleanup();
         delete m_decodeTarget;
@@ -278,44 +283,6 @@ void GLTextureViewport::uploadFallbackTexture(const QImage& image) {
                     GL_RGB, GL_UNSIGNED_BYTE, rgb.constBits());
 }
 
-void GLTextureViewport::attachDecodeTarget(GpuDecodeTarget* target) {
-    m_decodeTarget = target;
-}
-
-bool GLTextureViewport::hasTexture() const {
-    return (m_decodeTarget && m_decodeTarget->displayTexture() != 0) || m_fallbackTexture != 0;
-}
-
-void GLTextureViewport::setRemoteScreen(const QImage& image) {
-    if (!m_decodeTarget || image.isNull() || image.format() == QImage::Format_Invalid) {
-        return;
-    }
-
-    if (!m_glInitialized) {
-        qCDebug(lcClientGL) << "GL not initialized, skipping setRemoteScreen";
-        return;
-    }
-
-    makeCurrent();
-    GLsync fence = m_decodeTarget->uploadPixels(image.constBits(), image.width(), image.height()); Q_UNUSED(fence);
-    m_decodeTarget->swapDisplay();
-    m_textureDirty = true;
-
-    // 同步纹理尺寸
-    const QSize newSize(image.width(), image.height());
-    if (newSize != m_textureSize) {
-        m_textureSize = newSize;
-        if (m_renderRect.isEmpty()) updateRenderRect();
-    }
-
-    doneCurrent();
-    update();
-}
-
-void GLTextureViewport::renderNow() {
-    update();
-}
-
 void GLTextureViewport::forceRepaint() {
     m_textureDirty = true;
     update();
@@ -337,7 +304,7 @@ void GLTextureViewport::CheckForNewFrameAfterPaint(int consumedSlot) {
     // 仅在本次 paintGL 确实消费了一帧之后才检查。
     // 若 peekReady() 返回不同于 consumedSlot 的索引，说明在 paintGL 执行
     // 期间解码线程又提交了新帧。此时立即 CAS 排队 update()，
-    // 将帧间等待时间从"下一个 VSync/轮询"缩短到"下一个事件循环迭代"。
+    // 将帧间等待时间从"下一个 VSync"缩短到"下一个事件循环迭代"。
     if (!m_frameBuffer || consumedSlot < 0) {
         return;
     }
@@ -359,11 +326,14 @@ void GLTextureViewport::resizeGL(int w, int h) {
 
 void GLTextureViewport::paintGL() {
     if (!m_shaderProgram) {
+        // 早退也必须复位重绘门闩，否则 requestRepaint 的 CAS 永久失败（饿死）
+        m_needsRepaint.store(false, std::memory_order_release);
         return;
     }
 
     // GpuDecodeTarget 未就绪或初始化失败，跳过绘制
     if (!m_decodeTarget) {
+        m_needsRepaint.store(false, std::memory_order_release);
         return;
     }
 
@@ -374,7 +344,25 @@ void GLTextureViewport::paintGL() {
     m_consumedSlot = -1;  // 每次 paintGL 重置
     if ( m_frameBuffer ) {
         FrameSlot* slot = nullptr;
-        const int idx = m_frameBuffer->getReadSlot(slot);
+        int idx = -1;
+
+        // fence 超时重试：若上次留有未就绪 fence 且期间无新帧提交，重查同一槽位；
+        // 有新帧则丢弃过期 fence（latest-wins），改为消费新帧。
+        if ( m_pendingFenceSlot ) {
+            if ( m_frameBuffer->peekReady() == m_pendingFenceIdx ) {
+                slot = m_pendingFenceSlot;
+                idx = m_pendingFenceIdx;
+            } else if ( m_pendingFenceSlot->uploadFence ) {
+                context()->extraFunctions()->glDeleteSync(m_pendingFenceSlot->uploadFence);
+                m_pendingFenceSlot->uploadFence = nullptr;
+            }
+            m_pendingFenceSlot = nullptr;
+            m_pendingFenceIdx = -1;
+        }
+
+        if ( !slot ) {
+            idx = m_frameBuffer->getReadSlot(slot);
+        }
         // GL 上传路径中 image 可能为空（像素已通过 uploadFromWorker 写入纹理），
         // uploadFence 作为备选有效性指示器。
         if ( idx >= 0 && slot && (!slot->image.isNull() || slot->uploadFence) ) {
@@ -403,12 +391,10 @@ void GLTextureViewport::paintGL() {
                             result == GL_TIMEOUT_EXPIRED ? "TIMEOUT" : "OTHER")
                         << "wait:" << (fenceUs / 1000.0) << "ms";
 
-                static int s_consecutiveFenceTimeouts = 0;
                 if ( result == GL_ALREADY_SIGNALED ||
                      result == GL_CONDITION_SATISFIED ) {
-                    s_consecutiveFenceTimeouts = 0;
+                    m_consecutiveFenceTimeouts = 0;
                     // GPU upload complete — texture is ready to draw.
-                    m_consecutiveSkips.store(0, std::memory_order_relaxed);
                     f->glDeleteSync(slot->uploadFence);
                     slot->uploadFence = nullptr;
                     m_decodeTarget->swapDisplay();
@@ -421,21 +407,23 @@ void GLTextureViewport::paintGL() {
                     }
                 } else {
                     // GL_TIMEOUT_EXPIRED or GL_WAIT_FAILED: GPU 未完成 DMA。
-                    ++s_consecutiveFenceTimeouts;
-                    if ( s_consecutiveFenceTimeouts >= 5 ) {
+                    ++m_consecutiveFenceTimeouts;
+                    if ( m_consecutiveFenceTimeouts >= 5 ) {
                         // 连续 5 次超时（~80ms）：强制放弃 fence，避免画面卡死。
                         // 可能显示部分上传的纹理，但远好于冻结。
                         qCWarning(lcClientGL) << "paintGL: force-skipping stuck fence after"
-                                               << s_consecutiveFenceTimeouts << "timeouts";
+                                               << m_consecutiveFenceTimeouts << "timeouts";
                         f->glDeleteSync(slot->uploadFence);
                         slot->uploadFence = nullptr;
                         m_decodeTarget->swapDisplay();
                         m_textureDirty = true;
-                        m_consecutiveSkips.store(0, std::memory_order_relaxed);
-                        s_consecutiveFenceTimeouts = 0;
+                        m_consecutiveFenceTimeouts = 0;
                     } else {
-                        // 增递跳过计数器，生产者可据此降低上传频率
-                        m_consecutiveSkips.fetch_add(1, std::memory_order_relaxed);
+                        // 未达阈值：暂存槽位并排队下一次 paint 重试，
+                        // 否则该帧因读指针已推进而永久丢失（静止画面下不再有唤醒源）
+                        m_pendingFenceSlot = slot;
+                        m_pendingFenceIdx = idx;
+                        QMetaObject::invokeMethod(this, "update", Qt::QueuedConnection);
                     }
                 }
             } else {
@@ -448,6 +436,8 @@ void GLTextureViewport::paintGL() {
                             slot->image.constBits(),
                             slot->image.width(), slot->image.height());
                         if (fence) {
+                            // 同上下文上传，命令流天然有序，fence 无同步价值，用后即删
+                            context()->extraFunctions()->glDeleteSync(fence);
                             m_decodeTarget->swapDisplay();
                             m_textureDirty = true;
                             uploaded = true;
@@ -530,19 +520,6 @@ void GLTextureViewport::paintGL() {
         CheckForNewFrameAfterPaint(m_consumedSlot);
     }
 
-    // FPS 统计（EMA 平滑，基于渲染时刻——用户实际看到的帧率）
-    const auto now = std::chrono::steady_clock::now();
-    if (m_lastPaintTime.time_since_epoch().count() != 0) {
-        const double instant = std::chrono::duration<double>(now - m_lastPaintTime).count();
-        if (m_smoothedFrameDuration == 0.0) {
-            m_smoothedFrameDuration = instant;
-        } else {
-            m_smoothedFrameDuration = GuiConstants::FpsAlpha * instant + (1.0 - GuiConstants::FpsAlpha) * m_smoothedFrameDuration;
-        }
-        m_currentFPS = (m_smoothedFrameDuration > 0.0) ? (1.0 / m_smoothedFrameDuration) : 0.0;
-    }
-    m_lastPaintTime = now;
-
     using namespace std::chrono;
     if ( m_pendingArrivalTs.time_since_epoch().count() != 0 ) {
         const auto latencyUs = duration_cast<microseconds>(
@@ -565,7 +542,7 @@ void GLTextureViewport::paintGL() {
 
     // 帧间间隙修复：绘制完成后检查 TripleBuffer 是否有在绘制期间
     // 到达的新帧。若有则立即 CAS 排队 update()，将等待时间从"下个
-    // VSync/轮询周期"缩短到"下个事件循环迭代"。
+    // VSync 周期"缩短到"下个事件循环迭代"。
     CheckForNewFrameAfterPaint(m_consumedSlot);
 
     // 光标叠加 — GL 原生渲染（在帧渲染之后、swapBuffers 之前）
@@ -775,10 +752,6 @@ void GLTextureViewport::setRemoteSize(const QSize& size) {
     m_remoteSize = size;
 }
 
-QRectF GLTextureViewport::renderRect() const {
-    return m_renderRect;
-}
-
 QPoint GLTextureViewport::mapToRemote(const QPoint& localPoint) const {
     // localPoint is in widget logical coordinates (Qt handles DPI scaling
     // in event delivery). m_renderRect is also in logical coordinates.
@@ -807,53 +780,8 @@ QPoint GLTextureViewport::mapToRemote(const QPoint& localPoint) const {
     );
 }
 
-QPoint GLTextureViewport::mapFromRemote(const QPoint& remotePoint) const {
-    if ( m_renderRect.isEmpty() ) {
-        return remotePoint;
-    }
-
-    const QSize targetSize = m_remoteSize.isEmpty() ? m_textureSize : m_remoteSize;
-    if ( targetSize.isEmpty() ) {
-        return remotePoint;
-    }
-
-    // Transform: remote coords -> normalized -> local widget coords
-    const qreal normX = static_cast<qreal>(remotePoint.x()) / targetSize.width();
-    const qreal normY = static_cast<qreal>(remotePoint.y()) / targetSize.height();
-
-    return QPoint(
-        static_cast<int>(normX * m_renderRect.width() + m_renderRect.x()),
-        static_cast<int>(normY * m_renderRect.height() + m_renderRect.y())
-    );
-}
-
-void GLTextureViewport::setVSyncEnabled(bool on) {
-    if ( m_vsyncEnabled == on ) return;
-    m_vsyncEnabled = on;
-    QSurfaceFormat f = format();
-    f.setSwapInterval(on ? 1 : 0);
-    setFormat(f);
-    qCInfo(lcClientGL) << "VSync toggled:" << (on ? "ON" : "OFF");
-    configurePollTimer();
-    update();
-}
-
 void GLTextureViewport::attachFrameBuffer(TripleBuffer<FrameSlot>* buffer) {
     m_frameBuffer = buffer;
-    configurePollTimer();
-}
-
-void GLTextureViewport::configurePollTimer() {
-    if ( !m_pollTimer ) return;
-
-    // With VSync enabled, paintGL is driven by the compositor — no timer needed.
-    // With VSync disabled and a frame buffer attached, poll at ~60fps.
-    const bool needPolling = !m_vsyncEnabled && (m_frameBuffer != nullptr);
-    if ( needPolling && !m_pollTimer->isActive() ) {
-        m_pollTimer->start();
-    } else if ( !needPolling && m_pollTimer->isActive() ) {
-        m_pollTimer->stop();
-    }
 }
 
 #endif // QT_NO_OPENGL

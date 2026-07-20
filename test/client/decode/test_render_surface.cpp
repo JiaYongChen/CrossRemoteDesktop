@@ -26,20 +26,20 @@ private slots:
     void testViewportCreatesWithoutCrash()
     {
         GLTextureViewport vp;
-        QVERIFY(!vp.hasTexture());
-        QVERIFY(vp.textureSize().isEmpty());
+        vp.resize(960, 540);
+        QVERIFY(vp.decodeTarget() == nullptr);  // GL 未初始化前无解码目标
     }
 
-    void testCoordinateMappingRoundTrip()
+    void testCoordinateMappingIdentityWithoutTexture()
     {
         // 坐标映射在没有纹理上传时使用空尺寸（此时映射为恒等）
         GLTextureViewport vp;
         vp.resize(960, 540);
 
-        // 无纹理时 mapToRemote/mapFromRemote 为恒等映射
-        QPoint remote(960, 540);
-        QPoint local = vp.mapFromRemote(remote);
-        QCOMPARE(local, remote);
+        // 无纹理时 mapToRemote 为恒等映射
+        QPoint local(480, 270);
+        QPoint remote = vp.mapToRemote(local);
+        QCOMPARE(remote, local);
     }
 
 private:

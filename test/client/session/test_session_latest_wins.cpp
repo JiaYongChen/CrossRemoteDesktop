@@ -11,19 +11,18 @@ private slots:
             FrameSlot* w = nullptr;
             int idx = tb.acquireWrite(w);
             QVERIFY(idx >= 0 && idx <= 2);
-            w->frameId = static_cast<quint64>(i + 1);
+            // 用 remoteSize 宽度区分先后提交的帧
+            w->remoteSize = QSize(i + 1, 1);
             tb.commitWrite(idx);
         }
         FrameSlot* r = nullptr;
         int rs = tb.getReadSlot(r);
         QVERIFY(rs >= 0);
-        QCOMPARE(r->frameId, quint64(3));
+        QCOMPARE(r->remoteSize, QSize(3, 1));
     }
 
     void testDecodeWorkerExposesFrameSlot() {
         FrameSlot frame;
-        frame.frameId = 42;
-        QCOMPARE(frame.frameId, quint64(42));
         QVERIFY(frame.image.isNull());
         QVERIFY(frame.remoteSize.isEmpty());
     }

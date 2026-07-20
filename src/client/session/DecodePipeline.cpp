@@ -9,6 +9,10 @@
 #endif
 
 #include <QtCore/QThread>
+#include <QtCore/QCoreApplication>
+#include <QtCore/QDeadlineTimer>
+#include <QtCore/QSemaphore>
+#include <memory>
 
 DecodePipeline::DecodePipeline(const QString& connectionId, QObject* parent)
     : QObject(parent)
@@ -36,24 +40,30 @@ void DecodePipeline::start() {
     m_worker->setFrameBuffer(&m_frameBuffer);
 
 #ifndef QT_NO_OPENGL
-    // 注入 GL 上下文（通过 QueuedConnection 在 DecodeThread 中执行）
-    if (m_pendingGLContext && m_pendingGLContext->isValid()) {
-        QMetaObject::invokeMethod(m_worker, [w = m_worker, ctx = m_pendingGLContext]() {
-            w->initializeGL(ctx);
-        }, Qt::QueuedConnection);
-    }
+    // 先注入解码目标/视口，再排队 GL 初始化——postEvent 的内部同步保证
+    // DecodeThread 消费 initializeGL 时 m_decodeTarget 写入已可见，
+    // 消除"排队先于注入"的时序竞态
     if (m_decodeTarget) {
         m_worker->setDecodeTarget(m_decodeTarget);
     }
     m_worker->setGLViewport(m_glViewportForUpload);
+
+    // GL 就绪时在 DecodeThread 内初始化 worker 上下文（由 GpuDecodeTarget 自建）
+    if (m_glReady) {
+        QMetaObject::invokeMethod(m_worker, [w = m_worker]() {
+            if (!w->initializeGL()) {
+                qCWarning(lcClientSessionDecode)
+                    << "DecodePipeline: worker GL 初始化失败，回退 CPU 上传路径";
+            }
+        }, Qt::QueuedConnection);
+    }
 #endif
 
     // 注意：不设置 decodeThread 的 parent（跨线程限制），
     // 由 stop() 负责显式清理 decodeThread
 
-    // 转发信号
+    // 解码错误转发（跨线程 QueuedConnection，RdError 已注册元类型）
     connect(m_worker, &DecodeWorker::decodeError, this, &DecodePipeline::decodeError);
-    connect(m_worker, &DecodeWorker::stopped, this, &DecodePipeline::stopped);
 
     // 启动工作循环
     QMetaObject::invokeMethod(m_worker, "start", Qt::QueuedConnection);
@@ -63,9 +73,10 @@ void DecodePipeline::start() {
 }
 
 void DecodePipeline::stop() {
-    if (!m_worker) {
+    if (!m_worker || m_stopping) {
         return;
     }
+    m_stopping = true;
 
     qCInfo(lcClientSessionDecode) << "DecodePipeline::stop() — stopping pipeline for" << m_connectionId;
 
@@ -75,12 +86,28 @@ void DecodePipeline::stop() {
     // 2. 获取线程引用
     QThread* decodeThread = m_worker->thread();
 
-    // 3. 在线程内清理 GL 资源（必须在 quit 之前）
+    // 3. 在线程内清理 GL 资源（必须在 quit 之前）。
+    //    不用 BlockingQueuedConnection：解码线程此刻可能正阻塞在
+    //    ensureWorkerContext 的反向 BlockingQueuedConnection（等 Main 执行
+    //    doneCurrent），双向阻塞即 ABBA 死锁。改为排队 + 信号量 + 泵事件，
+    //    Main 在等待期间仍能服务解码线程的阻塞调用。
 #ifndef QT_NO_OPENGL
     if (decodeThread && decodeThread->isRunning()) {
-        QMetaObject::invokeMethod(m_worker, [w = m_worker]() {
+        auto cleanupDone = std::make_shared<QSemaphore>();
+        QMetaObject::invokeMethod(m_worker, [w = m_worker, cleanupDone]() {
             w->cleanupGL();
-        }, Qt::BlockingQueuedConnection);
+            cleanupDone->release();
+        }, Qt::QueuedConnection);
+
+        QDeadlineTimer deadline(3000);
+        while (!cleanupDone->tryAcquire(1, 10)) {
+            if (deadline.hasExpired()) {
+                qCWarning(lcClientSessionDecode)
+                    << "DecodePipeline::stop() — cleanupGL 等待超时，跳过（GL 资源随上下文销毁回收）";
+                break;
+            }
+            QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+        }
     }
 #endif
 
@@ -88,10 +115,20 @@ void DecodePipeline::stop() {
     if (decodeThread && decodeThread->isRunning()) {
         decodeThread->quit();
         if (!decodeThread->wait(3000)) {
-            qCWarning(lcClientSessionDecode) << "DecodePipeline::stop() — thread quit timeout, forcing";
+            qCWarning(lcClientSessionDecode) << "DecodePipeline::stop() — thread quit timeout, requesting interruption";
             decodeThread->requestInterruption();
             decodeThread->quit();
-            decodeThread->wait(1000);
+            if (!decodeThread->wait(1000)) {
+                // 线程彻底卡死（如驱动级阻塞）：不删除 worker/thread 避免 UAF。
+                // 资源会泄漏但进程不会崩溃——这是两害相权取其轻。
+                qCCritical(lcClientSessionDecode)
+                    << "DecodePipeline::stop() — 解码线程无响应，跳过清理避免崩溃（资源泄漏）";
+                m_worker = nullptr;      // 放弃所有权，不解引用
+                decodeThread = nullptr;  // 放弃所有权，不删除
+                m_running = false;
+                m_stopping = false;
+                return;
+            }
         }
     }
 
@@ -116,6 +153,7 @@ void DecodePipeline::stop() {
     }
 
     m_running = false;
+    m_stopping = false;
 
     qCInfo(lcClientSessionDecode) << "DecodePipeline::stop() — stopped for" << m_connectionId;
 }
@@ -132,8 +170,9 @@ bool DecodePipeline::enqueueFrame(ScreenData data, const QSize& remoteSize) {
 }
 
 #ifndef QT_NO_OPENGL
-void DecodePipeline::setGLContext(QOpenGLContext* context) {
-    m_pendingGLContext = context;
+void DecodePipeline::notifyGLReady() {
+    // worker 上下文由 GpuDecodeTarget 在解码线程内自建，此方法仅标记 GL 已就绪
+    m_glReady = true;
 }
 
 void DecodePipeline::setDecodeTarget(GpuDecodeTarget* target) {

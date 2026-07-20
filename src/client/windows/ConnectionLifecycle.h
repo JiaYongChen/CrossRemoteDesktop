@@ -20,16 +20,11 @@ public:
     /// 设置连接状态（触发标题更新 + 断连处理）
     void setConnectionState(ConnectionManager::ConnectionState state);
 
-    /// 查询当前状态
-    ConnectionManager::ConnectionState connectionState() const;
-
     /// 设置主机名（用于标题显示）
     void setHostName(const QString& name);
-    QString hostName() const;
 
     /// 设置仅查看模式（影响窗口标题后缀）
     void setViewOnly(bool viewOnly) { m_viewOnly = viewOnly; updateWindowTitle(); }
-    bool isViewOnly() const { return m_viewOnly; }
 
 private:
     void updateWindowTitle();

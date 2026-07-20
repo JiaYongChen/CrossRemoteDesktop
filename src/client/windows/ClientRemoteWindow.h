@@ -8,14 +8,10 @@
 
 // Forward declarations
 class QMouseEvent;
-class QKeyEvent;
-class QWheelEvent;
 class QResizeEvent;
-class QFocusEvent;
 class QCloseEvent;
 class QEnterEvent;
 class QEvent;
-class QLabel;
 class GLTextureViewport;
 class ProtocolSession;
 class CursorManager;
@@ -28,29 +24,16 @@ class ClientRemoteWindow : public QWidget {
     Q_OBJECT
 
 public:
-    explicit ClientRemoteWindow(ProtocolSession* sessionManager, QWidget* parent = nullptr);
+    explicit ClientRemoteWindow(ProtocolSession* protocolSession, QWidget* parent = nullptr);
     ~ClientRemoteWindow();
-
-    // Connection identification
-    QString connectionId() const;
 
     // Window title management
     void updateWindowTitle(const QString& title);
 
     // Connection state (delegated to ConnectionLifecycle)
     void setConnectionState(ConnectionManager::ConnectionState state);
-    ConnectionManager::ConnectionState connectionState() const;
-
-    // Screen display (delegated to GLTextureViewport)
-    void setRemoteScreen(const QImage& image);
-    void updateRemoteScreen(const QImage& screen);
-
-    // Scaling
-    void setScaleFactor(double factor);
-    double scaleFactor() const;
 
     void setFullScreen(bool fullScreen);
-    bool isFullScreen() const;
 
     // Input control (delegated to InputForwarder)
     void setInputEnabled(bool enabled);
@@ -91,19 +74,11 @@ private:
     void setupUI();
     void repositionToolbar();
 
-    QString m_connectionId;
     ProtocolSession* m_protocolSession;
-    bool m_isFullScreen;
     bool m_isClosing;
-
-    // Cached host name for title display
-    QString m_hostName;
 
     // 剪贴板共享标志（供 toggleViewOnly 恢复时使用）
     bool m_shareClipboard = true;
-
-    // Scale factor (replaces RenderManager scaling)
-    double m_scaleFactor = 1.0;
 
     // Sub-managers (owned via Qt parent-child)
     CursorManager* m_cursorManager = nullptr;

@@ -130,7 +130,6 @@ bool NvJpegDecoder::tryBackend(nvjpegBackend_t backend, unsigned int flags) {
     m_state   = s;
     m_devBuf  = db;
     m_stream  = st;
-    m_backend = backend;
     return true;
 }
 

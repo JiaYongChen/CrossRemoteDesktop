@@ -140,8 +140,3 @@ void FloatingRemoteToolbar::hideAnimated()
     m_heightAnim->setEasingCurve(QEasingCurve::InCubic);
     m_heightAnim->start();
 }
-
-bool FloatingRemoteToolbar::isAnimating() const
-{
-    return m_heightAnim && m_heightAnim->state() == QAbstractAnimation::Running;
-}

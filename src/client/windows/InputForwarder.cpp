@@ -5,8 +5,6 @@
 #include <QtGui/QMouseEvent>
 #include <QtGui/QKeyEvent>
 #include <QtGui/QWheelEvent>
-#include <QtGui/QFocusEvent>
-#include <QtGui/QEnterEvent>
 
 #ifndef QT_NO_OPENGL
 #include "GLTextureViewport.h"
@@ -54,12 +52,6 @@ bool InputForwarder::eventFilter(QObject* obj, QEvent* event) {
             return handleMouseDoubleClick(static_cast<QMouseEvent*>(event));
         case QEvent::Wheel:
             return handleWheel(static_cast<QWheelEvent*>(event));
-        case QEvent::Enter:
-            handleEnter(static_cast<QEnterEvent*>(event));
-            break;
-        case QEvent::Leave:
-            handleLeave(event);
-            break;
         default:
             break;
     }
@@ -69,24 +61,16 @@ bool InputForwarder::eventFilter(QObject* obj, QEvent* event) {
 bool InputForwarder::handleKeyPress(QKeyEvent* event) {
     if (!m_protocolSession) return false;
 
-    QMetaObject::invokeMethod(m_protocolSession, "sendKeyboardEvent",
-        Qt::QueuedConnection,
-        Q_ARG(int, event->key()),
-        Q_ARG(int, static_cast<int>(event->modifiers())),
-        Q_ARG(bool, true),
-        Q_ARG(QString, event->text()));
+    m_protocolSession->sendKeyboardEvent(event->key(),
+        static_cast<int>(event->modifiers()), true, event->text());
     return false;
 }
 
 bool InputForwarder::handleKeyRelease(QKeyEvent* event) {
     if (!m_protocolSession) return false;
 
-    QMetaObject::invokeMethod(m_protocolSession, "sendKeyboardEvent",
-        Qt::QueuedConnection,
-        Q_ARG(int, event->key()),
-        Q_ARG(int, static_cast<int>(event->modifiers())),
-        Q_ARG(bool, false),
-        Q_ARG(QString, QString()));
+    m_protocolSession->sendKeyboardEvent(event->key(),
+        static_cast<int>(event->modifiers()), false, QString());
     return false;
 }
 
@@ -111,10 +95,8 @@ bool InputForwarder::handleMousePress(QMouseEvent* event) {
     QPoint rp = mapToRemote(event->pos());
     int t = mouseEventTypeFromButton(event->button(), true);
     if (t != 0) {
-        QMetaObject::invokeMethod(m_protocolSession, "sendMouseEvent",
-            Qt::QueuedConnection, Q_ARG(int, rp.x()), Q_ARG(int, rp.y()), Q_ARG(int, t));
+        m_protocolSession->sendMouseEvent(rp.x(), rp.y(), t);
     }
-    m_lastMousePos = event->pos();
     if (m_cursorManager) {
         m_cursorManager->setCursorPosition(event->pos().x(), event->pos().y());
     }
@@ -126,8 +108,7 @@ bool InputForwarder::handleMouseRelease(QMouseEvent* event) {
     QPoint rp = mapToRemote(event->pos());
     int t = mouseEventTypeFromButton(event->button(), false);
     if (t != 0) {
-        QMetaObject::invokeMethod(m_protocolSession, "sendMouseEvent",
-            Qt::QueuedConnection, Q_ARG(int, rp.x()), Q_ARG(int, rp.y()), Q_ARG(int, t));
+        m_protocolSession->sendMouseEvent(rp.x(), rp.y(), t);
     }
     if (m_cursorManager) {
         m_cursorManager->setCursorPosition(event->pos().x(), event->pos().y());
@@ -138,10 +119,8 @@ bool InputForwarder::handleMouseRelease(QMouseEvent* event) {
 bool InputForwarder::handleMouseMove(QMouseEvent* event) {
     if (!m_protocolSession) return false;
     QPoint rp = mapToRemote(event->pos());
-    QMetaObject::invokeMethod(m_protocolSession, "sendMouseEvent",
-        Qt::QueuedConnection, Q_ARG(int, rp.x()), Q_ARG(int, rp.y()),
-        Q_ARG(int, static_cast<int>(MouseEventType::MOVE)));
-    m_lastMousePos = event->pos();
+    m_protocolSession->sendMouseEvent(rp.x(), rp.y(),
+        static_cast<int>(MouseEventType::MOVE));
     if (m_cursorManager) {
         m_cursorManager->setCursorPosition(event->pos().x(), event->pos().y());
     }
@@ -153,8 +132,7 @@ bool InputForwarder::handleMouseDoubleClick(QMouseEvent* event) {
     QPoint rp = mapToRemote(event->pos());
     int t = mouseEventTypeFromButtonDbl(event->button());
     if (t != 0) {
-        QMetaObject::invokeMethod(m_protocolSession, "sendMouseEvent",
-            Qt::QueuedConnection, Q_ARG(int, rp.x()), Q_ARG(int, rp.y()), Q_ARG(int, t));
+        m_protocolSession->sendMouseEvent(rp.x(), rp.y(), t);
     }
     if (m_cursorManager) {
         m_cursorManager->setCursorPosition(event->pos().x(), event->pos().y());
@@ -166,18 +144,6 @@ bool InputForwarder::handleWheel(QWheelEvent* event) {
     if (!m_protocolSession) return false;
     QPoint rp = mapToRemote(event->position().toPoint());
     int delta = event->angleDelta().y();
-    QMetaObject::invokeMethod(m_protocolSession, "sendWheelEvent",
-        Qt::QueuedConnection, Q_ARG(int, rp.x()), Q_ARG(int, rp.y()),
-        Q_ARG(int, delta), Q_ARG(int, Qt::Vertical));
+    m_protocolSession->sendWheelEvent(rp.x(), rp.y(), delta, Qt::Vertical);
     return false;
-}
-
-void InputForwarder::handleEnter(QEnterEvent* event) {
-    Q_UNUSED(event);
-    // CursorManager integration is handled by ClientRemoteWindow
-}
-
-void InputForwarder::handleLeave(QEvent* event) {
-    Q_UNUSED(event);
-    // CursorManager integration is handled by ClientRemoteWindow
 }

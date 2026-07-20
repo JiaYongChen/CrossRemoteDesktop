@@ -211,7 +211,7 @@ add_rd_test(TARGET test_triple_buffer_swap  NAME TripleBufferSwapTest
     LIBRARIES Qt6::Core Qt6::Test
     TIMEOUT 30  LABELS unit client threading)
 
-# unit / render + GL
+# unit / render
 add_rd_test(TARGET test_render_surface  NAME RenderSurfaceTest
     SOURCES client/decode/test_render_surface.cpp
     EXTRA_SOURCES ../src/client/windows/GLTextureViewport.cpp
@@ -219,22 +219,6 @@ add_rd_test(TARGET test_render_surface  NAME RenderSurfaceTest
                   ../src/client/windows/CursorManager.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets common_test_core
     TIMEOUT 30  LABELS unit client render)
-
-add_rd_test(TARGET test_gl_upload_formats  NAME GLUploadFormatsTest
-    SOURCES client/decode/test_gl_upload_formats.cpp
-    EXTRA_SOURCES ../src/client/windows/GLTextureViewport.cpp
-                  ../src/client/decode/GpuDecodeTarget.cpp
-                  ../src/client/windows/CursorManager.cpp
-    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::OpenGL Qt6::OpenGLWidgets common_test_core
-    TIMEOUT 30  LABELS unit client gl)
-
-add_rd_test(TARGET test_gl_worker_upload  NAME GLWorkerUploadTest
-    SOURCES client/decode/test_gl_worker_upload.cpp
-    EXTRA_SOURCES ../src/client/windows/GLTextureViewport.cpp
-                  ../src/client/decode/GpuDecodeTarget.cpp
-                  ../src/client/windows/CursorManager.cpp
-    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::OpenGL Qt6::OpenGLWidgets common_test_core
-    TIMEOUT 30  LABELS unit client gl)
 
 # unit / client window
 add_rd_test(TARGET test_clientremotewindow  NAME ClientRemoteWindowTest
@@ -327,51 +311,20 @@ add_rd_test(TARGET test_frame_transmission_latency  NAME FrameTransmissionLatenc
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Network threading_test_core
     TIMEOUT 30  LABELS performance latency network  NO_OPENGL)
 
-# SessionManager 单元测试 — 暂时跳过，等待新架构适配（后续 Task 处理）
-# add_rd_test(TARGET test_sessionmanager_logic  NAME SessionManagerLogicTest
-#     SOURCES client/session/test_sessionmanager_logic.cpp
-#     EXTRA_SOURCES
-#         ../src/client/session/ProtocolSession.cpp
-#         ../src/client/session/DecodePipeline.cpp
-#         ../src/client/managers/DecodeWorker.cpp
-#         ../src/client/decode/TurboJpegDecoder.cpp
-#
-#         ../src/client/network/ConnectionManager.cpp
-#         ../src/client/network/TcpClient.cpp
-#         ../src/common/network/ProtocolImpl.cpp
-#         ../src/common/network/MessageCodec.cpp
-#     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network common_test_core OpenSSL::SSL OpenSSL::Crypto LibJpegTurbo::turbojpeg
-#     TIMEOUT 30  LABELS unit client session  NO_OPENGL)
-#
-# add_rd_test(TARGET test_sessionmanager_data  NAME SessionManagerDataTest
-#     SOURCES client/session/test_sessionmanager_data.cpp
-#     EXTRA_SOURCES
-#         ../src/client/session/ProtocolSession.cpp
-#         ../src/client/session/DecodePipeline.cpp
-#         ../src/client/managers/DecodeWorker.cpp
-#         ../src/client/decode/TurboJpegDecoder.cpp
-#
-#         ../src/client/network/ConnectionManager.cpp
-#         ../src/client/network/TcpClient.cpp
-#         ../src/common/network/ProtocolImpl.cpp
-#         ../src/common/network/MessageCodec.cpp
-#     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network common_test_core OpenSSL::SSL OpenSSL::Crypto LibJpegTurbo::turbojpeg
-#     TIMEOUT 30  LABELS unit client session data  NO_OPENGL)
-#
-# add_rd_test(TARGET test_sessionmanager_lifecycle  NAME SessionManagerLifecycleTest
-#     SOURCES client/session/test_sessionmanager_lifecycle.cpp
-#     EXTRA_SOURCES
-#         ../src/client/session/ProtocolSession.cpp
-#         ../src/client/session/DecodePipeline.cpp
-#         ../src/client/managers/DecodeWorker.cpp
-#         ../src/client/decode/TurboJpegDecoder.cpp
-#
-#         ../src/client/network/ConnectionManager.cpp
-#         ../src/client/network/TcpClient.cpp
-#         ../src/common/network/ProtocolImpl.cpp
-#         ../src/common/network/MessageCodec.cpp
-#     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network common_test_core OpenSSL::SSL OpenSSL::Crypto LibJpegTurbo::turbojpeg
-#     TIMEOUT 30  LABELS unit client session lifecycle  NO_OPENGL)
+# unit / client session
+add_rd_test(TARGET test_protocolsession  NAME ProtocolSessionTest
+    SOURCES client/session/test_protocolsession.cpp
+    EXTRA_SOURCES
+        ../src/client/session/ProtocolSession.cpp
+        ../src/client/session/DecodePipeline.cpp
+        ../src/client/managers/DecodeWorker.cpp
+        ../src/client/decode/TurboJpegDecoder.cpp
+        ../src/client/network/ConnectionManager.cpp
+        ../src/client/network/TcpClient.cpp
+        ../src/common/network/ProtocolImpl.cpp
+        ../src/common/network/MessageCodec.cpp
+    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network common_test_core OpenSSL::SSL OpenSSL::Crypto LibJpegTurbo::turbojpeg
+    TIMEOUT 30  LABELS unit client session  NO_OPENGL)
 
 # unit / nvJPEG decoder
 add_rd_test(TARGET test_nvjpegdecoder  NAME NvJpegDecoderTest

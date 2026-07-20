@@ -29,7 +29,7 @@ public:
     explicit DecodeWorker(QObject* parent = nullptr);
     ~DecodeWorker() override;
 
-    /// 由 SessionManager 在 SessionThread 调用，投递待解码的帧（线程安全）。
+    /// 由 DecodePipeline 所在线程调用，投递待解码的帧（线程安全）。
     /// 接受 ScreenData 值传递，使用移动语义避免 QByteArray imageData 深拷贝。
     [[nodiscard]] bool enqueueFrame(ScreenData screenData, const QSize& remoteSize);
 
@@ -37,11 +37,8 @@ public:
     void setFrameBuffer(TripleBuffer<FrameSlot>* buffer);
 
 #ifndef QT_NO_OPENGL
-    /// 初始化共享 GL 上下文（在 GUI 线程调用，内部 moveToThread）
-    bool initializeGL(QOpenGLContext* shareContext);
-
-    /// 将 GL 对象移到目标线程（用于安全析构）
-    void moveGLToThread(QThread* target);
+    /// 初始化 worker GL 上下文（在 DecodeThread 内调用）
+    [[nodiscard]] bool initializeGL();
 
     /// 在 DecodeThread 上下文内安全删除 GL 对象，避免跨线程 QObject 删除断言。
     /// 必须在 decodeThread->quit() 之前通过 BlockingQueuedConnection 调用。
@@ -57,12 +54,9 @@ public:
     /// 停止队列
     void requestStop();
 
-    /// 是否正在运行
-    bool isRunning() const { return m_running.load(); }
-
 signals:
-    void decodeError(const RdError& message);
-    void stopped();
+    /// 解码失败上报（仅在失败流的首帧发射一次，成功后重置——避免每帧风暴）
+    void decodeError(const RdError& error);
 
 public slots:
     void start();  // 启动工作循环
@@ -74,6 +68,9 @@ private:
     /// @return true 表示处理了一帧，false 表示队列为空（用于调用方空闲退避）
     bool processOneFrame();
 
+    /// 解码失败上报：失败流首帧发射 decodeError 信号，日志按 30 帧限速
+    void reportDecodeFailure(const QString& reason);
+
     struct DecodeTask {
         ScreenData screenData;
         QSize      remoteSize;
@@ -82,11 +79,14 @@ private:
 
     ThreadSafeQueue<DecodeTask> m_queue{3};
     std::atomic<bool> m_running{false};
+    /// 不可复活的停止闩锁：requestStop 置位后永不清除。
+    /// 防止竞态——排队中的 start() 事件在 requestStop 之后才被派发时，
+    /// 其无条件 m_running.store(true) 会复活工作循环导致 stop() 永久阻塞。
+    std::atomic<bool> m_stopRequested{false};
 
 #ifndef QT_NO_OPENGL
     QOpenGLContext* m_glContext = nullptr;
     QOffscreenSurface* m_glSurface = nullptr;
-    bool m_glUploadReady = false;
     GLTextureViewport* m_glViewport = nullptr;
 #endif
 
@@ -96,6 +96,16 @@ private:
 
     GpuDecodeTarget* m_decodeTarget = nullptr;  ///< GPU 解码目标（构造后注入，提供 worker GL 上下文）
 
-    // 帧计数
-    int m_frameId = 0;
+    /// GL 初始化失败标志（initializeGL 失败时置为 true，start 据此选择解码路径）
+    bool m_glInitFailed = false;
+
+    // 诊断统计（成员变量：每实例独立，避免多会话 DecodeThread 间数据竞争）
+    int    m_diagFrameCount = 0;
+    qint64 m_queueWaitAccumUs = 0;
+    qint64 m_queueWaitMaxUs = 0;
+    qint64 m_decodeAccumUs = 0;
+    qint64 m_decodeMaxUs = 0;
+
+    /// 连续解码失败帧数（用于错误信号去重与日志限速）
+    int m_decodeFailStreak = 0;
 };

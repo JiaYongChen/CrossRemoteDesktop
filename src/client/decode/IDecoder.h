@@ -25,9 +25,6 @@ class IDecoder {
 public:
     virtual ~IDecoder() = default;
 
-    /// 检查当前硬件/运行时环境是否支持此解码器
-    [[nodiscard]] virtual bool isAvailable() const = 0;
-
     /// 解码器名称，用于诊断日志（如 "libjpeg-turbo"、"nvJPEG"）
     [[nodiscard]] virtual const char* name() const = 0;
 

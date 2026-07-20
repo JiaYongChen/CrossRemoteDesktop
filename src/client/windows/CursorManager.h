@@ -36,8 +36,6 @@ public:
     const QByteArray& pixels() const { return m_pixels; }
     int  width()  const { return m_width; }
     int  height() const { return m_height; }
-    int  hotX()   const { return m_hotX; }
-    int  hotY()   const { return m_hotY; }
     QPoint drawPos() const;
 
 private:

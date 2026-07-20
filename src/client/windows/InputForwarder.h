@@ -8,8 +8,6 @@ class QWidget;
 class QMouseEvent;
 class QKeyEvent;
 class QWheelEvent;
-class QFocusEvent;
-class QEnterEvent;
 class QEvent;
 class ProtocolSession;
 class GLTextureViewport;
@@ -18,7 +16,7 @@ class CursorManager;
 /// 输入事件转发器 — 从 ClientRemoteWindow 分离出的输入处理职责
 ///
 /// 安装为 QWidget 的事件过滤器，拦截所有 mouse/keyboard/wheel
-/// 事件，通过 SessionManager::sendMouseEvent/sendKeyboardEvent
+/// 事件，通过 ProtocolSession::sendMouseEvent/sendKeyboardEvent
 /// 跨线程转发到服务端。
 class InputForwarder : public QObject {
     Q_OBJECT
@@ -57,12 +55,9 @@ private:
     bool handleMouseMove(QMouseEvent* event);
     bool handleMouseDoubleClick(QMouseEvent* event);
     bool handleWheel(QWheelEvent* event);
-    void handleEnter(QEnterEvent* event);
-    void handleLeave(QEvent* event);
 
     ProtocolSession* m_protocolSession = nullptr;
     GLTextureViewport* m_viewport = nullptr;
     CursorManager* m_cursorManager = nullptr;
     bool m_enabled = true;
-    QPoint m_lastMousePos{-1, -1};
 };

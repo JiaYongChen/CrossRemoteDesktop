@@ -10,14 +10,12 @@ private slots:
         FrameSlot* w = nullptr;
         int idx = tb.acquireWrite(w);
         QVERIFY(idx >= 0);
-        w->frameId = 1;
         w->remoteSize = QSize(1920, 1080);
         tb.commitWrite(idx);
 
         FrameSlot* r = nullptr;
         int ridx = tb.getReadSlot(r);
         QVERIFY(ridx >= 0);
-        QCOMPARE(r->frameId, quint64(1));
         QCOMPARE(r->remoteSize, QSize(1920, 1080));
     }
 

@@ -20,11 +20,9 @@
 #include "../../common/logging/LoggingCategories.h"
 
 
-ClientRemoteWindow::ClientRemoteWindow(ProtocolSession* sessionManager, QWidget* parent)
+ClientRemoteWindow::ClientRemoteWindow(ProtocolSession* protocolSession, QWidget* parent)
     : QWidget(parent)
-    , m_connectionId(sessionManager ? sessionManager->connectionId() : QString::number(0))
-    , m_protocolSession(sessionManager)
-    , m_isFullScreen(false)
+    , m_protocolSession(protocolSession)
     , m_isClosing(false) {
 
     setAttribute(Qt::WA_DeleteOnClose, true);
@@ -46,7 +44,7 @@ ClientRemoteWindow::ClientRemoteWindow(ProtocolSession* sessionManager, QWidget*
     // ── 全屏悬浮工具栏（必须在 setupUI 之前创建——setupUI 中引用）──
     m_floatingToolbar = new FloatingRemoteToolbar(this);
     connect(m_floatingToolbar, &FloatingRemoteToolbar::toggleFullscreenRequested,
-            this, [this]() { setFullScreen(!m_isFullScreen); });
+            this, [this]() { setFullScreen(!isFullScreen()); });
     connect(m_floatingToolbar, &FloatingRemoteToolbar::disconnectRequested,
             this, [this]() { close(); });
     connect(m_floatingToolbar, &FloatingRemoteToolbar::toggleViewOnlyRequested,
@@ -62,12 +60,7 @@ ClientRemoteWindow::~ClientRemoteWindow() {
     // Qt parent-child cleanup handles everything
 }
 
-QString ClientRemoteWindow::connectionId() const {
-    return m_connectionId;
-}
-
 void ClientRemoteWindow::updateWindowTitle(const QString& title) {
-    m_hostName = title;
     if (m_connectionLifecycle) {
         m_connectionLifecycle->setHostName(title);
     }
@@ -81,52 +74,16 @@ void ClientRemoteWindow::setConnectionState(ConnectionManager::ConnectionState s
     }
 }
 
-ConnectionManager::ConnectionState ClientRemoteWindow::connectionState() const {
-    return m_connectionLifecycle ? m_connectionLifecycle->connectionState()
-                                : ConnectionManager::Disconnected;
-}
-
-// ── Screen display ──
-
-void ClientRemoteWindow::setRemoteScreen(const QImage& image) {
-#ifndef QT_NO_OPENGL
-    if (m_glViewport) {
-        m_glViewport->setRemoteScreen(image);
-    }
-#else
-    Q_UNUSED(image)
-#endif
-}
-
-void ClientRemoteWindow::updateRemoteScreen(const QImage& screen) {
-    setRemoteScreen(screen);
-}
-
-// ── Scaling ──
-
-void ClientRemoteWindow::setScaleFactor(double factor) {
-    if (factor > 0.0) {
-        m_scaleFactor = factor;
-    }
-}
-
-double ClientRemoteWindow::scaleFactor() const {
-    return m_scaleFactor;
-}
-
 // ── Full screen ──
 
 void ClientRemoteWindow::setFullScreen(bool fullScreen) {
-    if (m_isFullScreen == fullScreen) return;
+    // 直接以 QWidget::isFullScreen()（windowState 实时值）为准，无镜像缓存
+    if (isFullScreen() == fullScreen) return;
     if (fullScreen) {
         setWindowState(windowState() | Qt::WindowFullScreen);
     } else {
         setWindowState(windowState() & ~Qt::WindowFullScreen);
     }
-}
-
-bool ClientRemoteWindow::isFullScreen() const {
-    return m_isFullScreen;
 }
 
 void ClientRemoteWindow::setShareClipboard(bool enabled) {
@@ -139,8 +96,6 @@ void ClientRemoteWindow::changeEvent(QEvent* event) {
             QWidget::changeEvent(event);
             return;
         }
-        // 同步 m_isFullScreen 到实际窗口状态（覆盖 setFullScreen 和 OS 触发的切换）
-        m_isFullScreen = windowState().testFlag(Qt::WindowFullScreen);
         // 窗口状态切换后强制 GL 重绘（无视 m_textureDirty）
     #ifndef QT_NO_OPENGL
         if (m_glViewport) {

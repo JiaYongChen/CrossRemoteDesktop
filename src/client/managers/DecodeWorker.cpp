@@ -49,6 +49,11 @@ void DecodeWorker::setFrameBuffer(TripleBuffer<FrameSlot>* buffer) {
 }
 
 void DecodeWorker::start() {
+    // 停止闩锁已置位（stop() 先于本排队事件派发）：不得复活工作循环
+    if (m_stopRequested.load()) {
+        qCInfo(lcClientSessionDecode) << "DecodeWorker::start() — stop already requested, skip";
+        return;
+    }
     m_running.store(true);
 
     // 优先级链: nvJPEG (NVIDIA CC 5.0+) → TurboJpeg (CPU)
@@ -65,7 +70,7 @@ void DecodeWorker::start() {
     qCInfo(lcClient) << "DecodeWorker: using decoder" << m_decoder->name();
 
 #ifndef QT_NO_OPENGL
-    if (m_decodeTarget) {
+    if (m_decodeTarget && !m_glInitFailed) {
         m_decoder->setDecodeTarget(m_decodeTarget);
     }
 #endif
@@ -74,7 +79,21 @@ void DecodeWorker::start() {
 }
 
 void DecodeWorker::requestStop() {
+    m_stopRequested.store(true);
     m_running.store(false);
+}
+
+void DecodeWorker::reportDecodeFailure(const QString& reason) {
+    ++m_decodeFailStreak;
+    // 失败流首帧上报到错误通路（UI 状态栏可见），后续帧仅限速日志——
+    // 服务端持续发送坏帧时避免每帧一次信号/日志风暴（60 条/秒）
+    if (m_decodeFailStreak == 1) {
+        emit decodeError(RdError(ErrorCode::DecodeFailed, reason, "DecodeWorker"));
+    }
+    if (m_decodeFailStreak == 1 || m_decodeFailStreak % 30 == 0) {
+        qCWarning(lcClientSessionDecode)
+            << "DecodeWorker:" << reason << "— 连续失败" << m_decodeFailStreak << "帧";
+    }
 }
 
 // ---- 工作循环 ----
@@ -82,7 +101,8 @@ void DecodeWorker::requestStop() {
 void DecodeWorker::workLoop() {
     qCInfo(lcClient) << "DecodeWorker::workLoop() - Starting decode loop";
 
-    while (m_running.load()) {
+    while (m_running.load() && !m_stopRequested.load()
+           && !QThread::currentThread()->isInterruptionRequested()) {
         if (!processOneFrame()) {
             // 队列为空时空闲退避，避免忙等吃满 CPU
             QThread::msleep(1);
@@ -90,7 +110,6 @@ void DecodeWorker::workLoop() {
     }
 
     qCInfo(lcClient) << "DecodeWorker::workLoop() - Decode loop ended";
-    emit stopped();
 }
 
 // ---- processOneFrame: JPEG 解码 + GL 上传 + TripleBuffer 写入 ----
@@ -115,9 +134,7 @@ bool DecodeWorker::processOneFrame() {
     const auto decodeStart = steady_clock::now();
 
     if (!m_decoder) {
-        qCWarning(lcClient) << "DecodeWorker: no decoder available";
-        emit decodeError(RdError(ErrorCode::DecodeFailed,
-            QStringLiteral("解码器未初始化"), "DecodeWorker"));
+        reportDecodeFailure(QStringLiteral("解码器未初始化"));
         return true;
     }
 
@@ -131,19 +148,19 @@ bool DecodeWorker::processOneFrame() {
     if (!m_decoder->decode(screenData.imageData,
                            &jpegWidth, &jpegHeight,
                            &fence, &fallbackImage)) {
-        emit decodeError(RdError(ErrorCode::DecodeFailed,
-            QStringLiteral("JPEG 解码失败"), "DecodeWorker"));
+        reportDecodeFailure(QStringLiteral("JPEG 解码失败"));
         return true;
     }
 #else
     if (!m_decoder->decode(screenData.imageData,
                            &jpegWidth, &jpegHeight,
                            &fallbackImage)) {
-        emit decodeError(RdError(ErrorCode::DecodeFailed,
-            QStringLiteral("JPEG 解码失败"), "DecodeWorker"));
+        reportDecodeFailure(QStringLiteral("JPEG 解码失败"));
         return true;
     }
 #endif
+
+    m_decodeFailStreak = 0;  // 成功解码，重置失败流计数
 
     const auto decodeUs = duration_cast<microseconds>(
         steady_clock::now() - decodeStart).count();
@@ -154,24 +171,28 @@ bool DecodeWorker::processOneFrame() {
         remoteSize = QSize(jpegWidth, jpegHeight);
     }
 
-    // 3. 帧计数
-    ++m_frameId;
-
-    // 4. 获取 TripleBuffer 写槽
+    // 3. 获取 TripleBuffer 写槽
     if (!m_frameBuffer) return true;
 
     FrameSlot* slot = nullptr;
     int idx = m_frameBuffer->acquireWrite(slot);
     if (!slot) return true;
 
+#ifndef QT_NO_OPENGL
+    // 覆写前清理槽位中未被消费的旧 fence（latest-wins 丢帧场景），避免 GLsync 泄漏
+    if (slot->uploadFence) {
+        if (QOpenGLContext* ctx = QOpenGLContext::currentContext()) {
+            ctx->extraFunctions()->glDeleteSync(slot->uploadFence);
+        }
+        slot->uploadFence = nullptr;
+    }
+#endif
+
     slot->remoteSize = remoteSize;
     slot->arrivalTs = steady_clock::now();
-    slot->frameId = static_cast<quint64>(m_frameId);
-
-    qint64 glUploadUs = 0;
 
 #ifndef QT_NO_OPENGL
-    // 5. GPU 上传结果（fence 已由解码器内部通过 target 生成）
+    // 4. GPU 上传结果（fence 已由解码器内部通过 target 生成）
     if (fence) {
         slot->uploadFence = fence;
     } else if (!fallbackImage.isNull()) {
@@ -181,38 +202,30 @@ bool DecodeWorker::processOneFrame() {
     slot->image = fallbackImage;
 #endif
 
-    // 6. 提交到 TripleBuffer
+    // 5. 提交到 TripleBuffer
     m_frameBuffer->commitWrite(idx);
 
-    // 7. 诊断：每 30 帧汇总输出三阶段耗时
-    static int s_diagFrameCount = 0;
-    static qint64 s_queueWaitAccumUs = 0, s_queueWaitMaxUs = 0;
-    static qint64 s_decodeAccumUs = 0, s_decodeMaxUs = 0;
-    static qint64 s_glUploadAccumUs = 0, s_glUploadMaxUs = 0;
-    s_queueWaitAccumUs += queueWaitUs;
-    s_queueWaitMaxUs = std::max(s_queueWaitMaxUs, queueWaitUs);
-    s_decodeAccumUs += decodeUs;
-    s_decodeMaxUs = std::max(s_decodeMaxUs, decodeUs);
-    s_glUploadAccumUs += glUploadUs;
-    s_glUploadMaxUs = std::max(s_glUploadMaxUs, glUploadUs);
+    // 6. 诊断：每 30 帧汇总输出两阶段耗时（成员变量：每实例独立，
+    //    避免多会话 DecodeThread 并发读写共享 static 造成数据竞争）
+    m_queueWaitAccumUs += queueWaitUs;
+    m_queueWaitMaxUs = std::max(m_queueWaitMaxUs, queueWaitUs);
+    m_decodeAccumUs += decodeUs;
+    m_decodeMaxUs = std::max(m_decodeMaxUs, decodeUs);
 
-    if (++s_diagFrameCount >= 30) {
+    if (++m_diagFrameCount >= 30) {
         qCDebug(lcClientSessionDecode)
             << "[DecodeWorker 诊断] 近30帧耗时 (avg/max):"
-            << "队列等待:" << (s_queueWaitAccumUs / 30 / 1000.0) << "/"
-            << (s_queueWaitMaxUs / 1000.0) << "ms"
-            << "JPEG解码:" << (s_decodeAccumUs / 30 / 1000.0) << "/"
-            << (s_decodeMaxUs / 1000.0) << "ms"
-            << "GL上传:" << (s_glUploadAccumUs / 30 / 1000.0) << "/"
-            << (s_glUploadMaxUs / 1000.0) << "ms";
-        s_diagFrameCount = 0;
-        s_queueWaitAccumUs = 0; s_queueWaitMaxUs = 0;
-        s_decodeAccumUs = 0; s_decodeMaxUs = 0;
-        s_glUploadAccumUs = 0; s_glUploadMaxUs = 0;
+            << "队列等待:" << (m_queueWaitAccumUs / 30 / 1000.0) << "/"
+            << (m_queueWaitMaxUs / 1000.0) << "ms"
+            << "JPEG解码:" << (m_decodeAccumUs / 30 / 1000.0) << "/"
+            << (m_decodeMaxUs / 1000.0) << "ms";
+        m_diagFrameCount = 0;
+        m_queueWaitAccumUs = 0; m_queueWaitMaxUs = 0;
+        m_decodeAccumUs = 0; m_decodeMaxUs = 0;
     }
 
 #ifndef QT_NO_OPENGL
-    // 8. 请求 GUI 线程重绘
+    // 7. 请求 GUI 线程重绘
     if (m_glViewport) {
         m_glViewport->requestRepaint();
     }
@@ -225,8 +238,7 @@ bool DecodeWorker::processOneFrame() {
 
 #ifndef QT_NO_OPENGL
 
-bool DecodeWorker::initializeGL(QOpenGLContext* shareContext) {
-    Q_UNUSED(shareContext);
+bool DecodeWorker::initializeGL() {
     if (!m_decodeTarget || !m_decodeTarget->isReady()) {
         qCWarning(lcClient) << "DecodeWorker::initializeGL() — decode target not ready";
         return false;
@@ -237,6 +249,7 @@ bool DecodeWorker::initializeGL(QOpenGLContext* shareContext) {
     // 此处主动触发避免 Main 线程的 paintGL 回退路径抢先创建
     if (!m_decodeTarget->ensureWorkerContext()) {
         qCCritical(lcClient) << "DecodeWorker::initializeGL() — failed to create worker GL context";
+        m_glInitFailed = true;
         return false;
     }
 
@@ -246,23 +259,17 @@ bool DecodeWorker::initializeGL(QOpenGLContext* shareContext) {
     // 激活上下文——后续所有 GL 操作依赖此调用
     if (!m_glContext->makeCurrent(m_glSurface)) {
         qCCritical(lcClient) << "DecodeWorker::initializeGL() — failed to make GL context current";
-        m_glUploadReady = false;
+
+        // GL 上下文激活失败 → 显式标记，使后续 start() 跳过 GPU 路径退化为 CPU 解码
+        m_glInitFailed = true;
         return false;
     }
 
-    m_glUploadReady = true;
     qCInfo(lcClient) << "DecodeWorker::initializeGL() — worker GL context ready on decode thread";
     return true;
 }
 
-void DecodeWorker::moveGLToThread(QThread* target) {
-    if (m_glContext) m_glContext->moveToThread(target);
-    if (m_glSurface) m_glSurface->moveToThread(target);
-    m_glUploadReady = false;
-}
-
 void DecodeWorker::cleanupGL() {
-    m_glUploadReady = false;
     m_glViewport = nullptr;
     m_decoder.reset();
 

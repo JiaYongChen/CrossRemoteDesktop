@@ -11,12 +11,10 @@
 #include <QtCore/QSize>
 #include <QtCore/QPoint>
 #include <QtCore/QRectF>
-#include <QtCore/QTimer>
 #include <QtGui/qopengl.h>
 #include <chrono>
 #include <atomic>
 
-#include "../../common/config/GuiConstants.h"
 #include "../core/TripleBuffer.h"
 #include "../core/FrameSlot.h"
 
@@ -41,56 +39,13 @@ class GLTextureViewport : public QOpenGLWidget, protected QOpenGLFunctions {
     Q_OBJECT
 
 public:
-    struct GLPixelLayout {
-        GLint  internalFormat;  // GL_RGB8 / GL_RGBA8
-        GLenum format;          // GL_RGB / GL_RGBA
-        GLenum type;            // GL_UNSIGNED_BYTE
-        int    bytesPerPixel;   // 3 or 4
-    };
-
-    /// Pure function mapping QImage::Format to GL upload parameters.
-    /// Returns false for unsupported formats — caller must convertedTo() a
-    /// supported format before uploading.
-    static bool chooseGLFormat(QImage::Format f, GLPixelLayout& out);
-
-    /// Pure function: next PBO index in the double-buffered ring.
-    static int nextPboIndex(int current) { return (current + 1) % GuiConstants::PboCount; }
-
     explicit GLTextureViewport(QWidget* parent = nullptr);
     ~GLTextureViewport() override;
 
     /**
-     * @brief Convenience wrapper — delegates to GpuDecodeTarget.
-     *
-     * Provided for API compatibility: setRemoteScreen + setRemoteSize
-     * replaces the old CPU-side screen update flow.
-     */
-    void setRemoteScreen(const QImage& image);
-
-    /**
-     * @brief Attach an external GpuDecodeTarget for PBO/texture management.
-     *
-     * When set, this viewport delegates all PBO/texture operations to the
-     * target. Ownership remains with the caller.
-     */
-    void attachDecodeTarget(GpuDecodeTarget* target);
-
-    /**
-     * @brief Get the attached GpuDecodeTarget, or nullptr if none.
+     * @brief Get the GpuDecodeTarget (created internally in initializeGL), or nullptr.
      */
     GpuDecodeTarget* decodeTarget() const { return m_decodeTarget; }
-
-    /// Rebuild surface format with the given VSync setting.
-    /// Note: QOpenGLWidget rebuilds its context when format changes, so a
-    /// brief frame loss is possible. Caller should re-upload the current
-    /// frame after this returns.
-    void setVSyncEnabled(bool on);
-    bool isVSyncEnabled() const { return m_vsyncEnabled; }
-
-    /**
-     * @brief Force an immediate repaint (calls update() internally).
-     */
-    void renderNow();
 
     /**
      * @brief 强制下一帧 paintGL 渲染，无视 m_textureDirty 状态。
@@ -108,23 +63,6 @@ public:
      */
     bool requestRepaint();
 
-    /**
-     * @brief Check if a texture has been uploaded.
-     */
-    bool hasTexture() const;
-
-    /**
-     * @brief Get the current texture dimensions.
-     */
-    QSize textureSize() const { return m_textureSize; }
-
-    /**
-     * @brief Get the rectangle where the texture is rendered (in widget coordinates).
-     *
-     * Accounts for aspect ratio preservation (letterboxing/pillarboxing).
-     */
-    QRectF renderRect() const;
-
     // Coordinate mapping (local widget ↔ remote desktop coordinates)
 
     /**
@@ -133,39 +71,12 @@ public:
     QPoint mapToRemote(const QPoint& localPoint) const;
 
     /**
-     * @brief Map a remote desktop point to widget-local coordinates.
-     */
-    QPoint mapFromRemote(const QPoint& remotePoint) const;
-
-    /**
-     * @brief Set the logical remote screen size (may differ from texture size
-     *        when the server downscales frames).
-     *
-     * Used for coordinate mapping: local->remote maps to this size, not texture size.
-     */
-    void setRemoteSize(const QSize& size);
-
-    /**
-     * @brief Get the logical remote screen size.
-     */
-    QSize remoteSize() const { return m_remoteSize; }
-
-    /**
      * @brief Attach a TripleBuffer for lock-free frame delivery.
      *
-     * Once attached, paintGL() will poll the buffer on each tick and upload
-     * any newly committed frame. Set to nullptr to detach.
+     * 帧驱动为事件式：解码线程每提交一帧调用 requestRepaint() 排队 paint，
+     * paintGL 消费缓冲中最新的已提交帧。传入 nullptr 可解除挂载。
      */
     void attachFrameBuffer(TripleBuffer<FrameSlot>* buffer);
-
-    /// 生产者背压：返回 paintGL 因 fence 未就绪而连续跳过的帧数。
-    /// 生产者可据此降低上传频率，避免 GPU 队列无限积压。
-    int consecutiveSkips() const { return m_consecutiveSkips.load(); }
-
-    /**
-     * @brief 获取当前渲染帧率（FPS），基于 EMA 指数滑动平均平滑。
-     */
-    double currentFPS() const { return m_currentFPS; }
 
     /// 设置 CursorManager（用于 GL 视图上叠加渲染远程光标）
     void setCursorManager(CursorManager* mgr) { m_cursorManager = mgr; }
@@ -181,6 +92,14 @@ signals:
      *        that worker threads can share for cross-thread texture upload.
      */
     void glContextReady(QOpenGLContext* context);
+
+    /**
+     * @brief GL 资源即将销毁（QOpenGLWidget 上下文重建/析构时）。
+     *
+     * 外部持有 GpuDecodeTarget 裸指针的组件必须在此信号触发后、cleanupGL 执行前
+     * 停用该指针（停止管线/清空引用），避免悬空指针 use-after-free 崩溃。
+     */
+    void glResourcesAboutToBeDestroyed();
 
 protected:
     void initializeGL() override;
@@ -204,9 +123,13 @@ private:
     void updateRenderRect();
 
     /**
-     * @brief Start or stop the frame-polling timer based on VSync state.
+     * @brief Set the logical remote screen size (may differ from texture size
+     *        when the server downscales frames).
+     *
+     * Used for coordinate mapping: local->remote maps to this size, not texture size.
+     * 仅由 paintGL 在消费帧时调用。
      */
-    void configurePollTimer();
+    void setRemoteSize(const QSize& size);
 
     /**
      * @brief Clean up OpenGL resources.
@@ -227,7 +150,7 @@ private:
      * @brief paintGL 渲染完成后检查 TripleBuffer 是否有在绘制期间到达的新帧。
      *
      * 若有则立即通过 CAS + invokeMethod("update") 排队下一次 paint，
-     * 避免帧在缓冲区空等至下一个 VSync 或轮询周期。
+     * 避免帧在缓冲区空等至下一个 VSync 周期。
      * @param consumedSlot 本次 paintGL 中 getReadSlot 返回的槽位索引
      */
     void CheckForNewFrameAfterPaint(int consumedSlot);
@@ -254,18 +177,12 @@ private:
     // GL initialization state
     bool m_glInitialized = false;
 
-    // VSync toggle
-    bool m_vsyncEnabled = true;
-
     // Dirty-frame gating for paintGL
     bool m_textureDirty = false;
 
-    // 生产者背压：paintGL 因 fence 未就绪而跳过的连续帧数。
-    // 生产者 (handleScreenData) 读取此值决定是否降低 GL 上传频率。
-    std::atomic<int> m_consecutiveSkips{0};
-
     /// 防止重复排队 update()：仅在 paintGL 消费完上一帧后才允许新的 paint 事件。
-    /// 生产者 (handleScreenData) 写入 true，paintGL 在消费后重置为 false。
+    /// 由 requestRepaint()（解码线程经 DecodeWorker 调用）写入 true，
+    /// paintGL 在消费后重置为 false。
     std::atomic<bool> m_needsRepaint{false};
 
     // Triple-buffered lock-free frame delivery
@@ -275,19 +192,22 @@ private:
     /// 用于 CheckForNewFrameAfterPaint()：若 peekReady() 与本值不同说明新帧已到达。
     int m_consumedSlot = -1;
 
-    // Frame-polling timer for non-VSync mode
-    QTimer* m_pollTimer = nullptr;
+    /// fence 超时重试：TIMEOUT（未达强制放弃阈值）时暂存未就绪的槽位，
+    /// 下一次 paintGL 优先重查该 fence（期间有新帧则丢弃旧 fence，latest-wins）。
+    /// 若无此机制，getReadSlot 已推进读指针的槽位将永远无法重入 fence 分支，
+    /// 静止画面下最后一帧会永久丢失。
+    FrameSlot* m_pendingFenceSlot = nullptr;
+    int m_pendingFenceIdx = -1;
+
+    /// 连续 fence 超时计数（每实例独立，避免多窗口 share-gate 污染）。
+    /// ≥5 次时强制放弃 fence 并 swapDisplay（防止画面永久卡死）。
+    int m_consecutiveFenceTimeouts = 0;
 
     // Metrics aggregation
     std::chrono::steady_clock::time_point m_pendingArrivalTs{};
     quint64 m_metricsFrameCount = 0;
     qint64  m_metricsLatencyAccumUs = 0;
     qint64  m_metricsLatencyMaxUs = 0;
-
-    // FPS 统计（EMA 指数滑动平均，显示帧率）
-    double m_currentFPS = 0.0;
-    std::chrono::steady_clock::time_point m_lastPaintTime{};
-    double m_smoothedFrameDuration = 0.0;
 
     // 远程光标叠加渲染
     CursorManager* m_cursorManager = nullptr;

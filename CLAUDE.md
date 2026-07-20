@@ -159,16 +159,19 @@ ScreenCapture → QueueManager(captureQueue)
 ### 客户端架构
 
 ```
-ConnectionManager (TCP) → SessionManager (状态管理) → ClientRemoteWindow (QWidget)
-                                                       ├── GLTextureViewport（OpenGL渲染）
-                                                       ├── InputForwarder（键鼠事件转发）
-                                                       ├── ConnectionLifecycle（状态+断连管理）
-                                                       ├── RenderManager（坐标映射）
-                                                       ├── CursorManager（光标显示）
-                                                       └── ClipboardManager（剪贴板同步）
+RemoteDesktopSession（组装 + 生命周期）
+  ├── ConnectionManager (TCP，内部自建 TcpClient)
+  ├── ProtocolSession（协议编解码 + 消息路由）
+  ├── DecodePipeline（DecodeWorker + TripleBuffer 所有权）
+  └── ClientRemoteWindow (QWidget)
+        ├── GLTextureViewport（OpenGL渲染 + 坐标映射）
+        ├── InputForwarder（键鼠事件转发）
+        ├── ConnectionLifecycle（状态+断连管理）
+        ├── CursorManager（光标显示）
+        └── ClipboardManager（剪贴板同步）
 ```
 
-**ClientRemoteWindow（375 行）** 通过提取两个协调类聚焦于 QWidget + GL 视口管理：
+**ClientRemoteWindow** 通过提取两个协调类聚焦于 QWidget + GL 视口管理：
 - `InputForwarder`：事件过滤器，处理全部鼠标/键盘/滚轮事件转发
 - `ConnectionLifecycle`：连接状态机 + 窗口标题同步 + 断连对话框
 
@@ -288,14 +291,12 @@ qCWarning(lcServer) << error.logLabel();      // 推荐
 
 ## 测试
 
-24 个测试目标，测试目录镜像 `src/` 结构按模块组织：
+23 个测试目标，测试目录镜像 `src/` 结构按模块组织：
 - **`test/app/`** — 应用壳层测试
 - **`test/client/`** — 客户端测试（`decode/`、`session/`、`windows/`、`network/`）
 - **`test/server/`** — 服务端测试（`capture/`、`clienthandler/`、`dataprocessing/`、`dataflow/`）
 - **`test/common/`** — 共享代码测试（`threading/`、`config/`）
 - **`test/integration/`** — 跨模块集成测试
-- **MockConnectionManager**：重写 `isConnected()`/`isAuthenticated()` 等 virtual 方法，用于 SessionManager 测试（`test/client/session/test_sessionmanager_common.h`）
-- **SessionManager DI**：受保护构造函数 + friend 声明，测试可直接注入 MockConnectionManager
 - **`add_rd_test()`**：测试目标创建辅助函数（见 `cmake/TestHelpers.cmake`），支持 NO_OPENGL 标志、EXTRA_SOURCES、EXTRA_ENV 等可选参数
 
 ## 已移除的功能

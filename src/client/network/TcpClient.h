@@ -37,10 +37,6 @@ public:
     // 连接状态
     bool isConnected() const;
 
-    // 服务器信息
-    QString serverAddress() const;
-    quint16 serverPort() const;
-
     // 消息发送 - 底层接口
     void sendMessage(MessageType type, const IMessageCodec& message);
 
@@ -53,7 +49,6 @@ signals:
     void messageReceived(MessageType type, const QByteArray& payload);
 
 private slots:
-    void onConnected();
     void onDisconnected();
     void onReadyRead();
     void onError(QAbstractSocket::SocketError error);
@@ -72,10 +67,6 @@ private:
 
     // 连接状态（原子变量，跨线程安全读取）
     std::atomic<bool> m_isConnected{false};
-
-    // 连接信息
-    QString m_hostName;
-    quint16 m_port;
 
     // 心跳相关 - 仅接收服务端心跳请求并响应
     QTimer* m_heartbeatCheckTimer;

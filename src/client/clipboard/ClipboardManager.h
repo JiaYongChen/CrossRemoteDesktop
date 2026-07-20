@@ -34,21 +34,10 @@ public:
     void setEnabled(bool enabled);
 
     /**
-     * @brief 获取启用状态
-     */
-    bool isEnabled() const { return m_enabled; }
-
-    /**
      * @brief 设置文本到剪贴板
      * @param text 文本内容
      */
     void setText(const QString& text);
-
-    /**
-     * @brief 设置图片到剪贴板
-     * @param image 图片数据
-     */
-    void setImage(const QImage& image);
 
     /**
      * @brief 从 PNG 数据设置图片到剪贴板
@@ -79,6 +68,12 @@ private slots:
     void onClipboardChanged(QClipboard::Mode mode);
 
 private:
+    /**
+     * @brief 设置图片到剪贴板（仅由 setImageFromPng 内部使用）
+     * @param image 图片数据
+     */
+    void setImage(const QImage& image);
+
     QClipboard* m_clipboard;           ///< 系统剪贴板
     bool m_enabled;                    ///< 是否启用监听
     bool m_ignoreNextChange;           ///< 忽略下一次变化（自己触发的）

@@ -40,7 +40,7 @@ RemoteDesktopSession::~RemoteDesktopSession() {
 
 void RemoteDesktopSession::createNetworkComponents() {
     // ConnectionManager 构造函数内部创建 TcpClient（Qt 父子关系）
-    m_connectionManager = new ConnectionManager();
+    m_connectionManager = new ConnectionManager(this);
 
     // ── 预设认证凭证（在 connectToHost 前，handleHandshakeResponse 会自动使用）──
     m_connectionManager->setCredentials(m_params.username, m_params.password);
@@ -54,15 +54,13 @@ void RemoteDesktopSession::createNetworkComponents() {
     m_connectionManager->setColorDepth(m_params.colorDepth);
     m_connectionManager->setImageQuality(m_params.imageQuality);
 
-    m_protocolSession = new ProtocolSession(m_connectionManager, m_decodePipeline);
-    m_protocolSession->setConnectionId(m_connectionId);
-
-    // 注意：不设置父子关系，避免 moveToThread 时报错
-    // "Cannot move objects with a parent"
+    // 所有客户端组件驻留 Main 线程（Network 线程已于架构简化中移除），
+    // 设 this 为 parent 实现自动析构清理
+    m_protocolSession = new ProtocolSession(m_connectionManager, m_decodePipeline, this);
 }
 
 void RemoteDesktopSession::createDecodePipeline() {
-    m_decodePipeline = new DecodePipeline(m_connectionId);
+    m_decodePipeline = new DecodePipeline(m_connectionId, this);
 }
 
 void RemoteDesktopSession::createWindow() {
@@ -74,28 +72,27 @@ void RemoteDesktopSession::createWindow() {
     if (gl) {
         gl->attachFrameBuffer(m_decodePipeline->frameBuffer());
 
-        // GL 上下文注入到管线
+        // GL 视口注入到管线
         m_decodePipeline->setGLViewport(gl);
-        if (gl->decodeTarget()) {
-            m_decodePipeline->setDecodeTarget(gl->decodeTarget());
-        }
 
-        // 上下文就绪信号
+        // GL 资源销毁前停止管线，避免 DecodeWorker 持有的 GpuDecodeTarget
+        // 裸指针在上下文重建时悬空（use-after-free）
+        connect(gl, &GLTextureViewport::glResourcesAboutToBeDestroyed,
+            m_decodePipeline, &DecodePipeline::stop);
+
+        // GpuDecodeTarget 与 GL 上下文均在首次曝光后的 initializeGL 中创建，
+        // 此处（show 之前）唯一有效的注入路径是 glContextReady 信号
         connect(gl, &GLTextureViewport::glContextReady, m_decodePipeline,
-            [pipeline = m_decodePipeline, gl](QOpenGLContext* ctx) {
-                pipeline->setGLContext(ctx);
+            [this, pipeline = m_decodePipeline, gl]() {
+                pipeline->notifyGLReady();
                 if (gl->decodeTarget()) {
                     pipeline->setDecodeTarget(gl->decodeTarget());
                 }
-            }, Qt::QueuedConnection);
-
-        // 信号竞态保护：若已就绪直接设置
-        if (gl->context() && gl->context()->isValid()) {
-            m_decodePipeline->setGLContext(gl->context());
-            if (gl->decodeTarget()) {
-                m_decodePipeline->setDecodeTarget(gl->decodeTarget());
-            }
-        }
+                // GL 上下文重建后重启管线（首次初始化阶段 isActive 为 false，跳过）
+                if (m_protocolSession->isActive() && !pipeline->isRunning()) {
+                    pipeline->start();
+                }
+            });
     }
 #endif
 
@@ -174,17 +171,21 @@ void RemoteDesktopSession::wireSignals() {
                 if (remoteSz.isValid()) {
                     m_protocolSession->setRemoteScreenSize(remoteSz);
                 }
-                // 使用 QueuedConnection 将 startSession() 派发到 ProtocolSession 所在的 Network 线程
+                // 同线程直接调用启动会话（全部客户端对象均驻留 Main 线程）
                 m_protocolSession->startSession();
-            } else if (state == ConnectionManager::ConnectionState::Error) {
-                emit errorOccurred(RdError(ErrorCode::NetworkConnectionFailed,
-                    QStringLiteral("连接 %1:%2 失败").arg(m_params.host).arg(m_params.port),
-                    "RemoteDesktopSession"));
             }
         });
 
+    // ── 连接层错误转发（TcpClient 经 ConnectionManager 直传，保留中文诊断）──
+    connect(m_connectionManager, &ConnectionManager::errorOccurred,
+        this, &RemoteDesktopSession::errorOccurred);
+
     // ── 转发协议层错误 ──
     connect(m_protocolSession, &ProtocolSession::sessionError,
+        this, &RemoteDesktopSession::errorOccurred);
+
+    // ── 转发解码错误（DecodeWorker 失败流首帧上报）──
+    connect(m_decodePipeline, &DecodePipeline::decodeError,
         this, &RemoteDesktopSession::errorOccurred);
 
     // ── 状态转发到 UI ──

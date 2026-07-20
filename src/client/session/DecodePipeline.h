@@ -6,7 +6,6 @@
 
 #include "../core/TripleBuffer.h"
 #include "../core/FrameSlot.h"
-#include "../decode/IDecoder.h"
 #include "../../common/network/Protocol.h"
 #include "error/RdError.h"
 
@@ -22,8 +21,8 @@ class QOpenGLContext;
 /**
  * @brief 解码管线 — 封装 DecodeWorker 生命周期、DecodeThread 管理、TripleBuffer 所有权
  *
- * 归属 Network 线程（与 ProtocolSession 同线程）。
- * TripleBuffer 在构造后立即可用（原子操作，Main 线程安全读取）。
+ * 归属 Main 线程（与 ProtocolSession 同线程），仅解码在独立 DecodeThread 进行。
+ * TripleBuffer 在构造后立即可用（原子操作，跨线程安全读取）。
  */
 class DecodePipeline : public QObject {
     Q_OBJECT
@@ -47,8 +46,9 @@ public:
     bool enqueueFrame(ScreenData data, const QSize& remoteSize);
 
 #ifndef QT_NO_OPENGL
-    /// GL 上下文注入（在 start() 之前从 Main 线程调用）
-    void setGLContext(QOpenGLContext* context);
+    /// GL 就绪通知（在 start() 之前从 Main 线程调用）。
+    /// worker GL 上下文由 GpuDecodeTarget 在解码线程内自建，无需传入上下文指针
+    void notifyGLReady();
     /// GpuDecodeTarget 注入（在 start() 之前从 Main 线程调用）
     void setDecodeTarget(GpuDecodeTarget* target);
     /// GLTextureViewport 注入（在 start() 之前从 Main 线程调用）
@@ -56,17 +56,18 @@ public:
 #endif
 
 signals:
+    /// 解码错误转发（DecodeWorker → 本信号 → RemoteDesktopSession::errorOccurred → UI）
     void decodeError(const RdError& error);
-    void stopped();
 
 private:
     QString                  m_connectionId;
     TripleBuffer<FrameSlot>  m_frameBuffer;   ///< 管线自有帧缓冲
     DecodeWorker*            m_worker = nullptr;
     bool                     m_running = false;
+    bool                     m_stopping = false;  ///< 重入守卫：processEvents 泵事件期间防二次进入
 
 #ifndef QT_NO_OPENGL
-    QOpenGLContext*    m_pendingGLContext = nullptr;
+    bool               m_glReady = false;  ///< GL 是否已就绪（glContextReady 已触发）
     GpuDecodeTarget*   m_decodeTarget = nullptr;
     GLTextureViewport* m_glViewportForUpload = nullptr;
 #endif
