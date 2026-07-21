@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "name": "cwd-guard",
+            "command": "./scripts/cwd-guard.ps1",
+            "shell": "powershell",
+            "statusMessage": "cwd-root-guard: 检查工作目录是否偏离项目根目录"
+          }
+        ]
+      }
+    ]
+  }
+}

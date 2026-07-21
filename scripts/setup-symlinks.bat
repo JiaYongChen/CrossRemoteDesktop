@@ -1,6 +1,6 @@
 @echo off
 :: setup-symlinks.bat
-:: 在新设备上建立 Claude Code 所需的 symlink，使 memory/ 和 hooks/ 跟随 git 仓库跨设备同步
+:: 在新设备上建立 Claude Code 所需的 symlink，使 memory/ 跟随 git 仓库跨设备同步
 :: 用法：在项目根目录运行此脚本
 
 setlocal enabledelayedexpansion
@@ -52,30 +52,7 @@ if "%FOUND%"=="0" (
 )
 
 :: ===========================================================================
-:: 2. Hooks symlink: .claude\hooks → ..\hooks
-:: ===========================================================================
-set "LINK=%PROJECT_DIR%\.claude\hooks"
-set "TARGET=%PROJECT_DIR%\hooks"
-
-echo.
-if exist "%LINK%" (
-    dir /al "%LINK%" >nul 2>&1
-    if !errorlevel! equ 0 (
-        echo [hooks] Symlink already exists, skipping.
-    ) else (
-        echo [hooks] Existing directory found (not a symlink), skipping.
-    )
-) else (
-    mklink /J "%LINK%" "%TARGET%" >nul 2>&1
-    if !errorlevel! equ 0 (
-        echo [hooks] [OK] Junction created: .claude\hooks -^> hooks\
-    ) else (
-        echo [hooks] [FAIL] Could not create junction.
-    )
-)
-
-:: ===========================================================================
-:: 3. Skills symlink: .claude\skills → ..\skills
+:: 2. Skills symlink: .claude\skills → ..\skills
 :: ===========================================================================
 set "LINK=%PROJECT_DIR%\.claude\skills"
 set "TARGET=%PROJECT_DIR%\skills"

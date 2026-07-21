@@ -32,7 +32,6 @@ docs/
 /*ebug/
 /*elease/
 logs/
-scripts/
 .superpowers/
 
 #files
@@ -40,10 +39,9 @@ REQUIREMENTS.md
 
 #claude
 .claude/*
-!.claude/memory/
 !.claude/.gitignore
-settings.local.json
+!.claude/settings.json
 
-#scripts（仅排除，保留 setup-* 脚本）
-scripts/
-!scripts/setup-memory-symlink.*
+scripts/*
+!scripts/setup-symlinks.*
+!scripts/cwd-guard.ps1
