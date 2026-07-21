@@ -137,6 +137,12 @@ signals:
      */
     void colorDepthReceived(int colorDepth);
 
+    /**
+     * @brief 接收到客户端剪贴板数据（已认证）
+     * @param message 剪贴板消息
+     */
+    void clipboardDataReceived(const ClipboardMessage& message);
+
 protected:
     /**
      * @brief 初始化工作线程

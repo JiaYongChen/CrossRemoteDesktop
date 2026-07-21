@@ -963,16 +963,23 @@ QString ClientHandlerWorker::generateSessionId() const {
 // ==================== 剪贴板消息处理 ====================
 
 void ClientHandlerWorker::handleClipboardData(const QByteArray& data) {
+    if (!isAuthenticated()) {
+        qCWarning(lcServerClientHandler) << "未认证客户端尝试发送剪贴板数据";
+        return;
+    }
+
     ClipboardMessage message;
-    if ( !message.decode(data) ) {
+    if (!message.decode(data)) {
         qCWarning(lcServerClientHandler) << "剪贴板消息解析失败";
         return;
     }
 
-    if ( message.isText() ) {
-        qCDebug(lcServerClientHandler) << "接收到剪贴板文本，长度: " << message.text().length();
-    } else if ( message.isImage() ) {
+    if (message.isText()) {
+        qCDebug(lcServerClientHandler) << "接收到剪贴板文本，长度:" << message.text().length();
+    } else if (message.isImage()) {
         qCDebug(lcServerClientHandler) << "接收到剪贴板图片，尺寸:" << message.width << "x" << message.height
-            << ", 数据大小:" << message.imageData().size();
+                 << ", 数据大小:" << message.imageData().size();
     }
+
+    emit clipboardDataReceived(message);
 }
