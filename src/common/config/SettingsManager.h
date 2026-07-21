@@ -6,7 +6,6 @@
 #include <QtCore/QObject>
 #include <QtCore/QSettings>
 #include <QtCore/QString>
-#include <QtCore/QStringList>
 #include <QtCore/QTimer>
 #include <QtCore/QVariant>
 
@@ -30,15 +29,7 @@ public:
                              QObject *parent = nullptr);
     ~SettingsManager() override;
 
-    // ---- 基本存取 ----
-
-    void setValue(const QString &key, const QVariant &value);
-    QVariant value(const QString &key, const QVariant &defaultValue = {}) const;
-    bool contains(const QString &key) const;
     void remove(const QString &key);
-
-    /** 获取 JSON 中某一分组下的所有键 */
-    QStringList childKeys(const QString &group) const;
 
     // ---- 便捷类型方法 ----
 
@@ -69,12 +60,11 @@ public:
 
     bool load();
     bool save();
-    QString filePath() const;
-    bool isModified() const;
 
-signals:
-    void valueChanged(const QString &key, const QVariant &value);
-    void saved();
+    // ---- 基本存取（内部实现，外部通过便捷类型方法访问） ----
+
+    void setValue(const QString &key, const QVariant &value);
+    QVariant value(const QString &key, const QVariant &defaultValue = {}) const;
 
 private:
     /// 从旧 QSettings 迁移全部配置到 m_root，返回是否存在旧数据被迁移

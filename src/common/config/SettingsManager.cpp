@@ -13,6 +13,7 @@
 #include <QtCore/QMutexLocker>
 #include <QtCore/QSaveFile>
 #include <QtCore/QSettings>
+#include <QtCore/QStringList>
 #include <QtCore/QTimer>
 
 // ============================================================
@@ -40,22 +41,6 @@ SettingsManager::~SettingsManager()
     if (m_isModified) {
         save();
     }
-}
-
-// ============================================================
-// 文件路径
-// ============================================================
-
-QString SettingsManager::filePath() const
-{
-    QMutexLocker locker(&m_mutex);
-    return m_filePath;
-}
-
-bool SettingsManager::isModified() const
-{
-    QMutexLocker locker(&m_mutex);
-    return m_isModified;
 }
 
 // ============================================================
@@ -152,7 +137,6 @@ bool SettingsManager::saveLocked()
         clearLegacyQSettings();
     }
 
-    emit saved();
     return true;
 }
 
@@ -174,7 +158,6 @@ void SettingsManager::setValue(const QString &key, const QVariant &value)
     }
 
     m_isModified = true;
-    emit valueChanged(key, value);
     scheduleSave();
 }
 
@@ -196,19 +179,6 @@ QVariant SettingsManager::value(const QString &key, const QVariant &defaultValue
         : defaultValue;
 }
 
-bool SettingsManager::contains(const QString &key) const
-{
-    QMutexLocker locker(&m_mutex);
-
-    QStringList parts = key.split('/');
-    if (parts.size() < 2) {
-        return m_root.contains(key);
-    }
-
-    QJsonObject group = m_root.value(parts[0]).toObject();
-    return group.contains(parts[1]);
-}
-
 void SettingsManager::remove(const QString &key)
 {
     QMutexLocker locker(&m_mutex);
@@ -224,14 +194,6 @@ void SettingsManager::remove(const QString &key)
 
     m_isModified = true;
     scheduleSave();
-}
-
-QStringList SettingsManager::childKeys(const QString &group) const
-{
-    QMutexLocker locker(&m_mutex);
-
-    QJsonObject obj = m_root.value(group).toObject();
-    return obj.keys();
 }
 
 // ============================================================

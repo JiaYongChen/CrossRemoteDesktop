@@ -3,8 +3,6 @@
 #include <QtCore/QMutex>
 #include <QtCore/QQueue>
 #include <QtCore/QMutexLocker>
-#include <memory>
-#include <chrono>
 
 /**
  * @brief 线程安全队列模板类（纯非阻塞）
@@ -26,7 +24,6 @@ public:
         : m_maxSize(maxSize)
         , m_totalEnqueued(0)
         , m_totalDequeued(0)
-        , m_totalDropped(0)
     {
     }
 
@@ -75,7 +72,6 @@ public:
         if (m_maxSize > 0 && m_queue.size() >= m_maxSize) {
             dropped = m_queue.size();
             m_queue.clear();
-            m_totalDropped += dropped;
         }
 
         m_queue.enqueue(item);
@@ -112,16 +108,6 @@ public:
     {
         QMutexLocker locker(&m_mutex);
         return m_queue.size();
-    }
-
-    /**
-     * @brief 检查队列是否为空
-     * @return true 队列为空，false 队列不为空
-     */
-    bool isEmpty() const
-    {
-        QMutexLocker locker(&m_mutex);
-        return m_queue.isEmpty();
     }
 
     /**
@@ -182,21 +168,10 @@ public:
         return m_totalDequeued;
     }
 
-    /**
-     * @brief 获取因 drain 清空而丢弃的总数
-     * @return 丢弃总数
-     */
-    quint64 getTotalDropped() const
-    {
-        QMutexLocker locker(&m_mutex);
-        return m_totalDropped;
-    }
-
 private:
     mutable QMutex m_mutex;           ///< 互斥锁
     QQueue<T> m_queue;                ///< 底层队列
     int m_maxSize;                    ///< 最大容量，0表示无限制
     quint64 m_totalEnqueued;          ///< 总入队数量
     quint64 m_totalDequeued;          ///< 总出队数量
-    quint64 m_totalDropped;           ///< 因 drain 清空而丢弃的总数
 };

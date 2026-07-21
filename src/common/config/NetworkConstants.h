@@ -28,9 +28,4 @@ namespace NetworkConstants {
     inline constexpr int DefaultServerPort = 5921;
 
     inline constexpr int DefaultMaxReconnectAttempts = 5;
-
-    /// 验证端口号是否有效
-    inline bool IsValidPort(int port) {
-        return port > 0 && port <= 65535;
-    }
 }

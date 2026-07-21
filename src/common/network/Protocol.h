@@ -32,9 +32,6 @@ enum class MessageType : quint32 {
 
     // 屏幕数据
     SCREEN_DATA = 0x1001,
-    SCREEN_UPDATE = 0x1002,
-    SCREEN_RESOLUTION = 0x1003,
-    CURSOR_POSITION = 0x1004,
     CURSOR_SHAPE = 0x1005,
 
     // 输入事件
@@ -72,8 +69,7 @@ enum class AuthResult : quint8 {
     SUCCESS = 0x00,
     INVALID_PASSWORD = 0x01,
     ACCESS_DENIED = 0x02,
-    SERVER_FULL = 0x03,
-    UNKNOWN_ERROR = 0xFF
+    SERVER_FULL = 0x03
 };
 
 // 编解码接口：仅负责消息打包与从缓冲区解包

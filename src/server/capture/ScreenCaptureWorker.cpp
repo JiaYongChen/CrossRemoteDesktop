@@ -1,5 +1,4 @@
 #include "ScreenCaptureWorker.h"
-#include "../../common/threading/ThreadSafeQueue.h"
 #include "../../common/config/CaptureConstants.h"
 #include "../../common/config/ProcessingConstants.h"
 #include "../../common/logging/LoggingCategories.h"

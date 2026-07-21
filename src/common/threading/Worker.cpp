@@ -11,10 +11,7 @@ Worker::Worker(QObject* parent)
     , m_state(State::Stopped)
     , m_stopRequested(false)
     , m_pauseRequested(false)
-    , m_name("Worker")
-    , m_waitForFinish(true) {
-    // 初始化性能统计
-    resetPerformanceStats();
+    , m_name("Worker") {
 }
 
 Worker::~Worker() {
@@ -35,12 +32,6 @@ bool Worker::isPaused() const {
     return m_state.load() == State::Paused;
 }
 
-bool Worker::isStopped() const {
-    State currentState = m_state.load();
-    // 修正语义：仅当状态为 Stopped 时返回 true；Stopping 表示正在停止过程中，尚未真正完成
-    return currentState == State::Stopped;
-}
-
 QString Worker::name() const {
     QMutexLocker locker(&m_nameMutex);
     return m_name;
@@ -49,29 +40,6 @@ QString Worker::name() const {
 void Worker::setName(const QString& name) {
     QMutexLocker locker(&m_nameMutex);
     m_name = name;
-}
-
-Worker::PerformanceStats Worker::getPerformanceStats() const {
-    QMutexLocker locker(&m_statsMutex);
-    PerformanceStats stats = m_stats;
-
-    // 更新运行时间
-    if ( m_uptimeTimer.isValid() ) {
-        stats.uptime = m_uptimeTimer.elapsed();
-    }
-
-    // 计算每秒处理项目数
-    if ( stats.uptime > 0 ) {
-        stats.itemsPerSecond = (stats.totalProcessedItems * 1000.0) / stats.uptime;
-    }
-
-    return stats;
-}
-
-void Worker::resetPerformanceStats() {
-    QMutexLocker locker(&m_statsMutex);
-    m_stats = PerformanceStats();
-    m_stats.minProcessingTime = UINT64_MAX;
 }
 
 void Worker::start() {
@@ -85,9 +53,6 @@ void Worker::start() {
     setState(State::Starting);
     m_stopRequested.store(false);
     m_pauseRequested.store(false);
-
-    // 重置性能统计
-    resetPerformanceStats();
 
     // 关键改动：改为通过单次定时器在事件循环启动后调度 doStart
     // 原因：QThread::started 信号在事件循环启动之前发出，若在此直接调用 doStart/workLoop，
@@ -112,7 +77,6 @@ void Worker::stop(bool waitForFinish) {
 
     qCInfo(lcCoreThreading) << "Stopping worker:" << m_name << "waitForFinish:" << (waitForFinish ? "true" : "false");
 
-    m_waitForFinish = waitForFinish;
     m_stopRequested.store(true);
     setState(State::Stopping);
 
@@ -172,10 +136,7 @@ void Worker::resume() {
 }
 
 void Worker::setState(State newState) {
-    State oldState = m_state.exchange(newState);
-    if ( oldState != newState ) {
-        emit stateChanged(newState, oldState);
-    }
+    m_state.store(newState);
 }
 
 bool Worker::shouldStop() const {
@@ -219,17 +180,6 @@ void Worker::waitIfPaused() {
     }
 }
 
-void Worker::startPerformanceTiming() {
-    m_processingTimer.start();
-}
-
-void Worker::endPerformanceTiming() {
-    if ( m_processingTimer.isValid() ) {
-        quint64 elapsed = m_processingTimer.elapsed();
-        updatePerformanceStats(elapsed);
-    }
-}
-
 void Worker::emitError(const QString& error) {
     qCWarning(lcCoreThreading) << "Worker error in" << m_name << ":" << error;
     emit errorOccurred(RdError(ErrorCode::Unknown, error, m_name));
@@ -264,9 +214,7 @@ void Worker::workLoop() {
                 break;
             }
 
-            startPerformanceTiming();
             processTask();
-            endPerformanceTiming();
 
             // Adaptive sleep: subclasses that call setDidWork() opt into
             // skipping the idle sleep when they actually processed data.
@@ -302,7 +250,6 @@ void Worker::doStart() {
         }
 
         setState(State::Running);
-        m_uptimeTimer.start();
         emit started();
 
         // 开始工作循环
@@ -335,20 +282,5 @@ void Worker::doStop() {
     if ( workerThread && workerThread->isRunning() ) {
         qCDebug(lcCoreThreading) << "Worker::doStop() requesting thread quit for:" << m_name;
         workerThread->quit();
-    }
-}
-
-void Worker::updatePerformanceStats(quint64 processingTime) {
-    QMutexLocker locker(&m_statsMutex);
-    m_stats.totalProcessedItems++;
-    m_stats.totalProcessingTime += processingTime;
-    if ( processingTime > m_stats.maxProcessingTime ) {
-        m_stats.maxProcessingTime = processingTime;
-    }
-    if ( processingTime < m_stats.minProcessingTime ) {
-        m_stats.minProcessingTime = processingTime;
-    }
-    if ( m_stats.totalProcessedItems > 0 ) {
-        m_stats.averageProcessingTime = m_stats.totalProcessingTime / m_stats.totalProcessedItems;
     }
 }

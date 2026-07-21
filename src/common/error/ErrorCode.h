@@ -9,44 +9,31 @@ enum class ErrorCode {
     // ─ 网络层 ─
     NetworkConnectionFailed,
     NetworkDisconnected,
-    NetworkTimeout,
     NetworkTlsError,
     NetworkHeartbeatTimeout,
 
     // ─ 认证 ─
     AuthFailed,
-    AuthChallengeFailed,
-    AuthNotAuthenticated,
 
     // ─ 会话 ─
-    SessionStartFailed,
-    SessionAlreadyActive,
     SessionNotAuthenticated,
 
     // ─ 捕获 ─
     CaptureInitFailed,
     CaptureStartFailed,
     CaptureWorkerError,
-    CaptureDxgiError,
 
     // ─ 数据处理 ─
-    DataProcessingFailed,
     DataProcessingException,
     DecodeFailed,
 
     // ─ 队列 ─
     QueueOverflow,
-    QueueEnqueueFailed,
 
     // ─ 线程 ─
     ThreadStartFailed,
-    ThreadStateError,
 
     // ─ 服务端 ─
     ServerStartFailed,
     TcpListenerError,
-
-    // ─ 配置 ─
-    ConfigInvalid,
-    ConfigFileError,
 };

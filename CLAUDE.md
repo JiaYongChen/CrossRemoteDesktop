@@ -7,16 +7,19 @@
 ## 首次设置（新设备）
 
 ```bash
-# 建立 Claude 项目记忆 symlink（使 memory/ 跟随 git 跨设备同步）
+# 建立 memory 和 hooks 的 symlink（使项目记忆和 hook 配置跟随 git 跨设备同步）
 # Windows:
-scripts\setup-memory-symlink.bat
+scripts\setup-symlinks.bat
 
 # macOS / Linux:
-chmod +x scripts/setup-memory-symlink.sh && ./scripts/setup-memory-symlink.sh
+chmod +x scripts/setup-symlinks.sh && ./scripts/setup-symlinks.sh
 ```
 
-项目记忆（编码规范、反馈、工作流）存放在 `.claude/memory/`（已提交 git）。
+项目记忆（编码规范、反馈、工作流）存放在 `memory/`（已提交 git）。
 上述脚本将 Claude 的本地记忆路径通过 symlink 重定向到此目录。
+
+Hooks 配置存放在 `hooks/`，通过 `.claude/hooks/` symlink 连接到该目录。
+项目自定义 Skills 存放在 `skills/`，通过 `.claude/skills/` symlink 连接到该目录。
 
 ## 构建命令
 
@@ -181,19 +184,18 @@ RemoteDesktopSession（组装 + 生命周期）
 - 状态机：Stopped → Starting → Running ⇄ Paused → Stopping → Stopped
 - 信号：started, stopped, paused, resumed, errorOccurred
 - 重写 `processTask()` 实现工作循环，`initialize()`/`cleanup()` 管理生命周期
-- 性能追踪：在 processTask 循环中使用 `startPerformanceTiming()` / `endPerformanceTiming()`
 
 **ThreadManager** 管理所有 Worker 线程（通过依赖注入传递，非单例）：
 - `createThread(name, unique_ptr<Worker>, autoStart, autoRestart, maxRestarts)` 注册 Worker
 - `startThread/stopThread/pauseThread/resumeThread/destroyThread` 单独控制
-- `startAllThreads/stopAllThreads/destroyAllThreads` 批量控制
+- `stopAllThreads/destroyAllThreads` 批量控制
 - 所有返回 bool 的方法已添加 `[[nodiscard]]`
 
 ### 错误处理系统
 
 **统一错误类型**（`src/common/error/`）：
 - `RdError`：轻量值类型结构体，含 `code`（ErrorCode 枚举）、`message`、`source`、`timestampMs` 四字段
-- `ErrorCode`：26 个枚举值，按模块分类（网络/认证/会话/捕获/数据处理/队列/线程/服务端/配置）
+- `ErrorCode`：16 个枚举值，按模块分类（网络/认证/会话/捕获/数据处理/队列/线程/服务端）
 - 项目中 13 个错误信号全部迁移到 `const RdError&` 参数
 - 可为跨线程传递（`Q_DECLARE_METATYPE`）
 
@@ -216,12 +218,12 @@ RemoteDesktopSession（组装 + 生命周期）
 
 | 文件 | 命名空间 | 领域 |
 |------|----------|------|
-| `ProtocolConstants.h` | `ProtocolConstants` | 协议标识、消息字段长度、帧尺寸、应用版本 |
+| `ProtocolConstants.h` | `ProtocolConstants` | 协议标识、消息字段长度 |
 | `NetworkConstants.h` | `NetworkConstants` | 连接超时、心跳、缓冲区、默认端口 |
-| `CaptureConstants.h` | `CaptureConstants` | 捕获帧率、JPEG质量、缩放因子、输入参数 |
-| `ProcessingConstants.h` | `ProcessingConstants` | 线程池、队列、缓冲区、性能阈值 |
-| `SecurityConstants.h` | `SecurityConstants` | 加密参数、认证限制、会话超时 |
-| `GuiConstants.h` | `GuiConstants` | 窗口尺寸、OpenGL渲染、帧丢弃策略 |
+| `CaptureConstants.h` | `CaptureConstants` | 捕获帧率、捕获内部阈值 |
+| `ProcessingConstants.h` | `ProcessingConstants` | 队列控制、JPEG编码参数、数据处理阈值 |
+| `SecurityConstants.h` | `SecurityConstants` | 加密参数、认证速率限制 |
+| `GuiConstants.h` | `GuiConstants` | OpenGL渲染参数 |
 
 **常量规范**：统一 `namespace` + `inline constexpr`，`PascalCase` 命名。完整决策树、类型规范、禁止事项见 [[常量组织规范]]。2 个及以上文件引用的常量必须放入公共文件。
 
@@ -310,6 +312,12 @@ qCWarning(lcServer) << error.logLabel();      // 推荐
 - **DataProcessor / DataValidator / DataCleanerFormatter / IDataStore / InMemoryDataStore**：整类链删除（创建但方法从未调用，原管线已被 JPEG 直编码替代）
 - **DataRecord 数据结构**：仅被 DataProcessing 类链引用，随其一并删除
 - **test_dataprocessing**：占位测试（类已删除后仅剩 QVERIFY(true)，目标随源代码一并移除）
+- **Worker/ThreadManager 性能统计与监控子系统**：Worker::PerformanceStats 结构体 + getPerformanceStats/resetPerformanceStats/updatePerformanceStats/startPerformanceTiming/endPerformanceTiming + performanceStatsUpdated/stateChanged 信号 + isStopped()；ThreadManager::ThreadStats 结构体 + getThreadStats + 监控定时器（setMonitoringInterval/monitoringInterval/setMonitoringEnabled/isMonitoringEnabled/onMonitoringTimer）+ performanceStatsUpdated/threadCreated 信号 + restartThread/startAllThreads/pauseAllThreads/resumeAllThreads（统计"只采集从不消费"，监控定时器默认每 5 秒空转发信号无人订阅）
+- **src/common 死常量**：6 个常量头文件中 32 个零引用常量，含文件传输遗留（MaxFilenameLength/DefaultMaxFileSize/MaxFrameSize/MinFrameSize/FrameHeaderSize/MaxErrorMessageLength）、未接线的 GC/内存/CPU 阈值（GarbageCollectionIntervalMs/MemoryWarningThresholdMb/CpuUsageThresholdPercent）、GuiConstants 帧丢弃策略枚举整组、CaptureConstants::IsValidFrameRate、NetworkConstants::IsValidPort 等
+- **ErrorCode 死枚举值**（11 个）：NetworkTimeout、AuthChallengeFailed、AuthNotAuthenticated、SessionStartFailed、SessionAlreadyActive、CaptureDxgiError、DataProcessingFailed、QueueEnqueueFailed、ThreadStateError、ConfigInvalid、ConfigFileError（整个"配置"分类随之移除）
+- **MessageType 死消息类型**：SCREEN_UPDATE/SCREEN_RESOLUTION/CURSOR_POSITION（从未实现的消息类型）+ AuthResult::UNKNOWN_ERROR
+- **SettingsManager 死成员**：contains/childKeys/filePath/isModified 方法 + valueChanged/saved 信号（发射但从未连接）
+- **其他死方法**：ThreadSafeQueue::isEmpty/getTotalDropped（及 m_totalDropped 成员）、HistoryEntry::addressPort（与 searchKey 实现重复）
 
 ## 代码风格
 

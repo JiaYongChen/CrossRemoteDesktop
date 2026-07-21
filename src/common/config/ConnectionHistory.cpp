@@ -20,11 +20,6 @@ QString HistoryEntry::displayName() const
     return params.hostname.isEmpty() ? params.host : params.hostname;
 }
 
-QString HistoryEntry::addressPort() const
-{
-    return QStringLiteral("%1:%2").arg(params.host).arg(params.port);
-}
-
 QString HistoryEntry::searchKey() const
 {
     return QStringLiteral("%1:%2").arg(params.host).arg(params.port);

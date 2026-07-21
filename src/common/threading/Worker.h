@@ -3,16 +3,14 @@
 #include <QtCore/QObject>
 #include <QtCore/QMutex>
 #include <QtCore/QWaitCondition>
-#include <QtCore/QElapsedTimer>
 #include <atomic>
-#include <memory>
 #include "error/RdError.h"
 
 /**
  * @brief 工作线程基类
  *
  * 定义所有工作线程的通用接口和行为模式。
- * 支持启动、停止、暂停、恢复等操作，并提供性能监控功能。
+ * 支持启动、停止、暂停、恢复等操作。
  * 所有具体的Worker类都应该继承此基类。
  */
 class Worker : public QObject {
@@ -66,12 +64,6 @@ public:
     [[nodiscard]] bool isPaused() const;
 
     /**
-     * @brief 检查是否已停止
-     * @return true 已停止，false 未停止
-     */
-    [[nodiscard]] bool isStopped() const;
-
-    /**
      * @brief 获取工作线程名称
      * @return 线程名称
      */
@@ -82,27 +74,6 @@ public:
      * @param name 线程名称
      */
     void setName(const QString& name);
-
-    /**
-     * @brief 获取性能统计信息
-     * @return 性能统计数据
-     */
-    struct PerformanceStats {
-        quint64 totalProcessedItems = 0;    ///< 总处理项目数
-        quint64 totalProcessingTime = 0;    ///< 总处理时间（毫秒）
-        quint64 averageProcessingTime = 0;  ///< 平均处理时间（毫秒）
-        quint64 maxProcessingTime = 0;      ///< 最大处理时间（毫秒）
-        quint64 minProcessingTime = UINT64_MAX; ///< 最小处理时间（毫秒）
-        double itemsPerSecond = 0.0;        ///< 每秒处理项目数
-        quint64 uptime = 0;                 ///< 运行时间（毫秒）
-    };
-
-    [[nodiscard]] PerformanceStats getPerformanceStats() const;
-
-    /**
-     * @brief 重置性能统计
-     */
-    void resetPerformanceStats();
 
     // 允许线程管理器访问受保护的生命周期方法，以便在销毁阶段执行安全的跨线程清理
     friend class ThreadManager;
@@ -173,19 +144,6 @@ signals:
      */
     void errorOccurred(const RdError& error);
 
-    /**
-     * @brief 状态变化信号
-     * @param newState 新状态
-     * @param oldState 旧状态
-     */
-    void stateChanged(Worker::State newState, Worker::State oldState);
-
-    /**
-     * @brief 性能统计更新信号
-     * @param stats 性能统计数据
-     */
-    void performanceStatsUpdated(const Worker::PerformanceStats& stats);
-
 protected:
     /**
      * @brief 设置工作线程状态
@@ -205,20 +163,6 @@ protected:
      * 如果当前处于暂停状态，此方法会阻塞直到恢复或停止。
      */
     void waitIfPaused();
-
-    /**
-     * @brief 开始性能计时
-     *
-     * 在处理任务前调用此方法开始计时。
-     */
-    void startPerformanceTiming();
-
-    /**
-     * @brief 结束性能计时
-     *
-     * 在处理任务后调用此方法结束计时并更新统计。
-     */
-    void endPerformanceTiming();
 
     /**
      * @brief 发出错误信号
@@ -279,9 +223,6 @@ protected slots:
     void doStop();
 
 private:
-    void updatePerformanceStats(quint64 processingTime);
-
-private:
     mutable QMutex m_nameMutex;         ///< 线程名称互斥锁（仅保护 m_name）
     std::atomic<State> m_state;         ///< 当前状态
     std::atomic<bool> m_stopRequested;  ///< 停止请求标志
@@ -291,14 +232,6 @@ private:
     QWaitCondition m_pauseCondition;    ///< 暂停条件变量
 
     QString m_name;                     ///< 线程名称
-
-    // 性能统计相关
-    mutable QMutex m_statsMutex;        ///< 统计互斥锁
-    PerformanceStats m_stats;           ///< 性能统计数据
-    QElapsedTimer m_processingTimer;    ///< 处理计时器
-    QElapsedTimer m_uptimeTimer;        ///< 运行时间计时器
-
-    bool m_waitForFinish;               ///< 是否等待完成
 
     // Adaptive sleep: when a subclass calls setDidWork(false), workLoop
     // sleeps 1ms; when setDidWork(true), it skips the sleep. Subclasses

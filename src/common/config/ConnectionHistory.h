@@ -15,9 +15,6 @@ struct HistoryEntry {
     /// 显示名称：优先 hostname，回退 host
     [[nodiscard]] QString displayName() const;
 
-    /// "host:port" 格式字符串
-    [[nodiscard]] QString addressPort() const;
-
     /// 搜索键："host:port"（用于过滤匹配）
     [[nodiscard]] QString searchKey() const;
 };

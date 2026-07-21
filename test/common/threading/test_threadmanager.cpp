@@ -75,19 +75,19 @@ private slots:
     void test_getThreadInfo();
     
     /**
-     * @brief 测试线程监控
+     * @brief 测试单线程创建启停
      */
-    void test_threadMonitoring();
-    
+    void test_createAndStartStop();
+
     /**
      * @brief 测试错误处理
      */
     void test_errorHandling();
-    
+
     /**
-     * @brief 测试性能指标
+     * @brief 测试多线程生命周期
      */
-    void test_performanceMetrics();
+    void test_multipleThreadLifecycle();
     
     /**
      * @brief 测试并发安全性
@@ -499,14 +499,13 @@ void TestThreadManager::test_getThreadInfo()
     QVERIFY(threadInfo->thread != nullptr);
     // 注意：ThreadInfo结构中没有status字段，这里只验证线程信息存在
     QVERIFY(!threadInfo->name.isEmpty());
-    QVERIFY(threadInfo->createdTime.isValid());
 }
 
-void TestThreadManager::test_threadMonitoring()
+void TestThreadManager::test_createAndStartStop()
 {
     // 创建并启动测试线程
     auto worker = std::make_unique<TestWorker>();
-    QString threadName = "MonitorTestThread";
+    QString threadName = "SimpleTestThread";
     
     QVERIFY(m_threadManager->createThread(threadName, std::move(worker)));
     QVERIFY(m_threadManager->startThread(threadName));
@@ -514,12 +513,9 @@ void TestThreadManager::test_threadMonitoring()
     // 减少等待时间
     QTest::qWait(100);
     
-    // 获取线程信息并验证监控数据
+    // 获取线程信息并验证基本字段
     auto threadInfo = m_threadManager->getThreadInfo(threadName);
     QVERIFY(threadInfo != nullptr);
-    
-    // 验证运行时间被记录 - 注意：ThreadInfo结构中没有lastActiveTime字段
-    // QVERIFY(threadInfo->lastActiveTime.isValid());
     QVERIFY(!threadInfo->name.isEmpty());
     
     // 停止线程
@@ -549,12 +545,12 @@ void TestThreadManager::test_errorHandling()
     QCOMPARE(err.message, "测试错误");
 }
 
-void TestThreadManager::test_performanceMetrics()
+void TestThreadManager::test_multipleThreadLifecycle()
 {
-    // 创建多个线程测试性能
+    // 创建多个线程测试批量启停
     QStringList threadNames;
     for (int i = 0; i < 3; ++i) {
-        QString threadName = QString("PerfTestThread_%1").arg(i);
+        QString threadName = QString("LifecycleTestThread_%1").arg(i);
         threadNames << threadName;
         
         auto worker = std::make_unique<TestWorker>();

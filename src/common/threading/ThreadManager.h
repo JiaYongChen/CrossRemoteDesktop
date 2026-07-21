@@ -2,21 +2,18 @@
 
 #include <QtCore/QObject>
 #include <QtCore/QThread>
-#include <QtCore/QTimer>
 #include <QtCore/QMutex>
 #include <QtCore/QHash>
-#include <QtCore/QPointer>
 #include "error/RdError.h"
-#include <QtCore/QDateTime>
 #include <memory>
 #include "Worker.h"
 #include "../logging/LoggingCategories.h"
 
 /**
  * @brief 线程管理器类
- * 
+ *
  * 负责管理所有工作线程的生命周期，包括创建、启动、停止和销毁线程。
- * 提供线程池管理、性能监控和资源管理功能。
+ * 提供线程池管理和资源管理功能。
  */
 class ThreadManager : public QObject
 {
@@ -30,8 +27,6 @@ public:
         QString name;                           ///< 线程名称
         QThread* thread;                        ///< 线程对象
         Worker* worker;                         ///< 工作对象
-        QDateTime createdTime;                  ///< 创建时间
-        QDateTime startedTime;                  ///< 启动时间
         bool autoRestart;                       ///< 是否自动重启
         int restartCount;                       ///< 重启次数
         int maxRestarts;                        ///< 最大重启次数
@@ -71,18 +66,6 @@ public:
                 thread = nullptr;
             }
         }
-    };
-
-    /**
-     * @brief 线程统计信息
-     */
-    struct ThreadStats {
-        int totalThreads = 0;           ///< 总线程数
-        int runningThreads = 0;         ///< 运行中线程数
-        int stoppedThreads = 0;         ///< 已停止线程数
-        int pausedThreads = 0;          ///< 已暂停线程数
-        quint64 totalUptime = 0;        ///< 总运行时间（毫秒）
-        quint64 averageUptime = 0;      ///< 平均运行时间（毫秒）
     };
 
     /**
@@ -142,13 +125,6 @@ public:
     [[nodiscard]] bool resumeThread(const QString& name);
 
     /**
-     * @brief 重启指定线程
-     * @param name 线程名称
-     * @return true 重启成功，false 重启失败
-     */
-    bool restartThread(const QString& name);
-
-    /**
      * @brief 销毁指定线程
      * @param name 线程名称
      * @return true 销毁成功，false 销毁失败
@@ -156,25 +132,10 @@ public:
     [[nodiscard]] bool destroyThread(const QString& name);
 
     /**
-     * @brief 启动所有线程
-     */
-    void startAllThreads();
-
-    /**
      * @brief 停止所有线程
      * @param waitForFinish 是否等待当前任务完成
      */
     void stopAllThreads(bool waitForFinish = true);
-
-    /**
-     * @brief 暂停所有线程
-     */
-    void pauseAllThreads();
-
-    /**
-     * @brief 恢复所有线程
-     */
-    void resumeAllThreads();
 
     /**
      * @brief 销毁所有线程
@@ -209,49 +170,13 @@ public:
     [[nodiscard]] QStringList getThreadNames() const;
 
     /**
-     * @brief 获取线程统计信息
-     * @return 线程统计数据
-     */
-    [[nodiscard]] ThreadStats getThreadStats() const;
-
-    /**
      * @brief 获取指定线程的Worker对象
      * @param name 线程名称
      * @return Worker对象指针，如果线程不存在则返回nullptr
      */
     [[nodiscard]] Worker* getWorker(const QString& name) const;
 
-    /**
-     * @brief 设置性能监控间隔
-     * @param intervalMs 监控间隔（毫秒）
-     */
-    void setMonitoringInterval(int intervalMs);
-
-    /**
-     * @brief 获取性能监控间隔
-     * @return 监控间隔（毫秒）
-     */
-    [[nodiscard]] int monitoringInterval() const;
-
-    /**
-     * @brief 启用或禁用性能监控
-     * @param enabled 是否启用
-     */
-    void setMonitoringEnabled(bool enabled);
-
-    /**
-     * @brief 检查性能监控是否启用
-     * @return true 已启用，false 未启用
-     */
-    [[nodiscard]] bool isMonitoringEnabled() const;
-
 signals:
-    /**
-     * @brief 线程创建信号
-     * @param name 线程名称
-     */
-    void threadCreated(const QString& name);
-
     /**
      * @brief 线程启动信号
      * @param name 线程名称
@@ -296,12 +221,6 @@ signals:
      */
     void threadRestarted(const QString& name, int restartCount);
 
-    /**
-     * @brief 性能统计更新信号
-     * @param stats 统计数据
-     */
-    void performanceStatsUpdated(const ThreadStats& stats);
-
 private slots:
     /**
      * @brief 处理工作线程启动
@@ -329,18 +248,11 @@ private slots:
      */
     void onWorkerError(const RdError& error);
 
-    /**
-     * @brief 性能监控定时器处理
-     */
-    void onMonitoringTimer();
-
 public:
     /**
      * @brief 构造函数
      *
-     * 支持两种使用模式：
-     * 1. 单例模式：通过 instance() 获取全局实例（向后兼容）
-     * 2. 依赖注入：直接构造实例并注入到需要的组件中（推荐新代码使用）
+     * 构造实例并通过依赖注入传递到需要的组件中（非单例）。
      *
      * @param parent 父对象
      */
@@ -390,10 +302,5 @@ private:
 private:
     mutable QMutex m_mutex;                 ///< 互斥锁
     QHash<QString, std::shared_ptr<ThreadInfo>> m_threads; ///< 线程信息映射
-    
-    // 性能监控
-    QTimer* m_monitoringTimer;              ///< 监控定时器
-    int m_monitoringInterval;               ///< 监控间隔（毫秒）
-    bool m_monitoringEnabled;               ///< 是否启用监控
 };
 

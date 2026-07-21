@@ -102,7 +102,7 @@ private slots:
     /**
      * @brief 测试性能统计
      */
-    void test_performanceStats();
+    void test_captureConfigValidity();
     
     /**
      * @brief 测试同步捕获（遗留功能）
@@ -133,7 +133,7 @@ private slots:
     void test_stopCapture();
     void test_setFrameRate();
     void test_frameRate();
-    void test_getPerformanceStats();
+    void test_captureConfigDefaults();
     void test_stopCapture_errorPath();
 };
 
@@ -262,7 +262,7 @@ void TestScreenCapture::test_queueManagement()
     qCDebug(lcTestScreenCapture, "队列管理测试通过");
 }
 
-void TestScreenCapture::test_performanceStats()
+void TestScreenCapture::test_captureConfigValidity()
 {
     qCDebug(lcTestScreenCapture, "测试配置状态");
 
@@ -323,7 +323,7 @@ void TestScreenCapture::test_syncCapture()
 
 void TestScreenCapture::test_signalEmission()
 {
-    qCDebug(lcTestScreenCapture, "信号发射测试（captureError/performanceStatsUpdated 信号已移除）");
+    qCDebug(lcTestScreenCapture, "信号发射测试");
     m_screenCapture->startCapture();
     QTest::qWait(100);
     m_screenCapture->stopCapture();
@@ -433,9 +433,9 @@ void TestScreenCapture::test_frameRate()
     QVERIFY(fps <= 120);
 }
 
-void TestScreenCapture::test_getPerformanceStats()
+void TestScreenCapture::test_captureConfigDefaults()
 {
-    qCDebug(lcTestScreenCapture, "test_getPerformanceStats");
+    qCDebug(lcTestScreenCapture, "test_captureConfigDefaults");
     // PerformanceStats 结构体已移除 — 验证 getCaptureConfig 可正常调用
     CaptureConfig cfg = m_screenCapture->getCaptureConfig();
     QVERIFY(cfg.isValid());

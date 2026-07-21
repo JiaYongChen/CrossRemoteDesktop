@@ -2,32 +2,17 @@
 #include "Worker.h"
 #include <QtCore/QMutexLocker>
 #include <QtCore/QPointer>
+#include <QtCore/QTimer>
 #include <QtCore/QLoggingCategory>
 #include "../logging/LoggingCategories.h" // 引入日志分类声明，使用lcCoreThreading进行分类日志输出
 
 ThreadManager::ThreadManager(QObject* parent)
-    : QObject(parent)
-    , m_monitoringTimer(new QTimer(this))
-    , m_monitoringInterval(5000) // 默认5秒
-    , m_monitoringEnabled(true) {
-    // 设置监控定时器
-    m_monitoringTimer->setSingleShot(false);
-    connect(m_monitoringTimer, &QTimer::timeout, this, &ThreadManager::onMonitoringTimer);
-
-    if ( m_monitoringEnabled ) {
-        m_monitoringTimer->start(m_monitoringInterval);
-    }
-
+    : QObject(parent) {
     qCDebug(lcCoreThreading) << "ThreadManager initialized"; // 使用分类debug日志替换qDebug，输出初始化信息
 }
 
 ThreadManager::~ThreadManager() {
     qCDebug(lcCoreThreading) << "ThreadManager destroying..."; // 析构开始
-
-    // 停止监控
-    if ( m_monitoringTimer->isActive() ) {
-        m_monitoringTimer->stop();
-    }
 
     // 销毁所有线程
     destroyAllThreads();
@@ -58,7 +43,6 @@ bool ThreadManager::createThread(const QString& name,
     threadInfo->name = name;
     threadInfo->thread = new QThread();
     threadInfo->worker = worker.release();
-    threadInfo->createdTime = QDateTime::currentDateTime();
     threadInfo->autoRestart = autoRestart;
     threadInfo->restartCount = 0;
     threadInfo->maxRestarts = maxRestarts;
@@ -87,7 +71,6 @@ bool ThreadManager::createThread(const QString& name,
     m_threads[name] = std::move(threadInfo);
 
     qCDebug(lcCoreThreading) << "Thread created:" << name;
-    emit threadCreated(name);
 
     // 自动启动
     if ( autoStart ) {
@@ -144,7 +127,6 @@ bool ThreadManager::startThread(const QString& name) {
     // 清除主动停止标记，新的启动表示进入正常运行期
     info->stopRequested = false;
 
-    info->startedTime = QDateTime::currentDateTime();
     info->thread->start();
 
     qCInfo(lcCoreThreading) << "Thread started:" << name; // 线程已启动
@@ -268,18 +250,6 @@ bool ThreadManager::resumeThread(const QString& name) {
     return true;
 }
 
-bool ThreadManager::restartThread(const QString& name) {
-    if ( !stopThread(name, true) ) {
-        return false;
-    }
-
-    // 等待一小段时间确保线程完全停止
-    QThread::msleep(100);
-
-    (void)startThread(name);
-    return true;
-}
-
 bool ThreadManager::destroyThread(const QString& name) {
     // 统一停线程逻辑：复用 stopThread，避免在 destroyThread 中重复等待造成额外超时
     // 此处不持有锁调用 stopThread，以减少锁竞争
@@ -381,19 +351,6 @@ bool ThreadManager::destroyThread(const QString& name) {
     return stopped;
 }
 
-void ThreadManager::startAllThreads() {
-    QMutexLocker locker(&m_mutex);
-
-    for ( auto it = m_threads.begin(); it != m_threads.end(); ++it ) {
-        const QString& name = it.key();
-        locker.unlock();
-        (void)startThread(name);
-        locker.relock();
-    }
-
-    qCDebug(lcCoreThreading) << "All threads started";
-}
-
 void ThreadManager::stopAllThreads(bool waitForFinish) {
     QMutexLocker locker(&m_mutex);
 
@@ -437,32 +394,6 @@ void ThreadManager::stopAllThreads(bool waitForFinish) {
         }
         qCDebug(lcCoreThreading) << "Stop signals sent to all" << totalThreads << "threads";
     }
-}
-
-void ThreadManager::pauseAllThreads() {
-    QMutexLocker locker(&m_mutex);
-
-    for ( auto it = m_threads.begin(); it != m_threads.end(); ++it ) {
-        const QString& name = it.key();
-        locker.unlock();
-        (void)pauseThread(name);
-        locker.relock();
-    }
-
-    qCDebug(lcCoreThreading) << "All threads paused";
-}
-
-void ThreadManager::resumeAllThreads() {
-    QMutexLocker locker(&m_mutex);
-
-    for ( auto it = m_threads.begin(); it != m_threads.end(); ++it ) {
-        const QString& name = it.key();
-        locker.unlock();
-        (void)resumeThread(name);
-        locker.relock();
-    }
-
-    qCDebug(lcCoreThreading) << "All threads resumed";
 }
 
 void ThreadManager::destroyAllThreads() {
@@ -513,91 +444,11 @@ QStringList ThreadManager::getThreadNames() const {
     return m_threads.keys();
 }
 
-ThreadManager::ThreadStats ThreadManager::getThreadStats() const {
-    QMutexLocker locker(&m_mutex);
-
-    ThreadStats stats;
-    stats.totalThreads = m_threads.size();
-
-    quint64 totalUptime = 0;
-    int runningSamples = 0;
-
-    for ( auto it = m_threads.begin(); it != m_threads.end(); ++it ) {
-        const ThreadInfo* info = it.value().get();
-
-        if ( info->thread->isRunning() ) {
-            Worker::State state = info->worker->state();
-            switch ( state ) {
-                case Worker::State::Running:
-                case Worker::State::Starting:
-                    stats.runningThreads++;
-                    break;
-                case Worker::State::Paused:
-                    stats.pausedThreads++;
-                    break;
-                case Worker::State::Stopped:
-                case Worker::State::Stopping:
-                    stats.stoppedThreads++;
-                    break;
-            }
-
-            // 计算运行时间
-            if ( info->startedTime.isValid() ) {
-                quint64 uptime = info->startedTime.msecsTo(QDateTime::currentDateTime());
-                totalUptime += uptime;
-                runningSamples++;
-            }
-        } else {
-            stats.stoppedThreads++;
-        }
-    }
-
-    stats.totalUptime = totalUptime;
-    if ( runningSamples > 0 ) {
-        stats.averageUptime = totalUptime / runningSamples;
-    }
-
-    return stats;
-}
-
 Worker* ThreadManager::getWorker(const QString& name) const {
     QMutexLocker locker(&m_mutex);
 
     const ThreadInfo* info = findThreadInfo(name);
     return info ? info->worker : nullptr;
-}
-
-void ThreadManager::setMonitoringInterval(int intervalMs) {
-    QMutexLocker locker(&m_mutex);
-
-    m_monitoringInterval = intervalMs;
-
-    if ( m_monitoringEnabled && m_monitoringTimer->isActive() ) {
-        m_monitoringTimer->stop();
-        m_monitoringTimer->start(m_monitoringInterval);
-    }
-}
-
-int ThreadManager::monitoringInterval() const {
-    QMutexLocker locker(&m_mutex);
-    return m_monitoringInterval;
-}
-
-void ThreadManager::setMonitoringEnabled(bool enabled) {
-    QMutexLocker locker(&m_mutex);
-
-    m_monitoringEnabled = enabled;
-
-    if ( enabled && !m_monitoringTimer->isActive() ) {
-        m_monitoringTimer->start(m_monitoringInterval);
-    } else if ( !enabled && m_monitoringTimer->isActive() ) {
-        m_monitoringTimer->stop();
-    }
-}
-
-bool ThreadManager::isMonitoringEnabled() const {
-    QMutexLocker locker(&m_mutex);
-    return m_monitoringEnabled;
 }
 
 void ThreadManager::onWorkerStarted() {
@@ -704,11 +555,6 @@ void ThreadManager::onWorkerError(const RdError& error) {
     if ( !name.isEmpty() ) {
         emit threadError(RdError(ErrorCode::ThreadStartFailed, error.message, name));
     }
-}
-
-void ThreadManager::onMonitoringTimer() {
-    ThreadStats stats = getThreadStats();
-    emit performanceStatsUpdated(stats);
 }
 
 ThreadManager::ThreadInfo* ThreadManager::findThreadInfo(const QString& name) {
