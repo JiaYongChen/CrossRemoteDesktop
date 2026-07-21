@@ -9,7 +9,7 @@
 #endif
 #include "../windows/InputForwarder.h"
 #include "../windows/CursorManager.h"
-#include "../clipboard/ClipboardManager.h"
+#include "../../common/clipboard/ClipboardManager.h"
 #include "../../common/logging/LoggingCategories.h"
 
 #include <QtWidgets/QApplication>

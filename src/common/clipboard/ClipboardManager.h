@@ -8,7 +8,7 @@
 
 /**
  * @brief 剪贴板管理器类
- * 
+ *
  * 负责监听系统剪贴板变化并同步数据
  * 支持文本和图片两种数据类型
  */
@@ -45,6 +45,18 @@ public:
      */
     void setImageFromPng(const QByteArray& pngData);
 
+    /**
+     * @brief 应用远端文本到本地剪贴板（覆盖上次文本并发射变化信号）
+     * @param text 远端文本内容
+     */
+    void applyRemoteText(const QString& text);
+
+    /**
+     * @brief 应用远端图片到本地剪贴板（覆盖上次图片并发射变化信号）
+     * @param pngData PNG 格式的图片数据
+     */
+    void applyRemoteImage(const QByteArray& pngData);
+
 signals:
     /**
      * @brief 本地剪贴板文本变化信号
@@ -74,10 +86,10 @@ private:
      */
     void setImage(const QImage& image);
 
-    QClipboard* m_clipboard;           ///< 系统剪贴板
-    bool m_enabled;                    ///< 是否启用监听
-    bool m_ignoreNextChange;           ///< 忽略下一次变化（自己触发的）
-    QString m_lastText;                ///< 上次的文本内容
-    QByteArray m_lastImageData;        ///< 上次的图片数据
+    QClipboard* m_clipboard;                ///< 系统剪贴板
+    bool m_enabled;                         ///< 是否启用监听
+    QString m_lastText;                     ///< 上次的文本内容
+    QByteArray m_lastImageData;             ///< 上次的图片数据
+    QString m_lastReceivedText;             ///< 上次从网络接收的文本（去重用）
+    QByteArray m_lastReceivedImageData;     ///< 上次从网络接收的图片数据（去重用）
 };
-

@@ -235,7 +235,7 @@ add_rd_test(TARGET test_clientremotewindow  NAME ClientRemoteWindowTest
         ../src/client/network/TcpClient.cpp
         ../src/common/network/ProtocolImpl.cpp
         ../src/common/network/MessageCodec.cpp
-        ../src/client/clipboard/ClipboardManager.cpp
+        ../src/common/clipboard/ClipboardManager.cpp
         ../src/client/windows/FloatingRemoteToolbar.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network OpenSSL::SSL OpenSSL::Crypto common_test_core LibJpegTurbo::turbojpeg
     TIMEOUT 30  LABELS unit client window  NO_OPENGL)
