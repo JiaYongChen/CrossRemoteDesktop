@@ -246,15 +246,6 @@ void TestProducerConsumerIntegration::test_basicProducerConsumer() {
 
     // 连接信号
     connect(m_processingThread, &QThread::started, m_dataProcessor, &DataProcessingWorker::start);
-    connect(m_dataProcessor, &DataProcessingWorker::processingStatsUpdated, this,
-        [this](quint64 processedFrames, quint64 droppedFrames, double averageLatency, double processingRate) {
-        Q_UNUSED(droppedFrames)
-            Q_UNUSED(averageLatency)
-            Q_UNUSED(processingRate)
-            QMutexLocker locker(&m_counterMutex);
-        m_processedCount = static_cast<int>(processedFrames);
-        qCDebug(lcTestProducerConsumer) << "数据处理统计更新，已处理帧数:" << processedFrames;
-    });
 
     // 启动处理线程
     m_processingThread->start();
@@ -419,13 +410,6 @@ void TestProducerConsumerIntegration::test_dataIntegrity() {
     QList<ProcessedData> processedResults;
     // 连接数据处理器信号
     connect(m_processingThread, &QThread::started, m_dataProcessor, &DataProcessingWorker::start);
-    connect(m_dataProcessor, &DataProcessingWorker::processingStatsUpdated, this,
-        [](quint64 processedFrames, quint64 droppedFrames, double averageLatency, double processingRate) {
-        Q_UNUSED(droppedFrames)
-            Q_UNUSED(averageLatency)
-            Q_UNUSED(processingRate)
-            qCDebug(lcTestProducerConsumer) << "处理统计更新: 已处理帧数" << processedFrames;
-    });
 
     // 启动处理
     m_processingThread->start();

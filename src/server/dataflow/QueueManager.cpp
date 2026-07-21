@@ -91,23 +91,6 @@ QueueStats QueueManager::getQueueStats(QueueType type) const {
     }
 }
 
-void QueueManager::setQueueMaxSize(QueueType type, int maxSize) {
-    qCDebug(lcServerQueue) << "设置队列最大大小，类型:" << getQueueName(type) << "大小:" << maxSize;
-
-    switch ( type ) {
-        case CaptureQueue:
-            if ( m_captureQueue ) {
-                m_captureQueue->setMaxSize(maxSize);
-                QMutexLocker locker(&m_statsMutex);
-                m_captureStats.maxSize = maxSize;
-            }
-            break;
-        default:
-            qCWarning(lcServerQueue) << "设置队列大小失败，未知类型:" << type;
-            break;
-    }
-}
-
 void QueueManager::clearQueue(QueueType type) {
     qCDebug(lcServerQueue) << "清空队列:" << getQueueName(type);
 
@@ -142,9 +125,6 @@ void QueueManager::updateStats() {
     }
 
     updateQueueStats(CaptureQueue);
-
-    // 检查队列健康状态
-    checkQueueHealth(CaptureQueue);
 }
 
 void QueueManager::updateQueueStats(QueueType type) {
@@ -168,23 +148,6 @@ void QueueManager::updateQueueStats(QueueType type) {
     m_captureStats.lastUpdateTime = QDateTime::currentDateTime();
 
     locker.unlock();
-}
-
-void QueueManager::checkQueueHealth(QueueType type) {
-    QueueStats stats = getQueueStats(type);
-    QString queueName = getQueueName(type);
-
-    double usage = stats.getUsagePercentage();
-
-    // 检查队列使用率警告
-    if ( usage > ProcessingConstants::QueueErrorThreshold ) {
-        QString error = QString("队列 %1 使用率过高: %2%").arg(queueName).arg(usage, 0, 'f', 1);
-        emit queueError(RdError(ErrorCode::QueueOverflow, error, "QueueManager"));
-    } else if ( usage > ProcessingConstants::QueueWarningThreshold ) {
-        QString warning = QString("队列 %1 使用率较高: %2%").arg(queueName).arg(usage, 0, 'f', 1);
-        emit queueWarning(type, warning);
-    }
-
 }
 
 QString QueueManager::getQueueName(QueueType type) const {

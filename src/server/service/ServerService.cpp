@@ -31,7 +31,6 @@ bool ServerService::start(quint16 port)
 
     m_port = port;
     m_state = State::Starting;
-    emit stateChanged(m_state);
 
     // 1. 创建 TcpListener
     if (!m_threadManager->hasThread("TcpListener")) {
@@ -81,7 +80,6 @@ void ServerService::stop()
     if (m_state == State::Stopped) return;
 
     m_state = State::Stopping;
-    emit stateChanged(m_state);
 
     cleanupSessions();
     stopCapturePipeline();
@@ -93,19 +91,12 @@ void ServerService::stop()
     } else {
         // 无 TcpListener 时直接进入 Stopped
         m_state = State::Stopped;
-        emit stateChanged(m_state);
-        emit stopped();
     }
 }
 
 bool ServerService::isRunning() const
 {
     return m_state == State::Listening;
-}
-
-int ServerService::clientCount() const
-{
-    return m_sessions.size();
 }
 
 quint16 ServerService::port() const
@@ -156,25 +147,13 @@ void ServerService::cleanupSessions()
 
 void ServerService::onTcpListenerListening(quint16 port)
 {
+    Q_UNUSED(port);
     m_state = State::Listening;
-    emit stateChanged(m_state);
-    emit listening(port);
 }
 
 void ServerService::onTcpListenerStopped()
 {
-    // 仅当通过正常 stop() 路径进入 Stopping 状态时，才在此设置 Stopped
-    // 如果是 TcpListener 意外停止，也通知外部
-    if (m_state == State::Stopping) {
-        m_state = State::Stopped;
-        emit stateChanged(m_state);
-        emit stopped();
-    } else {
-        // 意外停止——仍需通知
-        m_state = State::Stopped;
-        emit stateChanged(m_state);
-        emit stopped();
-    }
+    m_state = State::Stopped;
 }
 
 void ServerService::onTcpListenerError(const RdError &error)

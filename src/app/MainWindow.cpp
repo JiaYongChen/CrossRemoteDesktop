@@ -79,12 +79,6 @@ MainWindow::MainWindow(SettingsManager *settings, QWidget *parent)
 
     // 创建 ServerService — 管理全部服务端生命周期
     m_serverService = new ServerService(m_threadManager, m_queueManager, this);
-    connect(m_serverService, &ServerService::listening,
-            this, &MainWindow::onServerStarted);
-    connect(m_serverService, &ServerService::stopped,
-            this, &MainWindow::onServerStopped);
-    connect(m_serverService, &ServerService::errorOccurred,
-            this, &MainWindow::onServerError);
     connect(m_serverService, &ServerService::clientConnected,
             this, &MainWindow::onClientConnected);
     connect(m_serverService, &ServerService::clientDisconnected,
@@ -763,23 +757,6 @@ void MainWindow::connectToHostDirectly(const ConnectionParams& params) {
 
     // 启动会话（内部调用 connectToHost）
     session->start();
-}
-
-void MainWindow::onServerStarted(quint16 port) {
-    qCInfo(lcApp) << "MainWindow::onServerStarted() called with port:" << port;
-    updateServerStatus(tr("服务器启动成功，端口: %1").arg(port));
-
-}
-
-void MainWindow::onServerStopped() {
-    qCInfo(lcApp) << "MainWindow::onServerStopped() called";
-    updateServerStatus(tr("服务器已停止"));
-}
-
-void MainWindow::onServerError(const RdError& error) {
-    qCWarning(lcApp) << "MainWindow::onServerError() called with error:" << error.logLabel();
-    updateServerStatus(tr("服务器启动失败"));
-    QMessageBox::warning(this, tr("服务器错误"), error.logLabel());
 }
 
 void MainWindow::onClientConnected(const QString& clientId) {

@@ -58,9 +58,6 @@ private slots:
     void onAllConnectionsClosed();       // 处理所有客户端连接关闭
     
     // 服务器相关槽函数
-    void onServerStarted(quint16 port);  // 处理服务器启动成功
-    void onServerStopped();              // 处理服务器停止
-    void onServerError(const RdError &error);
     void onClientConnected(const QString &clientId);
     void onClientDisconnected(const QString &clientId);
     void onClientAuthenticated(const QString &clientId);

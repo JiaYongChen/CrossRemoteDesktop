@@ -190,24 +190,6 @@ signals:
     void threadStopped(const QString& name);
 
     /**
-     * @brief 线程暂停信号
-     * @param name 线程名称
-     */
-    void threadPaused(const QString& name);
-
-    /**
-     * @brief 线程恢复信号
-     * @param name 线程名称
-     */
-    void threadResumed(const QString& name);
-
-    /**
-     * @brief 线程销毁信号
-     * @param name 线程名称
-     */
-    void threadDestroyed(const QString& name);
-
-    /**
      * @brief 线程错误信号
      * @param name 线程名称
      * @param error 错误信息

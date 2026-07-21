@@ -64,13 +64,6 @@ public:
     [[nodiscard]] QueueStats getQueueStats(QueueType type) const;
 
     /**
-     * @brief 设置队列最大大小
-     * @param type 队列类型
-     * @param maxSize 最大大小（0表示无限制）
-     */
-    void setQueueMaxSize(QueueType type, int maxSize);
-
-    /**
      * @brief 清空指定队列
      * @param type 队列类型
      */
@@ -120,21 +113,6 @@ public:
     /// @brief 获取捕获队列指针（供 DataProcessingWorker::setQueues 使用）
     ThreadSafeQueue<CapturedFrame>* captureQueue() const { return m_captureQueue.get(); }
 
-signals:
-    /**
-     * @brief 队列警告信号
-     * @param type 队列类型
-     * @param message 警告消息
-     */
-    void queueWarning(QueueType type, const QString& message);
-
-    /**
-     * @brief 队列错误信号
-     * @param type 队列类型
-     * @param error 错误消息
-     */
-    void queueError(const RdError& error);
-
 private slots:
     /**
      * @brief 更新统计信息
@@ -147,12 +125,6 @@ private:
      * @param type 队列类型
      */
     void updateQueueStats(QueueType type);
-
-    /**
-     * @brief 检查队列健康状态
-     * @param type 队列类型
-     */
-    void checkQueueHealth(QueueType type);
 
     /**
      * @brief 获取队列名称

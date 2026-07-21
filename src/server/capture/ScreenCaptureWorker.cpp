@@ -10,7 +10,6 @@
 #include <QtCore/QTimer>
 #include <QtCore/QMutex>
 #include <QtCore/QMutexLocker>
-#include <QtCore/QElapsedTimer>
 #include <QtCore/QDateTime>
 #include <QtCore/QMetaObject>
 #include <algorithm>
@@ -70,23 +69,8 @@ bool ScreenCaptureWorker::initialize() {
     if ( m_config.captureRect.isEmpty() ) {
         m_config.captureRect = m_screenGeometry;
     }
-    {
-        QMutexLocker locker(&m_statsMutex);
-        m_stats = CaptureStats();
-        m_frameTimestamps.clear();
-    }
-
     // 依据配置计算帧间隔
     calculateFrameDelay();
-
-    // 在工作线程中创建并配置统计定时器
-    if ( !m_statsTimer ) {
-        m_statsTimer = new QTimer(this);
-        m_statsTimer->setInterval(ProcessingConstants::StatsUpdateIntervalMs);
-        m_statsTimer->setSingleShot(false);
-        m_statsTimer->stop();
-        disconnect(m_statsTimer, &QTimer::timeout, this, &ScreenCaptureWorker::updateStats);
-    }
 
     // 初始化捕获定时器（用于测试环境或未启动Worker线程时驱动performCapture）
     if ( !m_captureTimer ) {
@@ -134,9 +118,6 @@ void ScreenCaptureWorker::cleanup() {
         m_dxgiAvailable = false;
     }
 #endif
-    if ( m_statsTimer ) {
-        m_statsTimer->stop();
-    }
     // 停止捕获定时器并断开，避免析构后回调
     if ( m_captureTimer ) {
         if ( m_captureTimer->isActive() ) {
@@ -145,11 +126,6 @@ void ScreenCaptureWorker::cleanup() {
         QObject::disconnect(m_captureTimer, &QTimer::timeout, this, &ScreenCaptureWorker::performCapture);
     }
     m_isCapturing.store(false);
-    {
-        QMutexLocker locker(&m_statsMutex);
-        m_captureTimeHistory.clear();
-        m_frameTimestamps.clear();
-    }
     qCInfo(lcServerCapture) << "ScreenCaptureWorker 资源清理完成";
 }
 
@@ -157,13 +133,8 @@ void ScreenCaptureWorker::startCapturing() {
     m_isCapturing.store(true);
     auto startFn = [this]() {
         // 若尚未初始化（定时器未创建），自动进行一次初始化，以便在非线程环境下也能正常工作
-        if ( !m_statsTimer || !m_captureTimer ) {
+        if ( !m_captureTimer ) {
             initialize();
-        }
-        if ( !m_statsTimer ) return;
-        QObject::connect(m_statsTimer, &QTimer::timeout, this, &ScreenCaptureWorker::updateStats, Qt::UniqueConnection);
-        if ( !m_statsTimer->isActive() ) {
-            m_statsTimer->start();
         }
         // 启动捕获定时器（在测试环境或未启动Worker线程时用于驱动捕获）
         if ( m_captureTimer ) {
@@ -174,7 +145,7 @@ void ScreenCaptureWorker::startCapturing() {
                 m_captureTimer->start();
             }
         }
-        qCInfo(lcServerCapture) << "startCapturing: 捕获已开始，统计定时器/捕获定时器已启动";
+        qCInfo(lcServerCapture) << "startCapturing: 捕获已开始，捕获定时器已启动";
     };
     if ( QThread::currentThread() == this->thread() ) {
         startFn();
@@ -189,12 +160,6 @@ void ScreenCaptureWorker::stopCapturing() {
 
     // 立即停止定时器，不使用异步调用以确保立即生效
     auto stopFn = [this]() {
-        if ( m_statsTimer && m_statsTimer->isActive() ) {
-            m_statsTimer->stop();
-        }
-        if ( m_statsTimer ) {
-            QObject::disconnect(m_statsTimer, &QTimer::timeout, this, &ScreenCaptureWorker::updateStats);
-        }
 
         // 停止捕获定时器并断开信号，避免多余触发
         if ( m_captureTimer && m_captureTimer->isActive() ) {
@@ -203,7 +168,7 @@ void ScreenCaptureWorker::stopCapturing() {
         if ( m_captureTimer ) {
             QObject::disconnect(m_captureTimer, &QTimer::timeout, this, &ScreenCaptureWorker::performCapture);
         }
-        qCInfo(lcServerCapture) << "stopCapturing: 捕获已停止，统计/捕获定时器已停止并断开信号";
+        qCInfo(lcServerCapture) << "stopCapturing: 捕获已停止，捕获定时器已停止并断开信号";
     };
 
     // 如果在Worker线程中，立即执行；否则使用同步调用确保立即完成
@@ -276,7 +241,6 @@ void ScreenCaptureWorker::performCapture() {
     if ( shouldStop() ) {
         return;
     }
-    auto captureStartTime = std::chrono::steady_clock::now();
     try {
         QImage capturedImage;
         CursorMessage cursorMsg;
@@ -357,42 +321,23 @@ void ScreenCaptureWorker::performCapture() {
             return;
         }
 
-        // 记录捕获耗时
-        auto captureEndTime = std::chrono::steady_clock::now();
-        auto captureTime = std::chrono::duration_cast<std::chrono::milliseconds>(
-            captureEndTime - captureStartTime);
-        recordCaptureTime(captureTime);
-        {
-            QMutexLocker locker(&m_statsMutex);
-            m_stats.totalFramesCaptured++;
-            m_frameTimestamps.push_back(QDateTime::currentMSecsSinceEpoch());
-            if ( m_frameTimestamps.size() > CaptureConstants::MaxFrameTimestampHistory ) {
-                m_frameTimestamps.pop_front();
-            }
-        }
+        ++m_totalFramesCaptured;
+
         // 获取当前时间戳
         qint64 timestamp = QDateTime::currentMSecsSinceEpoch();
 
         // 如果有队列管理器，将帧放入捕获队列
         if ( m_queueManager ) {
             CapturedFrame frame;
-            // Zero-copy: wrap QImage in shared_ptr; move the local QImage to
-            // avoid any implicit-shared copy. capturedImage must NOT be used
-            // after this line.
             frame.originalSize = capturedImage.size();
             frame.image = std::make_shared<QImage>(std::move(capturedImage));
             frame.timestamp = QDateTime::fromMSecsSinceEpoch(timestamp);
-            frame.frameId = m_stats.totalFramesCaptured;
+            frame.frameId = m_totalFramesCaptured;
 
-            // 使用 QueueManager 统一接口入队
-            bool enqueued = m_queueManager->enqueueCapturedFrame(frame);
-            if ( enqueued ) {
+            if ( m_queueManager->enqueueCapturedFrame(frame) ) {
                 emit frameEnqueued();
-                //qCDebug(screenCaptureWorker, "成功将帧放入捕获队列，帧ID: %llu", frame.frameId);
             } else {
                 qCDebug(lcServerCapture) << "捕获队列已停止，无法入队，丢弃帧ID: " << frame.frameId;
-                QMutexLocker locker(&m_statsMutex);
-                m_stats.droppedFrames++;
             }
         }
 
@@ -504,50 +449,8 @@ bool ScreenCaptureWorker::shouldCaptureFrame() {
     return elapsed >= m_frameDelay;
 }
 
-void ScreenCaptureWorker::recordCaptureTime(std::chrono::milliseconds time) {
-    QMutexLocker locker(&m_statsMutex);
-    if ( time > m_stats.maxCaptureTime ) {
-        m_stats.maxCaptureTime = time;
-    }
-    if ( time < m_stats.minCaptureTime ) {
-        m_stats.minCaptureTime = time;
-    }
-    m_captureTimeHistory.push_back(time);
-    if ( m_captureTimeHistory.size() > CaptureConstants::MaxCaptureTimeHistory ) {
-        m_captureTimeHistory.pop_front();
-    }
-    if ( !m_captureTimeHistory.empty() ) {
-        auto total = std::accumulate(m_captureTimeHistory.begin(),
-            m_captureTimeHistory.end(),
-            std::chrono::milliseconds(0));
-        m_stats.avgCaptureTime = total / m_captureTimeHistory.size();
-    }
-}
 
-void ScreenCaptureWorker::updateFrameRate() {
-    QMutexLocker locker(&m_statsMutex);
-    if ( m_frameTimestamps.size() < 2 ) {
-        m_stats.currentFrameRate = 0.0;
-        return;
-    }
-    qint64 currentTime = QDateTime::currentMSecsSinceEpoch();
-    qint64 oneSecondAgo = currentTime - 1000;
-    int framesInLastSecond = 0;
-    for ( auto it = m_frameTimestamps.rbegin(); it != m_frameTimestamps.rend(); ++it ) {
-        if ( *it >= oneSecondAgo ) {
-            framesInLastSecond++;
-        } else {
-            break;
-        }
-    }
-    m_stats.currentFrameRate = static_cast<double>(framesInLastSecond);
-}
 
-void ScreenCaptureWorker::monitorResourceUsage() {
-    QMutexLocker locker(&m_statsMutex);
-    m_stats.cpuUsage = 0.0; // 平台相关实现留空
-    m_stats.memoryUsage = 0; // 平台相关实现留空
-}
 
 void ScreenCaptureWorker::handleCaptureError(const QString& error) {
     qCWarning(lcServerCapture) << "捕获错误: " << error;
@@ -566,16 +469,6 @@ bool ScreenCaptureWorker::recoverFromError() {
     return true;
 }
 
-void ScreenCaptureWorker::updateStats() {
-    updateFrameRate();
-    monitorResourceUsage();
-    CaptureStats snapshot;
-    {
-        QMutexLocker locker(&m_statsMutex);
-        snapshot = m_stats;
-    }
-    emit captureStatsUpdated(snapshot);
-}
 
 void ScreenCaptureWorker::updateConfig(const CaptureConfig& config) {
     CaptureConfig normalized = config;
@@ -599,7 +492,3 @@ CaptureConfig ScreenCaptureWorker::getCurrentConfig() const {
     return m_config;
 }
 
-CaptureStats ScreenCaptureWorker::getCaptureStats() const {
-    QMutexLocker locker(&m_statsMutex);
-    return m_stats;
-}

@@ -2,10 +2,8 @@
 
 #include <atomic>
 #include <chrono>
-#include <deque>
 #include <memory>
 
-#include <QtCore/QElapsedTimer>
 #include <QtCore/QMutex>
 #include <QtCore/QObject>
 #include <QtCore/QTimer>
@@ -55,32 +53,23 @@ public:
     void updateConfig(const CaptureConfig& config);
     CaptureConfig getCurrentConfig() const;
 
-    // 统计信息获取（内部使用）
-    CaptureStats getCaptureStats() const;
-
     /**
      * @brief 开始捕获
      *
-     * 设置内部原子标志m_isCapturing为true，并按需连接并启动统计定时器。
-     * 线程安全：m_isCapturing为原子类型，直接设置即可。
+     * 设置内部原子标志 m_isCapturing 为 true，并按需初始化并启动捕获定时器。
+     * 线程安全：m_isCapturing 为原子类型，直接设置即可。
      */
     Q_INVOKABLE void startCapturing();
 
     /**
      * @brief 停止捕获
      *
-     * 将m_isCapturing置为false，并停止统计定时器且断开其超时信号，
+     * 将 m_isCapturing 置为 false，停止捕获定时器并断开其超时信号，
      * 避免单元测试环境下产生多余的定时器触发与潜在告警。
      */
     Q_INVOKABLE void stopCapturing();
 
 signals:
-    /**
-     * @brief 捕获统计更新信号（内部使用）
-     * @param stats 统计信息
-     */
-    void captureStatsUpdated(const CaptureStats& stats);
-
     /**
      * @brief 光标更新信号
      * @param cursor 光标形状数据（含热点和RGBA像素）
@@ -119,12 +108,6 @@ protected:
      */
     void performCapture();
 
-private slots:
-    /**
-     * @brief 更新统计信息
-     */
-    void updateStats();
-
 private:
     // 核心捕获方法
     QImage captureScreen();
@@ -136,11 +119,6 @@ private:
 
     /// 独立于帧捕获的光标位置高频采样（帧间隔期间调用）
     void sampleCursorPosition();
-
-    // 性能监控方法
-    void recordCaptureTime(std::chrono::milliseconds time);
-    void updateFrameRate();
-    void monitorResourceUsage();
 
     // 错误处理方法
     void handleCaptureError(const QString& error);
@@ -161,7 +139,6 @@ private:
     std::atomic<bool> m_cleanedUp{ false };     ///< 防重复清理
 
     // 时序控制
-    QTimer* m_statsTimer{ nullptr };                      ///< 统计更新定时器
     QTimer* m_captureTimer{ nullptr };                    ///< 捕获定时器（仅在未启动Worker线程或测试环境下使用）
     std::chrono::steady_clock::time_point m_lastCaptureTime; ///< 上次捕获时间
     std::chrono::milliseconds m_frameDelay{ 33 }; ///< 帧间延迟
@@ -169,12 +146,8 @@ private:
     // 光标独立采样（与帧率解耦）
     std::chrono::steady_clock::time_point m_lastCursorSampleTime;
 
-    // 性能统计
-    mutable QMutex m_statsMutex;
-    CaptureStats m_stats;
-    QElapsedTimer m_captureTimer_perf;         ///< 性能计时器
-    std::deque<std::chrono::milliseconds> m_captureTimeHistory; ///< 捕获时间历史
-    std::deque<qint64> m_frameTimestamps;      ///< 帧时间戳历史
+    // 帧计数器
+    quint64 m_totalFramesCaptured{0};          ///< 总捕获帧数（用于生成帧ID）
 
     // 屏幕相关
     QScreen* m_primaryScreen;                  ///< 主屏幕指针

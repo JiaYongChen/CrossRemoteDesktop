@@ -37,13 +37,9 @@ public:
     bool start(quint16 port);
     void stop();
     bool isRunning() const;
-    int clientCount() const;
     quint16 port() const;
 
 signals:
-    void stateChanged(ServerService::State newState);
-    void listening(quint16 port);
-    void stopped();
     void clientConnected(const QString &sessionId);
     void clientDisconnected(const QString &sessionId);
     void clientAuthenticated(const QString &sessionId);

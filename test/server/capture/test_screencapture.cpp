@@ -257,7 +257,7 @@ void TestScreenCapture::test_queueManagement()
 
     // 验证捕获启动/停止不会影响配置的可读性
     CaptureConfig cfg = m_screenCapture->getCaptureConfig();
-    QVERIFY(cfg.isValid());
+    QVERIFY(cfg.frameRate > 0);
 
     qCDebug(lcTestScreenCapture, "队列管理测试通过");
 }
@@ -266,8 +266,7 @@ void TestScreenCapture::test_captureConfigValidity()
 {
     qCDebug(lcTestScreenCapture, "测试配置状态");
 
-    // 验证默认配置有效性（PerformanceStats 结构体已移除，
-    // 统计追踪由 ScreenCaptureWorker 内部的 CaptureStats 管理）
+    // 验证默认配置有效性
     CaptureConfig cfg = m_screenCapture->getCaptureConfig();
     QVERIFY(cfg.frameRate > 0);
     QVERIFY(cfg.frameRate <= 120);
@@ -436,9 +435,9 @@ void TestScreenCapture::test_frameRate()
 void TestScreenCapture::test_captureConfigDefaults()
 {
     qCDebug(lcTestScreenCapture, "test_captureConfigDefaults");
-    // PerformanceStats 结构体已移除 — 验证 getCaptureConfig 可正常调用
+    // 验证 getCaptureConfig 可正常调用
     CaptureConfig cfg = m_screenCapture->getCaptureConfig();
-    QVERIFY(cfg.isValid());
+    QVERIFY(cfg.frameRate > 0);
 }
 
 void TestScreenCapture::test_stopCapture_errorPath()

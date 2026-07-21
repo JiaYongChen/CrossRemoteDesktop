@@ -31,9 +31,6 @@ public:
     /// @return 认证结果
     int authenticate(const QString& username, const QString& passwordHash, quint32 authMethod);
 
-    /// 标记认证成功（用于无密码模式）
-    void markAuthenticated();
-
     /// 获取当前失败次数
     int failedAuthCount() const;
 

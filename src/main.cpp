@@ -5,9 +5,6 @@
 #include <QtCore/QStandardPaths>
 #include "common/logging/LoggingCategories.h"
 #include <QtWidgets/QMessageBox>
-#include <QtWidgets/QSplashScreen>
-#include <QtGui/QPixmap>
-#include <QtCore/QThread>
 #include <QtCore/QThreadPool>
 #include <QtCore/QTimer>
 #include <QtCore/QCommandLineParser>

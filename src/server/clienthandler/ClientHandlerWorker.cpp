@@ -971,20 +971,8 @@ void ClientHandlerWorker::handleClipboardData(const QByteArray& data) {
 
     if ( message.isText() ) {
         qCDebug(lcServerClientHandler) << "接收到剪贴板文本，长度: " << message.text().length();
-
-        // 更新服务器端剪贴板
-        emit clipboardTextReceived(message.text());
-
-        // 广播到其他客户端
-        emit broadcastClipboardText(message.text());
     } else if ( message.isImage() ) {
         qCDebug(lcServerClientHandler) << "接收到剪贴板图片，尺寸:" << message.width << "x" << message.height
             << ", 数据大小:" << message.imageData().size();
-
-        // 更新服务器端剪贴板
-        emit clipboardImageReceived(message.imageData());
-
-        // 广播到其他客户端
-        emit broadcastClipboardImage(message.imageData(), message.width, message.height);
     }
 }

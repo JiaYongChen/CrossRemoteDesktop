@@ -73,7 +73,6 @@ bool ServerSession::initialize() {
         m_authenticated = true;
         // 启动 DataProcessingWorker
         (void)m_threadManager->startThread(dataThreadName);
-        QMetaObject::invokeMethod(m_dataWorker, "resumeProcessing", Qt::QueuedConnection);
         emit authenticated(m_sessionId);
         qCInfo(lcServer) << "ServerSession authenticated:" << m_sessionId;
     }, Qt::QueuedConnection);

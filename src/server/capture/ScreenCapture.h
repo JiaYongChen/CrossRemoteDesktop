@@ -36,20 +36,7 @@ public:
     void updateCaptureConfig(const CaptureConfig& config);
     CaptureConfig getCaptureConfig() const;
 
-signals:
-    /**
-     * @brief 捕获错误信号
-     * @param error 错误描述
-     */
-    void captureError(const RdError& error);
-
 private slots:
-    /**
-     * @brief 处理捕获错误
-     * @param error 错误信息
-     */
-    void onCaptureError(const RdError& error);
-
     /**
      * @brief 处理线程启动信号
      * @param name 线程名称

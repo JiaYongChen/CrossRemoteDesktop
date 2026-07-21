@@ -117,7 +117,7 @@ private slots:
 
             // 验证配置可正常获取（PerformanceStats 已移除）
             CaptureConfig cfg = capture.getCaptureConfig();
-            QVERIFY(cfg.isValid());
+            QVERIFY(cfg.frameRate > 0);
 
             qCDebug(lcTestScreenCaptureIntegration, "配置信息测试通过");
 

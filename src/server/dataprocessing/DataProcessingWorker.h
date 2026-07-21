@@ -4,12 +4,8 @@
 #include "../../common/config/ProcessingConstants.h"
 #include "../../common/threading/ThreadSafeQueue.h"
 #include "../dataflow/DataFlowStructures.h"
-#include "error/RdError.h"
 
 #include <QtCore/QObject>
-#include <QtCore/QTimer>
-#include <QtCore/QMutex>
-#include <QtCore/QElapsedTimer>
 #include <QtCore/QFutureWatcher>
 #include <QtConcurrent/QtConcurrent>
 #include <memory>
@@ -50,40 +46,10 @@ public:
     void setChromaSubsampling(int colorDepth);
 
     /**
-      * @brief 获取处理统计信息
-      * @return 处理统计信息字符串
-      */
-    QString getProcessingStats() const;
-
-    /**
-     * @brief 获取当前处理速率（帧/秒）
-     * @return 处理速率
-     */
-    double getProcessingRate() const;
-
-    /**
-     * @brief 获取平均处理延迟（毫秒）
-     * @return 平均处理延迟
-     */
-    double getAverageProcessingLatency() const;
-
-    /**
      * @brief 设置处理超时时间
      * @param timeoutMs 超时时间（毫秒）
      */
     void setProcessingTimeout(int timeoutMs);
-
-    /**
-     * @brief 获取详细的性能指标
-     * @return 性能指标结构
-     */
-    struct PerformanceMetrics {
-        quint64 processedFrames;
-        quint64 droppedFrames;
-        double averageLatency;
-        double processingRate;
-    };
-    PerformanceMetrics getPerformanceMetrics() const;
 
     /**
      * @brief 停止工作线程
@@ -101,13 +67,6 @@ public slots:
      * 3. 重置统计信息
      */
     void stopProcessingAndClearQueues();
-
-    /**
-     * @brief 恢复数据处理
-     *
-     * 当有新客户端连接时调用此方法恢复数据处理
-     */
-    void resumeProcessing();
 
 protected:
     /**
@@ -145,41 +104,6 @@ public:
      */
     void processTask() override;
 
-private slots:
-    /**
-     * @brief 更新统计信息
-     */
-    void updateStats();
-
-signals:
-    /**
-     * @brief 处理统计更新信号
-     * @param processedFrames 已处理帧数
-     * @param droppedFrames 丢弃帧数
-     * @param averageLatency 平均延迟
-     * @param processingRate 处理速率
-     */
-    void processingStatsUpdated(quint64 processedFrames, quint64 droppedFrames,
-        double averageLatency, double processingRate);
-
-    /**
-     * @brief 处理错误信号
-     * @param error 错误消息
-     */
-    void processingError(const RdError& error);
-
-    /**
-     * @brief 处理警告信号
-     * @param warning 警告消息
-     */
-    void processingWarning(const QString& warning);
-
-    /**
-     * @brief 性能指标更新信号
-     * @param metrics 性能指标
-     */
-    void performanceMetricsUpdated(const PerformanceMetrics& metrics);
-
 private:
     /**
      * @brief 批量并行处理多个帧
@@ -205,30 +129,12 @@ private:
                                              double scaleFactor = 1.0,
                                              int chromaSubsampling = ProcessingConstants::DefaultChromaSubsampling);
 
-    /**
-     * @brief 检查处理性能
-     */
-    void checkPerformance();
-
 private:
     ThreadSafeQueue<CapturedFrame>* m_captureQueue = nullptr;          ///< 输入队列（捕获帧）
     ThreadSafeQueue<ProcessedData>* m_processedQueue = nullptr;        ///< 输出队列（处理后数据）
 
-    QTimer* m_statsTimer;                                               ///< 统计更新定时器
-    mutable QMutex m_statsMutex;                                        ///< 统计互斥锁
-
-    // 处理统计
-    std::atomic<quint64> m_processedFrames;                             ///< 已处理帧数
-    std::atomic<quint64> m_droppedFrames;                               ///< 丢弃帧数
-    std::atomic<double> m_averageLatency;                               ///< 平均延迟（毫秒）
-    std::atomic<double> m_processingRate;                               ///< 处理速率（帧/秒）
-
-    QElapsedTimer m_performanceTimer;                                   ///< 性能计时器
-    qint64 m_lastStatsUpdate;                                           ///< 上次统计更新时间
-
     // 配置参数
-    int m_processingTimeout;                                            ///< 处理超时时间（毫秒）
-    int m_statsUpdateInterval;                                          ///< 统计更新间隔（毫秒）
+    int m_processingTimeout{ProcessingConstants::DefaultProcessingTimeoutMs};  ///< 处理超时时间（毫秒）
     std::atomic<int> m_jpegQuality{ProcessingConstants::DefaultJpegQuality};  ///< JPEG 编码质量（线程安全）
     std::atomic<int> m_chromaSubsampling{ProcessingConstants::DefaultChromaSubsampling};                    ///< JPEG 色度子采样（线程安全）
 

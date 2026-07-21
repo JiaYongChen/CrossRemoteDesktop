@@ -31,7 +31,6 @@ ScreenCapture::ScreenCapture(ThreadManager* threadMgr, QueueManager* queueMgr, Q
     // 确保队列管理器已初始化
     if ( !m_queueManager ) {
         qCCritical(lcServerCapture) << "QueueManager 为空，队列功能不可用";
-        emit captureError(RdError(ErrorCode::CaptureInitFailed, "QueueManager 为空", "ScreenCapture"));
         return;
     }
 
@@ -72,7 +71,6 @@ void ScreenCapture::startCapture() {
     // 初始化线程架构
     if ( !initializeThreads() ) {
         qCCritical(lcServerCapture) << "线程初始化失败，无法启动捕获";
-        emit captureError(RdError(ErrorCode::CaptureInitFailed, "线程初始化失败", "ScreenCapture"));
         return;
     }
 
@@ -92,12 +90,10 @@ void ScreenCapture::startCapture() {
             qCInfo(lcServerCapture) << "使用ThreadManager启动ScreenCaptureWorker线程成功";
         } else {
             qCCritical(lcServerCapture) << "ThreadManager启动ScreenCaptureWorker线程失败";
-            emit captureError(RdError(ErrorCode::CaptureStartFailed, "线程启动失败", "ScreenCapture"));
             cleanupThreads();
         }
     } else {
         qCCritical(lcServerCapture) << "ScreenCaptureWorker线程不存在";
-        emit captureError(RdError(ErrorCode::CaptureWorkerError, "Worker线程不存在", "ScreenCapture"));
         cleanupThreads();
     }
 }
@@ -201,9 +197,6 @@ bool ScreenCapture::initializeThreads() {
         return false;
     }
 
-    // 连接Worker错误信号至ScreenCapture错误处理
-    connect(m_captureWorker, &Worker::errorOccurred, this, &ScreenCapture::onCaptureError);
-
     qCInfo(lcServerCapture) << "ScreenCaptureWorker线程创建成功";
     return true;
 }
@@ -295,11 +288,6 @@ void ScreenCapture::configureWorkers() {
     updateCaptureConfig(m_captureConfig);
 }
 
-void ScreenCapture::onCaptureError(const RdError& error) {
-    // 处理捕获错误
-    qCWarning(lcServerCapture) << "捕获错误: " << error.logLabel();
-    emit captureError(RdError(ErrorCode::CaptureWorkerError, error.message, "ScreenCapture"));
-}
 
 // 统一配置管理方法实现
 void ScreenCapture::updateCaptureConfig(const CaptureConfig& config) {

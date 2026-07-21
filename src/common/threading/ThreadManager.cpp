@@ -3,7 +3,6 @@
 #include <QtCore/QMutexLocker>
 #include <QtCore/QPointer>
 #include <QtCore/QTimer>
-#include <QtCore/QLoggingCategory>
 #include "../logging/LoggingCategories.h" // 引入日志分类声明，使用lcCoreThreading进行分类日志输出
 
 ThreadManager::ThreadManager(QObject* parent)
@@ -347,7 +346,6 @@ bool ThreadManager::destroyThread(const QString& name) {
     infoToDelete.reset();
 
     qCDebug(lcCoreThreading) << "Thread destroyed:" << name;
-    emit threadDestroyed(name);
     return stopped;
 }
 
@@ -525,10 +523,6 @@ void ThreadManager::onWorkerPaused() {
 
     QString name = getThreadNameByWorker(worker);
     qCDebug(lcCoreThreading) << "ThreadManager::onWorkerPaused() - Worker name:" << name;
-    if ( !name.isEmpty() ) {
-        qCDebug(lcCoreThreading) << "ThreadManager::onWorkerPaused() - Emitting threadPaused signal for:" << name;
-        emit threadPaused(name);
-    }
 }
 
 void ThreadManager::onWorkerResumed() {
@@ -541,10 +535,6 @@ void ThreadManager::onWorkerResumed() {
 
     QString name = getThreadNameByWorker(worker);
     qCDebug(lcCoreThreading) << "ThreadManager::onWorkerResumed() - Worker name:" << name;
-    if ( !name.isEmpty() ) {
-        qCDebug(lcCoreThreading) << "ThreadManager::onWorkerResumed() - Emitting threadResumed signal for:" << name;
-        emit threadResumed(name);
-    }
 }
 
 void ThreadManager::onWorkerError(const RdError& error) {

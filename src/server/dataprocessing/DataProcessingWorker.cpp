@@ -1,8 +1,6 @@
 #include "DataProcessingWorker.h"
 #include "../../common/logging/LoggingCategories.h"
 #include "../../common/config/ProcessingConstants.h"
-#include <QtCore/QMutexLocker>
-#include <QtCore/QDateTime>
 #include <QtCore/QThread>
 #include <turbojpeg.h>
 #include <QtConcurrent/QtConcurrent>
@@ -12,14 +10,7 @@ DataProcessingWorker::DataProcessingWorker(QObject* parent)
     : Worker(parent)
     , m_captureQueue(nullptr)
     , m_processedQueue(nullptr)
-    , m_statsTimer(nullptr)
-    , m_processedFrames(0)
-    , m_droppedFrames(0)
-    , m_averageLatency(0.0)
-    , m_processingRate(0.0)
-    , m_lastStatsUpdate(0)
-    , m_processingTimeout(ProcessingConstants::DefaultProcessingTimeoutMs)
-    , m_statsUpdateInterval(ProcessingConstants::StatsUpdateIntervalMs) {
+    , m_processingTimeout(ProcessingConstants::DefaultProcessingTimeoutMs) {
     qCDebug(lcServerEncode) << "DataProcessingWorker 构造函数";
 }
 
@@ -69,24 +60,6 @@ void DataProcessingWorker::setChromaSubsampling(int colorDepth) {
                             << "TJSAMP=" << samp;
 }
 
-QString DataProcessingWorker::getProcessingStats() const {
-    QMutexLocker locker(&m_statsMutex);
-
-    return QString("已处理帧数: %1, 丢弃帧数: %2, 平均延迟: %3ms, 处理速率: %4fps")
-        .arg(m_processedFrames.load())
-        .arg(m_droppedFrames.load())
-        .arg(m_averageLatency.load(std::memory_order_relaxed), 0, 'f', 2)
-        .arg(m_processingRate.load(), 0, 'f', 2);
-}
-
-double DataProcessingWorker::getProcessingRate() const {
-    return m_processingRate.load();
-}
-
-double DataProcessingWorker::getAverageProcessingLatency() const {
-    return m_averageLatency.load(std::memory_order_relaxed);
-}
-
 void DataProcessingWorker::setProcessingTimeout(int timeoutMs) {
     qCDebug(lcServerEncode) << "设置处理超时时间:" << timeoutMs << "毫秒";
     m_processingTimeout = timeoutMs;
@@ -100,16 +73,6 @@ bool DataProcessingWorker::initialize() {
             qCCritical(lcServerEncode) << "未设置队列指针";
             return false;
         }
-
-        // 创建统计更新定时器
-        m_statsTimer = new QTimer(this);
-        m_statsTimer->setInterval(m_statsUpdateInterval);
-        connect(m_statsTimer, &QTimer::timeout, this, &DataProcessingWorker::updateStats);
-        m_statsTimer->start();
-
-        // 初始化性能计时器
-        m_performanceTimer.start();
-        m_lastStatsUpdate = m_performanceTimer.elapsed();
 
         // 创建异步编码 Watcher（由本线程事件循环驱动）
         m_asyncWatcher = new QFutureWatcher<ProcessedData>(this);
@@ -141,12 +104,6 @@ void DataProcessingWorker::cleanup() {
     // 停止处理并清空队列，确保processTask能快速退出
     stopProcessingAndClearQueues();
     qCDebug(lcServerEncode) << "已停止处理并清空队列";
-
-    // 停止所有定时器
-    if ( m_statsTimer && m_statsTimer->isActive() ) {
-        m_statsTimer->stop();
-        qCDebug(lcServerEncode) << "统计定时器已停止";
-    }
 
     // 重置队列指针
     m_captureQueue = nullptr;
@@ -223,27 +180,13 @@ void DataProcessingWorker::processTask() {
             }
         }
 
-        // 定期检查系统资源和性能
-        static int taskCount = 0;
-        if ( ++taskCount % 50 == 0 ) { // 每50次任务检查一次
-            // 在检查系统资源前也要确认没有停止信号
-            if ( shouldStop() ) {
-                qCDebug(lcServerEncode) << "检测到停止信号，跳过性能检查";
-                return;
-            }
-
-            checkPerformance();
-        }
-
     } catch ( const std::exception& e ) {
         qCCritical(lcServerEncode) << "processTask异常:" << e.what();
-        emit processingError(RdError(ErrorCode::DataProcessingException, QString("数据处理任务异常: %1").arg(e.what()), "DataProcessingWorker"));
 
         // 异常后短暂休眠，避免连续异常导致CPU占用过高
         QThread::msleep(10);
     } catch ( ... ) {
         qCCritical(lcServerEncode) << "processTask未知异常";
-        emit processingError(RdError(ErrorCode::DataProcessingException, "数据处理任务发生未知异常", "DataProcessingWorker"));
 
         // 异常后短暂休眠，避免连续异常导致CPU占用过高
         QThread::msleep(10);
@@ -259,10 +202,9 @@ void DataProcessingWorker::processBatchAsync(std::vector<CapturedFrame>&& frames
     auto sharedFrames = std::make_shared<std::vector<CapturedFrame>>();
     sharedFrames->reserve(frames.size());
 
-    int droppedCount = 0;
     for ( auto& frame : frames ) {
-        if ( !frame.isValid() ) { ++droppedCount; continue; }
-        if ( frame.getLatency() > m_processingTimeout ) { ++droppedCount; continue; }
+        if ( !frame.isValid() ) { continue; }
+        if ( frame.getLatency() > m_processingTimeout ) { continue; }
         // 防止超大尺寸帧进入编码器导致 OOM（宽或高超过 8192 像素视为异常）
         if ( frame.image ) {
             const QSize sz = frame.image->size();
@@ -270,14 +212,11 @@ void DataProcessingWorker::processBatchAsync(std::vector<CapturedFrame>&& frames
                 qCWarning(lcServerEncode) << "帧尺寸异常，丢弃:"
                     << sz.width() << "x" << sz.height()
                     << "帧ID:" << frame.frameId;
-                ++droppedCount;
                 continue;
             }
         }
         sharedFrames->push_back(std::move(frame));
     }
-
-    m_droppedFrames += droppedCount;
 
     if ( sharedFrames->empty() ) {
         return;
@@ -305,34 +244,9 @@ void DataProcessingWorker::onAsyncBatchFinished() {
     const QFuture<ProcessedData>& future = m_asyncWatcher->future();
     const QList<ProcessedData> results = future.results();
 
-    int successCount = 0;
-    int droppedCount = 0;
-
-    const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
-
     for ( const auto& pd : results ) {
-        if ( pd.isValid() ) {
-            if ( m_processedQueue ) {
-                m_processedQueue->tryEnqueueDrainToLatest(pd);
-                ++successCount;
-                m_processedFrames++;
-
-                // 计算端到端延迟（捕获时间戳 → 当前时间），更新运行平均延迟
-                if ( pd.captureTimestamp > 0 && nowMs > static_cast<qint64>(pd.captureTimestamp) ) {
-                    const double frameLatency = static_cast<double>(nowMs - static_cast<qint64>(pd.captureTimestamp));
-                    const quint64 total = m_processedFrames.load();
-                    const double oldAvg = m_averageLatency.load(std::memory_order_relaxed);
-                    // 累积移动平均：newAvg = oldAvg + (sample - oldAvg) / total
-                    m_averageLatency.store(oldAvg + (frameLatency - oldAvg) / static_cast<double>(total),
-                                           std::memory_order_relaxed);
-                }
-            } else {
-                ++droppedCount;
-                m_droppedFrames++;
-            }
-        } else {
-            ++droppedCount;
-            m_droppedFrames++;
+        if ( pd.isValid() && m_processedQueue ) {
+            m_processedQueue->tryEnqueueDrainToLatest(pd);
         }
     }
 
@@ -454,59 +368,12 @@ ProcessedData DataProcessingWorker::encodeImageParallel(const QImage& image, qui
     return result;
 }
 
-DataProcessingWorker::PerformanceMetrics DataProcessingWorker::getPerformanceMetrics() const {
-    PerformanceMetrics metrics;
-    metrics.processedFrames = m_processedFrames.load();
-    metrics.droppedFrames = m_droppedFrames.load();
-    metrics.averageLatency = m_averageLatency.load(std::memory_order_relaxed);
-    metrics.processingRate = m_processingRate.load();
-    return metrics;
-}
-
-void DataProcessingWorker::updateStats() {
-    qint64 currentTime = m_performanceTimer.elapsed();
-    qint64 elapsed = currentTime - m_lastStatsUpdate;
-
-    if ( elapsed > 0 ) {
-        // 计算处理速率
-        quint64 processedFrames = m_processedFrames.load();
-        m_processingRate = static_cast<double>(processedFrames) / (elapsed / 1000.0);
-
-        // 发射统计更新信号
-        emit processingStatsUpdated(processedFrames, m_droppedFrames.load(),
-            m_averageLatency.load(std::memory_order_relaxed), m_processingRate.load());
-
-        // 检查性能
-        checkPerformance();
-
-        m_lastStatsUpdate = currentTime;
-    }
-}
-
-void DataProcessingWorker::checkPerformance() {
-    double avgLatency = m_averageLatency.load(std::memory_order_relaxed);
-    double processingRate = m_processingRate.load();
-
-    // 检查处理延迟
-    if ( avgLatency > ProcessingConstants::MaxProcessingLatencyMs ) {
-        QString warning = QString("处理延迟过高: %1ms").arg(avgLatency, 0, 'f', 2);
-        emit processingWarning(warning);
-    }
-
-    // 检查处理速率
-    if ( processingRate < ProcessingConstants::MinProcessingRateFps && m_processedFrames.load() > 10 ) {
-        QString warning = QString("处理速率过低: %1fps").arg(processingRate, 0, 'f', 2);
-        emit processingWarning(warning);
-    }
-}
-
 void DataProcessingWorker::stopProcessingAndClearQueues() {
     qCDebug(lcServerEncode) << "停止数据处理并清空队列";
 
     // 立即设置停止标志，确保processTask()能快速退出
     if ( isRunning() ) {
-        // 通过调用基类stop()方法设置停止请求标志，使shouldStop()返回true
-        Worker::stop(false); // false表示不等待完成，立即设置停止标志
+        Worker::stop(false);
         qCDebug(lcServerEncode) << "已设置停止标志，暂停数据处理任务";
     }
 
@@ -519,46 +386,13 @@ void DataProcessingWorker::stopProcessingAndClearQueues() {
         qCDebug(lcServerEncode) << "已等待飞行中的异步编码批次完成";
     }
 
-    // 直接清空队列
+    // 清空队列
     if ( m_captureQueue ) {
         m_captureQueue->clear();
     }
     if ( m_processedQueue ) {
         m_processedQueue->clear();
     }
-    qCDebug(lcServerEncode) << "已清空捕获队列和处理队列";
-
-    // 重置统计信息
-    {
-        QMutexLocker locker(&m_statsMutex);
-        m_processedFrames = 0;
-        m_droppedFrames = 0;
-        m_averageLatency.store(0.0, std::memory_order_relaxed);
-        m_processingRate = 0.0;
-
-        qCDebug(lcServerEncode) << "重置统计信息完成";
-    }
-
-    // 发出统计更新信号
-    emit processingStatsUpdated(0, 0, 0.0, 0.0);
 
     qCDebug(lcServerEncode) << "停止数据处理并清空队列完成";
-}
-
-void DataProcessingWorker::resumeProcessing() {
-    qCInfo(lcServerEncode) << "恢复数据处理";
-
-    // 确保工作线程正在运行
-    if ( !isRunning() ) {
-        qCWarning(lcServerEncode) << "工作线程未运行，无法恢复处理";
-        return;
-    }
-
-    // 重新启动统计定时器
-    if ( m_statsTimer && !m_statsTimer->isActive() ) {
-        m_statsTimer->start(m_statsUpdateInterval);
-        qCDebug(lcServerEncode) << "重新启动统计定时器";
-    }
-
-    qCDebug(lcServerEncode) << "恢复数据处理完成";
 }

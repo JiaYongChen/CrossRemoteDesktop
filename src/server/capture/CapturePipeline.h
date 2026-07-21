@@ -35,8 +35,6 @@ public:
     bool isCapturing() const;
 
 signals:
-    void captureStarted();
-    void captureStopped();
     // 注意：errorOccurred 继承自 Worker 基类，不在此处重复声明
 
 protected:

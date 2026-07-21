@@ -94,7 +94,6 @@ void CapturePipeline::startCapture() {
     }
 
     m_captureActive = true;
-    emit captureStarted();
 }
 
 void CapturePipeline::stopCapture() {
@@ -110,7 +109,6 @@ void CapturePipeline::stopCapture() {
     }
 
     m_captureActive = false;
-    emit captureStopped();
 }
 
 bool CapturePipeline::isCapturing() const {

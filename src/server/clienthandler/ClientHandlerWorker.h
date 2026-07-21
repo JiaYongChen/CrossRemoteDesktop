@@ -120,13 +120,6 @@ signals:
     void authenticated();
 
     /**
-     * @brief 接收到消息信号
-     * @param type 消息类型
-     * @param data 消息数据
-     */
-    void messageReceived(MessageType type, const QByteArray& data);
-
-    /**
      * @brief 发生错误信号
      * @param error 错误信息
      */
@@ -143,32 +136,6 @@ signals:
      * @param colorDepth 色深值 (16/24/32)
      */
     void colorDepthReceived(int colorDepth);
-
-    /**
-     * @brief 接收到剪贴板文本信号（更新服务器端剪贴板）
-     * @param text 文本内容
-     */
-    void clipboardTextReceived(const QString& text);
-
-    /**
-     * @brief 接收到剪贴板图片信号（更新服务器端剪贴板）
-     * @param imageData PNG 格式的图片数据
-     */
-    void clipboardImageReceived(const QByteArray& imageData);
-
-    /**
-     * @brief 广播剪贴板文本到其他客户端
-     * @param text 文本内容
-     */
-    void broadcastClipboardText(const QString& text);
-
-    /**
-     * @brief 广播剪贴板图片到其他客户端
-     * @param imageData PNG 格式的图片数据
-     * @param width 图片宽度
-     * @param height 图片高度
-     */
-    void broadcastClipboardImage(const QByteArray& imageData, quint32 width, quint32 height);
 
 protected:
     /**

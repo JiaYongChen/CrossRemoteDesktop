@@ -64,10 +64,6 @@ int AuthHandler::authenticate(const QString& username, const QString& passwordHa
     return 2; // INVALID_PASSWORD (含回退延迟)
 }
 
-void AuthHandler::markAuthenticated() {
-    // No mutex needed here — called only after successful auth in the same thread
-}
-
 int AuthHandler::failedAuthCount() const {
     QMutexLocker locker(&m_mutex);
     return m_failedAuthCount;
