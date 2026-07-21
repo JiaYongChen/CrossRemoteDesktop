@@ -131,7 +131,7 @@ add_custom_target(run_integration_tests
 )
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 测试定义（24 个目标，使用 add_rd_test() 辅助函数）
+# 测试定义（25 个目标，使用 add_rd_test() 辅助函数）
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # unit / threading
@@ -340,3 +340,10 @@ add_rd_test(TARGET test_smoke_network  NAME SmokeNetworkTest
         ../src/common/network/MessageCodec.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Network common_test_core
     TIMEOUT 30  LABELS smoke network unit  NO_OPENGL)
+
+# unit / common clipboard
+add_rd_test(TARGET test_clipboardmanager  NAME ClipboardManagerTest
+    SOURCES common/clipboard/test_clipboardmanager.cpp
+    EXTRA_SOURCES ../src/common/clipboard/ClipboardManager.cpp
+    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets common_test_core
+    TIMEOUT 30  LABELS unit common clipboard)
