@@ -1,6 +1,7 @@
 // src/server/session/ServerSession.h
 #pragma once
 
+#include "../../common/network/Protocol.h"
 #include "../../common/threading/Worker.h"
 
 #include <QtCore/QObject>
@@ -39,6 +40,12 @@ public:
     Q_INVOKABLE void wireCursorUpdates(ScreenCaptureWorker* worker);
     Q_INVOKABLE void shutdown();
 
+    /**
+     * @brief 发送剪贴板消息到客户端（跨线程安全）
+     * @param encodedMessage 已编码的消息包（含消息头和载荷）
+     */
+    Q_INVOKABLE void sendClipboardData(const QByteArray& encodedMessage);
+
     // ── 查询 ──
     QString sessionId() const;
     QString clientAddress() const;
@@ -47,6 +54,11 @@ public:
 signals:
     void authenticated(const QString& sessionId);
     void disconnected(const QString& sessionId);
+    /**
+     * @brief 转发客户端剪贴板数据
+     * @param message 剪贴板消息
+     */
+    void clipboardDataReceived(const ClipboardMessage& message);
     // 注意：errorOccurred 信号由 Worker 基类声明，此处不重复声明
 
 protected:

@@ -97,6 +97,11 @@ bool ServerSession::initialize() {
             m_dataWorker, &DataProcessingWorker::setChromaSubsampling,
             Qt::QueuedConnection);
 
+    // 7. 转发剪贴板数据
+    connect(m_clientHandler, &ClientHandlerWorker::clipboardDataReceived,
+            this, &ServerSession::clipboardDataReceived,
+            Qt::QueuedConnection);
+
     qCInfo(lcServer) << "ServerSession initialized:" << m_sessionId;
     return true;
 }
@@ -172,4 +177,11 @@ QString ServerSession::clientAddress() const {
 
 bool ServerSession::isAuthenticated() const {
     return m_authenticated;
+}
+
+void ServerSession::sendClipboardData(const QByteArray& encodedMessage) {
+    if (m_shuttingDown || !m_clientHandler) return;
+    QMetaObject::invokeMethod(m_clientHandler, "sendEncodedMessage",
+                              Qt::QueuedConnection,
+                              Q_ARG(QByteArray, encodedMessage));
 }
