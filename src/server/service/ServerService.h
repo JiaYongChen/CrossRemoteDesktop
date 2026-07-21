@@ -4,6 +4,8 @@
 #include <QObject>
 #include <QList>
 #include "error/RdError.h"
+#include "../../common/clipboard/ClipboardManager.h"
+#include "../../common/network/Protocol.h"
 
 class ThreadManager;
 class QueueManager;
@@ -64,6 +66,10 @@ private:
     TcpListener *m_tcpListener = nullptr;
     CapturePipeline *m_capturePipeline = nullptr;
     QList<ServerSession *> m_sessions;
+    ClipboardManager *m_clipboardManager = nullptr;  ///< 服务端剪贴板（主线程）
+
+    void broadcastClipboardToAllSessions(const ClipboardMessage& message);
+    void onSessionClipboardData(const ClipboardMessage& message);
 
     State m_state = State::Stopped;
     quint16 m_port = 0;

@@ -15,10 +15,29 @@ ServerService::ServerService(ThreadManager *threadManager,
     , m_threadManager(threadManager)
     , m_queueManager(queueManager)
 {
+    m_clipboardManager = new ClipboardManager(this);
+    m_clipboardManager->setEnabled(true);
+
+    // 服务端本地文本复制 → 广播到所有客户端
+    connect(m_clipboardManager, &ClipboardManager::clipboardTextChanged,
+            this, [this](const QString& text) {
+                ClipboardMessage msg(text);
+                broadcastClipboardToAllSessions(msg);
+            });
+
+    // 服务端本地图片复制 → 广播到所有客户端
+    connect(m_clipboardManager, &ClipboardManager::clipboardImageChanged,
+            this, [this](const QByteArray& imageData, quint32 width, quint32 height) {
+                ClipboardMessage msg(imageData, width, height);
+                broadcastClipboardToAllSessions(msg);
+            });
 }
 
 ServerService::~ServerService()
 {
+    if (m_clipboardManager) {
+        m_clipboardManager->setEnabled(false);
+    }
     stop();
 }
 
@@ -186,6 +205,8 @@ void ServerService::onNewConnection(qintptr socketDescriptor)
             this, [this](const RdError &err) {
                 qCWarning(lcServer) << "ServerSession error:" << err.logLabel();
             });
+    connect(sessionPtr, &ServerSession::clipboardDataReceived,
+            this, &ServerService::onSessionClipboardData);
 
     m_sessions.append(sessionPtr);
 
@@ -230,4 +251,30 @@ void ServerService::onSessionDisconnected(const QString &sessionId)
     }
 
     emit clientDisconnected(sessionId);
+}
+
+void ServerService::onSessionClipboardData(const ClipboardMessage& message) {
+    // 1. 写入服务端系统剪贴板（含去重标记防止回环）
+    if (message.isText()) {
+        m_clipboardManager->applyRemoteText(message.text());
+    } else if (message.isImage()) {
+        m_clipboardManager->applyRemoteImage(message.imageData());
+    }
+
+    // 2. 广播给所有已认证会话（发送者客户端因 m_lastText 匹配而静默跳过）
+    broadcastClipboardToAllSessions(message);
+}
+
+void ServerService::broadcastClipboardToAllSessions(const ClipboardMessage& message) {
+    // 预编码消息包（一次性，所有 session 复用相同字节）
+    QByteArray encoded = Protocol::createMessage(MessageType::CLIPBOARD_DATA, message);
+    if (encoded.isEmpty()) return;
+
+    for (auto* session : m_sessions) {
+        if (session->isAuthenticated()) {
+            QMetaObject::invokeMethod(session, "sendClipboardData",
+                                      Qt::QueuedConnection,
+                                      Q_ARG(QByteArray, encoded));
+        }
+    }
 }
