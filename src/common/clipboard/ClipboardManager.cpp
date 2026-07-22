@@ -101,6 +101,7 @@ void ClipboardManager::applyRemoteText(const QString& text) {
     m_lastReceivedText = text;
     m_lastText = text;
     m_lastImageData.clear();
+    m_lastReceivedImageData.clear();
     m_clipboard->setText(text);
 
     qCDebug(lcClient) << "应用远端文本，长度:" << text.length();
@@ -124,6 +125,7 @@ void ClipboardManager::applyRemoteImage(const QByteArray& pngData) {
     m_lastReceivedImageData = pngData;
     m_lastImageData = pngData;
     m_lastText.clear();
+    m_lastReceivedText.clear();
     m_clipboard->setImage(image);
 
     qCDebug(lcClient) << "应用远端图片，尺寸:" << image.size();

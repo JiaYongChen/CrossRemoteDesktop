@@ -74,8 +74,8 @@ private slots:
         mgr.setText(QString());
         QTest::qWait(50);
 
-        // 空文本——setText 中 m_lastText 设为空，下次有效文本才能触发
-        // 空字符串本身不 emit 信号（onClipboardChanged 检测空文本可能不触发 hasText）
+        // 空文本不应触发剪贴板变化信号
+        QCOMPARE(spy.count(), 0);
     }
 
     void testOversizedImageRejected() {
