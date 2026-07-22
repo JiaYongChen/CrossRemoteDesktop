@@ -272,7 +272,8 @@ void ServerService::broadcastClipboardToAllSessions(const ClipboardMessage& mess
 
     for (auto* session : m_sessions) {
         if (session->isAuthenticated()) {
-            QMetaObject::invokeMethod(session, "sendClipboardData",
+            QMetaObject::invokeMethod(session,
+                                      qOverload<const QByteArray&>(&ServerSession::sendClipboardData),
                                       Qt::QueuedConnection,
                                       Q_ARG(QByteArray, encoded));
         }

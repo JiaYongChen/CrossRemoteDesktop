@@ -968,6 +968,13 @@ void ClientHandlerWorker::handleClipboardData(const QByteArray& data) {
         return;
     }
 
+    // 载荷大小守卫：拒绝超大剪贴板数据，避免下游内存浪费
+    constexpr int kMaxClipboardPayload = 10 * 1024 * 1024;
+    if (data.size() > kMaxClipboardPayload) {
+        qCWarning(lcServerClientHandler) << "剪贴板消息载荷过大，已拒绝，大小:" << data.size();
+        return;
+    }
+
     ClipboardMessage message;
     if (!message.decode(data)) {
         qCWarning(lcServerClientHandler) << "剪贴板消息解析失败";

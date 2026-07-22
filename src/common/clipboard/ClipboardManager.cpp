@@ -29,9 +29,7 @@ void ClipboardManager::setEnabled(bool enabled) {
     if (m_enabled) {
         const QMimeData* mimeData = m_clipboard->mimeData();
         if (mimeData) {
-            if (mimeData->hasText()) {
-                m_lastText = mimeData->text();
-            } else if (mimeData->hasImage()) {
+            if (mimeData->hasImage()) {
                 QImage image = qvariant_cast<QImage>(mimeData->imageData());
                 if (!image.isNull()) {
                     QByteArray imageData;
@@ -41,12 +39,17 @@ void ClipboardManager::setEnabled(bool enabled) {
                     m_lastImageData = imageData;
                 }
             }
+            if (mimeData->hasText()) {
+                m_lastText = mimeData->text();
+            }
         }
-        qCInfo(lcClient) << "剪贴板监听已启用";
+        qCInfo(lcClipboard) << "剪贴板监听已启用";
     } else {
         m_lastText.clear();
         m_lastImageData.clear();
-        qCInfo(lcClient) << "剪贴板监听已禁用";
+        m_lastReceivedText.clear();
+        m_lastReceivedImage = QImage();
+        qCInfo(lcClipboard) << "剪贴板监听已禁用";
     }
 }
 
@@ -55,9 +58,10 @@ void ClipboardManager::setText(const QString& text) {
     if (text == m_lastText) return;
 
     m_lastText = text;
+    m_lastReceivedText.clear();
     m_clipboard->setText(text);
 
-    qCDebug(lcClient) << "设置剪贴板文本，长度:" << text.length();
+    qCDebug(lcClipboard) << "设置剪贴板文本，长度:" << text.length();
 }
 
 void ClipboardManager::setImage(const QImage& image) {
@@ -72,9 +76,10 @@ void ClipboardManager::setImage(const QImage& image) {
     if (imageData == m_lastImageData) return;
 
     m_lastImageData = imageData;
+    m_lastReceivedImage = QImage();
     m_clipboard->setImage(image);
 
-    qCDebug(lcClient) << "设置剪贴板图片，尺寸:" << image.size();
+    qCDebug(lcClipboard) << "设置剪贴板图片，尺寸:" << image.size();
 }
 
 void ClipboardManager::setImageFromPng(const QByteArray& pngData) {
@@ -82,13 +87,13 @@ void ClipboardManager::setImageFromPng(const QByteArray& pngData) {
     if (pngData.isEmpty()) return;
 
     if (pngData.size() > kMaxClipboardImageSize) {
-        qCWarning(lcClient) << "剪贴板图片超过 10MB 上限，已跳过，大小:" << pngData.size();
+        qCWarning(lcClipboard) << "剪贴板图片超过 10MB 上限，已跳过，大小:" << pngData.size();
         return;
     }
 
     QImage image;
     if (!image.loadFromData(pngData, "PNG")) {
-        qCWarning(lcClient) << "PNG 图片解码失败";
+        qCWarning(lcClipboard) << "PNG 图片解码失败";
         return;
     }
 
@@ -101,10 +106,10 @@ void ClipboardManager::applyRemoteText(const QString& text) {
     m_lastReceivedText = text;
     m_lastText = text;
     m_lastImageData.clear();
-    m_lastReceivedImageData.clear();
+    m_lastReceivedImage = QImage();
     m_clipboard->setText(text);
 
-    qCDebug(lcClient) << "应用远端文本，长度:" << text.length();
+    qCDebug(lcClipboard) << "应用远端文本，长度:" << text.length();
 }
 
 void ClipboardManager::applyRemoteImage(const QByteArray& pngData) {
@@ -112,23 +117,24 @@ void ClipboardManager::applyRemoteImage(const QByteArray& pngData) {
     if (pngData.isEmpty()) return;
 
     if (pngData.size() > kMaxClipboardImageSize) {
-        qCWarning(lcClient) << "远端剪贴板图片超过 10MB 上限，已跳过，大小:" << pngData.size();
+        qCWarning(lcClipboard) << "远端剪贴板图片超过 10MB 上限，已跳过，大小:" << pngData.size();
         return;
     }
 
     QImage image;
     if (!image.loadFromData(pngData, "PNG")) {
-        qCWarning(lcClient) << "远端 PNG 图片解码失败";
+        qCWarning(lcClipboard) << "远端 PNG 图片解码失败";
         return;
     }
 
-    m_lastReceivedImageData = pngData;
-    m_lastImageData = pngData;
+    // 基于像素内容设置去重标记（避免 PNG 编码字节差异导致去重失效）
+    m_lastReceivedImage = image;
+    m_lastImageData.clear();
     m_lastText.clear();
     m_lastReceivedText.clear();
     m_clipboard->setImage(image);
 
-    qCDebug(lcClient) << "应用远端图片，尺寸:" << image.size();
+    qCDebug(lcClipboard) << "应用远端图片，尺寸:" << image.size();
 }
 
 void ClipboardManager::onClipboardChanged(QClipboard::Mode mode) {
@@ -138,34 +144,41 @@ void ClipboardManager::onClipboardChanged(QClipboard::Mode mode) {
     const QMimeData* mimeData = m_clipboard->mimeData();
     if (!mimeData) return;
 
+    // 图片分支（独立处理，不再用 else if 以免跳过文本）
     if (mimeData->hasImage()) {
         QImage image = qvariant_cast<QImage>(mimeData->imageData());
-        if (image.isNull()) return;
+        if (!image.isNull()) {
 
-        QByteArray imageData;
-        QBuffer buffer(&imageData);
-        buffer.open(QIODevice::WriteOnly);
-        image.save(&buffer, "PNG");
+            QByteArray imageData;
+            QBuffer buffer(&imageData);
+            buffer.open(QIODevice::WriteOnly);
+            image.save(&buffer, "PNG");
 
-        if (imageData.size() > kMaxClipboardImageSize) {
-            qCWarning(lcClient) << "剪贴板图片超过 10MB 上限，已跳过，大小:" << imageData.size();
-            return;
+            if (imageData.size() > kMaxClipboardImageSize) {
+                qCWarning(lcClipboard) << "剪贴板图片超过 10MB 上限，已跳过，大小:" << imageData.size();
+                return;
+            }
+
+            // 像素级内容去重：比对 QImage 而非 PNG 字节
+            if (!m_lastReceivedImage.isNull() && image == m_lastReceivedImage) {
+                m_lastReceivedImage = QImage();
+                return;
+            }
+
+            if (imageData != m_lastImageData) {
+                m_lastImageData = imageData;
+                m_lastText.clear();
+                m_lastReceivedText.clear();
+                m_lastReceivedImage = QImage();
+
+                qCDebug(lcClipboard) << "剪贴板图片变化，尺寸:" << image.size();
+                emit clipboardImageChanged(imageData, image.width(), image.height());
+            }
         }
+    }
 
-        // 内容去重：与上次远端内容匹配则跳过回环
-        if (!m_lastReceivedImageData.isEmpty() && imageData == m_lastReceivedImageData) {
-            m_lastReceivedImageData.clear();
-            return;
-        }
-
-        if (imageData != m_lastImageData) {
-            m_lastImageData = imageData;
-            m_lastText.clear();
-
-            qCDebug(lcClient) << "剪贴板图片变化，尺寸:" << image.size();
-            emit clipboardImageChanged(imageData, image.width(), image.height());
-        }
-    } else if (mimeData->hasText()) {
+    // 文本分支（独立 if，支持图文共存时分别处理）
+    if (mimeData->hasText()) {
         QString text = mimeData->text();
 
         // 内容去重：与上次远端内容匹配则跳过回环
@@ -177,8 +190,10 @@ void ClipboardManager::onClipboardChanged(QClipboard::Mode mode) {
         if (text != m_lastText) {
             m_lastText = text;
             m_lastImageData.clear();
+            m_lastReceivedText.clear();
+            m_lastReceivedImage = QImage();
 
-            qCDebug(lcClient) << "剪贴板文本变化，长度:" << text.length();
+            qCDebug(lcClipboard) << "剪贴板文本变化，长度:" << text.length();
             emit clipboardTextChanged(text);
         }
     }

@@ -4,6 +4,7 @@
 #include <QtCore/QDir>
 #include <QtCore/QStandardPaths>
 #include "common/logging/LoggingCategories.h"
+#include "common/network/Protocol.h"
 #include <QtWidgets/QMessageBox>
 #include <QtCore/QThreadPool>
 #include <QtCore/QTimer>
@@ -220,6 +221,7 @@ int main(int argc, char* argv[]) {
     // ── QApplication 内层作用域：离开时正常析构以清理主线程 QThreadStorage ──
     {
         QApplication app(argc, argv);
+        qRegisterMetaType<ClipboardMessage>();
         initializeApplication(app);
 
         app.setQuitOnLastWindowClosed(false);

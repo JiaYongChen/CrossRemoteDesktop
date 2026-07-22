@@ -4,6 +4,7 @@
 #include "../../common/network/Protocol.h"
 #include "../../common/threading/Worker.h"
 
+#include <atomic>
 #include <QtCore/QObject>
 #include <QtNetwork/QSslCertificate>
 #include <QtNetwork/QSslKey>
@@ -78,6 +79,6 @@ private:
     QString m_clientHandlerThreadName;
 
     QString m_sessionId;
-    bool m_authenticated = false;
+    std::atomic<bool> m_authenticated{false};
     bool m_shuttingDown = false;
 };

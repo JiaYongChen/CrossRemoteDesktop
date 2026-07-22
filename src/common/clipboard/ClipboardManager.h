@@ -46,13 +46,13 @@ public:
     void setImageFromPng(const QByteArray& pngData);
 
     /**
-     * @brief 应用远端文本到本地剪贴板（覆盖上次文本并发射变化信号）
+     * @brief 应用远端文本到本地剪贴板（设置去重标记，不发射变化信号）
      * @param text 远端文本内容
      */
     void applyRemoteText(const QString& text);
 
     /**
-     * @brief 应用远端图片到本地剪贴板（覆盖上次图片并发射变化信号）
+     * @brief 应用远端图片到本地剪贴板（设置去重标记，不发射变化信号）
      * @param pngData PNG 格式的图片数据
      */
     void applyRemoteImage(const QByteArray& pngData);
@@ -91,5 +91,5 @@ private:
     QString m_lastText;                     ///< 上次的文本内容
     QByteArray m_lastImageData;             ///< 上次的图片数据
     QString m_lastReceivedText;             ///< 上次从网络接收的文本（去重用）
-    QByteArray m_lastReceivedImageData;     ///< 上次从网络接收的图片数据（去重用）
+    QImage m_lastReceivedImage;             ///< 上次从网络接收的图片（去重用，像素比对）
 };
