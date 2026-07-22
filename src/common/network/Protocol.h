@@ -255,6 +255,8 @@ struct ClipboardMessage : public IMessageCodec {
     bool decode(const QByteArray& dataBuffer) override;
 };
 
+Q_DECLARE_METATYPE(ClipboardMessage)
+
 // 协议工具类（TLS负责传输层加密，协议层不再加密）
 class Protocol {
 public:
