@@ -9,13 +9,17 @@ PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 CLAUDE_PROJECTS="$HOME/.claude/projects"
 
 echo "========================================"
-echo "  CrossRemoteDesktop - Symlink Setup"
+echo "  Symlink Setup"
+echo "  Project: $PROJECT_DIR"
 echo "========================================"
 
 # ===========================================================================
-# 1. Memory symlink: ~/.claude/projects/<hash>/memory → <project>/memory
+# 1. Memory symlink: ~/.claude/projects/<slug>/memory → <project>/memory
+# Slug derivation: replace / and : with -, e.g. /home/user/project → -home-user-project
 # ===========================================================================
-FOUND_DIR=$(find "$CLAUDE_PROJECTS" -maxdepth 1 -type d -name "*CrossRemoteDesktop*" 2>/dev/null | head -1)
+SLUG="${PROJECT_DIR//\//-}"
+SLUG="${SLUG//:/-}"
+FOUND_DIR=$(find "$CLAUDE_PROJECTS" -maxdepth 1 -type d -name "$SLUG" 2>/dev/null | head -1)
 
 if [ -z "$FOUND_DIR" ]; then
     echo ""

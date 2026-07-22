@@ -25,3 +25,4 @@
 - [feedback_windows_build.md](feedback/feedback_windows_build.md) — Windows 必须用 VS 生成器（非 Ninja），需 /FS 避免 PDB 锁冲突
 - [feedback_bash_heredoc_commit.md](feedback/feedback_bash_heredoc_commit.md) — Git Bash 中用 POSIX heredoc + git commit -F
 - [feedback_build_verification.md](feedback/feedback_build_verification.md) — 构建验证：grep error 而非 tail 截断
+- [feedback_auto_detect_paths.md](feedback/feedback_auto_detect_paths.md) — 项目中所有路径必须使用自动检测，禁止硬编码绝对路径

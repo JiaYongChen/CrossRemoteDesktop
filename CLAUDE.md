@@ -2,7 +2,7 @@
 
 本文件为 Claude Code (claude.ai/code) 在本仓库中工作时提供指导。
 
-> 最后更新：2026-07-13
+> 最后更新：2026-07-22
 
 ## 首次设置（新设备）
 
@@ -85,7 +85,7 @@ cmake --build build --target sync_translations
 
 ### CMake 模块结构
 
-根 CMakeLists.txt 通过 `include()` 引入 7 个模块化 .cmake 文件：
+根 CMakeLists.txt 通过 `include()` 引入 8 个模块化 .cmake 文件：
 
 ```
 cmake/
@@ -210,7 +210,7 @@ RemoteDesktopSession（组装 + 生命周期）
 
 序列化实现物理分离：
 - `ProtocolImpl.cpp`（120 行）— Protocol 静态函数 + CRC32 校验和
-- `MessageCodec.cpp`（~530 行）— 14 个消息结构体的 encode/decode 方法
+- `MessageCodec.cpp`（~530 行）— 12 个消息结构体的 encode/decode 方法
 
 ### 配置
 

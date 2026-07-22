@@ -10,16 +10,23 @@ set "PROJECT_DIR=%~dp0"
 set "PROJECT_DIR=%PROJECT_DIR:~0,-1%"
 
 echo ========================================
-echo   CrossRemoteDesktop - Symlink Setup
+echo   Symlink Setup - %~nx0
+echo   Project: %PROJECT_DIR%
 echo ========================================
 
 :: ===========================================================================
-:: 1. Memory symlink: ~\.claude\projects\<hash>\memory → <project>\memory
+:: 1. Memory symlink: ~\.claude\projects\<slug>\memory → <project>\memory
+:: Slug derivation: replace \ → - and : → -, e.g. D:\AICode\Project → D--AICode-Project
 :: ===========================================================================
 set "CLAUDE_PROJECTS=%USERPROFILE%\.claude\projects"
+
+:: Derive slug from current project directory
+set "SLUG=%PROJECT_DIR:\=-%"
+set "SLUG=%SLUG::=-%"
+
 set "FOUND=0"
 
-for /d %%d in ("%CLAUDE_PROJECTS%\*CrossRemoteDesktop*") do (
+for /d %%d in ("%CLAUDE_PROJECTS%\%SLUG%") do (
     set "MEMORY_LINK=%%d\memory"
     if exist "%%d\" (
         echo.
