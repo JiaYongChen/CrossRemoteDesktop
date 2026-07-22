@@ -127,9 +127,8 @@ void ClipboardManager::applyRemoteImage(const QByteArray& pngData) {
         return;
     }
 
-    // 基于像素内容设置去重标记（避免 PNG 编码字节差异导致去重失效）
-    m_lastReceivedImage = image;
-    m_lastImageData.clear();
+    // 规范化为统一格式存储，避免跨平台格式漂移导致像素比对失效
+    m_lastReceivedImage = image.convertToFormat(QImage::Format_ARGB32);
     m_lastText.clear();
     m_lastReceivedText.clear();
     m_clipboard->setImage(image);
@@ -144,11 +143,22 @@ void ClipboardManager::onClipboardChanged(QClipboard::Mode mode) {
     const QMimeData* mimeData = m_clipboard->mimeData();
     if (!mimeData) return;
 
-    // 图片分支（独立处理，不再用 else if 以免跳过文本）
+    // 图片分支（独立处理，用 goto end_image 替代 return 以免跳过文本分支）
     if (mimeData->hasImage()) {
         QImage image = qvariant_cast<QImage>(mimeData->imageData());
         if (!image.isNull()) {
 
+            // 像素级去重优先（比 PNG 编码便宜，避免回环时浪费 CPU）
+            if (!m_lastReceivedImage.isNull()) {
+                const QImage canonical = image.convertToFormat(QImage::Format_ARGB32);
+                if (canonical == m_lastReceivedImage) {
+                    m_lastReceivedImage = QImage();
+                    m_lastReceivedText.clear();
+                    goto end_image;
+                }
+            }
+
+            // 仅确认非回环后才做 PNG 编码
             QByteArray imageData;
             QBuffer buffer(&imageData);
             buffer.open(QIODevice::WriteOnly);
@@ -156,13 +166,7 @@ void ClipboardManager::onClipboardChanged(QClipboard::Mode mode) {
 
             if (imageData.size() > kMaxClipboardImageSize) {
                 qCWarning(lcClipboard) << "剪贴板图片超过 10MB 上限，已跳过，大小:" << imageData.size();
-                return;
-            }
-
-            // 像素级内容去重：比对 QImage 而非 PNG 字节
-            if (!m_lastReceivedImage.isNull() && image == m_lastReceivedImage) {
-                m_lastReceivedImage = QImage();
-                return;
+                goto end_image;
             }
 
             if (imageData != m_lastImageData) {
@@ -175,6 +179,7 @@ void ClipboardManager::onClipboardChanged(QClipboard::Mode mode) {
                 emit clipboardImageChanged(imageData, image.width(), image.height());
             }
         }
+        end_image: ;
     }
 
     // 文本分支（独立 if，支持图文共存时分别处理）
