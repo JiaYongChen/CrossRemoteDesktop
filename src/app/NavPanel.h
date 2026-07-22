@@ -1,5 +1,4 @@
-#ifndef NAVPANEL_H
-#define NAVPANEL_H
+#pragma once
 
 #include <QWidget>
 #include <QPropertyAnimation>
@@ -44,4 +43,3 @@ private:
     int m_menuFullHeight = 0;
 };
 
-#endif // NAVPANEL_H

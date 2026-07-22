@@ -9,23 +9,6 @@
 #include <QtGui/QOpenGLExtraFunctions>
 #include <cstring>
 
-// GL_ARB_buffer_storage 常量 — 跨平台兼容
-#ifndef GL_MAP_PERSISTENT_BIT
-#  define GL_MAP_PERSISTENT_BIT  0x0040
-#endif
-#ifndef GL_MAP_COHERENT_BIT
-#  define GL_MAP_COHERENT_BIT    0x0080
-#endif
-#ifndef GL_MAP_INVALIDATE_BUFFER_BIT
-#  define GL_MAP_INVALIDATE_BUFFER_BIT 0x0004
-#endif
-#ifndef GL_RGB8
-#  define GL_RGB8 0x8051
-#endif
-#ifndef GL_SYNC_GPU_COMMANDS_COMPLETE
-#  define GL_SYNC_GPU_COMMANDS_COMPLETE 0x9117
-#endif
-
 // ════════════════ 构造 / 析构 ════════════════
 
 GpuDecodeTarget::GpuDecodeTarget(QOpenGLContext* shareContext)

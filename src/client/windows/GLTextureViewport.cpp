@@ -12,45 +12,6 @@
 #include <algorithm>  // std::max
 #include <chrono>
 
-// GL format constants not guaranteed by all GL headers
-#ifndef GL_RGB8
-#  define GL_RGB8  0x8051
-#endif
-#ifndef GL_RGBA8
-#  define GL_RGBA8 0x8058
-#endif
-
-// GL fence-sync constants not guaranteed by all GL headers
-#ifndef GL_SYNC_GPU_COMMANDS_COMPLETE
-#  define GL_SYNC_GPU_COMMANDS_COMPLETE 0x9117
-#endif
-#ifndef GL_SYNC_FLUSH_COMMANDS_BIT
-#  define GL_SYNC_FLUSH_COMMANDS_BIT    0x00000001
-#endif
-#ifndef GL_ALREADY_SIGNALED
-#  define GL_ALREADY_SIGNALED           0x911A
-#endif
-#ifndef GL_CONDITION_SATISFIED
-#  define GL_CONDITION_SATISFIED        0x911C
-#endif
-#ifndef GL_TIMEOUT_EXPIRED
-#  define GL_TIMEOUT_EXPIRED            0x911B
-#endif
-#ifndef GL_WAIT_FAILED
-#  define GL_WAIT_FAILED                0x911D
-#endif
-
-// GL_ARB_buffer_storage / GL 4.4+ constants not guaranteed by all GL headers
-#ifndef GL_MAP_PERSISTENT_BIT
-#  define GL_MAP_PERSISTENT_BIT  0x0040
-#endif
-#ifndef GL_MAP_COHERENT_BIT
-#  define GL_MAP_COHERENT_BIT    0x0080
-#endif
-#ifndef GL_MAP_INVALIDATE_BUFFER_BIT
-#  define GL_MAP_INVALIDATE_BUFFER_BIT 0x0004
-#endif
-
 // Vertex shader: pass through position and texture coordinates
 static const char* s_vertexShaderSource = R"(
     #version 330 core

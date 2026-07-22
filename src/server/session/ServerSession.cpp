@@ -182,7 +182,7 @@ bool ServerSession::isAuthenticated() const {
 void ServerSession::sendClipboardData(const QByteArray& encodedMessage) {
     if (m_shuttingDown || !m_clientHandler) return;
     QMetaObject::invokeMethod(m_clientHandler,
-                              qOverload<const QByteArray&>(&ClientHandlerWorker::sendEncodedMessage),
+                              &ClientHandlerWorker::sendEncodedMessage,
                               Qt::QueuedConnection,
-                              Q_ARG(QByteArray, encodedMessage));
+                              encodedMessage);
 }
