@@ -596,8 +596,10 @@ void MainWindow::updatePerformanceInfo()
         .arg(memMB, 0, 'f', 1));
 
 #elif defined(Q_OS_LINUX)
-    // Linux: 读取 /proc/self/stat
+    // Linux: 读取 /proc/self/stat 获取 CPU 时间
     QFile statFile("/proc/self/stat");
+    double cpuPercent = 0.0;
+    bool hasCpu = false;
     if (statFile.open(QIODevice::ReadOnly)) {
         const QByteArray data = statFile.readAll();
         const QList<QByteArray> fields = data.split(' ');
@@ -608,13 +610,39 @@ void MainWindow::updatePerformanceInfo()
             static qint64 prevMs = 0;
             const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
             if (prevMs > 0) {
-                const double cpuPercent = (static_cast<double>(ticks - prevTicks) / sysconf(_SC_CLK_TCK))
+                cpuPercent = (static_cast<double>(ticks - prevTicks) / sysconf(_SC_CLK_TCK))
                     / (static_cast<double>(nowMs - prevMs) / 1000.0) * 100.0;
-                m_performanceLabel->setText(tr("CPU: %1%").arg(cpuPercent, 0, 'f', 1));
+                hasCpu = true;
             }
             prevTicks = ticks;
             prevMs = nowMs;
         }
+        statFile.close();
+    }
+
+    // 读取 /proc/self/status 获取内存 VmRSS
+    double memoryMB = 0.0;
+    QFile statusFile("/proc/self/status");
+    if (statusFile.open(QIODevice::ReadOnly)) {
+        const QString statusText = QString::fromUtf8(statusFile.readAll());
+        statusFile.close();
+        for (const QString& line : statusText.split('\n')) {
+            if (line.startsWith("VmRSS:")) {
+                const QStringList parts = line.split(' ', Qt::SkipEmptyParts);
+                if (parts.size() >= 2)
+                    memoryMB = parts[1].toDouble() / 1024.0;
+                break;
+            }
+        }
+    }
+
+    if (hasCpu) {
+        m_performanceLabel->setText(tr("CPU: %1% | 内存: %2 MB")
+            .arg(cpuPercent, 0, 'f', 1)
+            .arg(memoryMB, 0, 'f', 1));
+    } else if (memoryMB > 0) {
+        m_performanceLabel->setText(tr("CPU: --% | 内存: %1 MB")
+            .arg(memoryMB, 0, 'f', 1));
     }
 
 #elif defined(Q_OS_MACOS)
