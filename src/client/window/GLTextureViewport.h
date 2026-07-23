@@ -1,7 +1,5 @@
 #pragma once
 
-#ifndef QT_NO_OPENGL
-
 #include <QtOpenGLWidgets/QOpenGLWidget>
 #include <QtOpenGL/QOpenGLShaderProgram>
 #include <QtOpenGL/QOpenGLBuffer>
@@ -221,4 +219,3 @@ private:
     QRect m_lastCursorPaintRect;
 };
 
-#endif // QT_NO_OPENGL

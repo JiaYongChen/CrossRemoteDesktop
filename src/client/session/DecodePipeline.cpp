@@ -2,12 +2,9 @@
 #include "../managers/DecodeWorker.h"
 #include "../../common/logging/LoggingCategories.h"
 
-#ifndef QT_NO_OPENGL
-#include "../windows/GLTextureViewport.h"
+#include "../window/GLTextureViewport.h"
 #include "../decode/GpuDecodeTarget.h"
 #include <QtGui/QOpenGLContext>
-#endif
-
 #include <QtCore/QThread>
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDeadlineTimer>
@@ -39,7 +36,6 @@ void DecodePipeline::start() {
     m_worker->moveToThread(decodeThread);
     m_worker->setFrameBuffer(&m_frameBuffer);
 
-#ifndef QT_NO_OPENGL
     // 先注入解码目标/视口，再排队 GL 初始化——postEvent 的内部同步保证
     // DecodeThread 消费 initializeGL 时 m_decodeTarget 写入已可见，
     // 消除"排队先于注入"的时序竞态
@@ -57,7 +53,6 @@ void DecodePipeline::start() {
             }
         }, Qt::QueuedConnection);
     }
-#endif
 
     // 注意：不设置 decodeThread 的 parent（跨线程限制），
     // 由 stop() 负责显式清理 decodeThread
@@ -91,7 +86,6 @@ void DecodePipeline::stop() {
     //    ensureWorkerContext 的反向 BlockingQueuedConnection（等 Main 执行
     //    doneCurrent），双向阻塞即 ABBA 死锁。改为排队 + 信号量 + 泵事件，
     //    Main 在等待期间仍能服务解码线程的阻塞调用。
-#ifndef QT_NO_OPENGL
     if (decodeThread && decodeThread->isRunning()) {
         auto cleanupDone = std::make_shared<QSemaphore>();
         QMetaObject::invokeMethod(m_worker, [w = m_worker, cleanupDone]() {
@@ -109,7 +103,6 @@ void DecodePipeline::stop() {
             QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
         }
     }
-#endif
 
     // 4. 停止线程
     if (decodeThread && decodeThread->isRunning()) {
@@ -169,7 +162,6 @@ bool DecodePipeline::enqueueFrame(ScreenData data, const QSize& remoteSize) {
     return m_worker->enqueueFrame(std::move(data), remoteSize);
 }
 
-#ifndef QT_NO_OPENGL
 void DecodePipeline::notifyGLReady() {
     // worker 上下文由 GpuDecodeTarget 在解码线程内自建，此方法仅标记 GL 已就绪
     m_glReady = true;
@@ -182,4 +174,3 @@ void DecodePipeline::setDecodeTarget(GpuDecodeTarget* target) {
 void DecodePipeline::setGLViewport(GLTextureViewport* vp) {
     m_glViewportForUpload = vp;
 }
-#endif

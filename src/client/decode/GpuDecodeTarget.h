@@ -1,7 +1,5 @@
 #pragma once
 
-#ifndef QT_NO_OPENGL
-
 #include "../../common/config/GuiConstants.h"
 #include "IDecodeTarget.h"
 #include <QtOpenGL/QOpenGLBuffer>
@@ -79,4 +77,3 @@ private:
     bool               m_ready = false;
 };
 
-#endif // QT_NO_OPENGL

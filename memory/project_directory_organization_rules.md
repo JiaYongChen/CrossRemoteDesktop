@@ -104,7 +104,7 @@ src/
 
 - **目录名**：`snake_case` 或单小写词（如 `clienthandler/`），保持项目现有风格
 - **文件名**：`PascalCase`（如 `MainWindow.cpp`、`CapturedFrame.h`）
-- **禁止**：目录名使用复数形式不一致（统一用单数或复数，如 `client/windows/` 统一为复数）
+- **禁止**：目录名使用复数形式不一致（统一用单数或复数，如 `client/window/` 统一为复数）
 
 ## Include 路径
 

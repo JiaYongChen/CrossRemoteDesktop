@@ -1,9 +1,7 @@
 #include "TurboJpegDecoder.h"
 #include "../../common/logging/LoggingCategories.h"
 
-#ifndef QT_NO_OPENGL
 #include "IDecodeTarget.h"
-#endif
 
 TurboJpegDecoder::TurboJpegDecoder() {
     m_handle = tjInitDecompress();
@@ -19,20 +17,12 @@ TurboJpegDecoder::~TurboJpegDecoder() {
     }
 }
 
-#ifndef QT_NO_OPENGL
 bool TurboJpegDecoder::decode(
     const QByteArray& jpegData,
     int* outWidth,
     int* outHeight,
     GLsync* outFence,
     QImage* outImage)
-#else
-bool TurboJpegDecoder::decode(
-    const QByteArray& jpegData,
-    int* outWidth,
-    int* outHeight,
-    QImage* outImage)
-#endif
 {
     if (!m_handle) {
         qCWarning(lcClient) << "TurboJpegDecoder: not initialized";
@@ -68,14 +58,12 @@ bool TurboJpegDecoder::decode(
     *outWidth = w;
     *outHeight = h;
 
-#ifndef QT_NO_OPENGL
     // 4. 通过 target 上传到 GL 纹理（如果可用）
     if (m_target) {
         *outFence = m_target->uploadPixels(m_buffer.bits(), w, h);
     } else {
         *outFence = nullptr;
     }
-#endif
 
     // 5. 填充回退 QImage（调用方在 outFence==nullptr 时使用）
     if (outImage) {

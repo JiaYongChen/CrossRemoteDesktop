@@ -1,7 +1,5 @@
 #pragma once
 
-#ifndef QT_NO_OPENGL
-
 #include <QtGui/qopengl.h>
 
 /**
@@ -53,4 +51,3 @@ public:
     [[nodiscard]] virtual int textureHeight() const = 0;
 };
 
-#endif // QT_NO_OPENGL

@@ -6,9 +6,7 @@
 #include <QtGui/QKeyEvent>
 #include <QtGui/QWheelEvent>
 
-#ifndef QT_NO_OPENGL
 #include "GLTextureViewport.h"
-#endif
 
 InputForwarder::InputForwarder(QObject* parent)
     : QObject(parent) {
@@ -22,13 +20,9 @@ void InputForwarder::installOn(QWidget* target) {
 }
 
 QPoint InputForwarder::mapToRemote(const QPoint& localPoint) const {
-#ifndef QT_NO_OPENGL
     if (m_viewport) {
         return m_viewport->mapToRemote(localPoint);
     }
-#else
-    Q_UNUSED(localPoint)
-#endif
     return QPoint(0, 0);
 }
 

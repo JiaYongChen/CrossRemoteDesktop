@@ -4,12 +4,12 @@
 <context>
     <name>ClientRemoteWindow</name>
     <message>
-        <location filename="../../src/client/windows/ClientRemoteWindow.cpp" line="55"/>
+        <location filename="../../src/client/window/ClientRemoteWindow.cpp" line="55"/>
         <source>Remote Desktop</source>
         <translation>远程桌面</translation>
     </message>
     <message>
-        <location filename="../../src/client/windows/ClientRemoteWindow.cpp" line="198"/>
+        <location filename="../../src/client/window/ClientRemoteWindow.cpp" line="198"/>
         <source>仅查看</source>
         <translation type="unfinished"></translation>
     </message>
@@ -227,68 +227,68 @@
 <context>
     <name>ConnectionLifecycle</name>
     <message>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="53"/>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="56"/>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="59"/>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="62"/>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="65"/>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="68"/>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="71"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="53"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="56"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="59"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="62"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="65"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="68"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="71"/>
         <source>%1 - %2</source>
         <translation>%1 - %2</translation>
     </message>
     <message>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="53"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="53"/>
         <source>正在连接...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="56"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="56"/>
         <source>已连接</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="59"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="59"/>
         <source>已认证</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="62"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="62"/>
         <source>正在重连...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="65"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="65"/>
         <source>正在断开连接...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="68"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="68"/>
         <source>未连接</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="71"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="71"/>
         <source>连接错误</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="78"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="78"/>
         <source>%1 [仅查看]</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="89"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="89"/>
         <source>Connection Disconnected</source>
         <translation>连接已断开</translation>
     </message>
     <message>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="90"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="90"/>
         <source>Connection to remote host %1 has been disconnected.</source>
         <translation>与远程主机 %1 的连接已断开。</translation>
     </message>
     <message>
-        <location filename="../../src/client/windows/ConnectionLifecycle.cpp" line="92"/>
+        <location filename="../../src/client/window/ConnectionLifecycle.cpp" line="92"/>
         <source>The window will close.</source>
         <translation>窗口将关闭。</translation>
     </message>
@@ -361,23 +361,23 @@
 <context>
     <name>FloatingRemoteToolbar</name>
     <message>
-        <location filename="../../src/client/windows/FloatingRemoteToolbar.cpp" line="50"/>
+        <location filename="../../src/client/window/FloatingRemoteToolbar.cpp" line="50"/>
         <source>全屏切换</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/client/windows/FloatingRemoteToolbar.cpp" line="61"/>
+        <location filename="../../src/client/window/FloatingRemoteToolbar.cpp" line="61"/>
         <source>断开连接</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/client/windows/FloatingRemoteToolbar.cpp" line="73"/>
-        <location filename="../../src/client/windows/FloatingRemoteToolbar.cpp" line="93"/>
+        <location filename="../../src/client/window/FloatingRemoteToolbar.cpp" line="73"/>
+        <location filename="../../src/client/window/FloatingRemoteToolbar.cpp" line="93"/>
         <source>仅查看切换</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/client/windows/FloatingRemoteToolbar.cpp" line="93"/>
+        <location filename="../../src/client/window/FloatingRemoteToolbar.cpp" line="93"/>
         <source>退出仅查看</source>
         <translation type="unfinished"></translation>
     </message>

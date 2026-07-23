@@ -3,10 +3,8 @@
 #include <QtCore/QByteArray>
 #include <QtGui/QImage>
 
-#ifndef QT_NO_OPENGL
 #include <QtGui/qopengl.h>
 class IDecodeTarget;
-#endif
 
 /**
  * @brief JPEG 解码器抽象接口（v2 — 统一 decode）
@@ -28,7 +26,6 @@ public:
     /// 解码器名称，用于诊断日志（如 "libjpeg-turbo"、"nvJPEG"）
     [[nodiscard]] virtual const char* name() const = 0;
 
-#ifndef QT_NO_OPENGL
     /// 构造后注入解码输出目标（首次 decode 前调用一次）
     /// GPU 解码器通过 target 写入纹理；CPU 解码器通过 target 上传像素
     virtual void setDecodeTarget(IDecodeTarget* target) { m_target = target; }
@@ -53,16 +50,7 @@ public:
                                        int* outHeight,
                                        GLsync* outFence,
                                        QImage* outImage = nullptr) = 0;
-#else
-    /// 无 OpenGL 编译路径：仅 CPU 解码
-    [[nodiscard]] virtual bool decode(const QByteArray& jpegData,
-                                       int* outWidth,
-                                       int* outHeight,
-                                       QImage* outImage) = 0;
-#endif
 
 protected:
-#ifndef QT_NO_OPENGL
     IDecodeTarget* m_target = nullptr;  ///< 解码输出目标（构造后注入）
-#endif
 };

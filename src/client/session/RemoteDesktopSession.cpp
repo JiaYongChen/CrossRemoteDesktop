@@ -2,13 +2,11 @@
 #include "ProtocolSession.h"
 #include "DecodePipeline.h"
 #include "../network/ConnectionManager.h"
-#include "../windows/ClientRemoteWindow.h"
-#ifndef QT_NO_OPENGL
-#include "../windows/GLTextureViewport.h"
+#include "../window/ClientRemoteWindow.h"
+#include "../window/GLTextureViewport.h"
 #include "../decode/GpuDecodeTarget.h"
-#endif
-#include "../windows/InputForwarder.h"
-#include "../windows/CursorManager.h"
+#include "../window/InputForwarder.h"
+#include "../window/CursorManager.h"
 #include "../../common/clipboard/ClipboardManager.h"
 #include "../../common/logging/LoggingCategories.h"
 
@@ -67,7 +65,6 @@ void RemoteDesktopSession::createWindow() {
     m_window = new ClientRemoteWindow(m_protocolSession, nullptr);
 
     // GL 挂载
-#ifndef QT_NO_OPENGL
     GLTextureViewport* gl = m_window->glViewport();
     if (gl) {
         gl->attachFrameBuffer(m_decodePipeline->frameBuffer());
@@ -94,7 +91,6 @@ void RemoteDesktopSession::createWindow() {
                 }
             });
     }
-#endif
 
     // InputForwarder → ProtocolSession
     InputForwarder* inputForwarder = m_window->findChild<InputForwarder*>();
@@ -112,11 +108,9 @@ void RemoteDesktopSession::createWindow() {
         if (inputForwarder) {
             inputForwarder->setCursorManager(cursorMgr);
         }
-    #ifndef QT_NO_OPENGL
         if (gl) {
             gl->setCursorManager(cursorMgr);
         }
-    #endif
     }
 
     // ── 分发 ConnectionParams 配置到窗口组件 ──
@@ -199,13 +193,11 @@ void RemoteDesktopSession::wireSignals() {
                 cursorMgr, &CursorManager::updateCursor);
         connect(m_protocolSession, &ProtocolSession::remoteScreenSizeChanged,
                 cursorMgr, &CursorManager::setRemoteScreenSize);
-    #ifndef QT_NO_OPENGL
         GLTextureViewport* glv = m_window->glViewport();
         if (glv) {
             connect(cursorMgr, &CursorManager::cursorChanged,
                     glv, qOverload<>(&QWidget::update));
         }
-    #endif
     }
 
     // ── 剪贴板 ──

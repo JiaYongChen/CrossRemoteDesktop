@@ -11,12 +11,12 @@
 #       LIBRARIES      Qt6::Core Qt6::Test ...
 #       TIMEOUT        30
 #       LABELS         unit threading manager
-#       NO_OPENGL                              # 可选标志
+#
 #       EXTRA_ENV      "KEY=VALUE" ...         # 可选额外环境变量
 #   )
 
 function(add_rd_test)
-    set(_options NO_OPENGL)
+    set(_options)
     set(_oneValueArgs TARGET NAME TIMEOUT)
     set(_multiValueArgs SOURCES EXTRA_SOURCES LIBRARIES LABELS EXTRA_ENV)
     cmake_parse_arguments(ARG "${_options}" "${_oneValueArgs}" "${_multiValueArgs}" ${ARGN})
@@ -30,19 +30,14 @@ function(add_rd_test)
     # ── 2. 链接库 ──
     target_link_libraries(${ARG_TARGET} PRIVATE ${ARG_LIBRARIES})
 
-    # ── 3. QT_NO_OPENGL ──
-    if(ARG_NO_OPENGL)
-        target_compile_definitions(${ARG_TARGET} PRIVATE QT_NO_OPENGL)
-    endif()
-
-    # ── 4. CTest 注册 ──
+    # ── 3. CTest 注册 ──
     add_test(
         NAME ${ARG_NAME}
         COMMAND ${ARG_TARGET}
         WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
     )
 
-    # ── 5. 测试属性 ──
+    # ── 4. 测试属性 ──
     # 环境变量：_TEST_BASE_ENV（由 test/CMakeLists.txt 定义）+ EXTRA_ENV 追加
     set(_env "${_TEST_BASE_ENV}")
     if(ARG_EXTRA_ENV)
@@ -55,7 +50,7 @@ function(add_rd_test)
         ENVIRONMENT "${_env}"
     )
 
-    # ── 6. 自动添加到聚合目标 ──
+    # ── 5. 自动添加到聚合目标 ──
     # 所有测试 → run_all_tests
     if(TARGET run_all_tests)
         add_dependencies(run_all_tests ${ARG_TARGET})

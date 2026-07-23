@@ -14,18 +14,11 @@ public:
     TurboJpegDecoder();
     ~TurboJpegDecoder() override;
 
-#ifndef QT_NO_OPENGL
     [[nodiscard]] bool decode(const QByteArray& jpegData,
                                int* outWidth,
                                int* outHeight,
                                GLsync* outFence,
                                QImage* outImage = nullptr) override;
-#else
-    [[nodiscard]] bool decode(const QByteArray& jpegData,
-                               int* outWidth,
-                               int* outHeight,
-                               QImage* outImage) override;
-#endif
 
     [[nodiscard]] const char* name() const override { return "libjpeg-turbo"; }
 

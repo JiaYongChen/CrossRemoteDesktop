@@ -14,10 +14,8 @@
 #include <memory>
 #include "../decode/IDecoder.h"
 
-#ifndef QT_NO_OPENGL
 #include <QtGui/QOpenGLContext>
 #include <QtGui/QOffscreenSurface>
-#endif
 
 class GLTextureViewport;
 class GpuDecodeTarget;
@@ -36,7 +34,6 @@ public:
     /// 设置 TripleBuffer 指针（在 createDecodePipeline 中调用）
     void setFrameBuffer(TripleBuffer<FrameSlot>* buffer);
 
-#ifndef QT_NO_OPENGL
     /// 初始化 worker GL 上下文（在 DecodeThread 内调用）
     [[nodiscard]] bool initializeGL();
 
@@ -49,7 +46,6 @@ public:
 
     /// 设置 GPU 解码目标（构造后注入，用于获取 worker GL 上下文）
     void setDecodeTarget(GpuDecodeTarget* target);
-#endif
 
     /// 停止队列
     void requestStop();
@@ -84,11 +80,9 @@ private:
     /// 其无条件 m_running.store(true) 会复活工作循环导致 stop() 永久阻塞。
     std::atomic<bool> m_stopRequested{false};
 
-#ifndef QT_NO_OPENGL
     QOpenGLContext* m_glContext = nullptr;
     QOffscreenSurface* m_glSurface = nullptr;
     GLTextureViewport* m_glViewport = nullptr;
-#endif
 
     TripleBuffer<FrameSlot>* m_frameBuffer = nullptr;
 

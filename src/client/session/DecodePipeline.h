@@ -12,11 +12,9 @@
 class DecodeWorker;
 class QThread;
 
-#ifndef QT_NO_OPENGL
 class GLTextureViewport;
 class GpuDecodeTarget;
 class QOpenGLContext;
-#endif
 
 /**
  * @brief 解码管线 — 封装 DecodeWorker 生命周期、DecodeThread 管理、TripleBuffer 所有权
@@ -45,7 +43,6 @@ public:
     /// 帧入队（线程安全，由 ProtocolSession 同线程直接调用）
     bool enqueueFrame(ScreenData data, const QSize& remoteSize);
 
-#ifndef QT_NO_OPENGL
     /// GL 就绪通知（在 start() 之前从 Main 线程调用）。
     /// worker GL 上下文由 GpuDecodeTarget 在解码线程内自建，无需传入上下文指针
     void notifyGLReady();
@@ -53,7 +50,6 @@ public:
     void setDecodeTarget(GpuDecodeTarget* target);
     /// GLTextureViewport 注入（在 start() 之前从 Main 线程调用）
     void setGLViewport(GLTextureViewport* vp);
-#endif
 
 signals:
     /// 解码错误转发（DecodeWorker → 本信号 → RemoteDesktopSession::errorOccurred → UI）
@@ -66,9 +62,7 @@ private:
     bool                     m_running = false;
     bool                     m_stopping = false;  ///< 重入守卫：processEvents 泵事件期间防二次进入
 
-#ifndef QT_NO_OPENGL
     bool               m_glReady = false;  ///< GL 是否已就绪（glContextReady 已触发）
     GpuDecodeTarget*   m_decodeTarget = nullptr;
     GLTextureViewport* m_glViewportForUpload = nullptr;
-#endif
 };

@@ -1,5 +1,3 @@
-#ifndef QT_NO_OPENGL
-
 #include "GLTextureViewport.h"
 #include "../decode/GpuDecodeTarget.h"
 #include "../../common/config/GuiConstants.h"
@@ -745,4 +743,3 @@ void GLTextureViewport::attachFrameBuffer(TripleBuffer<FrameSlot>* buffer) {
     m_frameBuffer = buffer;
 }
 
-#endif // QT_NO_OPENGL

@@ -2,8 +2,7 @@
 #include <QtWidgets/QApplication>
 #include <QtGui/QImage>
 
-#ifndef QT_NO_OPENGL
-#include "../../src/client/windows/GLTextureViewport.h"
+#include "../../src/client/window/GLTextureViewport.h"
 
 class TestRenderSurface : public QObject {
     Q_OBJECT
@@ -45,7 +44,6 @@ private slots:
 private:
     QApplication *m_app = nullptr;
 };
-#endif // QT_NO_OPENGL
 
 QTEST_MAIN(TestRenderSurface)
 #include "test_render_surface.moc"

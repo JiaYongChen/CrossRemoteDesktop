@@ -6,6 +6,11 @@ $rootNormalized = $root.Replace('\', '/').TrimEnd('/')
 
 if ($cwdNormalized -ne $rootNormalized) {
     $msg = "[MANDATORY] CWD=$cwdNormalized != $rootNormalized. Run: cd $rootNormalized"
-    $json = '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"' + $msg + '"}}'
+    $json = @{
+        hookSpecificOutput = @{
+            hookEventName = "PostToolUse"
+            additionalContext = $msg
+        }
+    } | ConvertTo-Json -Compress
     Write-Output $json
 }

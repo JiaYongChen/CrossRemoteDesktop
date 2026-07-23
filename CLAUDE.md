@@ -299,7 +299,7 @@ qCWarning(lcServer) << error.logLabel();      // 推荐
 - **`test/server/`** — 服务端测试（`capture/`、`clienthandler/`、`dataprocessing/`、`dataflow/`）
 - **`test/common/`** — 共享代码测试（`threading/`、`config/`）
 - **`test/integration/`** — 跨模块集成测试
-- **`add_rd_test()`**：测试目标创建辅助函数（见 `cmake/TestHelpers.cmake`），支持 NO_OPENGL 标志、EXTRA_SOURCES、EXTRA_ENV 等可选参数
+- **`add_rd_test()`**：测试目标创建辅助函数（见 `cmake/TestHelpers.cmake`），支持 EXTRA_SOURCES、EXTRA_ENV 等可选参数
 
 ## 已移除的功能
 

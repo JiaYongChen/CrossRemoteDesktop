@@ -1,5 +1,3 @@
-#ifndef QT_NO_OPENGL
-
 #include "GpuDecodeTarget.h"
 #include "../../common/logging/LoggingCategories.h"
 
@@ -392,4 +390,3 @@ void GpuDecodeTarget::destroyPersistentPBOs() {
     m_usePersistent = false;
 }
 
-#endif // QT_NO_OPENGL

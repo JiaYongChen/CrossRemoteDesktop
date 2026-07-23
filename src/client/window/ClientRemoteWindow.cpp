@@ -7,9 +7,7 @@
 #include "../../common/clipboard/ClipboardManager.h"
 
 #include <QtGui/QCursor>
-#ifndef QT_NO_OPENGL
 #include "GLTextureViewport.h"
-#endif
 #include <QtGui/QResizeEvent>
 #include <QtGui/QCloseEvent>
 #include <QtGui/QEnterEvent>
@@ -97,11 +95,9 @@ void ClientRemoteWindow::changeEvent(QEvent* event) {
             return;
         }
         // 窗口状态切换后强制 GL 重绘（无视 m_textureDirty）
-    #ifndef QT_NO_OPENGL
         if (m_glViewport) {
             m_glViewport->forceRepaint();
         }
-    #endif
         // 全屏过渡期间原生窗口可能重建 → 子控件 Z 序可能重置。
         // 不调用 show()：子控件可见性由父窗口自动管理，强制 show()
         // 会覆盖将来可能的用户隐藏逻辑。
@@ -211,7 +207,6 @@ void ClientRemoteWindow::setupUI() {
     m_viewOnlyOverlay->move(12, 12);  // 固定于左上角
     m_viewOnlyOverlay->hide();
 
-#ifndef QT_NO_OPENGL
     m_glViewport = new GLTextureViewport(this);
     m_glViewport->setGeometry(rect());
     m_glViewport->setAttribute(Qt::WA_TransparentForMouseEvents, true);
@@ -230,7 +225,6 @@ void ClientRemoteWindow::setupUI() {
     connect(m_glViewport, &GLTextureViewport::renderRectChanged, this, [this](const QRectF&) {
         update();
     });
-#endif
 
     // 工具栏作为子控件渲染在最顶层——初始不可见，由 hover 热区触发 showAnimated
     m_floatingToolbar->raise();
@@ -251,11 +245,9 @@ void ClientRemoteWindow::repositionToolbar() {
 void ClientRemoteWindow::resizeEvent(QResizeEvent* event) {
     QWidget::resizeEvent(event);
 
-#ifndef QT_NO_OPENGL
     if (m_glViewport) {
         m_glViewport->setGeometry(rect());
     }
-#endif
 
     if (m_floatingToolbar) {
         repositionToolbar();

@@ -1,10 +1,8 @@
 #include "DecodeWorker.h"
 #include "../../common/logging/LoggingCategories.h"
-#ifndef QT_NO_OPENGL
-#include "../windows/GLTextureViewport.h"
+#include "../window/GLTextureViewport.h"
 #include "../decode/GpuDecodeTarget.h"
 #include <QtGui/QOpenGLExtraFunctions>
-#endif
 #include <QtCore/QThread>
 #include "../decode/TurboJpegDecoder.h"
 #ifdef HAS_NVJPEG
@@ -19,14 +17,12 @@ DecodeWorker::DecodeWorker(QObject* parent)
 DecodeWorker::~DecodeWorker() {
     requestStop();
     // m_decoder 通过 unique_ptr 自动析构（释放 tjhandle 或 nvJPEG 句柄）
-#ifndef QT_NO_OPENGL
     // 仅当 cleanupGL() 未被预先调用（destroyDecodePipeline 的正常路径）时执行兜底清理。
     // 此时 DecodeThread 已停止，调用者确保已无跨线程事件风险。
     // m_glContext / m_glSurface 现在由 GpuDecodeTarget 管理生命周期。
     // cleanupGL() 已将其置空（正常路径）；此处仅防异常路径下的悬空指针。
     m_glContext = nullptr;
     m_glSurface = nullptr;
-#endif
 }
 
 bool DecodeWorker::enqueueFrame(ScreenData screenData, const QSize& remoteSize) {
@@ -69,11 +65,9 @@ void DecodeWorker::start() {
 
     qCInfo(lcClient) << "DecodeWorker: using decoder" << m_decoder->name();
 
-#ifndef QT_NO_OPENGL
     if (m_decodeTarget && !m_glInitFailed) {
         m_decoder->setDecodeTarget(m_decodeTarget);
     }
-#endif
 
     workLoop();
 }
@@ -139,26 +133,15 @@ bool DecodeWorker::processOneFrame() {
     }
 
     int jpegWidth = 0, jpegHeight = 0;
-#ifndef QT_NO_OPENGL
     GLsync fence = nullptr;
-#endif
     QImage fallbackImage;
 
-#ifndef QT_NO_OPENGL
     if (!m_decoder->decode(screenData.imageData,
                            &jpegWidth, &jpegHeight,
                            &fence, &fallbackImage)) {
         reportDecodeFailure(QStringLiteral("JPEG 解码失败"));
         return true;
     }
-#else
-    if (!m_decoder->decode(screenData.imageData,
-                           &jpegWidth, &jpegHeight,
-                           &fallbackImage)) {
-        reportDecodeFailure(QStringLiteral("JPEG 解码失败"));
-        return true;
-    }
-#endif
 
     m_decodeFailStreak = 0;  // 成功解码，重置失败流计数
 
@@ -178,7 +161,6 @@ bool DecodeWorker::processOneFrame() {
     int idx = m_frameBuffer->acquireWrite(slot);
     if (!slot) return true;
 
-#ifndef QT_NO_OPENGL
     // 覆写前清理槽位中未被消费的旧 fence（latest-wins 丢帧场景），避免 GLsync 泄漏
     if (slot->uploadFence) {
         if (QOpenGLContext* ctx = QOpenGLContext::currentContext()) {
@@ -186,21 +168,16 @@ bool DecodeWorker::processOneFrame() {
         }
         slot->uploadFence = nullptr;
     }
-#endif
 
     slot->remoteSize = remoteSize;
     slot->arrivalTs = steady_clock::now();
 
-#ifndef QT_NO_OPENGL
     // 4. GPU 上传结果（fence 已由解码器内部通过 target 生成）
     if (fence) {
         slot->uploadFence = fence;
     } else if (!fallbackImage.isNull()) {
         slot->image = fallbackImage;
     }
-#else
-    slot->image = fallbackImage;
-#endif
 
     // 5. 提交到 TripleBuffer
     m_frameBuffer->commitWrite(idx);
@@ -224,19 +201,15 @@ bool DecodeWorker::processOneFrame() {
         m_decodeAccumUs = 0; m_decodeMaxUs = 0;
     }
 
-#ifndef QT_NO_OPENGL
     // 7. 请求 GUI 线程重绘
     if (m_glViewport) {
         m_glViewport->requestRepaint();
     }
-#endif
 
     return true;  // 成功处理一帧
 }
 
 // ---- GL 方法 ----
-
-#ifndef QT_NO_OPENGL
 
 bool DecodeWorker::initializeGL() {
     if (!m_decodeTarget || !m_decodeTarget->isReady()) {
@@ -297,5 +270,3 @@ void DecodeWorker::setGLViewport(GLTextureViewport* vp) {
 void DecodeWorker::setDecodeTarget(GpuDecodeTarget* target) {
     m_decodeTarget = target;
 }
-
-#endif
