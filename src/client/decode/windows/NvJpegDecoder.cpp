@@ -3,8 +3,8 @@
 #include "../../common/config/GuiConstants.h"
 
 #ifdef HAS_NVJPEG
-#include "TurboJpegDecoder.h"
-#include "IDecodeTarget.h"
+#include "../TurboJpegDecoder.h"
+#include "../IDecodeTarget.h"
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 后端名称映射（诊断用）

@@ -6,7 +6,7 @@
 #include <QtCore/QThread>
 #include "../decode/TurboJpegDecoder.h"
 #ifdef HAS_NVJPEG
-#include "../decode/NvJpegDecoder.h"
+#include "../decode/windows/NvJpegDecoder.h"
 #endif
 // ---- 构造/析构/基础方法 ----
 

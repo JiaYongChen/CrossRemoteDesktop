@@ -2,7 +2,7 @@
 #include <QtCore/QByteArray>
 #include <QtGui/QImage>
 
-#include "../../src/client/decode/NvJpegDecoder.h"
+#include "../../src/client/decode/windows/NvJpegDecoder.h"
 #include "../../src/client/decode/IDecoder.h"
 
 /**

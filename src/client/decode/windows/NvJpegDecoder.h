@@ -1,6 +1,6 @@
 #pragma once
 
-#include "IDecoder.h"
+#include "../IDecoder.h"
 #include <memory>
 
 #ifdef HAS_NVJPEG
