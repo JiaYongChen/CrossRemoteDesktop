@@ -26,13 +26,6 @@ if (-not $firstCmd) { return }
 
 $tokens = $firstCmd -split '\s+'
 $mainCmd = ($tokens[0] -replace '^.*[/\\]', '').ToLower()  # 剥离路径前缀
-$allTokens = @($tokens)
-$fullCmd = $firstCmd
-
-# 检查危险标志位
-$hasForceFlag = $firstCmd -match '\b-Force\b|\b-Recurse\b|\b-force\b|\b-f\b|\b-rf\b|\b/f\b' -and
-    $firstCmd -notmatch '\bctest\b'  # ctest -R 的 -R 不是危险标志
-
 # ── 第一层：静态白名单 ───────────────────────────────
 $lowRiskPatterns = @(
     # 读操作
@@ -86,7 +79,10 @@ $dangerousPatterns = @(
     '\btaskkill\b|\bstop-process\b|\bkill\b|\bkillall\b',
     '\breg\s+add\b|\breg\s+delete\b|\bicacls\b|\bset-service\b',
     '\bgit\s+push\b.*-f|\bgit\s+reset\s+--hard\b|\bgit\s+clean\b',
-    '\brunas\b|\bsudo\b|\bstart-process\b'
+    '\brunas\b|\bsudo\b|\bstart-process\b',
+    '\bdel\s+/[sfq]\b|\brd\s+/[sq]\b',
+    '\binvoke-expression\b|\biex\b',
+    '\bset-executionpolicy\b|\bunblock-file\b'
 )
 foreach ($pattern in $dangerousPatterns) {
     if ($firstCmd -match $pattern) {

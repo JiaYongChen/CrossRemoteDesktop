@@ -7,7 +7,7 @@
           {
             "type": "command",
             "name": "safety-guard",
-            "command": "& (Join-Path (git rev-parse --show-toplevel) 'scripts\\safety-guard.ps1')",
+            "command": "$r=git rev-parse --show-toplevel 2>$null; if ($LASTEXITCODE -eq 0) { & (Join-Path $r 'scripts\\safety-guard.ps1') }",
             "shell": "powershell",
             "statusMessage": "安全检查: 自动判断命令风险..."
           }
