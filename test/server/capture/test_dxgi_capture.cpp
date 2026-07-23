@@ -5,7 +5,7 @@
 #include "../../src/common/logging/LoggingCategories.h"
 
 #ifdef Q_OS_WIN
-#include "../../src/server/capture/DxgiCapture.h"
+#include "../../src/server/capture/windows/DxgiCapture.h"
 #endif
 
 /**

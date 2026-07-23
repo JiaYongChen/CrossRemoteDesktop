@@ -14,9 +14,7 @@
 #include "../dataflow/DataFlowStructures.h"
 #include "CaptureConfig.h"
 #include "../../common/network/Protocol.h"
-#ifdef Q_OS_WIN
-#include "DxgiCapture.h"
-#endif
+#include "IScreenCapture.h"
 
 class QueueManager;
 
@@ -160,11 +158,9 @@ private:
 
     // 常量定义（已迁移至 CaptureConstants.h / ProcessingConstants.h）
 
-    // DXGI Desktop Duplication engine (Windows only)
-#ifdef Q_OS_WIN
-    std::unique_ptr<DxgiCapture> m_dxgiCapture;    ///< DXGI capture engine
-    bool m_dxgiAvailable = false;                   ///< Whether DXGI init succeeded
-    int m_dxgiReinitAttempts = 0;                   ///< Consecutive reinit attempts
-#endif
+    // 硬件加速屏幕捕获引擎（通过 IScreenCapture 接口）
+    std::unique_ptr<IScreenCapture> m_screenCapture;
+    bool m_hardwareCaptureAvailable = false;
+    int m_captureReinitAttempts = 0;
 };
 

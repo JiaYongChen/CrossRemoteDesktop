@@ -82,21 +82,22 @@ bool ScreenCaptureWorker::initialize() {
             Qt::UniqueConnection);
     }
 
-    // Initialize DXGI capture engine (Windows only)
-#ifdef Q_OS_WIN
-    m_dxgiCapture = std::make_unique<DxgiCapture>();
-    if ( m_dxgiCapture->initialize() ) {
-        m_dxgiAvailable = true;
-        m_dxgiReinitAttempts = 0;
-        qCInfo(lcServerCapture) << "DXGI Desktop Duplication initialized, desktop:"
-            << m_dxgiCapture->desktopSize();
-    } else {
-        m_dxgiAvailable = false;
-        qCWarning(lcServerCapture) << "DXGI initialization failed:"
-            << m_dxgiCapture->lastError()
+    // 通过工厂函数创建硬件加速捕获引擎
+    m_screenCapture = createScreenCapture();
+    if ( m_screenCapture && m_screenCapture->initialize() ) {
+        m_hardwareCaptureAvailable = true;
+        m_captureReinitAttempts = 0;
+        qCInfo(lcServerCapture) << "Hardware capture initialized, desktop:"
+            << m_screenCapture->desktopSize();
+    } else if ( m_screenCapture ) {
+        m_screenCapture.reset();
+        m_hardwareCaptureAvailable = false;
+        qCWarning(lcServerCapture) << "Hardware capture initialization failed"
             << "— falling back to QScreen::grabWindow()";
+    } else {
+        m_hardwareCaptureAvailable = false;
+        qCInfo(lcServerCapture) << "No hardware capture available, using GDI fallback";
     }
-#endif
 
     qCInfo(lcServerCapture) << "ScreenCaptureWorker 初始化成功";
     return true;
@@ -104,20 +105,18 @@ bool ScreenCaptureWorker::initialize() {
 
 void ScreenCaptureWorker::cleanup() {
     // 防重复清理：Worker::doStop() 和 Worker::stop() 的 force-stop QTimer
-    // 可能竞相调用 cleanup()，导致 m_dxgiCapture->shutdown() 在已释放的
-    // COM 对象上崩溃 (0xC0000005)。
+    // 可能竞相调用 cleanup()，导致 m_screenCapture->shutdown() 在已释放的
+    // 资源上崩溃。
     if (m_cleanedUp.exchange(true)) {
         qCDebug(lcServerCapture) << "ScreenCaptureWorker 已清理，跳过";
         return;
     }
     qCInfo(lcServerCapture) << "清理 ScreenCaptureWorker 资源";
-#ifdef Q_OS_WIN
-    if ( m_dxgiCapture ) {
-        m_dxgiCapture->shutdown();
-        m_dxgiCapture.reset();
-        m_dxgiAvailable = false;
+    if ( m_screenCapture ) {
+        m_screenCapture->shutdown();
+        m_screenCapture.reset();
     }
-#endif
+    m_hardwareCaptureAvailable = false;
     // 停止捕获定时器并断开，避免析构后回调
     if ( m_captureTimer ) {
         if ( m_captureTimer->isActive() ) {
@@ -245,28 +244,27 @@ void ScreenCaptureWorker::performCapture() {
         QImage capturedImage;
         CursorMessage cursorMsg;
 
-        // DXGI fast path — captures frame + cursor in one call
-#ifdef Q_OS_WIN
-        if ( m_dxgiAvailable && m_dxgiCapture ) {
-            CaptureResult result = m_dxgiCapture->captureFrame(5);
+        // 硬件加速快速路径 — 单次调用同时捕获帧和光标
+        if ( m_hardwareCaptureAvailable && m_screenCapture ) {
+            CaptureResult result = m_screenCapture->captureFrame(5);
 
             // 光标独立于帧：屏幕静止时 captureFrame 也返回光标（回退路径）
             if ( result.cursor.width > 0 ) {
                 cursorMsg = std::move(result.cursor);
             }
             if ( !result.frame.isNull() ) {
-                m_dxgiReinitAttempts = 0;
+                m_captureReinitAttempts = 0;
                 capturedImage = std::move(result.frame);
-            } else if ( !m_dxgiCapture->isInitialized() ) {
-                // DXGI access-lost — attempt reinit
-                qCWarning(lcServerCapture) << "DXGI access lost, attempting reinitialize"
-                    << "(attempt" << (m_dxgiReinitAttempts + 1) << "/" << CaptureConstants::MaxDxgiReinitAttempts << ")";
-                ++m_dxgiReinitAttempts;
-                if ( m_dxgiReinitAttempts <= CaptureConstants::MaxDxgiReinitAttempts ) {
-                    if ( m_dxgiCapture->reinitialize() ) {
-                        m_dxgiReinitAttempts = 0;
-                        qCInfo(lcServerCapture) << "DXGI reinitialized successfully";
-                        CaptureResult retryResult = m_dxgiCapture->captureFrame(5);
+            } else if ( !m_screenCapture->isInitialized() ) {
+                // 硬件捕获 access-lost — 尝试重新初始化
+                qCWarning(lcServerCapture) << "Capture access lost, attempting reinitialize"
+                    << "(attempt" << (m_captureReinitAttempts + 1) << "/" << CaptureConstants::MaxDxgiReinitAttempts << ")";
+                ++m_captureReinitAttempts;
+                if ( m_captureReinitAttempts <= CaptureConstants::MaxDxgiReinitAttempts ) {
+                    if ( m_screenCapture->reinitialize() ) {
+                        m_captureReinitAttempts = 0;
+                        qCInfo(lcServerCapture) << "Capture reinitialized successfully";
+                        CaptureResult retryResult = m_screenCapture->captureFrame(5);
                         if ( !retryResult.frame.isNull() ) {
                             capturedImage = std::move(retryResult.frame);
                             if ( retryResult.cursor.width > 0 ) {
@@ -275,20 +273,17 @@ void ScreenCaptureWorker::performCapture() {
                         }
                     }
                 } else {
-                    qCCritical(lcServerCapture) << "DXGI reinit attempts exhausted, falling back";
-                    m_dxgiAvailable = false;
+                    qCCritical(lcServerCapture) << "Capture reinit attempts exhausted, falling back";
+                    m_hardwareCaptureAvailable = false;
                 }
             }
-            // else: DXGI healthy but timeout — capturedImage stays null, skip GDI fallback
+            // else: 捕获引擎正常但超时 — capturedImage 保持 null，跳过 GDI 回退
         }
-#endif
 
-        // Fallback to GDI if DXGI didn't produce a frame
+        // 硬件加速未生成帧时回退到 GDI
         if ( capturedImage.isNull() ) {
-#ifdef Q_OS_WIN
-            // Only fallback when DXGI is genuinely unavailable, not just timeout
-            if ( !m_dxgiAvailable || !m_dxgiCapture || !m_dxgiCapture->isInitialized() )
-#endif
+            // 仅当硬件加速确实不可用时回退，超时不触发
+            if ( !m_hardwareCaptureAvailable || !m_screenCapture || !m_screenCapture->isInitialized() )
             {
                 capturedImage = captureScreen();
             }
@@ -310,11 +305,9 @@ void ScreenCaptureWorker::performCapture() {
             emit cursorUpdateReady(std::move(cursorMsg));
         }
         if ( capturedImage.isNull() ) {
-            // DXGI 超时（桌面无变化）是正常情况，不是错误。
-            // 仅当 DXGI 不可用或已失效时才记录错误。
-#ifdef Q_OS_WIN
-            if ( !m_dxgiAvailable || !m_dxgiCapture || !m_dxgiCapture->isInitialized() )
-#endif
+            // 硬件加速超时（桌面无变化）是正常情况，不是错误。
+            // 仅当硬件加速不可用或已失效时才记录错误。
+            if ( !m_hardwareCaptureAvailable || !m_screenCapture || !m_screenCapture->isInitialized() )
             {
                 handleCaptureError("捕获的图像为空");
             }
@@ -352,8 +345,7 @@ void ScreenCaptureWorker::performCapture() {
 }
 
 void ScreenCaptureWorker::sampleCursorPosition() {
-#ifdef Q_OS_WIN
-    if (!m_dxgiAvailable || !m_dxgiCapture) {
+    if (!m_hardwareCaptureAvailable || !m_screenCapture) {
         return;
     }
     auto now = std::chrono::steady_clock::now();
@@ -364,7 +356,7 @@ void ScreenCaptureWorker::sampleCursorPosition() {
     }
     m_lastCursorSampleTime = now;
 
-    CursorMessage cursor = m_dxgiCapture->sampleCursorPosition();
+    CursorMessage cursor = m_screenCapture->sampleCursorPosition();
     if (cursor.width > 0) {
         static int s_fastSampleCount = 0;
         ++s_fastSampleCount;
@@ -373,7 +365,6 @@ void ScreenCaptureWorker::sampleCursorPosition() {
                 << s_fastSampleCount << "pos:" << cursor.posX << "," << cursor.posY;
         emit cursorUpdateReady(std::move(cursor));
     }
-#endif
 }
 
 QImage ScreenCaptureWorker::captureScreen() {
