@@ -90,10 +90,11 @@ bool ScreenCaptureWorker::initialize() {
         qCInfo(lcServerCapture) << "Hardware capture initialized, desktop:"
             << m_screenCapture->desktopSize();
     } else if ( m_screenCapture ) {
+        const QString reason = m_screenCapture->lastError();
         m_screenCapture.reset();
         m_hardwareCaptureAvailable = false;
-        qCWarning(lcServerCapture) << "Hardware capture initialization failed"
-            << "— falling back to QScreen::grabWindow()";
+        qCWarning(lcServerCapture) << "Hardware capture initialization failed:"
+            << reason << "— falling back to QScreen::grabWindow()";
     } else {
         m_hardwareCaptureAvailable = false;
         qCInfo(lcServerCapture) << "No hardware capture available, using GDI fallback";
