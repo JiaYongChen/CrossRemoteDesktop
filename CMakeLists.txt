@@ -46,6 +46,9 @@ include(cmake/SetupLibJpegTurbo.cmake)  # → LibJpegTurbo::turbojpeg
 include(cmake/SetupQt6.cmake)           # → Qt6::*, QT6_ROOT_DIR
 include(cmake/FilterAppleOpenGL.cmake)  # → rd_filter_apple_opengl()
 include(cmake/SetupNvJpeg.cmake)        # → rd_setup_nvjpeg(), Cuda::cudart, Cuda::nvjpeg
+include(cmake/SetupPipeWire.cmake)      # → PkgConfig::PIPEWIRE, HAS_PIPEWIRE (Linux)
+include(cmake/SetupVideoToolbox.cmake)  # → AVFoundation, VideoToolbox, HAS_SCREEN_CAPTURE_KIT, HAS_VIDEOTOOLBOX (macOS)
+include(cmake/SetupVaApi.cmake)         # → PkgConfig::LIBVA, PkgConfig::LIBVA_DRM, HAS_VAAPI (Linux)
 include(cmake/DeployWindowsDlls.cmake)  # → rd_deploy_windows_runtime()
 
 rd_setup_nvjpeg()
