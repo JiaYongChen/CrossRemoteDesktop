@@ -1,5 +1,19 @@
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "name": "safety-guard",
+            "command": "& (Join-Path (git rev-parse --show-toplevel) 'scripts\\safety-guard.ps1')",
+            "shell": "powershell",
+            "statusMessage": "安全检查: 自动判断命令风险..."
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Bash|PowerShell",
@@ -7,7 +21,7 @@
           {
             "type": "command",
             "name": "cwd-guard",
-            "command": "./scripts/cwd-guard.ps1",
+            "command": "$r=git rev-parse --show-toplevel 2>$null; if ($LASTEXITCODE -eq 0) { & (Join-Path $r 'scripts\\cwd-guard.ps1') }",
             "shell": "powershell",
             "statusMessage": "cwd-root-guard: 检查工作目录是否偏离项目根目录"
           }
