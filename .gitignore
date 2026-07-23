@@ -45,3 +45,4 @@ REQUIREMENTS.md
 scripts/*
 !scripts/setup-symlinks.*
 !scripts/cwd-guard.ps1
+!scripts/safety-guard.ps1
