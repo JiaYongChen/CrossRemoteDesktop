@@ -19,7 +19,6 @@ chmod +x .claude/scripts/setup-symlinks.sh && ./.claude/scripts/setup-symlinks.s
 上述脚本将 Claude 的本地记忆路径通过 symlink 重定向到此目录。
 
 Hooks 配置在 `.claude/settings.json` 的 `hooks` 键中。
-项目自定义 Skills 存放在 `.claude/skills/`。
 
 ## 构建命令
 
