@@ -2,10 +2,11 @@
 # PreToolUse hook for Bash|PowerShell
 $ErrorActionPreference = "Stop"
 
-$rawInput = [Console]::In.ReadToEnd()
-if (-not $rawInput) {
+# 使用 $input 自动变量读取管道数据（hook 框架通过 stdin 管道传入 JSON）
+$rawInput = $input | Out-String
+if (-not $rawInput -or $rawInput.Trim().Length -eq 0) {
     # 无输入，不做决策
-    return
+    exit 0
 }
 
 try {
