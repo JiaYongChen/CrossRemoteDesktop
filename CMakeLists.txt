@@ -133,12 +133,11 @@ target_link_libraries(CrossRemoteDesktop PRIVATE
     LibJpegTurbo::turbojpeg
 )
 
-# ── CUDA + nvJPEG（编译时直接链接，运行时 DLL 必须存在）──
-if(CUDA_AVAILABLE AND NVJPEG_AVAILABLE)
+# ── CUDA + nvJPEG（Windows 专用，编译时直接链接，运行时 DLL 必须存在）──
+if(WIN32)
     target_link_libraries(CrossRemoteDesktop PRIVATE
         Cuda::cudart Cuda::nvjpeg)
-    target_compile_definitions(CrossRemoteDesktop PRIVATE HAS_NVJPEG)
-    message(STATUS "[CUDA] Linked — GPU decode available")
+    message(STATUS "[CUDA] Linked — nvJPEG GPU decode support compiled")
 endif()
 
 # ── Windows: D3D11 + DXGI + 子系统 + DLL 部署 ──

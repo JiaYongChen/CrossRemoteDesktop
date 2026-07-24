@@ -5,7 +5,7 @@
 #include <QtGui/QOpenGLExtraFunctions>
 #include <QtCore/QThread>
 #include "../decode/TurboJpegDecoder.h"
-#ifdef HAS_NVJPEG
+#ifdef Q_OS_WIN
 #include "../decode/windows/NvJpegDecoder.h"
 #endif
 #ifdef HAS_VIDEOTOOLBOX
@@ -59,7 +59,7 @@ void DecodeWorker::start() {
     m_running.store(true);
 
     // 优先级链: nvJPEG → VideoToolbox → VA-API → TurboJpeg (CPU)
-#ifdef HAS_NVJPEG
+#ifdef Q_OS_WIN
     auto nv = std::make_unique<NvJpegDecoder>();
     if (nv->isAvailable()) {
         m_decoder = std::move(nv);

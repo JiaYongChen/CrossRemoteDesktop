@@ -3,8 +3,7 @@
 # nvJPEG + CUDA Runtime — 统一从 third_party/nvjpeg/ 预编译缓存读取（已提交 git）
 # 缓存缺失时 FATAL_ERROR —— 开发者应通过 CUDA Toolkit 获取后缓存到 third_party/nvjpeg/
 #
-# 输出: Cuda::cudart, Cuda::nvjpeg (imported, per-config)
-#        CUDA_AVAILABLE, NVJPEG_AVAILABLE, NVJPEG_TP_BIN
+# 输出: Cuda::cudart, Cuda::nvjpeg (imported, per-config), NVJPEG_TP_BIN
 # ──────────────────────────────────────────────────────────────────────────────
 
 include_guard(GLOBAL)
@@ -72,8 +71,6 @@ function(rd_setup_nvjpeg)
     # ══════════════════════════════════════════════════════════════════════════
     message(STATUS "[nvJPEG] Using ${_TP}")
 
-    set(CUDA_AVAILABLE TRUE PARENT_SCOPE)
-    set(NVJPEG_AVAILABLE TRUE PARENT_SCOPE)
     set(NVJPEG_TP_BIN "${_BIN}" PARENT_SCOPE)
 
     if(NOT TARGET Cuda::cudart)

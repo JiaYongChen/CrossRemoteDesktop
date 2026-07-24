@@ -221,6 +221,7 @@ add_rd_test(TARGET test_clientremotewindow  NAME ClientRemoteWindowTest
         ../src/client/session/DecodePipeline.cpp
         ../src/client/managers/DecodeWorker.cpp
         ../src/client/decode/TurboJpegDecoder.cpp
+        ../src/client/decode/windows/NvJpegDecoder.cpp
         ../src/client/window/GLTextureViewport.cpp
         ../src/client/decode/GpuDecodeTarget.cpp
 
@@ -230,7 +231,7 @@ add_rd_test(TARGET test_clientremotewindow  NAME ClientRemoteWindowTest
         ../src/common/network/MessageCodec.cpp
         ../src/common/clipboard/ClipboardManager.cpp
         ../src/client/window/FloatingRemoteToolbar.cpp
-    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network Qt6::OpenGL Qt6::OpenGLWidgets OpenSSL::SSL OpenSSL::Crypto common_test_core LibJpegTurbo::turbojpeg
+    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network Qt6::OpenGL Qt6::OpenGLWidgets OpenSSL::SSL OpenSSL::Crypto common_test_core LibJpegTurbo::turbojpeg $<$<BOOL:${WIN32}>:Cuda::cudart> $<$<BOOL:${WIN32}>:Cuda::nvjpeg>
     TIMEOUT 30  LABELS unit client window)
 
 # unit / server worker
@@ -310,6 +311,7 @@ add_rd_test(TARGET test_protocolsession  NAME ProtocolSessionTest
         ../src/client/session/DecodePipeline.cpp
         ../src/client/managers/DecodeWorker.cpp
         ../src/client/decode/TurboJpegDecoder.cpp
+        ../src/client/decode/windows/NvJpegDecoder.cpp
         ../src/client/window/GLTextureViewport.cpp
         ../src/client/decode/GpuDecodeTarget.cpp
         ../src/client/window/CursorManager.cpp
@@ -317,14 +319,19 @@ add_rd_test(TARGET test_protocolsession  NAME ProtocolSessionTest
         ../src/client/network/TcpClient.cpp
         ../src/common/network/ProtocolImpl.cpp
         ../src/common/network/MessageCodec.cpp
-    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network Qt6::OpenGL Qt6::OpenGLWidgets common_test_core OpenSSL::SSL OpenSSL::Crypto LibJpegTurbo::turbojpeg
+    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network Qt6::OpenGL Qt6::OpenGLWidgets common_test_core OpenSSL::SSL OpenSSL::Crypto LibJpegTurbo::turbojpeg $<$<BOOL:${WIN32}>:Cuda::cudart> $<$<BOOL:${WIN32}>:Cuda::nvjpeg>
     TIMEOUT 30  LABELS unit client session)
 
-# unit / nvJPEG decoder
+# unit / nvJPEG decoder（仅 Windows — 依赖 CUDA SDK）
+if(WIN32)
 add_rd_test(TARGET test_nvjpegdecoder  NAME NvJpegDecoderTest
     SOURCES client/decode/test_nvjpegdecoder.cpp
-    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui common_test_core
+    EXTRA_SOURCES
+        ../src/client/decode/windows/NvJpegDecoder.cpp
+        ../src/client/decode/TurboJpegDecoder.cpp
+    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui common_test_core Cuda::cudart Cuda::nvjpeg LibJpegTurbo::turbojpeg
     TIMEOUT 30  LABELS unit client decode)
+endif()
 
 # smoke / network components
 add_rd_test(TARGET test_smoke_network  NAME SmokeNetworkTest

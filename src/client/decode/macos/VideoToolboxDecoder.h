@@ -1,11 +1,10 @@
 // VideoToolboxDecoder.h — macOS GPU JPEG 解码器
 #pragma once
 
-#ifdef Q_OS_MACOS
-
 #include "../IDecoder.h"
 #include <memory>
 
+#ifdef Q_OS_MACOS
 /**
  * @brief macOS VideoToolbox + CoreGraphics GPU JPEG 解码器
  *

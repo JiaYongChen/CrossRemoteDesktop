@@ -3,7 +3,7 @@
 #include "../IDecoder.h"
 #include <memory>
 
-#ifdef HAS_NVJPEG
+#ifdef Q_OS_WIN
 #include <cuda_runtime_api.h>
 #include <nvjpeg.h>
 
@@ -70,18 +70,4 @@ private:
     std::unique_ptr<TurboJpegDecoder> m_fallbackDecoder;  ///< GPU 失败时惰性回退
 };
 
-#else // !HAS_NVJPEG
-
-// stub 实现：无 CUDA SDK 时编译通过，所有方法返回 false
-class NvJpegDecoder : public IDecoder {
-public:
-    NvJpegDecoder() = default;
-    ~NvJpegDecoder() override = default;
-
-    [[nodiscard]] bool isAvailable() const { return false; }
-    [[nodiscard]] bool decode(const QByteArray&, int*, int*,
-                               GLsync*, QImage* = nullptr) override { return false; }
-    [[nodiscard]] const char* name() const override { return "nvJPEG"; }
-};
-
-#endif // HAS_NVJPEG
+#endif // Q_OS_WIN

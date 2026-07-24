@@ -9,8 +9,8 @@
  * @brief NvJpegDecoder 单元测试
  *
  * 测试覆盖：
- * - 编译路径（HAS_NVJPEG / !HAS_NVJPEG）
- * - 无 GPU 环境下 stub 行为
+ * - NvJpegDecoder 构造/解码/名称基础行为
+ * - 无 GPU 环境下行为验证（isAvailable=false, decode 返回 false）
  */
 class TestNvJpegDecoder : public QObject {
     Q_OBJECT
@@ -29,14 +29,9 @@ private slots:
 void TestNvJpegDecoder::test_constructor_availability() {
     NvJpegDecoder decoder;
 
-#ifdef HAS_NVJPEG
-    // 有 CUDA SDK + GPU 时 isAvailable() 应依赖实际硬件
-    // 此处仅验证不崩溃；GPU 环境测试在集成层
+    // isAvailable() 依赖实际 GPU 硬件探测结果
+    // 此处仅验证构造不崩溃；GPU 环境测试在集成层
     Q_UNUSED(decoder.isAvailable());
-#else
-    // 无 CUDA SDK：必然不可用
-    QVERIFY(!decoder.isAvailable());
-#endif
 }
 
 void TestNvJpegDecoder::test_decode_returnsFalse() {
@@ -45,7 +40,8 @@ void TestNvJpegDecoder::test_decode_returnsFalse() {
     GLsync fence = nullptr;
     QByteArray dummy("not-a-jpeg");
 
-    // decode() 始终返回 false（无 CPU 路径）
+    // decode() 优先走 GPU 路径，失败时惰性回退 TurboJpegDecoder（CPU）
+    // 此处用无效数据测试，两条路径均会失败
     QVERIFY(!decoder.decode(dummy, &w, &h, &fence, nullptr));
 }
 

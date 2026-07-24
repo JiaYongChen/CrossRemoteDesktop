@@ -1,7 +1,7 @@
 // VaApiDecoder.cpp — Linux VA-API GPU JPEG 解码器实现
-#ifdef Q_OS_LINUX
-
 #include "VaApiDecoder.h"
+
+#ifdef Q_OS_LINUX
 #include "../IDecodeTarget.h"
 #include "../../../common/logging/LoggingCategories.h"
 #include <va/va.h>

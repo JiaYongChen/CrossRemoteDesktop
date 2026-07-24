@@ -2,7 +2,7 @@
 #include "../../../common/logging/LoggingCategories.h"
 #include "../../../common/config/GuiConstants.h"
 
-#ifdef HAS_NVJPEG
+#ifdef Q_OS_WIN
 #include "../TurboJpegDecoder.h"
 #include "../IDecodeTarget.h"
 
@@ -281,11 +281,5 @@ bool NvJpegDecoder::decodeGpu(const QByteArray& jpegData,
     return true;
 }
 
-#else // !HAS_NVJPEG
+#endif // Q_OS_WIN
 
-// ── stub 实现（无 CUDA SDK 时编译通过）────────────────────────────────────────
-
-bool NvJpegDecoder::decode(const QByteArray&, int*, int*,
-                           GLsync*, QImage*) { return false; }
-
-#endif // HAS_NVJPEG

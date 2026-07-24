@@ -34,9 +34,9 @@ metadata:
 
 ## 具体示例
 
-**反面（当前 `HAS_NVJPEG`）**：
+**反面（已移除的 `HAS_NVJPEG`）**：
 ```cpp
-#ifdef HAS_NVJPEG
+#ifdef HAS_NVJPEG  // 实际 ≡ Q_OS_WIN，增加无意义间接层
     auto nv = std::make_unique<NvJpegDecoder>();  // 冗余：运行时 isAvailable() 已足够
 #endif
 ```
@@ -49,5 +49,8 @@ if (nv->isAvailable()) { m_decoder = std::move(nv); }
 
 ## 参考资料
 
-- `HAS_OPENCL`：同样模式的宏，后续评估是否也需移除
+## 更新历史
+
+- **2026-07-24**：`HAS_NVJPEG` 已从代码库移除，替换为 `Q_OS_WIN`；`NvJpegDecoder.h/cpp` 中的 stub 段也已一并删除。（`HAS_NVJPEG ≡ WIN32`，无独立语义价值。）
+- **2026-06-25**（commit `50f9536`）：`HAS_OPENCL` 已从代码库移除，OpenCL 解码整套（源码、`third_party/opencl/`、测试）全部删除。
 - `third_party/` 预缓存目录：所有平台的预编译文件均在此处统一管理

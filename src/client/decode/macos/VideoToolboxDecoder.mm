@@ -1,7 +1,7 @@
 // VideoToolboxDecoder.mm — macOS GPU JPEG 解码器实现
-#ifdef Q_OS_MACOS
-
 #include "VideoToolboxDecoder.h"
+
+#ifdef Q_OS_MACOS
 #include "../IDecodeTarget.h"
 #import <VideoToolbox/VideoToolbox.h>
 #import <CoreVideo/CoreVideo.h>
