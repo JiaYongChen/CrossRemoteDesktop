@@ -1,6 +1,6 @@
 @echo off
 :: setup-symlinks.bat
-:: 在新设备上建立 Claude Code 所需的 symlink，使 memory/ 跟随 git 仓库跨设备同步
+:: 在新设备上建立 Claude Code 所需的 symlink，使项目记忆跟随 git 仓库跨设备同步
 :: 用法：在项目根目录运行此脚本
 
 setlocal enabledelayedexpansion
@@ -15,7 +15,7 @@ echo   Project: %PROJECT_DIR%
 echo ========================================
 
 :: ===========================================================================
-:: 1. Memory symlink: ~\.claude\projects\<slug>\memory → <project>\memory
+:: 1. Memory symlink: ~\.claude\projects\<slug>\memory → <project>\.claude\memory
 :: Slug derivation: replace \ → - and : → -, e.g. D:\AICode\Project → D--AICode-Project
 :: ===========================================================================
 set "CLAUDE_PROJECTS=%USERPROFILE%\.claude\projects"
@@ -43,9 +43,9 @@ for /d %%d in ("%CLAUDE_PROJECTS%\%SLUG%") do (
             )
         ) else (
             :create_memory_junction
-            mklink /J "!MEMORY_LINK!" "%PROJECT_DIR%\memory" >nul 2>&1
+            mklink /J "!MEMORY_LINK!" "%PROJECT_DIR%\.claude\memory" >nul 2>&1
             if !errorlevel! equ 0 (
-                echo [memory] [OK] Junction created: !MEMORY_LINK! -^> %PROJECT_DIR%\memory
+                echo [memory] [OK] Junction created: !MEMORY_LINK! -^> %PROJECT_DIR%\.claude\memory
             ) else (
                 echo [memory] [FAIL] Could not create junction.
             )
@@ -58,30 +58,6 @@ if "%FOUND%"=="0" (
     echo        Run Claude Code in this project at least once first.
 )
 
-:: ===========================================================================
-:: 2. Skills symlink: .claude\skills → ..\skills
-:: ===========================================================================
-set "LINK=%PROJECT_DIR%\.claude\skills"
-set "TARGET=%PROJECT_DIR%\skills"
-
-echo.
-if exist "%LINK%" (
-    dir /al "%LINK%" >nul 2>&1
-    if !errorlevel! equ 0 (
-        echo [skills] Symlink already exists, skipping.
-    ) else (
-        echo [skills] Existing directory found (not a symlink), skipping.
-    )
-) else (
-    mklink /J "%LINK%" "%TARGET%" >nul 2>&1
-    if !errorlevel! equ 0 (
-        echo [skills] [OK] Junction created: .claude\skills -^> skills\
-    ) else (
-        echo [skills] [FAIL] Could not create junction.
-    )
-)
-
-echo.
 echo ========================================
 echo   Setup complete.
 echo ========================================

@@ -9,17 +9,17 @@
 ```bash
 # 建立 memory symlink（使项目记忆跟随 git 跨设备同步）
 # Windows:
-scripts\setup-symlinks.bat
+.claude\scripts\setup-symlinks.bat
 
 # macOS / Linux:
-chmod +x scripts/setup-symlinks.sh && ./scripts/setup-symlinks.sh
+chmod +x .claude/scripts/setup-symlinks.sh && ./.claude/scripts/setup-symlinks.sh
 ```
 
-项目记忆（编码规范、反馈、工作流）存放在 `memory/`（已提交 git）。
+项目记忆（编码规范、反馈、工作流）存放在 `.claude/memory/`（已提交 git）。
 上述脚本将 Claude 的本地记忆路径通过 symlink 重定向到此目录。
 
 Hooks 配置在 `.claude/settings.json` 的 `hooks` 键中。
-项目自定义 Skills 存放在 `skills/`，通过 `.claude/skills/` symlink 连接到该目录。
+项目自定义 Skills 存放在 `.claude/skills/`。
 
 ## 构建命令
 

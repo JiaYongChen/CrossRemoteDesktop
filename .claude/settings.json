@@ -7,7 +7,7 @@
           {
             "type": "command",
             "name": "safety-guard",
-            "command": "$r=git rev-parse --show-toplevel 2>$null; if ($LASTEXITCODE -eq 0) { & (Join-Path $r 'scripts\\safety-guard.ps1') }",
+            "command": "$r=git rev-parse --show-toplevel 2>$null; if ($LASTEXITCODE -eq 0) { & (Join-Path $r '.claude\\scripts\\safety-guard.ps1') }",
             "shell": "powershell",
             "statusMessage": "安全检查: 自动判断命令风险..."
           }
@@ -21,7 +21,7 @@
           {
             "type": "command",
             "name": "cwd-guard",
-            "command": "$r=git rev-parse --show-toplevel 2>$null; if ($LASTEXITCODE -eq 0) { & (Join-Path $r 'scripts\\cwd-guard.ps1') }",
+            "command": "$r=git rev-parse --show-toplevel 2>$null; if ($LASTEXITCODE -eq 0) { & (Join-Path $r '.claude\\scripts\\cwd-guard.ps1') }",
             "shell": "powershell",
             "statusMessage": "cwd-root-guard: 检查工作目录是否偏离项目根目录"
           }

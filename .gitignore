@@ -37,12 +37,3 @@ logs/
 #files
 REQUIREMENTS.md
 
-#claude
-.claude/*
-!.claude/.gitignore
-!.claude/settings.json
-
-scripts/*
-!scripts/setup-symlinks.*
-!scripts/cwd-guard.ps1
-!scripts/safety-guard.ps1
