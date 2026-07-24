@@ -1,21 +1,22 @@
 #include "ClientRemoteWindow.h"
-#include "InputForwarder.h"
-#include "ConnectionLifecycle.h"
-#include "FloatingRemoteToolbar.h"
-#include "../session/ProtocolSession.h"
-#include "CursorManager.h"
-#include "../../common/clipboard/ClipboardManager.h"
 
-#include <QtGui/QCursor>
-#include "GLTextureViewport.h"
-#include <QtGui/QResizeEvent>
 #include <QtGui/QCloseEvent>
+#include <QtGui/QCursor>
 #include <QtGui/QEnterEvent>
-#include <QtWidgets/QLabel>
-#include <QtWidgets/QHBoxLayout>
 #include <QtGui/QIcon>
+#include <QtGui/QResizeEvent>
 #include <QtGui/QScreen>
-#include "../../common/logging/LoggingCategories.h"
+#include <QtWidgets/QHBoxLayout>
+#include <QtWidgets/QLabel>
+
+#include "client/session/ProtocolSession.h"
+#include "client/window/ConnectionLifecycle.h"
+#include "client/window/CursorManager.h"
+#include "client/window/FloatingRemoteToolbar.h"
+#include "client/window/GLTextureViewport.h"
+#include "client/window/InputForwarder.h"
+#include "common/clipboard/ClipboardManager.h"
+#include "common/logging/LoggingCategories.h"
 
 
 ClientRemoteWindow::ClientRemoteWindow(ProtocolSession* protocolSession, QWidget* parent)

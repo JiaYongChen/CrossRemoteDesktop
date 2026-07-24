@@ -3,14 +3,12 @@
 #include <atomic>
 
 #include <QtCore/QList>
+#include <QtCore/QString>
 #include <QtGui/QAction>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QSystemTrayIcon>
-
-#include "common/data/ConnectionParams.h"
-#include "error/RdError.h"
 
 class QCloseEvent;
 
@@ -29,6 +27,7 @@ class ServerService;
 class SettingsDialog;
 class SettingsManager;
 class ThreadManager;
+struct ConnectionParams;
 
 class MainWindow : public QMainWindow
 {

@@ -1,10 +1,11 @@
-#include "MouseSimulatorMacOS.h"
+#include "server/simulator/macos/MouseSimulatorMacOS.h"
 
 #ifdef Q_OS_MACOS
 
-#include <QGuiApplication>
-#include <QScreen>
-#include "../../../common/logging/LoggingCategories.h"
+#include <QtGui/QGuiApplication>
+#include <QtGui/QScreen>
+
+#include "common/logging/LoggingCategories.h"
 
 
 MouseSimulatorMacOS::MouseSimulatorMacOS() : MouseSimulator() {

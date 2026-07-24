@@ -1,11 +1,12 @@
 #pragma once
 
-#include <QImage>
-#include <QSize>
-#include <QString>
+#include <QtCore/QSize>
+#include <QtCore/QString>
+#include <QtGui/QImage>
+
 #include <memory>
 
-#include "../../common/network/Protocol.h"  // CursorMessage
+#include "common/network/Protocol.h"
 
 /**
  * @brief Result of a single capture operation.

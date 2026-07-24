@@ -1,14 +1,14 @@
 #pragma once
 
-#include "../../common/config/GuiConstants.h"
-#include "IDecodeTarget.h"
-#include <QtOpenGL/QOpenGLBuffer>
-#include <QtGui/QOpenGLFunctions>
-#include <QtGui/QOffscreenSurface>
-#include <QtCore/QSize>
 #include <atomic>
 
-class QOpenGLContext;
+#include <QtGui/QOffscreenSurface>
+#include <QtGui/QOpenGLContext>
+#include <QtGui/QOpenGLFunctions>
+#include <QtOpenGL/QOpenGLBuffer>
+
+#include "common/config/GuiConstants.h"
+#include "IDecodeTarget.h"
 
 /**
  * @brief IDecodeTarget 的 OpenGL 实现

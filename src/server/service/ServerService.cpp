@@ -1,12 +1,18 @@
 // src/server/service/ServerService.cpp
-#include "ServerService.h"
-#include "../listener/TcpListener.h"
-#include "../capture/CapturePipeline.h"
-#include "../session/ServerSession.h"
-#include "../../common/threading/ThreadManager.h"
-#include "../dataflow/QueueManager.h"
-#include "../../common/logging/LoggingCategories.h"
+#include "server/service/ServerService.h"
+
 #include <QtCore/QTimer>
+
+#include "common/clipboard/ClipboardManager.h"
+#include "common/error/ErrorCode.h"
+#include "common/error/RdError.h"
+#include "common/logging/LoggingCategories.h"
+#include "common/network/Protocol.h"
+#include "common/threading/ThreadManager.h"
+#include "server/capture/CapturePipeline.h"
+#include "server/dataflow/QueueManager.h"
+#include "server/listener/TcpListener.h"
+#include "server/session/ServerSession.h"
 
 ServerService::ServerService(ThreadManager *threadManager,
                              QueueManager *queueManager,

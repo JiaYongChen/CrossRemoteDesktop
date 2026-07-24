@@ -1,19 +1,18 @@
 #pragma once
 
-#include "../IScreenCapture.h"
+#include "server/capture/IScreenCapture.h"
 
 #ifdef _WIN32
 
-#include <QtGui/QImage>
 #include <QtCore/QSize>
-#include <QtCore/QRect>
 #include <QtCore/QString>
+#include <QtGui/QImage>
 
 #include <d3d11.h>
 #include <dxgi1_2.h>
 #include <wrl/client.h>  // Microsoft::WRL::ComPtr
 
-#include "../../../common/network/Protocol.h"
+#include "common/network/Protocol.h"
 
 /**
  * @brief DXGI Desktop Duplication capture engine.

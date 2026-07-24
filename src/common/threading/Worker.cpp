@@ -1,10 +1,13 @@
 #include "Worker.h"
-#include "../logging/LoggingCategories.h"
-#include <QtCore/QThread>
-#include <QtCore/QMutexLocker>
-#include <QtCore/QTimer>
+
 #include <QtCore/QCoreApplication>
+#include <QtCore/QMutexLocker>
 #include <QtCore/QPointer>
+#include <QtCore/QThread>
+#include <QtCore/QTimer>
+
+#include "common/error/RdError.h"
+#include "common/logging/LoggingCategories.h"
 
 Worker::Worker(QObject* parent)
     : QObject(parent)

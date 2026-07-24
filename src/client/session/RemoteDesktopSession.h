@@ -2,13 +2,14 @@
 
 #include <QtCore/QObject>
 #include <QtCore/QString>
-#include "error/RdError.h"
-#include "common/data/ConnectionParams.h"
 
-class ConnectionManager;
-class ProtocolSession;
-class DecodePipeline;
+#include "common/data/ConnectionParams.h"
+#include "common/error/RdError.h"
+
 class ClientRemoteWindow;
+class ConnectionManager;
+class DecodePipeline;
+class ProtocolSession;
 
 /**
  * @brief 远程桌面会话 — 创建并组装一个连接的全部组件，管理完整生命周期

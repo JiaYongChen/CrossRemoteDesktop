@@ -1,10 +1,11 @@
 #include "ConnectionHistory.h"
-#include "common/config/NetworkConstants.h"
-#include "common/crypto/PasswordCrypto.h"
-#include "common/logging/LoggingCategories.h"
 
 #include <QtCore/QJsonObject>
 #include <QtCore/QJsonValue>
+
+#include "common/config/NetworkConstants.h"
+#include "common/crypto/PasswordCrypto.h"
+#include "common/logging/LoggingCategories.h"
 
 namespace {
 /// 加密密码存储前缀："ENC:<密文>"

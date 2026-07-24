@@ -1,8 +1,9 @@
 #pragma once
 
 #include <QtCore/QMutex>
-#include <QtCore/QQueue>
 #include <QtCore/QMutexLocker>
+#include <QtCore/QQueue>
+#include <QtCore/QtGlobal>
 
 /**
  * @brief 线程安全队列模板类（纯非阻塞）

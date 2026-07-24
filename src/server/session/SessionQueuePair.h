@@ -1,9 +1,9 @@
 // src/server/session/SessionQueuePair.h
 #pragma once
 
-#include "../../common/threading/ThreadSafeQueue.h"
-#include "../dataflow/DataFlowStructures.h"
-#include "../../common/config/ProcessingConstants.h"
+#include "common/config/ProcessingConstants.h"
+#include "common/threading/ThreadSafeQueue.h"
+#include "server/dataflow/DataFlowStructures.h"
 
 /**
  * @brief 每 session 私有队列对

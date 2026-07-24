@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../KeyboardSimulator.h"
+#include "server/simulator/KeyboardSimulator.h"
 
 #ifdef Q_OS_MACOS
 #include <CoreGraphics/CoreGraphics.h>

@@ -1,24 +1,22 @@
 #pragma once
 
-#include <QtWidgets/QWidget>
-#include <QtCore/Qt>
 #include <QtCore/QString>
-#include <QtCore/QPoint>
-#include "../network/ConnectionManager.h"
+#include <QtWidgets/QWidget>
 
-// Forward declarations
-class QMouseEvent;
-class QResizeEvent;
+#include "client/network/ConnectionManager.h"
+
+class ClipboardManager;
+class ConnectionLifecycle;
+class CursorManager;
+class FloatingRemoteToolbar;
+class GLTextureViewport;
+class InputForwarder;
+class ProtocolSession;
 class QCloseEvent;
 class QEnterEvent;
 class QEvent;
-class GLTextureViewport;
-class ProtocolSession;
-class CursorManager;
-class ClipboardManager;
-class InputForwarder;
-class ConnectionLifecycle;
-class FloatingRemoteToolbar;
+class QMouseEvent;
+class QResizeEvent;
 
 class ClientRemoteWindow : public QWidget {
     Q_OBJECT

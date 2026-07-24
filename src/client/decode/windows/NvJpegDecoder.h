@@ -1,13 +1,15 @@
 #pragma once
 
-#include "../IDecoder.h"
 #include <memory>
 
+#include "client/decode/IDecoder.h"
+
 #ifdef Q_OS_WIN
-#include <cuda_runtime_api.h>
-#include <nvjpeg.h>
 
 class TurboJpegDecoder;
+
+#include <cuda_runtime_api.h>
+#include <nvjpeg.h>
 
 /**
  * @brief nvJPEG GPU 解码器（Full API）

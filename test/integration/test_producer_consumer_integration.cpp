@@ -17,11 +17,11 @@
 #include <QtGui/QImage>
 #include <memory>
 
-#include "../../src/server/dataprocessing/DataProcessingWorker.h"
-#include "../../src/server/dataflow/QueueManager.h"
-#include "../../src/server/dataflow/DataFlowStructures.h"
-#include "../../src/common/threading/ThreadSafeQueue.h"
-#include "../../src/common/threading/ThreadManager.h"
+#include "server/dataprocessing/DataProcessingWorker.h"
+#include "server/dataflow/QueueManager.h"
+#include "server/dataflow/DataFlowStructures.h"
+#include "common/threading/ThreadSafeQueue.h"
+#include "common/threading/ThreadManager.h"
 
 
 /**

@@ -4,8 +4,9 @@
 #include <QtCore/QTimer>
 #include <memory>
 
-#include "../../src/common/threading/ThreadManager.h"
-#include "../../src/common/threading/Worker.h"
+#include "common/threading/ThreadManager.h"
+#include "common/threading/Worker.h"
+#include "common/error/RdError.h"
 
 /**
  * @brief ThreadManager单元测试类

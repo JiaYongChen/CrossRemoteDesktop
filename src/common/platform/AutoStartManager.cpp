@@ -1,5 +1,4 @@
 #include "AutoStartManager.h"
-#include "common/logging/LoggingCategories.h"
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDir>
@@ -13,6 +12,8 @@
 #elif defined(Q_OS_LINUX)
 #include <QtCore/QTextStream>
 #endif
+
+#include "common/logging/LoggingCategories.h"
 
 // ============================================================
 // 构造 / 基本方法

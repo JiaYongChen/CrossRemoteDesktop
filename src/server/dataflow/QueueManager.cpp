@@ -1,6 +1,8 @@
-#include "QueueManager.h"
-#include "../../common/logging/LoggingCategories.h"
+#include "server/dataflow/QueueManager.h"
+
 #include <QtCore/QMutexLocker>
+
+#include "common/logging/LoggingCategories.h"
 
 
 QueueManager::QueueManager(QObject* parent)

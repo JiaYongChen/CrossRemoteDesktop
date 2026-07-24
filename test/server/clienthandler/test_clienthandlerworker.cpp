@@ -7,7 +7,7 @@
 
 #include <QtTest/QtTest>
 #include <QtTest/QSignalSpy>
-#include "../../src/common/logging/LoggingCategories.h"
+#include "common/logging/LoggingCategories.h"
 
 
 /**

@@ -1,9 +1,10 @@
 #include "TranslationUtils.h"
-#include "config/SettingsManager.h"
-#include "logging/LoggingCategories.h"
 
 #include <QtCore/QTranslator>
 #include <QtWidgets/QApplication>
+
+#include "common/config/SettingsManager.h"
+#include "common/logging/LoggingCategories.h"
 
 // 应用翻译器（app .qm）：由 initTranslation / switchTranslation 管理生命周期
 static QTranslator* s_appTranslator = nullptr;

@@ -2,9 +2,9 @@
 
 #include <QtCore/QObject>
 #include <QtCore/QString>
-#include "../network/ConnectionManager.h"
+#include <QtWidgets/QWidget>
 
-class QWidget;
+#include "client/network/ConnectionManager.h"
 
 /// 连接生命周期管理 — 从 ClientRemoteWindow 分离出的连接状态+标题+断连对话框
 ///

@@ -1,8 +1,8 @@
-#include "KeyboardSimulatorLinux.h"
+#include "server/simulator/linux/KeyboardSimulatorLinux.h"
 
 #ifdef Q_OS_LINUX
 
-#include "../../../common/logging/LoggingCategories.h"
+#include "common/logging/LoggingCategories.h"
 
 
 KeyboardSimulatorLinux::KeyboardSimulatorLinux() : KeyboardSimulator(), m_display(nullptr) {

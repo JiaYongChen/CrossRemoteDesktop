@@ -1,7 +1,6 @@
 #pragma once
 
 #include <QtCore/QRect>
-#include <chrono>
 
 /**
  * @brief 屏幕捕获配置结构体

@@ -1,7 +1,8 @@
-#include "MouseSimulatorWindows.h"
-#include "../../../common/logging/LoggingCategories.h"
+#include "server/simulator/windows/MouseSimulatorWindows.h"
 
 #ifdef Q_OS_WIN
+
+#include "common/logging/LoggingCategories.h"
 
 
 

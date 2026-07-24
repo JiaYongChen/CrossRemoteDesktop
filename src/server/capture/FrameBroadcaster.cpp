@@ -1,11 +1,12 @@
 // src/server/capture/FrameBroadcaster.cpp
-#include "FrameBroadcaster.h"
-#include "../session/ServerSession.h"
-#include "../dataflow/QueueManager.h"
-#include "../dataflow/DataFlowStructures.h"
-#include "../../common/logging/LoggingCategories.h"
+#include "server/capture/FrameBroadcaster.h"
 
 #include <QtCore/QMetaObject>
+
+#include "common/logging/LoggingCategories.h"
+#include "server/dataflow/DataFlowStructures.h"
+#include "server/dataflow/QueueManager.h"
+#include "server/session/ServerSession.h"
 
 FrameBroadcaster::FrameBroadcaster(QueueManager* queueMgr, QObject* parent)
     : QObject(parent)

@@ -2,11 +2,7 @@
 #define NOMINMAX
 #endif
 
-#include "ClientHandlerWorker.h"
-#include "AuthHandler.h"
-#include "../simulator/InputSimulator.h"
-#include "../dataflow/DataFlowStructures.h"
-#include "../capture/ScreenCaptureWorker.h"
+#include "server/clienthandler/ClientHandlerWorker.h"
 
 // 取消Windows SDK定义的事件宏,避免与MessageType冲突
 #ifdef MOUSE_EVENT
@@ -16,28 +12,37 @@
 #undef KEYBOARD_EVENT
 #endif
 
-#include "../../common/network/Protocol.h"
-#include "../../common/config/NetworkConstants.h"
-#include <QtGui/QGuiApplication>
-#include <QtGui/QScreen>
-#include "../../common/config/ProtocolConstants.h"
-#include "../../common/config/ProcessingConstants.h"
-#include "../../common/config/SecurityConstants.h"
-#include "../../common/logging/LoggingCategories.h"
-#include <QtNetwork/QSslSocket>
-#include <QtNetwork/QSslConfiguration>
-#include <QtCore/QTimer>
-#include <QtCore/QThread>
-#include <QtCore/QCoreApplication>
-#include <QtCore/QDateTime>
-#include <QtCore/QDataStream>
+#include <cstring>
+
+#include <QtConcurrent/QtConcurrent>
 #include <QtCore/QBuffer>
+#include <QtCore/QCoreApplication>
 #include <QtCore/QCryptographicHash>
+#include <QtCore/QDataStream>
+#include <QtCore/QDateTime>
 #include <QtCore/QMutex>
 #include <QtCore/QMutexLocker>
 #include <QtCore/QRandomGenerator>
-#include <QtConcurrent/QtConcurrent>
-#include <cstring>
+#include <QtCore/QThread>
+#include <QtCore/QTimer>
+#include <QtGui/QGuiApplication>
+#include <QtGui/QScreen>
+#include <QtNetwork/QSslConfiguration>
+#include <QtNetwork/QSslSocket>
+
+#include "common/config/NetworkConstants.h"
+#include "common/config/ProcessingConstants.h"
+#include "common/config/ProtocolConstants.h"
+#include "common/config/SecurityConstants.h"
+#include "common/error/ErrorCode.h"
+#include "common/error/RdError.h"
+#include "common/logging/LoggingCategories.h"
+#include "common/network/Protocol.h"
+#include "common/threading/ThreadSafeQueue.h"
+#include "server/capture/ScreenCaptureWorker.h"
+#include "server/clienthandler/AuthHandler.h"
+#include "server/dataflow/DataFlowStructures.h"
+#include "server/simulator/InputSimulator.h"
 
 
 ClientHandlerWorker::ClientHandlerWorker(qintptr socketDescriptor,

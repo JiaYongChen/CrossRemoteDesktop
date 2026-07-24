@@ -1,15 +1,15 @@
 #pragma once
 
+#include <QtCore/QMutex>
 #include <QtCore/QObject>
 #include <QtCore/QPoint>
 #include <QtCore/QSize>
 #include <QtCore/QString>
-#include <QtCore/QMutex>
+
 #include <memory>
 
-// 前向声明
-class MouseSimulator;
 class KeyboardSimulator;
+class MouseSimulator;
 
 class InputSimulator : public QObject {
     Q_OBJECT

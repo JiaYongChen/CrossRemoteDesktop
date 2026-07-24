@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QtCore/QtGlobal>
+
 namespace ProtocolConstants {
 
 // ---- 协议标识 ----

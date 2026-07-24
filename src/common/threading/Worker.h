@@ -1,10 +1,13 @@
 #pragma once
 
-#include <QtCore/QObject>
-#include <QtCore/QMutex>
-#include <QtCore/QWaitCondition>
 #include <atomic>
-#include "error/RdError.h"
+
+#include <QtCore/QMutex>
+#include <QtCore/QObject>
+#include <QtCore/QString>
+#include <QtCore/QWaitCondition>
+
+#include "common/error/RdError.h"
 
 /**
  * @brief 工作线程基类

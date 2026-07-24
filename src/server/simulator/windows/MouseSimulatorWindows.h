@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../MouseSimulator.h"
+#include "server/simulator/MouseSimulator.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>

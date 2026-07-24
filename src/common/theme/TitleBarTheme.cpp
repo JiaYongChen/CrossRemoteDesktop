@@ -4,8 +4,8 @@
 //（不能用 Q_OS_WIN，因为它定义在 qsystemdetection.h 中，而该头文件尚未被 include）
 #ifdef _WIN32
 #include <dwmapi.h>
-#include <QWidget>
-#include "logging/LoggingCategories.h"
+#include <QtWidgets/QWidget>
+#include "common/logging/LoggingCategories.h"
 
 #ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
 #define DWMWA_USE_IMMERSIVE_DARK_MODE 20

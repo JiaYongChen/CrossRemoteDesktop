@@ -1,21 +1,20 @@
 #pragma once
 
-#include <QtCore/QObject>
-#include <QtCore/QSize>
-#include <QtGui/QImage>
 #include <atomic>
 #include <chrono>
-#include "../../common/network/Protocol.h"
-#include "error/RdError.h"
-#include "../../common/threading/ThreadSafeQueue.h"
-#include "../core/FrameSlot.h"
-#include "../core/TripleBuffer.h"
-
 #include <memory>
-#include "../decode/IDecoder.h"
 
-#include <QtGui/QOpenGLContext>
+#include <QtCore/QObject>
+#include <QtCore/QSize>
 #include <QtGui/QOffscreenSurface>
+#include <QtGui/QOpenGLContext>
+
+#include "common/network/Protocol.h"
+#include "common/threading/ThreadSafeQueue.h"
+#include "client/core/FrameSlot.h"
+#include "client/core/TripleBuffer.h"
+#include "client/decode/IDecoder.h"
+#include "common/error/RdError.h"
 
 class GLTextureViewport;
 class GpuDecodeTarget;

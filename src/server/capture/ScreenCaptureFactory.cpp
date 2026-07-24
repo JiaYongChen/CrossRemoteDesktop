@@ -1,14 +1,15 @@
-#include "IScreenCapture.h"
-#include <QtGlobal>
+#include "server/capture/IScreenCapture.h"
+
+#include <QtCore/QtGlobal>
 
 #ifdef Q_OS_WIN
-#include "windows/DxgiCapture.h"
+#include "server/capture/windows/DxgiCapture.h"
 #endif
 #ifdef Q_OS_LINUX
-#include "linux/PipeWireCapture.h"
+#include "server/capture/linux/PipeWireCapture.h"
 #endif
 #ifdef Q_OS_MACOS
-#include "macos/AvFoundationCapture.h"
+#include "server/capture/macos/AvFoundationCapture.h"
 #endif
 
 std::unique_ptr<IScreenCapture> createScreenCapture()

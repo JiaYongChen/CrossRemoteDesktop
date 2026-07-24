@@ -4,10 +4,10 @@
 #include <QtGui/QPainter>
 #include <QtGui/QPixmap>
 #include <QtGui/QFontMetrics>
-#include "../../src/client/window/ClientRemoteWindow.h"
-#include "../../src/client/session/ProtocolSession.h"
-#include "../../src/client/session/DecodePipeline.h"
-#include "../../src/client/network/ConnectionManager.h"
+#include "client/window/ClientRemoteWindow.h"
+#include "client/session/ProtocolSession.h"
+#include "client/session/DecodePipeline.h"
+#include "client/network/ConnectionManager.h"
 /**
  * @brief ClientRemoteWindow 组件的单元测试
  *

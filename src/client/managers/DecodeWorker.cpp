@@ -1,18 +1,21 @@
 #include "DecodeWorker.h"
-#include "../../common/logging/LoggingCategories.h"
-#include "../window/GLTextureViewport.h"
-#include "../decode/GpuDecodeTarget.h"
-#include <QtGui/QOpenGLExtraFunctions>
+
 #include <QtCore/QThread>
-#include "../decode/TurboJpegDecoder.h"
+#include <QtGui/QOpenGLExtraFunctions>
+
+#include "client/decode/GpuDecodeTarget.h"
+#include "client/decode/TurboJpegDecoder.h"
+#include "client/window/GLTextureViewport.h"
+#include "common/error/RdError.h"
+#include "common/logging/LoggingCategories.h"
 #ifdef Q_OS_WIN
-#include "../decode/windows/NvJpegDecoder.h"
+#include "client/decode/windows/NvJpegDecoder.h"
 #endif
 #ifdef HAS_VIDEOTOOLBOX
-#include "../decode/macos/VideoToolboxDecoder.h"
+#include "client/decode/macos/VideoToolboxDecoder.h"
 #endif
 #ifdef HAS_VAAPI
-#include "../decode/linux/VaApiDecoder.h"
+#include "client/decode/linux/VaApiDecoder.h"
 #endif
 // ---- 构造/析构/基础方法 ----
 

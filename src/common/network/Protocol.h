@@ -1,10 +1,9 @@
 #pragma once
 
 #include <QtCore/QByteArray>
-#include <QtCore/QDataStream>
-#include <QtCore/QIODevice>
-#include <QtCore/qglobal.h>
-#include <QtCore/Qt>
+#include <QtCore/QMetaType>
+#include <QtCore/QString>
+#include <QtCore/QtGlobal>
 
 // 取消Windows SDK中的宏定义,避免命名冲突
 #ifdef _WIN32
@@ -15,9 +14,6 @@
 #undef KEYBOARD_EVENT
 #endif
 #endif
-
-// Protocol constants -- defined in ProtocolConstants.h
-#include "../config/ProtocolConstants.h"
 
 // 消息类型枚举
 enum class MessageType : quint32 {
@@ -228,6 +224,8 @@ struct CursorMessage : public IMessageCodec {
     QByteArray encode() const override;
     bool decode(const QByteArray& data) override;
 };
+
+Q_DECLARE_METATYPE(CursorMessage)
 
 // 剪贴板数据类型
 enum class ClipboardDataType : quint8 {

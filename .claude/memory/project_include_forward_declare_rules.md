@@ -1,14 +1,26 @@
 ---
 name: Include 前向声明规范
-description: .h 文件中 #include 与前向声明的判断规则，新增或修改 .h 文件时必须遵守
+description: .h / .cpp 文件中 #include 的组织、路径格式与前向声明判断规则
 metadata:
   node_type: memory
   type: project
 ---
 
+## 适用范围
+
+| 规则 | `.h` | `.cpp` |
+|------|------|--------|
+| include 路径格式（禁止 `../`，统一 `src/` 相对路径） | ✅ | ✅ |
+| include 区块排序（标准库 → Qt → 项目内部 → 前向声明） | ✅ | ✅（前向声明区块省略） |
+| Qt / 标准库格式（`<QtModule/Class>`、具体子头） | ✅ | ✅ |
+| 前向声明 vs include 决策树 | ✅ | ❌ 不适用 — `.cpp` 直接 include 完整定义 |
+| `.cpp` 额外规则 | — | 直接 include 所有实际使用的类型，不做前向声明 |
+
 ## 核心原则
 
 `.h` 文件只暴露接口，最小化编译依赖。**优先前向声明，仅必要时 #include。**
+
+`.cpp` 文件是编译终点，**需要什么就 include 什么**——不用考虑传递依赖，不写前向声明。
 
 ## 判断规则
 
@@ -27,7 +39,7 @@ metadata:
 ### 前向声明 `class T;` 的情况
 
 - 仅以 **T\***（指针）或 **T&**（引用）出现
-- 信号参数 `const T&`（Qt MOC 不需要完整类型）
+- 信号参数 `const T&` — **仅限 DirectConnection**（同线程直接连接）。若信号通过 **QueuedConnection** 跨线程传递（如本项目 Worker → ThreadManager 架构），MOC 生成的代码需 `Q_DECLARE_METATYPE` 可见方可复制参数，此时必须 `#include` 完整类型。判定方法：查看该信号的所有 connect() 调用，若有跨线程连接或无法确定 → 保守 `#include`。
 - 模板类仅以指针/引用出现：`template<typename T> class Foo;`
 
 ### 既不需要 include 也不需要前向声明的情况
@@ -94,7 +106,8 @@ QT_END_NAMESPACE
 - **标准库不做前向声明**：不使用 `<iosfwd>` 等标准前向声明头，应用程序代码直接 include 完整头文件更清晰
 - **不使用 Qt 聚合头**：始终写具体子头 `<QtCore/QObject>` 而非 `<QtCore>`——编译更快，依赖更明确
 - **不使用 `class` 前向声明 Qt 类型**：Qt 类型统一 include（MOC 兼容性），前向声明区仅放 Qt 事件类（`QCloseEvent` 等）
+- **项目内部 include 统一使用 `src/` 相对路径**：始终写 `"common/error/RdError.h"` 而非 `"../../common/error/RdError.h"` 或 `"error/RdError.h"`。CMake 已配置 `target_include_directories(... PRIVATE src/)`，任何 `../`、`../../` 等文件相对路径一律禁止。同目录文件使用裸文件名（`"Worker.h"`）。此规则适用于 `.h` 和 `.cpp`。
 
 **Why:** `.h` 是接口文档——读者应一眼看到外部依赖（include）和弱引用（前向声明）的区别。统一的区块顺序消除了"新增 include 放哪儿"的选择成本，团队无歧义。
 
-**How to apply:** 新建或修改 `.h` 文件时，遵循判断流程图和此模板；对现有文件在编辑到附近时逐步迁移。
+**How to apply:** 新建或修改 `.h` 文件时，遵循判断流程图和模板；`.cpp` 文件遵循路径格式和区块排序（省略前向声明区块）；对现有文件在编辑到附近时逐步迁移。

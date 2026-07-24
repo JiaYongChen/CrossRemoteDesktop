@@ -2,7 +2,7 @@
 
 本文件为 Claude Code (claude.ai/code) 在本仓库中工作时提供指导。
 
-> 最后更新：2026-07-22
+> 最后更新：2026-07-24
 
 ## 首次设置（新设备）
 
@@ -323,10 +323,22 @@ qCWarning(lcServer) << error.logLabel();      // 推荐
 
 ### Include / 前向声明
 
-`.h` 文件中的 `#include` 和前向声明遵循统一规范（详见 [[Include 前向声明规范]]）：
+> 完整规范见 [[Include 前向声明规范]]，本节为快速参考。
 
-- **项目内部类型**：优先前向声明，仅值类型 / 基类 / 内联访问成员时 `#include`
-- **Qt 类型**：用到即 `#include`，不做前向声明（MOC 兼容）
+**`.h` 文件**：优先前向声明，仅值类型 / 基类 / 内联访问成员时 `#include`。按 标准库 → Qt → 项目内部 → 前向声明 四区块组织，每区块字母序。
+
+**`.cpp` 文件**：需要什么就 include 什么，不做前向声明。按 自身.h → 标准库 → Qt → 项目内部 三区块组织。
+
+**路径格式**（`.h` 和 `.cpp` 统一）：全部使用 `src/` 相对路径，禁止 `../`。
+```cpp
+#include "common/error/RdError.h"        // ✅ src/ 相对路径
+#include "server/capture/ScreenCapture.h" // ✅
+#include "../../common/..."               // ❌ 禁止
+#include "error/RdError.h"                // ❌ 禁止（依赖额外 -I src/common/）
+```
+同目录文件使用裸文件名（`"Worker.h"`）。CMake 仅配置 `target_include_directories(... PRIVATE src/)` 一个项目路径。
+
+**分库策略**：
+- **Qt 类型**：用到即 `#include <QtModule/QClass>`，不做前向声明（MOC 兼容）
 - **标准库**：用到即 `#include`，不做前向声明
-- **模板**：头文件按 标准库 → Qt → 项目内部 → 前向声明 四区块组织，每区块字母序
-- **仅 .cpp 用到的类型**：`.h` 中不写任何东西，`.cpp` 自行 include
+- **信号参数 `const T&`**：跨线程 QueuedConnection 时需 `#include` 完整类型（MOC 需 `Q_DECLARE_METATYPE` 可见）

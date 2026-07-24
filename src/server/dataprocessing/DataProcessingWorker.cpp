@@ -1,9 +1,14 @@
-#include "DataProcessingWorker.h"
-#include "../../common/logging/LoggingCategories.h"
-#include "../../common/config/ProcessingConstants.h"
-#include <QtCore/QThread>
-#include <turbojpeg.h>
+#include "server/dataprocessing/DataProcessingWorker.h"
+
 #include <QtConcurrent/QtConcurrent>
+#include <QtCore/QThread>
+
+#include "common/config/ProcessingConstants.h"
+#include "common/error/RdError.h"
+#include "common/logging/LoggingCategories.h"
+#include "common/threading/ThreadSafeQueue.h"
+
+#include <turbojpeg.h>
 
 
 DataProcessingWorker::DataProcessingWorker(QObject* parent)

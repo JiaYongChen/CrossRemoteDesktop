@@ -1,13 +1,14 @@
 #include "FloatingRemoteToolbar.h"
-#include "../../common/logging/LoggingCategories.h"
 
-#include <QtWidgets/QToolButton>
-#include <QtWidgets/QHBoxLayout>
+#include <QtCore/QEasingCurve>
+#include <QtCore/QPropertyAnimation>
+#include <QtGui/QIcon>
 #include <QtGui/QPainter>
 #include <QtGui/QPaintEvent>
-#include <QtGui/QIcon>
-#include <QtCore/QPropertyAnimation>
-#include <QtCore/QEasingCurve>
+#include <QtWidgets/QHBoxLayout>
+#include <QtWidgets/QToolButton>
+
+#include "common/logging/LoggingCategories.h"
 
 FloatingRemoteToolbar::FloatingRemoteToolbar(QWidget* parent)
     : QWidget(parent)

@@ -1,10 +1,11 @@
 #include "NvJpegDecoder.h"
-#include "../../../common/logging/LoggingCategories.h"
-#include "../../../common/config/GuiConstants.h"
+
+#include "common/config/GuiConstants.h"
+#include "common/logging/LoggingCategories.h"
 
 #ifdef Q_OS_WIN
-#include "../TurboJpegDecoder.h"
-#include "../IDecodeTarget.h"
+#include "client/decode/IDecodeTarget.h"
+#include "client/decode/TurboJpegDecoder.h"
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 后端名称映射（诊断用）

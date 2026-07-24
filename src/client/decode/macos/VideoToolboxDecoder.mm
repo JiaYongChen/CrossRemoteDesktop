@@ -2,7 +2,7 @@
 #include "VideoToolboxDecoder.h"
 
 #ifdef Q_OS_MACOS
-#include "../IDecodeTarget.h"
+#include "client/decode/IDecodeTarget.h"
 #import <VideoToolbox/VideoToolbox.h>
 #import <CoreVideo/CoreVideo.h>
 #include <QDebug>

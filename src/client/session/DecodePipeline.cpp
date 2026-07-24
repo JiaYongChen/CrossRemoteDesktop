@@ -1,15 +1,17 @@
 #include "DecodePipeline.h"
-#include "../managers/DecodeWorker.h"
-#include "../../common/logging/LoggingCategories.h"
 
-#include "../window/GLTextureViewport.h"
-#include "../decode/GpuDecodeTarget.h"
-#include <QtGui/QOpenGLContext>
-#include <QtCore/QThread>
+#include <memory>
+
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDeadlineTimer>
 #include <QtCore/QSemaphore>
-#include <memory>
+#include <QtCore/QThread>
+#include <QtGui/QOpenGLContext>
+
+#include "client/decode/GpuDecodeTarget.h"
+#include "client/managers/DecodeWorker.h"
+#include "client/window/GLTextureViewport.h"
+#include "common/logging/LoggingCategories.h"
 
 DecodePipeline::DecodePipeline(const QString& connectionId, QObject* parent)
     : QObject(parent)

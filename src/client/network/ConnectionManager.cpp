@@ -1,10 +1,14 @@
 #include "ConnectionManager.h"
-#include "../../common/config/NetworkConstants.h"
-#include "../../common/logging/LoggingCategories.h"
-#include <QtCore/QTimer>
-#include "TcpClient.h"
-#include <QtNetwork/QPasswordDigestor>
+
 #include <QtCore/QCryptographicHash>
+#include <QtCore/QTimer>
+#include <QtNetwork/QPasswordDigestor>
+
+#include "client/network/TcpClient.h"
+#include "common/config/NetworkConstants.h"
+#include "common/config/ProtocolConstants.h"
+#include "common/error/RdError.h"
+#include "common/logging/LoggingCategories.h"
 
 ConnectionManager::ConnectionManager(QObject* parent)
     : QObject(parent)

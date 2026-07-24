@@ -1,7 +1,7 @@
 #pragma once
 
-#include <QIcon>
-#include <QString>
+#include <QtCore/QString>
+#include <QtGui/QIcon>
 
 #include "common/logging/LoggingCategories.h"
 

@@ -12,11 +12,11 @@
 #include <memory>
 
 // 包含被测试的头文件
-#include "../../src/server/capture/ScreenCapture.h"
-#include "../../src/server/capture/ScreenCaptureWorker.h"
-#include "../../src/server/capture/CaptureConfig.h"
-#include "../../src/server/dataflow/QueueManager.h"
-#include "../../src/common/threading/ThreadManager.h"
+#include "server/capture/ScreenCapture.h"
+#include "server/capture/ScreenCaptureWorker.h"
+#include "server/capture/CaptureConfig.h"
+#include "server/dataflow/QueueManager.h"
+#include "common/threading/ThreadManager.h"
 
 // 日志分类
 

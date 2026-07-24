@@ -1,16 +1,18 @@
 #pragma once
 
-#include <QtCore/QObject>
 #include <QtCore/QMutex>
+#include <QtCore/QObject>
 #include <QtCore/QPointer>
-#include "error/RdError.h"
+
 #include <atomic>
+
+#include "common/error/RdError.h"
+
 #include "CaptureConfig.h"
 
-// 前向声明
+class QueueManager;
 class ScreenCaptureWorker;
 class ThreadManager;
-class QueueManager;
 
 /**
  * @brief 多线程屏幕捕获管理器

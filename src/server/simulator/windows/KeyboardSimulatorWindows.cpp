@@ -1,7 +1,8 @@
-#include "KeyboardSimulatorWindows.h"
-#include "../../../common/logging/LoggingCategories.h"
+#include "server/simulator/windows/KeyboardSimulatorWindows.h"
 
 #ifdef Q_OS_WIN
+
+#include "common/logging/LoggingCategories.h"
 
 
 

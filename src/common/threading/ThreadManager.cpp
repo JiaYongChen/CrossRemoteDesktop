@@ -1,9 +1,12 @@
 #include "ThreadManager.h"
-#include "Worker.h"
+
 #include <QtCore/QMutexLocker>
 #include <QtCore/QPointer>
 #include <QtCore/QTimer>
-#include "../logging/LoggingCategories.h" // 引入日志分类声明，使用lcCoreThreading进行分类日志输出
+
+#include "common/error/RdError.h"
+#include "common/logging/LoggingCategories.h"
+#include "common/threading/Worker.h"
 
 ThreadManager::ThreadManager(QObject* parent)
     : QObject(parent) {

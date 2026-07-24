@@ -1,9 +1,9 @@
 #include <QtTest/QTest>
 #include <QtTest/QSignalSpy>
 
-#include "../../src/client/session/ProtocolSession.h"
-#include "../../src/client/session/DecodePipeline.h"
-#include "../../src/client/network/ConnectionManager.h"
+#include "client/session/ProtocolSession.h"
+#include "client/session/DecodePipeline.h"
+#include "client/network/ConnectionManager.h"
 
 /// 可控的 ConnectionManager 测试替身：覆写 virtual 查询/发送接口，
 /// 并提供 injectMessage 从测试侧模拟服务端消息到达

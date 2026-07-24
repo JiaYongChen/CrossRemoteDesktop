@@ -1,13 +1,16 @@
-#include "TcpServer.h"
-#include <QtNetwork/QHostAddress>
-#include <QtCore/QTimer>
-#include "../../common/logging/LoggingCategories.h"
-#include <QtCore/QThread>
-#include <QtCore/QCoreApplication>
+#include "server/service/TcpServer.h"
 
+#include <QtCore/QCoreApplication>
+#include <QtCore/QThread>
+#include <QtCore/QTimer>
+#include <QtNetwork/QHostAddress>
+
+#include "common/error/RdError.h"
+#include "common/logging/LoggingCategories.h"
+
+#include <openssl/evp.h>
 #include <openssl/pem.h>
 #include <openssl/x509.h>
-#include <openssl/evp.h>
 
 TcpServer::TcpServer(QObject* parent)
     : QTcpServer(parent)

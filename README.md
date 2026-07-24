@@ -24,7 +24,7 @@
     - 线程安全队列（`ThreadSafeQueue`）：纯队列通信，避免信号槽开销
     - 客户端三缓冲帧管理（`TripleBuffer`）：零拷贝帧共享
     - Worker 基类状态机：Stopped → Starting → Running ⇄ Paused → Stopping → Stopped
-    - 统一错误处理（`RdError` + `ErrorCode` 26 个枚举值）
+    - 统一错误处理（`RdError` + `ErrorCode` 16 个枚举值）
     - 网络协议 RDCP：28 字节头部，CRC-32 校验和，14 种消息类型
 
 - **系统功能**
@@ -34,7 +34,7 @@
     - 分类流式日志系统（6 棵一级分类树，按大小滚动）
     - 灵活的配置系统（JSON 文件持久化，支持运行时更新）
     - 密码认证（`PasswordCrypto`，SHA-256 哈希）
-    - 24 个测试目标，覆盖单元 / 集成 / 性能测试（镜像 src/ 结构组织）
+    - 23 个测试目标，覆盖单元 / 集成 / 性能测试（镜像 src/ 结构组织）
     - 跨平台输入模拟（Windows / macOS / Linux 键盘鼠标注入）
 
 ### 规划中 ⏳
@@ -64,7 +64,7 @@
 | **图像编码** | libjpeg-turbo（CPU）+ nvJPEG（GPU 可选，CUDA 12.x） |
 | **加密** | OpenSSL（SHA-256 密码哈希 + 网络加密基础） |
 | **图形** | OpenGL 3.3+（纹理渲染）、DXGI（Windows 屏幕捕获）、D3D11 |
-| **测试** | Qt Test（27 个测试目标，含标签分类：unit / integration / performance） |
+| **测试** | Qt Test（23 个测试目标，含标签分类：unit / integration / performance） |
 
 ## 代码结构
 
@@ -185,7 +185,7 @@ UltraDesktop/
 │       │   └── MessageCodec.cpp      # 14 种消息编解码
 │       ├── error/
 │       │   ├── RdError.h             # 统一错误类型
-│       │   └── ErrorCode.h           # 26 个错误码枚举
+│       │   └── ErrorCode.h           # 16 个错误码枚举
 │       ├── crypto/
 │       │   └── PasswordCrypto.*      # 密码哈希与验证
 │       ├── theme/

@@ -1,12 +1,14 @@
 #pragma once
 
-#include <QWidget>
-#include <QList>
+#include <QtCore/QList>
+#include <QtWidgets/QWidget>
+
 #include "common/config/ConnectionHistory.h"
 
 class ConnectionCard;
-class SettingsManager;
 class QVBoxLayout;
+class SettingsManager;
+struct ConnectionParams;
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class ConnectionPanel; }

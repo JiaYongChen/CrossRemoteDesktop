@@ -1,16 +1,18 @@
 #pragma once
 
-#include "../../common/threading/Worker.h"
-#include "../../common/config/ProcessingConstants.h"
-#include "../../common/threading/ThreadSafeQueue.h"
-#include "../dataflow/DataFlowStructures.h"
-
-#include <QtCore/QObject>
 #include <QtCore/QFutureWatcher>
-#include <QtConcurrent/QtConcurrent>
-#include <memory>
+#include <QtCore/QObject>
+
 #include <atomic>
+#include <memory>
 #include <vector>
+
+#include "common/config/ProcessingConstants.h"
+#include "common/threading/Worker.h"
+#include "server/dataflow/DataFlowStructures.h"
+
+template<typename T>
+class ThreadSafeQueue;
 
 /**
  * @brief 数据处理工作线程类

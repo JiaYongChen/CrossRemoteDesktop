@@ -1,8 +1,8 @@
 #pragma once
 
+#include <QtCore/QByteArray>
 #include <QtCore/QObject>
 #include <QtCore/QString>
-#include <QtCore/QByteArray>
 #include <QtGui/QClipboard>
 #include <QtGui/QImage>
 

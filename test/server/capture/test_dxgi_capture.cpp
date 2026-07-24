@@ -2,10 +2,10 @@
 #include <QtGui/QGuiApplication>
 #include <QtGui/QImage>
 #include <QtCore/QElapsedTimer>
-#include "../../src/common/logging/LoggingCategories.h"
+#include "common/logging/LoggingCategories.h"
 
 #ifdef Q_OS_WIN
-#include "../../src/server/capture/windows/DxgiCapture.h"
+#include "server/capture/windows/DxgiCapture.h"
 #endif
 
 /**

@@ -1,7 +1,11 @@
 #pragma once
 
+#include <QtCore/QString>
 #include <QtWidgets/QDialog>
+
 #include "common/data/ConnectionParams.h"
+
+class QAction;
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class ConnectionDialog; }

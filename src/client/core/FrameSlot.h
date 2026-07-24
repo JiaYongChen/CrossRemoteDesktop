@@ -1,9 +1,9 @@
 #pragma once
 
-#include <QtGui/QImage>
-#include <QtCore/QSize>
 #include <chrono>
 
+#include <QtCore/QSize>
+#include <QtGui/QImage>
 #include <QtGui/qopengl.h>
 
 struct FrameSlot {

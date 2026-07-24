@@ -1,21 +1,21 @@
 // src/server/session/ServerSession.h
 #pragma once
 
-#include "../../common/network/Protocol.h"
-#include "../../common/threading/Worker.h"
-
-#include <atomic>
 #include <QtCore/QObject>
 #include <QtNetwork/QSslCertificate>
 #include <QtNetwork/QSslKey>
+
+#include <atomic>
 #include <memory>
 
-class ThreadManager;
-class DataProcessingWorker;
+#include "common/threading/Worker.h"
+#include "SessionQueuePair.h"
+
 class ClientHandlerWorker;
+class DataProcessingWorker;
 class ScreenCaptureWorker;
-struct SessionQueuePair;
-struct CapturedFrame;
+class ThreadManager;
+struct ClipboardMessage;
 
 /**
  * @brief 服务端会话 — 在独立线程中管理单个客户端连接的完整生命周期

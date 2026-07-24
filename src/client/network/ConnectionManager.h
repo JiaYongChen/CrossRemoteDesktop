@@ -1,14 +1,16 @@
 #pragma once
 
+#include <QtCore/QByteArray>
 #include <QtCore/QObject>
-#include <QtCore/QString>
 #include <QtCore/QSize>
-#include "../../common/network/Protocol.h"
-#include "error/RdError.h"
+#include <QtCore/QString>
+#include <QtCore/QTimer>
 
-class QTimer;
-class TcpClient;
+#include "common/error/RdError.h"
+#include "common/network/Protocol.h"
+
 class IMessageCodec;
+class TcpClient;
 
 /**
  * @brief ConnectionManager 负责管理连接、握手和认证

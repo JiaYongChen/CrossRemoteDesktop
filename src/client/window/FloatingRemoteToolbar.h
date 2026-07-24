@@ -1,9 +1,8 @@
 #pragma once
 
+#include <QtCore/QPropertyAnimation>
+#include <QtWidgets/QToolButton>
 #include <QtWidgets/QWidget>
-
-class QToolButton;
-class QPropertyAnimation;
 
 /// 远程桌面工具栏 — 作为 ClientRemoteWindow 的子控件渲染在 GL 视口之上。
 ///

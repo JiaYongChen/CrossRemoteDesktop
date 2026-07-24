@@ -1,9 +1,10 @@
 #pragma once
 
-#include "ErrorCode.h"
-#include <QtCore/QString>
 #include <QtCore/QDateTime>
 #include <QtCore/QDebug>
+#include <QtCore/QString>
+
+#include "ErrorCode.h"
 
 /// 统一错误类型，替代项目中所有 QString-based 错误信号
 struct RdError {

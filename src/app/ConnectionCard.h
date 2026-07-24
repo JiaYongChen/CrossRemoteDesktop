@@ -1,7 +1,8 @@
 #pragma once
 
-#include <QWidget>
-#include <QDateTime>
+#include <QtCore/QDateTime>
+#include <QtCore/QString>
+#include <QtWidgets/QWidget>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class ConnectionCard; }

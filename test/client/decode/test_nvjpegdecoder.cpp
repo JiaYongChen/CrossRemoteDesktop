@@ -2,8 +2,8 @@
 #include <QtCore/QByteArray>
 #include <QtGui/QImage>
 
-#include "../../src/client/decode/windows/NvJpegDecoder.h"
-#include "../../src/client/decode/IDecoder.h"
+#include "client/decode/windows/NvJpegDecoder.h"
+#include "client/decode/IDecoder.h"
 
 /**
  * @brief NvJpegDecoder 单元测试

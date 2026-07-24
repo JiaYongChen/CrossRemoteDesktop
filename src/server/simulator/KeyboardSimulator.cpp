@@ -1,4 +1,4 @@
-#include "KeyboardSimulator.h"
+#include "server/simulator/KeyboardSimulator.h"
 
 KeyboardSimulator::KeyboardSimulator(QObject* parent)
     : QObject(parent)

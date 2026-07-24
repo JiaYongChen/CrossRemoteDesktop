@@ -1,11 +1,13 @@
 // MessageCodec.cpp — 消息结构体序列化/反序列化实现
 // 从 ProtocolImpl.cpp 分离，聚焦于 IMessageCodec encode/decode 方法
 #include "Protocol.h"
-#include "../config/ProtocolConstants.h"
+
 #include <QtCore/QDataStream>
 #include <QtCore/QIODevice>
 #include <QtCore/QtEndian>
-#include "../logging/LoggingCategories.h"
+
+#include "common/config/ProtocolConstants.h"
+#include "common/logging/LoggingCategories.h"
 
 // 辅助函数：写入长度前缀字符串（quint32长度 + UTF-8数据）
 static void writePrefixedString(QDataStream& ds, const QString& s) {

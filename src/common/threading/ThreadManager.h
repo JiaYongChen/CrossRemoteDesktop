@@ -1,13 +1,17 @@
 #pragma once
 
-#include <QtCore/QObject>
-#include <QtCore/QThread>
-#include <QtCore/QMutex>
-#include <QtCore/QHash>
-#include "error/RdError.h"
 #include <memory>
-#include "Worker.h"
-#include "../logging/LoggingCategories.h"
+
+#include <QtCore/QHash>
+#include <QtCore/QMutex>
+#include <QtCore/QObject>
+#include <QtCore/QString>
+#include <QtCore/QStringList>
+#include <QtCore/QThread>
+
+#include "common/error/RdError.h"
+#include "common/logging/LoggingCategories.h"
+#include "common/threading/Worker.h"
 
 /**
  * @brief 线程管理器类

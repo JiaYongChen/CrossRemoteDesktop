@@ -1,15 +1,17 @@
 // src/server/session/ServerSession.cpp
-#include "ServerSession.h"
-#include "SessionQueuePair.h"
-#include "../dataprocessing/DataProcessingWorker.h"
-#include "../clienthandler/ClientHandlerWorker.h"
-#include "../capture/ScreenCaptureWorker.h"
-#include "../../common/threading/ThreadManager.h"
-#include "../../common/logging/LoggingCategories.h"
+#include "server/session/ServerSession.h"
 
 #include <QtCore/QMetaObject>
 #include <QtCore/QThread>
 #include <QtCore/QUuid>
+
+#include "common/error/RdError.h"
+#include "common/logging/LoggingCategories.h"
+#include "common/threading/ThreadManager.h"
+#include "server/clienthandler/ClientHandlerWorker.h"
+#include "server/dataprocessing/DataProcessingWorker.h"
+#include "server/capture/ScreenCaptureWorker.h"
+#include "server/session/SessionQueuePair.h"
 
 ServerSession::ServerSession(qintptr socketDescriptor,
                              const QSslCertificate& cert,

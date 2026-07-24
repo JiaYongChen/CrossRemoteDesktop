@@ -1,6 +1,8 @@
 #include "MainWindow.h"
 #include "ui_MainWindow.h"
 
+#include "common/error/RdError.h"
+
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <psapi.h>

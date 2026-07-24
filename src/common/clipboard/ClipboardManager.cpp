@@ -1,10 +1,12 @@
 #include "ClipboardManager.h"
-#include <QtGui/QGuiApplication>
-#include <QtGui/QClipboard>
-#include <QtGui/QImage>
-#include <QtCore/QMimeData>
+
 #include <QtCore/QBuffer>
-#include "../logging/LoggingCategories.h"
+#include <QtCore/QMimeData>
+#include <QtGui/QClipboard>
+#include <QtGui/QGuiApplication>
+#include <QtGui/QImage>
+
+#include "common/logging/LoggingCategories.h"
 
 namespace {
     constexpr int kMaxClipboardImageSize = 10 * 1024 * 1024;  // 10MB

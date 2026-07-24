@@ -1,8 +1,9 @@
 // VaApiDecoder.h — Linux VA-API GPU JPEG 解码器
 #pragma once
 
-#include "../IDecoder.h"
 #include <memory>
+
+#include "client/decode/IDecoder.h"
 
 #ifdef Q_OS_LINUX
 /**

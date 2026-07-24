@@ -1,13 +1,14 @@
 #pragma once
 
-#include "DataFlowStructures.h"
-#include "../../common/config/ProcessingConstants.h"
-#include "../../common/threading/ThreadSafeQueue.h"
+#include <QtCore/QMutex>
 #include <QtCore/QObject>
 #include <QtCore/QTimer>
-#include <QtCore/QMutex>
+
 #include <memory>
-#include "error/RdError.h"
+
+#include "common/config/ProcessingConstants.h"
+#include "common/threading/ThreadSafeQueue.h"
+#include "DataFlowStructures.h"
 
 /**
  * @brief 队列管理器类

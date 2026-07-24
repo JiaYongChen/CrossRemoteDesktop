@@ -2,7 +2,7 @@
 #include <QtWidgets/QApplication>
 #include <QtGui/QImage>
 
-#include "../../src/client/window/GLTextureViewport.h"
+#include "client/window/GLTextureViewport.h"
 
 class TestRenderSurface : public QObject {
     Q_OBJECT

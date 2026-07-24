@@ -1,18 +1,18 @@
 // src/server/service/ServerService.h
 #pragma once
 
-#include <QObject>
-#include <QList>
-#include "error/RdError.h"
-#include "../../common/clipboard/ClipboardManager.h"
-#include "../../common/network/Protocol.h"
+#include <QtCore/QList>
+#include <QtCore/QObject>
 
-class ThreadManager;
-class QueueManager;
-class TcpListener;
+#include "common/error/RdError.h"
+
 class CapturePipeline;
+class ClipboardManager;
+class QueueManager;
 class ServerSession;
-struct RdError;
+class TcpListener;
+class ThreadManager;
+struct ClipboardMessage;
 
 /**
  * @brief 服务端编排门面 — 管理 TcpListener + CapturePipeline + 会话生命周期

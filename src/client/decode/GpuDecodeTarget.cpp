@@ -1,11 +1,13 @@
 #include "GpuDecodeTarget.h"
-#include "../../common/logging/LoggingCategories.h"
+
+#include <cstring>
 
 #include <QtCore/QThread>
-#include <QtGui/QOpenGLContext>
 #include <QtGui/QOffscreenSurface>
+#include <QtGui/QOpenGLContext>
 #include <QtGui/QOpenGLExtraFunctions>
-#include <cstring>
+
+#include "common/logging/LoggingCategories.h"
 
 // ════════════════ 构造 / 析构 ════════════════
 

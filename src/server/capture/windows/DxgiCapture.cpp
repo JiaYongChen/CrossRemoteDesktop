@@ -1,15 +1,17 @@
 #ifdef _WIN32
 
-#include "DxgiCapture.h"
-#include "../../../common/logging/LoggingCategories.h"
+#include "server/capture/windows/DxgiCapture.h"
 
 #include <vector>
-#include <dxgi.h>
+
+#include <QtCore/QDataStream>
+
+#include "common/logging/LoggingCategories.h"
+
 #include <d3d11.h>
+#include <dxgi.h>
 #include <dxgi1_2.h>
 #include <objbase.h>  // CoInitializeEx, CoUninitialize, RPC_E_CHANGED_MODE
-
-#include <QDataStream>
 
 
 // Link libraries (redundant with CMake, but helps IDE intellisense)

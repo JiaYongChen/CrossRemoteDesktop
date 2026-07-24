@@ -2,15 +2,18 @@
 #include "VaApiDecoder.h"
 
 #ifdef Q_OS_LINUX
-#include "../IDecodeTarget.h"
-#include "../../../common/logging/LoggingCategories.h"
-#include <va/va.h>
-#include <va/va_drm.h>
+#include <cstring>
 #include <fcntl.h>
 #include <unistd.h>
-#include <cstring>
-#include <QDebug>
-#include <QFile>
+
+#include <QtCore/QDebug>
+#include <QtCore/QFile>
+
+#include "client/decode/IDecodeTarget.h"
+#include "common/logging/LoggingCategories.h"
+
+#include <va/va.h>
+#include <va/va_drm.h>
 
 struct VaApiDecoder::Impl {
     int driFd = -1;

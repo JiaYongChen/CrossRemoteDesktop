@@ -1,10 +1,10 @@
 #pragma once
 
+#include <QtCore/QByteArray>
 #include <QtCore/QObject>
 #include <QtCore/QPoint>
-#include <QtCore/QSize>
 #include <QtCore/QRectF>
-#include <QtCore/QByteArray>
+#include <QtCore/QSize>
 
 struct CursorMessage;
 

@@ -2,16 +2,15 @@
 
 #include <QtCore/QObject>
 #include <QtCore/QPoint>
-#include <QtCore/QRect>
+#include <QtWidgets/QWidget>
 
-class QWidget;
-class QMouseEvent;
-class QKeyEvent;
-class QWheelEvent;
-class QEvent;
-class ProtocolSession;
-class GLTextureViewport;
 class CursorManager;
+class GLTextureViewport;
+class ProtocolSession;
+class QEvent;
+class QKeyEvent;
+class QMouseEvent;
+class QWheelEvent;
 
 /// 输入事件转发器 — 从 ClientRemoteWindow 分离出的输入处理职责
 ///

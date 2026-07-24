@@ -10,13 +10,13 @@
 #include <vector>
 #include <chrono>
 
-#include "../../src/server/capture/ScreenCapture.h"
-#include "../../src/server/capture/CaptureConfig.h"
-#include "../../src/common/threading/ThreadManager.h"
-#include "../../src/common/logging/LoggingCategories.h"
-#include "../../src/common/config/CaptureConstants.h"
-#include "../../src/server/dataflow/QueueManager.h"
-#include "../../src/server/dataflow/DataFlowStructures.h"
+#include "server/capture/ScreenCapture.h"
+#include "server/capture/CaptureConfig.h"
+#include "common/threading/ThreadManager.h"
+#include "common/logging/LoggingCategories.h"
+#include "common/config/CaptureConstants.h"
+#include "server/dataflow/QueueManager.h"
+#include "server/dataflow/DataFlowStructures.h"
 
 
 /**

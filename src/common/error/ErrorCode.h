@@ -1,7 +1,5 @@
 #pragma once
 
-#include <QtCore/QtGlobal>
-
 /// 结构化错误码枚举，按模块分类
 enum class ErrorCode {
     Unknown = 0,

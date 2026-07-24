@@ -1,6 +1,9 @@
 #pragma once
 
+#include <QtGui/QImage>
+
 #include "IDecoder.h"
+
 #include <turbojpeg.h>
 
 /**

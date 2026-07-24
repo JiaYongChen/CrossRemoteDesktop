@@ -1,6 +1,6 @@
 #include <QtTest/QTest>
-#include "../../src/client/network/TcpClient.h"
-#include "../../src/client/network/ConnectionManager.h"
+#include "client/network/TcpClient.h"
+#include "client/network/ConnectionManager.h"
 
 class TestSmokeNetwork : public QObject {
     Q_OBJECT

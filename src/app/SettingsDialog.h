@@ -1,9 +1,11 @@
 #pragma once
 
-#include <QtWidgets/QDialog>
 #include <QtCore/QString>
-class SettingsManager;
+#include <QtWidgets/QDialog>
+
 class AutoStartManager;
+class QAction;
+class SettingsManager;
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class SettingsDialog; }

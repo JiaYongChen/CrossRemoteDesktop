@@ -1,20 +1,17 @@
 #pragma once
 
 #include <QtCore/QObject>
-#include <QtCore/QString>
 #include <QtCore/QSize>
+#include <QtCore/QString>
 
-#include "../core/TripleBuffer.h"
-#include "../core/FrameSlot.h"
-#include "../../common/network/Protocol.h"
-#include "error/RdError.h"
+#include "common/error/RdError.h"
+#include "common/network/Protocol.h"
+#include "client/core/FrameSlot.h"
+#include "client/core/TripleBuffer.h"
 
 class DecodeWorker;
-class QThread;
-
 class GLTextureViewport;
 class GpuDecodeTarget;
-class QOpenGLContext;
 
 /**
  * @brief 解码管线 — 封装 DecodeWorker 生命周期、DecodeThread 管理、TripleBuffer 所有权

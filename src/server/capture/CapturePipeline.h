@@ -1,14 +1,15 @@
 // src/server/capture/CapturePipeline.h
 #pragma once
 
-#include "../../common/threading/Worker.h"
-#include "error/RdError.h"
+#include <QtCore/QObject>
 
-class ThreadManager;
+#include "common/threading/Worker.h"
+
+class FrameBroadcaster;
 class QueueManager;
 class ScreenCapture;
-class FrameBroadcaster;
 class ServerSession;
+class ThreadManager;
 
 /**
  * @brief 捕获管线 — 在独立线程中管理屏幕捕获 + 帧广播

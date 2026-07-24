@@ -1,20 +1,21 @@
 #include "SettingsManager.h"
-#include "../logging/LoggingCategories.h"
-#include "ConnectionHistory.h"
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDateTime>
 #include <QtCore/QDir>
 #include <QtCore/QFile>
 #include <QtCore/QFileInfo>
+#include <QtCore/QJsonArray>
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
-#include <QtCore/QJsonArray>
 #include <QtCore/QMutexLocker>
 #include <QtCore/QSaveFile>
 #include <QtCore/QSettings>
 #include <QtCore/QStringList>
 #include <QtCore/QTimer>
+
+#include "common/config/ConnectionHistory.h"
+#include "common/logging/LoggingCategories.h"
 
 // ============================================================
 // 构造 / 析构

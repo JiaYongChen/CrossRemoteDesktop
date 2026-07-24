@@ -1,13 +1,12 @@
 #pragma once
 
 #include <QtCore/QObject>
-#include <QtCore/QString>
 #include <QtCore/QSize>
-#include <QtCore/Qt>
+#include <QtCore/QString>
 
-#include "../../common/network/Protocol.h"
-#include "../network/ConnectionManager.h"
-#include "error/RdError.h"
+#include "common/error/RdError.h"
+#include "common/network/Protocol.h"
+#include "client/network/ConnectionManager.h"
 
 class DecodePipeline;
 

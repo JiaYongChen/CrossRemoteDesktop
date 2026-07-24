@@ -1,7 +1,9 @@
 #include "ProtocolSession.h"
-#include "DecodePipeline.h"
-#include "../network/ConnectionManager.h"
-#include "../../common/logging/LoggingCategories.h"
+
+#include "client/network/ConnectionManager.h"
+#include "client/session/DecodePipeline.h"
+#include "common/error/RdError.h"
+#include "common/logging/LoggingCategories.h"
 
 ProtocolSession::ProtocolSession(ConnectionManager* connectionManager,
                                  DecodePipeline* pipeline,

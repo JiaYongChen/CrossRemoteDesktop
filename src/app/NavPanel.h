@@ -1,10 +1,10 @@
 #pragma once
 
-#include <QWidget>
-#include <QPropertyAnimation>
-#include <QGraphicsOpacityEffect>
-#include <QParallelAnimationGroup>
-#include <QList>
+#include <QtCore/QList>
+#include <QtCore/QParallelAnimationGroup>
+#include <QtCore/QPropertyAnimation>
+#include <QtWidgets/QGraphicsOpacityEffect>
+#include <QtWidgets/QWidget>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class NavPanel; }

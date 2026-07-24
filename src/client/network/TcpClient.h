@@ -1,16 +1,16 @@
 #pragma once
 
-#include <QtCore/QObject>
-#include <QtCore/QDateTime>
-#include <QtNetwork/QAbstractSocket>
-#include <QtNetwork/QSslError>
-#include "../common/network/Protocol.h"
-#include "../common/config/NetworkConstants.h"
-#include "error/RdError.h"
 #include <atomic>
 
-class QSslSocket;
-class QTimer;
+#include <QtCore/QDateTime>
+#include <QtCore/QObject>
+#include <QtCore/QTimer>
+#include <QtNetwork/QAbstractSocket>
+#include <QtNetwork/QSslError>
+#include <QtNetwork/QSslSocket>
+
+#include "common/error/RdError.h"
+#include "common/network/Protocol.h"
 
 /**
  * @brief TcpClient 只负责底层网络通信

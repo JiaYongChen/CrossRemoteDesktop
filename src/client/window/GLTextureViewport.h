@@ -1,23 +1,24 @@
 #pragma once
 
-#include <QtOpenGLWidgets/QOpenGLWidget>
-#include <QtOpenGL/QOpenGLShaderProgram>
-#include <QtOpenGL/QOpenGLBuffer>
-#include <QtOpenGL/QOpenGLVertexArrayObject>
-#include <QtGui/QOpenGLFunctions>
-#include <QtGui/QImage>
-#include <QtCore/QSize>
+#include <atomic>
+#include <chrono>
+
 #include <QtCore/QPoint>
 #include <QtCore/QRectF>
+#include <QtCore/QSize>
+#include <QtGui/QImage>
+#include <QtGui/QOpenGLFunctions>
 #include <QtGui/qopengl.h>
-#include <chrono>
-#include <atomic>
+#include <QtOpenGL/QOpenGLBuffer>
+#include <QtOpenGL/QOpenGLShaderProgram>
+#include <QtOpenGL/QOpenGLVertexArrayObject>
+#include <QtOpenGLWidgets/QOpenGLWidget>
 
-#include "../core/TripleBuffer.h"
-#include "../core/FrameSlot.h"
+#include "client/core/FrameSlot.h"
+#include "client/core/TripleBuffer.h"
 
-class GpuDecodeTarget;
 class CursorManager;
+class GpuDecodeTarget;
 
 /**
  * @brief OpenGL viewport that renders remote desktop frames via direct texture upload.

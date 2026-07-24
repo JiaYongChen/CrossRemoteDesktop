@@ -1,8 +1,13 @@
-#include "AuthHandler.h"
-#include "../../common/logging/LoggingCategories.h"
-#include <QtCore/QMutexLocker>
-#include <QtCore/QDateTime>
+#include "server/clienthandler/AuthHandler.h"
+
 #include <algorithm>
+
+#include <QtCore/QDateTime>
+#include <QtCore/QMutexLocker>
+
+#include "common/config/SecurityConstants.h"
+#include "common/error/RdError.h"
+#include "common/logging/LoggingCategories.h"
 
 AuthHandler::AuthHandler() {}
 

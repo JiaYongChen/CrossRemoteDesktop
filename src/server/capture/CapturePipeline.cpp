@@ -1,15 +1,16 @@
 // src/server/capture/CapturePipeline.cpp
-#include "CapturePipeline.h"
-#include "FrameBroadcaster.h"
-#include "ScreenCapture.h"
-#include "ScreenCaptureWorker.h"
-#include "../session/ServerSession.h"
-#include "../dataflow/QueueManager.h"
-#include "../../common/threading/ThreadManager.h"
-#include "../../common/logging/LoggingCategories.h"
+#include "server/capture/CapturePipeline.h"
 
 #include <QtCore/QMetaObject>
 #include <QtCore/QThread>
+
+#include "common/logging/LoggingCategories.h"
+#include "common/threading/ThreadManager.h"
+#include "server/capture/FrameBroadcaster.h"
+#include "server/capture/ScreenCapture.h"
+#include "server/capture/ScreenCaptureWorker.h"
+#include "server/dataflow/QueueManager.h"
+#include "server/session/ServerSession.h"
 
 CapturePipeline::CapturePipeline(ThreadManager* threadMgr,
                                  QueueManager* queueMgr,

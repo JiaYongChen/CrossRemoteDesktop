@@ -3,11 +3,14 @@
 
 #ifdef Q_OS_MACOS
 
-#include "../IScreenCapture.h"
-#include <QImage>
-#include <QSize>
-#include <QObject>
+#include <QtCore/QObject>
+#include <QtCore/QSize>
+#include <QtCore/QString>
+#include <QtGui/QImage>
+
 #include <memory>
+
+#include "server/capture/IScreenCapture.h"
 
 /**
  * @brief macOS 屏幕捕获（ScreenCaptureKit / AVFoundation）

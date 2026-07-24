@@ -1,14 +1,17 @@
 // PipeWireCapture.cpp — Linux PipeWire 屏幕捕获实现
 #ifdef Q_OS_LINUX
 
-#include "PipeWireCapture.h"
+#include "server/capture/linux/PipeWireCapture.h"
+
+#include <QtCore/QThread>
+#include <QtGui/QGuiApplication>
+#include <QtGui/QScreen>
+
+#include "common/logging/LoggingCategories.h"
+
 #include <pipewire/pipewire.h>
 #include <spa/param/video/format-utils.h>
 #include <spa/pod/builder.h>
-#include <QScreen>
-#include <QGuiApplication>
-#include <QThread>
-#include <QtDebug>
 
 // ---- PipeWire 流事件回调 ----
 

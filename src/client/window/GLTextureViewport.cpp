@@ -1,14 +1,16 @@
 #include "GLTextureViewport.h"
-#include "../decode/GpuDecodeTarget.h"
-#include "../../common/config/GuiConstants.h"
-#include "../../common/logging/LoggingCategories.h"
-#include "CursorManager.h"
 
-#include <QtGui/QOpenGLExtraFunctions>
-#include <QtGui/QOpenGLContext>
-#include <QtGui/QPainter>
-#include <algorithm>  // std::max
+#include <algorithm>
 #include <chrono>
+
+#include <QtGui/QOpenGLContext>
+#include <QtGui/QOpenGLExtraFunctions>
+#include <QtGui/QPainter>
+
+#include "client/decode/GpuDecodeTarget.h"
+#include "client/window/CursorManager.h"
+#include "common/config/GuiConstants.h"
+#include "common/logging/LoggingCategories.h"
 
 // Vertex shader: pass through position and texture coordinates
 static const char* s_vertexShaderSource = R"(

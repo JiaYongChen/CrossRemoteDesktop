@@ -1,10 +1,9 @@
 #pragma once
 
 #include <QtCore/QByteArray>
-#include <QtCore/QString>
 #include <QtCore/QDateTime>
 #include <QtCore/QMutex>
-#include "../../common/config/SecurityConstants.h"
+#include <QtCore/QString>
 
 /// 认证处理器 — 从 ClientHandlerWorker 分离出的认证逻辑
 ///

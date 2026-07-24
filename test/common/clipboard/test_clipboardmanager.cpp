@@ -4,7 +4,7 @@
 #include <QtGui/QClipboard>
 #include <QtGui/QImage>
 #include <QtCore/QBuffer>
-#include "../../../src/common/clipboard/ClipboardManager.h"
+#include "common/clipboard/ClipboardManager.h"
 
 class ClipboardManagerTest : public QObject {
     Q_OBJECT

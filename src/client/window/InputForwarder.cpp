@@ -1,12 +1,13 @@
 #include "InputForwarder.h"
-#include "../session/ProtocolSession.h"
-#include "CursorManager.h"
-#include <QtWidgets/QWidget>
-#include <QtGui/QMouseEvent>
-#include <QtGui/QKeyEvent>
-#include <QtGui/QWheelEvent>
 
-#include "GLTextureViewport.h"
+#include <QtGui/QKeyEvent>
+#include <QtGui/QMouseEvent>
+#include <QtGui/QWheelEvent>
+#include <QtWidgets/QWidget>
+
+#include "client/session/ProtocolSession.h"
+#include "client/window/CursorManager.h"
+#include "client/window/GLTextureViewport.h"
 
 InputForwarder::InputForwarder(QObject* parent)
     : QObject(parent) {

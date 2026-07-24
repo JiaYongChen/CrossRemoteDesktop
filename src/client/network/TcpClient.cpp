@@ -1,11 +1,15 @@
 #include "TcpClient.h"
-#include <QtNetwork/QSslSocket>
-#include <QtNetwork/QSslConfiguration>
+
+#include <QtCore/QDataStream>
 #include <QtCore/QTimer>
 #include <QtNetwork/QHostAddress>
-#include "../common/logging/LoggingCategories.h"
-#include <QtCore/QDataStream>
 #include <QtNetwork/QNetworkProxy>
+#include <QtNetwork/QSslConfiguration>
+#include <QtNetwork/QSslSocket>
+
+#include "common/config/NetworkConstants.h"
+#include "common/error/RdError.h"
+#include "common/logging/LoggingCategories.h"
 
 TcpClient::TcpClient(QObject* parent)
     : QObject(parent)

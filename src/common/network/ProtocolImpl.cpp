@@ -1,8 +1,10 @@
 #include "Protocol.h"
+
 #include <QtCore/QDateTime>
-#include "../logging/LoggingCategories.h"
-#include "../config/NetworkConstants.h"
-#include "../config/ProtocolConstants.h"
+
+#include "common/config/NetworkConstants.h"
+#include "common/config/ProtocolConstants.h"
+#include "common/logging/LoggingCategories.h"
 
 // Protocol 类的静态函数实现（TLS负责传输层加密，协议层不再加密）
 QByteArray Protocol::createMessage(MessageType type, const IMessageCodec& message) {

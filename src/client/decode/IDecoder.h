@@ -2,8 +2,8 @@
 
 #include <QtCore/QByteArray>
 #include <QtGui/QImage>
-
 #include <QtGui/qopengl.h>
+
 class IDecodeTarget;
 
 /**

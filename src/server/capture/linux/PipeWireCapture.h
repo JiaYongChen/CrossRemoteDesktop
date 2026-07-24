@@ -3,12 +3,15 @@
 
 #ifdef Q_OS_LINUX
 
-#include "../IScreenCapture.h"
-#include <QImage>
-#include <QSize>
-#include <QMutex>
+#include <QtCore/QMutex>
+#include <QtCore/QSize>
+#include <QtGui/QImage>
+
 #include <memory>
+
 #include <spa/param/video/format-utils.h>
+
+#include "server/capture/IScreenCapture.h"
 
 struct pw_context;
 struct pw_core;

@@ -1,23 +1,27 @@
 #pragma once
 
-#include "../../common/threading/Worker.h"
-#include "../../common/network/Protocol.h"
-#include "../../common/threading/ThreadSafeQueue.h"
-#include "../dataflow/DataFlowStructures.h"
-#include <QtCore/QObject>
 #include <QtCore/QDateTime>
 #include <QtCore/QMutex>
+#include <QtCore/QObject>
 #include <QtCore/QTimer>
-#include "error/RdError.h"
 #include <QtNetwork/QAbstractSocket>
-#include <QtNetwork/QSslSocket>
 #include <QtNetwork/QSslCertificate>
 #include <QtNetwork/QSslKey>
+#include <QtNetwork/QSslSocket>
 
+#include <atomic>
+
+#include "common/error/RdError.h"
+#include "common/network/Protocol.h"
+#include "common/threading/Worker.h"
+
+class AuthHandler;
 class InputSimulator;
 class IMessageCodec;
-class AuthHandler;
 class ScreenCaptureWorker;
+struct ProcessedData;
+template<typename T>
+class ThreadSafeQueue;
 
 /**
  * @brief 客户端处理工作线程类

@@ -37,9 +37,6 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/../src
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/common
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/server
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/common/threading
     ${CMAKE_CURRENT_SOURCE_DIR}/../include
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${TURBOJPEG_INCLUDE_DIR}

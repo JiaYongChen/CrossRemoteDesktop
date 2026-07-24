@@ -1,4 +1,4 @@
-#include "MouseSimulator.h"
+#include "server/simulator/MouseSimulator.h"
 
 MouseSimulator::MouseSimulator(QObject* parent)
     : QObject(parent)

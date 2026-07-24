@@ -1,7 +1,9 @@
 #include "ConnectionLifecycle.h"
-#include "../../common/logging/LoggingCategories.h"
-#include <QtWidgets/QMessageBox>
+
 #include <QtCore/QTimer>
+#include <QtWidgets/QMessageBox>
+
+#include "common/logging/LoggingCategories.h"
 
 ConnectionLifecycle::ConnectionLifecycle(QObject* parent)
     : QObject(parent) {

@@ -1,23 +1,26 @@
-#include <QtWidgets/QApplication>
-#include <QtWidgets/QStyleFactory>
-#include <QtWidgets/QSystemTrayIcon>
-#include <QtCore/QDir>
-#include <QtCore/QStandardPaths>
-#include "common/logging/LoggingCategories.h"
-#include "common/network/Protocol.h"
-#include <QtWidgets/QMessageBox>
-#include <QtCore/QThreadPool>
-#include <QtCore/QTimer>
-#include <QtCore/QCommandLineParser>
-#include <QtCore/QCommandLineOption>
 #include <signal.h>
 #ifdef Q_OS_UNIX
 #include <unistd.h>
 #endif
 
+#include <QtCore/QCommandLineOption>
+#include <QtCore/QCommandLineParser>
+#include <QtCore/QDir>
+#include <QtCore/QStandardPaths>
+#include <QtCore/QThreadPool>
+#include <QtCore/QTimer>
+#include <QtWidgets/QApplication>
+#include <QtWidgets/QMessageBox>
+#include <QtWidgets/QStyleFactory>
+#include <QtWidgets/QSystemTrayIcon>
+
 #include "app/MainWindow.h"
-#include "common/config/TranslationUtils.h"
 #include "common/config/SettingsManager.h"
+#include "common/config/TranslationUtils.h"
+#include "common/data/ConnectionParams.h"
+#include "common/error/RdError.h"
+#include "common/logging/LoggingCategories.h"
+#include "common/network/Protocol.h"
 
 // 应用程序信息
 const QString APP_NAME = "UltraDesktop";
@@ -222,6 +225,7 @@ int main(int argc, char* argv[]) {
     {
         QApplication app(argc, argv);
         qRegisterMetaType<ClipboardMessage>();
+        qRegisterMetaType<CursorMessage>();
         initializeApplication(app);
 
         app.setQuitOnLastWindowClosed(false);

@@ -1,8 +1,7 @@
 #pragma once
 
-#include <QtCore/QString>
 #include <QtCore/QByteArray>
-#include "../config/SecurityConstants.h"
+#include <QtCore/QString>
 
 /**
  * @brief 密码加解密工具类

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <QtCore/qglobal.h>
+#include <QtCore/QtGlobal>
 
 namespace GuiConstants {
 

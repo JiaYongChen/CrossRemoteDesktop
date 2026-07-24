@@ -1,5 +1,5 @@
 #include <QtTest/QTest>
-#include "../../src/client/core/TripleBuffer.h"
+#include "client/core/TripleBuffer.h"
 
 struct TestPayload { int value = 0; };
 

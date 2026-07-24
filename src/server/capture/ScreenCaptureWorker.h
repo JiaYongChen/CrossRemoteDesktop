@@ -1,19 +1,17 @@
 #pragma once
 
-#include <atomic>
-#include <chrono>
-#include <memory>
-
 #include <QtCore/QMutex>
 #include <QtCore/QObject>
 #include <QtCore/QTimer>
 #include <QtGui/QImage>
 #include <QtGui/QScreen>
 
-#include "../../common/threading/Worker.h"
-#include "../dataflow/DataFlowStructures.h"
+#include <atomic>
+#include <chrono>
+#include <memory>
+
+#include "common/threading/Worker.h"
 #include "CaptureConfig.h"
-#include "../../common/network/Protocol.h"
 #include "IScreenCapture.h"
 
 class QueueManager;

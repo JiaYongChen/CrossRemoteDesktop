@@ -1,7 +1,7 @@
 #include "TurboJpegDecoder.h"
-#include "../../common/logging/LoggingCategories.h"
 
-#include "IDecodeTarget.h"
+#include "client/decode/IDecodeTarget.h"
+#include "common/logging/LoggingCategories.h"
 
 TurboJpegDecoder::TurboJpegDecoder() {
     m_handle = tjInitDecompress();

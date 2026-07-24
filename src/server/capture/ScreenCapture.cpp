@@ -1,17 +1,21 @@
-#include "ScreenCapture.h"
-#include "ScreenCaptureWorker.h"
-#include "../../common/threading/ThreadManager.h"
-#include "../dataflow/QueueManager.h"
-#include "../../common/config/CaptureConstants.h"
-#include "../../common/logging/LoggingCategories.h"
-#include <QtCore/QTimer>
+#include "server/capture/ScreenCapture.h"
+
+#include <algorithm>
+#include <memory>
+
 #include <QtCore/QMutex>
 #include <QtCore/QMutexLocker>
-#include <QtGui/QScreen>
+#include <QtCore/QTimer>
 #include <QtGui/QGuiApplication>
-#include <memory>
-// 新增头文件: 使用std::clamp进行数值裁剪
-#include <algorithm>
+#include <QtGui/QScreen>
+
+#include "common/config/CaptureConstants.h"
+#include "common/error/ErrorCode.h"
+#include "common/error/RdError.h"
+#include "common/logging/LoggingCategories.h"
+#include "common/threading/ThreadManager.h"
+#include "server/capture/ScreenCaptureWorker.h"
+#include "server/dataflow/QueueManager.h"
 
 
 ScreenCapture::ScreenCapture(ThreadManager* threadMgr, QueueManager* queueMgr, QObject* parent)

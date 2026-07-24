@@ -1,20 +1,23 @@
-#include "ScreenCaptureWorker.h"
-#include "../../common/config/CaptureConstants.h"
-#include "../../common/config/ProcessingConstants.h"
-#include "../../common/logging/LoggingCategories.h"
-#include "../dataflow/QueueManager.h"
-#include <QtGui/QGuiApplication>
-#include <QtGui/QScreen>
-#include <QtGui/QPainter>
-#include <QtCore/QThread>
-#include <QtCore/QTimer>
-#include <QtCore/QMutex>
-#include <QtCore/QMutexLocker>
-#include <QtCore/QDateTime>
-#include <QtCore/QMetaObject>
+#include "server/capture/ScreenCaptureWorker.h"
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+
+#include <QtCore/QDateTime>
+#include <QtCore/QMetaObject>
+#include <QtCore/QMutex>
+#include <QtCore/QMutexLocker>
+#include <QtCore/QThread>
+#include <QtCore/QTimer>
+#include <QtGui/QGuiApplication>
+#include <QtGui/QPainter>
+#include <QtGui/QScreen>
+
+#include "common/config/CaptureConstants.h"
+#include "common/config/ProcessingConstants.h"
+#include "common/logging/LoggingCategories.h"
+#include "server/dataflow/QueueManager.h"
 
 
 // ScreenCaptureWorker 实现

@@ -1,8 +1,10 @@
 #include "PasswordCrypto.h"
 
 #include <openssl/evp.h>
-#include <openssl/sha.h>
 #include <openssl/rand.h>
+#include <openssl/sha.h>
+
+#include "common/config/SecurityConstants.h"
 
 namespace {
 

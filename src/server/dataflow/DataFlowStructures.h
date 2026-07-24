@@ -1,9 +1,11 @@
 #pragma once
 
-#include <QtCore/QObject>
-#include <QtCore/QDateTime>
 #include <QtCore/QByteArray>
+#include <QtCore/QDateTime>
+#include <QtCore/QObject>
+#include <QtCore/QSize>
 #include <QtGui/QImage>
+
 #include <memory>
 
 /**

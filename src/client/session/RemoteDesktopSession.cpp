@@ -1,16 +1,17 @@
 #include "RemoteDesktopSession.h"
-#include "ProtocolSession.h"
-#include "DecodePipeline.h"
-#include "../network/ConnectionManager.h"
-#include "../window/ClientRemoteWindow.h"
-#include "../window/GLTextureViewport.h"
-#include "../decode/GpuDecodeTarget.h"
-#include "../window/InputForwarder.h"
-#include "../window/CursorManager.h"
-#include "../../common/clipboard/ClipboardManager.h"
-#include "../../common/logging/LoggingCategories.h"
 
 #include <QtWidgets/QApplication>
+
+#include "client/decode/GpuDecodeTarget.h"
+#include "client/network/ConnectionManager.h"
+#include "client/session/DecodePipeline.h"
+#include "client/session/ProtocolSession.h"
+#include "client/window/ClientRemoteWindow.h"
+#include "client/window/CursorManager.h"
+#include "client/window/GLTextureViewport.h"
+#include "client/window/InputForwarder.h"
+#include "common/clipboard/ClipboardManager.h"
+#include "common/logging/LoggingCategories.h"
 
 RemoteDesktopSession::RemoteDesktopSession(const ConnectionParams& params,
                                            const QString& connectionId,
