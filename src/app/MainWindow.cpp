@@ -80,7 +80,8 @@ MainWindow::MainWindow(SettingsManager *settings, QWidget *parent)
     m_queueManager->initialize(ProcessingConstants::MaxQueueSize);
 
     // 创建 ServerService — 管理全部服务端生命周期
-    m_serverService = new ServerService(m_threadManager, m_queueManager, this);
+    m_serverService = new ServerService(m_threadManager, m_queueManager,
+                                        m_settings, this);
     connect(m_serverService, &ServerService::clientConnected,
             this, &MainWindow::onClientConnected);
     connect(m_serverService, &ServerService::clientDisconnected,

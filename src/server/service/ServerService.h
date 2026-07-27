@@ -10,6 +10,7 @@ class CapturePipeline;
 class ClipboardManager;
 class QueueManager;
 class ServerSession;
+class SettingsManager;
 class TcpListener;
 class ThreadManager;
 struct ClipboardMessage;
@@ -33,6 +34,7 @@ public:
 
     explicit ServerService(ThreadManager *threadManager,
                            QueueManager *queueManager,
+                           SettingsManager *settingsManager,
                            QObject *parent = nullptr);
     ~ServerService() override;
 
@@ -73,4 +75,7 @@ private:
 
     State m_state = State::Stopped;
     quint16 m_port = 0;
+
+    QString m_serverUsername;  ///< 服务端认证用户名
+    QString m_serverPassword;  ///< 服务端认证密码（明文，内存驻留）
 };

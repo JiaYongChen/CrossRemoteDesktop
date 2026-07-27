@@ -82,10 +82,7 @@ void TcpListener::startListening(quint16 port, const QString& password) {
         return;
     }
 
-    if (!password.isEmpty()) {
-        Q_UNUSED(password);
-        // 密码通过 TcpServer 现有接口设置（如需要）
-    }
+    m_password = password;
 
     bool result = m_tcpServer->startServer(port);
     if (result) {

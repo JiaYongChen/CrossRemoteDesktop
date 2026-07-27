@@ -4,6 +4,8 @@
 #include <QtCore/QTimer>
 
 #include "common/clipboard/ClipboardManager.h"
+#include "common/config/SettingsManager.h"
+#include "common/crypto/PasswordCrypto.h"
 #include "common/error/ErrorCode.h"
 #include "common/error/RdError.h"
 #include "common/logging/LoggingCategories.h"
@@ -16,11 +18,22 @@
 
 ServerService::ServerService(ThreadManager *threadManager,
                              QueueManager *queueManager,
+                             SettingsManager *settingsManager,
                              QObject *parent)
     : QObject(parent)
     , m_threadManager(threadManager)
     , m_queueManager(queueManager)
 {
+    // 读取服务端认证配置
+    m_serverUsername = settingsManager->getString("Server/username");
+    QString encryptedPwd = settingsManager->getString("Server/password");
+    if (!encryptedPwd.isEmpty() && !m_serverUsername.isEmpty()) {
+        m_serverPassword = PasswordCrypto::decrypt(m_serverUsername, encryptedPwd);
+        qCInfo(lcServer) << "ServerService: 密码认证已启用，用户名:" << m_serverUsername;
+    } else {
+        qCInfo(lcServer) << "ServerService: 无密码认证模式";
+    }
+
     m_clipboardManager = new ClipboardManager(this);
     m_clipboardManager->setEnabled(true);
 
@@ -85,7 +98,8 @@ bool ServerService::start(quint16 port)
     // Worker::started 连接必须在 startThread 之前（修复竞态窗口）
     connect(m_tcpListener, &Worker::started, this, [this]() {
         QMetaObject::invokeMethod(m_tcpListener, "startListening", Qt::QueuedConnection,
-                                  Q_ARG(quint16, m_port), Q_ARG(QString, QString()));
+                                  Q_ARG(quint16, m_port),
+                                  Q_ARG(QString, m_serverPassword));
     }, Qt::SingleShotConnection);
 
     if (!m_threadManager->startThread("TcpListener")) {
@@ -194,7 +208,9 @@ void ServerService::onNewConnection(qintptr socketDescriptor)
     auto key = m_tcpListener->sslPrivateKey();
 
     auto session = std::make_unique<ServerSession>(socketDescriptor, cert, key,
-                                                    m_threadManager);
+                                                    m_threadManager,
+                                                    m_serverUsername,
+                                                    m_serverPassword);
     auto *sessionPtr = session.get();
 
     QString threadName = QString("ServerSession_%1").arg(socketDescriptor);
