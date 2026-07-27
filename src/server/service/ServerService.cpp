@@ -213,10 +213,17 @@ void ServerService::onNewConnection(qintptr socketDescriptor)
     auto cert = m_tcpListener->sslCertificate();
     auto key = m_tcpListener->sslPrivateKey();
 
+    // 每次新连接时实时读取凭据，使 SettingsDialog 即时变更立即生效
+    QString username = m_settingsManager->getString("Server/username").trimmed();
+    QString password;
+    QString encryptedPwd = m_settingsManager->getString("Server/password");
+    if (!encryptedPwd.isEmpty() && !username.isEmpty()) {
+        password = PasswordCrypto::decrypt(username, encryptedPwd);
+    }
+
     auto session = std::make_unique<ServerSession>(socketDescriptor, cert, key,
                                                     m_threadManager,
-                                                    m_serverUsername,
-                                                    m_serverPassword);
+                                                    username, password);
     auto *sessionPtr = session.get();
 
     QString threadName = QString("ServerSession_%1").arg(socketDescriptor);
