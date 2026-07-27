@@ -77,6 +77,12 @@ public:
     Q_INVOKABLE void setExpectedPasswordDigest(const QByteArray& salt, const QByteArray& digest);
 
     /**
+     * @brief 设置认证期望的用户名
+     * @param username 期望的用户名
+     */
+    Q_INVOKABLE void setExpectedUsername(const QString& username);
+
+    /**
      * @brief 设置PBKDF2参数
      * @param iterations 迭代次数
      * @param keyLength 密钥长度

@@ -376,6 +376,10 @@ void ClientHandlerWorker::setPbkdf2Params(quint32 iterations, quint32 keyLength)
     m_authHandler->setPbkdf2Params(iterations, keyLength);
 }
 
+void ClientHandlerWorker::setExpectedUsername(const QString& username) {
+    m_authHandler->setExpectedUsername(username);
+}
+
 void ClientHandlerWorker::sendMessage(MessageType type, const IMessageCodec& message) {
     try {
         // 使用Protocol::createMessage来创建加密的消息
@@ -688,9 +692,15 @@ void ClientHandlerWorker::handleHandshakeRequest(const QByteArray& data) {
 void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
     qCDebug(lcServerClientHandler) << "处理认证请求";
 
-    // 速率限制检查（委托给 AuthHandler）
+    // 速率限制检查
     if (m_authHandler->isRateLimited()) {
         qCWarning(lcServerClientHandler) << "认证速率限制中，拒绝请求:" << clientId();
+        return;
+    }
+
+    // 已认证无需重复处理
+    if (m_isAuthenticated) {
+        qCDebug(lcServerClientHandler) << "客户端已认证，忽略重复认证请求:" << clientId();
         return;
     }
 
@@ -701,37 +711,33 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
         return;
     }
 
-    // 委托认证逻辑给 AuthHandler
     int result = m_authHandler->authenticate(
-        authRequest.username, authRequest.passwordHash, authRequest.authMethod);
+        authRequest.username, authRequest.passwordHash);
 
-    if (result == -1) {
-        // 需要发送 challenge
-        sendAuthChallenge();
-        return;
-    }
-
-    if (result == 0) {
-        // 认证成功
+    if (result == static_cast<int>(AuthResult::SUCCESS)) {
         m_isAuthenticated = true;
-
         QString sessionId = generateSessionId();
         sendAuthenticationResponse(AuthResult::SUCCESS, sessionId);
-
         emit authenticated();
-        qCInfo(lcServerClientHandler) << "客户端认证成功: " << clientId();
+        qCInfo(lcServerClientHandler) << "客户端认证成功:" << clientId();
         return;
     }
 
-    if (result == 3) {
-        // 超过最大失败次数 → ACCESS_DENIED
+    if (result == static_cast<int>(AuthResult::INVALID_USERNAME)) {
+        qCWarning(lcServerClientHandler) << "认证失败：用户名无效:" << clientId();
+        sendAuthenticationResponse(AuthResult::INVALID_USERNAME);
+        forceDisconnect();
+        return;
+    }
+
+    if (result == static_cast<int>(AuthResult::ACCESS_DENIED)) {
         qCWarning(lcServerClientHandler) << "认证失败次数达到上限，断开连接:" << clientId();
         sendAuthenticationResponse(AuthResult::ACCESS_DENIED);
         forceDisconnect();
         return;
     }
 
-    // result == 2 → INVALID_PASSWORD（含回退延迟）
+    // result == INVALID_PASSWORD（含回退延迟）
     int failCount = m_authHandler->failedAuthCount();
     int delayMs = std::min(
         SecurityConstants::AuthBaseDelayMs * (1 << (failCount - 1)),
@@ -919,40 +925,48 @@ void ClientHandlerWorker::sendHandshakeResponse() {
 
     sendMessage(MessageType::HANDSHAKE_RESPONSE, response);
     qCDebug(lcServerClientHandler) << "发送握手响应";
+
+    // 握手完成后：如果有密码配置，主动下发Challenge；否则直接通过认证
+    if (m_authHandler->hasPassword()) {
+        sendAuthChallenge();
+    } else {
+        m_isAuthenticated = true;
+        QString sessionId = generateSessionId();
+        sendAuthenticationResponse(AuthResult::SUCCESS, sessionId);
+        emit authenticated();
+        qCInfo(lcServerClientHandler) << "客户端认证成功（无密码模式）:" << clientId();
+    }
 }
 
 void ClientHandlerWorker::sendAuthenticationResponse(AuthResult result, const QString& sessionId) {
     AuthenticationResponse response;
     response.result = result;
     response.sessionId = sessionId;
-    response.permissions = 0; // 默认权限
 
     sendMessage(MessageType::AUTHENTICATION_RESPONSE, response);
     qCDebug(lcServerClientHandler) << "发送认证响应，结果:" << static_cast<int>(result);
 }
 
 void ClientHandlerWorker::sendAuthChallenge() {
+    // 读取已由 ServerSession 预注入的 salt + PBKDF2 参数（每连接创建时动态生成）
     AuthChallenge challenge;
     challenge.method = 1;
     challenge.iterations = m_authHandler->pbkdf2Iterations();
     challenge.keyLength = m_authHandler->pbkdf2KeyLength();
 
     QByteArray salt = m_authHandler->salt();
-    // Generate salt if not set (AuthHandler manages its own salt generation)
     if (salt.isEmpty()) {
-        salt = QByteArray(16, 0);
-        for (int i = 0; i < salt.size(); ++i) {
-            salt[i] = static_cast<char>(QRandomGenerator::global()->bounded(256));
-        }
-        // Re-set via setExpectedPasswordDigest with the digest
-        m_authHandler->setExpectedPasswordDigest(salt, m_authHandler->expectedDigest());
+        qCCritical(lcServerClientHandler) << "认证配置错误：盐值缺失，无法发送质询";
+        sendAuthenticationResponse(AuthResult::INVALID_PASSWORD);
+        return;
     }
     challenge.saltHex = QString::fromLatin1(salt.toHex());
 
     sendMessage(MessageType::AUTH_CHALLENGE, challenge);
-    qCDebug(lcServerClientHandler) << "发送认证挑战，方法:" << challenge.method
-        << ", 迭代次数:" << challenge.iterations << ", 密钥长度:" << challenge.keyLength
-        << ", 盐值:" << challenge.saltHex;
+    qCDebug(lcServerClientHandler) << "发送认证挑战"
+        << ", 迭代次数:" << challenge.iterations
+        << ", 密钥长度:" << challenge.keyLength
+        << ", 客户端:" << clientId();
 }
 
 QString ClientHandlerWorker::generateSessionId() const {
