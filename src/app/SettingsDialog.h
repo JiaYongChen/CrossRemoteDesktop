@@ -25,7 +25,7 @@ public:
 
 protected:
 	void changeEvent(QEvent* event) override;
-	void done(int r) override;
+	void closeEvent(QCloseEvent* event) override;
 	void showEvent(QShowEvent* event) override;
 	void hideEvent(QHideEvent* event) override;
 

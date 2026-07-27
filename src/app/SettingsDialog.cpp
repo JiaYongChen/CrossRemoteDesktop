@@ -10,6 +10,7 @@
 #include "common/config/SettingsManager.h"
 #include "common/platform/AutoStartManager.h"
 #include <QtCore/QEvent>
+#include <QtGui/QCloseEvent>
 #include <QtGui/QHideEvent>
 #include <QtCore/QVariant>
 #include <QtCore/QByteArray>
@@ -370,7 +371,15 @@ void SettingsDialog::saveAuthConfig()
 	qCDebug(lcUISettingsDialog) << "SettingsDialog: auth config saved";
 }
 
-void SettingsDialog::done(int r)
+void SettingsDialog::showEvent(QShowEvent* event)
+{
+	QDialog::showEvent(event);
+	// 每次显示对话框时重新应用标题栏主题
+	//（hide()/exec() 返回后 Windows 可能重置 DWM 属性）
+	TitleBarTheme::apply(this, IconThemeProvider::isDarkMode());
+}
+
+void SettingsDialog::closeEvent(QCloseEvent* event)
 {
 	// 关闭前校验互斥规则：用户名和密码必须同时为空或同时有值
 	const QString username = ui->usernameEdit->text().trimmed();
@@ -382,18 +391,11 @@ void SettingsDialog::done(int r)
 		QMessageBox::warning(this,
 			tr("认证配置不完整"),
 			tr("用户名和密码必须同时填写或同时留空以跳过认证。"));
-		return;  // 不调用 QDialog::done()——阻止关闭，用户修正后可重试
+		event->ignore();
+		return;
 	}
 
-	QDialog::done(r);
-}
-
-void SettingsDialog::showEvent(QShowEvent* event)
-{
-	QDialog::showEvent(event);
-	// 每次显示对话框时重新应用标题栏主题
-	//（hide()/exec() 返回后 Windows 可能重置 DWM 属性）
-	TitleBarTheme::apply(this, IconThemeProvider::isDarkMode());
+	QDialog::closeEvent(event);
 }
 
 void SettingsDialog::hideEvent(QHideEvent* event)
