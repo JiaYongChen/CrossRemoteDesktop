@@ -10,7 +10,6 @@
 #include "common/config/SettingsManager.h"
 #include "common/platform/AutoStartManager.h"
 #include <QtCore/QEvent>
-#include <QtGui/QCloseEvent>
 #include <QtGui/QHideEvent>
 #include <QtCore/QVariant>
 #include <QtCore/QByteArray>

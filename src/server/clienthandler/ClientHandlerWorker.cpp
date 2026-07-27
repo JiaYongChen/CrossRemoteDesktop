@@ -477,8 +477,8 @@ void ClientHandlerWorker::forceDisconnect() {
     m_receiveBuffer.clear();
 
     if ( m_socket ) {
-        m_socket->abort();
-        qCDebug(lcServerClientHandler) << "Socket已abort,等待disconnected信号触发清理";
+        m_socket->disconnectFromHost();
+        qCDebug(lcServerClientHandler) << "Socket已断开,等待disconnected信号触发清理";
     } else {
         // 如果socket为空,直接发送disconnected信号（使用标志避免重复）
         if ( !m_disconnectSignalSent.exchange(true) ) {
