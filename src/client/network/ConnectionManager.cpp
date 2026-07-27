@@ -48,6 +48,10 @@ ConnectionManager::~ConnectionManager() {
 // ═══════════════════════════════════════════════════════════════════
 
 void ConnectionManager::connectToHost(const QString& host, int port) {
+    // 缓存连接目标，供 retryAuthentication 使用
+    m_host = host;
+    m_port = port;
+
     // 非 Disconnected/Reconnecting/AuthFailed → 同步硬断旧连接
     if ( m_connectionState != Disconnected
          && m_connectionState != Reconnecting
@@ -356,7 +360,7 @@ void ConnectionManager::handleHandshakeResponse(const QByteArray& data) {
     if ( response.decode(data) ) {
         qCDebug(lcClient) << "Received handshake response from server";
         m_remoteScreenSize = QSize(response.screenWidth, response.screenHeight);
-        sendAuthenticationRequest(m_username.isEmpty() ? "guest" : m_username);
+        // 不再主动发送认证请求——等待服务端主导后续步骤（下发 Challenge 或直接通过认证）
     } else {
         qCWarning(lcClient) << "Failed to parse handshake response";
     }
@@ -367,27 +371,43 @@ void ConnectionManager::handleAuthenticationResponse(const QByteArray& data) {
     if ( response.decode(data) ) {
         if ( response.result == AuthResult::SUCCESS ) {
             qCInfo(lcClient) << "Authentication successful, session ID:" << response.sessionId;
+            m_connectionTimer->stop();
             stopAutoReconnect();
             m_currentReconnectAttempts = 0;
             setConnectionState(Authenticated);
         } else {
             QString reason;
+            bool recoverable = false;
             switch ( response.result ) {
+                case AuthResult::INVALID_USERNAME:
+                    reason = tr("认证失败：用户名无效");
+                    recoverable = true;
+                    break;
                 case AuthResult::INVALID_PASSWORD:
-                    reason = tr("密码错误"); break;
+                    reason = tr("认证失败：密码错误");
+                    recoverable = true;
+                    break;
                 case AuthResult::ACCESS_DENIED:
-                    reason = tr("访问被拒绝"); break;
-                case AuthResult::SERVER_FULL:
-                    reason = tr("服务器已满"); break;
+                    reason = tr("认证失败：尝试次数过多，请稍后重试");
+                    break;
                 default:
                     reason = tr("认证失败"); break;
             }
             const RdError error(ErrorCode::AuthFailed, reason, "ConnectionManager");
             qCWarning(lcClient) << error.logLabel();
-            // AuthFailed 是永久终端态——阻止所有自动重连（消除 m_fatalError 冗余标记）
             setConnectionState(AuthFailed);
             emit errorOccurred(error);
             stopAutoReconnect();
+
+            if (recoverable) {
+                // 保留密码明文用于重试对话框预填，等待上层触发重连
+                // 不主动断开——等服务端关闭连接自然触发 onTcpDisconnected
+            } else {
+                // 终态错误：清除密码，主动断开
+                m_password.fill(QChar(0));
+                m_password.clear();
+                disconnectFromHost();
+            }
         }
     } else {
         qCWarning(lcClient) << "Failed to parse authentication response";
@@ -399,14 +419,15 @@ void ConnectionManager::handleAuthChallenge(const QByteArray& data) {
     if ( ch.decode(data) ) {
         QByteArray salt = QByteArray::fromHex(ch.saltHex.toUtf8());
         if ( !salt.isEmpty() ) {
+            // PBKDF2 派生: password + username + salt
+            QByteArray input = (m_password + m_username).toUtf8();
             QByteArray derived = QPasswordDigestor::deriveKeyPbkdf2(
-                QCryptographicHash::Sha256, m_password.toUtf8(), salt,
+                QCryptographicHash::Sha256, input, salt,
                 int(ch.iterations), quint64(ch.keyLength));
 
             AuthenticationRequest ar{};
             ar.username = m_username.isEmpty() ? QStringLiteral("guest") : m_username;
             ar.passwordHash = QString::fromLatin1(derived.toHex());
-            ar.authMethod = 1u;
             m_tcpClient->sendMessage(MessageType::AUTHENTICATION_REQUEST, ar);
         }
     }
@@ -424,11 +445,21 @@ void ConnectionManager::sendHandshakeRequest() {
     m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST, request);
 }
 
-void ConnectionManager::sendAuthenticationRequest(const QString& username) {
-    AuthenticationRequest ar{};
-    ar.username = username;
-    ar.authMethod = 1u;
-    m_tcpClient->sendMessage(MessageType::AUTHENTICATION_REQUEST, ar);
+void ConnectionManager::updateCredentials(const QString& username, const QString& password) {
+    m_username = username;
+    m_password = password;
+}
+
+void ConnectionManager::retryAuthentication() {
+    if (m_connectionState != AuthFailed && m_connectionState != Disconnected) {
+        qCWarning(lcClient) << "retryAuthentication: invalid state" << m_connectionState;
+        return;
+    }
+    qCInfo(lcClient) << "重试认证，用户名:" << m_username;
+    m_currentReconnectAttempts = 0;
+    // 由上层（ConnectionLifecycle）先调用 updateCredentials 再调用此方法
+    // 直接走 connectToHost 流程发起新连接
+    connectToHost(m_host, m_port);
 }
 
 QString ConnectionManager::getClientOS() {

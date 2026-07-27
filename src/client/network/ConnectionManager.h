@@ -55,6 +55,12 @@ public:
     /// 预设认证凭证（在 connectToHost 前调用），不触发认证流程
     void setCredentials(const QString& username, const QString& password);
 
+    /// 更新凭据（用于认证失败后重试，跨线程安全）
+    Q_INVOKABLE void updateCredentials(const QString& username, const QString& password);
+
+    /// 认证失败后重试（重置状态 + 重新连接）
+    Q_INVOKABLE void retryAuthentication();
+
     /// 设置客户端颜色深度（在 connectToHost 前调用，由握手携带）
     void setColorDepth(int depth);
     /// 设置 JPEG 图像质量（在 connectToHost 前调用，由握手携带）
@@ -105,7 +111,6 @@ private:
     void handleAuthChallenge(const QByteArray& data);
 
     void sendHandshakeRequest();
-    void sendAuthenticationRequest(const QString& username);
     QString getClientOS();
 
     /// 内部：保持 host/port 并发起 TCP 连接（供 onReconnectTimer 使用，
@@ -118,6 +123,10 @@ private:
     QString m_currentHost;
     int m_currentPort;
     QTimer* m_connectionTimer;
+
+    // 持久化连接目标（认证失败重试时使用，不被 cleanupConnection 清除）
+    QString m_host;
+    int m_port = 0;
 
     // 认证信息
     QString m_username;
