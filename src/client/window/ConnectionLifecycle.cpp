@@ -31,9 +31,10 @@ void ConnectionLifecycle::setConnectionState(ConnectionManager::ConnectionState 
         m_authRetryPending = false;
     }
 
-    // 重连/新连接时清除重试标记, 确保下次 AuthFailed 可以重新调度对话框
+    // 重连/新连接时清除重试标记和错误码, 确保下次 AuthFailed 使用新的错误类型
     if (state == ConnectionManager::Connecting) {
         m_authRetryPending = false;
+        m_authErrorCode = ErrorCode::Unknown;
     }
 
     // AuthFailed 处理：可重试 → 弹凭据对话框；终态 → 关闭
@@ -170,10 +171,6 @@ void ConnectionLifecycle::showCredentialDialog(const QString& errorMessage, bool
     QDialog dialog(nullptr);
     dialog.setWindowTitle(tr("认证失败"));
     dialog.setMinimumWidth(320);
-    // 手动定位到窗口中心（无父窗口时需显式设置位置，避免 Z 序问题）
-    if (m_window->isVisible()) {
-        dialog.move(m_window->geometry().center() - dialog.rect().center());
-    }
 
     auto* layout = new QVBoxLayout(&dialog);
 
@@ -211,6 +208,12 @@ void ConnectionLifecycle::showCredentialDialog(const QString& errorMessage, bool
 
     QObject::connect(retryBtn, &QPushButton::clicked, &dialog, &QDialog::accept);
     QObject::connect(cancelBtn, &QPushButton::clicked, &dialog, &QDialog::reject);
+
+    // 布局完成后定位到窗口中心（adjustSize 确保 rect 为实际尺寸而非默认值）
+    dialog.adjustSize();
+    if (m_window->isVisible()) {
+        dialog.move(m_window->geometry().center() - dialog.rect().center());
+    }
 
     if (dialog.exec() == QDialog::Accepted) {
         QString newUsername = passwordOnly ? m_cachedUsername : usernameEdit->text().trimmed();
