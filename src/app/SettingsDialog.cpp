@@ -215,6 +215,15 @@ void SettingsDialog::onUsernameChanged()
 
 	if (newUsername == oldUsername) return;
 
+	// 互斥校验：清空是允许的，单独设置用户名而密码为空则拒绝
+	if (!newUsername.isEmpty() && ui->passwordEdit->text().isEmpty()) {
+		QMessageBox::warning(this,
+			tr("认证配置不完整"),
+			tr("用户名和密码必须同时填写或同时留空以跳过认证。"));
+		ui->usernameEdit->setText(oldUsername);
+		return;
+	}
+
 	// 如果已有密码，用旧用户名解密 → 新用户名重新加密
 	const QString oldEncrypted = m_settings->getString("Server/password");
 	if (!oldEncrypted.isEmpty() && !m_cachedPassword.isEmpty()) {
@@ -230,6 +239,15 @@ void SettingsDialog::onPasswordChanged()
 {
 	const QString newPassword = ui->passwordEdit->text();
 	if (newPassword == m_cachedPassword) return;
+
+	// 互斥校验：清空是允许的，单独设置密码而用户名为空则拒绝
+	if (!newPassword.isEmpty() && ui->usernameEdit->text().trimmed().isEmpty()) {
+		QMessageBox::warning(this,
+			tr("认证配置不完整"),
+			tr("用户名和密码必须同时填写或同时留空以跳过认证。"));
+		ui->passwordEdit->setText(m_cachedPassword);
+		return;
+	}
 
 	m_cachedPassword = newPassword;
 	const QString username = m_settings->getString("Server/username");
@@ -361,20 +379,8 @@ void SettingsDialog::changeEvent(QEvent* event)
 }
 void SettingsDialog::done(int r)
 {
-	// 仅在确认（OK/保存）时校验互斥规则，取消/Escape 直接放行
-	if (r == QDialog::Accepted) {
-		const QString username = ui->usernameEdit->text().trimmed();
-		const QString password = ui->passwordEdit->text();
-		const bool hasUsername = !username.isEmpty();
-		const bool hasPassword = !password.isEmpty();
-
-		if (hasUsername != hasPassword) {
-			QMessageBox::warning(this,
-				tr("认证配置不完整"),
-				tr("用户名和密码必须同时填写或同时留空以跳过认证。"));
-			return;  // 不调用 QDialog::done()，阻止关闭
-		}
-	}
+	// 互斥校验已由 onUsernameChanged/onPasswordChanged 即时生效，
+	// 不再需要在 done() 中重复校验——取消/Escape/X 可直接关闭
 	QDialog::done(r);
 }
 
