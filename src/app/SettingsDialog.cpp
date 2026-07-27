@@ -224,15 +224,8 @@ void SettingsDialog::onUsernameChanged()
 		return;
 	}
 
-	// 如果已有密码，用旧用户名解密 → 新用户名重新加密
-	const QString oldEncrypted = m_settings->getString("Server/password");
-	if (!oldEncrypted.isEmpty() && !m_cachedPassword.isEmpty()) {
-		const QString newEncrypted = PasswordCrypto::encrypt(newUsername, m_cachedPassword);
-		m_settings->setString("Server/password", newEncrypted);
-	}
-
-	m_settings->setString("Server/username", newUsername);
-	qCDebug(lcUISettingsDialog) << "SettingsDialog: username changed";
+	// 仅内存缓存，退出设置界面时由 saveAuthConfig() 统一持久化
+	qCDebug(lcUISettingsDialog) << "SettingsDialog: username changed (pending)";
 }
 
 void SettingsDialog::onPasswordChanged()
@@ -250,15 +243,7 @@ void SettingsDialog::onPasswordChanged()
 	}
 
 	m_cachedPassword = newPassword;
-	const QString username = m_settings->getString("Server/username");
-
-	if (newPassword.isEmpty()) {
-		m_settings->remove("Server/password");
-	} else {
-		const QString encrypted = PasswordCrypto::encrypt(username, newPassword);
-		m_settings->setString("Server/password", encrypted);
-	}
-	qCDebug(lcUISettingsDialog) << "SettingsDialog: password updated";
+	qCDebug(lcUISettingsDialog) << "SettingsDialog: password updated (pending)";
 }
 
 void SettingsDialog::onLogLevelChanged(int index)
@@ -377,10 +362,34 @@ void SettingsDialog::changeEvent(QEvent* event)
 		if (ui->restoreDefaultsBtn) ui->restoreDefaultsBtn->setText(tr("恢复默认值"));
 	}
 }
+void SettingsDialog::saveAuthConfig()
+{
+	const QString username = ui->usernameEdit->text().trimmed();
+	const QString password = ui->passwordEdit->text();
+
+	if (username.isEmpty()) {
+		// 用户名为空 → 完全禁用认证
+		m_settings->remove("Server/username");
+		m_settings->remove("Server/password");
+		m_cachedPassword.clear();
+	} else {
+		m_settings->setString("Server/username", username);
+		if (password.isEmpty()) {
+			m_settings->remove("Server/password");
+			m_cachedPassword.clear();
+		} else {
+			const QString encrypted = PasswordCrypto::encrypt(username, password);
+			m_settings->setString("Server/password", encrypted);
+			m_cachedPassword = password;
+		}
+	}
+
+	qCDebug(lcUISettingsDialog) << "SettingsDialog: auth config saved";
+}
+
 void SettingsDialog::done(int r)
 {
-	// 互斥校验已由 onUsernameChanged/onPasswordChanged 即时生效，
-	// 不再需要在 done() 中重复校验——取消/Escape/X 可直接关闭
+	// 持久化由 hideEvent() 统一处理——done()→close()→hideEvent() 全部路径覆盖
 	QDialog::done(r);
 }
 
@@ -394,8 +403,9 @@ void SettingsDialog::showEvent(QShowEvent* event)
 
 void SettingsDialog::hideEvent(QHideEvent* event)
 {
-	// 对话框隐藏时立即持久化所有设置变更
-	//（SettingsManager 使用 500ms 去抖定时器，但对话框关闭时应立即保存）
+	// 退出前持久化认证配置（editingFinished 仅内存缓存，此处统一写入）
+	saveAuthConfig();
+	// 立即刷盘所有设置变更
 	m_settings->save();
 	QDialog::hideEvent(event);
 }

@@ -50,6 +50,7 @@ private:
 	void setupUI();
 	void setupConnections();
 	void loadSettings();
+	void saveAuthConfig();
 
 	void updateLanguageList();
 	void applyLogRules();
