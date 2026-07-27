@@ -364,7 +364,7 @@
                    <size><width>200</width><height>32</height></size>
                   </property>
                   <property name="placeholderText">
-                   <string>输入用户名</string>
+                   <string>当为空时跳过认证</string>
                   </property>
                  </widget>
                 </item>
@@ -387,7 +387,7 @@
                    <enum>QLineEdit::Password</enum>
                   </property>
                   <property name="placeholderText">
-                   <string>输入密码</string>
+                   <string>当为空时跳过认证</string>
                   </property>
                  </widget>
                 </item>

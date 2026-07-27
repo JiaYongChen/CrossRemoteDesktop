@@ -26,9 +26,25 @@ public:
     /// 设置仅查看模式（影响窗口标题后缀）
     void setViewOnly(bool viewOnly) { m_viewOnly = viewOnly; updateWindowTitle(); }
 
+    /// 设置关联的 ConnectionManager 指针（用于重试认证）
+    void setConnectionManager(ConnectionManager* mgr);
+
+    /// 缓存认证错误消息（由连接层错误信号触发）
+    void setAuthErrorMessage(const QString& msg);
+
+    /// 缓存用户名（用于凭据重输对话框预填）
+    void setCachedUsername(const QString& name);
+
+signals:
+    /// 用户请求重试认证（携带新凭据），由顶层组件（ClientRemoteWindow/MainWindow）连接处理
+    void retryAuthRequested(const QString& username, const QString& password);
+
 private:
     void updateWindowTitle();
     void showDisconnectionDialog();
+
+    /// @param passwordOnly true=仅重输密码（用户名正确），false=重输用户名+密码
+    void showCredentialDialog(const QString& errorMessage, bool passwordOnly);
 
     QWidget* m_window = nullptr;
     ConnectionManager::ConnectionState m_connectionState = ConnectionManager::Disconnected;
@@ -41,4 +57,10 @@ private:
     /// 弹窗重入守卫——QMessageBox::exec() 运行嵌套事件循环，
     /// 期间可能有新的状态变更触发第二次弹窗调度
     bool m_dialogShowing = false;
+
+    ConnectionManager* m_connectionManager = nullptr;
+    QString m_authErrorMessage;           ///< 缓存认证错误消息
+    QString m_cachedUsername;             ///< 预填用户名
+    QString m_pendingAuthError;           ///< 缓存认证错误消息（供异步弹窗使用）
+    bool m_authRetryPending = false;      ///< 是否有待处理的重试
 };

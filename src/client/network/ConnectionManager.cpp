@@ -395,8 +395,8 @@ void ConnectionManager::handleAuthenticationResponse(const QByteArray& data) {
             }
             const RdError error(ErrorCode::AuthFailed, reason, "ConnectionManager");
             qCWarning(lcClient) << error.logLabel();
-            setConnectionState(AuthFailed);
             emit errorOccurred(error);
+            setConnectionState(AuthFailed);
             stopAutoReconnect();
 
             if (recoverable) {

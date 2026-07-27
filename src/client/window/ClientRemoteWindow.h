@@ -52,6 +52,9 @@ public:
     // GL viewport access
     GLTextureViewport* glViewport() const { return m_glViewport; }
 
+    // ConnectionLifecycle access (for signal wiring)
+    ConnectionLifecycle* connectionLifecycle() const { return m_connectionLifecycle; }
+
     // Query whether the window is in closing flow
     bool isClosing() const;
 

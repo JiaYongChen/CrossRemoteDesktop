@@ -10,10 +10,12 @@
 #include "common/config/SettingsManager.h"
 #include "common/platform/AutoStartManager.h"
 #include <QtCore/QEvent>
+#include <QtGui/QCloseEvent>
 #include <QtGui/QHideEvent>
 #include <QtCore/QVariant>
 #include <QtCore/QByteArray>
 #include <QtWidgets/QListWidget>
+#include <QtWidgets/QMessageBox>
 #include <QtWidgets/QStackedWidget>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QSpinBox>
@@ -358,6 +360,25 @@ void SettingsDialog::changeEvent(QEvent* event)
 		if (ui->restoreDefaultsBtn) ui->restoreDefaultsBtn->setText(tr("恢复默认值"));
 	}
 }
+void SettingsDialog::closeEvent(QCloseEvent* event)
+{
+	// 用户名和密码互斥校验：必须同时为空或同时有值
+	const QString username = ui->usernameEdit->text().trimmed();
+	const QString password = ui->passwordEdit->text();
+	const bool hasUsername = !username.isEmpty();
+	const bool hasPassword = !password.isEmpty();
+
+	if (hasUsername != hasPassword) {
+		QMessageBox::warning(this,
+			tr("认证配置不完整"),
+			tr("用户名和密码必须同时填写或同时留空以跳过认证。"));
+		event->ignore();
+		return;
+	}
+
+	QDialog::closeEvent(event);
+}
+
 void SettingsDialog::showEvent(QShowEvent* event)
 {
 	QDialog::showEvent(event);

@@ -7,6 +7,7 @@
 #include "client/session/DecodePipeline.h"
 #include "client/session/ProtocolSession.h"
 #include "client/window/ClientRemoteWindow.h"
+#include "client/window/ConnectionLifecycle.h"
 #include "client/window/CursorManager.h"
 #include "client/window/GLTextureViewport.h"
 #include "client/window/InputForwarder.h"
@@ -149,6 +150,13 @@ void RemoteDesktopSession::createWindow() {
         cursorMgr->setCursorEnabled(m_params.showCursor);
     }
 
+    // ── 注入 ConnectionManager 到 ConnectionLifecycle（用于凭据重输）──
+    ConnectionLifecycle* lifecycle = m_window->connectionLifecycle();
+    if (lifecycle) {
+        lifecycle->setConnectionManager(m_connectionManager);
+        lifecycle->setCachedUsername(m_params.username);
+    }
+
     m_window->show();
     m_window->raise();
     m_window->activateWindow();
@@ -186,6 +194,25 @@ void RemoteDesktopSession::wireSignals() {
     // ── 状态转发到 UI ──
     connect(m_protocolSession, &ProtocolSession::connectionStateChanged,
         m_window, &ClientRemoteWindow::setConnectionState);
+
+    // ── 认证错误转发到 ConnectionLifecycle（用于凭据重输对话框）──
+    ConnectionLifecycle* lifecycle = m_window->connectionLifecycle();
+    if (lifecycle) {
+        // 认证失败错误消息 → 缓存到 lifecycle（先于 setConnectionState 到达）
+        connect(m_connectionManager, &ConnectionManager::errorOccurred,
+                lifecycle, [lifecycle](const RdError& error) {
+            if (error.code == ErrorCode::AuthFailed) {
+                lifecycle->setAuthErrorMessage(error.message);
+            }
+        });
+
+        // 凭据重试 → 更新凭据并重连
+        connect(lifecycle, &ConnectionLifecycle::retryAuthRequested,
+                this, [this](const QString& username, const QString& password) {
+            m_connectionManager->updateCredentials(username, password);
+            m_connectionManager->retryAuthentication();
+        });
+    }
 
     // ── 光标（cursorChanged→update 确保屏幕静止无帧时光标仍可渲染）
     CursorManager* cursorMgr = m_window->cursorManager();
