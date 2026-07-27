@@ -61,11 +61,12 @@ enum class KeyboardEventType : quint8 {
 };
 
 // 认证结果
+// 认证结果
 enum class AuthResult : quint8 {
-    SUCCESS = 0x00,
-    INVALID_PASSWORD = 0x01,
-    ACCESS_DENIED = 0x02,
-    SERVER_FULL = 0x03
+    SUCCESS          = 0x00,  // 认证通过
+    INVALID_USERNAME = 0x01,  // 用户名无效
+    INVALID_PASSWORD = 0x02,  // 密码错误
+    ACCESS_DENIED    = 0x03,  // 失败次数过多，拒绝访问
 };
 
 // 编解码接口：仅负责消息打包与从缓冲区解包
