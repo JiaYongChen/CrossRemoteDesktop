@@ -215,16 +215,7 @@ void SettingsDialog::onUsernameChanged()
 
 	if (newUsername == oldUsername) return;
 
-	// 互斥校验：清空是允许的，单独设置用户名而密码为空则拒绝
-	if (!newUsername.isEmpty() && ui->passwordEdit->text().isEmpty()) {
-		QMessageBox::warning(this,
-			tr("认证配置不完整"),
-			tr("用户名和密码必须同时填写或同时留空以跳过认证。"));
-		ui->usernameEdit->setText(oldUsername);
-		return;
-	}
-
-	// 仅内存缓存，退出设置界面时由 saveAuthConfig() 统一持久化
+	// 仅内存缓存，退出设置界面时由 saveAuthConfig() 统一持久化 + done() 互斥校验
 	qCDebug(lcUISettingsDialog) << "SettingsDialog: username changed (pending)";
 }
 
@@ -233,15 +224,7 @@ void SettingsDialog::onPasswordChanged()
 	const QString newPassword = ui->passwordEdit->text();
 	if (newPassword == m_cachedPassword) return;
 
-	// 互斥校验：清空是允许的，单独设置密码而用户名为空则拒绝
-	if (!newPassword.isEmpty() && ui->usernameEdit->text().trimmed().isEmpty()) {
-		QMessageBox::warning(this,
-			tr("认证配置不完整"),
-			tr("用户名和密码必须同时填写或同时留空以跳过认证。"));
-		ui->passwordEdit->setText(m_cachedPassword);
-		return;
-	}
-
+	// 仅内存缓存，退出设置界面时由 saveAuthConfig() 统一持久化 + done() 互斥校验
 	m_cachedPassword = newPassword;
 	qCDebug(lcUISettingsDialog) << "SettingsDialog: password updated (pending)";
 }
@@ -389,7 +372,19 @@ void SettingsDialog::saveAuthConfig()
 
 void SettingsDialog::done(int r)
 {
-	// 持久化由 hideEvent() 统一处理——done()→close()→hideEvent() 全部路径覆盖
+	// 关闭前校验互斥规则：用户名和密码必须同时为空或同时有值
+	const QString username = ui->usernameEdit->text().trimmed();
+	const QString password = ui->passwordEdit->text();
+	const bool hasUsername = !username.isEmpty();
+	const bool hasPassword = !password.isEmpty();
+
+	if (hasUsername != hasPassword) {
+		QMessageBox::warning(this,
+			tr("认证配置不完整"),
+			tr("用户名和密码必须同时填写或同时留空以跳过认证。"));
+		return;  // 不调用 QDialog::done()——阻止关闭，用户修正后可重试
+	}
+
 	QDialog::done(r);
 }
 
