@@ -144,7 +144,6 @@ QByteArray AuthenticationRequest::encode() const {
     ds.setByteOrder(QDataStream::LittleEndian);
     writePrefixedString(ds, username);
     writePrefixedString(ds, passwordHash);
-    ds << static_cast<quint32>(authMethod);
     return bytes;
 }
 
@@ -153,11 +152,7 @@ bool AuthenticationRequest::decode(const QByteArray& bytes) {
     ds.setByteOrder(QDataStream::LittleEndian);
     username = readPrefixedString(ds, ProtocolConstants::MaxUsernameLength);
     passwordHash = readPrefixedString(ds, ProtocolConstants::MaxPasswordHashLength);
-    quint32 method = 0;
-    ds >> method;
-    if ( ds.status() != QDataStream::Ok ) return false;
-    authMethod = method;
-    return true;
+    return ds.status() == QDataStream::Ok;
 }
 
 // AuthenticationResponse 序列化和反序列化实现
@@ -167,7 +162,6 @@ QByteArray AuthenticationResponse::encode() const {
     ds.setByteOrder(QDataStream::LittleEndian);
     ds << static_cast<quint8>(result);
     writePrefixedString(ds, sessionId);
-    ds << static_cast<quint32>(permissions);
     return bytes;
 }
 
@@ -177,11 +171,8 @@ bool AuthenticationResponse::decode(const QByteArray& bytes) {
     quint8 res8 = 0;
     ds >> res8;
     sessionId = readPrefixedString(ds, ProtocolConstants::MaxSessionIdLength);
-    quint32 perms = 0;
-    ds >> perms;
-    if ( ds.status() != QDataStream::Ok ) return false;
+    if (ds.status() != QDataStream::Ok) return false;
     result = static_cast<AuthResult>(res8);
-    permissions = perms;
     return true;
 }
 

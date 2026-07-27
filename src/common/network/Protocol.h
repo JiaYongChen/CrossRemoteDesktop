@@ -135,7 +135,6 @@ struct HandshakeResponse : public IMessageCodec {
 struct AuthenticationRequest : public IMessageCodec {
     QString username;
     QString passwordHash;
-    quint32 authMethod;
 
     [[nodiscard]] QByteArray encode() const;
     [[nodiscard]] bool decode(const QByteArray& dataBuffer);
@@ -145,7 +144,6 @@ struct AuthenticationRequest : public IMessageCodec {
 struct AuthenticationResponse : public IMessageCodec {
     AuthResult result;
     QString sessionId;
-    quint32 permissions;
 
     [[nodiscard]] QByteArray encode() const;
     [[nodiscard]] bool decode(const QByteArray& dataBuffer);
