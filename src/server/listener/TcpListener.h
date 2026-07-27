@@ -25,12 +25,11 @@ public:
     explicit TcpListener(QObject* parent = nullptr);
     ~TcpListener() override;
 
-    Q_INVOKABLE void startListening(quint16 port, const QString& password = QString());
+    Q_INVOKABLE void startListening(quint16 port);
     Q_INVOKABLE void stopListening();
 
     bool isListening() const;
     quint16 port() const;
-    QString password() const { return m_password; }
     QSslCertificate sslCertificate() const;
     QSslKey sslPrivateKey() const;
 
@@ -60,6 +59,4 @@ private:
     mutable QMutex m_serverMutex;
     bool m_isRunning = false;
     quint16 m_currentPort = 0;
-
-    QString m_password;  ///< 服务端认证密码（每新连接时传递给会话）
 };

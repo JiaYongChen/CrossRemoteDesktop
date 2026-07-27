@@ -151,7 +151,6 @@ struct AuthenticationResponse : public IMessageCodec {
 
 // 认证挑战（阶段C：PBKDF2 握手参数）
 struct AuthChallenge : public IMessageCodec {
-    quint32 method;      // 1=PBKDF2_SHA256（约定）
     quint32 iterations;  // 推荐 100000
     quint32 keyLength;   // 派生长度（字节），如 32
     QString saltHex;     // 盐（hex字符串）

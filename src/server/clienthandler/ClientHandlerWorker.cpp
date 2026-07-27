@@ -954,7 +954,6 @@ void ClientHandlerWorker::sendAuthenticationResponse(AuthResult result, const QS
 void ClientHandlerWorker::sendAuthChallenge() {
     // 读取已由 ServerSession 预注入的 salt + PBKDF2 参数（每连接创建时动态生成）
     AuthChallenge challenge;
-    challenge.method = 1;
     challenge.iterations = m_authHandler->pbkdf2Iterations();
     challenge.keyLength = m_authHandler->pbkdf2KeyLength();
 

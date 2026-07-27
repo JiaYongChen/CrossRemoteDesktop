@@ -359,7 +359,6 @@ QByteArray AuthChallenge::encode() const {
     QByteArray bytes;
     QDataStream ds(&bytes, QIODevice::WriteOnly);
     ds.setByteOrder(QDataStream::LittleEndian);
-    ds << method;
     ds << iterations;
     ds << keyLength;
     writePrefixedString(ds, saltHex);
@@ -369,6 +368,7 @@ QByteArray AuthChallenge::encode() const {
 bool AuthChallenge::decode(const QByteArray& bytes) {
     QDataStream ds(bytes);
     ds.setByteOrder(QDataStream::LittleEndian);
+    quint32 method;  // 兼容读写，不再存储
     ds >> method;
     ds >> iterations;
     ds >> keyLength;

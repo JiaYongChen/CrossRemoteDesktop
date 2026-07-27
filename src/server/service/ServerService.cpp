@@ -105,8 +105,7 @@ bool ServerService::start(quint16 port)
     // Worker::started 连接必须在 startThread 之前（修复竞态窗口）
     connect(m_tcpListener, &Worker::started, this, [this]() {
         QMetaObject::invokeMethod(m_tcpListener, "startListening", Qt::QueuedConnection,
-                                  Q_ARG(quint16, m_port),
-                                  Q_ARG(QString, m_serverPassword));
+                                  Q_ARG(quint16, m_port));
     }, Qt::SingleShotConnection);
 
     if (!m_threadManager->startThread("TcpListener")) {

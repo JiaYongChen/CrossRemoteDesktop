@@ -65,7 +65,7 @@ void TcpListener::processTask() {
     QThread::msleep(1);
 }
 
-void TcpListener::startListening(quint16 port, const QString& password) {
+void TcpListener::startListening(quint16 port) {
     QMutexLocker locker(&m_serverMutex);
 
     if (m_isRunning) {
@@ -81,8 +81,6 @@ void TcpListener::startListening(quint16 port, const QString& password) {
                                    tr("TCP服务器未初始化"), "TcpListener"));
         return;
     }
-
-    m_password = password;
 
     bool result = m_tcpServer->startServer(port);
     if (result) {
