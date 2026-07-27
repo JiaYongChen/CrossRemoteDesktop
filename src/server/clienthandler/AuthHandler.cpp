@@ -20,7 +20,7 @@ void AuthHandler::setExpectedPasswordDigest(const QByteArray& salt, const QByteA
 
 void AuthHandler::setExpectedUsername(const QString& username) {
     QMutexLocker locker(&m_mutex);
-    m_expectedUsername = username;
+    m_expectedUsername = username.trimmed();
 }
 
 void AuthHandler::setPbkdf2Params(quint32 iterations, quint32 keyLength) {
@@ -48,8 +48,9 @@ int AuthHandler::authenticate(const QString& username, const QString& passwordHa
         return static_cast<int>(AuthResult::SUCCESS);
     }
 
-    // 先校验用户名
-    if (!m_expectedUsername.isEmpty() && username != m_expectedUsername) {
+    // 先校验用户名（trim 避免尾随空格导致误判）
+    if (!m_expectedUsername.isEmpty()
+        && username.trimmed() != m_expectedUsername.trimmed()) {
         qCWarning(lcServerClientHandler) << "认证失败：用户名无效"
                                          << "期望:" << m_expectedUsername
                                          << "收到:" << username;

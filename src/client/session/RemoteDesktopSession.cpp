@@ -150,10 +150,9 @@ void RemoteDesktopSession::createWindow() {
         cursorMgr->setCursorEnabled(m_params.showCursor);
     }
 
-    // ── 注入 ConnectionManager 到 ConnectionLifecycle（用于凭据重输）──
+    // ── 注入缓存的用户名到 ConnectionLifecycle（用于凭据重输对话框预填）──
     ConnectionLifecycle* lifecycle = m_window->connectionLifecycle();
     if (lifecycle) {
-        lifecycle->setConnectionManager(m_connectionManager);
         lifecycle->setCachedUsername(m_params.username);
     }
 
@@ -201,8 +200,15 @@ void RemoteDesktopSession::wireSignals() {
         // 认证失败错误消息 → 缓存到 lifecycle（先于 setConnectionState 到达）
         connect(m_connectionManager, &ConnectionManager::errorOccurred,
                 lifecycle, [lifecycle](const RdError& error) {
-            if (error.code == ErrorCode::AuthFailed) {
+            switch (error.code) {
+            case ErrorCode::AuthInvalidUsername:
+            case ErrorCode::AuthInvalidPassword:
+            case ErrorCode::AuthAccessDenied:
+                lifecycle->setAuthErrorCode(error.code);
                 lifecycle->setAuthErrorMessage(error.message);
+                break;
+            default:
+                break;
             }
         });
 

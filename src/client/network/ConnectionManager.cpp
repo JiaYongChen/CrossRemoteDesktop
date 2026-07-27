@@ -377,31 +377,34 @@ void ConnectionManager::handleAuthenticationResponse(const QByteArray& data) {
             setConnectionState(Authenticated);
         } else {
             QString reason;
-            bool recoverable = false;
+            ErrorCode code;
             switch ( response.result ) {
                 case AuthResult::INVALID_USERNAME:
                     reason = tr("认证失败：用户名无效");
-                    recoverable = true;
+                    code = ErrorCode::AuthInvalidUsername;
                     break;
                 case AuthResult::INVALID_PASSWORD:
                     reason = tr("认证失败：密码错误");
-                    recoverable = true;
+                    code = ErrorCode::AuthInvalidPassword;
                     break;
                 case AuthResult::ACCESS_DENIED:
                     reason = tr("认证失败：尝试次数过多，请稍后重试");
+                    code = ErrorCode::AuthAccessDenied;
                     break;
                 default:
-                    reason = tr("认证失败"); break;
+                    reason = tr("认证失败");
+                    code = ErrorCode::AuthAccessDenied;
+                    break;
             }
-            const RdError error(ErrorCode::AuthFailed, reason, "ConnectionManager");
+            const RdError error(code, reason, "ConnectionManager");
             qCWarning(lcClient) << error.logLabel();
             emit errorOccurred(error);
             setConnectionState(AuthFailed);
             stopAutoReconnect();
 
-            if (recoverable) {
-                // 保留密码明文用于重试对话框预填，等待上层触发重连
-                // 不主动断开——等服务端关闭连接自然触发 onTcpDisconnected
+            if (code != ErrorCode::AuthAccessDenied) {
+                // 可重试错误：保留密码明文用于重试对话框预填
+                // 不主动断开——等服务端关闭连接或重试时 abort
             } else {
                 // 终态错误：清除密码，主动断开
                 m_password.fill(QChar(0));

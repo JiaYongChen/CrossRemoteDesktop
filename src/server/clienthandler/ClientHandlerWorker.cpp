@@ -739,12 +739,16 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
 
     // result == INVALID_PASSWORD（含回退延迟）
     int failCount = m_authHandler->failedAuthCount();
-    int delayMs = std::min(
-        SecurityConstants::AuthBaseDelayMs * (1 << (failCount - 1)),
-        SecurityConstants::AuthMaxDelayMs);
+    int delayMs = SecurityConstants::AuthBaseDelayMs;
+    if (failCount > 0) {
+        delayMs = std::min(
+            SecurityConstants::AuthBaseDelayMs * (1 << (failCount - 1)),
+            SecurityConstants::AuthMaxDelayMs);
+    }
     qCDebug(lcServerClientHandler) << "认证速率限制: 延迟" << delayMs << "ms 后发送响应";
     QTimer::singleShot(delayMs, this, [this]() {
         sendAuthenticationResponse(AuthResult::INVALID_PASSWORD);
+        forceDisconnect();
     });
 }
 

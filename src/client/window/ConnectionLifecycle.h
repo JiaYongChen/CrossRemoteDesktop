@@ -5,10 +5,11 @@
 #include <QtWidgets/QWidget>
 
 #include "client/network/ConnectionManager.h"
+#include "common/error/ErrorCode.h"
 
 /// 连接生命周期管理 — 从 ClientRemoteWindow 分离出的连接状态+标题+断连对话框
 ///
-/// 管理连接状态机 → 窗口标题同步 → 断连对话框展示全流程。
+/// 管理连接状态机 → 窗口标题同步 → 断连对话框/凭据重输对话框展示全流程。
 class ConnectionLifecycle : public QObject {
     Q_OBJECT
 public:
@@ -17,7 +18,7 @@ public:
     /// 绑定目标窗口
     void manage(QWidget* window);
 
-    /// 设置连接状态（触发标题更新 + 断连处理）
+    /// 设置连接状态（触发标题更新 + 断连/凭据重输处理）
     void setConnectionState(ConnectionManager::ConnectionState state);
 
     /// 设置主机名（用于标题显示）
@@ -26,10 +27,10 @@ public:
     /// 设置仅查看模式（影响窗口标题后缀）
     void setViewOnly(bool viewOnly) { m_viewOnly = viewOnly; updateWindowTitle(); }
 
-    /// 设置关联的 ConnectionManager 指针（用于重试认证）
-    void setConnectionManager(ConnectionManager* mgr);
+    /// 缓存认证错误码（用于判定可重试/密码模式选择，由 errorOccurred 信号触发）
+    void setAuthErrorCode(ErrorCode code);
 
-    /// 缓存认证错误消息（由连接层错误信号触发）
+    /// 缓存认证错误消息（用于对话框展示，由 errorOccurred 信号触发）
     void setAuthErrorMessage(const QString& msg);
 
     /// 缓存用户名（用于凭据重输对话框预填）
@@ -58,9 +59,8 @@ private:
     /// 期间可能有新的状态变更触发第二次弹窗调度
     bool m_dialogShowing = false;
 
-    ConnectionManager* m_connectionManager = nullptr;
-    QString m_authErrorMessage;           ///< 缓存认证错误消息
-    QString m_cachedUsername;             ///< 预填用户名
-    QString m_pendingAuthError;           ///< 缓存认证错误消息（供异步弹窗使用）
-    bool m_authRetryPending = false;      ///< 是否有待处理的重试
+    ErrorCode m_authErrorCode = ErrorCode::Unknown;  ///< 认证错误类型（结构化解耦，不依赖字符串匹配）
+    QString m_authErrorMessage;                       ///< 缓存认证错误消息（用于对话框展示）
+    QString m_cachedUsername;                         ///< 预填用户名
+    bool m_authRetryPending = false;                  ///< 是否有待处理的重试（终态守卫 + 重入守卫）
 };

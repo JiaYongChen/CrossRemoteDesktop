@@ -360,23 +360,23 @@ void SettingsDialog::changeEvent(QEvent* event)
 		if (ui->restoreDefaultsBtn) ui->restoreDefaultsBtn->setText(tr("恢复默认值"));
 	}
 }
-void SettingsDialog::closeEvent(QCloseEvent* event)
+void SettingsDialog::done(int r)
 {
-	// 用户名和密码互斥校验：必须同时为空或同时有值
-	const QString username = ui->usernameEdit->text().trimmed();
-	const QString password = ui->passwordEdit->text();
-	const bool hasUsername = !username.isEmpty();
-	const bool hasPassword = !password.isEmpty();
+	// 仅在确认（OK/保存）时校验互斥规则，取消/Escape 直接放行
+	if (r == QDialog::Accepted) {
+		const QString username = ui->usernameEdit->text().trimmed();
+		const QString password = ui->passwordEdit->text();
+		const bool hasUsername = !username.isEmpty();
+		const bool hasPassword = !password.isEmpty();
 
-	if (hasUsername != hasPassword) {
-		QMessageBox::warning(this,
-			tr("认证配置不完整"),
-			tr("用户名和密码必须同时填写或同时留空以跳过认证。"));
-		event->ignore();
-		return;
+		if (hasUsername != hasPassword) {
+			QMessageBox::warning(this,
+				tr("认证配置不完整"),
+				tr("用户名和密码必须同时填写或同时留空以跳过认证。"));
+			return;  // 不调用 QDialog::done()，阻止关闭
+		}
 	}
-
-	QDialog::closeEvent(event);
+	QDialog::done(r);
 }
 
 void SettingsDialog::showEvent(QShowEvent* event)

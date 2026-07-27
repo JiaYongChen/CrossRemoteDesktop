@@ -25,11 +25,16 @@ ServerService::ServerService(ThreadManager *threadManager,
     , m_queueManager(queueManager)
 {
     // 读取服务端认证配置
-    m_serverUsername = settingsManager->getString("Server/username");
+    m_serverUsername = settingsManager->getString("Server/username").trimmed();
     QString encryptedPwd = settingsManager->getString("Server/password");
     if (!encryptedPwd.isEmpty() && !m_serverUsername.isEmpty()) {
         m_serverPassword = PasswordCrypto::decrypt(m_serverUsername, encryptedPwd);
-        qCInfo(lcServer) << "ServerService: 密码认证已启用，用户名:" << m_serverUsername;
+        if (m_serverPassword.isEmpty()) {
+            qCWarning(lcServer) << "ServerService: 密码解密失败——认证已禁用！"
+                                << "加密数据可能已损坏，请重新设置密码";
+        } else {
+            qCInfo(lcServer) << "ServerService: 密码认证已启用，用户名:" << m_serverUsername;
+        }
     } else {
         qCInfo(lcServer) << "ServerService: 无密码认证模式";
     }

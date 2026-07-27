@@ -26,7 +26,6 @@ void ConnectionLifecycle::setConnectionState(ConnectionManager::ConnectionState 
     m_connectionState = state;
     updateWindowTitle();
 
-    // 记录是否曾拥有真实会话——后续以此区分"会话丢失"和"初始连接失败"
     if (state == ConnectionManager::Authenticated) {
         m_wasAuthenticated = true;
         m_authRetryPending = false;
@@ -34,39 +33,38 @@ void ConnectionLifecycle::setConnectionState(ConnectionManager::ConnectionState 
 
     // AuthFailed 处理：可重试 → 弹凭据对话框；终态 → 关闭
     if (state == ConnectionManager::AuthFailed) {
-        if (!m_authErrorMessage.isEmpty()) {
-            bool isPasswordError = m_authErrorMessage.contains(tr("密码错误"));
-            bool isUsernameError = m_authErrorMessage.contains(tr("用户名无效"));
-            if (isPasswordError || isUsernameError) {
-                m_authRetryPending = true;
-                m_pendingAuthError = m_authErrorMessage;
-                bool passwordOnly = isPasswordError;  // 密码错误→仅重输密码
-                QTimer::singleShot(200, this, [this, passwordOnly]() {
-                    showCredentialDialog(m_pendingAuthError, passwordOnly);
-                });
-                return;
-            }
+        // 重入守卫：避免状态循环时重复调度对话框
+        if (m_authRetryPending) return;
+
+        if (m_authErrorCode == ErrorCode::AuthInvalidUsername
+            || m_authErrorCode == ErrorCode::AuthInvalidPassword) {
+            m_authRetryPending = true;
+            bool passwordOnly = (m_authErrorCode == ErrorCode::AuthInvalidPassword);
+            // 按值捕获错误消息，避免定时器触发前成员被覆写
+            QTimer::singleShot(200, this, [this, passwordOnly, msg = m_authErrorMessage]() {
+                showCredentialDialog(msg, passwordOnly);
+            });
+            return;
         }
     }
 
-    // 判定是否到达终态且需要通知用户。
-    // 条件：1) 曾认证（真实会话丢失，而非初始连接失败）
-    //       2) 当前为终态（Disconnected / Error）
-    //       3) 非用户主动断开（Disconnecting）
+    // 终态处理：检查是否因可重试认证错误导致的断开，是则跳过关窗逻辑
     bool isTerminal = (state == ConnectionManager::Disconnected
                        || state == ConnectionManager::Error);
     bool wasActive = (oldState != ConnectionManager::Disconnecting);
 
     if (isTerminal && wasActive) {
+        if (m_authRetryPending) {
+            // 认证重试等待中，不关闭窗口
+            return;
+        }
         if (m_wasAuthenticated) {
-            // 曾拥有真实会话 → 弹窗告知用户会话丢失，确认后关闭窗口
             qCInfo(lcClientRemoteWindow) << "ConnectionLifecycle: Connection lost, scheduling disconnection dialog";
 
             QTimer::singleShot(100, this, [this]() {
                 showDisconnectionDialog();
             });
         } else {
-            // 从未认证 → 连接从未建立完成，静默关闭窗口（无需误导性弹窗）
             qCInfo(lcClientRemoteWindow) << "ConnectionLifecycle: Pre-auth connection failed, closing window silently";
 
             QTimer::singleShot(100, this, [this]() {
@@ -147,8 +145,8 @@ void ConnectionLifecycle::showDisconnectionDialog() {
     m_window->close();
 }
 
-void ConnectionLifecycle::setConnectionManager(ConnectionManager* mgr) {
-    m_connectionManager = mgr;
+void ConnectionLifecycle::setAuthErrorCode(ErrorCode code) {
+    m_authErrorCode = code;
 }
 
 void ConnectionLifecycle::setAuthErrorMessage(const QString& msg) {
@@ -162,7 +160,9 @@ void ConnectionLifecycle::setCachedUsername(const QString& name) {
 void ConnectionLifecycle::showCredentialDialog(const QString& errorMessage, bool passwordOnly) {
     if (!m_window) return;
 
-    QDialog dialog(m_window);
+    // 不使用 m_window 作为父对象——m_window 有 WA_DeleteOnClose，
+    // 嵌套事件循环中若窗口关闭会导致 Qt 对栈对象调用 delete（未定义行为）
+    QDialog dialog(nullptr);
     dialog.setWindowTitle(tr("认证失败"));
     dialog.setMinimumWidth(320);
 
@@ -185,7 +185,7 @@ void ConnectionLifecycle::showCredentialDialog(const QString& errorMessage, bool
         layout->addWidget(usernameEdit);
     }
 
-    // 密码（始终可编辑，清空让用户重新输入）
+    // 密码（始终可编辑）
     layout->addWidget(new QLabel(tr("密码:")));
     auto* passwordEdit = new QLineEdit();
     passwordEdit->setEchoMode(QLineEdit::Password);

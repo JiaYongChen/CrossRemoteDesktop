@@ -11,7 +11,9 @@ enum class ErrorCode {
     NetworkHeartbeatTimeout,
 
     // ─ 认证 ─
-    AuthFailed,
+    AuthInvalidUsername,   ///< 用户名无效（可重试）
+    AuthInvalidPassword,   ///< 密码错误（可重试）
+    AuthAccessDenied,      ///< 尝试次数过多，拒绝访问（终态）
 
     // ─ 会话 ─
     SessionNotAuthenticated,
