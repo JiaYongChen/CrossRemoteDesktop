@@ -7,6 +7,7 @@
 
 #include "common/config/SecurityConstants.h"
 #include "common/error/RdError.h"
+#include "common/network/Protocol.h"
 #include "common/logging/LoggingCategories.h"
 
 AuthHandler::AuthHandler() {}
@@ -15,6 +16,11 @@ void AuthHandler::setExpectedPasswordDigest(const QByteArray& salt, const QByteA
     QMutexLocker locker(&m_mutex);
     m_expectedSalt = salt;
     m_expectedDigest = digest;
+}
+
+void AuthHandler::setExpectedUsername(const QString& username) {
+    QMutexLocker locker(&m_mutex);
+    m_expectedUsername = username;
 }
 
 void AuthHandler::setPbkdf2Params(quint32 iterations, quint32 keyLength) {
@@ -34,39 +40,45 @@ bool AuthHandler::isRateLimited() const {
     return elapsedMs < requiredDelayMs;
 }
 
-int AuthHandler::authenticate(const QString& username, const QString& passwordHash, quint32 authMethod) {
-    Q_UNUSED(username)
-
+int AuthHandler::authenticate(const QString& username, const QString& passwordHash) {
     QMutexLocker locker(&m_mutex);
 
     // 无密码保护 → 直接成功
     if (m_expectedDigest.isEmpty()) {
-        return 0; // AuthResult::SUCCESS
+        return static_cast<int>(AuthResult::SUCCESS);
     }
 
-    if (authMethod != 1) {
-        qCWarning(lcServerClientHandler) << "不支持的认证方法:" << authMethod;
-        return 2; // AuthResult::INVALID_PASSWORD
+    // 先校验用户名
+    if (!m_expectedUsername.isEmpty() && username != m_expectedUsername) {
+        qCWarning(lcServerClientHandler) << "认证失败：用户名无效"
+                                         << "期望:" << m_expectedUsername
+                                         << "收到:" << username;
+        return static_cast<int>(AuthResult::INVALID_USERNAME);
     }
 
+    // 密码哈希为空 → 拒绝（不再返回 -1 触发挑战，服务端现在主动下发）
     if (passwordHash.isEmpty()) {
-        return -1; // 需要挑战（sendAuthChallenge）
+        qCWarning(lcServerClientHandler) << "认证失败：客户端未提供密码哈希";
+        return static_cast<int>(AuthResult::INVALID_PASSWORD);
     }
 
+    // 比对摘要
     QByteArray clientDigest = QByteArray::fromHex(passwordHash.toUtf8());
     if (clientDigest == m_expectedDigest) {
-        return 0; // AuthResult::SUCCESS
+        return static_cast<int>(AuthResult::SUCCESS);
     }
 
+    // 认证失败：递增计数并速率限制
     m_failedAuthCount++;
     m_lastFailedAuthTime = QDateTime::currentDateTime();
-    qCWarning(lcServerClientHandler) << "客户端认证失败 (失败次数:" << m_failedAuthCount << "/" << SecurityConstants::MaxAuthFailures << ")";
+    qCWarning(lcServerClientHandler) << "客户端认证失败 (失败次数:" << m_failedAuthCount
+                                     << "/" << SecurityConstants::MaxAuthFailures << ")";
 
     if (m_failedAuthCount >= SecurityConstants::MaxAuthFailures) {
-        return 3; // ACCESS_DENIED → 断开连接
+        return static_cast<int>(AuthResult::ACCESS_DENIED);
     }
 
-    return 2; // INVALID_PASSWORD (含回退延迟)
+    return static_cast<int>(AuthResult::INVALID_PASSWORD);
 }
 
 int AuthHandler::failedAuthCount() const {
@@ -97,4 +109,9 @@ QByteArray AuthHandler::salt() const {
 bool AuthHandler::hasPassword() const {
     QMutexLocker locker(&m_mutex);
     return !m_expectedDigest.isEmpty();
+}
+
+QString AuthHandler::expectedUsername() const {
+    QMutexLocker locker(&m_mutex);
+    return m_expectedUsername;
 }
