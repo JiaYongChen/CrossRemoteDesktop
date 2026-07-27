@@ -64,6 +64,7 @@ private:
 
     ThreadManager *m_threadManager;
     QueueManager *m_queueManager;
+    SettingsManager *m_settingsManager;  ///< 配置管理器（start() 时重新读取凭据）
 
     TcpListener *m_tcpListener = nullptr;
     CapturePipeline *m_capturePipeline = nullptr;
@@ -76,6 +77,6 @@ private:
     State m_state = State::Stopped;
     quint16 m_port = 0;
 
-    QString m_serverUsername;  ///< 服务端认证用户名
-    QString m_serverPassword;  ///< 服务端认证密码（明文，内存驻留）
+    QString m_serverUsername;  ///< 服务端认证用户名（start() 时从 SettingsManager 刷新）
+    QString m_serverPassword;  ///< 服务端认证密码（start() 时从 SettingsManager 刷新）
 };

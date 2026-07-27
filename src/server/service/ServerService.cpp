@@ -23,22 +23,8 @@ ServerService::ServerService(ThreadManager *threadManager,
     : QObject(parent)
     , m_threadManager(threadManager)
     , m_queueManager(queueManager)
+    , m_settingsManager(settingsManager)
 {
-    // 读取服务端认证配置
-    m_serverUsername = settingsManager->getString("Server/username").trimmed();
-    QString encryptedPwd = settingsManager->getString("Server/password");
-    if (!encryptedPwd.isEmpty() && !m_serverUsername.isEmpty()) {
-        m_serverPassword = PasswordCrypto::decrypt(m_serverUsername, encryptedPwd);
-        if (m_serverPassword.isEmpty()) {
-            qCWarning(lcServer) << "ServerService: 密码解密失败——认证已禁用！"
-                                << "加密数据可能已损坏，请重新设置密码";
-        } else {
-            qCInfo(lcServer) << "ServerService: 密码认证已启用，用户名:" << m_serverUsername;
-        }
-    } else {
-        qCInfo(lcServer) << "ServerService: 无密码认证模式";
-    }
-
     m_clipboardManager = new ClipboardManager(this);
     m_clipboardManager->setEnabled(true);
 
@@ -74,6 +60,22 @@ bool ServerService::start(quint16 port)
 
     m_port = port;
     m_state = State::Starting;
+
+    // 每次启动时重新读取认证配置（支持 stop/start 后凭据变更生效）
+    m_serverUsername = m_settingsManager->getString("Server/username").trimmed();
+    QString encryptedPwd = m_settingsManager->getString("Server/password");
+    m_serverPassword.clear();
+    if (!encryptedPwd.isEmpty() && !m_serverUsername.isEmpty()) {
+        m_serverPassword = PasswordCrypto::decrypt(m_serverUsername, encryptedPwd);
+        if (m_serverPassword.isEmpty()) {
+            qCWarning(lcServer) << "ServerService: 密码解密失败——认证已禁用！"
+                                << "加密数据可能已损坏，请重新设置密码";
+        } else {
+            qCInfo(lcServer) << "ServerService: 密码认证已启用，用户名:" << m_serverUsername;
+        }
+    } else {
+        qCInfo(lcServer) << "ServerService: 无密码认证模式";
+    }
 
     // 1. 创建 TcpListener
     if (!m_threadManager->hasThread("TcpListener")) {
