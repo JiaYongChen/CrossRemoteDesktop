@@ -33,6 +33,8 @@ public:
                            const QSslCertificate& cert,
                            const QSslKey& key,
                            ThreadManager* threadMgr,
+                           const QString& serverUsername,
+                           const QString& serverPassword,
                            QObject* parent = nullptr);
     ~ServerSession() override;
 
@@ -79,6 +81,8 @@ private:
     QString m_clientHandlerThreadName;
 
     QString m_sessionId;
+    QString m_serverUsername;
+    QString m_serverPassword;
     std::atomic<bool> m_authenticated{false};
     bool m_shuttingDown = false;
 };

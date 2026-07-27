@@ -2,8 +2,10 @@
 #include "server/session/ServerSession.h"
 
 #include <QtCore/QMetaObject>
+#include <QtCore/QRandomGenerator>
 #include <QtCore/QThread>
 #include <QtCore/QUuid>
+#include <QtNetwork/QPasswordDigestor>
 
 #include "common/error/RdError.h"
 #include "common/logging/LoggingCategories.h"
@@ -17,12 +19,16 @@ ServerSession::ServerSession(qintptr socketDescriptor,
                              const QSslCertificate& cert,
                              const QSslKey& key,
                              ThreadManager* threadMgr,
+                             const QString& serverUsername,
+                             const QString& serverPassword,
                              QObject* parent)
     : Worker(parent)
     , m_socketDescriptor(socketDescriptor)
     , m_cert(cert)
     , m_key(key)
-    , m_threadManager(threadMgr) {
+    , m_threadManager(threadMgr)
+    , m_serverUsername(serverUsername)
+    , m_serverPassword(serverPassword) {
     m_sessionId = QUuid::createUuid().toString(QUuid::WithoutBraces);
     setName(QString("ServerSession_%1").arg(m_sessionId.left(8)));
 }
@@ -44,6 +50,26 @@ bool ServerSession::initialize() {
     m_clientHandler = new ClientHandlerWorker(m_socketDescriptor,
                                               &m_queues->processedQueue,
                                               m_cert, m_key);
+
+    // 2.5 如果配置了密码，每连接动态生成 salt 并派生 PBKDF2 摘要
+    if (!m_serverPassword.isEmpty()) {
+        // 生成随机 32 字节 salt
+        QByteArray salt(32, Qt::Uninitialized);
+        QRandomGenerator::securelySeeded().generate(salt.begin(), salt.end());
+
+        // PBKDF2 派生: password + username + salt
+        QByteArray derived = QPasswordDigestor::deriveKeyPbkdf2(
+            QCryptographicHash::Sha256,
+            (m_serverPassword + m_serverUsername).toUtf8(),
+            salt, 100000, 32);
+
+        // 注入 AuthHandler
+        m_clientHandler->setExpectedUsername(m_serverUsername);
+        m_clientHandler->setExpectedPasswordDigest(salt, derived);
+        m_clientHandler->setPbkdf2Params(100000, 32);
+
+        qCDebug(lcServer) << "ServerSession: auth configured for" << m_sessionId;
+    }
 
     m_clientHandlerThreadName = QString("ClientHandler_%1").arg(m_sessionId.left(8));
     if (!m_threadManager->createThread(m_clientHandlerThreadName,
