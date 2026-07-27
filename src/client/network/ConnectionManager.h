@@ -145,5 +145,10 @@ private:
     /// 不持久化——不会被 onTcpError/onConnectionTimeout 读取或修改。
     bool m_userInitiatedDisconnect = false;
 
+    /// 错误处理中的重入守卫：onTcpError/onConnectionTimeout 在 abort() 前置 true，
+    /// 阻止同步触发的 onTcpDisconnected 独立决策（state/cleanup/reconnect），
+    /// 将决策权统一保留给外层错误/超时处理函数。
+    bool m_handlingError = false;
+
 };
 

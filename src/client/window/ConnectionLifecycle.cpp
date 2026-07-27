@@ -20,18 +20,35 @@ void ConnectionLifecycle::setConnectionState(ConnectionManager::ConnectionState 
     m_connectionState = state;
     updateWindowTitle();
 
-    // 仅在真正"终态断开"时弹对话框（AuthFailed/Reconnecting 不弹——
-    // AuthFailed 已有专属错误信号，Reconnecting 可能恢复）
-    if (state == ConnectionManager::Disconnected) {
-        if (oldState == ConnectionManager::Connected ||
-            oldState == ConnectionManager::Authenticated ||
-            oldState == ConnectionManager::Error) {
+    // 记录是否曾拥有真实会话——后续以此区分"会话丢失"和"初始连接失败"
+    if (state == ConnectionManager::Authenticated) {
+        m_wasAuthenticated = true;
+    }
 
+    // 判定是否到达终态且需要通知用户。
+    // 条件：1) 曾认证（真实会话丢失，而非初始连接失败）
+    //       2) 当前为终态（Disconnected / Error）
+    //       3) 非用户主动断开（Disconnecting）
+    bool isTerminal = (state == ConnectionManager::Disconnected
+                       || state == ConnectionManager::Error);
+    bool wasActive = (oldState != ConnectionManager::Disconnecting);
+
+    if (isTerminal && wasActive) {
+        if (m_wasAuthenticated) {
+            // 曾拥有真实会话 → 弹窗告知用户会话丢失，确认后关闭窗口
             qCInfo(lcClientRemoteWindow) << "ConnectionLifecycle: Connection lost, scheduling disconnection dialog";
 
-            // Post to event loop to avoid re-entrancy from signal handlers
             QTimer::singleShot(100, this, [this]() {
                 showDisconnectionDialog();
+            });
+        } else {
+            // 从未认证 → 连接从未建立完成，静默关闭窗口（无需误导性弹窗）
+            qCInfo(lcClientRemoteWindow) << "ConnectionLifecycle: Pre-auth connection failed, closing window silently";
+
+            QTimer::singleShot(100, this, [this]() {
+                if (m_window) {
+                    m_window->close();
+                }
             });
         }
     }
@@ -86,7 +103,9 @@ void ConnectionLifecycle::updateWindowTitle() {
 }
 
 void ConnectionLifecycle::showDisconnectionDialog() {
-    if (!m_window) return;
+    if (!m_window || m_dialogShowing) return;
+
+    m_dialogShowing = true;
 
     qCInfo(lcClientRemoteWindow) << "ConnectionLifecycle: Showing disconnection dialog";
 

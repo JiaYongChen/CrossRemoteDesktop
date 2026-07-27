@@ -197,6 +197,12 @@ void ConnectionManager::onTcpConnected() {
 void ConnectionManager::onTcpDisconnected() {
     m_connectionTimer->stop();
 
+    // ── 重入守卫：在 onTcpError/onConnectionTimeout 内部由 abort() 触发时，
+    // 不独立做状态决策——由外层错误/超时处理函数统一负责重连/清理。
+    if ( m_handlingError ) {
+        return;
+    }
+
     // ── 分支 1：用户主动断开 ──
     if ( m_userInitiatedDisconnect ) {
         m_userInitiatedDisconnect = false;
@@ -242,6 +248,16 @@ void ConnectionManager::onTcpError(const RdError& error) {
 
     m_connectionTimer->stop();
 
+    // 确保 socket 回到 UnconnectedState，否则重连时 TcpClient::connectToHost()
+    // 会因状态检查失败而静默返回（SocketTimeoutError 等错误不自动转换状态）。
+    // m_handlingError 阻止 abort() 同步触发的 onTcpDisconnected 独立决策
+    // （其 cleanupConnection 会重置计数器+清除 host/port，干扰本函数的重连决策）。
+    m_handlingError = true;
+    if ( m_tcpClient ) {
+        m_tcpClient->abort();
+    }
+    m_handlingError = false;
+
     if ( !startAutoReconnect() ) {
         setConnectionState(Error);
         m_currentReconnectAttempts = 0;
@@ -258,9 +274,13 @@ void ConnectionManager::onConnectionTimeout() {
 
     m_connectionTimer->stop();
 
+    // 同 onTcpError：abort() 同步触发 onTcpDisconnected，需守卫防止其
+    // cleanupConnection 重置计数器+清除 host/port 干扰本函数的重连决策。
+    m_handlingError = true;
     if ( m_tcpClient ) {
         m_tcpClient->abort();
     }
+    m_handlingError = false;
 
     if ( !startAutoReconnect() ) {
         // 连接超时且不重连：发射具体错误消息（替代 wireSignals 中的通用兜底）

@@ -34,4 +34,11 @@ private:
     ConnectionManager::ConnectionState m_connectionState = ConnectionManager::Disconnected;
     QString m_hostName;
     bool m_viewOnly = false;
+
+    /// 是否曾完成认证——用于区分"真实会话丢失"和"初始连接失败"
+    bool m_wasAuthenticated = false;
+
+    /// 弹窗重入守卫——QMessageBox::exec() 运行嵌套事件循环，
+    /// 期间可能有新的状态变更触发第二次弹窗调度
+    bool m_dialogShowing = false;
 };
