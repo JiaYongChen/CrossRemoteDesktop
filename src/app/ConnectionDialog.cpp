@@ -143,6 +143,38 @@ void ConnectionDialog::setUsername(const QString& username)
 	ui->usernameLineEdit->setText(username);
 }
 
+void ConnectionDialog::resetToDefaults()
+{
+	// 连接信息（清空上次残留输入）
+	ui->hostnameLineEdit->clear();
+	ui->hostLineEdit->clear();
+	ui->usernameLineEdit->clear();
+	ui->passwordLineEdit->clear();
+	// 密码恢复遮罩显示 + eye-off 图标（上次可能切到了明文）
+	ui->passwordLineEdit->setEchoMode(QLineEdit::Password);
+	if (m_togglePasswordAction) {
+		m_togglePasswordAction->setIcon(IconThemeProvider::icon("eye-off"));
+	}
+
+	// 显示 & 功能（复位到默认值）
+	ui->colorDepthComboBox->setCurrentIndex(2);      // 32 位真彩色（ConnectionParams 默认）
+	ui->fullScreenCheckBox->setChecked(false);       // 联动启用窗口尺寸输入
+	ui->windowWidthSpinBox->setValue(1600);
+	ui->windowHeightSpinBox->setValue(900);
+	ui->qualitySlider->setValue(85);
+	ui->clipboardCheckBox->setChecked(true);
+	ui->cursorCheckBox->setChecked(true);
+	ui->viewOnlyCheckBox->setChecked(false);
+
+	// 网络（复位到默认值）
+	ui->timeoutSpinBox->setValue(30);
+	ui->autoReconnectCheckBox->setChecked(false);    // 联动禁用重连间隔
+	ui->reconnectIntervalSpinBox->setValue(5);
+
+	// 回到第一个标签页（连接信息）
+	ui->tabWidget->setCurrentIndex(0);
+}
+
 void ConnectionDialog::setConnectionParams(const ConnectionParams& params)
 {
 	ui->hostnameLineEdit->setText(params.hostname);
@@ -159,9 +191,10 @@ void ConnectionDialog::setConnectionParams(const ConnectionParams& params)
 	ui->viewOnlyCheckBox->setChecked(params.viewOnly);
 	ui->clipboardCheckBox->setChecked(params.shareClipboard);
 	ui->cursorCheckBox->setChecked(params.showCursor);
+	// ConnectionParams 单位为毫秒，spinbox 单位为秒——双向转换保持一致
 	ui->timeoutSpinBox->setValue(params.connectionTimeout / 1000);
 	ui->autoReconnectCheckBox->setChecked(params.autoReconnect);
-	ui->reconnectIntervalSpinBox->setValue(params.reconnectInterval);
+	ui->reconnectIntervalSpinBox->setValue(params.reconnectInterval / 1000);
 }
 
 ConnectionParams ConnectionDialog::getConnectionParams() const
@@ -180,9 +213,10 @@ ConnectionParams ConnectionDialog::getConnectionParams() const
 	p.viewOnly       = getViewOnly();
 	p.shareClipboard = getShareClipboard();
 	p.showCursor     = getShowCursor();
-	p.connectionTimeout  = getConnectionTimeout();
+	// spinbox 单位为秒，ConnectionParams 单位为毫秒——×1000 转换（与 setConnectionParams 的 ÷1000 对称）
+	p.connectionTimeout  = getConnectionTimeout() * 1000;
 	p.autoReconnect      = getAutoReconnect();
-	p.reconnectInterval  = getReconnectInterval();
+	p.reconnectInterval  = getReconnectInterval() * 1000;
 	return p;
 }
 

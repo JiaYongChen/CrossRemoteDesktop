@@ -171,13 +171,15 @@ file(GLOB_RECURSE TRANSLATABLE_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.ui"
 )
 
-# 翻译产物（.ts 与 .qm）统一输出到构建目录——全部动态生成、不纳入 git。
-# .ts 由 lupdate 扫描源码 tr() 生成；.qm 由 lrelease 编译。
-set(TRANSLATIONS_OUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/translations")
+# 翻译：.ts 为持久翻译源（resources/translations/，跟踪 git，人工维护译文）；
+# .qm 为编译期产物（lrelease 生成到 build/translations/，不进 git，运行时加载）。
+# lupdate 不在编译时运行——避免每次重建 .ts 冲掉已填译文；源码 tr() 变更后手动跑 update_translations 同步。
+set(TS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/resources/translations")
+set(QM_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/translations")
 
 set(TS_FILES
-    "${TRANSLATIONS_OUT_DIR}/zh_CN.ts"
-    "${TRANSLATIONS_OUT_DIR}/en_US.ts"
+    "${TS_DIR}/zh_CN.ts"
+    "${TS_DIR}/en_US.ts"
 )
 
 find_program(LUPDATE_EXECUTABLE lupdate
@@ -191,55 +193,38 @@ find_program(LRELEASE_EXECUTABLE lrelease
 )
 
 if(LUPDATE_EXECUTABLE)
-    # 手动目标：源码 tr() 变更后刷新 .ts 行号与条目到 build/translations/（仅扫描，不编译）
+    # 手动目标：源码 tr() 变更后刷新 .ts（resources/translations/）。
+    # 不在编译时自动运行——避免重建 .ts 冲掉已填译文；lupdate 保留已有译文（标记废弃条目）。
+    # -locations none：不写 <location> 标签——它仅供 Linguist 导航、不参与翻译匹配，
+    #   去掉后 .ts 不随代码行号变动产生无意义 git diff。
     add_custom_target(update_translations
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${TRANSLATIONS_OUT_DIR}"
-        COMMAND ${LUPDATE_EXECUTABLE} ${TRANSLATABLE_SOURCES} -ts ${TS_FILES} -no-obsolete
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${TS_DIR}"
+        COMMAND ${LUPDATE_EXECUTABLE} ${TRANSLATABLE_SOURCES} -ts ${TS_FILES} -no-obsolete -locations none
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-        COMMENT "Syncing TS files into ${TRANSLATIONS_OUT_DIR}..."
+        COMMENT "Syncing TS files in ${TS_DIR}..."
     )
 endif()
 
 if(LRELEASE_EXECUTABLE)
-    # 每次编译 .ts → .qm（均在 build/translations/）。-qm 指定单一输出需逐个调用。
-    # 首个 COMMAND 为引导步骤：.ts 缺失时（全新 clone / 构建目录被清理）先自动 lupdate
-    # 生成，否则 lrelease 找不到输入会失败。逻辑封装于 cmake -P 脚本，避免 shell 引号嵌套。
-    set(_bootstrap_ts COMMAND true)
-    if(LUPDATE_EXECUTABLE)
-        # 源码列表经文件传递：-D 传分号列表会跨进程被截断，lupdate 只能收到首个文件。
-        set(_sources_list_file "${CMAKE_CURRENT_BINARY_DIR}/translation_sources.txt")
-        string(REPLACE ";" "\n" _sources_newline "${TRANSLATABLE_SOURCES}")
-        file(WRITE "${_sources_list_file}" "${_sources_newline}\n")
-
-        set(_bootstrap_ts
-            COMMAND ${CMAKE_COMMAND}
-                    "-DTRANSLATIONS_OUT_DIR=${TRANSLATIONS_OUT_DIR}"
-                    "-DLUPDATE_EXECUTABLE=${LUPDATE_EXECUTABLE}"
-                    "-DTS_ZH=${TRANSLATIONS_OUT_DIR}/zh_CN.ts"
-                    "-DTS_EN=${TRANSLATIONS_OUT_DIR}/en_US.ts"
-                    "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
-                    "-DSOURCES_FILE=${_sources_list_file}"
-                    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/BootstrapTranslations.cmake"
-        )
-    endif()
-
+    # 每次编译仅 lrelease：将持久 .ts（resources/translations/）编译为 .qm（build/translations/）。
+    # 不跑 lupdate——.ts 是人工维护的持久翻译源，译文须跨编译保留。-qm 单一输出需逐个调用。
     add_custom_target(release_translations ALL
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${TRANSLATIONS_OUT_DIR}"
-        ${_bootstrap_ts}
-        COMMAND ${LRELEASE_EXECUTABLE} "${TRANSLATIONS_OUT_DIR}/zh_CN.ts"
-                -qm "${TRANSLATIONS_OUT_DIR}/zh_CN.qm"
-        COMMAND ${LRELEASE_EXECUTABLE} "${TRANSLATIONS_OUT_DIR}/en_US.ts"
-                -qm "${TRANSLATIONS_OUT_DIR}/en_US.qm"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${QM_OUTPUT_DIR}"
+        COMMAND ${LRELEASE_EXECUTABLE} "${TS_DIR}/zh_CN.ts"
+                -qm "${QM_OUTPUT_DIR}/zh_CN.qm"
+        COMMAND ${LRELEASE_EXECUTABLE} "${TS_DIR}/en_US.ts"
+                -qm "${QM_OUTPUT_DIR}/en_US.qm"
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-        COMMENT "Compiling TS → QM in ${TRANSLATIONS_OUT_DIR}"
+        COMMENT "Compiling TS → QM into ${QM_OUTPUT_DIR}"
     )
     add_dependencies(CrossRemoteDesktop release_translations)
 
-    # 运行时翻译目录注入（编译期自动检测路径，非硬编码）；TranslationUtils 据此加载 .qm
+    # 运行时翻译目录注入（编译期自动检测路径，非硬编码）；TranslationUtils 据此加载 .qm。
+    # 用普通双引号 + 转义内层引号——方括号参数 [=[]=] 不展开变量，会使宏值成为字面量字符串。
     target_compile_definitions(CrossRemoteDesktop PRIVATE
-        [=[RD_TRANSLATIONS_DIR="${TRANSLATIONS_OUT_DIR}"]=]
+        "RD_TRANSLATIONS_DIR=\"${QM_OUTPUT_DIR}\""
     )
-    message(STATUS "[Translation] .ts + .qm generated to ${TRANSLATIONS_OUT_DIR} (runtime loaded)")
+    message(STATUS "[Translation] .ts source in ${TS_DIR}; .qm compiled to ${QM_OUTPUT_DIR} (runtime loaded)")
 endif()
 
 enable_testing()

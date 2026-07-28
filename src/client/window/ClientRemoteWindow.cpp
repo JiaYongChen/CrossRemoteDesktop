@@ -51,7 +51,7 @@ ClientRemoteWindow::ClientRemoteWindow(ProtocolSession* protocolSession, QWidget
 
     setupUI();
 
-    setWindowTitle(tr("Remote Desktop"));
+    setWindowTitle(tr("远程桌面"));
 }
 
 

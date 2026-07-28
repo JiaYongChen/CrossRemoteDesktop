@@ -714,6 +714,9 @@ void MainWindow::showConnectionDialog() {
         TitleBarTheme::apply(m_connectionDialog, m_themeMode == "dark");
     }
 
+    // 新建连接：每次打开先重置为默认数据，清除上次残留输入
+    m_connectionDialog->resetToDefaults();
+
     // 预填默认端口（优先服务端运行端口，否则从 SettingsManager 读取）
     int defaultPort = NetworkConstants::DefaultServerPort;
     if (m_serverService->isRunning()) {
@@ -722,14 +725,6 @@ void MainWindow::showConnectionDialog() {
         defaultPort = m_settings->getInt("Server/listenPort", NetworkConstants::DefaultServerPort);
     }
     m_connectionDialog->setDefaultPort(defaultPort);
-
-    // 预填用户名
-    {
-        const QString username = m_settings->getString("Server/username");
-        if (!username.isEmpty()) {
-            m_connectionDialog->setUsername(username);
-        }
-    }
 
     // 新建连接模式：允许查看输入的密码
     m_connectionDialog->setEditingMode(false);
@@ -778,6 +773,21 @@ void MainWindow::connectToHostDirectly(const ConnectionParams& params) {
         qCWarning(lcClientSession) << "RemoteDesktopSession error:" << err.logLabel();
         updateConnectionStatus(err.logLabel());
     });
+
+    // 认证成功后用实际通过验证的凭据回写历史——认证失败重试可能改了凭据，
+    // 而历史在发起连接时已按初始入参写入，此处更新为生效凭据。
+    // host/port 取自入参 params（按值捕获），与 addEntry 的历史键一致。
+    connect(session, &RemoteDesktopSession::authenticated, this,
+        [this, host = params.host, port = params.port](
+            const QString& id, const QString& username, const QString& password) {
+            Q_UNUSED(id);
+            if (!m_connectionPanel) return;
+            ConnectionParams p = m_connectionPanel->entryFor(host, port).params;
+            p.username = username;
+            p.password = password;
+            m_connectionPanel->addEntry(p);
+            m_connectionPanel->saveHistory(*m_settings);
+        });
 
     m_clientSessions.append(session);
 

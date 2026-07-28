@@ -138,10 +138,10 @@ void ConnectionLifecycle::showDisconnectionDialog() {
     qCInfo(lcClientRemoteWindow) << "ConnectionLifecycle: Showing disconnection dialog";
 
     QMessageBox msgBox(m_window);
-    msgBox.setWindowTitle(tr("Connection Disconnected"));
-    msgBox.setText(tr("Connection to remote host %1 has been disconnected.")
-        .arg(m_hostName.isEmpty() ? "Server" : m_hostName));
-    msgBox.setInformativeText(tr("The window will close."));
+    msgBox.setWindowTitle(tr("连接已断开"));
+    msgBox.setText(tr("与远程主机 %1 的连接已断开。")
+        .arg(m_hostName.isEmpty() ? tr("服务器") : m_hostName));
+    msgBox.setInformativeText(tr("窗口即将关闭。"));
     msgBox.setIcon(QMessageBox::Information);
     msgBox.setStandardButtons(QMessageBox::Ok);
     msgBox.setDefaultButton(QMessageBox::Ok);

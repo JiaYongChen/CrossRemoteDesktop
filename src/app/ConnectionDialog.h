@@ -21,6 +21,9 @@ public:
 	void setDefaultPort(int port);
 	void setUsername(const QString& username);
 
+	/// 重置全部控件到默认状态（新建连接每次打开时调用，清除上次残留输入）
+	void resetToDefaults();
+
 	/// 从 ConnectionParams 设置全部控件值
 	void setConnectionParams(const ConnectionParams& params);
 	/// 从控件读取并构建 ConnectionParams（内部复用已有 getter）

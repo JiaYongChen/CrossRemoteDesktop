@@ -341,8 +341,8 @@ void SettingsDialog::changeEvent(QEvent* event)
 			}
 		}
 
-		if (ui->presetDebugBtn) ui->presetDebugBtn->setText(tr("Enable Core Debug"));
-		if (ui->resetRulesBtn) ui->resetRulesBtn->setText(tr("Reset Rules"));
+		if (ui->presetDebugBtn) ui->presetDebugBtn->setText(tr("启用核心调试"));
+		if (ui->resetRulesBtn) ui->resetRulesBtn->setText(tr("重置规则"));
 		if (ui->restoreDefaultsBtn) ui->restoreDefaultsBtn->setText(tr("恢复默认值"));
 	}
 }

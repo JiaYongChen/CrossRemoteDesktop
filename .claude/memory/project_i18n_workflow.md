@@ -1,6 +1,6 @@
 ---
 name: 翻译系统维护规范
-description: 翻译机制（.ts/.qm 全部动态生成到 build/、均不进 git，运行时加载）与维护流程
+description: 翻译机制（.ts 持久跟踪 git 含译文；编译只 lrelease 生成 .qm 到 build/；lupdate 手动）
 metadata: 
   node_type: memory
   type: project
@@ -9,64 +9,43 @@ metadata:
 
 # 翻译系统维护规范
 
-## 核心机制（2026-07-28 重构）
+## 核心机制（2026-07-28 定稿）
 
-**翻译产物全部动态生成到 `build/translations/`、均不纳入 git，运行时文件加载：**
+**.ts 是持久翻译源，.qm 是编译期产物：**
 
 ```
-源码 tr() / .ui
-   │  lupdate 扫描（update_translations 手动目标；
-   │   或 .ts 缺失时由 cmake/BootstrapTranslations.cmake 在编译前自动引导）
+resources/translations/*.ts   ← 持久翻译源（含人工译文，跟踪 git）
+   │  编译时自动 lrelease（release_translations ALL 目标）——不跑 lupdate
    ▼
-build/translations/*.ts       ← lupdate 生成（build/ 已忽略，不进 git）
-   │  每次编译自动 lrelease（release_translations ALL 目标 + add_dependencies）
-   ▼
-build/translations/*.qm       ← lrelease 编译产物
-   │  运行时文件加载（路径由 CMake 编译期注入 RD_TRANSLATIONS_DIR）
+build/translations/*.qm       ← 编译产物（build/ 已忽略，不进 git）
+   │  运行时文件加载（路径由编译期注入 RD_TRANSLATIONS_DIR）
    ▼
 QTranslator::load(locale.qm, RD_TRANSLATIONS_DIR)
 ```
 
-- **`.ts` 与 `.qm` 都在 `build/translations/`，都不进 git。** `resources/translations/` 已废弃删除。
-- **app 翻译**（zh_CN/en_US）：运行时从 `build/translations/` 加载（非资源嵌入，.qrc 无 .qm）。
-- **qtbase 翻译**：运行时从 Qt 安装目录加载（`QLibraryInfo::path(TranslationsPath)`），无需拷贝/分发。
-- **全新 clone 自动引导**：`.ts` 缺失时 `BootstrapTranslations.cmake`（经 `cmake -P` 调用）先跑 lupdate 生成骨架，避免 lrelease 找不到输入失败。源码列表经 `build/translation_sources.txt`（每行一路径）传递——`-D` 传分号列表会被截断。
+- **编译时只跑 `lrelease`**（`.ts → .qm`），**不跑 lupdate**——避免重建 `.ts` 冲掉已填译文。
+- **`.ts` 跟踪 git**（在 `resources/translations/`）：译文须跨编译/跨机器持久，故 `.ts` 是源而非产物。这是对早期"全部动态生成不进 git"的修正——译文要持久就必须进 git。
+- **lupdate 手动**：源码 `tr()` 变更后跑 `update_translations` 刷新 `.ts`（保留已有译文，`-no-obsolete` 删废弃条目）。
+- **qtbase 翻译**运行时从 Qt 安装目录加载（`QLibraryInfo::path(TranslationsPath)`），无需拷贝。
+- `cmake/BootstrapTranslations.cmake` 已删除。
 
-## ⚠️ 重要权衡（用户已确认接受）
+## 语言行为
 
-`.ts` 不进 git 意味着**翻译内容不随仓库分发**：全新 clone / 清理 build 后，lupdate 只能从源码重建 `.ts` 骨架（新条目 `type="unfinished"`），已有英译不会自动出现，运行时回退源语言（中文）。译文仅存在于生成过它的本地 build 目录。需跨设备共享译文须另行备份 `.ts`。
-
-## 维护流程
-
-修改源码 `tr()` 调用或 `.ui` 文件后：
-
-```bash
-# 第 1 步：扫描源码刷新 build/translations/*.ts（行号 + 新条目）
-cmake --build build --target update_translations
-
-# 第 2 步：正常编译，lrelease 自动重新生成 .qm
-cmake --build build --config Debug
-```
-
-## 检查清单
-
-- [ ] 运行 `update_translations` 刷新 `.ts`
-- [ ] 新字符串立即在 `.ts` 中填写译文（默认 `type="unfinished"`）
-- [ ] en_US.ts 的 `type="unfinished"` 条目数应为 0
-- [ ] 新增 .ui 文件后检查对应类 `changeEvent` 是否调用 `ui->retranslateUi(this)`
-- [ ] `.ts`/`.qm` 均**不**提交 git（build/ 已忽略）；需保留译文请本地备份
+- **中文源文本**：UI 一律 `tr("中文")`。`zh_CN.qm` 可空——中文模式回退到中文源即正确显示。
+- **en_US.ts 已填充全部英文译文**（142 条），切换英文显示英文界面。
+- **新增/改动 tr() 后**：跑 `update_translations` 刷新 .ts，并在 en_US.ts 补新条目的英文译文，再编译。
 
 ## 易错点
 
-1. **新字符串未填译文** — lupdate 提取后默认 `type="unfinished"`，运行时回退中文。
-2. **担心 lupdate 覆盖译文** — `lupdate` 保留已有译文（仅新增缺失条目、废弃条目标记 `type="vanished"`），安全可重复执行。
-3. **`<location>` 行号无需手动维护** — 仅供 Qt Linguist 导航，lupdate 自动刷新。
-4. **清理 build/ 会丢译文** — `.ts` 在 build/ 内，clean 或删除 build 后译文消失，重新引导生成的是 unfinished 骨架。
+1. **源字符串语言须与默认语言（中文）一致**：英文源在空 zh_CN 翻译下会暴露英文（曾出现"中文模式显示英文按钮"）。语言选择器里的 "English"、"CPU/MB" 等技术词除外。
+2. **编译不跑 lupdate**：改 tr() 后必须手动 `update_translations`，否则 .ts 不同步（但已填译文不会被冲）。
+3. **`.ts` 是 XML**：填译文时 `&`/`<`/`>` 须转义为 `&amp;`/`&lt;`/`&gt;`；用脚本批量填充时 PowerShell 须以 pwsh 7（UTF-8）运行，Windows PowerShell 5.1 会按 GBK 误读中文。
+4. **`<location>` 行号无需手动维护**：仅供 Qt Linguist 导航，lupdate 自动刷新。
 
 ## 翻译统计速查
 
 ```bash
-grep -c 'type="unfinished"' build/translations/en_US.ts
+grep -c 'type="unfinished"' resources/translations/en_US.ts   # 应为 0
 ```
 
 ## UIC 组件翻译
@@ -74,6 +53,6 @@ grep -c 'type="unfinished"' build/translations/en_US.ts
 Qt `.ui` 文件静态文本经 UIC 生成的 `retranslateUi()` 翻译。**使用 .ui 且有 changeEvent 的类必须调用 `ui->retranslateUi(this)`**。
 
 **How to apply:**
-- 修改 `tr()`/`.ui` 后运行 `update_translations`，再正常编译（.qm 自动生成）
-- `.ts` 与 `.qm` 都是 build/ 下的动态产物，绝不提交 git
-- 新字符串立即填译文；译文需跨设备/防 clean 时另行备份
+- 改 tr()/.ui 后：`update_translations` 刷新 .ts → 补 en_US 译文 → 编译（自动 lrelease）
+- UI 文案用中文源 `tr("中文")`，避免英文源
+- `.qm` 不进 git（build 产物）；`.ts` 进 git（持久译文）

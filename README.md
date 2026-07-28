@@ -60,7 +60,7 @@
 |------|------|
 | **框架** | Qt 6.9+（Core / Widgets / Network / Gui / OpenGL / OpenGLWidgets / Concurrent / Svg） |
 | **语言** | C++20 |
-| **构建** | CMake 3.16+（12 个模块化 .cmake 脚本，跨平台自动检测） |
+| **构建** | CMake 3.16+（11 个模块化 .cmake 脚本，跨平台自动检测） |
 | **图像编码** | libjpeg-turbo（CPU）+ nvJPEG（GPU 可选，CUDA 12.x） |
 | **加密** | OpenSSL（SHA-256 密码哈希 + 网络加密基础） |
 | **图形** | OpenGL 3.3+（纹理渲染）、DXGI（Windows 屏幕捕获）、D3D11 |
@@ -71,7 +71,7 @@
 ```
 UltraDesktop/
 ├── CMakeLists.txt                    # 主构建配置
-├── cmake/                            # CMake 模块（12 个）
+├── cmake/                            # CMake 模块（11 个）
 │   ├── PlatformDetect.cmake          #  OS / 架构自动识别
 │   ├── SetupQt6.cmake                #  Qt6 路径搜索 + 架构验证
 │   ├── SetupOpenSSL.cmake            #  OpenSSL（third_party/ 缓存）
@@ -82,7 +82,6 @@ UltraDesktop/
 │   ├── SetupVaApi.cmake              #  Linux VA-API 硬件加速（可选）
 │   ├── FilterAppleOpenGL.cmake       #  macOS AGL / OpenGL 过滤
 │   ├── DeployWindowsDlls.cmake       #  Windows 运行时 DLL 部署
-│   ├── BootstrapTranslations.cmake   #  翻译 .ts 缺失时自动 lupdate 引导
 │   └── TestHelpers.cmake             #  add_rd_test() 测试辅助函数
 ├── resources/                        # 资源文件
 │   ├── icons/                        # SVG 应用图标（35+）
