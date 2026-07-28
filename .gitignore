@@ -37,3 +37,8 @@ logs/
 #files
 REQUIREMENTS.md
 
+# 动态生成的文件（不纳入版本控制）
+# 翻译产物全部动态生成并输出到 build/translations/（build/ 已忽略）：
+# .ts 由 lupdate 扫描源码 tr() 生成，.qm 由 lrelease 编译。
+*.qm
+

@@ -50,14 +50,8 @@ cmake --build build --target run_core_tests
 cmake --build build --target run_threading_tests
 cmake --build build --target run_performance_tests
 
-# 同步 TS 文件（修改源码 tr() 调用或 .ui 文件后执行，仅扫描不编译）
+# 同步 TS 文件（修改源码 tr() 调用或 .ui 文件后执行，仅扫描刷新 .ts，不编译）
 cmake --build build --target update_translations
-
-# 编译 QM 文件（TS 翻译完成后执行，生成二进制翻译文件）
-cmake --build build --target release_translations
-
-# 一键完成：lupdate + lrelease（源码扫描 → TS → QM）
-cmake --build build --target sync_translations
 ```
 
 **注意**：Windows/MSVC 多配置生成器下 `ctest` 必须加 `-C Debug`。
@@ -65,7 +59,7 @@ cmake --build build --target sync_translations
 输出目录：项目根目录下的 `Debug/` 和 `Release/`（不在 `build/` 内）。
 测试自动使用 `QT_QPA_PLATFORM=offscreen`（在 CMake 中设置），适用于无头/CI 环境。
 
-**翻译文件维护**：修改源码中的 `tr()` 调用或 `.ui` 文件后，运行 `cmake --build build --target sync_translations` 一键完成扫描+编译（`lupdate` → `lrelease`）。完整流程和常见问题见 [[翻译系统维护规范]]。
+**翻译机制**：翻译产物全部动态生成、**均不纳入 git**，统一输出到 `build/translations/`。`.ts` 由 `lupdate` 扫描源码 `tr()` 生成；`.qm` 由 `lrelease` 编译；运行时文件加载（不嵌入资源，`.qrc` 无 `.qm`）；qtbase 翻译运行时从 Qt 安装目录（`QLibraryInfo`）加载。每次编译自动执行 `lrelease`（`.ts → .qm`），无需手动；`.ts` 缺失时（全新 clone / 清理 build）由 `cmake/BootstrapTranslations.cmake` 在编译前自动 `lupdate` 引导生成。修改源码 `tr()` 调用或 `.ui` 文件后，运行 `update_translations` 刷新 `.ts` 行号与条目，随后正常编译即自动重新生成 `.qm`。**注意**：`.ts` 含人工译文但位于 build/，`clean` 或删除 build 会丢失译文（重建为 unfinished 骨架），需跨设备共享请另行备份。完整流程和常见问题见 [[翻译系统维护规范]]。
 
 ## 依赖
 

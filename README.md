@@ -17,6 +17,7 @@
     - GPU 加速 JPEG 解码（nvJPEG，可选）+ CPU 回退（libjpeg-turbo）
     - OpenGL 纹理视口渲染（`GLTextureViewport`）
     - TCP 连接、心跳与智能重连逻辑
+    - TLS/SSL 加密传输（服务端自签证书 + `QSslSocket`）
 
 - **架构特性**
     - 依赖注入（DI）：所有核心组件通过构造函数注入，无全局单例
@@ -25,15 +26,15 @@
     - 客户端三缓冲帧管理（`TripleBuffer`）：零拷贝帧共享
     - Worker 基类状态机：Stopped → Starting → Running ⇄ Paused → Stopping → Stopped
     - 统一错误处理（`RdError` + `ErrorCode` 16 个枚举值）
-    - 网络协议 RDCP：28 字节头部，CRC-32 校验和，14 种消息类型
+    - 网络协议 RDCP：28 字节头部，CRC-32 校验和，12 种消息类型
 
 - **系统功能**
     - 剪贴板同步（`ClipboardManager`，`src/client/clipboard/`）
     - 明暗双主题 QSS 样式（`light.qss` / `dark.qss`）
-    - 多语言支持（zh_CN / en_US），含翻译同步工具链
+    - 多语言支持（zh_CN / en_US，编译期动态生成翻译产物、运行时加载）
     - 分类流式日志系统（6 棵一级分类树，按大小滚动）
     - 灵活的配置系统（JSON 文件持久化，支持运行时更新）
-    - 密码认证（`PasswordCrypto`，SHA-256 哈希）
+    - 密码认证（PBKDF2-SHA256 挑战-响应，每连接随机 salt；`PasswordCrypto` AES-256-CBC 加密存储凭据）
     - 23 个测试目标，覆盖单元 / 集成 / 性能测试（镜像 src/ 结构组织）
     - 跨平台输入模拟（Windows / macOS / Linux 键盘鼠标注入）
 
@@ -44,7 +45,6 @@
 - H.264 / H.265 视频编码
 - UDP 传输渠道
 - 多显示器支持
-- TLS/SSL 加密传输
 
 ## 系统要求
 
@@ -60,7 +60,7 @@
 |------|------|
 | **框架** | Qt 6.9+（Core / Widgets / Network / Gui / OpenGL / OpenGLWidgets / Concurrent / Svg） |
 | **语言** | C++20 |
-| **构建** | CMake 3.16+（8 个模块化 .cmake 脚本，跨平台自动检测） |
+| **构建** | CMake 3.16+（12 个模块化 .cmake 脚本，跨平台自动检测） |
 | **图像编码** | libjpeg-turbo（CPU）+ nvJPEG（GPU 可选，CUDA 12.x） |
 | **加密** | OpenSSL（SHA-256 密码哈希 + 网络加密基础） |
 | **图形** | OpenGL 3.3+（纹理渲染）、DXGI（Windows 屏幕捕获）、D3D11 |
@@ -71,20 +71,23 @@
 ```
 UltraDesktop/
 ├── CMakeLists.txt                    # 主构建配置
-├── cmake/                            # CMake 模块（8 个）
+├── cmake/                            # CMake 模块（12 个）
 │   ├── PlatformDetect.cmake          #  OS / 架构自动识别
 │   ├── SetupQt6.cmake                #  Qt6 路径搜索 + 架构验证
 │   ├── SetupOpenSSL.cmake            #  OpenSSL（third_party/ 缓存）
 │   ├── SetupLibJpegTurbo.cmake       #  libjpeg-turbo（third_party/ 缓存）
 │   ├── SetupNvJpeg.cmake             #  nvJPEG 可选（third_party/ 缓存）
+│   ├── SetupPipeWire.cmake           #  Linux PipeWire 捕获（可选）
+│   ├── SetupVideoToolbox.cmake       #  macOS VideoToolbox / ScreenCaptureKit（可选）
+│   ├── SetupVaApi.cmake              #  Linux VA-API 硬件加速（可选）
 │   ├── FilterAppleOpenGL.cmake       #  macOS AGL / OpenGL 过滤
 │   ├── DeployWindowsDlls.cmake       #  Windows 运行时 DLL 部署
+│   ├── BootstrapTranslations.cmake   #  翻译 .ts 缺失时自动 lupdate 引导
 │   └── TestHelpers.cmake             #  add_rd_test() 测试辅助函数
 ├── resources/                        # 资源文件
 │   ├── icons/                        # SVG 应用图标（35+）
 │   ├── styles/                       # QSS 样式（light.qss / dark.qss）
-│   ├── translations/                 # 多语言翻译（zh_CN / en_US .ts + .qm）
-│   └── resources.qrc                 # Qt 资源集合
+│   └── resources.qrc                 # Qt 资源集合（翻译产物在 build/，不入资源）
 ├── src/                              # 源代码
 │   ├── main.cpp                      # 程序入口
 │   ├── app/                          # 应用壳层（窗口类 + 生命周期管理）
@@ -182,7 +185,7 @@ UltraDesktop/
 │       ├── network/
 │       │   ├── Protocol.h            # RDCP 协议定义
 │       │   ├── ProtocolImpl.cpp      # 协议静态函数 + CRC32
-│       │   └── MessageCodec.cpp      # 14 种消息编解码
+│       │   └── MessageCodec.cpp      # 12 种消息编解码
 │       ├── error/
 │       │   ├── RdError.h             # 统一错误类型
 │       │   └── ErrorCode.h           # 16 个错误码枚举
@@ -278,9 +281,11 @@ cmake --build build --target run_core_tests
 cmake --build build --target run_threading_tests
 cmake --build build --target run_performance_tests
 
-# 同步翻译文件（修改源码 tr() 调用或 .ui 文件后执行）
+# 刷新翻译 .ts（修改源码 tr() 调用或 .ui 文件后执行）
 cmake --build build --target update_translations
 ```
+
+**翻译机制**：翻译产物（`.ts` / `.qm`）全部由构建动态生成到 `build/translations/`，**不纳入 git**，运行时文件加载（不嵌入资源）。每次编译自动执行 `lrelease`（`.ts → .qm`）；全新 clone 或清理 build 后由 `BootstrapTranslations.cmake` 在编译前自动 `lupdate` 生成 `.ts` 骨架。修改源码 `tr()` 或 `.ui` 后运行 `update_translations` 刷新，再正常编译即可。
 
 **注意**：Windows/MSVC 多配置生成器下 `ctest` 必须加 `-C Debug`。输出目录为项目根目录下的 `Debug/` 和 `Release/`。测试自动使用 `QT_QPA_PLATFORM=offscreen`，适用于无头/CI 环境。
 

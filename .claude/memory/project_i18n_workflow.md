@@ -1,6 +1,6 @@
 ---
 name: 翻译系统维护规范
-description: 翻译文件维护的完整流程和常见问题，修改 tr() 字符串后必须遵循
+description: 翻译机制（.ts/.qm 全部动态生成到 build/、均不进 git，运行时加载）与维护流程
 metadata: 
   node_type: memory
   type: project
@@ -9,96 +9,71 @@ metadata:
 
 # 翻译系统维护规范
 
-## 核心规则
+## 核心机制（2026-07-28 重构）
 
-**修改源码中的 `tr()` 调用或 `.ui` 文件后，必须执行两步：**
+**翻译产物全部动态生成到 `build/translations/`、均不纳入 git，运行时文件加载：**
+
+```
+源码 tr() / .ui
+   │  lupdate 扫描（update_translations 手动目标；
+   │   或 .ts 缺失时由 cmake/BootstrapTranslations.cmake 在编译前自动引导）
+   ▼
+build/translations/*.ts       ← lupdate 生成（build/ 已忽略，不进 git）
+   │  每次编译自动 lrelease（release_translations ALL 目标 + add_dependencies）
+   ▼
+build/translations/*.qm       ← lrelease 编译产物
+   │  运行时文件加载（路径由 CMake 编译期注入 RD_TRANSLATIONS_DIR）
+   ▼
+QTranslator::load(locale.qm, RD_TRANSLATIONS_DIR)
+```
+
+- **`.ts` 与 `.qm` 都在 `build/translations/`，都不进 git。** `resources/translations/` 已废弃删除。
+- **app 翻译**（zh_CN/en_US）：运行时从 `build/translations/` 加载（非资源嵌入，.qrc 无 .qm）。
+- **qtbase 翻译**：运行时从 Qt 安装目录加载（`QLibraryInfo::path(TranslationsPath)`），无需拷贝/分发。
+- **全新 clone 自动引导**：`.ts` 缺失时 `BootstrapTranslations.cmake`（经 `cmake -P` 调用）先跑 lupdate 生成骨架，避免 lrelease 找不到输入失败。源码列表经 `build/translation_sources.txt`（每行一路径）传递——`-D` 传分号列表会被截断。
+
+## ⚠️ 重要权衡（用户已确认接受）
+
+`.ts` 不进 git 意味着**翻译内容不随仓库分发**：全新 clone / 清理 build 后，lupdate 只能从源码重建 `.ts` 骨架（新条目 `type="unfinished"`），已有英译不会自动出现，运行时回退源语言（中文）。译文仅存在于生成过它的本地 build 目录。需跨设备共享译文须另行备份 `.ts`。
+
+## 维护流程
+
+修改源码 `tr()` 调用或 `.ui` 文件后：
 
 ```bash
-# 第 1 步：扫描源码，更新 TS 文件（记录新字符串 + 更新行号）
+# 第 1 步：扫描源码刷新 build/translations/*.ts（行号 + 新条目）
 cmake --build build --target update_translations
 
-# 第 2 步：编译 TS → QM（生成运行时加载的二进制翻译文件）⚠️ 最容易遗漏！
-cmake --build build --target release_translations
-
-# 或者一键完成两步：
-cmake --build build --target sync_translations
+# 第 2 步：正常编译，lrelease 自动重新生成 .qm
+cmake --build build --config Debug
 ```
 
-## 为什么"以前的版本能正常切换"
+## 检查清单
 
-### 断裂链（2026-07-13 本次会话）
-
-```
-步骤 1: 修改源码（新增 About 对话框、品牌改名）
-步骤 2: ✅ 运行 lupdate → TS 文件更新
-步骤 3: ❌ 未运行 lrelease → QM 文件过期（6月15日/6月30日的旧文件）
-步骤 4: 运行时加载旧 QM → 新字符串无翻译 → 回退显示中文源文本
-```
-
-### 为何旧版本正常
-
-旧版本中：
-- 源码中的 `tr()` 字符串（如"Qt远程桌面"）在**旧 QM** 中有对应的英文翻译
-- 旧 QM 文件的翻译覆盖率足够日常使用
-- 本次会话引入了 **30+ 条新 `tr()` 字符串**（品牌改名 + 许可证声明）
-- 旧 QM 中这些新字符串自然不存在 → 翻译失效
-
-## 翻译文件三层架构
-
-```
- resources/translations/
- ├── *.ts      ← 源码（lupdate 生成/更新，提交 git）
- ├── *.qm      ← 二进制（lrelease 编译，必须同步提交 git！）
- └── CMake 目标
-     ├── update_translations   ← lupdate（扫描源码 → 更新 TS）
-     ├── release_translations  ← lrelease（编译 TS → QM）
-     └── sync_translations     ← 一键完成上述两步
-```
-
-## 新增 tr() 字符串后的检查清单
-
-- [ ] 运行 `sync_translations`（或分别运行 lupdate + lrelease）
-- [ ] `git diff` 确认 .ts 和 .qm 都被更新
-- [ ] 运行 `lrelease <ts_file> -qm /tmp/test.qm` 检查翻译统计
-- [ ] 对于 en_US.ts，确保 `type="unfinished"` 条目数为 0
-- [ ] 如果新增了需要翻译的字符串，**立即填写英文翻译再提交**
-- [ ] `.ts` 和 `.qm` 文件**一起提交** git
+- [ ] 运行 `update_translations` 刷新 `.ts`
+- [ ] 新字符串立即在 `.ts` 中填写译文（默认 `type="unfinished"`）
+- [ ] en_US.ts 的 `type="unfinished"` 条目数应为 0
+- [ ] 新增 .ui 文件后检查对应类 `changeEvent` 是否调用 `ui->retranslateUi(this)`
+- [ ] `.ts`/`.qm` 均**不**提交 git（build/ 已忽略）；需保留译文请本地备份
 
 ## 易错点
 
-1. **`lupdate` 只更新 TS，不编译 QM** — 这是最常见的遗漏。TS 是源码，QM 是运行时使用的二进制。只改 TS 不改 QM 等于没改。
-2. **TS 文件提交了但 QM 未提交** — 协作者拉取后看到的是旧 QM，本地构建不会自动重新编译。
-3. **新字符串未填写翻译** — lupdate 提取后默认 `type="unfinished"`，运行时回退显示源语言（中文）。对英语用户来说就是中文残留。
-4. **误以为需手动维护 TS `<location>` 行号** — TS 文件中 `<location>` 行号仅给 Qt Linguist 导航用，不影响运行时翻译，无需手动更新。`lupdate` 会自动刷新行号。
-5. **担心 lupdate 覆盖已有翻译** — `lupdate` 保留已有译文不变（仅新增缺失条目、标记废弃条目为 `type="vanished"`），安全可重复执行。
+1. **新字符串未填译文** — lupdate 提取后默认 `type="unfinished"`，运行时回退中文。
+2. **担心 lupdate 覆盖译文** — `lupdate` 保留已有译文（仅新增缺失条目、废弃条目标记 `type="vanished"`），安全可重复执行。
+3. **`<location>` 行号无需手动维护** — 仅供 Qt Linguist 导航，lupdate 自动刷新。
+4. **清理 build/ 会丢译文** — `.ts` 在 build/ 内，clean 或删除 build 后译文消失，重新引导生成的是 unfinished 骨架。
 
 ## 翻译统计速查
 
 ```bash
-# 检查 TS 文件中未翻译条目数
-grep -c 'type="unfinished"' resources/translations/en_US.ts
-
-# 编译并查看统计（不覆盖正式文件）
-/path/to/lrelease resources/translations/en_US.ts -qm /tmp/test.qm
-# 输出示例: "Generated 133 translation(s) (133 finished and 0 unfinished)"
-#                                       ^^^              ^^^
-#                                    总数完成          未完成数应为0
+grep -c 'type="unfinished"' build/translations/en_US.ts
 ```
 
 ## UIC 组件翻译
 
-Qt `.ui` 文件中的静态文本通过 UIC 生成的 `retranslateUi()` 翻译。**每个使用 .ui 文件且有 changeEvent 的类必须调用 `ui->retranslateUi(this)`**：
-
-| 组件 | .ui 文件 | 翻译方式 | 状态 |
-|------|:--:|------|:--:|
-| MainWindow | ✅ | `retranslateUi()` → `ui->retranslateUi(this)` | ✅ 已修复 |
-| SettingsDialog | ✅ | `changeEvent()` → `ui->retranslateUi(this)` | ✅ 正常 |
-| ConnectionDialog | ✅ | `changeEvent()` → `ui->retranslateUi(this)` | ✅ 已修复 |
-| ConnectionPanel | ✅ | 手动 `tr()` 覆盖 | ✅ 正常 |
-| NavPanel | ❌ | 手动 `tr()` | ✅ 正常 |
+Qt `.ui` 文件静态文本经 UIC 生成的 `retranslateUi()` 翻译。**使用 .ui 且有 changeEvent 的类必须调用 `ui->retranslateUi(this)`**。
 
 **How to apply:**
-- 每次修改 `tr()` 或 `.ui` 后运行 `sync_translations`
-- 检查 git diff 确认 .ts 和 .qm 都已更新
-- 新字符串立即填写翻译再提交
-- 新增 .ui 文件后检查对应类的 changeEvent 是否调用了 UIC retranslate
+- 修改 `tr()`/`.ui` 后运行 `update_translations`，再正常编译（.qm 自动生成）
+- `.ts` 与 `.qm` 都是 build/ 下的动态产物，绝不提交 git
+- 新字符串立即填译文；译文需跨设备/防 clean 时另行备份

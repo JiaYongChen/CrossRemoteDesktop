@@ -41,9 +41,6 @@
         <file>styles/dark.qss</file>
         <file>styles/light.qss</file>
 
-        <!-- 翻译 -->
-        <file>translations/zh_CN.qm</file>
-        <file>translations/en_US.qm</file>
-        <file>translations/qtbase_zh_CN.qm</file>
+        <!-- 翻译为编译期动态生成（build/translations/），运行时文件加载，不嵌入资源 -->
     </qresource>
 </RCC>

@@ -171,9 +171,13 @@ file(GLOB_RECURSE TRANSLATABLE_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.ui"
 )
 
+# 翻译产物（.ts 与 .qm）统一输出到构建目录——全部动态生成、不纳入 git。
+# .ts 由 lupdate 扫描源码 tr() 生成；.qm 由 lrelease 编译。
+set(TRANSLATIONS_OUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/translations")
+
 set(TS_FILES
-    "${CMAKE_CURRENT_SOURCE_DIR}/resources/translations/zh_CN.ts"
-    "${CMAKE_CURRENT_SOURCE_DIR}/resources/translations/en_US.ts"
+    "${TRANSLATIONS_OUT_DIR}/zh_CN.ts"
+    "${TRANSLATIONS_OUT_DIR}/en_US.ts"
 )
 
 find_program(LUPDATE_EXECUTABLE lupdate
@@ -181,34 +185,61 @@ find_program(LUPDATE_EXECUTABLE lupdate
     DOC "Path to Qt lupdate tool"
 )
 
+find_program(LRELEASE_EXECUTABLE lrelease
+    HINTS "${QT6_ROOT_DIR}/bin"
+    DOC "Path to Qt lrelease tool"
+)
+
 if(LUPDATE_EXECUTABLE)
+    # 手动目标：源码 tr() 变更后刷新 .ts 行号与条目到 build/translations/（仅扫描，不编译）
     add_custom_target(update_translations
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${TRANSLATIONS_OUT_DIR}"
         COMMAND ${LUPDATE_EXECUTABLE} ${TRANSLATABLE_SOURCES} -ts ${TS_FILES} -no-obsolete
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-        COMMENT "Syncing TS files with source tr() calls..."
+        COMMENT "Syncing TS files into ${TRANSLATIONS_OUT_DIR}..."
     )
+endif()
 
-    find_program(LRELEASE_EXECUTABLE lrelease
-        HINTS "${QT6_ROOT_DIR}/bin"
-        DOC "Path to Qt lrelease tool"
-    )
-    if(LRELEASE_EXECUTABLE)
-        # 不带 -qm：lrelease 为每个 .ts 在同目录生成同名 .qm（TS 本就位于 resources/translations/；
-        # -qm 只接受单个输出文件名，多 TS + 目录参数会导致 "cannot create" 失败）
-        add_custom_target(release_translations
-            COMMAND ${LRELEASE_EXECUTABLE} ${TS_FILES}
-            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-            COMMENT "Compiling TS → QM translation files..."
+if(LRELEASE_EXECUTABLE)
+    # 每次编译 .ts → .qm（均在 build/translations/）。-qm 指定单一输出需逐个调用。
+    # 首个 COMMAND 为引导步骤：.ts 缺失时（全新 clone / 构建目录被清理）先自动 lupdate
+    # 生成，否则 lrelease 找不到输入会失败。逻辑封装于 cmake -P 脚本，避免 shell 引号嵌套。
+    set(_bootstrap_ts COMMAND true)
+    if(LUPDATE_EXECUTABLE)
+        # 源码列表经文件传递：-D 传分号列表会跨进程被截断，lupdate 只能收到首个文件。
+        set(_sources_list_file "${CMAKE_CURRENT_BINARY_DIR}/translation_sources.txt")
+        string(REPLACE ";" "\n" _sources_newline "${TRANSLATABLE_SOURCES}")
+        file(WRITE "${_sources_list_file}" "${_sources_newline}\n")
+
+        set(_bootstrap_ts
+            COMMAND ${CMAKE_COMMAND}
+                    "-DTRANSLATIONS_OUT_DIR=${TRANSLATIONS_OUT_DIR}"
+                    "-DLUPDATE_EXECUTABLE=${LUPDATE_EXECUTABLE}"
+                    "-DTS_ZH=${TRANSLATIONS_OUT_DIR}/zh_CN.ts"
+                    "-DTS_EN=${TRANSLATIONS_OUT_DIR}/en_US.ts"
+                    "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
+                    "-DSOURCES_FILE=${_sources_list_file}"
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/BootstrapTranslations.cmake"
         )
-        # 组合目标：lupdate → lrelease 一键完成
-        add_custom_target(sync_translations
-            COMMAND ${LUPDATE_EXECUTABLE} ${TRANSLATABLE_SOURCES} -ts ${TS_FILES} -no-obsolete
-            COMMAND ${LRELEASE_EXECUTABLE} ${TS_FILES}
-            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-            COMMENT "Running lupdate + lrelease: syncing and compiling translations..."
-        )
-        message(STATUS "[Translation] lupdate + lrelease configured")
     endif()
+
+    add_custom_target(release_translations ALL
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${TRANSLATIONS_OUT_DIR}"
+        ${_bootstrap_ts}
+        COMMAND ${LRELEASE_EXECUTABLE} "${TRANSLATIONS_OUT_DIR}/zh_CN.ts"
+                -qm "${TRANSLATIONS_OUT_DIR}/zh_CN.qm"
+        COMMAND ${LRELEASE_EXECUTABLE} "${TRANSLATIONS_OUT_DIR}/en_US.ts"
+                -qm "${TRANSLATIONS_OUT_DIR}/en_US.qm"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        COMMENT "Compiling TS → QM in ${TRANSLATIONS_OUT_DIR}"
+    )
+    add_dependencies(CrossRemoteDesktop release_translations)
+
+    # 运行时翻译目录注入（编译期自动检测路径，非硬编码）；TranslationUtils 据此加载 .qm
+    target_compile_definitions(CrossRemoteDesktop PRIVATE
+        [=[RD_TRANSLATIONS_DIR="${TRANSLATIONS_OUT_DIR}"]=]
+    )
+    message(STATUS "[Translation] .ts + .qm generated to ${TRANSLATIONS_OUT_DIR} (runtime loaded)")
 endif()
 
 enable_testing()
