@@ -138,7 +138,11 @@ void ServerSession::cleanup() {
     qCDebug(lcServer) << "ServerSession::cleanup() —" << m_sessionId;
 
     // 逆序停止子线程
-    if (m_dataWorker) {
+    // DataProc 线程为 autoStart=false，仅在认证成功后启动。认证失败即断开的
+    // 会话其线程从未 exec()，此时 BlockingQueuedConnection 因目标线程无事件循环
+    // 应答而永久阻塞，导致 cleanup() 卡死、disconnected 信号不发射、会话残留。
+    if (m_dataWorker && m_dataWorker->thread()
+        && m_dataWorker->thread()->isRunning()) {
         QMetaObject::invokeMethod(m_dataWorker, "stopProcessingAndClearQueues",
                                   Qt::BlockingQueuedConnection);
     }

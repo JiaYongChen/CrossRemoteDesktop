@@ -257,7 +257,10 @@ void ServerService::onSessionAuthenticated(const QString &sessionId)
 {
     qCInfo(lcServer) << "ServerService: session authenticated:" << sessionId;
 
-    if (m_sessions.size() == 1 && m_capturePipeline) {
+    // 无条件触发捕获启动：startCapture() 内部已有 m_captureActive 幂等守卫，
+    // 多会话/残留会话场景下安全。原先的 m_sessions.size()==1 判断在会话清理
+    // 异常（僵尸会话残留）时会恒不为 1，导致认证成功后捕获永不启动（黑屏）。
+    if (m_capturePipeline) {
         QMetaObject::invokeMethod(m_capturePipeline, "startCapture", Qt::QueuedConnection);
     }
 
