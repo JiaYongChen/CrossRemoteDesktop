@@ -79,7 +79,7 @@
     </message>
     <message>
         <source>显示 &amp;&amp; 功能</source>
-        <translation>Display &amp;amp;&amp;amp; Features</translation>
+        <translation>Display &amp;&amp; Features</translation>
     </message>
     <message>
         <source>显示设置</source>
