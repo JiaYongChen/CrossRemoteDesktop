@@ -930,15 +930,45 @@ void ClientHandlerWorker::sendHandshakeResponse() {
     sendMessage(MessageType::HANDSHAKE_RESPONSE, response);
     qCDebug(lcServerClientHandler) << "发送握手响应";
 
-    // 握手完成后：如果有密码配置，主动下发Challenge；否则直接通过认证
+    // 握手完成。认证挑战/直接通过由 configurePasswordAuth / markNoPasswordAuth 与
+    // 本标志会合触发——认证配置可能因服务端 PBKDF2 异步派生而晚于握手到达。
+    m_handshakeDone.store(true, std::memory_order_release);
+    if (m_passwordAuthConfigured.load(std::memory_order_acquire)) {
+        proceedWithAuth();
+    }
+}
+
+void ClientHandlerWorker::proceedWithAuth() {
+    if (m_isAuthenticated) return;
     if (m_authHandler->hasPassword()) {
         sendAuthChallenge();
     } else {
         m_isAuthenticated = true;
-        QString sessionId = generateSessionId();
+        const QString sessionId = generateSessionId();
         sendAuthenticationResponse(AuthResult::SUCCESS, sessionId);
         emit authenticated();
         qCInfo(lcServerClientHandler) << "客户端认证成功（无密码模式）:" << clientId();
+    }
+}
+
+void ClientHandlerWorker::configurePasswordAuth(const QString& username, const QByteArray& salt,
+                                                const QByteArray& digest, quint32 iterations,
+                                                quint32 keyLength) {
+    m_authHandler->setExpectedUsername(username);
+    m_authHandler->setExpectedPasswordDigest(salt, digest);
+    m_authHandler->setPbkdf2Params(iterations, keyLength);
+    qCDebug(lcServerClientHandler) << "认证配置已就绪:" << clientId();
+
+    m_passwordAuthConfigured.store(true, std::memory_order_release);
+    if (m_handshakeDone.load(std::memory_order_acquire)) {
+        proceedWithAuth();
+    }
+}
+
+void ClientHandlerWorker::markNoPasswordAuth() {
+    m_passwordAuthConfigured.store(true, std::memory_order_release);
+    if (m_handshakeDone.load(std::memory_order_acquire)) {
+        proceedWithAuth();
     }
 }
 

@@ -53,6 +53,7 @@ public:
     QString sessionId() const;
     QString clientAddress() const;
     bool isAuthenticated() const;
+    qintptr socketDescriptor() const { return m_socketDescriptor; }
 
 signals:
     void authenticated(const QString& sessionId);

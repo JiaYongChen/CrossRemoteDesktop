@@ -90,6 +90,23 @@ public:
     Q_INVOKABLE void setPbkdf2Params(quint32 iterations, quint32 keyLength);
 
     /**
+     * @brief 配置密码认证并推进认证流程（ServerSession 完成 PBKDF2 派生后跨线程调用）
+     *
+     * 设置 AuthHandler 全部参数；若握手已完成则立即下发认证挑战，
+     * 否则标记待处理、待握手完成时补发。与 markNoPasswordAuth 二选一。
+     */
+    Q_INVOKABLE void configurePasswordAuth(const QString& username, const QByteArray& salt,
+                                           const QByteArray& digest, quint32 iterations,
+                                           quint32 keyLength);
+
+    /**
+     * @brief 标记为无密码认证模式（ServerSession 未配置密码时跨线程调用）
+     *
+     * 若握手已完成则直接通过认证，否则标记待处理、待握手完成时自动通过。
+     */
+    Q_INVOKABLE void markNoPasswordAuth();
+
+    /**
      * @brief 发送消息到客户端
      * @param type 消息类型
      * @param message 消息数据（实现IMessageCodec接口）
@@ -258,6 +275,14 @@ private:
     void sendAuthChallenge();
 
     /**
+     * @brief 推进认证流程：有密码则下发挑战，无密码则直接通过
+     *
+     * 仅在握手完成且认证配置就绪后调用（由 sendHandshakeResponse 与
+     * configurePasswordAuth/markNoPasswordAuth 会合触发）。
+     */
+    void proceedWithAuth();
+
+    /**
      * @brief 生成会话ID
      * @return 会话ID字符串
      */
@@ -304,6 +329,10 @@ private:
 
     // 断开连接标志（避免重复发送disconnected信号）
     std::atomic<bool> m_disconnectSignalSent{ false };
+
+    // 认证流程双条件会合（握手完成 + 认证配置到达，二者均就绪才下发挑战/通过）
+    std::atomic<bool> m_handshakeDone{ false };        ///< 握手响应已发送
+    std::atomic<bool> m_passwordAuthConfigured{ false }; ///< ServerSession 已下发认证配置（密码或无密码）
 
     // 统计信息（线程安全访问需要互斥锁）
     mutable QMutex m_statsMutex;          ///< 统计信息互斥锁

@@ -279,6 +279,16 @@ void ServerService::onSessionDisconnected(const QString &sessionId)
                                           Qt::QueuedConnection,
                                           Q_ARG(ServerSession *, session));
             }
+
+            // 销毁会话线程——shutdown() 已在本线程完成子线程清理，此处回收 ServerSession
+            // 线程自身。否则线程泄漏累积，且 socket 描述符被 OS 复用后新连接会因线程名
+            // "ServerSession_<描述符>" 撞名导致 createThread 失败、连接无法建立。
+            const QString threadName = QString("ServerSession_%1").arg(session->socketDescriptor());
+            if (m_threadManager && m_threadManager->hasThread(threadName)) {
+                (void)m_threadManager->stopThread(threadName, true);
+                (void)m_threadManager->destroyThread(threadName);
+            }
+
             m_sessions.removeAt(i);
             break;
         }

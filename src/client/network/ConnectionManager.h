@@ -79,6 +79,10 @@ public:
     /// 握手响应中获取的远程屏幕尺寸
     QSize remoteScreenSize() const { return m_remoteScreenSize; }
 
+    /// 当前凭据（认证失败重试时会经 updateCredentials 更新；认证成功后即实际通过的凭据）
+    QString username() const { return m_username; }
+    QString password() const { return m_password; }
+
 signals:
     // 状态变化通知信号（用于 UI 状态显示）
     void connectionStateChanged(ConnectionState state);

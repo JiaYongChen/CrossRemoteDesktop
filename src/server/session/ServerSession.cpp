@@ -51,26 +51,8 @@ bool ServerSession::initialize() {
                                               &m_queues->processedQueue,
                                               m_cert, m_key);
 
-    // 2.5 如果配置了密码，每连接动态生成 salt 并派生 PBKDF2 摘要
-    if (!m_serverPassword.isEmpty()) {
-        // 生成随机 32 字节 salt
-        QByteArray salt(32, Qt::Uninitialized);
-        QRandomGenerator::securelySeeded().generate(salt.begin(), salt.end());
-
-        // PBKDF2 派生: password + username + salt
-        QByteArray derived = QPasswordDigestor::deriveKeyPbkdf2(
-            QCryptographicHash::Sha256,
-            (m_serverPassword + m_serverUsername).toUtf8(),
-            salt, 100000, 32);
-
-        // 注入 AuthHandler
-        m_clientHandler->setExpectedUsername(m_serverUsername);
-        m_clientHandler->setExpectedPasswordDigest(salt, derived);
-        m_clientHandler->setPbkdf2Params(100000, 32);
-
-        qCDebug(lcServer) << "ServerSession: auth configured for" << m_sessionId;
-    }
-
+    // 2.5 先创建并启动 ClientHandlerWorker 线程——其 initialize() 立即启动 TLS 握手。
+    // 认证配置（PBKDF2 派生）移至线程启动之后并行执行，避免阻塞连接建立导致客户端握手超时。
     m_clientHandlerThreadName = QString("ClientHandler_%1").arg(m_sessionId.left(8));
     if (!m_threadManager->createThread(m_clientHandlerThreadName,
                                        std::unique_ptr<Worker>(m_clientHandler), true)) {
@@ -79,6 +61,33 @@ bool ServerSession::initialize() {
                                    QStringLiteral("ClientHandlerWorker 线程创建失败"),
                                    "ServerSession"));
         return false;
+    }
+
+    // 2.6 认证配置：有密码则 PBKDF2 派生（在本线程与 TLS 握手并行），完成后跨线程
+    // 调用 configurePasswordAuth；无密码则 markNoPasswordAuth。二者与握手完成会合后
+    // 才下发挑战/通过认证（见 ClientHandlerWorker::proceedWithAuth）。
+    if (!m_serverPassword.isEmpty()) {
+        // 生成随机 32 字节 salt（每连接独立）
+        QByteArray salt(32, Qt::Uninitialized);
+        QRandomGenerator::securelySeeded().generate(salt.begin(), salt.end());
+
+        // PBKDF2 派生: password + username + salt（昂贵，~1.7s，不阻塞连接建立）
+        QByteArray derived = QPasswordDigestor::deriveKeyPbkdf2(
+            QCryptographicHash::Sha256,
+            (m_serverPassword + m_serverUsername).toUtf8(),
+            salt, 100000, 32);
+
+        QMetaObject::invokeMethod(m_clientHandler, "configurePasswordAuth",
+                                  Qt::QueuedConnection,
+                                  Q_ARG(QString, m_serverUsername),
+                                  Q_ARG(QByteArray, salt),
+                                  Q_ARG(QByteArray, derived),
+                                  Q_ARG(quint32, 100000),
+                                  Q_ARG(quint32, 32));
+        qCDebug(lcServer) << "ServerSession: auth configured for" << m_sessionId;
+    } else {
+        QMetaObject::invokeMethod(m_clientHandler, "markNoPasswordAuth",
+                                  Qt::QueuedConnection);
     }
 
     // 3. 创建 DataProcessingWorker（子线程）

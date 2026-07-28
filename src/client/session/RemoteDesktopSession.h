@@ -40,6 +40,10 @@ signals:
     /// 连接错误
     void errorOccurred(const RdError& error);
 
+    /// 认证成功——携带实际通过验证的凭据（重试后可能与初始入参不同），供上层回写连接历史
+    void authenticated(const QString& connectionId, const QString& username,
+                       const QString& password);
+
 private:
     void createNetworkComponents();
     void createDecodePipeline();

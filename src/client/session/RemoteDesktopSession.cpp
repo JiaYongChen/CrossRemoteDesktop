@@ -175,6 +175,10 @@ void RemoteDesktopSession::wireSignals() {
                 }
                 // 同线程直接调用启动会话（全部客户端对象均驻留 Main 线程）
                 m_protocolSession->startSession();
+                // 认证成功：上报实际通过验证的凭据（重试后可能与初始入参不同），
+                // 供 MainWindow 回写连接历史
+                emit authenticated(m_connectionId, m_connectionManager->username(),
+                                   m_connectionManager->password());
             }
         });
 
