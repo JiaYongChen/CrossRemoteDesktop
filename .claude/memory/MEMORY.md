@@ -10,7 +10,7 @@
 - [project_local_persistence_rule.md](project_local_persistence_rule.md) — 本地持久化数据统一使用 JSON 文件格式，通过 Config DI 存取，位于可执行文件同目录
 - [project_constants_organization_rules.md](project_constants_organization_rules.md) — 常量组织与命名规范，新增或修改常量时必须遵守
 - [project_directory_organization_rules.md](project_directory_organization_rules.md) — 源码目录组织规范，新增或移动文件时必须遵守
-- [project_i18n_workflow.md](project_i18n_workflow.md) — 翻译文件维护流程：修改 tr() 后必须 lupdate+lrelease，QM 与 TS 一起提交
+- [project_i18n_workflow.md](project_i18n_workflow.md) — 翻译机制：.ts 持久跟踪 git（含译文），编译期 lrelease 生成 .qm（不跑 lupdate）
 - [project_include_forward_declare_rules.md](project_include_forward_declare_rules.md) — .h 文件中 #include 与前向声明的判断规则
 
 ## Feedback
@@ -26,3 +26,4 @@
 - [feedback_bash_heredoc_commit.md](feedback/feedback_bash_heredoc_commit.md) — Git Bash 中用 POSIX heredoc + git commit -F
 - [feedback_build_verification.md](feedback/feedback_build_verification.md) — 构建验证：grep error 而非 tail 截断
 - [feedback_auto_detect_paths.md](feedback/feedback_auto_detect_paths.md) — 项目中所有路径必须使用自动检测，禁止硬编码绝对路径
+- [feedback_windows_git_case.md](feedback/feedback_windows_git_case.md) — Windows 上 git 跟踪路径大小写与磁盘不符致永久幻影 M，用 git mv 纠正
