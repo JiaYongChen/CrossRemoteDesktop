@@ -497,17 +497,18 @@
                 </item>
                 <item row="2" column="0" colspan="2">
                  <layout class="QHBoxLayout" name="logRulesButtonLayout">
+                  <property name="spacing"><number>4</number></property>
                   <item>
                    <widget class="QPushButton" name="presetDebugBtn">
                     <property name="text">
-                     <string>Enable Core Debug</string>
+                     <string>启用核心调试</string>
                     </property>
                    </widget>
                   </item>
                   <item>
                    <widget class="QPushButton" name="resetRulesBtn">
                     <property name="text">
-                     <string>Reset Rules</string>
+                     <string>重置规则</string>
                     </property>
                    </widget>
                   </item>
