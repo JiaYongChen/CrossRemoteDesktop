@@ -27,3 +27,4 @@
 - [feedback_build_verification.md](feedback/feedback_build_verification.md) — 构建验证：grep error 而非 tail 截断
 - [feedback_auto_detect_paths.md](feedback/feedback_auto_detect_paths.md) — 项目中所有路径必须使用自动检测，禁止硬编码绝对路径
 - [feedback_windows_git_case.md](feedback/feedback_windows_git_case.md) — Windows 上 git 跟踪路径大小写与磁盘不符致永久幻影 M，用 git mv 纠正
+- [feedback_flaky_latency_test.md](feedback/feedback_flaky_latency_test.md) — FrameTransmissionLatencyTest 套件并行跑偶发失败(负载致延迟超阈值),单独重跑即过,非回归
