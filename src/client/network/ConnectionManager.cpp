@@ -359,10 +359,13 @@ void ConnectionManager::handleHandshakeResponse(const QByteArray& data) {
     HandshakeResponse response;
     if ( response.decode(data) ) {
         qCDebug(lcClient) << "Received handshake response from server";
-        m_remoteScreenSize = QSize(response.screenWidth, response.screenHeight);
         // 不再主动发送认证请求——等待服务端主导后续步骤（下发 Challenge 或直接通过认证）
     } else {
-        qCWarning(lcClient) << "Failed to parse handshake response";
+        const RdError error(ErrorCode::DecodeFailed,
+                            tr("握手响应解码失败"), "ConnectionManager");
+        qCWarning(lcClient) << error.logLabel();
+        emit errorOccurred(error);
+        disconnectFromHost();
     }
 }
 
@@ -440,10 +443,6 @@ void ConnectionManager::handleAuthChallenge(const QByteArray& data) {
 void ConnectionManager::sendHandshakeRequest() {
     HandshakeRequest request{};
     request.clientVersion = ProtocolConstants::ProtocolVersion;
-    request.screenWidth = 1920;
-    request.screenHeight = 1080;
-    request.colorDepth = static_cast<quint8>(m_colorDepth);
-    request.imageQuality = static_cast<quint8>(m_imageQuality);
     request.clientName = QStringLiteral("UltraDesktop Client");
     request.clientOS = getClientOS();
     m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST, request);
