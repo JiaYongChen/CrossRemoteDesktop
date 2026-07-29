@@ -106,13 +106,9 @@ struct BaseMessage : public IMessageCodec {
     [[nodiscard]] bool decode(const QByteArray& dataBuffer);
 };
 
-// 握手请求数据
+// 握手请求数据（仅身份/版本，不含协商参数）
 struct HandshakeRequest : public IMessageCodec {
     quint32 clientVersion;
-    quint16 screenWidth;
-    quint16 screenHeight;
-    quint8 colorDepth;
-    quint8 imageQuality;  // JPEG 质量 1-100
     QString clientName;
     QString clientOS;
 
@@ -122,12 +118,9 @@ struct HandshakeRequest : public IMessageCodec {
     [[nodiscard]] bool decode(const QByteArray& dataBuffer);
 };
 
-// 握手响应数据
+// 握手响应数据（仅身份/版本，不含协商参数）
 struct HandshakeResponse : public IMessageCodec {
     quint32 serverVersion;
-    quint16 screenWidth;
-    quint16 screenHeight;
-    quint8 colorDepth;
     QString serverName;
     QString serverOS;
 

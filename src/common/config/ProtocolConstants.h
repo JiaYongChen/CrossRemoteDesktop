@@ -6,7 +6,7 @@ namespace ProtocolConstants {
 
 // ---- 协议标识 ----
 inline constexpr quint32 ProtocolMagic     = 0x52444350;   // "RDCP"
-inline constexpr quint32 ProtocolVersion   = 1;
+inline constexpr quint32 ProtocolVersion   = 2;   // v2: 握手剥离协商字段，新增 SESSION_CAPABILITIES
 inline constexpr quint32 SerializedHeaderSize{5 * sizeof(quint32) + sizeof(quint64)}; // 28 bytes, brace init prevents narrowing
 
 // ---- 消息字段长度上限 ----

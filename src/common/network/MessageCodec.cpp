@@ -89,10 +89,6 @@ QByteArray HandshakeRequest::encode() const {
     QDataStream ds(&bytes, QIODevice::WriteOnly);
     ds.setByteOrder(QDataStream::LittleEndian);
     ds << clientVersion;
-    ds << screenWidth;
-    ds << screenHeight;
-    ds << colorDepth;
-    ds << imageQuality;
     writePrefixedString(ds, clientName);
     writePrefixedString(ds, clientOS);
     return bytes;
@@ -102,10 +98,6 @@ bool HandshakeRequest::decode(const QByteArray& bytes) {
     QDataStream ds(bytes);
     ds.setByteOrder(QDataStream::LittleEndian);
     ds >> clientVersion;
-    ds >> screenWidth;
-    ds >> screenHeight;
-    ds >> colorDepth;
-    ds >> imageQuality;
     clientName = readPrefixedString(ds, ProtocolConstants::MaxHostnameLength);
     clientOS = readPrefixedString(ds, ProtocolConstants::MaxHostnameLength);
     return ds.status() == QDataStream::Ok;
@@ -117,9 +109,6 @@ QByteArray HandshakeResponse::encode() const {
     QDataStream ds(&bytes, QIODevice::WriteOnly);
     ds.setByteOrder(QDataStream::LittleEndian);
     ds << serverVersion;
-    ds << screenWidth;
-    ds << screenHeight;
-    ds << colorDepth;
     writePrefixedString(ds, serverName);
     writePrefixedString(ds, serverOS);
     return bytes;
@@ -129,9 +118,6 @@ bool HandshakeResponse::decode(const QByteArray& bytes) {
     QDataStream ds(bytes);
     ds.setByteOrder(QDataStream::LittleEndian);
     ds >> serverVersion;
-    ds >> screenWidth;
-    ds >> screenHeight;
-    ds >> colorDepth;
     serverName = readPrefixedString(ds, ProtocolConstants::MaxHostnameLength);
     serverOS = readPrefixedString(ds, ProtocolConstants::MaxHostnameLength);
     return ds.status() == QDataStream::Ok;
