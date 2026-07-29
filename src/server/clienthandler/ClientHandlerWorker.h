@@ -229,6 +229,15 @@ private:
     void handleHandshakeRequest(const QByteArray& data);
 
     /**
+     * @brief 处理会话能力（编码参数）单向通知
+     *
+     * 仅接受已认证客户端；解码成功后复用 qualitySettingsReceived /
+     * colorDepthReceived 信号通知编码器。
+     * @param data 消息数据
+     */
+    void handleSessionCapabilities(const QByteArray& data);
+
+    /**
      * @brief 处理认证请求
      * @param data 认证数据
      */

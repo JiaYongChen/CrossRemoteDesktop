@@ -651,6 +651,9 @@ void ClientHandlerWorker::processMessage(const MessageHeader& header, const QByt
         case MessageType::AUTHENTICATION_REQUEST:
             handleAuthenticationRequest(payload);
             break;
+        case MessageType::SESSION_CAPABILITIES:
+            handleSessionCapabilities(payload);
+            break;
         case MessageType::HEARTBEAT_RESPONSE:
             handleHeartbeat();
             break;
@@ -687,6 +690,25 @@ void ClientHandlerWorker::handleHandshakeRequest(const QByteArray& data) {
     }
 
     sendHandshakeResponse();
+}
+
+void ClientHandlerWorker::handleSessionCapabilities(const QByteArray& data) {
+    // 边界守卫：未认证客户端不得影响编码器状态
+    if (!m_isAuthenticated) {
+        qCDebug(lcServerClientHandler) << "忽略未认证客户端的会话能力消息:" << clientId();
+        return;
+    }
+
+    SessionCapabilities caps;
+    if (!caps.decode(data)) {
+        qCWarning(lcServerClientHandler) << "会话能力消息解析失败:" << clientId();
+        return;   // 非致命：编码器沿用当前/默认参数
+    }
+
+    qCDebug(lcServerClientHandler) << "收到会话能力: 图像质量" << caps.imageQuality
+                                   << "色深" << caps.colorDepth << "客户端:" << clientId();
+    emit qualitySettingsReceived(caps.imageQuality);
+    emit colorDepthReceived(caps.colorDepth);
 }
 
 void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
