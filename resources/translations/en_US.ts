@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.1">
+<TS version="2.1" language="en_US">
 <context>
     <name>ClientRemoteWindow</name>
     <message>
@@ -47,7 +47,7 @@
     </message>
     <message>
         <source>可选的友好名称（如&quot;办公室电脑&quot;）</source>
-        <translation>Optional friendly name (e.g. "Office PC")</translation>
+        <translation>Optional friendly name (e.g. &quot;Office PC&quot;)</translation>
     </message>
     <message>
         <source>主机地址:</source>

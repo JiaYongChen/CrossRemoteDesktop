@@ -192,16 +192,30 @@ find_program(LRELEASE_EXECUTABLE lrelease
     DOC "Path to Qt lrelease tool"
 )
 
+# pwsh 7+（运行自动翻译脚本；脚本含中文须 UTF-8 默认的 pwsh，Windows PowerShell 5.1 会误读）
+find_program(PWSH_EXECUTABLE pwsh DOC "Path to PowerShell 7 (pwsh) for auto-translation")
+
 if(LUPDATE_EXECUTABLE)
     # 手动目标：源码 tr() 变更后刷新 .ts（resources/translations/）。
     # 不在编译时自动运行——避免重建 .ts 冲掉已填译文；lupdate 保留已有译文（标记废弃条目）。
     # -locations none：不写 <location> 标签——它仅供 Linguist 导航、不参与翻译匹配，
     #   去掉后 .ts 不随代码行号变动产生无意义 git diff。
+    # lupdate 刷新后自动调用 auto_translate_en.ps1 翻译新增条目（仅填 unfinished，不覆盖已有译文）。
+    set(_auto_translate_step COMMAND true)
+    if(PWSH_EXECUTABLE)
+        set(_auto_translate_step
+            COMMAND ${PWSH_EXECUTABLE} -NoProfile -ExecutionPolicy Bypass -File "scripts/auto_translate_en.ps1"
+        )
+    else()
+        message(STATUS "[Translation] pwsh not found — auto-translation disabled; run scripts/auto_translate_en.ps1 manually")
+    endif()
+
     add_custom_target(update_translations
         COMMAND ${CMAKE_COMMAND} -E make_directory "${TS_DIR}"
         COMMAND ${LUPDATE_EXECUTABLE} ${TRANSLATABLE_SOURCES} -ts ${TS_FILES} -no-obsolete -locations none
+        ${_auto_translate_step}
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-        COMMENT "Syncing TS files in ${TS_DIR}..."
+        COMMENT "Syncing TS files + auto-translating new entries in ${TS_DIR}..."
     )
 endif()
 
