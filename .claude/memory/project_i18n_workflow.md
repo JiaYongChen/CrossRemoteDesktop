@@ -33,7 +33,13 @@ QTranslator::load(locale.qm, RD_TRANSLATIONS_DIR)
 
 - **中文源文本**：UI 一律 `tr("中文")`。`zh_CN.qm` 可空——中文模式回退到中文源即正确显示。
 - **en_US.ts 已填充全部英文译文**（142 条），切换英文显示英文界面。
-- **新增/改动 tr() 后**：跑 `update_translations` 刷新 .ts，并在 en_US.ts 补新条目的英文译文，再编译。
+- **新增/改动 tr() 后**：跑 `update_translations` 刷新 .ts，用自动翻译脚本补新条目英文译文，再编译。
+
+## 翻译工具脚本（scripts/，已提交 git）
+
+- **`auto_translate_en.ps1`**：全自动翻译。调 Google 免费端点（`translate_a/single?client=gtx`，无需 key，实测可用但非官方保障）把 en_US.ts 的 unfinished 条目译为英文；API 失败时回退内置字典。首字母自动大写（Google 常返回全小写）。支持 `-DryRun`。
+- **`fill_en_translations.ps1`**：纯离线字典填充（134 条完整翻译记忆），也是 auto 脚本的字典来源；网络不通时用。
+- 两个脚本均须 **pwsh 7+** 运行（5.1 按 GBK 误读中文）。
 
 ## 易错点
 
@@ -53,6 +59,6 @@ grep -c 'type="unfinished"' resources/translations/en_US.ts   # 应为 0
 Qt `.ui` 文件静态文本经 UIC 生成的 `retranslateUi()` 翻译。**使用 .ui 且有 changeEvent 的类必须调用 `ui->retranslateUi(this)`**。
 
 **How to apply:**
-- 改 tr()/.ui 后：`update_translations` 刷新 .ts → 补 en_US 译文 → 编译（自动 lrelease）
+- 改 tr()/.ui 后：`update_translations` 刷新 .ts → `pwsh -File scripts/auto_translate_en.ps1` 自动补 en_US 译文 → 编译（自动 lrelease）
 - UI 文案用中文源 `tr("中文")`，避免英文源
 - `.qm` 不进 git（build 产物）；`.ts` 进 git（持久译文）
