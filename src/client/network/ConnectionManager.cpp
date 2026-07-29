@@ -375,6 +375,7 @@ void ConnectionManager::handleAuthenticationResponse(const QByteArray& data) {
             stopAutoReconnect();
             m_currentReconnectAttempts = 0;
             setConnectionState(Authenticated);
+            sendSessionCapabilities();   // 认证成功后告知服务端编码偏好
         } else {
             QString reason;
             ErrorCode code;
@@ -446,6 +447,15 @@ void ConnectionManager::sendHandshakeRequest() {
     request.clientName = QStringLiteral("UltraDesktop Client");
     request.clientOS = getClientOS();
     m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST, request);
+}
+
+void ConnectionManager::sendSessionCapabilities() {
+    SessionCapabilities caps{};
+    caps.imageQuality = static_cast<quint8>(m_imageQuality);
+    caps.colorDepth = static_cast<quint8>(m_colorDepth);
+    m_tcpClient->sendMessage(MessageType::SESSION_CAPABILITIES, caps);
+    qCDebug(lcClient) << "Sent session capabilities: quality" << m_imageQuality
+                      << "colorDepth" << m_colorDepth;
 }
 
 void ConnectionManager::updateCredentials(const QString& username, const QString& password) {

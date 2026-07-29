@@ -115,6 +115,7 @@ private:
     void handleAuthChallenge(const QByteArray& data);
 
     void sendHandshakeRequest();
+    void sendSessionCapabilities();
     QString getClientOS();
 
     /// 内部：保持 host/port 并发起 TCP 连接（供 onReconnectTimer 使用，
