@@ -15,27 +15,30 @@
 #endif
 #endif
 
-// 消息类型枚举
+// 消息类型枚举——按功能域分段编号，每域预留 0xNN01~0xNNFF 扩展空间。
+// 低位域(0x00~0x30)为会话业务消息，高位域(0xF0)为传输层保活消息。
 enum class MessageType : quint32 {
-    // 连接管理
-    HANDSHAKE_REQUEST = 0x0001,
-    HANDSHAKE_RESPONSE = 0x0002,
-    AUTHENTICATION_REQUEST = 0x0003,
-    AUTHENTICATION_RESPONSE = 0x0004,
-    HEARTBEAT = 0x0006,
-    HEARTBEAT_RESPONSE = 0x0007,
-    AUTH_CHALLENGE = 0x0008,
+    // 连接与认证 (0x00xx)
+    HANDSHAKE_REQUEST       = 0x0001,
+    HANDSHAKE_RESPONSE      = 0x0002,
+    AUTH_CHALLENGE          = 0x0003,   // 认证流程顺序：挑战 → 请求 → 响应
+    AUTHENTICATION_REQUEST  = 0x0004,
+    AUTHENTICATION_RESPONSE = 0x0005,
 
-    // 屏幕数据
-    SCREEN_DATA = 0x1001,
-    CURSOR_SHAPE = 0x1005,
+    // 屏幕数据 (0x10xx)
+    SCREEN_DATA             = 0x1001,
+    CURSOR_SHAPE            = 0x1002,
 
-    // 输入事件
-    MOUSE_EVENT = 0x2001,
-    KEYBOARD_EVENT = 0x2002,
+    // 输入事件 (0x20xx)
+    MOUSE_EVENT             = 0x2001,
+    KEYBOARD_EVENT          = 0x2002,
 
-    // 剪贴板
-    CLIPBOARD_DATA = 0x5001
+    // 剪贴板 (0x30xx)
+    CLIPBOARD_DATA          = 0x3001,
+
+    // 心跳 (0xF0xx)——传输层保活，独立于会话业务消息
+    HEARTBEAT               = 0xF001,
+    HEARTBEAT_RESPONSE      = 0xF002
 };
 
 // 鼠标事件类型
