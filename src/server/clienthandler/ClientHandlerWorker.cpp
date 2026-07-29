@@ -675,20 +675,20 @@ void ClientHandlerWorker::processMessage(const MessageHeader& header, const QByt
 void ClientHandlerWorker::handleHandshakeRequest(const QByteArray& data) {
     qCDebug(lcServerClientHandler) << "处理握手请求";
 
-    // 解码客户端握手以提取显示参数
     HandshakeRequest request;
-    if (request.decode(data)) {
-        qCDebug(lcServerClientHandler) << "客户端色深:" << request.colorDepth
-                                       << "图像质量:" << request.imageQuality;
-
-        // 记录协商后的色深，供 sendHandshakeResponse 回显
-        m_negotiatedColorDepth = request.colorDepth;
-
-        // 通过信号通知外部
-        emit qualitySettingsReceived(request.imageQuality);
-        emit colorDepthReceived(request.colorDepth);
+    if (!request.decode(data)) {
+        // 握手解码失败 = 协议违规，报错并断开
+        const RdError error(ErrorCode::DecodeFailed,
+                            QStringLiteral("握手请求解码失败"), "ClientHandlerWorker");
+        qCWarning(lcServerClientHandler) << error.logLabel() << "客户端:" << clientId();
+        emit errorOccurred(error);
+        forceDisconnect();
+        return;
     }
 
+    qCDebug(lcServerClientHandler) << "客户端:" << request.clientName
+                                   << "OS:" << request.clientOS
+                                   << "协议版本:" << request.clientVersion;
     sendHandshakeResponse();
 }
 
@@ -930,16 +930,6 @@ void ClientHandlerWorker::handleKeyboardEvent(const QByteArray& data) {
 void ClientHandlerWorker::sendHandshakeResponse() {
     HandshakeResponse response;
     response.serverVersion = ProtocolConstants::ProtocolVersion;
-    QScreen* screen = QGuiApplication::primaryScreen();
-    if (screen) {
-        QSize size = screen->size();
-        response.screenWidth  = static_cast<quint16>(size.width());
-        response.screenHeight = static_cast<quint16>(size.height());
-    } else {
-        response.screenWidth  = 1920;
-        response.screenHeight = 1080;
-    }
-    response.colorDepth = static_cast<quint8>(m_negotiatedColorDepth); // 回显协商后的色深
     response.serverName = QStringLiteral("UltraDesktop Server");
 #ifdef Q_OS_WIN
     response.serverOS = QStringLiteral("Windows");

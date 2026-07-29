@@ -319,7 +319,6 @@ private:
     quint16 m_clientPort;                 ///< 客户端端口
     QString m_clientId;                   ///< 客户端ID
     bool m_isAuthenticated;               ///< 是否已认证
-    int m_negotiatedColorDepth = 32;      ///< 握手协商后的色深（默认32位）
 
     // 认证（委托给 AuthHandler）
     AuthHandler* m_authHandler;           ///< 认证处理器
