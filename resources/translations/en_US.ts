@@ -275,6 +275,10 @@
         <source>认证失败</source>
         <translation>Authentication Failed</translation>
     </message>
+    <message>
+        <source>握手响应解码失败</source>
+        <translation>Handshake response decoding failed</translation>
+    </message>
 </context>
 <context>
     <name>ConnectionPanel</name>
