@@ -24,6 +24,7 @@ enum class MessageType : quint32 {
     AUTH_CHALLENGE          = 0x0003,   // 认证流程顺序：挑战 → 请求 → 响应
     AUTHENTICATION_REQUEST  = 0x0004,
     AUTHENTICATION_RESPONSE = 0x0005,
+    SESSION_CAPABILITIES    = 0x0006,   // 会话能力（编码参数）单向通知：客户端 → 服务端
 
     // 屏幕数据 (0x10xx)
     SCREEN_DATA             = 0x1001,
@@ -131,6 +132,17 @@ struct HandshakeResponse : public IMessageCodec {
     QString serverOS;
 
     [[nodiscard]] QByteArray encode() const;
+    [[nodiscard]] bool decode(const QByteArray& dataBuffer);
+};
+
+// 会话能力（编码参数）——认证成功后客户端单向通知服务端
+struct SessionCapabilities : public IMessageCodec {
+    quint8 imageQuality;  // JPEG 质量 1-100
+    quint8 colorDepth;    // 色深 16/24/32
+
+    // 将当前结构体序列化为QByteArray（小端）
+    [[nodiscard]] QByteArray encode() const;
+    // 从QByteArray反序列化到当前结构体（小端）
     [[nodiscard]] bool decode(const QByteArray& dataBuffer);
 };
 

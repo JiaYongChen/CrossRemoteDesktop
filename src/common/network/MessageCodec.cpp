@@ -137,6 +137,24 @@ bool HandshakeResponse::decode(const QByteArray& bytes) {
     return ds.status() == QDataStream::Ok;
 }
 
+// SessionCapabilities 序列化和反序列化实现
+QByteArray SessionCapabilities::encode() const {
+    QByteArray bytes;
+    QDataStream ds(&bytes, QIODevice::WriteOnly);
+    ds.setByteOrder(QDataStream::LittleEndian);
+    ds << imageQuality;
+    ds << colorDepth;
+    return bytes;
+}
+
+bool SessionCapabilities::decode(const QByteArray& bytes) {
+    QDataStream ds(bytes);
+    ds.setByteOrder(QDataStream::LittleEndian);
+    ds >> imageQuality;
+    ds >> colorDepth;
+    return ds.status() == QDataStream::Ok;
+}
+
 // AuthenticationRequest 序列化和反序列化实现
 QByteArray AuthenticationRequest::encode() const {
     QByteArray bytes;
