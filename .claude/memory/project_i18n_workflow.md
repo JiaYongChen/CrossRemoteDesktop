@@ -47,6 +47,8 @@ QTranslator::load(locale.qm, RD_TRANSLATIONS_DIR)
 2. **编译不跑 lupdate**：改 tr() 后必须手动 `update_translations`，否则 .ts 不同步（但已填译文不会被冲）。
 3. **`.ts` 是 XML**：填译文时 `&`/`<`/`>` 须转义为 `&amp;`/`&lt;`/`&gt;`；用脚本批量填充时 PowerShell 须以 pwsh 7（UTF-8）运行，Windows PowerShell 5.1 会按 GBK 误读中文。
 4. **`<location>` 行号无需手动维护**：仅供 Qt Linguist 导航，lupdate 自动刷新。
+5. **`.ts` 的 `<TS>` 标签必须有 `language` 属性**（如 `<TS version="2.1" language="en_US">`）：缺失时 lupdate 会**静默拒绝更新**该文件（报 "does not specify any target languages"），新 tr() 条目不会进入该 .ts。曾因此 en_US.ts 长期停在旧条目数。手动生成 .ts 时务必带 `-target-language <locale>` 或确保 language 属性存在。
+6. **`update_translations` 现已自动调用 auto_translate_en.ps1**（CMake 集成，lupdate 后自动翻译新条目，需 pwsh）；无需再单独跑翻译脚本。lupdate 只在 QObject 派生类里提取 tr()——自由函数（如 main()）里的 tr() 不会被提取。
 
 ## 翻译统计速查
 
@@ -59,6 +61,7 @@ grep -c 'type="unfinished"' resources/translations/en_US.ts   # 应为 0
 Qt `.ui` 文件静态文本经 UIC 生成的 `retranslateUi()` 翻译。**使用 .ui 且有 changeEvent 的类必须调用 `ui->retranslateUi(this)`**。
 
 **How to apply:**
-- 改 tr()/.ui 后：`update_translations` 刷新 .ts → `pwsh -File scripts/auto_translate_en.ps1` 自动补 en_US 译文 → 编译（自动 lrelease）
+- 改 tr()/.ui 后：跑 `update_translations`（一步完成 lupdate 刷新 + 自动翻译新条目）→ 编译（自动 lrelease）
 - UI 文案用中文源 `tr("中文")`，避免英文源
 - `.qm` 不进 git（build 产物）；`.ts` 进 git（持久译文）
+- 网络不通导致自动翻译失败时，手动跑 `pwsh -File scripts/fill_en_translations.ps1`（离线字典）兜底
