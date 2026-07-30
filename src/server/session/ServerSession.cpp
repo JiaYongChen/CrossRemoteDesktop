@@ -94,6 +94,36 @@ bool ServerSession::initialize() {
             this, &ServerSession::clipboardDataReceived,
             Qt::QueuedConnection);
 
+    // 握手请求 → 惰性 PBKDF2 派生 + 下发（协议 v3：认证参数随握手响应携带）：
+    // 客户端真正完成握手才派生，未握手的连接零派生成本
+    // （缓解按连接预派生 ~1.7s 的 CPU 放大）
+    connect(m_clientHandler, &ClientHandlerWorker::handshakeRequestReceived,
+            this, [this]() {
+        if (m_serverPassword.isEmpty() || m_authConfigDelivered) {
+            return;
+        }
+        m_authConfigDelivered = true;
+
+        // 生成随机 32 字节 salt（每连接独立）
+        QByteArray salt(32, Qt::Uninitialized);
+        QRandomGenerator::securelySeeded().generate(salt.begin(), salt.end());
+
+        // PBKDF2 派生: password + username + salt（昂贵，~1.7s，期间握手响应等待发送）
+        QByteArray derived = QPasswordDigestor::deriveKeyPbkdf2(
+            QCryptographicHash::Sha256,
+            (m_serverPassword + m_serverUsername).toUtf8(),
+            salt, 100000, 32);
+
+        QMetaObject::invokeMethod(m_clientHandler, "configurePasswordAuth",
+                                  Qt::QueuedConnection,
+                                  Q_ARG(QString, m_serverUsername),
+                                  Q_ARG(QByteArray, salt),
+                                  Q_ARG(QByteArray, derived),
+                                  Q_ARG(quint32, 100000),
+                                  Q_ARG(quint32, 32));
+        qCDebug(lcServer) << "ServerSession: auth configured for" << m_sessionId;
+    }, Qt::QueuedConnection);
+
     // 5. 启动线程：先注册 DataProc（autoStart=false），再启动 ClientHandler——
     // 后者的 initialize() 立即启动 TLS 握手，认证成功后触发的 authenticated 回调
     // 需要 data 线程已注册。认证配置（PBKDF2 派生）在 client 线程启动之后
@@ -117,29 +147,10 @@ bool ServerSession::initialize() {
         return false;
     }
 
-    // 6. 认证配置：有密码则 PBKDF2 派生（在本线程与 TLS 握手并行），完成后跨线程
-    // 调用 configurePasswordAuth；无密码则 markNoPasswordAuth。二者与握手完成会合后
-    // 才下发挑战/通过认证（见 ClientHandlerWorker::proceedWithAuth）。
-    if (!m_serverPassword.isEmpty()) {
-        // 生成随机 32 字节 salt（每连接独立）
-        QByteArray salt(32, Qt::Uninitialized);
-        QRandomGenerator::securelySeeded().generate(salt.begin(), salt.end());
-
-        // PBKDF2 派生: password + username + salt（昂贵，~1.7s，不阻塞连接建立）
-        QByteArray derived = QPasswordDigestor::deriveKeyPbkdf2(
-            QCryptographicHash::Sha256,
-            (m_serverPassword + m_serverUsername).toUtf8(),
-            salt, 100000, 32);
-
-        QMetaObject::invokeMethod(m_clientHandler, "configurePasswordAuth",
-                                  Qt::QueuedConnection,
-                                  Q_ARG(QString, m_serverUsername),
-                                  Q_ARG(QByteArray, salt),
-                                  Q_ARG(QByteArray, derived),
-                                  Q_ARG(quint32, 100000),
-                                  Q_ARG(quint32, 32));
-        qCDebug(lcServer) << "ServerSession: auth configured for" << m_sessionId;
-    } else {
+    // 6. 认证配置：无密码直接标记（与握手完成会合后直通认证）；有密码则
+    // 待握手请求到达时惰性派生（见上方 handshakeRequestReceived 连接），
+    // 认证参数随握手响应下发（协议 v3）
+    if (m_serverPassword.isEmpty()) {
         QMetaObject::invokeMethod(m_clientHandler, "markNoPasswordAuth",
                                   Qt::QueuedConnection);
     }

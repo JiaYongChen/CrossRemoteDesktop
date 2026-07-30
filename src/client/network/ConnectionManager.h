@@ -57,8 +57,8 @@ public:
     /// 更新凭据（用于认证失败后重试，跨线程安全）
     Q_INVOKABLE void updateCredentials(const QString& username, const QString& password);
 
-    /// 认证失败后重试：连接仍存活且有挑战缓存 → 同连接重发认证请求；
-    /// 否则重置状态并重新连接（ACCESS_DENIED 终局/连接已断/无挑战缓存）
+    /// 认证失败后重试：连接仍存活且有认证参数缓存 → 同连接重发认证请求；
+    /// 否则重置状态并重新连接（ACCESS_DENIED 终局/连接已断/无认证参数缓存）
     Q_INVOKABLE void retryAuthentication();
 
     /// 设置客户端颜色深度（在 connectToHost 前调用，由握手携带）
@@ -109,11 +109,10 @@ private:
     // 连接相关处理方法（握手和认证）
     void handleHandshakeResponse(const QByteArray& data);
     void handleAuthenticationResponse(const QByteArray& data);
-    void handleAuthChallenge(const QByteArray& data);
 
     void sendHandshakeRequest();
     void sendSessionCapabilities();
-    /// 以当前凭据 + 缓存的挑战参数派生 PBKDF2 并发送认证请求（首次应答与同连接重试共用）
+    /// 以当前凭据 + 缓存的认证参数派生 PBKDF2 并发送认证请求（首次应答与同连接重试共用）
     void sendAuthenticationRequest();
     QString getClientOS();
 
@@ -136,11 +135,11 @@ private:
     QString m_username;
     QString m_password;
 
-    // 认证挑战缓存（同连接重试时复用 salt/参数以新凭据重派生，无需服务端重发挑战）
-    bool m_hasChallenge = false;
-    quint32 m_challengeIterations = 0;
-    quint32 m_challengeKeyLength = 0;
-    QByteArray m_challengeSalt;
+    // 认证参数缓存（同连接重试时复用 salt/参数以新凭据重派生，无需服务端重复下发）
+    bool m_hasAuthParams = false;
+    quint32 m_authIterations = 0;
+    quint32 m_authKeyLength = 0;
+    QByteArray m_authSalt;
 
     // 显示参数（由握手携带到服务端）
     int m_colorDepth = 32;

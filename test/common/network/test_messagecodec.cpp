@@ -50,12 +50,15 @@ private slots:
         QCOMPARE(dst.clientOS, src.clientOS);
     }
 
-    // ── HandshakeResponse（裁剪后：仅 version/name/OS）──
-    void handshakeResponse_roundtrip() {
+    // ── HandshakeResponse（v3：身份字段 + 认证参数）──
+    void handshakeResponse_roundtrip_passwordMode() {
         HandshakeResponse src;
         src.serverVersion = ProtocolConstants::ProtocolVersion;
         src.serverName = QStringLiteral("UltraDesktop Server");
         src.serverOS = QStringLiteral("Windows");
+        src.iterations = 100000;
+        src.keyLength = 32;
+        src.saltHex = QStringLiteral("0123456789abcdef0123456789abcdef");
 
         const QByteArray bytes = src.encode();
         HandshakeResponse dst;
@@ -63,6 +66,24 @@ private slots:
         QCOMPARE(dst.serverVersion, src.serverVersion);
         QCOMPARE(dst.serverName, src.serverName);
         QCOMPARE(dst.serverOS, src.serverOS);
+        QCOMPARE(dst.iterations, src.iterations);
+        QCOMPARE(dst.keyLength, src.keyLength);
+        QCOMPARE(dst.saltHex, src.saltHex);
+    }
+
+    // 无密码模式：盐值为空、参数为 0，客户端据此等待服务端直通认证
+    void handshakeResponse_roundtrip_noPasswordMode() {
+        HandshakeResponse src;
+        src.serverVersion = ProtocolConstants::ProtocolVersion;
+        src.serverName = QStringLiteral("UltraDesktop Server");
+        src.serverOS = QStringLiteral("Linux");
+
+        const QByteArray bytes = src.encode();
+        HandshakeResponse dst;
+        QVERIFY(dst.decode(bytes));
+        QCOMPARE(dst.iterations, quint32(0));
+        QCOMPARE(dst.keyLength, quint32(0));
+        QVERIFY(dst.saltHex.isEmpty());
     }
 
     // ── 负向用例：畸形长度前缀必须被拒绝（钉死协议健壮性契约）──
@@ -239,17 +260,6 @@ private slots:
         QVERIFY(!dst.decode(payload));
     }
 
-    void authChallenge_decode_trailingBytes_fails() {
-        AuthChallenge src;
-        src.iterations = 100000;
-        src.keyLength = 32;
-        src.saltHex = QStringLiteral("0123456789abcdef");
-        QByteArray payload = src.encode();
-        payload.append('\x99');
-        AuthChallenge dst;
-        QVERIFY(!dst.decode(payload));
-    }
-
     // ── 其余字符串解码器非法 UTF-8 拒绝 ──
     void handshakeResponse_decode_invalidUtf8_fails() {
         QByteArray payload;
@@ -288,16 +298,20 @@ private slots:
         QVERIFY(!dst.decode(payload));
     }
 
-    void authChallenge_decode_invalidUtf8_fails() {
+    // 握手响应携带认证参数后，saltHex 非法 UTF-8 同样必须拒绝
+    void handshakeResponse_decode_invalidUtf8Salt_fails() {
         QByteArray payload;
         QDataStream out(&payload, QIODevice::WriteOnly);
         out.setByteOrder(QDataStream::LittleEndian);
+        out << quint32(3);                 // serverVersion
+        out << quint32(0);                 // serverName 空
+        out << quint32(0);                 // serverOS 空
         out << quint32(100000);            // iterations
         out << quint32(32);                // keyLength
         out << quint32(1);                 // saltHex 长度=1
         const QByteArray badUtf8(1, '\xFF');
         out.writeRawData(badUtf8.constData(), badUtf8.size());
-        AuthChallenge dst;
+        HandshakeResponse dst;
         QVERIFY(!dst.decode(payload));
     }
 };

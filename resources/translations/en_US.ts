@@ -284,12 +284,8 @@
         <translation>Authentication response decoding failed</translation>
     </message>
     <message>
-        <source>认证挑战解码失败</source>
-        <translation>Authentication challenge decoding failed</translation>
-    </message>
-    <message>
-        <source>认证挑战参数越界</source>
-        <translation>Authentication challenge parameters out of bounds</translation>
+        <source>握手响应认证参数越界</source>
+        <translation>Handshake response challenge parameter out of bounds</translation>
     </message>
 </context>
 <context>

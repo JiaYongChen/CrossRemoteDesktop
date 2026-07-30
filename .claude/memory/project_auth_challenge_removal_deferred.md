@@ -1,14 +1,17 @@
 ---
-name: auth-challenge-removal-deferred
-description: 移除 AUTH_CHALLENGE 的提议曾于 2026-07-29 被考虑并暂缓；用户有意未来重提
-metadata: 
+name: auth-challenge-removal-done
+description: AUTH_CHALLENGE 已于 2026-07-30 移除（协议 v3）：认证参数并入 HANDSHAKE_RESPONSE + 惰性 PBKDF2 派生 + 消息编号重排
+metadata:
   node_type: memory
   type: project
   originSessionId: 13e752b5-92e8-439e-8bae-208214de5a18
 ---
 
-2026-07-29（握手「只做认证不做协商」改造 brainstorm 期间）用户提议：去掉 AUTH_CHALLENGE，握手成功后服务端直接下发 PBKDF2 参数，客户端随后发 AUTHENTICATION_REQUEST。经权衡后用户决定「后面再做」——暂缓，未承诺实施，也未排期。
+2026-07-30 已实施（用户确认，承接 2026-07-29 的暂缓提议）：AUTH_CHALLENGE 消息**彻底移除**（枚举项/结构体/编解码/两端处理全部删除，标识符 challenge→auth 统一命名）。协议 v3：
+- PBKDF2 认证参数（salt/iterations/keyLength）随 HANDSHAKE_RESPONSE 携带；saltHex 为空 = 无密码模式（客户端等待服务端直通认证）。
+- 连接与认证消息重排编号：HANDSHAKE_REQUEST=0x0001、HANDSHAKE_RESPONSE=0x0002、AUTHENTICATION_REQUEST=0x0003、AUTHENTICATION_RESPONSE=0x0004、SESSION_CAPABILITIES=0x0005。
+- 服务端改为**惰性派生**：ServerSession 收到 worker 的 handshakeRequestReceived 信号才生成 salt + PBKDF2 派生，握手响应等待配置会合后发送（会合点：ClientHandlerWorker::deliverHandshakeResponse）。
 
-**Why（当时暂缓的理由）**：AUTH_CHALLENGE 本质是「异步 PBKDF2 派生出的每连接 salt 的投递载体」。把 salt 塞进握手响应会迫使握手响应等待慢速 PBKDF2 派生，认证总耗时不变（受限于派生就绪时刻），且无密码分支复杂化、重新耦合握手与认证。安全上中性（salt 仍每连接新鲜）。
+**Why（当年暂缓的理由已不成立）**：原顾虑是"salt 进握手响应会迫使响应等待预派生"。改为惰性派生后，未握手的连接（端口扫描等）零派生成本，缓解按连接预派生 ~1.7s 的 CPU 放大（审查发现 3 的一部分）；客户端少一轮消息往返。总耗时不变但结构与命名更简。
 
-**How to apply**：用户未来可能重提此精简。届时先复核上述权衡是否仍成立（尤其 PBKDF2 派生时机是否已改变），再决定是否纳入。应独立于握手 spec 单独成任务，勿与「握手 vs 协商」边界改造混在一起。
+**How to apply**：协议版本为 3（ProtocolConstants::ProtocolVersion），客户端与服务端同仓库发布、无旧端兼容包袱；后续认证改动基于此结构。相关：[[auth-retry-model]]。

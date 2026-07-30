@@ -63,7 +63,7 @@ public:
     /// 指数先钳位再乘方并封顶 AuthMaxDelayMs：任意 failCount 下安全（无溢出 UB）
     static int backoffDelayMs(int failCount);
 
-    /// 获取 PBKDF2 参数（用于发送 AuthChallenge）
+    /// 获取 PBKDF2 参数（用于组装握手响应的认证参数）
     quint32 pbkdf2Iterations() const;
     quint32 pbkdf2KeyLength() const;
 

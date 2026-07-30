@@ -136,6 +136,9 @@ QByteArray HandshakeResponse::encode() const {
     ds << serverVersion;
     writePrefixedString(ds, serverName, ProtocolConstants::MaxHostnameLength);
     writePrefixedString(ds, serverOS, ProtocolConstants::MaxHostnameLength);
+    ds << iterations;
+    ds << keyLength;
+    writePrefixedString(ds, saltHex, ProtocolConstants::MaxPasswordHashLength);
     return bytes;
 }
 
@@ -145,6 +148,9 @@ bool HandshakeResponse::decode(const QByteArray& bytes) {
     ds >> serverVersion;
     serverName = readPrefixedString(ds, ProtocolConstants::MaxHostnameLength);
     serverOS = readPrefixedString(ds, ProtocolConstants::MaxHostnameLength);
+    ds >> iterations;
+    ds >> keyLength;
+    saltHex = readPrefixedString(ds, ProtocolConstants::MaxPasswordHashLength);
     return decodeFinished(ds);
 }
 
@@ -381,26 +387,6 @@ bool ScreenData::decode(const QByteArray& bytes) {
     }
 
     return true;
-}
-
-// AuthChallenge 序列化和反序列化实现
-QByteArray AuthChallenge::encode() const {
-    QByteArray bytes;
-    QDataStream ds(&bytes, QIODevice::WriteOnly);
-    ds.setByteOrder(QDataStream::LittleEndian);
-    ds << iterations;
-    ds << keyLength;
-    writePrefixedString(ds, saltHex, ProtocolConstants::MaxPasswordHashLength);
-    return bytes;
-}
-
-bool AuthChallenge::decode(const QByteArray& bytes) {
-    QDataStream ds(bytes);
-    ds.setByteOrder(QDataStream::LittleEndian);
-    ds >> iterations;
-    ds >> keyLength;
-    saltHex = readPrefixedString(ds, ProtocolConstants::MaxPasswordHashLength);
-    return decodeFinished(ds);
 }
 
 QByteArray CursorMessage::encode() const {

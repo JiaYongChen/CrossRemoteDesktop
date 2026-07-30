@@ -687,7 +687,14 @@ void ClientHandlerWorker::handleHandshakeRequest(const QByteArray& data) {
     qCDebug(lcServerClientHandler) << "客户端:" << request.clientName
                                    << "OS:" << request.clientOS
                                    << "协议版本:" << request.clientVersion;
-    sendHandshakeResponse();
+
+    // 握手响应携带认证参数，须待认证配置就绪——与 configurePasswordAuth /
+    // markNoPasswordAuth 会合触发发送；同时通知 ServerSession 触发惰性 PBKDF2 派生
+    m_handshakeDone.store(true, std::memory_order_release);
+    emit handshakeRequestReceived();
+    if (m_passwordAuthConfigured.load(std::memory_order_acquire)) {
+        deliverHandshakeResponse();
+    }
 }
 
 void ClientHandlerWorker::handleSessionCapabilities(const QByteArray& data) {
@@ -713,7 +720,7 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
     qCDebug(lcServerClientHandler) << "处理认证请求";
 
     // 边界守卫：认证配置（异步 PBKDF2 派生）可能晚于客户端消息到达。合法客户端等待
-    // AUTH_CHALLENGE 并在收到后才应答，配置就绪前收到认证请求即协议违规——
+    // 合法客户端先在握手响应中取得认证参数后才应答，配置就绪前收到认证请求即协议违规——
     // fail-closed 直接断连，杜绝空 digest 被 authenticate() 误判为「无密码」放行（认证绕过竞态）
     if (!m_passwordAuthConfigured.load(std::memory_order_acquire)) {
         qCWarning(lcServerClientHandler) << "认证配置未就绪即收到认证请求，断开客户端:" << clientId();
@@ -748,11 +755,7 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
         authRequest.username, authRequest.passwordHash);
 
     if (result == static_cast<int>(AuthResult::SUCCESS)) {
-        m_isAuthenticated = true;
-        QString sessionId = generateSessionId();
-        sendAuthenticationResponse(AuthResult::SUCCESS, sessionId);
-        emit authenticated();
-        qCInfo(lcServerClientHandler) << "客户端认证成功:" << clientId();
+        acceptAuthentication(QStringLiteral("密码模式"));
         return;
     }
 
@@ -932,7 +935,7 @@ void ClientHandlerWorker::handleKeyboardEvent(const QByteArray& data) {
     }
 }
 
-void ClientHandlerWorker::sendHandshakeResponse() {
+void ClientHandlerWorker::deliverHandshakeResponse() {
     HandshakeResponse response;
     response.serverVersion = ProtocolConstants::ProtocolVersion;
     response.serverName = QStringLiteral("UltraDesktop Server");
@@ -944,28 +947,38 @@ void ClientHandlerWorker::sendHandshakeResponse() {
     response.serverOS = QStringLiteral("Linux");
 #endif
 
-    sendMessage(MessageType::HANDSHAKE_RESPONSE, response);
-    qCDebug(lcServerClientHandler) << "发送握手响应";
+    // 密码模式：携带 ServerSession 惰性派生后注入的认证参数（salt 每连接新鲜生成）。
+    // 客户端以 saltHex 为空/非空区分无密码/密码模式。
+    if (m_authHandler->hasPassword()) {
+        const QByteArray salt = m_authHandler->salt();
+        if (salt.isEmpty()) {
+            qCCritical(lcServerClientHandler) << "认证配置错误：盐值缺失，无法发送握手响应:" << clientId();
+            sendAuthenticationResponse(AuthResult::INVALID_PASSWORD);
+            forceDisconnect();
+            return;
+        }
+        response.iterations = m_authHandler->pbkdf2Iterations();
+        response.keyLength = m_authHandler->pbkdf2KeyLength();
+        response.saltHex = QString::fromLatin1(salt.toHex());
+    }
 
-    // 握手完成。认证挑战/直接通过由 configurePasswordAuth / markNoPasswordAuth 与
-    // 本标志会合触发——认证配置可能因服务端 PBKDF2 异步派生而晚于握手到达。
-    m_handshakeDone.store(true, std::memory_order_release);
-    if (m_passwordAuthConfigured.load(std::memory_order_acquire)) {
-        proceedWithAuth();
+    sendMessage(MessageType::HANDSHAKE_RESPONSE, response);
+    qCDebug(lcServerClientHandler) << "发送握手响应（"
+        << (m_authHandler->hasPassword() ? "密码模式，携带认证参数" : "无密码模式")
+        << ") 客户端:" << clientId();
+
+    // 无密码模式：客户端识别空盐值后等待服务端直通认证，即在此处完成
+    if (!m_authHandler->hasPassword()) {
+        acceptAuthentication(QStringLiteral("无密码模式"));
     }
 }
 
-void ClientHandlerWorker::proceedWithAuth() {
-    if (m_isAuthenticated) return;
-    if (m_authHandler->hasPassword()) {
-        sendAuthChallenge();
-    } else {
-        m_isAuthenticated = true;
-        const QString sessionId = generateSessionId();
-        sendAuthenticationResponse(AuthResult::SUCCESS, sessionId);
-        emit authenticated();
-        qCInfo(lcServerClientHandler) << "客户端认证成功（无密码模式）:" << clientId();
-    }
+void ClientHandlerWorker::acceptAuthentication(const QString& mode) {
+    m_isAuthenticated = true;
+    const QString sessionId = generateSessionId();
+    sendAuthenticationResponse(AuthResult::SUCCESS, sessionId);
+    emit authenticated();
+    qCInfo(lcServerClientHandler) << "客户端认证成功（" << mode << "）:" << clientId();
 }
 
 void ClientHandlerWorker::configurePasswordAuth(const QString& username, const QByteArray& salt,
@@ -978,7 +991,7 @@ void ClientHandlerWorker::configurePasswordAuth(const QString& username, const Q
 
     m_passwordAuthConfigured.store(true, std::memory_order_release);
     if (m_handshakeDone.load(std::memory_order_acquire)) {
-        proceedWithAuth();
+        deliverHandshakeResponse();
     }
 }
 
@@ -986,7 +999,7 @@ void ClientHandlerWorker::markNoPasswordAuth() {
     m_authHandler->markNoPassword();
     m_passwordAuthConfigured.store(true, std::memory_order_release);
     if (m_handshakeDone.load(std::memory_order_acquire)) {
-        proceedWithAuth();
+        deliverHandshakeResponse();
     }
 }
 
@@ -997,27 +1010,6 @@ void ClientHandlerWorker::sendAuthenticationResponse(AuthResult result, const QS
 
     sendMessage(MessageType::AUTHENTICATION_RESPONSE, response);
     qCDebug(lcServerClientHandler) << "发送认证响应，结果:" << static_cast<int>(result);
-}
-
-void ClientHandlerWorker::sendAuthChallenge() {
-    // 读取已由 ServerSession 预注入的 salt + PBKDF2 参数（每连接创建时动态生成）
-    AuthChallenge challenge;
-    challenge.iterations = m_authHandler->pbkdf2Iterations();
-    challenge.keyLength = m_authHandler->pbkdf2KeyLength();
-
-    QByteArray salt = m_authHandler->salt();
-    if (salt.isEmpty()) {
-        qCCritical(lcServerClientHandler) << "认证配置错误：盐值缺失，无法发送质询";
-        sendAuthenticationResponse(AuthResult::INVALID_PASSWORD);
-        return;
-    }
-    challenge.saltHex = QString::fromLatin1(salt.toHex());
-
-    sendMessage(MessageType::AUTH_CHALLENGE, challenge);
-    qCDebug(lcServerClientHandler) << "发送认证挑战"
-        << ", 迭代次数:" << challenge.iterations
-        << ", 密钥长度:" << challenge.keyLength
-        << ", 客户端:" << clientId();
 }
 
 QString ClientHandlerWorker::generateSessionId() const {

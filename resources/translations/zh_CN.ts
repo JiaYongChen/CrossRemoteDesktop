@@ -284,11 +284,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>认证挑战解码失败</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>认证挑战参数越界</source>
+        <source>握手响应认证参数越界</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

@@ -108,9 +108,9 @@ void ConnectionManager::startConnection(const QString& host, int port) {
     m_currentHost = host;
     m_currentPort = port;
 
-    // 新连接的挑战由服务端重新下发，旧连接的挑战缓存作废
-    m_hasChallenge = false;
-    m_challengeSalt.clear();
+    // 新连接的认证参数由服务端重新下发，旧连接的认证参数缓存作废
+    m_hasAuthParams = false;
+    m_authSalt.clear();
 
     setConnectionState(Connecting);
     m_connectionTimer->start();
@@ -351,9 +351,6 @@ void ConnectionManager::onTcpMessageReceived(MessageType type, const QByteArray&
         case MessageType::AUTHENTICATION_RESPONSE:
             handleAuthenticationResponse(payload);
             break;
-        case MessageType::AUTH_CHALLENGE:
-            handleAuthChallenge(payload);
-            break;
         default:
             emit messageReceived(type, payload);
             break;
@@ -362,16 +359,43 @@ void ConnectionManager::onTcpMessageReceived(MessageType type, const QByteArray&
 
 void ConnectionManager::handleHandshakeResponse(const QByteArray& data) {
     HandshakeResponse response;
-    if ( response.decode(data) ) {
-        qCDebug(lcClient) << "Received handshake response from server";
-        // 不再主动发送认证请求——等待服务端主导后续步骤（下发 Challenge 或直接通过认证）
-    } else {
+    if ( !response.decode(data) ) {
         const RdError error(ErrorCode::DecodeFailed,
                             tr("握手响应解码失败"), "ConnectionManager");
         qCWarning(lcClient) << error.logLabel();
         emit errorOccurred(error);
         disconnectFromHost();
+        return;
     }
+
+    qCDebug(lcClient) << "Received handshake response from server";
+
+    if ( response.saltHex.isEmpty() ) {
+        // 无密码模式：等待服务端直通 AUTHENTICATION_RESPONSE，不主动发送认证请求
+        return;
+    }
+
+    // 密码模式：认证参数随握手响应下发（协议 v3）。参数上限校验防恶意服务端
+    // 下发超大值致客户端资源耗尽（认证前单包 DoS），通过后缓存并派生发送认证请求
+    QByteArray salt = QByteArray::fromHex(response.saltHex.toUtf8());
+    if ( salt.isEmpty() || response.iterations == 0
+         || response.iterations > SecurityConstants::MaxPbkdf2Iterations
+         || response.keyLength == 0
+         || response.keyLength > SecurityConstants::MaxPbkdf2KeyLength ) {
+        const RdError error(ErrorCode::DecodeFailed,
+                            tr("握手响应认证参数越界"), "ConnectionManager");
+        qCWarning(lcClient) << error.logLabel()
+                            << "iterations:" << response.iterations << "keyLength:" << response.keyLength;
+        emit errorOccurred(error);
+        disconnectFromHost();
+        return;
+    }
+
+    m_authSalt = salt;
+    m_authIterations = response.iterations;
+    m_authKeyLength = response.keyLength;
+    m_hasAuthParams = true;
+    sendAuthenticationRequest();
 }
 
 void ConnectionManager::handleAuthenticationResponse(const QByteArray& data) {
@@ -415,11 +439,11 @@ void ConnectionManager::handleAuthenticationResponse(const QByteArray& data) {
                 // 可重试错误：保留密码明文用于重试对话框预填；服务端保持连接不断开，
                 // 等待用户重新输入后经 retryAuthentication 同连接重发认证请求
             } else {
-                // 终态错误：清除密码与挑战缓存，主动断开
+                // 终态错误：清除密码与认证参数缓存，主动断开
                 m_password.fill(QChar(0));
                 m_password.clear();
-                m_hasChallenge = false;
-                m_challengeSalt.clear();
+                m_hasAuthParams = false;
+                m_authSalt.clear();
                 disconnectFromHost();
             }
         }
@@ -431,44 +455,12 @@ void ConnectionManager::handleAuthenticationResponse(const QByteArray& data) {
     }
 }
 
-void ConnectionManager::handleAuthChallenge(const QByteArray& data) {
-    AuthChallenge ch{};
-    if ( !ch.decode(data) ) {
-        const RdError error(ErrorCode::DecodeFailed, tr("认证挑战解码失败"), "ConnectionManager");
-        qCWarning(lcClient) << error.logLabel();
-        emit errorOccurred(error);
-        disconnectFromHost();
-        return;
-    }
-
-    // PBKDF2 参数上限校验：防恶意服务端下发超大值致客户端资源耗尽（认证前单包 DoS）
-    if (ch.iterations == 0 || ch.iterations > SecurityConstants::MaxPbkdf2Iterations
-        || ch.keyLength == 0 || ch.keyLength > SecurityConstants::MaxPbkdf2KeyLength) {
-        const RdError error(ErrorCode::DecodeFailed, tr("认证挑战参数越界"), "ConnectionManager");
-        qCWarning(lcClient) << error.logLabel()
-                            << "iterations:" << ch.iterations << "keyLength:" << ch.keyLength;
-        emit errorOccurred(error);
-        disconnectFromHost();
-        return;
-    }
-
-    QByteArray salt = QByteArray::fromHex(ch.saltHex.toUtf8());
-    if ( !salt.isEmpty() ) {
-        // 缓存挑战参数：同连接重试时以新凭据复用 salt 重派生，无需服务端重发挑战
-        m_challengeSalt = salt;
-        m_challengeIterations = ch.iterations;
-        m_challengeKeyLength = ch.keyLength;
-        m_hasChallenge = true;
-        sendAuthenticationRequest();
-    }
-}
-
 void ConnectionManager::sendAuthenticationRequest() {
-    // PBKDF2 派生: password + username + salt（与挑战缓存参数一致）
+    // PBKDF2 派生: password + username + salt（与认证参数缓存一致）
     QByteArray input = (m_password + m_username).toUtf8();
     QByteArray derived = QPasswordDigestor::deriveKeyPbkdf2(
-        QCryptographicHash::Sha256, input, m_challengeSalt,
-        int(m_challengeIterations), quint64(m_challengeKeyLength));
+        QCryptographicHash::Sha256, input, m_authSalt,
+        int(m_authIterations), quint64(m_authKeyLength));
 
     AuthenticationRequest ar{};
     ar.username = m_username.isEmpty() ? QStringLiteral("guest") : m_username;
@@ -505,9 +497,9 @@ void ConnectionManager::retryAuthentication() {
     }
     // 由上层（ConnectionLifecycle）先调用 updateCredentials 再调用此方法
 
-    // 同连接重试：连接存活且有挑战缓存 → 以新凭据复用 salt 重派生并重发，
+    // 同连接重试：连接存活且有认证参数缓存 → 以新凭据复用 salt 重派生并重发，
     // 无需重付 TLS 握手与服务端 PBKDF2 派生成本（服务端失败不断连）
-    if (m_connectionState == AuthFailed && isConnected() && m_hasChallenge) {
+    if (m_connectionState == AuthFailed && isConnected() && m_hasAuthParams) {
         qCInfo(lcClient) << "同连接重试认证，用户名:" << m_username;
         setConnectionState(Connected);
         sendAuthenticationRequest();

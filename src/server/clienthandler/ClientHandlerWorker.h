@@ -92,7 +92,7 @@ public:
     /**
      * @brief 配置密码认证并推进认证流程（ServerSession 完成 PBKDF2 派生后跨线程调用）
      *
-     * 设置 AuthHandler 全部参数；若握手已完成则立即下发认证挑战，
+     * 设置 AuthHandler 全部参数；若握手已完成则立即下发携带认证参数的握手响应，
      * 否则标记待处理、待握手完成时补发。与 markNoPasswordAuth 二选一。
      */
     Q_INVOKABLE void configurePasswordAuth(const QString& username, const QByteArray& salt,
@@ -145,6 +145,11 @@ signals:
      * @brief 客户端认证成功信号
      */
     void authenticated();
+
+    /**
+     * @brief 收到客户端的合法握手请求（ServerSession 据此触发惰性 PBKDF2 派生）
+     */
+    void handshakeRequestReceived();
 
     /**
      * @brief 发生错误信号
@@ -267,9 +272,18 @@ private:
     void handleClipboardData(const QByteArray& data);
 
     /**
-     * @brief 发送握手响应
+     * @brief 发送握手响应（携带认证参数）
+     *
+     * 仅在认证配置就绪后调用（由握手请求与 configurePasswordAuth /
+     * markNoPasswordAuth 会合触发）；无密码模式同时直通认证。
      */
-    void sendHandshakeResponse();
+    void deliverHandshakeResponse();
+
+    /**
+     * @brief 认证成功公共序列：置认证态、发会话 ID 与成功响应、发射 authenticated()
+     * @param mode 认证模式描述，仅用于日志（如「密码模式」「无密码模式」）
+     */
+    void acceptAuthentication(const QString& mode);
 
     /**
      * @brief 发送认证响应
@@ -277,19 +291,6 @@ private:
      * @param sessionId 会话ID
      */
     void sendAuthenticationResponse(AuthResult result, const QString& sessionId = QString());
-
-    /**
-     * @brief 发送认证挑战
-     */
-    void sendAuthChallenge();
-
-    /**
-     * @brief 推进认证流程：有密码则下发挑战，无密码则直接通过
-     *
-     * 仅在握手完成且认证配置就绪后调用（由 sendHandshakeResponse 与
-     * configurePasswordAuth/markNoPasswordAuth 会合触发）。
-     */
-    void proceedWithAuth();
 
     /**
      * @brief 生成会话ID
@@ -338,8 +339,8 @@ private:
     // 断开连接标志（避免重复发送disconnected信号）
     std::atomic<bool> m_disconnectSignalSent{ false };
 
-    // 认证流程双条件会合（握手完成 + 认证配置到达，二者均就绪才下发挑战/通过）
-    std::atomic<bool> m_handshakeDone{ false };        ///< 握手响应已发送
+    // 认证流程双条件会合（握手完成 + 认证配置到达，二者均就绪才发送握手响应/通过认证）
+    std::atomic<bool> m_handshakeDone{ false };        ///< 握手请求已收到（响应等待配置会合）
     std::atomic<bool> m_passwordAuthConfigured{ false }; ///< ServerSession 已下发认证配置（密码或无密码）
 
     // 统计信息（线程安全访问需要互斥锁）
