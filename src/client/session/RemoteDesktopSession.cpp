@@ -50,7 +50,7 @@ void RemoteDesktopSession::createNetworkComponents() {
     m_connectionManager->setAutoReconnect(m_params.autoReconnect);
     m_connectionManager->setReconnectInterval(m_params.reconnectInterval);
 
-    // ── 显示参数（握手携带到服务端）──
+    // ── 显示参数（认证成功后经 SESSION_CAPABILITIES 携带到服务端）──
     m_connectionManager->setColorDepth(m_params.colorDepth);
     m_connectionManager->setImageQuality(m_params.imageQuality);
 

@@ -31,7 +31,7 @@ public:
     // ── 连接状态（代理到 ConnectionManager）──
     bool isConnected() const;
 
-    // ── 远程屏幕尺寸（本地状态，由 SCALED 帧更新）──
+    // ── 远程屏幕尺寸（本地状态，由 SCREEN_DATA 帧更新）──
     QSize remoteScreenSize() const { return m_remoteScreenSize; }
 
     // ── 输入事件序列化（跨线程 slots，从 InputForwarder 调用）──

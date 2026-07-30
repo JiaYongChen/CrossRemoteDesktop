@@ -153,13 +153,13 @@ signals:
     void errorOccurred(const RdError& error);
 
     /**
-     * @brief 客户端握手携带的质量参数
+     * @brief 客户端 SESSION_CAPABILITIES 消息携带的图像质量参数
      * @param imageQuality JPEG 编码质量 (1-100)
      */
     void qualitySettingsReceived(int imageQuality);
 
     /**
-     * @brief 客户端握手携带的色深参数
+     * @brief 客户端 SESSION_CAPABILITIES 消息携带的色深参数
      * @param colorDepth 色深值 (16/24/32)
      */
     void colorDepthReceived(int colorDepth);

@@ -25,8 +25,6 @@
 #include <QtCore/QRandomGenerator>
 #include <QtCore/QThread>
 #include <QtCore/QTimer>
-#include <QtGui/QGuiApplication>
-#include <QtGui/QScreen>
 #include <QtNetwork/QSslConfiguration>
 #include <QtNetwork/QSslSocket>
 
