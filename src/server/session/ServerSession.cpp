@@ -46,13 +46,67 @@ bool ServerSession::initialize() {
     m_queues = std::make_unique<SessionQueuePair>();
     m_queues->initialize();
 
-    // 2. 创建 ClientHandlerWorker（子线程）
+    // 2. 创建 ClientHandlerWorker（子线程，暂不启动——启动顺序见步骤 5）
     m_clientHandler = new ClientHandlerWorker(m_socketDescriptor,
                                               &m_queues->processedQueue,
                                               m_cert, m_key);
 
-    // 2.5 先创建并启动 ClientHandlerWorker 线程——其 initialize() 立即启动 TLS 握手。
-    // 认证配置（PBKDF2 派生）移至线程启动之后并行执行，避免阻塞连接建立导致客户端握手超时。
+    // 3. 创建 DataProcessingWorker（子线程，autoStart=false，认证成功后才启动）
+    m_dataWorker = new DataProcessingWorker();
+    m_dataWorker->setQueues(&m_queues->captureQueue, &m_queues->processedQueue);
+    m_dataWorker->setProcessingTimeout(2000);
+
+    const QString dataThreadName = QString("DataProc_%1").arg(m_sessionId.left(8));
+
+    // 4. 所有信号连接必须在任何线程启动之前建立：worker 线程启动后随时可能发射
+    // authenticated/disconnected，而连接建立前发射的信号会被 Qt 静默丢弃，
+    // 造成 ServerSession 与 worker 认证态永久分裂（回归项：信号丢失→状态分裂）
+    connect(m_clientHandler, &ClientHandlerWorker::authenticated, this, [this, dataThreadName]() {
+        m_authenticated = true;
+        // 启动 DataProcessingWorker
+        (void)m_threadManager->startThread(dataThreadName);
+        emit authenticated(m_sessionId);
+        qCInfo(lcServer) << "ServerSession authenticated:" << m_sessionId;
+    }, Qt::QueuedConnection);
+
+    connect(m_clientHandler, &ClientHandlerWorker::disconnected, this, [this]() {
+        qCInfo(lcServer) << "ServerSession client disconnected:" << m_sessionId;
+        shutdown();
+    }, Qt::QueuedConnection);
+
+    connect(m_clientHandler, &ClientHandlerWorker::errorOccurred, this, [this](const RdError& err) {
+        qCWarning(lcServer) << "ServerSession client error:" << err.logLabel();
+        emit errorOccurred(err);
+    }, Qt::QueuedConnection);
+
+    // 质量参数闭环：ClientHandlerWorker → DataProcessingWorker
+    connect(m_clientHandler, &ClientHandlerWorker::qualitySettingsReceived,
+            m_dataWorker, &DataProcessingWorker::setJpegQuality,
+            Qt::QueuedConnection);
+
+    // 色深参数闭环：ClientHandlerWorker → DataProcessingWorker
+    connect(m_clientHandler, &ClientHandlerWorker::colorDepthReceived,
+            m_dataWorker, &DataProcessingWorker::setChromaSubsampling,
+            Qt::QueuedConnection);
+
+    // 转发剪贴板数据
+    connect(m_clientHandler, &ClientHandlerWorker::clipboardDataReceived,
+            this, &ServerSession::clipboardDataReceived,
+            Qt::QueuedConnection);
+
+    // 5. 启动线程：先注册 DataProc（autoStart=false），再启动 ClientHandler——
+    // 后者的 initialize() 立即启动 TLS 握手，认证成功后触发的 authenticated 回调
+    // 需要 data 线程已注册。认证配置（PBKDF2 派生）在 client 线程启动之后
+    // 并行执行（步骤 6），避免阻塞连接建立导致客户端握手超时。
+    if (!m_threadManager->createThread(dataThreadName,
+                                       std::unique_ptr<Worker>(m_dataWorker), false, true, 3)) {
+        qCCritical(lcServer) << "ServerSession: Failed to create DataProcessingWorker thread";
+        emit errorOccurred(RdError(ErrorCode::ThreadStartFailed,
+                                   QStringLiteral("DataProcessingWorker 线程创建失败"),
+                                   "ServerSession"));
+        return false;
+    }
+
     m_clientHandlerThreadName = QString("ClientHandler_%1").arg(m_sessionId.left(8));
     if (!m_threadManager->createThread(m_clientHandlerThreadName,
                                        std::unique_ptr<Worker>(m_clientHandler), true)) {
@@ -63,7 +117,7 @@ bool ServerSession::initialize() {
         return false;
     }
 
-    // 2.6 认证配置：有密码则 PBKDF2 派生（在本线程与 TLS 握手并行），完成后跨线程
+    // 6. 认证配置：有密码则 PBKDF2 派生（在本线程与 TLS 握手并行），完成后跨线程
     // 调用 configurePasswordAuth；无密码则 markNoPasswordAuth。二者与握手完成会合后
     // 才下发挑战/通过认证（见 ClientHandlerWorker::proceedWithAuth）。
     if (!m_serverPassword.isEmpty()) {
@@ -89,55 +143,6 @@ bool ServerSession::initialize() {
         QMetaObject::invokeMethod(m_clientHandler, "markNoPasswordAuth",
                                   Qt::QueuedConnection);
     }
-
-    // 3. 创建 DataProcessingWorker（子线程）
-    m_dataWorker = new DataProcessingWorker();
-    m_dataWorker->setQueues(&m_queues->captureQueue, &m_queues->processedQueue);
-    m_dataWorker->setProcessingTimeout(2000);
-
-    const QString dataThreadName = QString("DataProc_%1").arg(m_sessionId.left(8));
-    if (!m_threadManager->createThread(dataThreadName,
-                                       std::unique_ptr<Worker>(m_dataWorker), false, true, 3)) {
-        qCCritical(lcServer) << "ServerSession: Failed to create DataProcessingWorker thread";
-        emit errorOccurred(RdError(ErrorCode::ThreadStartFailed,
-                                   QStringLiteral("DataProcessingWorker 线程创建失败"),
-                                   "ServerSession"));
-        return false;
-    }
-
-    // 4. 连接 ClientHandlerWorker 信号
-    connect(m_clientHandler, &ClientHandlerWorker::authenticated, this, [this, dataThreadName]() {
-        m_authenticated = true;
-        // 启动 DataProcessingWorker
-        (void)m_threadManager->startThread(dataThreadName);
-        emit authenticated(m_sessionId);
-        qCInfo(lcServer) << "ServerSession authenticated:" << m_sessionId;
-    }, Qt::QueuedConnection);
-
-    connect(m_clientHandler, &ClientHandlerWorker::disconnected, this, [this]() {
-        qCInfo(lcServer) << "ServerSession client disconnected:" << m_sessionId;
-        shutdown();
-    }, Qt::QueuedConnection);
-
-    connect(m_clientHandler, &ClientHandlerWorker::errorOccurred, this, [this](const RdError& err) {
-        qCWarning(lcServer) << "ServerSession client error:" << err.logLabel();
-        emit errorOccurred(err);
-    }, Qt::QueuedConnection);
-
-    // 5. 质量参数闭环：ClientHandlerWorker → DataProcessingWorker
-    connect(m_clientHandler, &ClientHandlerWorker::qualitySettingsReceived,
-            m_dataWorker, &DataProcessingWorker::setJpegQuality,
-            Qt::QueuedConnection);
-
-    // 6. 色深参数闭环：ClientHandlerWorker → DataProcessingWorker
-    connect(m_clientHandler, &ClientHandlerWorker::colorDepthReceived,
-            m_dataWorker, &DataProcessingWorker::setChromaSubsampling,
-            Qt::QueuedConnection);
-
-    // 7. 转发剪贴板数据
-    connect(m_clientHandler, &ClientHandlerWorker::clipboardDataReceived,
-            this, &ServerSession::clipboardDataReceived,
-            Qt::QueuedConnection);
 
     qCInfo(lcServer) << "ServerSession initialized:" << m_sessionId;
     return true;

@@ -5,6 +5,17 @@
 #include <QtCore/QMutex>
 #include <QtCore/QString>
 
+/// 认证配置状态 — 显式区分「未配置」与「无密码」三态
+///
+/// 旧实现以空 digest 推断「无密码模式」。PBKDF2 改为异步派生注入后，
+/// 空 digest 同时意味着「配置尚未到达」，authenticate() 会误判放行
+/// （认证绕过竞态）。显式三态消除歧义：Unconfigured 状态必须拒绝认证。
+enum class ConfigState {
+    Unconfigured,   ///< 配置未到达：拒绝认证
+    NoPassword,     ///< 无密码模式：直接通过
+    Password        ///< 密码模式：需用户名 + 摘要比对
+};
+
 /// 认证处理器 — 从 ClientHandlerWorker 分离出的认证逻辑
 ///
 /// 负责密码摘要注入、PBKDF2 参数管理、认证请求验证、
@@ -21,6 +32,12 @@ public:
 
     /// 设置 PBKDF2 参数
     void setPbkdf2Params(quint32 iterations, quint32 keyLength);
+
+    /// 标记为无密码认证模式（配置就绪，authenticate 直接通过）
+    void markNoPassword();
+
+    /// 认证配置是否就绪（已标记无密码或已注入密码参数）
+    bool isConfigured() const;
 
     /// 检查是否处于速率限制回退期
     bool isRateLimited() const;
@@ -58,6 +75,7 @@ public:
 private:
     mutable QMutex m_mutex;
 
+    ConfigState m_state = ConfigState::Unconfigured;  ///< 认证配置状态（三态）
     QByteArray m_expectedSalt;
     QByteArray m_expectedDigest;
     QString m_expectedUsername;

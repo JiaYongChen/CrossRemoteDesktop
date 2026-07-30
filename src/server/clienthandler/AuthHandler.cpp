@@ -16,6 +16,7 @@ void AuthHandler::setExpectedPasswordDigest(const QByteArray& salt, const QByteA
     QMutexLocker locker(&m_mutex);
     m_expectedSalt = salt;
     m_expectedDigest = digest;
+    m_state = ConfigState::Password;
 }
 
 void AuthHandler::setExpectedUsername(const QString& username) {
@@ -27,6 +28,16 @@ void AuthHandler::setPbkdf2Params(quint32 iterations, quint32 keyLength) {
     QMutexLocker locker(&m_mutex);
     m_pbkdf2Iterations = iterations;
     m_pbkdf2KeyLength = keyLength;
+}
+
+void AuthHandler::markNoPassword() {
+    QMutexLocker locker(&m_mutex);
+    m_state = ConfigState::NoPassword;
+}
+
+bool AuthHandler::isConfigured() const {
+    QMutexLocker locker(&m_mutex);
+    return m_state != ConfigState::Unconfigured;
 }
 
 bool AuthHandler::isRateLimited() const {
@@ -43,8 +54,15 @@ bool AuthHandler::isRateLimited() const {
 int AuthHandler::authenticate(const QString& username, const QString& passwordHash) {
     QMutexLocker locker(&m_mutex);
 
-    // 无密码保护 → 直接成功
-    if (m_expectedDigest.isEmpty()) {
+    // 未配置即拒绝（纵深防御：worker 层 m_passwordAuthConfigured 门控应已先行断连，
+    // 到达此处说明协议违规或内部时序错误）——不得以「空 digest」误判为「无密码」放行
+    if (m_state == ConfigState::Unconfigured) {
+        qCCritical(lcServerClientHandler) << "认证配置未就绪即收到认证请求，拒绝认证";
+        return static_cast<int>(AuthResult::INVALID_PASSWORD);
+    }
+
+    // 无密码保护模式 → 直接成功
+    if (m_state == ConfigState::NoPassword) {
         return static_cast<int>(AuthResult::SUCCESS);
     }
 
@@ -117,7 +135,7 @@ QByteArray AuthHandler::salt() const {
 
 bool AuthHandler::hasPassword() const {
     QMutexLocker locker(&m_mutex);
-    return !m_expectedDigest.isEmpty();
+    return m_state == ConfigState::Password;
 }
 
 QString AuthHandler::expectedUsername() const {

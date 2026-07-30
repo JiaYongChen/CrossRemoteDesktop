@@ -712,6 +712,15 @@ void ClientHandlerWorker::handleSessionCapabilities(const QByteArray& data) {
 void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
     qCDebug(lcServerClientHandler) << "处理认证请求";
 
+    // 边界守卫：认证配置（异步 PBKDF2 派生）可能晚于客户端消息到达。合法客户端等待
+    // AUTH_CHALLENGE 并在收到后才应答，配置就绪前收到认证请求即协议违规——
+    // fail-closed 直接断连，杜绝空 digest 被 authenticate() 误判为「无密码」放行（认证绕过竞态）
+    if (!m_passwordAuthConfigured.load(std::memory_order_acquire)) {
+        qCWarning(lcServerClientHandler) << "认证配置未就绪即收到认证请求，断开客户端:" << clientId();
+        forceDisconnect();
+        return;
+    }
+
     // 速率限制检查
     if (m_authHandler->isRateLimited()) {
         qCWarning(lcServerClientHandler) << "认证速率限制中，拒绝请求:" << clientId();
@@ -980,6 +989,7 @@ void ClientHandlerWorker::configurePasswordAuth(const QString& username, const Q
 }
 
 void ClientHandlerWorker::markNoPasswordAuth() {
+    m_authHandler->markNoPassword();
     m_passwordAuthConfigured.store(true, std::memory_order_release);
     if (m_handshakeDone.load(std::memory_order_acquire)) {
         proceedWithAuth();
