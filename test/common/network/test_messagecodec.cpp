@@ -183,6 +183,123 @@ private slots:
         HandshakeRequest req;
         QVERIFY(!req.decode(payload));
     }
+
+    // ── 合法多字节 UTF-8 必须解码成功（防 UTF-8 校验误杀；中文环境计算机名/用户名）──
+    void handshakeRequest_roundtrip_multibyteUtf8() {
+        HandshakeRequest src;
+        src.clientVersion = ProtocolConstants::ProtocolVersion;
+        src.clientName = QStringLiteral("主机-电脑");   // CJK 多字节
+        src.clientOS = QStringLiteral("Windows");
+        const QByteArray bytes = src.encode();
+
+        HandshakeRequest dst;
+        QVERIFY(dst.decode(bytes));
+        QCOMPARE(dst.clientName, QStringLiteral("主机-电脑"));
+    }
+
+    // ── 其余解码器 atEnd 尾部垃圾拒绝（per-decoder 覆盖）──
+    void handshakeResponse_decode_trailingBytes_fails() {
+        HandshakeResponse src;
+        src.serverVersion = ProtocolConstants::ProtocolVersion;
+        src.serverName = QStringLiteral("UltraDesktop Server");
+        src.serverOS = QStringLiteral("Windows");
+        QByteArray payload = src.encode();
+        payload.append('\x99');
+        HandshakeResponse dst;
+        QVERIFY(!dst.decode(payload));
+    }
+
+    void sessionCapabilities_decode_trailingBytes_fails() {
+        SessionCapabilities src;
+        src.imageQuality = 75;
+        src.colorDepth = 24;
+        QByteArray payload = src.encode();
+        payload.append('\x99');
+        SessionCapabilities dst;
+        QVERIFY(!dst.decode(payload));
+    }
+
+    void authenticationRequest_decode_trailingBytes_fails() {
+        AuthenticationRequest src;
+        src.username = QStringLiteral("user");
+        src.passwordHash = QStringLiteral("0123456789abcdef");
+        QByteArray payload = src.encode();
+        payload.append('\x99');
+        AuthenticationRequest dst;
+        QVERIFY(!dst.decode(payload));
+    }
+
+    void authenticationResponse_decode_trailingBytes_fails() {
+        AuthenticationResponse src;
+        src.result = AuthResult::SUCCESS;
+        src.sessionId = QStringLiteral("session-abc");
+        QByteArray payload = src.encode();
+        payload.append('\x99');
+        AuthenticationResponse dst;
+        QVERIFY(!dst.decode(payload));
+    }
+
+    void authChallenge_decode_trailingBytes_fails() {
+        AuthChallenge src;
+        src.iterations = 100000;
+        src.keyLength = 32;
+        src.saltHex = QStringLiteral("0123456789abcdef");
+        QByteArray payload = src.encode();
+        payload.append('\x99');
+        AuthChallenge dst;
+        QVERIFY(!dst.decode(payload));
+    }
+
+    // ── 其余字符串解码器非法 UTF-8 拒绝 ──
+    void handshakeResponse_decode_invalidUtf8_fails() {
+        QByteArray payload;
+        QDataStream out(&payload, QIODevice::WriteOnly);
+        out.setByteOrder(QDataStream::LittleEndian);
+        out << quint32(2);                 // serverVersion
+        out << quint32(1);                 // serverName 长度=1
+        const QByteArray badUtf8(1, '\xFF');
+        out.writeRawData(badUtf8.constData(), badUtf8.size());
+        out << quint32(0);                 // serverOS 空
+        HandshakeResponse dst;
+        QVERIFY(!dst.decode(payload));
+    }
+
+    void authenticationRequest_decode_invalidUtf8_fails() {
+        QByteArray payload;
+        QDataStream out(&payload, QIODevice::WriteOnly);
+        out.setByteOrder(QDataStream::LittleEndian);
+        out << quint32(1);                 // username 长度=1
+        const QByteArray badUtf8(1, '\xFF');
+        out.writeRawData(badUtf8.constData(), badUtf8.size());
+        out << quint32(0);                 // passwordHash 空
+        AuthenticationRequest dst;
+        QVERIFY(!dst.decode(payload));
+    }
+
+    void authenticationResponse_decode_invalidUtf8_fails() {
+        QByteArray payload;
+        QDataStream out(&payload, QIODevice::WriteOnly);
+        out.setByteOrder(QDataStream::LittleEndian);
+        out << static_cast<quint8>(AuthResult::SUCCESS);  // result
+        out << quint32(1);                 // sessionId 长度=1
+        const QByteArray badUtf8(1, '\xFF');
+        out.writeRawData(badUtf8.constData(), badUtf8.size());
+        AuthenticationResponse dst;
+        QVERIFY(!dst.decode(payload));
+    }
+
+    void authChallenge_decode_invalidUtf8_fails() {
+        QByteArray payload;
+        QDataStream out(&payload, QIODevice::WriteOnly);
+        out.setByteOrder(QDataStream::LittleEndian);
+        out << quint32(100000);            // iterations
+        out << quint32(32);                // keyLength
+        out << quint32(1);                 // saltHex 长度=1
+        const QByteArray badUtf8(1, '\xFF');
+        out.writeRawData(badUtf8.constData(), badUtf8.size());
+        AuthChallenge dst;
+        QVERIFY(!dst.decode(payload));
+    }
 };
 
 QTEST_MAIN(TestMessageCodec)
