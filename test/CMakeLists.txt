@@ -237,6 +237,13 @@ add_rd_test(TARGET test_clienthandlerworker  NAME ClientHandlerWorkerTest
     LIBRARIES Qt6::Core Qt6::Test common_test_core
     TIMEOUT 60  LABELS unit server worker network)
 
+# unit / server auth
+add_rd_test(TARGET test_authhandler  NAME AuthHandlerTest
+    SOURCES server/clienthandler/test_authhandler.cpp
+    EXTRA_SOURCES ../src/server/clienthandler/AuthHandler.cpp
+    LIBRARIES Qt6::Core Qt6::Test common_test_core
+    TIMEOUT 30  LABELS unit server auth)
+
 # integration
 add_rd_test(TARGET test_screen_capture_integration  NAME ScreenCaptureIntegrationTest
     SOURCES integration/test_screen_capture_integration.cpp

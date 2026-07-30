@@ -82,6 +82,14 @@ int AuthHandler::authenticate(const QString& username, const QString& passwordHa
     return static_cast<int>(AuthResult::INVALID_PASSWORD);
 }
 
+void AuthHandler::registerInvalidAttempt() {
+    QMutexLocker locker(&m_mutex);
+    m_failedAuthCount++;
+    m_lastFailedAuthTime = QDateTime::currentDateTime();
+    qCWarning(lcServerClientHandler) << "登记无效认证请求 (失败次数:" << m_failedAuthCount
+                                     << "/" << SecurityConstants::MaxAuthFailures << ")";
+}
+
 int AuthHandler::failedAuthCount() const {
     QMutexLocker locker(&m_mutex);
     return m_failedAuthCount;

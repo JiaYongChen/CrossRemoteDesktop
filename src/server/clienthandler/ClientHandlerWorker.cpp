@@ -726,8 +726,12 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
 
     AuthenticationRequest authRequest;
     if (!authRequest.decode(data)) {
-        qCWarning(lcServerClientHandler) << "认证请求数据解析失败";
+        qCWarning(lcServerClientHandler) << "认证请求数据解析失败:" << clientId();
+        // 畸形认证请求视同认证失败：登记失败计数（速率限制）并断开连接，
+        // 与正常失败路径一致——否则未认证攻击者可以畸形包无限速钉住连接、绕过速率限制
+        m_authHandler->registerInvalidAttempt();
         sendAuthenticationResponse(AuthResult::INVALID_PASSWORD);
+        forceDisconnect();
         return;
     }
 

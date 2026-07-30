@@ -32,6 +32,10 @@ public:
     /// @return 认证结果 (AuthResult 枚举值)
     int authenticate(const QString& username, const QString& passwordHash);
 
+    /// 登记一次无效认证请求（如解码失败）：递增失败计数并刷新时间戳用于速率限制。
+    /// 与 authenticate() 失败路径一致，使畸形请求同样受指数退避约束。
+    void registerInvalidAttempt();
+
     /// 获取期望的用户名（线程安全快照）
     QString expectedUsername() const;
 
