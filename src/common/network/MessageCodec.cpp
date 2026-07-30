@@ -501,7 +501,11 @@ bool ClipboardMessage::decode(const QByteArray& dataBuffer) {
         quint32 dataSize;
         stream >> dataSize;
 
-        if ( dataBuffer.size() < static_cast<int>(sizeof(quint8) + sizeof(quint32) + dataSize) ) {
+        // 用 64 位 qsizetype 比较，杜绝 dataSize 超大时 static_cast<int> 溢出回绕绕过校验
+        // （否则畸形包可令 data.resize(dataSize) 分配约 4GiB，远程单包 DoS）
+        const qsizetype textRequired = static_cast<qsizetype>(dataSize)
+                                     + static_cast<qsizetype>(sizeof(quint8) + sizeof(quint32));
+        if ( dataBuffer.size() < textRequired ) {
             return false;
         }
 
@@ -524,7 +528,10 @@ bool ClipboardMessage::decode(const QByteArray& dataBuffer) {
         quint32 dataSize;
         stream >> dataSize;
 
-        if ( dataBuffer.size() < static_cast<int>(sizeof(quint8) + 3 * sizeof(quint32) + dataSize) ) {
+        // 同 TEXT 分支：64 位 qsizetype 比较防止 dataSize 溢出绕过校验
+        const qsizetype imageRequired = static_cast<qsizetype>(dataSize)
+                                      + static_cast<qsizetype>(sizeof(quint8) + 3 * sizeof(quint32));
+        if ( dataBuffer.size() < imageRequired ) {
             return false;
         }
 

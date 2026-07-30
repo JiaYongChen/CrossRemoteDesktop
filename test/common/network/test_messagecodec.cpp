@@ -82,6 +82,45 @@ private slots:
         HandshakeRequest req;
         QVERIFY(!req.decode(payload));   // 畸形包必须被拒绝
     }
+
+    // ── ClipboardMessage（整数溢出防 DoS）──
+    void clipboardMessage_textRoundtrip() {
+        ClipboardMessage src(QStringLiteral("hello clipboard"));
+        const QByteArray bytes = src.encode();
+
+        ClipboardMessage dst;
+        QVERIFY(dst.decode(bytes));
+        QVERIFY(dst.isText());
+        QCOMPARE(dst.text(), QStringLiteral("hello clipboard"));
+    }
+
+    void clipboardMessage_textDecode_oversizedDataSize_fails() {
+        // TEXT 载荷声称 dataSize=0xFFFFFFFF（实际仅 5 字节）。修复前 static_cast<int>
+        // 溢出回绕使边界校验失效，data.resize(0xFFFFFFFF) 分配约 4GiB（远程单包 DoS）；
+        // 修复后以 qsizetype 比较，required 远超缓冲区，decode 在 resize 前返回 false。
+        QByteArray payload;
+        QDataStream out(&payload, QIODevice::WriteOnly);
+        out.setByteOrder(QDataStream::LittleEndian);
+        out << static_cast<quint8>(0x01);   // ClipboardDataType::TEXT
+        out << quint32(0xFFFFFFFF);         // 超限 dataSize
+
+        ClipboardMessage msg;
+        QVERIFY(!msg.decode(payload));
+    }
+
+    void clipboardMessage_imageDecode_oversizedDataSize_fails() {
+        // IMAGE 载荷声称 dataSize=0xFFFFFFFF，同 TEXT 分支的溢出路径。
+        QByteArray payload;
+        QDataStream out(&payload, QIODevice::WriteOnly);
+        out.setByteOrder(QDataStream::LittleEndian);
+        out << static_cast<quint8>(0x02);   // ClipboardDataType::IMAGE
+        out << quint32(1920);               // width
+        out << quint32(1080);               // height
+        out << quint32(0xFFFFFFFF);         // 超限 dataSize
+
+        ClipboardMessage msg;
+        QVERIFY(!msg.decode(payload));
+    }
 };
 
 QTEST_MAIN(TestMessageCodec)
