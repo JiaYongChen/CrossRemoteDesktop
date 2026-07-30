@@ -16,5 +16,6 @@ inline constexpr quint32 MaxSessionIdLength      = 512;
 inline constexpr quint32 MaxHostnameLength       = 1024;
 inline constexpr quint32 MaxTextLength           = 64 * 1024;
 inline constexpr quint32 MaxGenericStringLength  = 4096;
+inline constexpr quint32 MaxClipboardPayloadSize = 10 * 1024 * 1024;  // 剪贴板消息载荷上限 10MB
 
 } // namespace ProtocolConstants
