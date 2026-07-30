@@ -125,6 +125,12 @@ void ProtocolSession::handleCursorPosition(const QByteArray& data) {
 }
 
 void ProtocolSession::handleClipboardData(const QByteArray& data) {
+    // 载荷大小守卫：与服务端对称（ClientHandlerWorker 同用 10MB），拒绝超大剪贴板避免内存浪费
+    constexpr int kMaxClipboardPayload = 10 * 1024 * 1024;  // 10MB
+    if (data.size() > kMaxClipboardPayload) {
+        qCWarning(lcClientSessionProtocol) << "剪贴板消息载荷过大，已拒绝，大小:" << data.size();
+        return;
+    }
     ClipboardMessage message;
     if (!message.decode(data)) {
         qCWarning(lcClientSessionProtocol) << "ProtocolSession::handleClipboardData() — decode failed";
