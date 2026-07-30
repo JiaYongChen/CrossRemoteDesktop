@@ -279,6 +279,18 @@
         <source>握手响应解码失败</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>认证响应解码失败</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>认证挑战解码失败</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>认证挑战参数越界</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>ConnectionPanel</name>

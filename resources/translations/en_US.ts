@@ -279,6 +279,18 @@
         <source>握手响应解码失败</source>
         <translation>Handshake response decoding failed</translation>
     </message>
+    <message>
+        <source>认证响应解码失败</source>
+        <translation>Authentication response decoding failed</translation>
+    </message>
+    <message>
+        <source>认证挑战解码失败</source>
+        <translation>Authentication challenge decoding failed</translation>
+    </message>
+    <message>
+        <source>认证挑战参数越界</source>
+        <translation>Authentication challenge parameters out of bounds</translation>
+    </message>
 </context>
 <context>
     <name>ConnectionPanel</name>
