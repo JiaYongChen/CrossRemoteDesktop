@@ -23,7 +23,14 @@ static void writePrefixedString(QDataStream& ds, const QString& s) {
 static QString readPrefixedString(QDataStream& ds, quint32 maxLen = ProtocolConstants::MaxGenericStringLength) {
     quint32 len = 0;
     ds >> len;
-    if (ds.status() != QDataStream::Ok || len > maxLen) return QString();
+    if (ds.status() != QDataStream::Ok) return QString();
+    if (len > maxLen) {
+        // 长度前缀超限 = 数据损坏/协议违规：置错误态使上层 decode 返回 false。
+        // 不能只返回空串——那样读指针停在字符串数据前、流状态仍 Ok，
+        // 后续字段会把残留数据误当长度前缀解析，导致 decode 对畸形包「假成功」。
+        ds.setStatus(QDataStream::ReadCorruptData);
+        return QString();
+    }
     if (len == 0) return QString();
     QByteArray buf(static_cast<qsizetype>(len), 0);
     int bytesRead = ds.readRawData(buf.data(), static_cast<int>(len));

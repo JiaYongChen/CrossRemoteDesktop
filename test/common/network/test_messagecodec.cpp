@@ -1,4 +1,6 @@
 #include <QtTest/QTest>
+#include <QtCore/QDataStream>
+#include <QtCore/QIODevice>
 #include "common/network/Protocol.h"
 #include "common/config/ProtocolConstants.h"
 
@@ -61,6 +63,24 @@ private slots:
         QCOMPARE(dst.serverVersion, src.serverVersion);
         QCOMPARE(dst.serverName, src.serverName);
         QCOMPARE(dst.serverOS, src.serverOS);
+    }
+
+    // ── 负向用例：畸形长度前缀必须被拒绝（钉死协议健壮性契约）──
+    void handshakeRequest_decode_oversizedNameLength_fails() {
+        // clientName 长度前缀 = 0xFFFFFFFF（远超 MaxHostnameLength=1024）。
+        // readPrefixedString 修复前对此只返回空串、不置流错误也不消费字符串数据，
+        // 随后 clientOS 把 name 数据前 4 字节当长度前缀误解析，decode 假成功返回 true。
+        // 修复后应置 ReadCorruptData，decode 返回 false。
+        QByteArray payload;
+        QDataStream out(&payload, QIODevice::WriteOnly);
+        out.setByteOrder(QDataStream::LittleEndian);
+        out << quint32(2);            // clientVersion
+        out << quint32(0xFFFFFFFF);   // clientName 长度前缀（超限）
+        out << quint32(2);            // 会被误读为 clientOS 长度前缀
+        out.writeRawData("AB", 2);    // 会被误读为 clientOS 数据
+
+        HandshakeRequest req;
+        QVERIFY(!req.decode(payload));   // 畸形包必须被拒绝
     }
 };
 
