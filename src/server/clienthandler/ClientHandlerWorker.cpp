@@ -756,32 +756,26 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
         return;
     }
 
-    if (result == static_cast<int>(AuthResult::INVALID_USERNAME)) {
-        qCWarning(lcServerClientHandler) << "认证失败：用户名无效:" << clientId();
-        sendAuthenticationResponse(AuthResult::INVALID_USERNAME);
-        forceDisconnect();
-        return;
-    }
-
     if (result == static_cast<int>(AuthResult::ACCESS_DENIED)) {
+        // 终局锁定：失败计数达 MaxAuthFailures，响应后断开（唯一断连的失败路径）
         qCWarning(lcServerClientHandler) << "认证失败次数达到上限，断开连接:" << clientId();
         sendAuthenticationResponse(AuthResult::ACCESS_DENIED);
         forceDisconnect();
         return;
     }
 
-    // result == INVALID_PASSWORD（含回退延迟）
-    int failCount = m_authHandler->failedAuthCount();
-    int delayMs = SecurityConstants::AuthBaseDelayMs;
-    if (failCount > 0) {
-        delayMs = std::min(
-            SecurityConstants::AuthBaseDelayMs * (1 << (failCount - 1)),
-            SecurityConstants::AuthMaxDelayMs);
-    }
-    qCDebug(lcServerClientHandler) << "认证速率限制: 延迟" << delayMs << "ms 后发送响应";
+    // result == INVALID_PASSWORD（通用失败：用户名/密码/空哈希，对外不可区分）
+    // 连接内重试模型：延迟响应（指数退避）但保持连接，客户端可在同连接重新输入重试；
+    // 阶梯锁定由 AuthHandler 计数收敛（达 MaxAuthFailures → ACCESS_DENIED）
+    const int delayMs = AuthHandler::backoffDelayMs(m_authHandler->failedAuthCount());
+    qCDebug(lcServerClientHandler) << "认证失败: 延迟" << delayMs << "ms 后发送通用失败响应";
     QTimer::singleShot(delayMs, this, [this]() {
+        // 状态复检：延迟期间若客户端已成功认证，挂起的失败响应不得再发射
+        // （否则会补发矛盾报文并掐断已建立的会话）
+        if (m_isAuthenticated) {
+            return;
+        }
         sendAuthenticationResponse(AuthResult::INVALID_PASSWORD);
-        forceDisconnect();
     });
 }
 

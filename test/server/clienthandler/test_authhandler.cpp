@@ -1,4 +1,5 @@
 #include <QtTest/QTest>
+#include "common/config/SecurityConstants.h"
 #include "common/network/Protocol.h"
 #include "server/clienthandler/AuthHandler.h"
 
@@ -65,14 +66,61 @@ private slots:
         // 正确用户名 + 正确摘要 → SUCCESS
         QCOMPARE(handler.authenticate(QStringLiteral("admin"), QStringLiteral("deadbeef")),
                  static_cast<int>(AuthResult::SUCCESS));
-        // 用户名不符 → INVALID_USERNAME 且不计数
+        // 用户名不符 → 通用 INVALID_PASSWORD（失败统一化，无独立响应码）且计数
         QCOMPARE(handler.authenticate(QStringLiteral("root"), QStringLiteral("deadbeef")),
-                 static_cast<int>(AuthResult::INVALID_USERNAME));
-        QCOMPARE(handler.failedAuthCount(), 0);
-        // 摘要不符 → INVALID_PASSWORD 且计数
-        QCOMPARE(handler.authenticate(QStringLiteral("admin"), QStringLiteral("0000")),
                  static_cast<int>(AuthResult::INVALID_PASSWORD));
         QCOMPARE(handler.failedAuthCount(), 1);
+        // 摘要不符 → 同样通用 INVALID_PASSWORD 且计数
+        QCOMPARE(handler.authenticate(QStringLiteral("admin"), QStringLiteral("0000")),
+                 static_cast<int>(AuthResult::INVALID_PASSWORD));
+        QCOMPARE(handler.failedAuthCount(), 2);
+    }
+
+    // ── 连接内重试模型（2026-07-30 设计变更）：失败统一化 + 全失败计数 + 阶梯锁定 ──
+    // 任何可恢复失败对外表现一致（通用 INVALID_PASSWORD：消除用户名枚举 oracle），
+    // 且全部计入失败计数，使 MaxAuthFailures 阶梯锁定真正可达。
+
+    // 用户名错误、空哈希与密码错误：同码、同计数
+    void failure_unifiedCodeAndCounted() {
+        AuthHandler handler;
+        handler.setExpectedUsername(QStringLiteral("admin"));
+        handler.setExpectedPasswordDigest(QByteArray::fromHex("0011"), QByteArray::fromHex("deadbeef"));
+
+        // 用户名不符 → 通用码 + 计数（旧行为：INVALID_USERNAME 且不计数）
+        QCOMPARE(handler.authenticate(QStringLiteral("root"), QStringLiteral("deadbeef")),
+                 static_cast<int>(AuthResult::INVALID_PASSWORD));
+        QCOMPARE(handler.failedAuthCount(), 1);
+
+        // 空哈希 → 通用码 + 计数（旧行为：不计数，使限速恒不触发）
+        QCOMPARE(handler.authenticate(QStringLiteral("admin"), QString()),
+                 static_cast<int>(AuthResult::INVALID_PASSWORD));
+        QCOMPARE(handler.failedAuthCount(), 2);
+    }
+
+    // 混合失败累积到上限 → ACCESS_DENIED 终局锁定（MaxAuthFailures=5）
+    void failure_mixedLadderReachesLockout() {
+        AuthHandler handler;
+        handler.setExpectedUsername(QStringLiteral("admin"));
+        handler.setExpectedPasswordDigest(QByteArray::fromHex("0011"), QByteArray::fromHex("deadbeef"));
+
+        for (int i = 0; i < SecurityConstants::MaxAuthFailures; ++i) {
+            const int expected = (i < SecurityConstants::MaxAuthFailures - 1)
+                ? static_cast<int>(AuthResult::INVALID_PASSWORD)
+                : static_cast<int>(AuthResult::ACCESS_DENIED);
+            // 用户名与哈希皆错：第 1..4 次通用失败码，第 5 次锁定码
+            QCOMPARE(handler.authenticate(QStringLiteral("root"), QStringLiteral("0000")), expected);
+        }
+    }
+
+    // 退避曲线：单一实现（isRateLimited 与 worker 共用），指数预钳位消除 UB
+    void backoffDelayMs_curve() {
+        QCOMPARE(AuthHandler::backoffDelayMs(0), SecurityConstants::AuthBaseDelayMs);   // 1000
+        QCOMPARE(AuthHandler::backoffDelayMs(1), SecurityConstants::AuthBaseDelayMs);   // 1000
+        QCOMPARE(AuthHandler::backoffDelayMs(2), 2000);
+        QCOMPARE(AuthHandler::backoffDelayMs(3), 4000);
+        QCOMPARE(AuthHandler::backoffDelayMs(5), 16000);
+        QCOMPARE(AuthHandler::backoffDelayMs(6), SecurityConstants::AuthMaxDelayMs);    // 32000 → 封顶 30000
+        QCOMPARE(AuthHandler::backoffDelayMs(100), SecurityConstants::AuthMaxDelayMs);  // 大计数钳位无 UB
     }
 };
 

@@ -44,11 +44,8 @@ bool AuthHandler::isRateLimited() const {
     QMutexLocker locker(&m_mutex);
     if (m_failedAuthCount <= 0 || !m_lastFailedAuthTime.isValid()) return false;
 
-    int requiredDelayMs = std::min(
-        SecurityConstants::AuthBaseDelayMs * (1 << (m_failedAuthCount - 1)),
-        SecurityConstants::AuthMaxDelayMs);
-    qint64 elapsedMs = m_lastFailedAuthTime.msecsTo(QDateTime::currentDateTime());
-    return elapsedMs < requiredDelayMs;
+    const qint64 elapsedMs = m_lastFailedAuthTime.msecsTo(QDateTime::currentDateTime());
+    return elapsedMs < backoffDelayMs(m_failedAuthCount);
 }
 
 int AuthHandler::authenticate(const QString& username, const QString& passwordHash) {
@@ -66,19 +63,23 @@ int AuthHandler::authenticate(const QString& username, const QString& passwordHa
         return static_cast<int>(AuthResult::SUCCESS);
     }
 
-    // 先校验用户名（trim 避免尾随空格导致误判）
+    // 密码模式：任何失败对外不可区分——统一返回通用 INVALID_PASSWORD（不再回
+    // INVALID_USERNAME 独立码，消除用户名枚举 oracle），真实原因仅入服务端日志。
+    // 全部失败计入计数，使 MaxAuthFailures 阶梯锁定可达（连接内重试模型）。
+
+    // 用户名校验（trim 避免尾随空格导致误判）
     if (!m_expectedUsername.isEmpty()
         && username.trimmed() != m_expectedUsername.trimmed()) {
         qCWarning(lcServerClientHandler) << "认证失败：用户名无效"
                                          << "期望:" << m_expectedUsername
                                          << "收到:" << username;
-        return static_cast<int>(AuthResult::INVALID_USERNAME);
+        return registerFailureLocked();
     }
 
-    // 密码哈希为空 → 拒绝（不再返回 -1 触发挑战，服务端现在主动下发）
+    // 密码哈希为空 → 拒绝并计数
     if (passwordHash.isEmpty()) {
         qCWarning(lcServerClientHandler) << "认证失败：客户端未提供密码哈希";
-        return static_cast<int>(AuthResult::INVALID_PASSWORD);
+        return registerFailureLocked();
     }
 
     // 比对摘要
@@ -87,7 +88,11 @@ int AuthHandler::authenticate(const QString& username, const QString& passwordHa
         return static_cast<int>(AuthResult::SUCCESS);
     }
 
-    // 认证失败：递增计数并速率限制
+    qCWarning(lcServerClientHandler) << "认证失败：密码摘要不符";
+    return registerFailureLocked();
+}
+
+int AuthHandler::registerFailureLocked() {
     m_failedAuthCount++;
     m_lastFailedAuthTime = QDateTime::currentDateTime();
     qCWarning(lcServerClientHandler) << "客户端认证失败 (失败次数:" << m_failedAuthCount
@@ -96,8 +101,18 @@ int AuthHandler::authenticate(const QString& username, const QString& passwordHa
     if (m_failedAuthCount >= SecurityConstants::MaxAuthFailures) {
         return static_cast<int>(AuthResult::ACCESS_DENIED);
     }
-
     return static_cast<int>(AuthResult::INVALID_PASSWORD);
+}
+
+int AuthHandler::backoffDelayMs(int failCount) {
+    if (failCount <= 0) {
+        return SecurityConstants::AuthBaseDelayMs;
+    }
+    // 先钳位指数再移位相乘：failCount 超大时封顶于 AuthMaxDelayMs，行为与旧式
+    // 「先乘方后 min」等价，但消除钳位前求值的 int 溢出/移位 UB（旧式 n≥23 溢出）
+    const int exponent = std::min(failCount - 1, 5);   // 1000*2^5=32000 ≥ AuthMaxDelayMs
+    return std::min(SecurityConstants::AuthBaseDelayMs * (1 << exponent),
+                    SecurityConstants::AuthMaxDelayMs);
 }
 
 void AuthHandler::registerInvalidAttempt() {

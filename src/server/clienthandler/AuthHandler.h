@@ -59,6 +59,10 @@ public:
     /// 获取当前失败次数
     int failedAuthCount() const;
 
+    /// 计算给定失败次数的指数退避延迟（isRateLimited 与认证失败延迟响应路径共用）
+    /// 指数先钳位再乘方并封顶 AuthMaxDelayMs：任意 failCount 下安全（无溢出 UB）
+    static int backoffDelayMs(int failCount);
+
     /// 获取 PBKDF2 参数（用于发送 AuthChallenge）
     quint32 pbkdf2Iterations() const;
     quint32 pbkdf2KeyLength() const;
@@ -84,4 +88,7 @@ private:
 
     int m_failedAuthCount = 0;
     QDateTime m_lastFailedAuthTime;
+
+    /// 失败登记公共逻辑：递增计数、刷新时间戳，返回锁定判定后的结果码（调用方持 m_mutex）
+    int registerFailureLocked();
 };
