@@ -12,6 +12,7 @@
 - [project_directory_organization_rules.md](project_directory_organization_rules.md) — 源码目录组织规范，新增或移动文件时必须遵守
 - [project_i18n_workflow.md](project_i18n_workflow.md) — 翻译机制：.ts 持久跟踪 git（含译文），编译期 lrelease 生成 .qm（不跑 lupdate）
 - [project_include_forward_declare_rules.md](project_include_forward_declare_rules.md) — .h 文件中 #include 与前向声明的判断规则
+- [project_auth_challenge_removal_deferred.md](project_auth_challenge_removal_deferred.md) — 移除 AUTH_CHALLENGE 提议于 2026-07-29 暂缓；系异步 PBKDF2 盐值投递载体，用户或重提
 
 ## Feedback
 - [feedback_logging_rules.md](feedback/feedback_logging_rules.md) — Qt 日志必须使用流式分类日志，分类集中在 LoggingCategories.h/.cpp
