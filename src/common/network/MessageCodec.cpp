@@ -10,8 +10,11 @@
 #include "common/logging/LoggingCategories.h"
 
 // 辅助函数：写入长度前缀字符串（quint32长度 + UTF-8数据）
-static void writePrefixedString(QDataStream& ds, const QString& s) {
+static void writePrefixedString(QDataStream& ds, const QString& s,
+                                quint32 maxLen = ProtocolConstants::MaxGenericStringLength) {
     QByteArray utf8 = s.toUtf8();
+    // 发送侧限长（与解码侧对称）：调试期捕获超限发送；release 中 Q_ASSERT 为空操作，无互操作影响
+    Q_ASSERT(static_cast<quint32>(utf8.size()) <= maxLen);
     ds << static_cast<quint32>(utf8.size());
     if (!utf8.isEmpty()) {
         ds.writeRawData(utf8.constData(), utf8.size());
@@ -20,14 +23,13 @@ static void writePrefixedString(QDataStream& ds, const QString& s) {
 
 
 // 辅助函数：读取长度前缀字符串
-static QString readPrefixedString(QDataStream& ds, quint32 maxLen = ProtocolConstants::MaxGenericStringLength) {
+static QString readPrefixedString(QDataStream& ds, quint32 maxLen) {
     quint32 len = 0;
     ds >> len;
     if (ds.status() != QDataStream::Ok) return QString();
     if (len > maxLen) {
-        // 长度前缀超限 = 数据损坏/协议违规：置错误态使上层 decode 返回 false。
-        // 不能只返回空串——那样读指针停在字符串数据前、流状态仍 Ok，
-        // 后续字段会把残留数据误当长度前缀解析，导致 decode 对畸形包「假成功」。
+        // 超限即数据损坏：置错误态使上层 decode 返回 false（仅返回空串会让后续字段误解析残留数据致假成功）
+        qCWarning(lcCoreProtocol) << "readPrefixedString: 长度前缀超限 maxLen=" << maxLen << "actual=" << len;
         ds.setStatus(QDataStream::ReadCorruptData);
         return QString();
     }
@@ -35,7 +37,14 @@ static QString readPrefixedString(QDataStream& ds, quint32 maxLen = ProtocolCons
     QByteArray buf(static_cast<qsizetype>(len), 0);
     int bytesRead = ds.readRawData(buf.data(), static_cast<int>(len));
     if (bytesRead != static_cast<int>(len)) return QString();
-    return QString::fromUtf8(buf);
+    QString result = QString::fromUtf8(buf);
+    if (result.toUtf8() != buf) {
+        // 非法 UTF-8：内容损坏，置错误态拒绝（而非静默替换为 U+FFFD）
+        qCWarning(lcCoreProtocol) << "readPrefixedString: 非法 UTF-8 内容 len=" << len;
+        ds.setStatus(QDataStream::ReadCorruptData);
+        return QString();
+    }
+    return result;
 }
 // MessageHeader 序列化和反序列化实现
 QByteArray MessageHeader::encode() const {
@@ -107,7 +116,7 @@ bool HandshakeRequest::decode(const QByteArray& bytes) {
     ds >> clientVersion;
     clientName = readPrefixedString(ds, ProtocolConstants::MaxHostnameLength);
     clientOS = readPrefixedString(ds, ProtocolConstants::MaxHostnameLength);
-    return ds.status() == QDataStream::Ok;
+    return ds.status() == QDataStream::Ok && ds.atEnd();
 }
 
 // HandshakeResponse 序列化和反序列化实现
@@ -127,7 +136,7 @@ bool HandshakeResponse::decode(const QByteArray& bytes) {
     ds >> serverVersion;
     serverName = readPrefixedString(ds, ProtocolConstants::MaxHostnameLength);
     serverOS = readPrefixedString(ds, ProtocolConstants::MaxHostnameLength);
-    return ds.status() == QDataStream::Ok;
+    return ds.status() == QDataStream::Ok && ds.atEnd();
 }
 
 // SessionCapabilities 序列化和反序列化实现
@@ -145,7 +154,7 @@ bool SessionCapabilities::decode(const QByteArray& bytes) {
     ds.setByteOrder(QDataStream::LittleEndian);
     ds >> imageQuality;
     ds >> colorDepth;
-    return ds.status() == QDataStream::Ok;
+    return ds.status() == QDataStream::Ok && ds.atEnd();
 }
 
 // AuthenticationRequest 序列化和反序列化实现
@@ -163,7 +172,7 @@ bool AuthenticationRequest::decode(const QByteArray& bytes) {
     ds.setByteOrder(QDataStream::LittleEndian);
     username = readPrefixedString(ds, ProtocolConstants::MaxUsernameLength);
     passwordHash = readPrefixedString(ds, ProtocolConstants::MaxPasswordHashLength);
-    return ds.status() == QDataStream::Ok;
+    return ds.status() == QDataStream::Ok && ds.atEnd();
 }
 
 // AuthenticationResponse 序列化和反序列化实现
@@ -182,7 +191,7 @@ bool AuthenticationResponse::decode(const QByteArray& bytes) {
     quint8 res8 = 0;
     ds >> res8;
     sessionId = readPrefixedString(ds, ProtocolConstants::MaxSessionIdLength);
-    if (ds.status() != QDataStream::Ok) return false;
+    if (ds.status() != QDataStream::Ok || !ds.atEnd()) return false;
     result = static_cast<AuthResult>(res8);
     return true;
 }
@@ -382,7 +391,7 @@ bool AuthChallenge::decode(const QByteArray& bytes) {
     ds >> iterations;
     ds >> keyLength;
     saltHex = readPrefixedString(ds, ProtocolConstants::MaxPasswordHashLength);
-    return ds.status() == QDataStream::Ok;
+    return ds.status() == QDataStream::Ok && ds.atEnd();
 }
 
 QByteArray CursorMessage::encode() const {

@@ -152,6 +152,37 @@ private slots:
         CursorMessage cursor;
         QVERIFY(!cursor.decode(payload));
     }
+
+    // ── 解码层纵深防御（非法 UTF-8 / 尾部垃圾）──
+    void handshakeRequest_decode_invalidUtf8_fails() {
+        // clientName 含非法 UTF-8 字节(0xFF)。修复前静默替换为 U+FFFD 并 decode 成功；
+        // 修复后 readPrefixedString 校验 UTF-8，非法内容置错误态，decode 返回 false。
+        QByteArray payload;
+        QDataStream out(&payload, QIODevice::WriteOnly);
+        out.setByteOrder(QDataStream::LittleEndian);
+        out << quint32(2);                  // clientVersion
+        out << quint32(1);                  // clientName 长度=1
+        const QByteArray badUtf8(1, '\xFF');  // 非法 UTF-8 字节
+        out.writeRawData(badUtf8.constData(), badUtf8.size());
+        out << quint32(0);                  // clientOS 空
+
+        HandshakeRequest req;
+        QVERIFY(!req.decode(payload));
+    }
+
+    void handshakeRequest_decode_trailingBytes_fails() {
+        // 合法握手包尾部追加垃圾字节。修复前忽略尾部垃圾 decode 成功；
+        // 修复后 decode 末尾 atEnd 检查拒绝尾部多余字节。
+        HandshakeRequest src;
+        src.clientVersion = ProtocolConstants::ProtocolVersion;
+        src.clientName = QStringLiteral("UltraDesktop Client");
+        src.clientOS = QStringLiteral("Windows");
+        QByteArray payload = src.encode();
+        payload.append('\x99');             // 尾部垃圾字节
+
+        HandshakeRequest req;
+        QVERIFY(!req.decode(payload));
+    }
 };
 
 QTEST_MAIN(TestMessageCodec)
