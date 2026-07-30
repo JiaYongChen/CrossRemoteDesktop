@@ -121,6 +121,37 @@ private slots:
         ClipboardMessage msg;
         QVERIFY(!msg.decode(payload));
     }
+
+    // ── CursorMessage（pixelSize 有符号溢出防绕过）──
+    void cursorMessage_roundtrip() {
+        CursorMessage src(10, 20, 1, 2, 2, 2, QByteArray(16, '\x42'));  // 2×2 RGBA = 16 字节
+        const QByteArray bytes = src.encode();
+
+        CursorMessage dst;
+        QVERIFY(dst.decode(bytes));
+        QCOMPARE(dst.posX, 10);
+        QCOMPARE(dst.posY, 20);
+        QCOMPARE(dst.width, 2);
+        QCOMPARE(dst.height, 2);
+        QCOMPARE(dst.pixels, QByteArray(16, '\x42'));
+    }
+
+    void cursorMessage_decode_oversizedPixelSize_fails() {
+        // pixelSize=0x7FFFFFFF（声称约 2GiB 像素，实际仅 4 字节）。修复前 28+pixelSize
+        // 有符号溢出回绕为负，dataBuffer.size()<负值 恒不成立使校验被绕过，decode 返回 true；
+        // 修复后以 qsizetype 计算，28+0x7FFFFFFF 远超缓冲区，decode 返回 false。
+        QByteArray payload;
+        QDataStream out(&payload, QIODevice::WriteOnly);
+        out.setByteOrder(QDataStream::LittleEndian);
+        out << qint32(0) << qint32(0) << qint32(0) << qint32(0);  // posX/posY/hotX/hotY
+        out << qint32(2) << qint32(2);                            // width/height
+        out << qint32(0x7FFFFFFF);                                // 超限 pixelSize
+        const QByteArray fakePixels(4, '\x42');
+        out.writeRawData(fakePixels.constData(), fakePixels.size());
+
+        CursorMessage cursor;
+        QVERIFY(!cursor.decode(payload));
+    }
 };
 
 QTEST_MAIN(TestMessageCodec)

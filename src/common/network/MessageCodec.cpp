@@ -419,7 +419,9 @@ bool CursorMessage::decode(const QByteArray& dataBuffer) {
     stream >> pixelSize;
 
     if (pixelSize > 0) {
-        if (dataBuffer.size() < 28 + pixelSize) return false;
+        // 用 qsizetype(64 位)计算 28+pixelSize，杜绝 qint32 加法有符号溢出(UB)
+        // 回绕为负令边界校验被绕过、畸形光标包假成功
+        if (dataBuffer.size() < static_cast<qsizetype>(28) + pixelSize) return false;
         pixels = dataBuffer.mid(28, pixelSize);
     } else {
         pixels.clear();
