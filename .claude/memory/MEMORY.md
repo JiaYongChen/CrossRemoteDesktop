@@ -29,3 +29,4 @@
 - [feedback_auto_detect_paths.md](feedback/feedback_auto_detect_paths.md) — 项目中所有路径必须使用自动检测，禁止硬编码绝对路径
 - [feedback_windows_git_case.md](feedback/feedback_windows_git_case.md) — Windows 上 git 跟踪路径大小写与磁盘不符致永久幻影 M，用 git mv 纠正
 - [feedback_flaky_latency_test.md](feedback/feedback_flaky_latency_test.md) — FrameTransmissionLatencyTest 套件并行跑偶发失败(负载致延迟超阈值),单独重跑即过,非回归
+- [feedback_avoid_dynamic_commands.md](feedback/feedback_avoid_dynamic_commands.md) — 避免 $变量/& 开头的动态表达式命令(Claude Code 硬闸弹窗,hook allow 无法豁免);用静态前缀/pwsh -File/auto mode
