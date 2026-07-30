@@ -104,9 +104,11 @@ if ($isLowRisk) {
 }
 
 # ── 第二层：AI 语义判断 ──────────────────────────────
+# 凭据解析：优先 ANTHROPIC_API_KEY（官方 x-api-key），其次 ANTHROPIC_AUTH_TOKEN（代理 Bearer）
 $apiKey = $env:ANTHROPIC_API_KEY
-if (-not $apiKey) {
-    # 无 API Key，不做决策
+$authToken = $env:ANTHROPIC_AUTH_TOKEN
+if (-not $apiKey -and -not $authToken) {
+    # 无可用凭据，不做决策
     Write-Output (ConvertTo-Json -Compress -Depth 2 @{
         hookSpecificOutput = @{
             hookEventName = "PreToolUse"
@@ -114,6 +116,32 @@ if (-not $apiKey) {
     })
     exit 0
 }
+
+$headers = @{
+    "anthropic-version" = "2023-06-01"
+    "content-type" = "application/json"
+}
+if ($apiKey) {
+    $headers["x-api-key"] = $apiKey
+} else {
+    $headers["Authorization"] = "Bearer $authToken"
+}
+
+# 端点解析：优先 ANTHROPIC_BASE_URL（代理端点），回退官方地址
+$baseUrl = $env:ANTHROPIC_BASE_URL
+if ($baseUrl) {
+    $apiUri = $baseUrl.TrimEnd('/') + "/v1/messages"
+} else {
+    $apiUri = "https://api.anthropic.com/v1/messages"
+}
+
+# 模型解析：ANTHROPIC_DEFAULT_HAIKU_MODEL 覆盖 > 默认 claude-haiku
+$model = $env:ANTHROPIC_DEFAULT_HAIKU_MODEL
+if (-not $model) {
+    $model = "claude-haiku-4-5-20251001"
+}
+# 剥离 Claude Code 上下文窗口标注（如 model[1m]），API 只接受纯模型 ID
+$model = $model -replace '\s*\[.*\]$',''
 
 $prompt = @"
 你是命令安全分类器。判断以下命令是否可以安全执行。
@@ -123,8 +151,8 @@ $prompt = @"
 "@
 
 $body = @{
-    model = "claude-haiku-4-5-20251001"
-    max_tokens = 100
+    model = $model
+    max_tokens = 1024
     messages = @(
         @{
             role = "user"
@@ -135,17 +163,15 @@ $body = @{
 
 try {
     $response = Invoke-RestMethod `
-        -Uri "https://api.anthropic.com/v1/messages" `
+        -Uri $apiUri `
         -Method Post `
-        -Headers @{
-            "x-api-key" = $apiKey
-            "anthropic-version" = "2023-06-01"
-            "content-type" = "application/json"
-        } `
-        -Body $body `
-        -TimeoutSec 3
+        -Headers $headers `
+        -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) `
+        -TimeoutSec 10
 
-    $aiText = $response.content[0].text.Trim()
+    # 思考模型（如 qwen3.8-max-preview）的可见答复在 type=text 块，content[0] 可能是 thinking 块
+    $textBlock = $response.content | Where-Object { $_.type -eq 'text' } | Select-Object -Last 1
+    $aiText = if ($textBlock) { $textBlock.text.Trim() } else { "" }
     # 提取 JSON（AI 可能包裹在 markdown 代码块中）
     if ($aiText -match '\{[\s\S]*\}') {
         $aiJson = $Matches[0]
