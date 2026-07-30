@@ -2,6 +2,7 @@
 
 #include "client/network/ConnectionManager.h"
 #include "client/session/DecodePipeline.h"
+#include "common/config/ProtocolConstants.h"
 #include "common/error/RdError.h"
 #include "common/logging/LoggingCategories.h"
 
@@ -125,9 +126,8 @@ void ProtocolSession::handleCursorPosition(const QByteArray& data) {
 }
 
 void ProtocolSession::handleClipboardData(const QByteArray& data) {
-    // 载荷大小守卫：与服务端对称（ClientHandlerWorker 同用 10MB），拒绝超大剪贴板避免内存浪费
-    constexpr int kMaxClipboardPayload = 10 * 1024 * 1024;  // 10MB
-    if (data.size() > kMaxClipboardPayload) {
+    // 载荷大小守卫：与服务端共用 ProtocolConstants::MaxClipboardPayloadSize，拒绝超大剪贴板避免内存浪费
+    if (data.size() > static_cast<qsizetype>(ProtocolConstants::MaxClipboardPayloadSize)) {
         qCWarning(lcClientSessionProtocol) << "剪贴板消息载荷过大，已拒绝，大小:" << data.size();
         return;
     }

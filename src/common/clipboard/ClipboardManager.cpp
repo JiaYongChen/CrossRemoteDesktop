@@ -6,10 +6,13 @@
 #include <QtGui/QGuiApplication>
 #include <QtGui/QImage>
 
+#include "common/config/ProtocolConstants.h"
 #include "common/logging/LoggingCategories.h"
 
 namespace {
-    constexpr int kMaxClipboardImageSize = 10 * 1024 * 1024;  // 10MB
+    // 剪贴板图片原始数据上限 = 网络载荷上限扣除 IMAGE 消息头(type+w+h+dataSize=13字节)，
+    // 保证通过本地校验的图片其网络载荷也不超 ProtocolConstants::MaxClipboardPayloadSize
+    constexpr int kMaxClipboardImageSize = static_cast<int>(ProtocolConstants::MaxClipboardPayloadSize) - 13;
 }
 
 ClipboardManager::ClipboardManager(QObject* parent)
