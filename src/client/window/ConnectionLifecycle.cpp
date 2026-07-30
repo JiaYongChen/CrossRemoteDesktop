@@ -31,8 +31,10 @@ void ConnectionLifecycle::setConnectionState(ConnectionManager::ConnectionState 
         m_authRetryPending = false;
     }
 
-    // 重连/新连接时清除重试标记和错误码, 确保下次 AuthFailed 使用新的错误类型
-    if (state == ConnectionManager::Connecting) {
+    // 重连/新连接时清除重试标记和错误码, 确保下次 AuthFailed 使用新的错误类型。
+    // Connected 同样清除：同连接重试（AuthFailed → Connected）再次失败时，
+    // 必须允许重新弹出凭据对话框（否则重入守卫会吞掉第二次 AuthFailed）
+    if (state == ConnectionManager::Connecting || state == ConnectionManager::Connected) {
         m_authRetryPending = false;
         m_authErrorCode = ErrorCode::Unknown;
     }
@@ -45,10 +47,10 @@ void ConnectionLifecycle::setConnectionState(ConnectionManager::ConnectionState 
         if (m_authErrorCode == ErrorCode::AuthInvalidUsername
             || m_authErrorCode == ErrorCode::AuthInvalidPassword) {
             m_authRetryPending = true;
-            bool passwordOnly = (m_authErrorCode == ErrorCode::AuthInvalidPassword);
+            // 服务端已统一失败响应（用户名/密码错误不可区分），用户名与密码均允许编辑。
             // 按值捕获错误消息，避免定时器触发前成员被覆写
-            QTimer::singleShot(200, this, [this, passwordOnly, msg = m_authErrorMessage]() {
-                showCredentialDialog(msg, passwordOnly);
+            QTimer::singleShot(200, this, [this, msg = m_authErrorMessage]() {
+                showCredentialDialog(msg, false);
             });
             return;
         }

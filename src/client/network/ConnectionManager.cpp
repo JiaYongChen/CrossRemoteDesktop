@@ -108,6 +108,10 @@ void ConnectionManager::startConnection(const QString& host, int port) {
     m_currentHost = host;
     m_currentPort = port;
 
+    // 新连接的挑战由服务端重新下发，旧连接的挑战缓存作废
+    m_hasChallenge = false;
+    m_challengeSalt.clear();
+
     setConnectionState(Connecting);
     m_connectionTimer->start();
     m_tcpClient->connectToHost(host, port);
@@ -408,12 +412,14 @@ void ConnectionManager::handleAuthenticationResponse(const QByteArray& data) {
             stopAutoReconnect();
 
             if (code != ErrorCode::AuthAccessDenied) {
-                // 可重试错误：保留密码明文用于重试对话框预填
-                // 不主动断开——等服务端关闭连接或重试时 abort
+                // 可重试错误：保留密码明文用于重试对话框预填；服务端保持连接不断开，
+                // 等待用户重新输入后经 retryAuthentication 同连接重发认证请求
             } else {
-                // 终态错误：清除密码，主动断开
+                // 终态错误：清除密码与挑战缓存，主动断开
                 m_password.fill(QChar(0));
                 m_password.clear();
+                m_hasChallenge = false;
+                m_challengeSalt.clear();
                 disconnectFromHost();
             }
         }
@@ -448,17 +454,26 @@ void ConnectionManager::handleAuthChallenge(const QByteArray& data) {
 
     QByteArray salt = QByteArray::fromHex(ch.saltHex.toUtf8());
     if ( !salt.isEmpty() ) {
-        // PBKDF2 派生: password + username + salt
-        QByteArray input = (m_password + m_username).toUtf8();
-        QByteArray derived = QPasswordDigestor::deriveKeyPbkdf2(
-            QCryptographicHash::Sha256, input, salt,
-            int(ch.iterations), quint64(ch.keyLength));
-
-        AuthenticationRequest ar{};
-        ar.username = m_username.isEmpty() ? QStringLiteral("guest") : m_username;
-        ar.passwordHash = QString::fromLatin1(derived.toHex());
-        m_tcpClient->sendMessage(MessageType::AUTHENTICATION_REQUEST, ar);
+        // 缓存挑战参数：同连接重试时以新凭据复用 salt 重派生，无需服务端重发挑战
+        m_challengeSalt = salt;
+        m_challengeIterations = ch.iterations;
+        m_challengeKeyLength = ch.keyLength;
+        m_hasChallenge = true;
+        sendAuthenticationRequest();
     }
+}
+
+void ConnectionManager::sendAuthenticationRequest() {
+    // PBKDF2 派生: password + username + salt（与挑战缓存参数一致）
+    QByteArray input = (m_password + m_username).toUtf8();
+    QByteArray derived = QPasswordDigestor::deriveKeyPbkdf2(
+        QCryptographicHash::Sha256, input, m_challengeSalt,
+        int(m_challengeIterations), quint64(m_challengeKeyLength));
+
+    AuthenticationRequest ar{};
+    ar.username = m_username.isEmpty() ? QStringLiteral("guest") : m_username;
+    ar.passwordHash = QString::fromLatin1(derived.toHex());
+    m_tcpClient->sendMessage(MessageType::AUTHENTICATION_REQUEST, ar);
 }
 
 void ConnectionManager::sendHandshakeRequest() {
@@ -488,10 +503,19 @@ void ConnectionManager::retryAuthentication() {
         qCWarning(lcClient) << "retryAuthentication: invalid state" << m_connectionState;
         return;
     }
-    qCInfo(lcClient) << "重试认证，用户名:" << m_username;
-    m_currentReconnectAttempts = 0;
     // 由上层（ConnectionLifecycle）先调用 updateCredentials 再调用此方法
-    // 直接走 connectToHost 流程发起新连接
+
+    // 同连接重试：连接存活且有挑战缓存 → 以新凭据复用 salt 重派生并重发，
+    // 无需重付 TLS 握手与服务端 PBKDF2 派生成本（服务端失败不断连）
+    if (m_connectionState == AuthFailed && isConnected() && m_hasChallenge) {
+        qCInfo(lcClient) << "同连接重试认证，用户名:" << m_username;
+        setConnectionState(Connected);
+        sendAuthenticationRequest();
+        return;
+    }
+
+    qCInfo(lcClient) << "重试认证（新连接），用户名:" << m_username;
+    m_currentReconnectAttempts = 0;
     connectToHost(m_host, m_port);
 }
 

@@ -36,7 +36,7 @@ public:
         Disconnecting,
         Disconnected,
         Error,
-        AuthFailed       ///< 认证被拒——永久终端态，阻止自动重连
+        AuthFailed       ///< 认证被拒——等待凭据重输（连接存活可同连接重试；阻止自动重连）
     };
     Q_ENUM(ConnectionState);
 
@@ -57,7 +57,8 @@ public:
     /// 更新凭据（用于认证失败后重试，跨线程安全）
     Q_INVOKABLE void updateCredentials(const QString& username, const QString& password);
 
-    /// 认证失败后重试（重置状态 + 重新连接）
+    /// 认证失败后重试：连接仍存活且有挑战缓存 → 同连接重发认证请求；
+    /// 否则重置状态并重新连接（ACCESS_DENIED 终局/连接已断/无挑战缓存）
     Q_INVOKABLE void retryAuthentication();
 
     /// 设置客户端颜色深度（在 connectToHost 前调用，由握手携带）
@@ -112,6 +113,8 @@ private:
 
     void sendHandshakeRequest();
     void sendSessionCapabilities();
+    /// 以当前凭据 + 缓存的挑战参数派生 PBKDF2 并发送认证请求（首次应答与同连接重试共用）
+    void sendAuthenticationRequest();
     QString getClientOS();
 
     /// 内部：保持 host/port 并发起 TCP 连接（供 onReconnectTimer 使用，
@@ -132,6 +135,12 @@ private:
     // 认证信息
     QString m_username;
     QString m_password;
+
+    // 认证挑战缓存（同连接重试时复用 salt/参数以新凭据重派生，无需服务端重发挑战）
+    bool m_hasChallenge = false;
+    quint32 m_challengeIterations = 0;
+    quint32 m_challengeKeyLength = 0;
+    QByteArray m_challengeSalt;
 
     // 显示参数（由握手携带到服务端）
     int m_colorDepth = 32;
