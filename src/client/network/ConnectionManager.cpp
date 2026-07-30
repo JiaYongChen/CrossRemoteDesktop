@@ -7,6 +7,7 @@
 #include "client/network/TcpClient.h"
 #include "common/config/NetworkConstants.h"
 #include "common/config/ProtocolConstants.h"
+#include "common/config/SecurityConstants.h"
 #include "common/error/RdError.h"
 #include "common/logging/LoggingCategories.h"
 
@@ -417,26 +418,46 @@ void ConnectionManager::handleAuthenticationResponse(const QByteArray& data) {
             }
         }
     } else {
-        qCWarning(lcClient) << "Failed to parse authentication response";
+        const RdError error(ErrorCode::DecodeFailed, tr("认证响应解码失败"), "ConnectionManager");
+        qCWarning(lcClient) << error.logLabel();
+        emit errorOccurred(error);
+        disconnectFromHost();
     }
 }
 
 void ConnectionManager::handleAuthChallenge(const QByteArray& data) {
     AuthChallenge ch{};
-    if ( ch.decode(data) ) {
-        QByteArray salt = QByteArray::fromHex(ch.saltHex.toUtf8());
-        if ( !salt.isEmpty() ) {
-            // PBKDF2 派生: password + username + salt
-            QByteArray input = (m_password + m_username).toUtf8();
-            QByteArray derived = QPasswordDigestor::deriveKeyPbkdf2(
-                QCryptographicHash::Sha256, input, salt,
-                int(ch.iterations), quint64(ch.keyLength));
+    if ( !ch.decode(data) ) {
+        const RdError error(ErrorCode::DecodeFailed, tr("认证挑战解码失败"), "ConnectionManager");
+        qCWarning(lcClient) << error.logLabel();
+        emit errorOccurred(error);
+        disconnectFromHost();
+        return;
+    }
 
-            AuthenticationRequest ar{};
-            ar.username = m_username.isEmpty() ? QStringLiteral("guest") : m_username;
-            ar.passwordHash = QString::fromLatin1(derived.toHex());
-            m_tcpClient->sendMessage(MessageType::AUTHENTICATION_REQUEST, ar);
-        }
+    // PBKDF2 参数上限校验：防恶意服务端下发超大值致客户端资源耗尽（认证前单包 DoS）
+    if (ch.iterations == 0 || ch.iterations > SecurityConstants::MaxPbkdf2Iterations
+        || ch.keyLength == 0 || ch.keyLength > SecurityConstants::MaxPbkdf2KeyLength) {
+        const RdError error(ErrorCode::DecodeFailed, tr("认证挑战参数越界"), "ConnectionManager");
+        qCWarning(lcClient) << error.logLabel()
+                            << "iterations:" << ch.iterations << "keyLength:" << ch.keyLength;
+        emit errorOccurred(error);
+        disconnectFromHost();
+        return;
+    }
+
+    QByteArray salt = QByteArray::fromHex(ch.saltHex.toUtf8());
+    if ( !salt.isEmpty() ) {
+        // PBKDF2 派生: password + username + salt
+        QByteArray input = (m_password + m_username).toUtf8();
+        QByteArray derived = QPasswordDigestor::deriveKeyPbkdf2(
+            QCryptographicHash::Sha256, input, salt,
+            int(ch.iterations), quint64(ch.keyLength));
+
+        AuthenticationRequest ar{};
+        ar.username = m_username.isEmpty() ? QStringLiteral("guest") : m_username;
+        ar.passwordHash = QString::fromLatin1(derived.toHex());
+        m_tcpClient->sendMessage(MessageType::AUTHENTICATION_REQUEST, ar);
     }
 }
 
