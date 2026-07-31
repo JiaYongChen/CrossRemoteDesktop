@@ -299,6 +299,19 @@ elseif(UNIX)
         ../src/server/simulator/linux/KeyboardSimulatorLinux.cpp)
 endif()
 
+# integration / trust（端到端 TOFU：真实 TLS 首连记录 + 重连 Trusted）
+add_rd_test(TARGET test_tofu_handshake  NAME TofuHandshakeTest
+    SOURCES integration/test_tofu_handshake.cpp
+    EXTRA_SOURCES
+        ../src/client/network/ConnectionManager.cpp
+        ../src/client/network/TcpClient.cpp
+        ../src/client/network/ServerTrustStore.cpp
+        ../src/server/service/TcpServer.cpp
+        ../src/common/network/ProtocolImpl.cpp
+        ../src/common/network/MessageCodec.cpp
+    LIBRARIES Qt6::Core Qt6::Test Qt6::Network OpenSSL::SSL OpenSSL::Crypto common_test_core
+    TIMEOUT 60  LABELS integration trust tls network)
+
 # integration / UI（需额外环境变量）
 add_rd_test(TARGET test_close_event  NAME CloseEventTest
     SOURCES app/test_close_event.cpp
