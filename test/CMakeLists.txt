@@ -228,6 +228,7 @@ add_rd_test(TARGET test_clientremotewindow  NAME ClientRemoteWindowTest
         ../src/client/decode/GpuDecodeTarget.cpp
 
         ../src/client/network/ConnectionManager.cpp
+        ../src/client/network/ServerTrustStore.cpp
         ../src/client/network/TcpClient.cpp
         ../src/common/network/ProtocolImpl.cpp
         ../src/common/network/MessageCodec.cpp
@@ -325,6 +326,7 @@ add_rd_test(TARGET test_protocolsession  NAME ProtocolSessionTest
         ../src/client/decode/GpuDecodeTarget.cpp
         ../src/client/window/CursorManager.cpp
         ../src/client/network/ConnectionManager.cpp
+        ../src/client/network/ServerTrustStore.cpp
         ../src/client/network/TcpClient.cpp
         ../src/common/network/ProtocolImpl.cpp
         ../src/common/network/MessageCodec.cpp
@@ -347,6 +349,7 @@ add_rd_test(TARGET test_smoke_network  NAME SmokeNetworkTest
     SOURCES client/network/test_smoke_network.cpp
     EXTRA_SOURCES
         ../src/client/network/ConnectionManager.cpp
+        ../src/client/network/ServerTrustStore.cpp
         ../src/client/network/TcpClient.cpp
         ../src/common/network/ProtocolImpl.cpp
         ../src/common/network/MessageCodec.cpp
@@ -380,3 +383,15 @@ add_rd_test(TARGET test_server_cert_persistence  NAME ServerCertPersistenceTest
     EXTRA_SOURCES ../src/server/service/TcpServer.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Network OpenSSL::SSL OpenSSL::Crypto common_test_core
     TIMEOUT 30  LABELS unit server trust tls)
+
+# unit / client trust（ConnectionManager TOFU 信任门）
+add_rd_test(TARGET test_connectionmanager_trust  NAME ConnectionManagerTrustTest
+    SOURCES client/network/test_connectionmanager_trust.cpp
+    EXTRA_SOURCES
+        ../src/client/network/ConnectionManager.cpp
+        ../src/client/network/TcpClient.cpp
+        ../src/client/network/ServerTrustStore.cpp
+        ../src/common/network/ProtocolImpl.cpp
+        ../src/common/network/MessageCodec.cpp
+    LIBRARIES Qt6::Core Qt6::Test Qt6::Network common_test_core
+    TIMEOUT 30  LABELS unit client trust network)

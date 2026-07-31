@@ -4,14 +4,16 @@
 #include <QtCore/QTimer>
 #include <QtNetwork/QPasswordDigestor>
 
+#include "client/network/ServerTrustStore.h"
 #include "client/network/TcpClient.h"
 #include "common/config/NetworkConstants.h"
 #include "common/config/ProtocolConstants.h"
 #include "common/config/SecurityConstants.h"
+#include "common/config/SettingsManager.h"
 #include "common/error/RdError.h"
 #include "common/logging/LoggingCategories.h"
 
-ConnectionManager::ConnectionManager(QObject* parent)
+ConnectionManager::ConnectionManager(QObject* parent, SettingsManager* settings)
     : QObject(parent)
     , m_tcpClient(nullptr)
     , m_connectionState(Disconnected)
@@ -23,6 +25,9 @@ ConnectionManager::ConnectionManager(QObject* parent)
     , m_maxReconnectAttempts(NetworkConstants::DefaultMaxReconnectAttempts)
     , m_currentReconnectAttempts(0)
     , m_connectionTimeout(NetworkConstants::DefaultConnectionTimeout) {
+    if ( settings ) {
+        m_trustStore = std::make_unique<ServerTrustStore>(*settings);
+    }
     setupTcpClient();
 
     m_connectionTimer->setSingleShot(true);
@@ -196,12 +201,76 @@ void ConnectionManager::stopAutoReconnect() {
 // ═══════════════════════════════════════════════════════════════════
 
 void ConnectionManager::onTcpConnected(const QString& peerFingerprint) {
-    Q_UNUSED(peerFingerprint)   // Task 5 将在此加入 TOFU 信任门
     m_connectionTimer->stop();
     stopAutoReconnect();
+
+    // 未启用信任库（测试/未注入配置）→ 维持原有行为，直通
+    if ( !m_trustStore ) {
+        proceedAfterTrust();
+        return;
+    }
+
+    // 空指纹守卫：TLS 完成却拿不到对端证书 → 致命，中止
+    if ( peerFingerprint.isEmpty() ) {
+        const RdError error(ErrorCode::NetworkTlsError,
+                            tr("无法获取服务端证书指纹"), "ConnectionManager");
+        qCWarning(lcClient) << error.logLabel();
+        emit errorOccurred(error);
+        if ( m_tcpClient ) {
+            m_tcpClient->abort();
+        }
+        setConnectionState(Error);
+        return;
+    }
+
+    const QString endpoint = QStringLiteral("%1:%2").arg(m_currentHost).arg(m_currentPort);
+    switch ( m_trustStore->verify(endpoint, peerFingerprint) ) {
+        case ServerTrustStore::VerifyResult::FirstUse:
+            m_trustStore->recordTrust(endpoint, peerFingerprint);
+            qCInfo(lcClient) << "TOFU: 首次信任并记录服务端指纹, endpoint:" << endpoint;
+            proceedAfterTrust();
+            break;
+        case ServerTrustStore::VerifyResult::Trusted:
+            m_trustStore->recordTrust(endpoint, peerFingerprint);   // 刷新 lastSeen
+            qCDebug(lcClient) << "TOFU: 服务端指纹匹配, endpoint:" << endpoint;
+            proceedAfterTrust();
+            break;
+        case ServerTrustStore::VerifyResult::Changed: {
+            const QString oldFingerprint = m_trustStore->storedFingerprint(endpoint);
+            qCWarning(lcClient) << "TOFU: 服务端指纹变更，挂起等待用户确认, endpoint:" << endpoint;
+            setConnectionState(VerifyingTrust);
+            emit serverIdentityChanged(endpoint, oldFingerprint, peerFingerprint);
+            break;
+        }
+    }
+}
+
+void ConnectionManager::proceedAfterTrust() {
     // 不在此清零计数——TCP 成功 ≠ 认证成功，预算只在用户 connectToHost 和认证成功时复位
     setConnectionState(Connected);
     sendHandshakeRequest();
+}
+
+void ConnectionManager::trustDecision(const QString& endpoint, const QString& fingerprint, bool accept) {
+    // 守卫：仅在挂起等待决策时有效。挂起期间连接若断开，onTcpDisconnected
+    // 会同线程立即跃出 VerifyingTrust（Reconnecting/Disconnected），过期决策由状态检查天然忽略
+    if ( m_connectionState != VerifyingTrust ) {
+        qCDebug(lcClient) << "trustDecision: 忽略（状态非 VerifyingTrust）";
+        return;
+    }
+
+    if ( accept ) {
+        if ( m_trustStore ) {
+            m_trustStore->recordTrust(endpoint, fingerprint);
+        }
+        qCInfo(lcClient) << "TOFU: 用户确认信任新指纹, endpoint:" << endpoint;
+        proceedAfterTrust();
+    } else {
+        qCInfo(lcClient) << "TOFU: 用户拒绝信任，断开连接, endpoint:" << endpoint;
+        emit errorOccurred(RdError(ErrorCode::NetworkConnectionFailed,
+                                   tr("用户拒绝信任该服务端"), "ConnectionManager"));
+        disconnectFromHost();   // 用户主动断开路径——抑制自动重连，避免对话框死循环
+    }
 }
 
 void ConnectionManager::onTcpDisconnected() {

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include <QtCore/QByteArray>
 #include <QtCore/QObject>
 #include <QtCore/QString>
@@ -9,6 +11,8 @@
 #include "common/network/Protocol.h"
 
 class IMessageCodec;
+class ServerTrustStore;
+class SettingsManager;
 class TcpClient;
 
 /**
@@ -30,6 +34,7 @@ class ConnectionManager : public QObject {
 public:
     enum ConnectionState {
         Connecting,
+        VerifyingTrust,   ///< TLS 已建立，正在校验服务端身份（TOFU）；Changed 时挂起等待用户决策
         Connected,
         Authenticated,
         Reconnecting,
@@ -40,7 +45,7 @@ public:
     };
     Q_ENUM(ConnectionState);
 
-    explicit ConnectionManager(QObject* parent = nullptr);
+    explicit ConnectionManager(QObject* parent = nullptr, SettingsManager* settings = nullptr);
     ~ConnectionManager();
 
     // 连接控制
@@ -80,12 +85,19 @@ public:
     QString username() const { return m_username; }
     QString password() const { return m_password; }
 
+    /// 信任警告对话框的用户决策回环：accept=true 更新信任并继续，false 断开（抑制重连）
+    Q_INVOKABLE void trustDecision(const QString& endpoint, const QString& fingerprint, bool accept);
+
 signals:
     // 状态变化通知信号（用于 UI 状态显示）
     void connectionStateChanged(ConnectionState state);
 
     /// 连接层错误（携带可读原因，如认证失败的具体类型）
     void errorOccurred(const RdError& error);
+
+    /// 服务端证书指纹与已存记录不一致——需用户确认（携带 endpoint、旧指纹、新指纹）
+    void serverIdentityChanged(const QString& endpoint, const QString& oldFingerprint,
+                               const QString& newFingerprint);
 
     // 通用消息转发信号 - 供上层业务处理
     void messageReceived(MessageType type, const QByteArray& payload);
@@ -109,6 +121,9 @@ private:
     // 连接相关处理方法（握手和认证）
     void handleHandshakeResponse(const QByteArray& data);
     void handleAuthenticationResponse(const QByteArray& data);
+
+    /// 信任校验通过后进入 Connected 并发送 RDCP 握手
+    void proceedAfterTrust();
 
     void sendHandshakeRequest();
     void sendSessionCapabilities();
@@ -164,6 +179,8 @@ private:
     /// 阻止同步触发的 onTcpDisconnected 独立决策（state/cleanup/reconnect），
     /// 将决策权统一保留给外层错误/超时处理函数。
     bool m_handlingError = false;
+
+    std::unique_ptr<ServerTrustStore> m_trustStore;   ///< TOFU 信任库（未注入 settings 时为空 → 旧行为）
 
 };
 
