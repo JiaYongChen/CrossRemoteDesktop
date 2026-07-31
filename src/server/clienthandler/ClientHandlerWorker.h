@@ -90,21 +90,15 @@ public:
     Q_INVOKABLE void setPbkdf2Params(quint32 iterations, quint32 keyLength);
 
     /**
-     * @brief 配置密码认证并推进认证流程（ServerSession 完成 PBKDF2 派生后跨线程调用）
+     * @brief 配置认证并推进认证流程（ServerSession 跨线程调用，统一入口）
      *
-     * 设置 AuthHandler 全部参数；若握手已完成则立即下发携带认证参数的握手响应，
-     * 否则标记待处理、待握手完成时补发。与 markNoPasswordAuth 二选一。
+     * salt/digest 均为空 → 无密码模式（标记 AuthHandler 直通）；
+     * 否则 → 密码模式（注入用户名、期望摘要与 PBKDF2 参数）。
+     * 配置就绪后，若握手已完成则立即下发握手响应，否则标记待处理、待握手完成时补发。
      */
-    Q_INVOKABLE void configurePasswordAuth(const QString& username, const QByteArray& salt,
-                                           const QByteArray& digest, quint32 iterations,
-                                           quint32 keyLength);
-
-    /**
-     * @brief 标记为无密码认证模式（ServerSession 未配置密码时跨线程调用）
-     *
-     * 若握手已完成则直接通过认证，否则标记待处理、待握手完成时自动通过。
-     */
-    Q_INVOKABLE void markNoPasswordAuth();
+    Q_INVOKABLE void configureAuth(const QString& username, const QByteArray& salt,
+                                   const QByteArray& digest, quint32 iterations,
+                                   quint32 keyLength);
 
     /**
      * @brief 发送消息到客户端
@@ -274,8 +268,8 @@ private:
     /**
      * @brief 发送握手响应（携带认证参数）
      *
-     * 仅在认证配置就绪后调用（由握手请求与 configurePasswordAuth /
-     * markNoPasswordAuth 会合触发）；无密码模式同时直通认证。
+     * 仅在认证配置就绪后调用（由握手请求与 configureAuth 会合触发）；
+     * 无密码模式同时直通认证。
      */
     void deliverHandshakeResponse();
 

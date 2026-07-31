@@ -688,8 +688,8 @@ void ClientHandlerWorker::handleHandshakeRequest(const QByteArray& data) {
                                    << "OS:" << request.clientOS
                                    << "协议版本:" << request.clientVersion;
 
-    // 握手响应携带认证参数，须待认证配置就绪——与 configurePasswordAuth /
-    // markNoPasswordAuth 会合触发发送；同时通知 ServerSession 触发惰性 PBKDF2 派生
+    // 握手响应携带认证参数，须待认证配置就绪——与 configureAuth 会合触发发送；
+    // 同时通知 ServerSession 触发惰性 PBKDF2 派生
     m_handshakeDone.store(true, std::memory_order_release);
     emit handshakeRequestReceived();
     if (m_passwordAuthConfigured.load(std::memory_order_acquire)) {
@@ -981,22 +981,19 @@ void ClientHandlerWorker::acceptAuthentication(const QString& mode) {
     qCInfo(lcServerClientHandler) << "客户端认证成功（" << mode << "）:" << clientId();
 }
 
-void ClientHandlerWorker::configurePasswordAuth(const QString& username, const QByteArray& salt,
-                                                const QByteArray& digest, quint32 iterations,
-                                                quint32 keyLength) {
-    m_authHandler->setExpectedUsername(username);
-    m_authHandler->setExpectedPasswordDigest(salt, digest);
-    m_authHandler->setPbkdf2Params(iterations, keyLength);
+void ClientHandlerWorker::configureAuth(const QString& username, const QByteArray& salt,
+                                        const QByteArray& digest, quint32 iterations,
+                                        quint32 keyLength) {
+    // salt/digest 均为空 → 无密码模式；否则 → 密码模式（注入期望摘要与 PBKDF2 参数）
+    if (salt.isEmpty() && digest.isEmpty()) {
+        m_authHandler->markNoPassword();
+    } else {
+        m_authHandler->setExpectedUsername(username);
+        m_authHandler->setExpectedPasswordDigest(salt, digest);
+        m_authHandler->setPbkdf2Params(iterations, keyLength);
+    }
     qCDebug(lcServerClientHandler) << "认证配置已就绪:" << clientId();
 
-    m_passwordAuthConfigured.store(true, std::memory_order_release);
-    if (m_handshakeDone.load(std::memory_order_acquire)) {
-        deliverHandshakeResponse();
-    }
-}
-
-void ClientHandlerWorker::markNoPasswordAuth() {
-    m_authHandler->markNoPassword();
     m_passwordAuthConfigured.store(true, std::memory_order_release);
     if (m_handshakeDone.load(std::memory_order_acquire)) {
         deliverHandshakeResponse();

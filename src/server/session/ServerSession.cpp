@@ -114,7 +114,7 @@ bool ServerSession::initialize() {
             (m_serverPassword + m_serverUsername).toUtf8(),
             salt, 100000, 32);
 
-        QMetaObject::invokeMethod(m_clientHandler, "configurePasswordAuth",
+        QMetaObject::invokeMethod(m_clientHandler, "configureAuth",
                                   Qt::QueuedConnection,
                                   Q_ARG(QString, m_serverUsername),
                                   Q_ARG(QByteArray, salt),
@@ -147,12 +147,17 @@ bool ServerSession::initialize() {
         return false;
     }
 
-    // 6. 认证配置：无密码直接标记（与握手完成会合后直通认证）；有密码则
-    // 待握手请求到达时惰性派生（见上方 handshakeRequestReceived 连接），
-    // 认证参数随握手响应下发（协议 v3）
+    // 6. 认证配置：无密码经统一入口 configureAuth 传空 salt/digest 标记
+    // （与握手完成会合后直通认证）；有密码则待握手请求到达时惰性派生
+    // （见上方 handshakeRequestReceived 连接），认证参数随握手响应下发（协议 v3）
     if (m_serverPassword.isEmpty()) {
-        QMetaObject::invokeMethod(m_clientHandler, "markNoPasswordAuth",
-                                  Qt::QueuedConnection);
+        QMetaObject::invokeMethod(m_clientHandler, "configureAuth",
+                                  Qt::QueuedConnection,
+                                  Q_ARG(QString, m_serverUsername),
+                                  Q_ARG(QByteArray, QByteArray()),
+                                  Q_ARG(QByteArray, QByteArray()),
+                                  Q_ARG(quint32, 0),
+                                  Q_ARG(quint32, 0));
     }
 
     qCInfo(lcServer) << "ServerSession initialized:" << m_sessionId;
