@@ -11,6 +11,21 @@
 
 #include "common/logging/LoggingCategories.h"
 
+namespace {
+/// 将 hex 指纹格式化为 SSH 风格冒号分隔大写对（AB:CD:…），便于人工核对
+QString formatFingerprint(const QString& hex) {
+    const QString upper = hex.toUpper();
+    QString out;
+    for (int i = 0; i < upper.size(); i += 2) {
+        if (!out.isEmpty()) {
+            out += ':';
+        }
+        out += upper.mid(i, 2);
+    }
+    return out;
+}
+} // namespace
+
 ConnectionLifecycle::ConnectionLifecycle(QObject* parent)
     : QObject(parent) {
 }
@@ -99,6 +114,9 @@ void ConnectionLifecycle::updateWindowTitle() {
     switch (m_connectionState) {
         case ConnectionManager::Connecting:
             title = tr("%1 - %2").arg(m_hostName, tr("正在连接..."));
+            break;
+        case ConnectionManager::VerifyingTrust:
+            title = tr("%1 - %2").arg(m_hostName, tr("正在验证服务端身份..."));
             break;
         case ConnectionManager::Connected:
             title = tr("%1 - %2").arg(m_hostName, tr("已连接"));
@@ -227,4 +245,52 @@ void ConnectionLifecycle::showCredentialDialog(const QString& errorMessage, bool
             m_window->close();
         }
     }
+}
+
+void ConnectionLifecycle::showTrustWarning(const QString& endpoint,
+                                           const QString& oldFingerprint,
+                                           const QString& newFingerprint) {
+    if (!m_window || m_dialogShowing) return;
+    m_dialogShowing = true;
+
+    qCWarning(lcClientRemoteWindow) << "ConnectionLifecycle: 服务端身份变更，弹出信任警告" << endpoint;
+
+    // 不 parent 到 m_window——其 WA_DeleteOnClose 会在嵌套事件循环中删除栈对象（未定义行为）
+    QDialog dialog(nullptr);
+    dialog.setWindowTitle(tr("服务端身份已变更"));
+    dialog.setMinimumWidth(420);
+
+    auto* layout = new QVBoxLayout(&dialog);
+
+    auto* warnLabel = new QLabel(tr("警告：无法确认服务端身份"));
+    warnLabel->setStyleSheet("color: #d32f2f; font-weight: bold;");
+    layout->addWidget(warnLabel);
+
+    layout->addWidget(new QLabel(tr(
+        "主机 %1 的证书指纹与上次记录不一致。\n"
+        "这可能是中间人攻击，也可能是服务端合法重装或更换证书。\n"
+        "除非你确认服务端近期重装过，否则不要继续。").arg(endpoint)));
+
+    layout->addWidget(new QLabel(tr("原指纹：\n%1").arg(formatFingerprint(oldFingerprint))));
+    layout->addWidget(new QLabel(tr("新指纹：\n%1").arg(formatFingerprint(newFingerprint))));
+
+    auto* buttonLayout = new QHBoxLayout();
+    auto* trustBtn = new QPushButton(tr("信任新证书并连接"));
+    auto* cancelBtn = new QPushButton(tr("取消"));
+    buttonLayout->addStretch();
+    buttonLayout->addWidget(trustBtn);
+    buttonLayout->addWidget(cancelBtn);
+    layout->addLayout(buttonLayout);
+
+    QObject::connect(trustBtn, &QPushButton::clicked, &dialog, &QDialog::accept);
+    QObject::connect(cancelBtn, &QPushButton::clicked, &dialog, &QDialog::reject);
+
+    dialog.adjustSize();
+    if (m_window->isVisible()) {
+        dialog.move(m_window->geometry().center() - dialog.rect().center());
+    }
+
+    const bool accept = (dialog.exec() == QDialog::Accepted);
+    m_dialogShowing = false;
+    emit trustDecision(endpoint, newFingerprint, accept);
 }

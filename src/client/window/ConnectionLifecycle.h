@@ -36,9 +36,16 @@ public:
     /// 缓存用户名（用于凭据重输对话框预填）
     void setCachedUsername(const QString& name);
 
+    /// 弹出服务端身份变更警告（TOFU Changed）；用户选择后经 trustDecision 回传
+    void showTrustWarning(const QString& endpoint, const QString& oldFingerprint,
+                          const QString& newFingerprint);
+
 signals:
     /// 用户请求重试认证（携带新凭据），由顶层组件（ClientRemoteWindow/MainWindow）连接处理
     void retryAuthRequested(const QString& username, const QString& password);
+
+    /// 用户对信任警告的决策：accept=true 信任新证书并继续，false 取消
+    void trustDecision(const QString& endpoint, const QString& fingerprint, bool accept);
 
 private:
     void updateWindowTitle();
