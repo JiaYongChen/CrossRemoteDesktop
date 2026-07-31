@@ -34,7 +34,7 @@
     - 多语言支持（zh_CN / en_US，编译期动态生成翻译产物、运行时加载）
     - 分类流式日志系统（6 棵一级分类树，按大小滚动）
     - 灵活的配置系统（JSON 文件持久化，支持运行时更新）
-    - 密码认证（PBKDF2-SHA256 挑战-响应，每连接随机 salt；`PasswordCrypto` AES-256-CBC 加密存储凭据）
+    - 密码认证（PBKDF2-SHA256 认证-响应，每连接随机 salt；`PasswordCrypto` AES-256-CBC 加密存储凭据）
     - 23 个测试目标，覆盖单元 / 集成 / 性能测试（镜像 src/ 结构组织）
     - 跨平台输入模拟（Windows / macOS / Linux 键盘鼠标注入）
 
