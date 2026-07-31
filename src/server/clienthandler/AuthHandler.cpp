@@ -51,7 +51,7 @@ bool AuthHandler::isRateLimited() const {
 int AuthHandler::authenticate(const QString& username, const QString& passwordHash) {
     QMutexLocker locker(&m_mutex);
 
-    // 未配置即拒绝（纵深防御：worker 层 m_passwordAuthConfigured 门控应已先行断连，
+    // 未配置即拒绝（纵深防御：worker 层 isConfigured() 门控应已先行断连，
     // 到达此处说明协议违规或内部时序错误）——不得以「空 digest」误判为「无密码」放行
     if (m_state == ConfigState::Unconfigured) {
         qCCritical(lcServerClientHandler) << "认证配置未就绪即收到认证请求，拒绝认证";

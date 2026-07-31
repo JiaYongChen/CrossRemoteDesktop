@@ -25,6 +25,7 @@
 #include <QtCore/QRandomGenerator>
 #include <QtCore/QThread>
 #include <QtCore/QTimer>
+#include <QtNetwork/QPasswordDigestor>
 #include <QtNetwork/QSslConfiguration>
 #include <QtNetwork/QSslSocket>
 
@@ -45,6 +46,8 @@
 
 ClientHandlerWorker::ClientHandlerWorker(qintptr socketDescriptor,
                                          ThreadSafeQueue<ProcessedData>* processedQueue,
+                                         const QString& serverUsername,
+                                         const QString& serverPassword,
                                          const QSslCertificate& certificate,
                                          const QSslKey& privateKey,
                                          QObject* parent)
@@ -56,6 +59,8 @@ ClientHandlerWorker::ClientHandlerWorker(qintptr socketDescriptor,
     , m_clientPort(0)
     , m_isAuthenticated(false)
     , m_authHandler(new AuthHandler())
+    , m_serverUsername(serverUsername)
+    , m_serverPassword(serverPassword)
     , m_connectionTime(QDateTime::currentDateTime())
     , m_lastHeartbeat(QDateTime::currentDateTime())
     , m_heartbeatSendTimer(nullptr)
@@ -688,13 +693,11 @@ void ClientHandlerWorker::handleHandshakeRequest(const QByteArray& data) {
                                    << "OS:" << request.clientOS
                                    << "协议版本:" << request.clientVersion;
 
-    // 握手响应携带认证参数，须待认证配置就绪——与 configureAuth 会合触发发送；
-    // 同时通知 ServerSession 触发惰性 PBKDF2 派生
-    m_handshakeDone.store(true, std::memory_order_release);
-    emit handshakeRequestReceived();
-    if (m_passwordAuthConfigured.load(std::memory_order_acquire)) {
-        deliverHandshakeResponse();
-    }
+    // 同步配置认证（无密码直通 / 有密码惰性 PBKDF2 派生）后下发握手响应。
+    // 派生在本线程阻塞 ~1.7s：每连接独立线程，且握手期间客户端等待响应、
+    // 无其他 socket 事件需处理，阻塞无副作用。
+    setupAuthentication();
+    deliverHandshakeResponse();
 }
 
 void ClientHandlerWorker::handleSessionCapabilities(const QByteArray& data) {
@@ -719,10 +722,10 @@ void ClientHandlerWorker::handleSessionCapabilities(const QByteArray& data) {
 void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
     qCDebug(lcServerClientHandler) << "处理认证请求";
 
-    // 边界守卫：认证配置（异步 PBKDF2 派生）可能晚于客户端消息到达。合法客户端等待
-    // 合法客户端先在握手响应中取得认证参数后才应答，配置就绪前收到认证请求即协议违规——
-    // fail-closed 直接断连，杜绝空 digest 被 authenticate() 误判为「无密码」放行（认证绕过竞态）
-    if (!m_passwordAuthConfigured.load(std::memory_order_acquire)) {
+    // 边界守卫：同步握手流程下，合法客户端必先完成握手（认证配置就绪）才发认证请求；
+    // 配置未就绪即收到认证请求 = 协议违规（未握手先认证），fail-closed 直接断连，
+    // 杜绝空 digest 被 authenticate() 误判为「无密码」放行（认证绕过竞态）
+    if (!m_authHandler->isConfigured()) {
         qCWarning(lcServerClientHandler) << "认证配置未就绪即收到认证请求，断开客户端:" << clientId();
         forceDisconnect();
         return;
@@ -981,23 +984,26 @@ void ClientHandlerWorker::acceptAuthentication(const QString& mode) {
     qCInfo(lcServerClientHandler) << "客户端认证成功（" << mode << "）:" << clientId();
 }
 
-void ClientHandlerWorker::configureAuth(const QString& username, const QByteArray& salt,
-                                        const QByteArray& digest, quint32 iterations,
-                                        quint32 keyLength) {
-    // salt/digest 均为空 → 无密码模式；否则 → 密码模式（注入期望摘要与 PBKDF2 参数）
-    if (salt.isEmpty() && digest.isEmpty()) {
+void ClientHandlerWorker::setupAuthentication() {
+    if (m_serverPassword.isEmpty()) {
+        // 无密码模式：AuthHandler 标记直通
         m_authHandler->markNoPassword();
-    } else {
-        m_authHandler->setExpectedUsername(username);
-        m_authHandler->setExpectedPasswordDigest(salt, digest);
-        m_authHandler->setPbkdf2Params(iterations, keyLength);
+        qCDebug(lcServerClientHandler) << "无密码认证配置就绪:" << clientId();
+        return;
     }
-    qCDebug(lcServerClientHandler) << "认证配置已就绪:" << clientId();
 
-    m_passwordAuthConfigured.store(true, std::memory_order_release);
-    if (m_handshakeDone.load(std::memory_order_acquire)) {
-        deliverHandshakeResponse();
-    }
+    // 密码模式：生成每连接独立 salt，PBKDF2 派生期望摘要（~1.7s，阻塞本线程）
+    QByteArray salt(32, Qt::Uninitialized);
+    QRandomGenerator::securelySeeded().generate(salt.begin(), salt.end());
+    QByteArray derived = QPasswordDigestor::deriveKeyPbkdf2(
+        QCryptographicHash::Sha256,
+        (m_serverPassword + m_serverUsername).toUtf8(),
+        salt, 100000, 32);
+
+    m_authHandler->setExpectedUsername(m_serverUsername);
+    m_authHandler->setExpectedPasswordDigest(salt, derived);
+    m_authHandler->setPbkdf2Params(100000, 32);
+    qCDebug(lcServerClientHandler) << "密码认证配置就绪:" << clientId();
 }
 
 void ClientHandlerWorker::sendAuthenticationResponse(AuthResult result, const QString& sessionId) {

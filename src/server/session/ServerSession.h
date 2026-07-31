@@ -86,5 +86,4 @@ private:
     QString m_serverPassword;
     std::atomic<bool> m_authenticated{false};
     bool m_shuttingDown = false;
-    bool m_authConfigDelivered = false;   ///< 认证配置已下发（惰性派生去重：握手重发不重复 PBKDF2）
 };

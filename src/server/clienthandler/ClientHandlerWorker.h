@@ -42,6 +42,8 @@ public:
      */
     explicit ClientHandlerWorker(qintptr socketDescriptor,
                                 ThreadSafeQueue<ProcessedData>* processedQueue,
+                                const QString& serverUsername,
+                                const QString& serverPassword,
                                 const QSslCertificate& certificate = QSslCertificate(),
                                 const QSslKey& privateKey = QSslKey(),
                                 QObject* parent = nullptr);
@@ -90,17 +92,6 @@ public:
     Q_INVOKABLE void setPbkdf2Params(quint32 iterations, quint32 keyLength);
 
     /**
-     * @brief 配置认证并推进认证流程（ServerSession 跨线程调用，统一入口）
-     *
-     * salt/digest 均为空 → 无密码模式（标记 AuthHandler 直通）；
-     * 否则 → 密码模式（注入用户名、期望摘要与 PBKDF2 参数）。
-     * 配置就绪后，若握手已完成则立即下发握手响应，否则标记待处理、待握手完成时补发。
-     */
-    Q_INVOKABLE void configureAuth(const QString& username, const QByteArray& salt,
-                                   const QByteArray& digest, quint32 iterations,
-                                   quint32 keyLength);
-
-    /**
      * @brief 发送消息到客户端
      * @param type 消息类型
      * @param message 消息数据（实现IMessageCodec接口）
@@ -139,11 +130,6 @@ signals:
      * @brief 客户端认证成功信号
      */
     void authenticated();
-
-    /**
-     * @brief 收到客户端的合法握手请求（ServerSession 据此触发惰性 PBKDF2 派生）
-     */
-    void handshakeRequestReceived();
 
     /**
      * @brief 发生错误信号
@@ -228,6 +214,14 @@ private:
     void handleHandshakeRequest(const QByteArray& data);
 
     /**
+     * @brief 同步配置认证状态（按是否设置密码分流）
+     *
+     * 无密码 → AuthHandler 标记直通；有密码 → 生成每连接 salt + PBKDF2 派生期望摘要。
+     * 由 handleHandshakeRequest 在本线程同步调用，随后下发握手响应。
+     */
+    void setupAuthentication();
+
+    /**
      * @brief 处理会话能力（编码参数）单向通知
      *
      * 仅接受已认证客户端；解码成功后复用 qualitySettingsReceived /
@@ -268,7 +262,7 @@ private:
     /**
      * @brief 发送握手响应（携带认证参数）
      *
-     * 仅在认证配置就绪后调用（由握手请求与 configureAuth 会合触发）；
+     * 由 handleHandshakeRequest 在 setupAuthentication 同步配置认证后调用；
      * 无密码模式同时直通认证。
      */
     void deliverHandshakeResponse();
@@ -317,6 +311,8 @@ private:
 
     // 认证（委托给 AuthHandler）
     AuthHandler* m_authHandler;           ///< 认证处理器
+    QString m_serverUsername;             ///< 服务端认证用户名（无密码模式可为空）
+    QString m_serverPassword;             ///< 服务端认证密码（空 = 无密码模式）
 
     // 时间和心跳
     QDateTime m_connectionTime;           ///< 连接时间
@@ -332,10 +328,6 @@ private:
 
     // 断开连接标志（避免重复发送disconnected信号）
     std::atomic<bool> m_disconnectSignalSent{ false };
-
-    // 认证流程双条件会合（握手完成 + 认证配置到达，二者均就绪才发送握手响应/通过认证）
-    std::atomic<bool> m_handshakeDone{ false };        ///< 握手请求已收到（响应等待配置会合）
-    std::atomic<bool> m_passwordAuthConfigured{ false }; ///< ServerSession 已下发认证配置（密码或无密码）
 
     // 统计信息（线程安全访问需要互斥锁）
     mutable QMutex m_statsMutex;          ///< 统计信息互斥锁

@@ -2,10 +2,8 @@
 #include "server/session/ServerSession.h"
 
 #include <QtCore/QMetaObject>
-#include <QtCore/QRandomGenerator>
 #include <QtCore/QThread>
 #include <QtCore/QUuid>
-#include <QtNetwork/QPasswordDigestor>
 
 #include "common/error/RdError.h"
 #include "common/logging/LoggingCategories.h"
@@ -49,6 +47,7 @@ bool ServerSession::initialize() {
     // 2. 创建 ClientHandlerWorker（子线程，暂不启动——启动顺序见步骤 5）
     m_clientHandler = new ClientHandlerWorker(m_socketDescriptor,
                                               &m_queues->processedQueue,
+                                              m_serverUsername, m_serverPassword,
                                               m_cert, m_key);
 
     // 3. 创建 DataProcessingWorker（子线程，autoStart=false，认证成功后才启动）
@@ -94,54 +93,10 @@ bool ServerSession::initialize() {
             this, &ServerSession::clipboardDataReceived,
             Qt::QueuedConnection);
 
-    // 握手请求 → 认证配置统一入口（协议 v3：认证参数随握手响应携带）：
-    // 无密码 → configureAuth 传空 salt/digest 直通；有密码 → 惰性 PBKDF2 派生。
-    // 客户端真正完成握手才处理，未握手的连接零成本
-    // （缓解按连接预派生 ~1.7s 的 CPU 放大）
-    connect(m_clientHandler, &ClientHandlerWorker::handshakeRequestReceived,
-            this, [this]() {
-        if (m_authConfigDelivered) {
-            return;
-        }
-        m_authConfigDelivered = true;
-
-        // 无密码：统一入口传空 salt/digest，与握手完成会合后直通认证
-        if (m_serverPassword.isEmpty()) {
-            QMetaObject::invokeMethod(m_clientHandler, "configureAuth",
-                                      Qt::QueuedConnection,
-                                      Q_ARG(QString, m_serverUsername),
-                                      Q_ARG(QByteArray, QByteArray()),
-                                      Q_ARG(QByteArray, QByteArray()),
-                                      Q_ARG(quint32, 0),
-                                      Q_ARG(quint32, 0));
-            qCDebug(lcServer) << "ServerSession: no-password auth configured for" << m_sessionId;
-            return;
-        }
-
-        // 生成随机 32 字节 salt（每连接独立）
-        QByteArray salt(32, Qt::Uninitialized);
-        QRandomGenerator::securelySeeded().generate(salt.begin(), salt.end());
-
-        // PBKDF2 派生: password + username + salt（昂贵，~1.7s，期间握手响应等待发送）
-        QByteArray derived = QPasswordDigestor::deriveKeyPbkdf2(
-            QCryptographicHash::Sha256,
-            (m_serverPassword + m_serverUsername).toUtf8(),
-            salt, 100000, 32);
-
-        QMetaObject::invokeMethod(m_clientHandler, "configureAuth",
-                                  Qt::QueuedConnection,
-                                  Q_ARG(QString, m_serverUsername),
-                                  Q_ARG(QByteArray, salt),
-                                  Q_ARG(QByteArray, derived),
-                                  Q_ARG(quint32, 100000),
-                                  Q_ARG(quint32, 32));
-        qCDebug(lcServer) << "ServerSession: auth configured for" << m_sessionId;
-    }, Qt::QueuedConnection);
-
     // 5. 启动线程：先注册 DataProc（autoStart=false），再启动 ClientHandler——
     // 后者的 initialize() 立即启动 TLS 握手，认证成功后触发的 authenticated 回调
-    // 需要 data 线程已注册。认证配置统一在握手请求到达后惰性处理（见上方
-    // handshakeRequestReceived 连接），初始化阶段不预置，避免阻塞连接建立。
+    // 需要 data 线程已注册。认证配置（无密码直通 / 有密码 PBKDF2 派生）由
+    // ClientHandlerWorker 在收到握手请求时于本线程同步完成。
     if (!m_threadManager->createThread(dataThreadName,
                                        std::unique_ptr<Worker>(m_dataWorker), false, true, 3)) {
         qCCritical(lcServer) << "ServerSession: Failed to create DataProcessingWorker thread";
