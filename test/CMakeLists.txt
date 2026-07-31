@@ -373,3 +373,10 @@ add_rd_test(TARGET test_servertruststore  NAME ServerTrustStoreTest
     EXTRA_SOURCES ../src/client/network/ServerTrustStore.cpp
     LIBRARIES Qt6::Core Qt6::Test common_test_core
     TIMEOUT 30  LABELS unit client trust)
+
+# unit / server trust
+add_rd_test(TARGET test_server_cert_persistence  NAME ServerCertPersistenceTest
+    SOURCES server/service/test_server_cert_persistence.cpp
+    EXTRA_SOURCES ../src/server/service/TcpServer.cpp
+    LIBRARIES Qt6::Core Qt6::Test Qt6::Network OpenSSL::SSL OpenSSL::Crypto common_test_core
+    TIMEOUT 30  LABELS unit server trust tls)

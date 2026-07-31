@@ -5,6 +5,7 @@
 #include <QtCore/QTimer>
 #include <QtNetwork/QHostAddress>
 
+#include "common/config/SettingsManager.h"
 #include "common/error/RdError.h"
 #include "common/logging/LoggingCategories.h"
 
@@ -12,11 +13,12 @@
 #include <openssl/pem.h>
 #include <openssl/x509.h>
 
-TcpServer::TcpServer(QObject* parent)
+TcpServer::TcpServer(QObject* parent, SettingsManager* settings)
     : QTcpServer(parent)
     , m_isRunning(false)
     , m_serverPort(0)
-    , m_serverAddress(QHostAddress::Any) {
+    , m_serverAddress(QHostAddress::Any)
+    , m_settings(settings) {
     // 基础服务器初始化
 }
 
@@ -39,14 +41,26 @@ bool TcpServer::startServer(quint16 port, const QHostAddress& address) {
         return false;
     }
 
-    // 生成自签名TLS证书
+    // 获取/生成自签名TLS证书：优先加载持久化证书，缺失或损坏才重新生成并落盘
     if ( m_sslCertificate.isNull() || m_sslPrivateKey.isNull() ) {
-        if ( !generateSelfSignedCertificate() ) {
-            qCCritical(lcServer) << "Failed to generate TLS certificate";
-            emit errorOccurred(RdError(ErrorCode::NetworkTlsError, "Failed to generate TLS certificate", "TcpServer"));
-            return false;
+        bool ready = false;
+        if ( m_settings ) {
+            ready = loadPersistedCertificate();
+            if ( ready ) {
+                qCInfo(lcServer) << "TLS certificate loaded from persistent storage";
+            }
         }
-        qCDebug(lcServer) << "TLS self-signed certificate generated successfully";
+        if ( !ready ) {
+            if ( !generateSelfSignedCertificate() ) {
+                qCCritical(lcServer) << "Failed to generate TLS certificate";
+                emit errorOccurred(RdError(ErrorCode::NetworkTlsError, "Failed to generate TLS certificate", "TcpServer"));
+                return false;
+            }
+            qCDebug(lcServer) << "TLS self-signed certificate generated successfully";
+            if ( m_settings ) {
+                persistCertificate();
+            }
+        }
     }
 
     m_serverAddress = address;
@@ -205,4 +219,28 @@ bool TcpServer::generateSelfSignedCertificate() {
     }
 
     return true;
+}
+
+bool TcpServer::loadPersistedCertificate() {
+    const QByteArray certPem = m_settings->getString("Server/tlsCertPem").toUtf8();
+    const QByteArray keyPem  = m_settings->getString("Server/tlsKeyPem").toUtf8();
+    if ( certPem.isEmpty() || keyPem.isEmpty() ) {
+        return false;
+    }
+
+    QSslCertificate cert(certPem, QSsl::Pem);
+    QSslKey key(keyPem, QSsl::Rsa, QSsl::Pem);
+    if ( cert.isNull() || key.isNull() ) {
+        qCWarning(lcServer) << "Persisted TLS certificate/key unparseable, will regenerate";
+        return false;
+    }
+
+    m_sslCertificate = cert;
+    m_sslPrivateKey = key;
+    return true;
+}
+
+void TcpServer::persistCertificate() {
+    m_settings->setValue("Server/tlsCertPem", QString::fromUtf8(m_sslCertificate.toPem()));
+    m_settings->setValue("Server/tlsKeyPem", QString::fromUtf8(m_sslPrivateKey.toPem()));
 }

@@ -7,11 +7,13 @@
 
 #include "common/error/RdError.h"
 
+class SettingsManager;
+
 class TcpServer : public QTcpServer {
     Q_OBJECT
 
 public:
-    explicit TcpServer(QObject* parent = nullptr);
+    explicit TcpServer(QObject* parent = nullptr, SettingsManager* settings = nullptr);
     ~TcpServer();
 
     // 服务器控制
@@ -47,5 +49,12 @@ private:
     // TLS证书和密钥
     QSslCertificate m_sslCertificate;
     QSslKey m_sslPrivateKey;
+
+    SettingsManager* m_settings = nullptr;   ///< 证书持久化入口（可为空 → 仅生成不落盘）
+
+    /// 从 SettingsManager 加载既有证书/私钥 PEM；成功置成员并返回 true
+    [[nodiscard]] bool loadPersistedCertificate();
+    /// 将当前证书/私钥 PEM 写入 SettingsManager
+    void persistCertificate();
 };
 

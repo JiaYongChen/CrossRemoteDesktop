@@ -11,10 +11,11 @@
 #include "common/logging/LoggingCategories.h"
 #include "server/service/TcpServer.h"
 
-TcpListener::TcpListener(QObject* parent)
+TcpListener::TcpListener(QObject* parent, SettingsManager* settings)
     : Worker(parent)
     , m_tcpServer(nullptr)
     , m_stopTimeoutTimer(nullptr)
+    , m_settings(settings)
     , m_serverMutex()
     , m_isRunning(false)
     , m_currentPort(0) {
@@ -32,7 +33,7 @@ TcpListener::~TcpListener() {
 bool TcpListener::initialize() {
     qCDebug(lcServer) << "TcpListener::initialize()";
 
-    m_tcpServer = new TcpServer(this);
+    m_tcpServer = new TcpServer(this, m_settings);
     m_stopTimeoutTimer = new QTimer(this);
     m_stopTimeoutTimer->setSingleShot(true);
     m_stopTimeoutTimer->setInterval(5000);

@@ -10,6 +10,7 @@
 #include "common/error/RdError.h"
 #include "common/threading/Worker.h"
 
+class SettingsManager;
 class TcpServer;
 
 /**
@@ -22,7 +23,7 @@ class TcpListener : public Worker {
     Q_OBJECT
 
 public:
-    explicit TcpListener(QObject* parent = nullptr);
+    explicit TcpListener(QObject* parent = nullptr, SettingsManager* settings = nullptr);
     ~TcpListener() override;
 
     Q_INVOKABLE void startListening(quint16 port);
@@ -55,6 +56,7 @@ private:
 
     TcpServer* m_tcpServer = nullptr;
     QTimer* m_stopTimeoutTimer = nullptr;
+    SettingsManager* m_settings = nullptr;   ///< 证书持久化入口（透传给 TcpServer，可为空）
 
     mutable QMutex m_serverMutex;
     bool m_isRunning = false;

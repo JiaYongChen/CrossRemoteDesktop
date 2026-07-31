@@ -79,7 +79,7 @@ bool ServerService::start(quint16 port)
 
     // 1. 创建 TcpListener
     if (!m_threadManager->hasThread("TcpListener")) {
-        auto listener = std::make_unique<TcpListener>();
+        auto listener = std::make_unique<TcpListener>(nullptr, m_settingsManager);
         m_tcpListener = listener.get();
         if (!m_threadManager->createThread("TcpListener", std::move(listener))) {
             qCCritical(lcServer) << "ServerService: failed to create TcpListener thread";
