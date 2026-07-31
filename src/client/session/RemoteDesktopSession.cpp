@@ -199,8 +199,7 @@ void RemoteDesktopSession::wireSignals() {
         connect(m_connectionManager, &ConnectionManager::errorOccurred,
                 lifecycle, [lifecycle](const RdError& error) {
             switch (error.code) {
-            case ErrorCode::AuthInvalidUsername:
-            case ErrorCode::AuthInvalidPassword:
+            case ErrorCode::AuthInvalidCredentials:
             case ErrorCode::AuthAccessDenied:
                 lifecycle->setAuthErrorCode(error.code);
                 lifecycle->setAuthErrorMessage(error.message);

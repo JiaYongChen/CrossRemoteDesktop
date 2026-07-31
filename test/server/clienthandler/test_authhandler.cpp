@@ -66,18 +66,18 @@ private slots:
         // 正确用户名 + 正确摘要 → SUCCESS
         QCOMPARE(handler.authenticate(QStringLiteral("admin"), QStringLiteral("deadbeef")),
                  static_cast<int>(AuthResult::SUCCESS));
-        // 用户名不符 → 通用 INVALID_PASSWORD（失败统一化，无独立响应码）且计数
+        // 用户名不符 → 通用 INVALID_CREDENTIALS（失败统一化，无独立响应码）且计数
         QCOMPARE(handler.authenticate(QStringLiteral("root"), QStringLiteral("deadbeef")),
-                 static_cast<int>(AuthResult::INVALID_PASSWORD));
+                 static_cast<int>(AuthResult::INVALID_CREDENTIALS));
         QCOMPARE(handler.failedAuthCount(), 1);
-        // 摘要不符 → 同样通用 INVALID_PASSWORD 且计数
+        // 摘要不符 → 同样通用 INVALID_CREDENTIALS 且计数
         QCOMPARE(handler.authenticate(QStringLiteral("admin"), QStringLiteral("0000")),
-                 static_cast<int>(AuthResult::INVALID_PASSWORD));
+                 static_cast<int>(AuthResult::INVALID_CREDENTIALS));
         QCOMPARE(handler.failedAuthCount(), 2);
     }
 
     // ── 连接内重试模型（2026-07-30 设计变更）：失败统一化 + 全失败计数 + 阶梯锁定 ──
-    // 任何可恢复失败对外表现一致（通用 INVALID_PASSWORD：消除用户名枚举 oracle），
+    // 任何可恢复失败对外表现一致（通用 INVALID_CREDENTIALS：消除用户名枚举 oracle），
     // 且全部计入失败计数，使 MaxAuthFailures 阶梯锁定真正可达。
 
     // 用户名错误、空哈希与密码错误：同码、同计数
@@ -88,12 +88,12 @@ private slots:
 
         // 用户名不符 → 通用码 + 计数（旧行为：INVALID_USERNAME 且不计数）
         QCOMPARE(handler.authenticate(QStringLiteral("root"), QStringLiteral("deadbeef")),
-                 static_cast<int>(AuthResult::INVALID_PASSWORD));
+                 static_cast<int>(AuthResult::INVALID_CREDENTIALS));
         QCOMPARE(handler.failedAuthCount(), 1);
 
         // 空哈希 → 通用码 + 计数（旧行为：不计数，使限速恒不触发）
         QCOMPARE(handler.authenticate(QStringLiteral("admin"), QString()),
-                 static_cast<int>(AuthResult::INVALID_PASSWORD));
+                 static_cast<int>(AuthResult::INVALID_CREDENTIALS));
         QCOMPARE(handler.failedAuthCount(), 2);
     }
 
@@ -105,7 +105,7 @@ private slots:
 
         for (int i = 0; i < SecurityConstants::MaxAuthFailures; ++i) {
             const int expected = (i < SecurityConstants::MaxAuthFailures - 1)
-                ? static_cast<int>(AuthResult::INVALID_PASSWORD)
+                ? static_cast<int>(AuthResult::INVALID_CREDENTIALS)
                 : static_cast<int>(AuthResult::ACCESS_DENIED);
             // 用户名与哈希皆错：第 1..4 次通用失败码，第 5 次锁定码
             QCOMPARE(handler.authenticate(QStringLiteral("root"), QStringLiteral("0000")), expected);

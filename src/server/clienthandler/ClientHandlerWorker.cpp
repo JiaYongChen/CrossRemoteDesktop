@@ -746,10 +746,6 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
     AuthenticationRequest authRequest;
     if (!authRequest.decode(data)) {
         qCWarning(lcServerClientHandler) << "认证请求数据解析失败:" << clientId();
-        // 畸形认证请求视同认证失败：登记失败计数（速率限制）并断开连接，
-        // 与正常失败路径一致——否则未认证攻击者可以畸形包无限速钉住连接、绕过速率限制
-        m_authHandler->registerInvalidAttempt();
-        sendAuthenticationResponse(AuthResult::INVALID_PASSWORD);
         forceDisconnect();
         return;
     }
@@ -770,7 +766,7 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
         return;
     }
 
-    // result == INVALID_PASSWORD（通用失败：用户名/密码/空哈希，对外不可区分）
+    // result == INVALID_CREDENTIALS（通用失败：用户名/密码/空哈希，对外不可区分）
     // 连接内重试模型：延迟响应（指数退避）但保持连接，客户端可在同连接重新输入重试；
     // 阶梯锁定由 AuthHandler 计数收敛（达 MaxAuthFailures → ACCESS_DENIED）
     const int delayMs = AuthHandler::backoffDelayMs(m_authHandler->failedAuthCount());
@@ -781,7 +777,7 @@ void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
         if (m_isAuthenticated) {
             return;
         }
-        sendAuthenticationResponse(AuthResult::INVALID_PASSWORD);
+        sendAuthenticationResponse(AuthResult::INVALID_CREDENTIALS);
     });
 }
 
@@ -956,7 +952,7 @@ void ClientHandlerWorker::deliverHandshakeResponse() {
         const QByteArray salt = m_authHandler->salt();
         if (salt.isEmpty()) {
             qCCritical(lcServerClientHandler) << "认证配置错误：盐值缺失，无法发送握手响应:" << clientId();
-            sendAuthenticationResponse(AuthResult::INVALID_PASSWORD);
+            sendAuthenticationResponse(AuthResult::INVALID_CREDENTIALS);
             forceDisconnect();
             return;
         }

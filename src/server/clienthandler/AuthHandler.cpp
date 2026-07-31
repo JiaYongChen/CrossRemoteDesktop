@@ -55,7 +55,7 @@ int AuthHandler::authenticate(const QString& username, const QString& passwordHa
     // 到达此处说明协议违规或内部时序错误）——不得以「空 digest」误判为「无密码」放行
     if (m_state == ConfigState::Unconfigured) {
         qCCritical(lcServerClientHandler) << "认证配置未就绪即收到认证请求，拒绝认证";
-        return static_cast<int>(AuthResult::INVALID_PASSWORD);
+        return static_cast<int>(AuthResult::INVALID_CREDENTIALS);
     }
 
     // 无密码保护模式 → 直接成功
@@ -63,8 +63,8 @@ int AuthHandler::authenticate(const QString& username, const QString& passwordHa
         return static_cast<int>(AuthResult::SUCCESS);
     }
 
-    // 密码模式：任何失败对外不可区分——统一返回通用 INVALID_PASSWORD（不再回
-    // INVALID_USERNAME 独立码，消除用户名枚举 oracle），真实原因仅入服务端日志。
+    // 密码模式：任何失败对外不可区分——统一返回通用 INVALID_CREDENTIALS
+    // （用户名/密码不再设独立响应码，消除用户名枚举 oracle），真实原因仅入服务端日志。
     // 全部失败计入计数，使 MaxAuthFailures 阶梯锁定可达（连接内重试模型）。
 
     // 用户名校验（trim 避免尾随空格导致误判）
@@ -101,7 +101,7 @@ int AuthHandler::registerFailureLocked() {
     if (m_failedAuthCount >= SecurityConstants::MaxAuthFailures) {
         return static_cast<int>(AuthResult::ACCESS_DENIED);
     }
-    return static_cast<int>(AuthResult::INVALID_PASSWORD);
+    return static_cast<int>(AuthResult::INVALID_CREDENTIALS);
 }
 
 int AuthHandler::backoffDelayMs(int failCount) {

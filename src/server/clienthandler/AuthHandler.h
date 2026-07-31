@@ -43,7 +43,7 @@ public:
     bool isRateLimited() const;
 
     /// 验证认证请求
-    /// @return 0=SUCCESS, 1=INVALID_USERNAME, 2=INVALID_PASSWORD, 3=ACCESS_DENIED
+    /// @return AuthResult 枚举值（0=SUCCESS, 2=INVALID_CREDENTIALS, 3=ACCESS_DENIED；1 已废弃）
     /// @param username 客户端发送的用户名
     /// @param passwordHash 客户端发送的密码哈希(hex字符串)
     /// @return 认证结果 (AuthResult 枚举值)

@@ -412,13 +412,9 @@ void ConnectionManager::handleAuthenticationResponse(const QByteArray& data) {
             QString reason;
             ErrorCode code;
             switch ( response.result ) {
-                case AuthResult::INVALID_USERNAME:
-                    reason = tr("认证失败：用户名无效");
-                    code = ErrorCode::AuthInvalidUsername;
-                    break;
-                case AuthResult::INVALID_PASSWORD:
+                case AuthResult::INVALID_CREDENTIALS:
                     reason = tr("认证失败：密码错误");
-                    code = ErrorCode::AuthInvalidPassword;
+                    code = ErrorCode::AuthInvalidCredentials;
                     break;
                 case AuthResult::ACCESS_DENIED:
                     reason = tr("认证失败：尝试次数过多，请稍后重试");
