@@ -366,3 +366,10 @@ add_rd_test(TARGET test_messagecodec  NAME MessageCodecTest
     EXTRA_SOURCES ../src/common/network/ProtocolImpl.cpp ../src/common/network/MessageCodec.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Network common_test_core
     TIMEOUT 30  LABELS unit common network codec)
+
+# unit / client trust
+add_rd_test(TARGET test_servertruststore  NAME ServerTrustStoreTest
+    SOURCES client/network/test_servertruststore.cpp
+    EXTRA_SOURCES ../src/client/network/ServerTrustStore.cpp
+    LIBRARIES Qt6::Core Qt6::Test common_test_core
+    TIMEOUT 30  LABELS unit client trust)
