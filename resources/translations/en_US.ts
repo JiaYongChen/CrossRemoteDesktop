@@ -260,14 +260,6 @@
 <context>
     <name>ConnectionManager</name>
     <message>
-        <source>认证失败：用户名无效</source>
-        <translation>Authentication failed: invalid username</translation>
-    </message>
-    <message>
-        <source>认证失败：密码错误</source>
-        <translation>Authentication failed: incorrect password</translation>
-    </message>
-    <message>
         <source>认证失败：尝试次数过多，请稍后重试</source>
         <translation>Authentication failed: too many attempts, please try again later</translation>
     </message>
@@ -286,6 +278,10 @@
     <message>
         <source>握手响应认证参数越界</source>
         <translation>Handshake response challenge parameter out of bounds</translation>
+    </message>
+    <message>
+        <source>认证失败：用户名或密码错误</source>
+        <translation>Authentication failed: wrong username or password</translation>
     </message>
 </context>
 <context>

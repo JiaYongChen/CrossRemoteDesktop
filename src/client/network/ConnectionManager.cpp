@@ -413,7 +413,7 @@ void ConnectionManager::handleAuthenticationResponse(const QByteArray& data) {
             ErrorCode code;
             switch ( response.result ) {
                 case AuthResult::INVALID_CREDENTIALS:
-                    reason = tr("认证失败：密码错误");
+                    reason = tr("认证失败：用户名或密码错误");
                     code = ErrorCode::AuthInvalidCredentials;
                     break;
                 case AuthResult::ACCESS_DENIED:

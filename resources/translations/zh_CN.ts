@@ -260,14 +260,6 @@
 <context>
     <name>ConnectionManager</name>
     <message>
-        <source>认证失败：用户名无效</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>认证失败：密码错误</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>认证失败：尝试次数过多，请稍后重试</source>
         <translation type="unfinished"></translation>
     </message>
@@ -285,6 +277,10 @@
     </message>
     <message>
         <source>握手响应认证参数越界</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>认证失败：用户名或密码错误</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
