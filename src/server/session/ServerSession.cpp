@@ -94,15 +94,29 @@ bool ServerSession::initialize() {
             this, &ServerSession::clipboardDataReceived,
             Qt::QueuedConnection);
 
-    // 握手请求 → 惰性 PBKDF2 派生 + 下发（协议 v3：认证参数随握手响应携带）：
-    // 客户端真正完成握手才派生，未握手的连接零派生成本
+    // 握手请求 → 认证配置统一入口（协议 v3：认证参数随握手响应携带）：
+    // 无密码 → configureAuth 传空 salt/digest 直通；有密码 → 惰性 PBKDF2 派生。
+    // 客户端真正完成握手才处理，未握手的连接零成本
     // （缓解按连接预派生 ~1.7s 的 CPU 放大）
     connect(m_clientHandler, &ClientHandlerWorker::handshakeRequestReceived,
             this, [this]() {
-        if (m_serverPassword.isEmpty() || m_authConfigDelivered) {
+        if (m_authConfigDelivered) {
             return;
         }
         m_authConfigDelivered = true;
+
+        // 无密码：统一入口传空 salt/digest，与握手完成会合后直通认证
+        if (m_serverPassword.isEmpty()) {
+            QMetaObject::invokeMethod(m_clientHandler, "configureAuth",
+                                      Qt::QueuedConnection,
+                                      Q_ARG(QString, m_serverUsername),
+                                      Q_ARG(QByteArray, QByteArray()),
+                                      Q_ARG(QByteArray, QByteArray()),
+                                      Q_ARG(quint32, 0),
+                                      Q_ARG(quint32, 0));
+            qCDebug(lcServer) << "ServerSession: no-password auth configured for" << m_sessionId;
+            return;
+        }
 
         // 生成随机 32 字节 salt（每连接独立）
         QByteArray salt(32, Qt::Uninitialized);
@@ -126,8 +140,8 @@ bool ServerSession::initialize() {
 
     // 5. 启动线程：先注册 DataProc（autoStart=false），再启动 ClientHandler——
     // 后者的 initialize() 立即启动 TLS 握手，认证成功后触发的 authenticated 回调
-    // 需要 data 线程已注册。认证配置（PBKDF2 派生）在 client 线程启动之后
-    // 并行执行（步骤 6），避免阻塞连接建立导致客户端握手超时。
+    // 需要 data 线程已注册。认证配置统一在握手请求到达后惰性处理（见上方
+    // handshakeRequestReceived 连接），初始化阶段不预置，避免阻塞连接建立。
     if (!m_threadManager->createThread(dataThreadName,
                                        std::unique_ptr<Worker>(m_dataWorker), false, true, 3)) {
         qCCritical(lcServer) << "ServerSession: Failed to create DataProcessingWorker thread";
@@ -145,19 +159,6 @@ bool ServerSession::initialize() {
                                    QStringLiteral("ClientHandlerWorker 线程创建失败"),
                                    "ServerSession"));
         return false;
-    }
-
-    // 6. 认证配置：无密码经统一入口 configureAuth 传空 salt/digest 标记
-    // （与握手完成会合后直通认证）；有密码则待握手请求到达时惰性派生
-    // （见上方 handshakeRequestReceived 连接），认证参数随握手响应下发（协议 v3）
-    if (m_serverPassword.isEmpty()) {
-        QMetaObject::invokeMethod(m_clientHandler, "configureAuth",
-                                  Qt::QueuedConnection,
-                                  Q_ARG(QString, m_serverUsername),
-                                  Q_ARG(QByteArray, QByteArray()),
-                                  Q_ARG(QByteArray, QByteArray()),
-                                  Q_ARG(quint32, 0),
-                                  Q_ARG(quint32, 0));
     }
 
     qCInfo(lcServer) << "ServerSession initialized:" << m_sessionId;
