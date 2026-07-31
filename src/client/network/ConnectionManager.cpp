@@ -195,7 +195,8 @@ void ConnectionManager::stopAutoReconnect() {
 // 事件处理
 // ═══════════════════════════════════════════════════════════════════
 
-void ConnectionManager::onTcpConnected() {
+void ConnectionManager::onTcpConnected(const QString& peerFingerprint) {
+    Q_UNUSED(peerFingerprint)   // Task 5 将在此加入 TOFU 信任门
     m_connectionTimer->stop();
     stopAutoReconnect();
     // 不在此清零计数——TCP 成功 ≠ 认证成功，预算只在用户 connectToHost 和认证成功时复位

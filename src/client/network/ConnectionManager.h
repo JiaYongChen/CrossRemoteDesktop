@@ -91,7 +91,7 @@ signals:
     void messageReceived(MessageType type, const QByteArray& payload);
 
 private slots:
-    void onTcpConnected();
+    void onTcpConnected(const QString& peerFingerprint);
     void onTcpDisconnected();
     void onTcpError(const RdError& error);
     void onConnectionTimeout();

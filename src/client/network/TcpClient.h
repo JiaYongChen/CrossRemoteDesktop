@@ -41,7 +41,7 @@ public:
     void sendMessage(MessageType type, const IMessageCodec& message);
 
 signals:
-    void connected();
+    void connected(const QString& peerFingerprint);
     void disconnected();
     void errorOccurred(const RdError& error);
 

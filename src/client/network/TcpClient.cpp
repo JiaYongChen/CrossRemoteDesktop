@@ -1,5 +1,6 @@
 #include "TcpClient.h"
 
+#include <QtCore/QCryptographicHash>
 #include <QtCore/QDataStream>
 #include <QtCore/QTimer>
 #include <QtNetwork/QHostAddress>
@@ -146,8 +147,12 @@ void TcpClient::onEncrypted() {
     m_lastHeartbeat = QDateTime::currentDateTime();
     m_heartbeatCheckTimer->start();
 
+    // 计算服务端证书 SHA-256 指纹（TOFU 身份标识），随 connected 上抛
+    const QString peerFingerprint = QString::fromLatin1(
+        m_socket->peerCertificate().digest(QCryptographicHash::Sha256).toHex());
+
     qCDebug(lcClient) << "TcpClient::onEncrypted - Emitting connected signal";
-    emit connected();
+    emit connected(peerFingerprint);
 }
 
 void TcpClient::configureSsl() {
