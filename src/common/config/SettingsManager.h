@@ -47,6 +47,11 @@ public:
     QJsonArray connectionHistory() const;
     void setConnectionHistory(const QJsonArray &entries);
 
+    // ---- 受信任主机（TOFU 服务端证书指纹）----
+
+    QJsonArray trustedHosts() const;
+    void setTrustedHosts(const QJsonArray &entries);
+
     /**
      * @brief 从旧 QSettings 读取连接历史并转换为规范化 JSON 数组
      *

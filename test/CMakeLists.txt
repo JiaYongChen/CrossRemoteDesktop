@@ -144,6 +144,11 @@ add_rd_test(TARGET test_settingsmanager_migration  NAME SettingsManagerMigration
     LIBRARIES Qt6::Core Qt6::Test common_test_core
     TIMEOUT 30  LABELS unit config migration)
 
+add_rd_test(TARGET test_settingsmanager_trustedhosts  NAME SettingsManagerTrustedHostsTest
+    SOURCES common/config/test_settingsmanager_trustedhosts.cpp
+    LIBRARIES Qt6::Core Qt6::Test common_test_core
+    TIMEOUT 30  LABELS unit config trust)
+
 # unit / capture
 add_rd_test(TARGET test_screencaptureworker  NAME ScreenCaptureWorkerTest
     SOURCES server/capture/test_screencaptureworker.cpp

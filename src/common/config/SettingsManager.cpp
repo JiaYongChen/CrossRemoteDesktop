@@ -250,6 +250,24 @@ void SettingsManager::setConnectionHistory(const QJsonArray &entries)
 }
 
 // ============================================================
+// 受信任主机（TOFU 服务端证书指纹）
+// ============================================================
+
+QJsonArray SettingsManager::trustedHosts() const
+{
+    QMutexLocker locker(&m_mutex);
+    return m_root.value("TrustedHosts").toArray();
+}
+
+void SettingsManager::setTrustedHosts(const QJsonArray &entries)
+{
+    QMutexLocker locker(&m_mutex);
+    m_root["TrustedHosts"] = entries;
+    m_isModified = true;
+    scheduleSave();
+}
+
+// ============================================================
 // 去抖保存
 // ============================================================
 
