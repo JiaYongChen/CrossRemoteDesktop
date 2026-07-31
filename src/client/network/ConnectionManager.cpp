@@ -414,6 +414,17 @@ void ConnectionManager::cleanupConnection() {
 // ═══════════════════════════════════════════════════════════════════
 
 void ConnectionManager::onTcpMessageReceived(MessageType type, const QByteArray& payload) {
+    // 状态守卫：仅在信任门已通过（Connected/Authenticated）或认证失败待重试（AuthFailed）
+    // 时处理 RDCP 消息。其余状态——尤其 VerifyingTrust 信任对话框挂起期间——一律忽略，
+    // 防止未验证服务端借模态对话框的嵌套事件循环主动推送伪造握手响应、套出 PBKDF2 密码证明。
+    if ( m_connectionState != Connected
+         && m_connectionState != Authenticated
+         && m_connectionState != AuthFailed ) {
+        qCDebug(lcClient) << "onTcpMessageReceived: 忽略消息（当前状态" << m_connectionState
+                          << "），type:" << static_cast<int>(type);
+        return;
+    }
+
     switch ( type ) {
         case MessageType::HANDSHAKE_RESPONSE:
             handleHandshakeResponse(payload);

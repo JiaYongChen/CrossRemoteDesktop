@@ -33,6 +33,8 @@ private slots:
     void rejectSurfacesErrorAndKeepsOldTrust();
     void decisionIgnoredWhenNotVerifying();
     void nullStoreBackwardCompatible();
+    void guardDropsHandshakeResponseWhileVerifyingTrust();
+    void guardAllowsHandshakeResponseWhenConnected();
 private:
     static constexpr const char* kEp = ":0";   // 未调用 connectToHost 时 endpoint 为 ":0"
 };
@@ -40,6 +42,7 @@ private:
 void ConnectionManagerTrustTest::initTestCase() {
     qRegisterMetaType<ConnectionManager::ConnectionState>("ConnectionManager::ConnectionState");
     qRegisterMetaType<RdError>("RdError");
+    qRegisterMetaType<MessageType>("MessageType");
 }
 
 void ConnectionManagerTrustTest::firstUseRecordsAndProceeds() {
@@ -133,6 +136,42 @@ void ConnectionManagerTrustTest::nullStoreBackwardCompatible() {
     QVERIFY(QMetaObject::invokeMethod(&cm, "onTcpConnected", Q_ARG(QString, "fp")));
 
     QVERIFY(sawState(states, ConnectionManager::Connected));
+}
+
+void ConnectionManagerTrustTest::guardDropsHandshakeResponseWhileVerifyingTrust() {
+    QTemporaryDir dir; SettingsManager sm(dir.filePath("c.json")); sm.load();
+    ServerTrustStore seed(sm); seed.recordTrust(kEp, "fp1");
+    ConnectionManager cm(nullptr, &sm);
+    QSignalSpy errors(&cm, &ConnectionManager::errorOccurred);
+    QSignalSpy states(&cm, &ConnectionManager::connectionStateChanged);
+    QVERIFY(QMetaObject::invokeMethod(&cm, "onTcpConnected", Q_ARG(QString, "fp2")));   // → VerifyingTrust
+    QCOMPARE(lastState(states), ConnectionManager::VerifyingTrust);
+
+    // 未验证服务端在对话框挂起期间推送（畸形）握手响应——应被状态守卫忽略
+    const QByteArray forged = QByteArrayLiteral("forged-handshake-response");
+    QVERIFY(QMetaObject::invokeMethod(&cm, "onTcpMessageReceived",
+                                      Q_ARG(MessageType, MessageType::HANDSHAKE_RESPONSE),
+                                      Q_ARG(QByteArray, forged)));
+
+    QCOMPARE(errors.count(), 0);                                  // 未进入 handleHandshakeResponse
+    QCOMPARE(lastState(states), ConnectionManager::VerifyingTrust);   // 状态未被改动
+}
+
+void ConnectionManagerTrustTest::guardAllowsHandshakeResponseWhenConnected() {
+    QTemporaryDir dir; SettingsManager sm(dir.filePath("c.json")); sm.load();
+    ConnectionManager cm(nullptr, &sm);
+    QSignalSpy errors(&cm, &ConnectionManager::errorOccurred);
+    QSignalSpy states(&cm, &ConnectionManager::connectionStateChanged);
+    QVERIFY(QMetaObject::invokeMethod(&cm, "onTcpConnected", Q_ARG(QString, "fpNew")));   // FirstUse → Connected
+    QVERIFY(sawState(states, ConnectionManager::Connected));
+
+    // Connected（已验证）下畸形握手响应应被正常处理（解码失败 → 报错），证明守卫未过度拦截
+    const QByteArray garbage = QByteArrayLiteral("garbage");
+    QVERIFY(QMetaObject::invokeMethod(&cm, "onTcpMessageReceived",
+                                      Q_ARG(MessageType, MessageType::HANDSHAKE_RESPONSE),
+                                      Q_ARG(QByteArray, garbage)));
+
+    QVERIFY(errors.count() >= 1);   // handleHandshakeResponse 解码失败 → errorOccurred
 }
 
 QTEST_MAIN(ConnectionManagerTrustTest)
