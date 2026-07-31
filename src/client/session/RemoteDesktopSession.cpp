@@ -12,14 +12,17 @@
 #include "client/window/GLTextureViewport.h"
 #include "client/window/InputForwarder.h"
 #include "common/clipboard/ClipboardManager.h"
+#include "common/config/SettingsManager.h"
 #include "common/logging/LoggingCategories.h"
 
 RemoteDesktopSession::RemoteDesktopSession(const ConnectionParams& params,
                                            const QString& connectionId,
+                                           SettingsManager& settings,
                                            QObject* parent)
     : QObject(parent)
     , m_connectionId(connectionId)
-    , m_params(params) {
+    , m_params(params)
+    , m_settings(&settings) {
 
     // 所有网络对象在 Main 线程创建并保持——QSslSocket 的平台级回调绑定 Main 线程，
     // Qt 异步 I/O 不阻塞 GUI；只有解码在独立 DecodeThread 进行。
@@ -40,7 +43,7 @@ RemoteDesktopSession::~RemoteDesktopSession() {
 
 void RemoteDesktopSession::createNetworkComponents() {
     // ConnectionManager 构造函数内部创建 TcpClient（Qt 父子关系）
-    m_connectionManager = new ConnectionManager(this);
+    m_connectionManager = new ConnectionManager(this, m_settings);
 
     // ── 预设认证凭证（在 connectToHost 前，handleHandshakeResponse 会自动使用）──
     m_connectionManager->setCredentials(m_params.username, m_params.password);
@@ -215,6 +218,12 @@ void RemoteDesktopSession::wireSignals() {
             m_connectionManager->updateCredentials(username, password);
             m_connectionManager->retryAuthentication();
         });
+
+        // ── TOFU 服务端身份信任回环 ──
+        connect(m_connectionManager, &ConnectionManager::serverIdentityChanged,
+                lifecycle, &ConnectionLifecycle::showTrustWarning);
+        connect(lifecycle, &ConnectionLifecycle::trustDecision,
+                m_connectionManager, &ConnectionManager::trustDecision);
     }
 
     // ── 光标（cursorChanged→update 确保屏幕静止无帧时光标仍可渲染）

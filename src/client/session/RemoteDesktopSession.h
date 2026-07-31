@@ -10,6 +10,7 @@ class ClientRemoteWindow;
 class ConnectionManager;
 class DecodePipeline;
 class ProtocolSession;
+class SettingsManager;
 
 /**
  * @brief 远程桌面会话 — 创建并组装一个连接的全部组件，管理完整生命周期
@@ -24,6 +25,7 @@ class RemoteDesktopSession : public QObject {
 public:
     explicit RemoteDesktopSession(const ConnectionParams& params,
                                   const QString& connectionId,
+                                  SettingsManager& settings,
                                   QObject* parent = nullptr);
     ~RemoteDesktopSession() override;
 
@@ -52,6 +54,7 @@ private:
 
     QString m_connectionId;
     ConnectionParams m_params;
+    SettingsManager* m_settings = nullptr;   ///< 持久化入口（注入 ConnectionManager 启用 TOFU）
     bool    m_closing = false;
 
     // ── 网络层 ──
