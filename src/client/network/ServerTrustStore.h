@@ -20,9 +20,14 @@ public:
 
     explicit ServerTrustStore(SettingsManager& settings);
 
-    /// 纯查询、无副作用
+    /// 归一化的信任库键：IP 字面量经 QHostAddress 规范化，主机名小写化，拼接 ":port"。
+    /// 同一服务端不因输入拼写差异（大小写/IP 文本形式）裂成多个条目——
+    /// 裂键会让"换个拼写连接"命中 FirstUse 静默信任新证书，绕过变更检测
+    [[nodiscard]] static QString endpointFor(const QString& host, quint16 port);
+
+    /// 纯查询、无副作用（条目存在但指纹为空的损坏条目按 FirstUse 自愈）
     [[nodiscard]] VerifyResult verify(const QString& endpoint, const QString& fingerprint) const;
-    /// 写入或覆盖信任（首连记录 / 用户确认变更后更新），维护 firstSeen/lastSeen
+    /// 写入或覆盖信任（首连记录 / 用户确认变更后更新），维护 firstSeen；同步写穿落盘
     void recordTrust(const QString& endpoint, const QString& fingerprint);
     /// 取既有指纹（变更对话框展示"旧指纹"），无记录返回空串
     [[nodiscard]] QString storedFingerprint(const QString& endpoint) const;

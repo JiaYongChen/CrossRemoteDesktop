@@ -227,7 +227,8 @@ void ConnectionManager::onTcpConnected(const QString& peerFingerprint) {
         return;
     }
 
-    const QString endpoint = QStringLiteral("%1:%2").arg(m_currentHost).arg(m_currentPort);
+    const QString endpoint = ServerTrustStore::endpointFor(
+        m_currentHost, static_cast<quint16>(m_currentPort));
     switch ( m_trustStore->verify(endpoint, peerFingerprint) ) {
         case ServerTrustStore::VerifyResult::FirstUse:
             m_trustStore->recordTrust(endpoint, peerFingerprint);
@@ -235,7 +236,7 @@ void ConnectionManager::onTcpConnected(const QString& peerFingerprint) {
             proceedAfterTrust();
             break;
         case ServerTrustStore::VerifyResult::Trusted:
-            m_trustStore->recordTrust(endpoint, peerFingerprint);   // 刷新 lastSeen
+            // 纯放行：无时间戳字段需刷新，避免每次受信重连触发整份配置重写
             qCDebug(lcClient) << "TOFU: 服务端指纹匹配, endpoint:" << endpoint;
             proceedAfterTrust();
             break;
