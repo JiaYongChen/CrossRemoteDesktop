@@ -182,15 +182,16 @@ void ProtocolSession::sendWheelEvent(int x, int y, int delta, int orientation) {
 // ── 剪贴板序列化 ──
 
 void ProtocolSession::sendClipboardText(const QString& text) {
-    // 仅认证后发送（isActive 要求 Authenticated）：TLS 握手完成 ≠ 服务端已验证/已授权，
-    // VerifyingTrust 等挂起态发送会把剪贴板内容泄露给未验证（可能是 MITM）的服务端
-    if (!m_connectionManager || !isActive()) return;
+    // 仅认证后发送：认证前（含 VerifyingTrust 挂起、AuthFailed 重输窗口）服务端
+    // 未验证或未授权，剪贴板内容不得过线。用 isAuthenticated 而非 isActive：
+    // 后者混入管线运行态，GL 上下文重建等 UI 事件会使其抖动为 false 而静默丢数据
+    if (!m_connectionManager || !m_connectionManager->isAuthenticated()) return;
     ClipboardMessage message(text);
     m_connectionManager->sendMessage(MessageType::CLIPBOARD_DATA, message);
 }
 
 void ProtocolSession::sendClipboardImage(const QByteArray& imageData, quint32 width, quint32 height) {
-    if (!m_connectionManager || !isActive()) return;
+    if (!m_connectionManager || !m_connectionManager->isAuthenticated()) return;
     ClipboardMessage message(imageData, width, height);
     m_connectionManager->sendMessage(MessageType::CLIPBOARD_DATA, message);
 }

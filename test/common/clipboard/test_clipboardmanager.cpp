@@ -113,6 +113,25 @@ private slots:
         QCOMPARE(spy.count(), 0);
     }
 
+    void testResyncReemitsCurrentContent() {
+        ClipboardManager mgr;
+        mgr.setEnabled(true);
+
+        // 建立当前内容基线（模拟认证前复制、被发送闸门丢弃后基线已推进的状态）
+        mgr.setText("resync-me");
+        QTest::qWait(50);
+
+        QSignalSpy textSpy(&mgr, &ClipboardManager::clipboardTextChanged);
+        QSignalSpy imageSpy(&mgr, &ClipboardManager::clipboardImageChanged);
+
+        mgr.resync();
+
+        // 认证成功后补发：当前文本内容必须重新发射
+        QCOMPARE(textSpy.count(), 1);
+        QCOMPARE(textSpy.at(0).at(0).toString(), QString("resync-me"));
+        QCOMPARE(imageSpy.count(), 0);
+    }
+
     void testDisabledManagerSetTextNoop() {
         ClipboardManager mgr;
         mgr.setEnabled(false);

@@ -105,6 +105,22 @@ void ClipboardManager::setImageFromPng(const QByteArray& pngData) {
     setImage(image);
 }
 
+void ClipboardManager::resync() {
+    if (!m_enabled) return;
+
+    if (!m_lastText.isEmpty()) {
+        emit clipboardTextChanged(m_lastText);
+    } else if (!m_lastImageData.isEmpty()) {
+        // 宽高未随 PNG 缓存保存，按需解码一次（每认证仅一次，成本可接受）
+        QImage image;
+        if (image.loadFromData(m_lastImageData, "PNG")) {
+            emit clipboardImageChanged(m_lastImageData,
+                                       static_cast<quint32>(image.width()),
+                                       static_cast<quint32>(image.height()));
+        }
+    }
+}
+
 void ClipboardManager::applyRemoteText(const QString& text) {
     if (!m_enabled) return;
 

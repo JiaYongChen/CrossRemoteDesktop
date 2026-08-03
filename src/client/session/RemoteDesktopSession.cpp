@@ -172,6 +172,11 @@ void RemoteDesktopSession::wireSignals() {
             if (state == ConnectionManager::ConnectionState::Authenticated) {
                 // 同线程直接调用启动会话（全部客户端对象均驻留 Main 线程）
                 m_protocolSession->startSession();
+                // 认证后补发当前剪贴板：认证前发送闸门静默丢弃的本地变化
+                // （去重基线已推进，不补发则永不同步）
+                if (ClipboardManager* clipboardMgr = m_window->findChild<ClipboardManager*>()) {
+                    clipboardMgr->resync();
+                }
                 // 认证成功：上报实际通过验证的凭据（重试后可能与初始入参不同），
                 // 供 MainWindow 回写连接历史
                 emit authenticated(m_connectionId, m_connectionManager->username(),

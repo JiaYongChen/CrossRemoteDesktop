@@ -46,6 +46,14 @@ public:
     void setImageFromPng(const QByteArray& pngData);
 
     /**
+     * @brief 重新发射当前剪贴板内容（认证成功后调用）
+     *
+     * 认证前发送闸门静默丢弃本地变化，但去重基线（m_lastText/m_lastImageData）已推进；
+     * 不补发则闸门窗口内复制的内容永不同步到远端
+     */
+    void resync();
+
+    /**
      * @brief 应用远端文本到本地剪贴板（设置去重标记，不发射变化信号）
      * @param text 远端文本内容
      */
