@@ -33,6 +33,7 @@ class TofuHandshakeTest : public QObject {
 private slots:
     void initTestCase();
     void firstUseRecordsRealFingerprintThenTrusted();
+    void emptyFingerprintOnLiveConnectionDoesNotArmReconnect();
 private:
     QList<QSslSocket*> m_serverSockets;   // 保活已握手的服务端 socket
 };
@@ -104,6 +105,56 @@ void TofuHandshakeTest::firstUseRecordsRealFingerprintThenTrusted() {
         QTest::qWait(200);
     }
 
+    server.stopServer(true);
+    qDeleteAll(m_serverSockets);
+    m_serverSockets.clear();
+}
+
+void TofuHandshakeTest::emptyFingerprintOnLiveConnectionDoesNotArmReconnect() {
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    // ── 服务端：持久证书 + 监听（与上一用例同脚手架）──
+    seedEmptyConfig(dir.filePath("server.json"));
+    SettingsManager serverCfg(dir.filePath("server.json"));
+    serverCfg.load();
+    TcpServer server(nullptr, &serverCfg);
+    connect(&server, &TcpServer::newClientConnection, this, [&](qintptr desc) {
+        auto* sock = new QSslSocket(this);
+        m_serverSockets.append(sock);
+        sock->setSocketDescriptor(desc);
+        sock->setLocalCertificate(server.sslCertificate());
+        sock->setPrivateKey(server.sslPrivateKey());
+        sock->setPeerVerifyMode(QSslSocket::VerifyNone);
+        connect(sock, QOverload<const QList<QSslError>&>::of(&QSslSocket::sslErrors),
+                sock, [sock](const QList<QSslError>&) { sock->ignoreSslErrors(); });
+        sock->startServerEncryption();
+    });
+    QVERIFY(server.startServer(0));
+    const quint16 port = server.serverPort();
+
+    seedEmptyConfig(dir.filePath("client.json"));
+    SettingsManager clientCfg(dir.filePath("client.json"));
+    clientCfg.load();
+
+    ConnectionManager cm(nullptr, &clientCfg);
+    cm.setAutoReconnect(true);   // 关键前提：无守卫时 abort 会武装自动重连
+    QSignalSpy errors(&cm, &ConnectionManager::errorOccurred);
+    QSignalSpy states(&cm, &ConnectionManager::connectionStateChanged);
+
+    cm.connectToHost("127.0.0.1", port);
+    QTRY_VERIFY_WITH_TIMEOUT(sawState(states, ConnectionManager::Connected), 5000);
+
+    // 模拟「TLS 完成但无对端证书」：活连接上的 abort 不得同步触发
+    // onTcpDisconnected 武装自动重连（m_handlingError 守卫，单元测试无法覆盖此路径）
+    QVERIFY(QMetaObject::invokeMethod(&cm, "onTcpConnected", Q_ARG(QString, QString())));
+
+    QVERIFY(errors.count() >= 1);
+    QVERIFY(sawState(states, ConnectionManager::Error));
+    QVERIFY(!sawState(states, ConnectionManager::Reconnecting));
+
+    cm.disconnectFromHost();
+    QTest::qWait(100);
     server.stopServer(true);
     qDeleteAll(m_serverSockets);
     m_serverSockets.clear();
