@@ -369,6 +369,16 @@ add_rd_test(TARGET test_smoke_network  NAME SmokeNetworkTest
     LIBRARIES Qt6::Core Qt6::Test Qt6::Network common_test_core
     TIMEOUT 30  LABELS smoke network unit)
 
+add_rd_test(TARGET test_tcpclient_hostname  NAME TcpClientHostnameTest
+    SOURCES client/network/test_tcpclient_hostname.cpp
+    EXTRA_SOURCES
+        ../src/client/network/TcpClient.cpp
+        ../src/server/service/TcpServer.cpp
+        ../src/common/network/ProtocolImpl.cpp
+        ../src/common/network/MessageCodec.cpp
+    LIBRARIES Qt6::Core Qt6::Test Qt6::Network OpenSSL::SSL OpenSSL::Crypto common_test_core
+    TIMEOUT 30  LABELS unit client tls trust)
+
 # unit / common clipboard
 add_rd_test(TARGET test_clipboardmanager  NAME ClipboardManagerTest
     SOURCES common/clipboard/test_clipboardmanager.cpp

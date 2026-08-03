@@ -1,9 +1,12 @@
 #include "server/service/TcpServer.h"
 
 #include <QtCore/QCoreApplication>
+#include <QtCore/QSet>
 #include <QtCore/QThread>
 #include <QtCore/QTimer>
 #include <QtNetwork/QHostAddress>
+#include <QtNetwork/QHostInfo>
+#include <QtNetwork/QNetworkInterface>
 
 #include "common/config/SettingsManager.h"
 #include "common/error/RdError.h"
@@ -12,6 +15,7 @@
 #include <openssl/evp.h>
 #include <openssl/pem.h>
 #include <openssl/x509.h>
+#include <openssl/x509v3.h>
 
 TcpServer::TcpServer(QObject* parent, SettingsManager* settings)
     : QTcpServer(parent)
@@ -188,6 +192,70 @@ bool TcpServer::generateSelfSignedCertificate() {
         reinterpret_cast<const unsigned char*>("CrossRemoteDesktop"), -1, -1, 0);
     X509_set_issuer_name(x509, name);
 
+    // ── Subject Alternative Name（SAN）──
+    // Qt 的 TLS 客户端在 client 模式握手中无条件做主机名校验（Qt 6.9 不受 VerifyNone
+    // 影响且无关闭开关）：证书必须含可匹配的 SAN 才能从根源消除 HostNameMismatch。
+    // TOFU 身份仍是指纹——SAN 只用于消除校验噪声，不参与信任决策。
+    {
+        GENERAL_NAMES* altNames = GENERAL_NAMES_new();
+        if ( altNames ) {
+            const auto addDnsName = [&altNames](const QString& dnsName) {
+                const QByteArray utf8 = dnsName.toUtf8();
+                if ( utf8.isEmpty() ) {
+                    return;
+                }
+                GENERAL_NAME* entry = GENERAL_NAME_new();
+                entry->type = GEN_DNS;
+                ASN1_IA5STRING* ia5 = ASN1_IA5STRING_new();
+                ASN1_STRING_set(ia5, utf8.constData(), utf8.size());
+                entry->d.dNSName = ia5;
+                sk_GENERAL_NAME_push(altNames, entry);
+            };
+            const auto addIpAddress = [&altNames](const QHostAddress& addr) {
+                const QByteArray text = addr.toString().toUtf8();
+                ASN1_OCTET_STRING* ip = a2i_IPADDRESS(text.constData());
+                if ( !ip ) {
+                    return;
+                }
+                GENERAL_NAME* entry = GENERAL_NAME_new();
+                entry->type = GEN_IPADD;
+                entry->d.iPAddress = ip;
+                sk_GENERAL_NAME_push(altNames, entry);
+            };
+
+            // DNS：localhost + 本机名（覆盖按名字连接）
+            addDnsName(QStringLiteral("localhost"));
+            addDnsName(QHostInfo::localHostName());
+
+            // IP：环回 + 生成时的全部本机地址（覆盖按 IP 连接；IP 变化后回退为忽略预期错误）
+            QList<QHostAddress> ips;
+            ips << QHostAddress(QHostAddress::LocalHost) << QHostAddress(QHostAddress::LocalHostIPv6);
+            const QList<QHostAddress> allAddresses = QNetworkInterface::allAddresses();
+            for ( const QHostAddress& addr : allAddresses ) {
+                if ( addr.isNull() || addr.isMulticast() ) {
+                    continue;
+                }
+                ips << addr;
+            }
+            QSet<QString> seen;
+            for ( const QHostAddress& addr : ips ) {
+                const QString text = addr.toString();
+                if ( seen.contains(text) ) {
+                    continue;
+                }
+                seen.insert(text);
+                addIpAddress(addr);
+            }
+
+            X509_EXTENSION* ext = X509V3_EXT_i2d(NID_subject_alt_name, 0, altNames);
+            if ( ext ) {
+                X509_add_ext(x509, ext, -1);
+                X509_EXTENSION_free(ext);
+            }
+            GENERAL_NAMES_free(altNames);
+        }
+    }
+
     X509_sign(x509, pkey, EVP_sha256());
 
     // 导出证书为PEM
@@ -232,6 +300,13 @@ bool TcpServer::loadPersistedCertificate() {
     QSslKey key(keyPem, QSsl::Rsa, QSsl::Pem);
     if ( cert.isNull() || key.isNull() ) {
         qCWarning(lcServer) << "Persisted TLS certificate/key unparseable, will regenerate";
+        return false;
+    }
+
+    // 旧版生成的证书无 SAN，按主机名连接会触发 Qt 的 HostNameMismatch 校验噪声——
+    // 视为过期并重新生成（指纹变化将使客户端收到一次 TOFU 变更确认，属预期）
+    if ( cert.subjectAlternativeNames().isEmpty() ) {
+        qCInfo(lcServer) << "Persisted TLS certificate has no SAN, will regenerate";
         return false;
     }
 
