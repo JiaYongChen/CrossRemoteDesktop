@@ -64,7 +64,10 @@ void ConnectionManager::connectToHost(const QString& host, int port) {
          && m_connectionState != AuthFailed ) {
         disconnectFromHost();         // 停定时器 + 置 Disconnecting + 置标记
         if ( m_tcpClient ) {
-            abortGuarded();          // Suppress the synchronous disconnected signal from onTcpDisconnected — the upper disconnectFromHost has already processed the original disconnect
+            // abort() 同步触发 onTcpDisconnected 分支1 消费 m_userInitiatedDisconnect 并清零——
+            // 此处不可用 abortGuarded()（重入守卫会阻止标志消费，使 m_userInitiatedDisconnect
+            // 滞留到新连接、静默吞掉后续所有错误/超时/自动重连）
+            m_tcpClient->abort();
         }
     }
 

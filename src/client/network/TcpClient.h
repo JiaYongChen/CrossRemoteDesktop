@@ -55,13 +55,17 @@ private slots:
     void onSslErrors(const QList<QSslError>& errors);
     void onEncrypted();
 
+private:
     void processMessage(const MessageHeader& header, const QByteArray& payload);
     void handleHeartbeat();
 
+public:
     /// 暂停心跳超时检查（信任挂起等验证过程不需要服务端心跳保活）
     void pauseHeartbeat();
     /// 恢复心跳超时检查并重置基线时间
     void resumeHeartbeat();
+
+private:
     void checkHeartbeat();
     void configureSsl();
 

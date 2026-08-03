@@ -639,6 +639,11 @@ void ClientHandlerWorker::onError(QAbstractSocket::SocketError error) {
 }
 
 void ClientHandlerWorker::checkHeartbeat() {
+    // 认证前客户端不会发心跳（服务端 sendHeartbeat 亦有 isAuthenticated 门控），
+    // m_lastHeartbeat 冻结在连接时刻——不超时断开，否则信任挂起等预认证阶段被 25s 强杀
+    if ( !isAuthenticated() ) {
+        return;
+    }
     QDateTime now = QDateTime::currentDateTime();
     if ( m_lastHeartbeat.msecsTo(now) > NetworkConstants::HeartbeatTimeout ) {
         qCWarning(lcServerClientHandler) << "客户端心跳超时:" << clientId();
