@@ -55,8 +55,12 @@ bool SettingsManager::load()
 
     QFileInfo fi(m_filePath);
     if (!fi.exists()) {
-        // JSON 不存在 → 尝试从旧 QSettings 迁移
-        const bool migrated = migrateFromQSettings();
+        // JSON 不存在：仅默认配置路径执行一次性遗留迁移（生产首跑的设计内行为）。
+        // 任意其他路径（测试夹具等）绝不触碰宿主机全局遗留存储——
+        // 迁移成功落盘会武装 clearLegacyQSettings()，永久擦除宿主机真实遗留设置
+        const bool isDefaultPath =
+            (m_filePath == QCoreApplication::applicationDirPath() + "/config.json");
+        const bool migrated = isDefaultPath && migrateFromQSettings();
         m_isModified = true;
         // 旧数据清理延迟到任意一次 saveLocked() 成功后执行（见 saveLocked 尾部），
         // 保证"新 JSON 落盘成功才销毁旧数据"在首次写盘失败、后续去抖/析构保存成功时依然闭环

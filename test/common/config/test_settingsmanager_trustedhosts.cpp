@@ -27,6 +27,7 @@ private slots:
     void persistsAcrossReload();
     void crossThreadSetValueStillSaves();
     void loadOfSeededConfigSkipsLegacyMigration();
+    void loadOfAbsentCustomPathSkipsLegacyMigration();
 };
 
 void SettingsManagerTrustedHostsTest::defaultEmpty() {
@@ -127,6 +128,30 @@ void SettingsManagerTrustedHostsTest::loadOfSeededConfigSkipsLegacyMigration() {
 
     QVERIFY2(markers.isEmpty(),
              qPrintable(QStringLiteral("load() 进入了迁移分支: %1").arg(markers.join("; "))));
+}
+
+void SettingsManagerTrustedHostsTest::loadOfAbsentCustomPathSkipsLegacyMigration() {
+    // 自定义路径文件缺失时 load() 不得进入迁移分支：迁移成功落盘会武装
+    // clearLegacyQSettings() 永久擦除宿主机真实遗留设置。迁移只属于默认配置路径
+    // （生产首跑）——任何测试/嵌入式路径都必须是零宿主机副作用的
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString path = dir.filePath("absent.json");   // 故意不预置
+
+    static QStringList markers;
+    markers.clear();
+    const auto previousHandler = qInstallMessageHandler(
+        [](QtMsgType, const QMessageLogContext&, const QString& msg) {
+            if ( msg.contains(QLatin1String("QSettings")) ) {
+                markers << msg;
+            }
+        });
+    SettingsManager sm(path);
+    sm.load();
+    qInstallMessageHandler(previousHandler);
+
+    QVERIFY2(markers.isEmpty(),
+             qPrintable(QStringLiteral("自定义路径 load() 进入了迁移分支: %1").arg(markers.join("; "))));
 }
 
 QTEST_MAIN(SettingsManagerTrustedHostsTest)
