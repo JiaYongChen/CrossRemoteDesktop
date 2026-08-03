@@ -324,6 +324,15 @@ void TcpClient::handleHeartbeat() {
     qCDebug(lcClient) << "收到服务端心跳请求，已发送响应";
 }
 
+void TcpClient::pauseHeartbeat() {
+    m_heartbeatCheckTimer->stop();
+}
+
+void TcpClient::resumeHeartbeat() {
+    m_lastHeartbeat = QDateTime::currentDateTime();
+    m_heartbeatCheckTimer->start();
+}
+
 void TcpClient::checkHeartbeat() {
     if ( m_lastHeartbeat.secsTo(QDateTime::currentDateTime()) > NetworkConstants::HeartbeatTimeout / 1000 ) {
         emit errorOccurred(RdError(ErrorCode::NetworkHeartbeatTimeout, "心跳超时", "TcpClient"));

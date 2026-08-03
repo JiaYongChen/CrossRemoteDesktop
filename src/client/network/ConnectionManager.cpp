@@ -64,14 +64,14 @@ void ConnectionManager::connectToHost(const QString& host, int port) {
          && m_connectionState != AuthFailed ) {
         disconnectFromHost();         // 停定时器 + 置 Disconnecting + 置标记
         if ( m_tcpClient ) {
-            m_tcpClient->abort();    // 同步硬断，不发信号，标记由 onTcpDisconnected 消费
+            abortGuarded();          // Suppress the synchronous disconnected signal from onTcpDisconnected — the upper disconnectFromHost has already processed the original disconnect
         }
     }
 
     // AuthFailed 终态重试：服务端 FIN 可能尚未到达，需显式强制重置 socket 到 UnconnectedState
     if ( m_connectionState == AuthFailed ) {
         if ( m_tcpClient && m_tcpClient->isConnected() ) {
-            m_tcpClient->abort();
+            abortGuarded();   // 阻止同步的 onTcpDisconnected 执行 cleanupConnection——sendAuthenticationRequest 接下来的连接会自行初始化
         }
     }
 
@@ -241,6 +241,11 @@ void ConnectionManager::onTcpConnected(const QString& peerFingerprint) {
             // 用户决策必须作用于最新呈现者，而非对话框最初显示的那一个
             m_pendingTrustEndpoint = endpoint;
             m_pendingTrustFingerprint = peerFingerprint;
+            // 信任挂起期间暂停心跳超时检查：服务端认证前不发心跳，m_lastHeartbeat
+            // 在 TLS 完成时冻结为连接时刻，25s 后强杀——用户比对指纹超时即断
+            if ( m_tcpClient ) {
+                m_tcpClient->pauseHeartbeat();
+            }
             setConnectionState(VerifyingTrust);
             emit serverIdentityChanged(endpoint, oldFingerprint, peerFingerprint);
             break;
@@ -250,6 +255,9 @@ void ConnectionManager::onTcpConnected(const QString& peerFingerprint) {
 
 void ConnectionManager::proceedAfterTrust() {
     // 不在此清零计数——TCP 成功 ≠ 认证成功，预算只在用户 connectToHost 和认证成功时复位
+    if ( m_tcpClient ) {
+        m_tcpClient->resumeHeartbeat();
+    }
     setConnectionState(Connected);
     sendHandshakeRequest();
 }
