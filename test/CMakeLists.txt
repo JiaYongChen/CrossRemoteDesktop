@@ -369,6 +369,21 @@ add_rd_test(TARGET test_smoke_network  NAME SmokeNetworkTest
     LIBRARIES Qt6::Core Qt6::Test Qt6::Network common_test_core
     TIMEOUT 30  LABELS smoke network unit)
 
+add_rd_test(TARGET test_decodepipeline  NAME DecodePipelineRestartTest
+    SOURCES client/session/test_decodepipeline.cpp
+    EXTRA_SOURCES
+        ../src/client/session/DecodePipeline.cpp
+        ../src/client/managers/DecodeWorker.cpp
+        ../src/client/decode/TurboJpegDecoder.cpp
+        ../src/client/decode/windows/NvJpegDecoder.cpp
+        ../src/client/window/GLTextureViewport.cpp
+        ../src/client/decode/GpuDecodeTarget.cpp
+        ../src/client/window/CursorManager.cpp
+        ../src/common/network/ProtocolImpl.cpp
+        ../src/common/network/MessageCodec.cpp
+    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets common_test_core LibJpegTurbo::turbojpeg $<$<BOOL:${WIN32}>:Cuda::cudart> $<$<BOOL:${WIN32}>:Cuda::nvjpeg>
+    TIMEOUT 30  LABELS unit client decode)
+
 add_rd_test(TARGET test_connectionlifecycle  NAME ConnectionLifecycleTest
     SOURCES client/window/test_connectionlifecycle.cpp
     EXTRA_SOURCES ../src/client/window/ConnectionLifecycle.cpp

@@ -90,8 +90,10 @@ void RemoteDesktopSession::createWindow() {
                 if (gl->decodeTarget()) {
                     pipeline->setDecodeTarget(gl->decodeTarget());
                 }
-                // GL 上下文重建后重启管线（首次初始化阶段 isActive 为 false，跳过）
-                if (m_protocolSession->isActive() && !pipeline->isRunning()) {
+                // GL 上下文重建后重启管线（首次初始化阶段未认证，跳过）。
+                // 判据用 isAuthenticated 而非 isActive：后者的「管线运行中」分量与
+                // 「停止后重启」的前提自相矛盾（恒假），会使管线在一次上下文重建后永久停转
+                if (m_connectionManager->isAuthenticated() && !pipeline->isRunning()) {
                     pipeline->start();
                 }
             });
