@@ -20,8 +20,10 @@ void seedEmptyConfig(const QString& path) {
     f.write("{}");
 }
 /// 生成自签名证书+私钥 PEM（含 IP SAN），供注入测试使用
-/// @param notAfterOffsetSec notAfter 相对当前的秒偏移；负值 = 已过期
-bool generateTestCertPem(QByteArray& certPem, QByteArray& keyPem, long notAfterOffsetSec) {
+/// @param notBeforeOffsetSec notBefore 相对当前的秒偏移；正值 = 尚未生效
+/// @param notAfterOffsetSec  notAfter 相对当前的秒偏移；负值 = 已过期
+bool generateTestCertPem(QByteArray& certPem, QByteArray& keyPem,
+                         long notBeforeOffsetSec, long notAfterOffsetSec) {
     EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr);
     if ( !ctx ) return false;
     if ( EVP_PKEY_keygen_init(ctx) <= 0 || EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, 2048) <= 0 ) {
@@ -41,7 +43,7 @@ bool generateTestCertPem(QByteArray& certPem, QByteArray& keyPem, long notAfterO
         return false;
     }
     ASN1_INTEGER_set(X509_get_serialNumber(x509), 1);
-    X509_gmtime_adj(X509_get_notBefore(x509), -3600);
+    X509_gmtime_adj(X509_get_notBefore(x509), notBeforeOffsetSec);
     X509_gmtime_adj(X509_get_notAfter(x509), notAfterOffsetSec);
     X509_set_pubkey(x509, pkey);
     X509_NAME* name = X509_get_subject_name(x509);
@@ -94,6 +96,7 @@ private slots:
     void certificatePersistedWithoutExplicitSave();
     void expiredCertificateTriggersRegeneration();
     void mismatchedKeyTriggersRegeneration();
+    void notYetValidCertificateTriggersRegeneration();
 };
 
 void ServerCertPersistenceTest::certificateStableAcrossRestart() {
@@ -153,11 +156,13 @@ void ServerCertPersistenceTest::certificatePersistedWithoutExplicitSave() {
 void ServerCertPersistenceTest::expiredCertificateTriggersRegeneration() {
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
+    const QString cfg = dir.filePath("config.json");
+    seedEmptyConfig(cfg);
     QByteArray expiredCert;
     QByteArray expiredKey;
-    QVERIFY(generateTestCertPem(expiredCert, expiredKey, -3600));   // 已过期 1 小时
+    QVERIFY(generateTestCertPem(expiredCert, expiredKey, -7200, -3600));   // 已过期 1 小时
 
-    SettingsManager sm(dir.filePath("config.json"));
+    SettingsManager sm(cfg);
     sm.load();
     sm.setValue("Server/tlsCertPem", QString::fromUtf8(expiredCert));
     sm.setValue("Server/tlsKeyPem", QString::fromUtf8(expiredKey));
@@ -176,14 +181,17 @@ void ServerCertPersistenceTest::expiredCertificateTriggersRegeneration() {
 void ServerCertPersistenceTest::mismatchedKeyTriggersRegeneration() {
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
+    const QString cfg = dir.filePath("config.json");
+    seedEmptyConfig(cfg);
     QByteArray cert1;
     QByteArray key1;
     QByteArray cert2;
     QByteArray key2;
-    QVERIFY(generateTestCertPem(cert1, key1, 3600));
-    QVERIFY(generateTestCertPem(cert2, key2, 3600));
+    // 有效期必须远超 30 天过期闸门（90 天），确保真正到达配对校验分支而非被过期检查先截胡
+    QVERIFY(generateTestCertPem(cert1, key1, -3600, 90L * 24 * 3600));
+    QVERIFY(generateTestCertPem(cert2, key2, -3600, 90L * 24 * 3600));
 
-    SettingsManager sm(dir.filePath("config.json"));
+    SettingsManager sm(cfg);
     sm.load();
     sm.setValue("Server/tlsCertPem", QString::fromUtf8(cert1));   // 证书来自批次 1
     sm.setValue("Server/tlsKeyPem", QString::fromUtf8(key2));     // 私钥来自批次 2——错配
@@ -195,6 +203,32 @@ void ServerCertPersistenceTest::mismatchedKeyTriggersRegeneration() {
     const QSslCertificate c1(cert1, QSsl::Pem);
     QVERIFY(server.sslCertificate().digest(QCryptographicHash::Sha256)
             != c1.digest(QCryptographicHash::Sha256));
+    server.stopServer(true);
+}
+
+void ServerCertPersistenceTest::notYetValidCertificateTriggersRegeneration() {
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString cfg = dir.filePath("config.json");
+    seedEmptyConfig(cfg);
+    QByteArray futureCert;
+    QByteArray futureKey;
+    // notBefore 在未来 1 小时（时钟回拨/便携拷贝场景），有效期远、SAN/配对均正常
+    QVERIFY(generateTestCertPem(futureCert, futureKey, 3600, 365L * 24 * 3600));
+
+    SettingsManager sm(cfg);
+    sm.load();
+    sm.setValue("Server/tlsCertPem", QString::fromUtf8(futureCert));
+    sm.setValue("Server/tlsKeyPem", QString::fromUtf8(futureKey));
+    QVERIFY(sm.save());
+
+    TcpServer server(nullptr, &sm);
+    QVERIFY(server.startServer(0));
+    // 尚未生效的证书必须被拒绝复用：重新生成 → 指纹不同于注入证书
+    // （客户端把 CertificateNotYetValid 当致命错误，加载即全体握手失败且无自愈）
+    const QSslCertificate future(futureCert, QSsl::Pem);
+    QVERIFY(server.sslCertificate().digest(QCryptographicHash::Sha256)
+            != future.digest(QCryptographicHash::Sha256));
     server.stopServer(true);
 }
 

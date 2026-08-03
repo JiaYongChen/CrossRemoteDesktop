@@ -353,6 +353,13 @@ bool TcpServer::loadPersistedCertificate() {
         return false;
     }
 
+    // 生效期检查：拒绝尚未生效的证书（时钟回拨/便携拷贝场景）。
+    // 否则客户端把 CertificateNotYetValid 当致命错误，全体握手失败且无自愈
+    if ( cert.effectiveDate() > QDateTime::currentDateTime() ) {
+        qCInfo(lcServer) << "Persisted TLS certificate not yet valid, will regenerate";
+        return false;
+    }
+
     // 证书/私钥配对校验：二者可各自解析却可能来自不同批次（便携拷贝/手工编辑），
     // 错配对被接受后服务端握手必然失败且不会自愈——X509_check_private_key 校验对应关系
     {
