@@ -6,6 +6,7 @@
 #include <QtNetwork/QHostAddress>
 
 #include "common/config/SettingsManager.h"
+#include "common/logging/LoggingCategories.h"
 
 namespace {
 constexpr const char* kKeyEndpoint    = "endpoint";
@@ -68,8 +69,10 @@ void ServerTrustStore::recordTrust(const QString& endpoint, const QString& finge
     }
     m_settings.setTrustedHosts(hosts);
     // 信任记录是安全攸关状态（丢失 = 静默失去 MITM 变更检测）：同步写穿，
-    // 不依赖去抖定时器（崩溃/强杀于去抖窗口内也不丢）
-    m_settings.save();
+    // 不依赖去抖定时器（崩溃/强杀于去抖窗口内也不丢）；写失败显性化
+    if (!m_settings.save()) {
+        qCWarning(lcClient) << "TOFU: 信任记录写穿失败，记录暂仅存内存（去抖/析构保存将重试）";
+    }
 }
 
 QString ServerTrustStore::storedFingerprint(const QString& endpoint) const {

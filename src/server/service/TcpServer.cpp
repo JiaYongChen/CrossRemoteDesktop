@@ -397,6 +397,9 @@ void TcpServer::persistCertificate() {
     m_settings->setValue("Server/tlsCertPem", QString::fromUtf8(m_sslCertificate.toPem()));
     m_settings->setValue("Server/tlsKeyPem", QString::fromUtf8(m_sslPrivateKey.toPem()));
     // 证书是关键安全状态，同步写穿，不依赖去抖定时器：
-    // 丢失证书意味着下次启动重新生成，所有客户端将收到虚假"身份变更"MITM 警告
-    m_settings->save();
+    // 丢失证书意味着下次启动重新生成，所有客户端将收到虚假"身份变更"MITM 警告；写失败显性化
+    if ( !m_settings->save() ) {
+        qCWarning(lcServer) << "TLS certificate write-through failed, kept in memory only"
+                               " (debounce/destructor save will retry)";
+    }
 }

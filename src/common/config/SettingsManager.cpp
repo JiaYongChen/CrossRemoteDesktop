@@ -109,6 +109,14 @@ bool SettingsManager::load()
 bool SettingsManager::save()
 {
     QMutexLocker locker(&m_mutex);
+    if (!m_isModified) {
+        // 无修改：停掉可能武装的去抖定时器，跳过冗余的整份写盘
+        // （写穿调用后去抖定时器仍会到期触发，届时经此早退，避免二次全量重写）
+        if (m_saveTimer) {
+            m_saveTimer->stop();
+        }
+        return true;
+    }
     return saveLocked();
 }
 
