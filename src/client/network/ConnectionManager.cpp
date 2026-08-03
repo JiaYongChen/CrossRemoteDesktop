@@ -428,16 +428,27 @@ void ConnectionManager::cleanupConnection() {
 // 消息处理
 // ═══════════════════════════════════════════════════════════════════
 
-void ConnectionManager::onTcpMessageReceived(MessageType type, const QByteArray& payload) {
-    // 状态守卫：仅在信任门已通过（Connected/Authenticated）时处理 RDCP 消息。
-    // 其余状态——尤其 VerifyingTrust 信任决策挂起期间——一律忽略，
-    // 防止未验证服务端推送伪造握手响应、套出 PBKDF2 密码证明。
+bool ConnectionManager::mayProcessServerMessages() const {
+    // 「信任门已通过」的唯一判定点：Connected/Authenticated 之外的状态一律不得处理服务端消息。
     // AuthFailed 亦不在允许集：被拒绝的服务端不得再推送任何消息（含伪造认证成功、
     // 剪贴板注入）；同连接重试在 retryAuthentication 内先回到 Connected 再发送，不依赖此项。
-    if ( m_connectionState != Connected
-         && m_connectionState != Authenticated ) {
+    return m_connectionState == Connected || m_connectionState == Authenticated;
+}
+
+void ConnectionManager::onTcpMessageReceived(MessageType type, const QByteArray& payload) {
+    // 状态守卫：仅在信任门已通过时处理 RDCP 消息。
+    // 其余状态——尤其 VerifyingTrust 信任决策挂起期间——一律忽略，
+    // 防止未验证服务端推送伪造握手响应、套出 PBKDF2 密码证明。
+    if ( !mayProcessServerMessages() ) {
         qCDebug(lcClient) << "onTcpMessageReceived: 忽略消息（当前状态" << m_connectionState
                           << "），type:" << static_cast<int>(type);
+        return;
+    }
+
+    // 入站剪贴板仅认证后放行：Connected 态服务端虽已验证但用户尚未授权，
+    // 授权前写入本机系统剪贴板属内容注入（合法服务端不会在认证前发送剪贴板）
+    if ( type == MessageType::CLIPBOARD_DATA && m_connectionState != Authenticated ) {
+        qCDebug(lcClient) << "onTcpMessageReceived: 忽略 CLIPBOARD_DATA（未认证态）";
         return;
     }
 

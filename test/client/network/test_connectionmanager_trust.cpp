@@ -42,6 +42,7 @@ private slots:
     void nullStoreBackwardCompatible();
     void guardDropsHandshakeResponseWhileVerifyingTrust();
     void guardAllowsHandshakeResponseWhenConnected();
+    void clipboardDataDroppedUntilAuthenticated();
     void guardDropsMessagesWhileAuthFailed();
     void emptyFingerprintAbortDoesNotArmReconnect();
     void decisionAppliesToLatestPendingFingerprint();
@@ -227,6 +228,39 @@ void ConnectionManagerTrustTest::emptyFingerprintAbortDoesNotArmReconnect() {
     QVERIFY(errors.count() >= 1);
     QVERIFY(sawState(states, ConnectionManager::Error));
     QVERIFY(!sawState(states, ConnectionManager::Reconnecting));   // abort 不得武装自动重连
+}
+
+void ConnectionManagerTrustTest::clipboardDataDroppedUntilAuthenticated() {
+    QTemporaryDir dir; seedEmptyConfig(dir.filePath("c.json")); SettingsManager sm(dir.filePath("c.json")); sm.load();
+    ConnectionManager cm(nullptr, &sm);
+    QSignalSpy messages(&cm, &ConnectionManager::messageReceived);
+    QSignalSpy states(&cm, &ConnectionManager::connectionStateChanged);
+    QVERIFY(QMetaObject::invokeMethod(&cm, "onTcpConnected", Q_ARG(QString, "fpX")));   // FirstUse → Connected
+    QVERIFY(sawState(states, ConnectionManager::Connected));
+
+    // Connected（已验证未授权）：入站剪贴板不得转发到本机剪贴板——
+    // FirstUse 静默信任的服务端可在用户授权前注入剪贴板内容
+    const QByteArray clip = QByteArrayLiteral("clip-payload");
+    QVERIFY(QMetaObject::invokeMethod(&cm, "onTcpMessageReceived",
+                                      Q_ARG(MessageType, MessageType::CLIPBOARD_DATA),
+                                      Q_ARG(QByteArray, clip)));
+    QCOMPARE(messages.count(), 0);
+
+    // 认证成功（伪造合法响应推进状态，仅用于构造 Authenticated 态）
+    AuthenticationResponse ok;
+    ok.result = AuthResult::SUCCESS;
+    ok.sessionId = QStringLiteral("s");
+    QVERIFY(QMetaObject::invokeMethod(&cm, "onTcpMessageReceived",
+                                      Q_ARG(MessageType, MessageType::AUTHENTICATION_RESPONSE),
+                                      Q_ARG(QByteArray, ok.encode())));
+    QVERIFY(sawState(states, ConnectionManager::Authenticated));
+
+    // Authenticated：入站剪贴板正常转发
+    QVERIFY(QMetaObject::invokeMethod(&cm, "onTcpMessageReceived",
+                                      Q_ARG(MessageType, MessageType::CLIPBOARD_DATA),
+                                      Q_ARG(QByteArray, clip)));
+    QCOMPARE(messages.count(), 1);
+    QCOMPARE(messages.at(0).at(0).value<MessageType>(), MessageType::CLIPBOARD_DATA);
 }
 
 void ConnectionManagerTrustTest::decisionAppliesToLatestPendingFingerprint() {

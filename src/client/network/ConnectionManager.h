@@ -127,6 +127,9 @@ private:
     /// 信任校验通过后进入 Connected 并发送 RDCP 握手
     void proceedAfterTrust();
 
+    /// 「信任门已通过」判定点：仅 Connected/Authenticated 可处理服务端消息
+    [[nodiscard]] bool mayProcessServerMessages() const;
+
     void sendHandshakeRequest();
     void sendSessionCapabilities();
     /// 以当前凭据 + 缓存的认证参数派生 PBKDF2 并发送认证请求（首次应答与同连接重试共用）
