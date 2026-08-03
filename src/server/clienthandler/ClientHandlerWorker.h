@@ -308,6 +308,7 @@ private:
     quint16 m_clientPort;                 ///< 客户端端口
     QString m_clientId;                   ///< 客户端ID
     bool m_isAuthenticated;               ///< 是否已认证
+    bool m_handshakeProcessed = false;    ///< 握手是否已处理（幂等守卫：阻止重复握手重设 AuthHandler）
 
     // 认证（委托给 AuthHandler）
     AuthHandler* m_authHandler;           ///< 认证处理器

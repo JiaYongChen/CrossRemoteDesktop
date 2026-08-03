@@ -698,11 +698,14 @@ void ClientHandlerWorker::handleHandshakeRequest(const QByteArray& data) {
                                    << "OS:" << request.clientOS
                                    << "协议版本:" << request.clientVersion;
 
-    // 已认证的会话不得重设认证——PBKDF2 派生 ~1.7s 且会盖写 AuthHandler（盐/期望摘要）
-    if ( isAuthenticated() ) {
-        qCDebug(lcServerClientHandler) << "握手请求重复：会话已认证，忽略";
+    // 握手幂等：首个 HANDSHAKE_REQUEST 完成认证配置后不可再重跑——
+    // setupAuthentication 每调用生成新随机盐并 PBKDF2 重派生 ~1.7s、盖写 AuthHandler，
+    // 已认证和未认证的重握手均属异常（在途认证的客户端密码证明会失配）
+    if ( m_handshakeProcessed ) {
+        qCDebug(lcServerClientHandler) << "握手请求重复（已处理），忽略";
         return;
     }
+    m_handshakeProcessed = true;
 
     // 同步配置认证（无密码直通 / 有密码惰性 PBKDF2 派生）后下发握手响应。
     // 派生在本线程阻塞 ~1.7s：每连接独立线程，且握手期间客户端等待响应、
