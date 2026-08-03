@@ -182,13 +182,15 @@ void ProtocolSession::sendWheelEvent(int x, int y, int delta, int orientation) {
 // ── 剪贴板序列化 ──
 
 void ProtocolSession::sendClipboardText(const QString& text) {
-    if (!m_connectionManager || !isConnected()) return;
+    // 仅认证后发送（isActive 要求 Authenticated）：TLS 握手完成 ≠ 服务端已验证/已授权，
+    // VerifyingTrust 等挂起态发送会把剪贴板内容泄露给未验证（可能是 MITM）的服务端
+    if (!m_connectionManager || !isActive()) return;
     ClipboardMessage message(text);
     m_connectionManager->sendMessage(MessageType::CLIPBOARD_DATA, message);
 }
 
 void ProtocolSession::sendClipboardImage(const QByteArray& imageData, quint32 width, quint32 height) {
-    if (!m_connectionManager || !isConnected()) return;
+    if (!m_connectionManager || !isActive()) return;
     ClipboardMessage message(imageData, width, height);
     m_connectionManager->sendMessage(MessageType::CLIPBOARD_DATA, message);
 }

@@ -216,9 +216,13 @@ void ConnectionManager::onTcpConnected(const QString& peerFingerprint) {
                             tr("无法获取服务端证书指纹"), "ConnectionManager");
         qCWarning(lcClient) << error.logLabel();
         emit errorOccurred(error);
+        // m_handlingError 阻止 abort() 同步触发的 onTcpDisconnected 独立决策
+        // （武装自动重连后被下方 Error 覆盖会使定时器哑火）——与 onTcpError 同一模式
+        m_handlingError = true;
         if ( m_tcpClient ) {
             m_tcpClient->abort();
         }
+        m_handlingError = false;
         setConnectionState(Error);
         return;
     }
@@ -414,12 +418,13 @@ void ConnectionManager::cleanupConnection() {
 // ═══════════════════════════════════════════════════════════════════
 
 void ConnectionManager::onTcpMessageReceived(MessageType type, const QByteArray& payload) {
-    // 状态守卫：仅在信任门已通过（Connected/Authenticated）或认证失败待重试（AuthFailed）
-    // 时处理 RDCP 消息。其余状态——尤其 VerifyingTrust 信任对话框挂起期间——一律忽略，
-    // 防止未验证服务端借模态对话框的嵌套事件循环主动推送伪造握手响应、套出 PBKDF2 密码证明。
+    // 状态守卫：仅在信任门已通过（Connected/Authenticated）时处理 RDCP 消息。
+    // 其余状态——尤其 VerifyingTrust 信任决策挂起期间——一律忽略，
+    // 防止未验证服务端推送伪造握手响应、套出 PBKDF2 密码证明。
+    // AuthFailed 亦不在允许集：被拒绝的服务端不得再推送任何消息（含伪造认证成功、
+    // 剪贴板注入）；同连接重试在 retryAuthentication 内先回到 Connected 再发送，不依赖此项。
     if ( m_connectionState != Connected
-         && m_connectionState != Authenticated
-         && m_connectionState != AuthFailed ) {
+         && m_connectionState != Authenticated ) {
         qCDebug(lcClient) << "onTcpMessageReceived: 忽略消息（当前状态" << m_connectionState
                           << "），type:" << static_cast<int>(type);
         return;

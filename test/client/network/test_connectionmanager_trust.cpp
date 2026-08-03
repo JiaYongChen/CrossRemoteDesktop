@@ -35,6 +35,8 @@ private slots:
     void nullStoreBackwardCompatible();
     void guardDropsHandshakeResponseWhileVerifyingTrust();
     void guardAllowsHandshakeResponseWhenConnected();
+    void guardDropsMessagesWhileAuthFailed();
+    void emptyFingerprintAbortDoesNotArmReconnect();
 private:
     static constexpr const char* kEp = ":0";   // 未调用 connectToHost 时 endpoint 为 ":0"
 };
@@ -172,6 +174,51 @@ void ConnectionManagerTrustTest::guardAllowsHandshakeResponseWhenConnected() {
                                       Q_ARG(QByteArray, garbage)));
 
     QVERIFY(errors.count() >= 1);   // handleHandshakeResponse 解码失败 → errorOccurred
+}
+
+void ConnectionManagerTrustTest::guardDropsMessagesWhileAuthFailed() {
+    QTemporaryDir dir; SettingsManager sm(dir.filePath("c.json")); sm.load();
+    ConnectionManager cm(nullptr, &sm);
+    QSignalSpy states(&cm, &ConnectionManager::connectionStateChanged);
+    QSignalSpy messages(&cm, &ConnectionManager::messageReceived);
+    QVERIFY(QMetaObject::invokeMethod(&cm, "onTcpConnected", Q_ARG(QString, "fpA")));   // FirstUse → Connected
+
+    // 合法路径：服务端拒绝认证 → AuthFailed（连接保活等待同连接重试）
+    AuthenticationResponse denied;
+    denied.result = AuthResult::INVALID_CREDENTIALS;
+    QVERIFY(QMetaObject::invokeMethod(&cm, "onTcpMessageReceived",
+                                      Q_ARG(MessageType, MessageType::AUTHENTICATION_RESPONSE),
+                                      Q_ARG(QByteArray, denied.encode())));
+    QVERIFY(sawState(states, ConnectionManager::AuthFailed));
+
+    // 被拒绝的服务端不得再推送任何消息：伪造"认证成功"不得抬升状态
+    AuthenticationResponse fakeOk;
+    fakeOk.result = AuthResult::SUCCESS;
+    fakeOk.sessionId = QStringLiteral("forged");
+    QVERIFY(QMetaObject::invokeMethod(&cm, "onTcpMessageReceived",
+                                      Q_ARG(MessageType, MessageType::AUTHENTICATION_RESPONSE),
+                                      Q_ARG(QByteArray, fakeOk.encode())));
+    QVERIFY(!sawState(states, ConnectionManager::Authenticated));
+
+    // 剪贴板注入同样被忽略（不得转发到 ProtocolSession/本机剪贴板）
+    QVERIFY(QMetaObject::invokeMethod(&cm, "onTcpMessageReceived",
+                                      Q_ARG(MessageType, MessageType::CLIPBOARD_DATA),
+                                      Q_ARG(QByteArray, QByteArrayLiteral("inject"))));
+    QCOMPARE(messages.count(), 0);
+}
+
+void ConnectionManagerTrustTest::emptyFingerprintAbortDoesNotArmReconnect() {
+    QTemporaryDir dir; SettingsManager sm(dir.filePath("c.json")); sm.load();
+    ConnectionManager cm(nullptr, &sm);
+    cm.setAutoReconnect(true);
+    QSignalSpy states(&cm, &ConnectionManager::connectionStateChanged);
+    QSignalSpy errors(&cm, &ConnectionManager::errorOccurred);
+
+    QVERIFY(QMetaObject::invokeMethod(&cm, "onTcpConnected", Q_ARG(QString, QString())));
+
+    QVERIFY(errors.count() >= 1);
+    QVERIFY(sawState(states, ConnectionManager::Error));
+    QVERIFY(!sawState(states, ConnectionManager::Reconnecting));   // abort 不得武装自动重连
 }
 
 QTEST_MAIN(ConnectionManagerTrustTest)
