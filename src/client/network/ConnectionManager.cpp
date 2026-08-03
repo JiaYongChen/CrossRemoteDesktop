@@ -216,13 +216,7 @@ void ConnectionManager::onTcpConnected(const QString& peerFingerprint) {
                             tr("无法获取服务端证书指纹"), "ConnectionManager");
         qCWarning(lcClient) << error.logLabel();
         emit errorOccurred(error);
-        // m_handlingError 阻止 abort() 同步触发的 onTcpDisconnected 独立决策
-        // （武装自动重连后被下方 Error 覆盖会使定时器哑火）——与 onTcpError 同一模式
-        m_handlingError = true;
-        if ( m_tcpClient ) {
-            m_tcpClient->abort();
-        }
-        m_handlingError = false;
+        abortGuarded();   // 防同步 onTcpDisconnected 武装自动重连（会被下方 Error 覆盖致定时器哑火）
         setConnectionState(Error);
         return;
     }
@@ -275,9 +269,7 @@ void ConnectionManager::trustDecision(bool accept) {
     m_pendingTrustFingerprint.clear();
 
     if ( accept ) {
-        if ( m_trustStore ) {
-            m_trustStore->recordTrust(endpoint, fingerprint);
-        }
+        m_trustStore->recordTrust(endpoint, fingerprint);   // VerifyingTrust 仅在信任库非空时可达
         qCInfo(lcClient) << "TOFU: 用户确认信任新指纹, endpoint:" << endpoint;
         proceedAfterTrust();
     } else {
@@ -344,13 +336,8 @@ void ConnectionManager::onTcpError(const RdError& error) {
 
     // 确保 socket 回到 UnconnectedState，否则重连时 TcpClient::connectToHost()
     // 会因状态检查失败而静默返回（SocketTimeoutError 等错误不自动转换状态）。
-    // m_handlingError 阻止 abort() 同步触发的 onTcpDisconnected 独立决策
-    // （其 cleanupConnection 会重置计数器+清除 host/port，干扰本函数的重连决策）。
-    m_handlingError = true;
-    if ( m_tcpClient ) {
-        m_tcpClient->abort();
-    }
-    m_handlingError = false;
+    // 守卫防同步 onTcpDisconnected 的 cleanupConnection 干扰本函数的重连决策。
+    abortGuarded();
 
     if ( !startAutoReconnect() ) {
         setConnectionState(Error);
@@ -368,13 +355,9 @@ void ConnectionManager::onConnectionTimeout() {
 
     m_connectionTimer->stop();
 
-    // 同 onTcpError：abort() 同步触发 onTcpDisconnected，需守卫防止其
-    // cleanupConnection 重置计数器+清除 host/port 干扰本函数的重连决策。
-    m_handlingError = true;
-    if ( m_tcpClient ) {
-        m_tcpClient->abort();
-    }
-    m_handlingError = false;
+    // 同 onTcpError：守卫防同步 onTcpDisconnected 的 cleanupConnection
+    // 重置计数器+清除 host/port 干扰本函数的重连决策。
+    abortGuarded();
 
     if ( !startAutoReconnect() ) {
         // 连接超时且不重连：发射具体错误消息（替代 wireSignals 中的通用兜底）
@@ -427,6 +410,14 @@ void ConnectionManager::cleanupConnection() {
 // ═══════════════════════════════════════════════════════════════════
 // 消息处理
 // ═══════════════════════════════════════════════════════════════════
+
+void ConnectionManager::abortGuarded() {
+    m_handlingError = true;
+    if ( m_tcpClient ) {
+        m_tcpClient->abort();
+    }
+    m_handlingError = false;
+}
 
 bool ConnectionManager::mayProcessServerMessages() const {
     // 「信任门已通过」的唯一判定点：Connected/Authenticated 之外的状态一律不得处理服务端消息。

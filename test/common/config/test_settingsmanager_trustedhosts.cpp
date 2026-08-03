@@ -108,8 +108,14 @@ void SettingsManagerTrustedHostsTest::crossThreadSetValueStillSaves() {
 void SettingsManagerTrustedHostsTest::loadOfSeededConfigSkipsLegacyMigration() {
     // 守卫：预置后的 load() 不得进入迁移分支。迁移分支两条路径都会记录含 "QSettings" 的日志
     // （"No old QSettings data..." / "Migrating from QSettings..."），解析分支则完全不碰
-    // QSettings——以日志探针判定分支归属，与宿主机是否存在遗留数据无关
-    static QStringList markers;
+    // QSettings——以日志探针判定分支归属，与宿主机是否存在遗留数据无关。
+    // 一切断言前置必须在安装消息 handler 之前完成（断言失败提前返回时不得泄漏 handler）。
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString path = dir.filePath("config.json");
+    seedEmptyConfig(path);
+
+    static QStringList markers;   // 单线程窗口：本用例期间无并发日志线程
     markers.clear();
     const auto previousHandler = qInstallMessageHandler(
         [](QtMsgType, const QMessageLogContext&, const QString& msg) {
@@ -117,11 +123,6 @@ void SettingsManagerTrustedHostsTest::loadOfSeededConfigSkipsLegacyMigration() {
                 markers << msg;
             }
         });
-
-    QTemporaryDir dir;
-    QVERIFY(dir.isValid());
-    const QString path = dir.filePath("config.json");
-    seedEmptyConfig(path);
     SettingsManager sm(path);
     sm.load();
     qInstallMessageHandler(previousHandler);

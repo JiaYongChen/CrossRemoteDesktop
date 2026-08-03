@@ -128,6 +128,10 @@ void ServerTrustStoreTest::endpointNormalization() {
              ServerTrustStore::endpointFor("fileserver", 5921));
     QCOMPARE(ServerTrustStore::endpointFor("2001:DB8::1", 5921),
              ServerTrustStore::endpointFor("2001:db8::1", 5921));
+    // IP 形式规范化（不止大小写）：同一 IP 的不同文本形式必须归一为同一键，
+    // 否则裂键命中 FirstUse 静默信任新证书，绕过变更检测
+    QCOMPARE(ServerTrustStore::endpointFor("2001:0db8::0001", 5921),
+             ServerTrustStore::endpointFor("2001:db8::1", 5921));
     // 不同端口仍是不同键
     QVERIFY(ServerTrustStore::endpointFor("fileserver", 5921)
             != ServerTrustStore::endpointFor("fileserver", 5922));

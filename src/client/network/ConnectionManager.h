@@ -130,6 +130,10 @@ private:
     /// 「信任门已通过」判定点：仅 Connected/Authenticated 可处理服务端消息
     [[nodiscard]] bool mayProcessServerMessages() const;
 
+    /// 带重入守卫的 abort：阻止 abort() 同步触发的 onTcpDisconnected 独立决策，
+    /// 每次错误处理的决策权统一保留给调用者
+    void abortGuarded();
+
     void sendHandshakeRequest();
     void sendSessionCapabilities();
     /// 以当前凭据 + 缓存的认证参数派生 PBKDF2 并发送认证请求（首次应答与同连接重试共用）
@@ -180,9 +184,9 @@ private:
     /// 不持久化——不会被 onTcpError/onConnectionTimeout 读取或修改。
     bool m_userInitiatedDisconnect = false;
 
-    /// 错误处理中的重入守卫：onTcpError/onConnectionTimeout 在 abort() 前置 true，
+    /// 错误处理中的重入守卫：abortGuarded() 在 abort() 前置 true，
     /// 阻止同步触发的 onTcpDisconnected 独立决策（state/cleanup/reconnect），
-    /// 将决策权统一保留给外层错误/超时处理函数。
+    /// 将决策权统一保留给外层调用者（onTcpConnected 空指纹分支/onTcpError/onConnectionTimeout）。
     bool m_handlingError = false;
 
     std::unique_ptr<ServerTrustStore> m_trustStore;   ///< TOFU 信任库（未注入 settings 时为空 → 旧行为）
