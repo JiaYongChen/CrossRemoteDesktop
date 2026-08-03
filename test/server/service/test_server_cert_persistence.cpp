@@ -10,6 +10,7 @@ class ServerCertPersistenceTest : public QObject {
     Q_OBJECT
 private slots:
     void certificateStableAcrossRestart();
+    void certificatePersistedWithoutExplicitSave();
 };
 
 void ServerCertPersistenceTest::certificateStableAcrossRestart() {
@@ -40,6 +41,28 @@ void ServerCertPersistenceTest::certificateStableAcrossRestart() {
 
     QVERIFY(!fp1.isEmpty());
     QCOMPARE(fp1, fp2);   // 重启后复用同一证书——TOFU 基石断言
+}
+
+void ServerCertPersistenceTest::certificatePersistedWithoutExplicitSave() {
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString cfg = dir.filePath("config.json");
+
+    SettingsManager sm(cfg);
+    sm.load();
+    {
+        TcpServer server(nullptr, &sm);
+        QVERIFY(server.startServer(0));
+        server.stopServer(true);
+    }
+    // 不调用 save()，也不自旋事件循环等待去抖定时器：
+    // 证书是关键安全状态，必须在生成时同步写穿——否则应用在任一次主线程保存前被强杀
+    // 即丢失证书 → 下次启动重新生成 → 所有客户端收到虚假"身份变更"警告
+
+    SettingsManager probe(cfg);
+    probe.load();
+    QVERIFY(!probe.getString("Server/tlsCertPem").isEmpty());
+    QVERIFY(!probe.getString("Server/tlsKeyPem").isEmpty());
 }
 
 QTEST_MAIN(ServerCertPersistenceTest)

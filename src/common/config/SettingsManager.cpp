@@ -12,6 +12,7 @@
 #include <QtCore/QSaveFile>
 #include <QtCore/QSettings>
 #include <QtCore/QStringList>
+#include <QtCore/QThread>
 #include <QtCore/QTimer>
 
 #include "common/config/ConnectionHistory.h"
@@ -273,9 +274,23 @@ void SettingsManager::setTrustedHosts(const QJsonArray &entries)
 
 void SettingsManager::scheduleSave()
 {
-    if (m_saveTimer && !m_saveTimer->isActive()) {
-        m_saveTimer->start();
+    if (!m_saveTimer) {
+        return;
     }
+    if (m_saveTimer->thread() == QThread::currentThread()) {
+        if (!m_saveTimer->isActive()) {
+            m_saveTimer->start();
+        }
+        return;
+    }
+    // 跨线程写入（如服务端在 TcpListener 工作线程持久化证书）：
+    // QTimer::start() 只能在定时器属主线程调用，否则 Qt 拒绝启动、保存丢失
+    // （"Timers cannot be started from another thread"）——投递回属主线程启动
+    QMetaObject::invokeMethod(this, [this]() {
+        if (m_saveTimer && !m_saveTimer->isActive()) {
+            m_saveTimer->start();
+        }
+    }, Qt::QueuedConnection);
 }
 
 // ============================================================
