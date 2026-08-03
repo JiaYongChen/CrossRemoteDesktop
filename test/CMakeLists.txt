@@ -369,6 +369,12 @@ add_rd_test(TARGET test_smoke_network  NAME SmokeNetworkTest
     LIBRARIES Qt6::Core Qt6::Test Qt6::Network common_test_core
     TIMEOUT 30  LABELS smoke network unit)
 
+add_rd_test(TARGET test_connectionlifecycle  NAME ConnectionLifecycleTest
+    SOURCES client/window/test_connectionlifecycle.cpp
+    EXTRA_SOURCES ../src/client/window/ConnectionLifecycle.cpp
+    LIBRARIES Qt6::Core Qt6::Test Qt6::Widgets common_test_core
+    TIMEOUT 30  LABELS unit client trust)
+
 add_rd_test(TARGET test_tcpclient_hostname  NAME TcpClientHostnameTest
     SOURCES client/network/test_tcpclient_hostname.cpp
     EXTRA_SOURCES

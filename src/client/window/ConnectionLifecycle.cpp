@@ -41,6 +41,13 @@ void ConnectionLifecycle::setConnectionState(ConnectionManager::ConnectionState 
     m_connectionState = state;
     updateWindowTitle();
 
+    // 状态离开 VerifyingTrust 时无条件收起信任对话框：无论连接恢复（Trusted/FirstUse → Connected）、
+    // 转入重连（Reconnecting）还是连接终结（Disconnected/Error）——
+    // 陈旧 MITM 警告不得滞留于健康会话之上，否则其过期「取消」点击会误关健康窗口
+    if (oldState == ConnectionManager::VerifyingTrust && m_trustDialog) {
+        dismissTrustDialog();
+    }
+
     if (state == ConnectionManager::Authenticated) {
         m_wasAuthenticated = true;
         m_authRetryPending = false;
@@ -247,6 +254,14 @@ void ConnectionLifecycle::showCredentialDialog(const QString& errorMessage, bool
     }
 }
 
+void ConnectionLifecycle::dismissTrustDialog() {
+    if (!m_trustDialog) return;
+    // 先断开决策回环再销毁：任何迟到的 finished 不得补发陈旧决策或触碰新状态
+    disconnect(m_trustDialog, &QDialog::finished, this, nullptr);
+    m_trustDialog->deleteLater();
+    m_trustDialog = nullptr;
+}
+
 void ConnectionLifecycle::showTrustWarning(const QString& endpoint,
                                            const QString& oldFingerprint,
                                            const QString& newFingerprint) {
@@ -254,8 +269,7 @@ void ConnectionLifecycle::showTrustWarning(const QString& endpoint,
 
     // 重入（挂起决策期间指纹再次变更）：替换对话框，呈现最新指纹
     if (m_trustDialog) {
-        m_trustDialog->deleteLater();
-        m_trustDialog = nullptr;
+        dismissTrustDialog();
     }
 
     qCWarning(lcClientRemoteWindow) << "ConnectionLifecycle: 服务端身份变更，弹出信任警告" << endpoint;
@@ -298,12 +312,16 @@ void ConnectionLifecycle::showTrustWarning(const QString& endpoint,
         m_trustDialog = nullptr;
         dialog->deleteLater();
         const bool accept = (result == QDialog::Accepted);
+        // 决策有效性以发射时刻的状态为准：仅挂起期内的决策有效。
+        // 状态已离开挂起态（连接恢复/重连/终结）时，本决策已失效——见 dismissTrustDialog 的调用点；
+        // 此检查是防御纵深，确保任何迟到的 finished 都不得触碰窗口
+        const bool wasPending = (m_connectionState == ConnectionManager::VerifyingTrust);
         // 直连：ConnectionManager 同步处置（若已离开挂起态则忽略），
         // 返回后本对象缓存的状态即为最新
         emit trustDecision(accept);
-        // 用户拒绝，或对话框期间连接已终结 → 关闭窗口（避免遗留无响应的僵尸窗口）
-        if (!accept || m_connectionState == ConnectionManager::Disconnected
-            || m_connectionState == ConnectionManager::Error) {
+        // 仅当拒绝且决策实际生效（仍在挂起期）时关闭窗口；
+        // 迟到的「取消」点击（状态已恢复/终结）不得误关健康或正在收尾的窗口
+        if (!accept && wasPending) {
             if (m_window) {
                 m_window->close();
             }

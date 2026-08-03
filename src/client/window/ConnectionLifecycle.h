@@ -54,6 +54,9 @@ private:
     void updateWindowTitle();
     void showDisconnectionDialog();
 
+    /// 收起信任对话框（状态离开挂起态/对话框替换时）：先断决策回环再销毁
+    void dismissTrustDialog();
+
     /// @param passwordOnly true=仅重输密码（用户名正确），false=重输用户名+密码
     void showCredentialDialog(const QString& errorMessage, bool passwordOnly);
 
