@@ -7,6 +7,15 @@
 #include "client/network/ServerTrustStore.h"
 #include "common/config/SettingsManager.h"
 
+namespace {
+/// 预置空 JSON，使 load() 走解析路径而非迁移路径（迁移会擦除宿主机真实遗留设置，见可信测试规范）
+void seedEmptyConfig(const QString& path) {
+    QFile f(path);
+    f.open(QIODevice::WriteOnly);
+    f.write("{}");
+}
+} // namespace
+
 class ServerTrustStoreTest : public QObject {
     Q_OBJECT
 private slots:
@@ -29,8 +38,10 @@ private:
 };
 
 void ServerTrustStoreTest::init() {
-    // 每个用例重建干净存储：m_dir 为成员仅构造一次，需删除上一用例残留的配置文件
+    // 每个用例重建干净存储：m_dir 为成员仅构造一次，需删除上一用例残留的配置文件；
+    // 随后预置空 JSON，避免 load() 进入遗留迁移分支触碰宿主机生产状态
     QFile::remove(m_dir.filePath("c.json"));
+    seedEmptyConfig(m_dir.filePath("c.json"));
 }
 
 void ServerTrustStoreTest::verifyFirstUseWhenNoRecord() {

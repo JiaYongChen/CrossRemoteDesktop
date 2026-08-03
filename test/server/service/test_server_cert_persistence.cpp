@@ -1,5 +1,6 @@
 #include <QtTest>
 #include <QtCore/QCryptographicHash>
+#include <QtCore/QFile>
 #include <QtCore/QTemporaryDir>
 #include <QtNetwork/QSslCertificate>
 
@@ -12,6 +13,12 @@
 #include "server/service/TcpServer.h"
 
 namespace {
+/// 预置空 JSON，使 load() 走解析路径而非迁移路径（迁移会擦除宿主机真实遗留设置）
+void seedEmptyConfig(const QString& path) {
+    QFile f(path);
+    f.open(QIODevice::WriteOnly);
+    f.write("{}");
+}
 /// 生成自签名证书+私钥 PEM（含 IP SAN），供注入测试使用
 /// @param notAfterOffsetSec notAfter 相对当前的秒偏移；负值 = 已过期
 bool generateTestCertPem(QByteArray& certPem, QByteArray& keyPem, long notAfterOffsetSec) {
@@ -93,6 +100,7 @@ void ServerCertPersistenceTest::certificateStableAcrossRestart() {
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
     const QString cfg = dir.filePath("config.json");
+    seedEmptyConfig(cfg);
 
     QByteArray fp1;
     {
@@ -123,6 +131,7 @@ void ServerCertPersistenceTest::certificatePersistedWithoutExplicitSave() {
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
     const QString cfg = dir.filePath("config.json");
+    seedEmptyConfig(cfg);
 
     SettingsManager sm(cfg);
     sm.load();

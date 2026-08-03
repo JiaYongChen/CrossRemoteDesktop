@@ -1,4 +1,5 @@
 #include <QtTest>
+#include <QtCore/QFile>
 #include <QtCore/QTemporaryDir>
 #include <QSignalSpy>
 
@@ -8,6 +9,12 @@
 #include "common/error/RdError.h"
 
 namespace {
+/// 预置空 JSON，使 load() 走解析路径而非迁移路径（迁移会擦除宿主机真实遗留设置）
+void seedEmptyConfig(const QString& path) {
+    QFile f(path);
+    f.open(QIODevice::WriteOnly);
+    f.write("{}");
+}
 /// QSignalSpy 是 QList<QVariantList>，每次触发存一份参数表——需遍历取 at(0) 比较状态
 bool sawState(const QSignalSpy& spy, ConnectionManager::ConnectionState want) {
     for (const QVariantList& call : spy) {
@@ -49,7 +56,7 @@ void ConnectionManagerTrustTest::initTestCase() {
 }
 
 void ConnectionManagerTrustTest::firstUseRecordsAndProceeds() {
-    QTemporaryDir dir; SettingsManager sm(dir.filePath("c.json")); sm.load();
+    QTemporaryDir dir; seedEmptyConfig(dir.filePath("c.json")); SettingsManager sm(dir.filePath("c.json")); sm.load();
     ConnectionManager cm(nullptr, &sm);
     QSignalSpy states(&cm, &ConnectionManager::connectionStateChanged);
 
@@ -61,7 +68,7 @@ void ConnectionManagerTrustTest::firstUseRecordsAndProceeds() {
 }
 
 void ConnectionManagerTrustTest::trustedProceeds() {
-    QTemporaryDir dir; SettingsManager sm(dir.filePath("c.json")); sm.load();
+    QTemporaryDir dir; seedEmptyConfig(dir.filePath("c.json")); SettingsManager sm(dir.filePath("c.json")); sm.load();
     ServerTrustStore seed(sm); seed.recordTrust(kEp, "fp1");
     ConnectionManager cm(nullptr, &sm);
     QSignalSpy identity(&cm, &ConnectionManager::serverIdentityChanged);
@@ -74,7 +81,7 @@ void ConnectionManagerTrustTest::trustedProceeds() {
 }
 
 void ConnectionManagerTrustTest::changedEmitsAndHolds() {
-    QTemporaryDir dir; SettingsManager sm(dir.filePath("c.json")); sm.load();
+    QTemporaryDir dir; seedEmptyConfig(dir.filePath("c.json")); SettingsManager sm(dir.filePath("c.json")); sm.load();
     ServerTrustStore seed(sm); seed.recordTrust(kEp, "fp1");
     ConnectionManager cm(nullptr, &sm);
     QSignalSpy identity(&cm, &ConnectionManager::serverIdentityChanged);
@@ -91,7 +98,7 @@ void ConnectionManagerTrustTest::changedEmitsAndHolds() {
 }
 
 void ConnectionManagerTrustTest::acceptResumes() {
-    QTemporaryDir dir; SettingsManager sm(dir.filePath("c.json")); sm.load();
+    QTemporaryDir dir; seedEmptyConfig(dir.filePath("c.json")); SettingsManager sm(dir.filePath("c.json")); sm.load();
     ServerTrustStore seed(sm); seed.recordTrust(kEp, "fp1");
     ConnectionManager cm(nullptr, &sm);
     QSignalSpy states(&cm, &ConnectionManager::connectionStateChanged);
@@ -105,7 +112,7 @@ void ConnectionManagerTrustTest::acceptResumes() {
 }
 
 void ConnectionManagerTrustTest::rejectSurfacesErrorAndKeepsOldTrust() {
-    QTemporaryDir dir; SettingsManager sm(dir.filePath("c.json")); sm.load();
+    QTemporaryDir dir; seedEmptyConfig(dir.filePath("c.json")); SettingsManager sm(dir.filePath("c.json")); sm.load();
     ServerTrustStore seed(sm); seed.recordTrust(kEp, "fp1");
     ConnectionManager cm(nullptr, &sm);
     QSignalSpy errors(&cm, &ConnectionManager::errorOccurred);
@@ -122,7 +129,7 @@ void ConnectionManagerTrustTest::rejectSurfacesErrorAndKeepsOldTrust() {
 }
 
 void ConnectionManagerTrustTest::decisionIgnoredWhenNotVerifying() {
-    QTemporaryDir dir; SettingsManager sm(dir.filePath("c.json")); sm.load();
+    QTemporaryDir dir; seedEmptyConfig(dir.filePath("c.json")); SettingsManager sm(dir.filePath("c.json")); sm.load();
     ConnectionManager cm(nullptr, &sm);
     QSignalSpy states(&cm, &ConnectionManager::connectionStateChanged);
 
@@ -142,7 +149,7 @@ void ConnectionManagerTrustTest::nullStoreBackwardCompatible() {
 }
 
 void ConnectionManagerTrustTest::guardDropsHandshakeResponseWhileVerifyingTrust() {
-    QTemporaryDir dir; SettingsManager sm(dir.filePath("c.json")); sm.load();
+    QTemporaryDir dir; seedEmptyConfig(dir.filePath("c.json")); SettingsManager sm(dir.filePath("c.json")); sm.load();
     ServerTrustStore seed(sm); seed.recordTrust(kEp, "fp1");
     ConnectionManager cm(nullptr, &sm);
     QSignalSpy errors(&cm, &ConnectionManager::errorOccurred);
@@ -161,7 +168,7 @@ void ConnectionManagerTrustTest::guardDropsHandshakeResponseWhileVerifyingTrust(
 }
 
 void ConnectionManagerTrustTest::guardAllowsHandshakeResponseWhenConnected() {
-    QTemporaryDir dir; SettingsManager sm(dir.filePath("c.json")); sm.load();
+    QTemporaryDir dir; seedEmptyConfig(dir.filePath("c.json")); SettingsManager sm(dir.filePath("c.json")); sm.load();
     ConnectionManager cm(nullptr, &sm);
     QSignalSpy errors(&cm, &ConnectionManager::errorOccurred);
     QSignalSpy states(&cm, &ConnectionManager::connectionStateChanged);
@@ -178,7 +185,7 @@ void ConnectionManagerTrustTest::guardAllowsHandshakeResponseWhenConnected() {
 }
 
 void ConnectionManagerTrustTest::guardDropsMessagesWhileAuthFailed() {
-    QTemporaryDir dir; SettingsManager sm(dir.filePath("c.json")); sm.load();
+    QTemporaryDir dir; seedEmptyConfig(dir.filePath("c.json")); SettingsManager sm(dir.filePath("c.json")); sm.load();
     ConnectionManager cm(nullptr, &sm);
     QSignalSpy states(&cm, &ConnectionManager::connectionStateChanged);
     QSignalSpy messages(&cm, &ConnectionManager::messageReceived);
@@ -209,7 +216,7 @@ void ConnectionManagerTrustTest::guardDropsMessagesWhileAuthFailed() {
 }
 
 void ConnectionManagerTrustTest::emptyFingerprintAbortDoesNotArmReconnect() {
-    QTemporaryDir dir; SettingsManager sm(dir.filePath("c.json")); sm.load();
+    QTemporaryDir dir; seedEmptyConfig(dir.filePath("c.json")); SettingsManager sm(dir.filePath("c.json")); sm.load();
     ConnectionManager cm(nullptr, &sm);
     cm.setAutoReconnect(true);
     QSignalSpy states(&cm, &ConnectionManager::connectionStateChanged);
@@ -223,7 +230,7 @@ void ConnectionManagerTrustTest::emptyFingerprintAbortDoesNotArmReconnect() {
 }
 
 void ConnectionManagerTrustTest::decisionAppliesToLatestPendingFingerprint() {
-    QTemporaryDir dir; SettingsManager sm(dir.filePath("c.json")); sm.load();
+    QTemporaryDir dir; seedEmptyConfig(dir.filePath("c.json")); SettingsManager sm(dir.filePath("c.json")); sm.load();
     ServerTrustStore seed(sm); seed.recordTrust(kEp, "fp1");
     ConnectionManager cm(nullptr, &sm);
     QSignalSpy identity(&cm, &ConnectionManager::serverIdentityChanged);

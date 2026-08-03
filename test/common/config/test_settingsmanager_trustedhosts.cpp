@@ -1,4 +1,5 @@
 #include <QtTest>
+#include <QtCore/QFile>
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonObject>
 #include <QtCore/QTemporaryDir>
@@ -7,6 +8,17 @@
 
 #include "common/config/SettingsManager.h"
 
+namespace {
+/// 预置空 JSON，使 SettingsManager::load() 走解析路径而非迁移路径：
+/// 对不存在的路径 load() 会执行一次性遗留 QSettings 迁移，迁移成功落盘后
+/// clearLegacyQSettings() 将永久擦除宿主机真实的遗留设置——测试绝不可触碰生产状态
+void seedEmptyConfig(const QString& path) {
+    QFile f(path);
+    f.open(QIODevice::WriteOnly);
+    f.write("{}");
+}
+} // namespace
+
 class SettingsManagerTrustedHostsTest : public QObject {
     Q_OBJECT
 private slots:
@@ -14,11 +26,13 @@ private slots:
     void roundTrip();
     void persistsAcrossReload();
     void crossThreadSetValueStillSaves();
+    void loadOfSeededConfigSkipsLegacyMigration();
 };
 
 void SettingsManagerTrustedHostsTest::defaultEmpty() {
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
+    seedEmptyConfig(dir.filePath("config.json"));
     SettingsManager sm(dir.filePath("config.json"));
     sm.load();
     QVERIFY(sm.trustedHosts().isEmpty());
@@ -27,6 +41,7 @@ void SettingsManagerTrustedHostsTest::defaultEmpty() {
 void SettingsManagerTrustedHostsTest::roundTrip() {
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
+    seedEmptyConfig(dir.filePath("config.json"));
     SettingsManager sm(dir.filePath("config.json"));
     sm.load();
 
@@ -51,6 +66,7 @@ void SettingsManagerTrustedHostsTest::persistsAcrossReload() {
     e["fingerprint"] = "ff";
     entries.append(e);
 
+    seedEmptyConfig(path);
     {
         SettingsManager sm(path);
         sm.load();
@@ -68,6 +84,7 @@ void SettingsManagerTrustedHostsTest::crossThreadSetValueStillSaves() {
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
     const QString path = dir.filePath("config.json");
+    seedEmptyConfig(path);
     SettingsManager sm(path);
     sm.load();
 
@@ -85,6 +102,31 @@ void SettingsManagerTrustedHostsTest::crossThreadSetValueStillSaves() {
         probe.load();
         return probe.getString("General/flag") == QLatin1String("on");
     }(), 3000);
+}
+
+void SettingsManagerTrustedHostsTest::loadOfSeededConfigSkipsLegacyMigration() {
+    // 守卫：预置后的 load() 不得进入迁移分支。迁移分支两条路径都会记录含 "QSettings" 的日志
+    // （"No old QSettings data..." / "Migrating from QSettings..."），解析分支则完全不碰
+    // QSettings——以日志探针判定分支归属，与宿主机是否存在遗留数据无关
+    static QStringList markers;
+    markers.clear();
+    const auto previousHandler = qInstallMessageHandler(
+        [](QtMsgType, const QMessageLogContext&, const QString& msg) {
+            if ( msg.contains(QLatin1String("QSettings")) ) {
+                markers << msg;
+            }
+        });
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString path = dir.filePath("config.json");
+    seedEmptyConfig(path);
+    SettingsManager sm(path);
+    sm.load();
+    qInstallMessageHandler(previousHandler);
+
+    QVERIFY2(markers.isEmpty(),
+             qPrintable(QStringLiteral("load() 进入了迁移分支: %1").arg(markers.join("; "))));
 }
 
 QTEST_MAIN(SettingsManagerTrustedHostsTest)

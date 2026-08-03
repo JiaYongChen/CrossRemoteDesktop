@@ -1,5 +1,6 @@
 #include <QtTest>
 #include <QtCore/QCryptographicHash>
+#include <QtCore/QFile>
 #include <QtCore/QTemporaryDir>
 #include <QtNetwork/QSslSocket>
 #include <QSignalSpy>
@@ -10,6 +11,12 @@
 #include "server/service/TcpServer.h"
 
 namespace {
+/// 预置空 JSON，使 load() 走解析路径而非迁移路径（迁移会擦除宿主机真实遗留设置）
+void seedEmptyConfig(const QString& path) {
+    QFile f(path);
+    f.open(QIODevice::WriteOnly);
+    f.write("{}");
+}
 bool sawState(const QSignalSpy& spy, ConnectionManager::ConnectionState want) {
     for (const QVariantList& call : spy) {
         if (call.at(0).value<ConnectionManager::ConnectionState>() == want) {
@@ -39,6 +46,7 @@ void TofuHandshakeTest::firstUseRecordsRealFingerprintThenTrusted() {
     QVERIFY(dir.isValid());
 
     // ── 服务端：持久证书 + 监听 ──
+    seedEmptyConfig(dir.filePath("server.json"));
     SettingsManager serverCfg(dir.filePath("server.json"));
     serverCfg.load();
     TcpServer server(nullptr, &serverCfg);
@@ -59,6 +67,7 @@ void TofuHandshakeTest::firstUseRecordsRealFingerprintThenTrusted() {
     QVERIFY(!serverFp.isEmpty());
 
     // ── 客户端：独立信任库 ──
+    seedEmptyConfig(dir.filePath("client.json"));
     SettingsManager clientCfg(dir.filePath("client.json"));
     clientCfg.load();
     const QString endpoint = QStringLiteral("127.0.0.1:%1").arg(port);
