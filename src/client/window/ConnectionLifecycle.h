@@ -7,6 +7,8 @@
 #include "client/network/ConnectionManager.h"
 #include "common/error/ErrorCode.h"
 
+class QDialog;
+
 /// 连接生命周期管理 — 从 ClientRemoteWindow 分离出的连接状态+标题+断连对话框
 ///
 /// 管理连接状态机 → 窗口标题同步 → 断连对话框/凭据重输对话框展示全流程。
@@ -44,8 +46,9 @@ signals:
     /// 用户请求重试认证（携带新凭据），由顶层组件（ClientRemoteWindow/MainWindow）连接处理
     void retryAuthRequested(const QString& username, const QString& password);
 
-    /// 用户对信任警告的决策：accept=true 信任新证书并继续，false 取消
-    void trustDecision(const QString& endpoint, const QString& fingerprint, bool accept);
+    /// 用户对信任警告的决策：accept=true 信任新证书并继续，false 取消。
+    /// 决策上下文（endpoint/最新指纹）由 ConnectionManager 持有，此处仅回传接受与否
+    void trustDecision(bool accept);
 
 private:
     void updateWindowTitle();
@@ -70,4 +73,6 @@ private:
     QString m_authErrorMessage;                       ///< 缓存认证错误消息（用于对话框展示）
     QString m_cachedUsername;                         ///< 预填用户名
     bool m_authRetryPending = false;                  ///< 是否有待处理的重试（终态守卫 + 重入守卫）
+
+    QDialog* m_trustDialog = nullptr;                 ///< 非模态信任警告对话框（parent 为窗口，随窗口销毁）
 };

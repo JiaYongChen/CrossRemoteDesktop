@@ -37,6 +37,7 @@ private slots:
     void guardAllowsHandshakeResponseWhenConnected();
     void guardDropsMessagesWhileAuthFailed();
     void emptyFingerprintAbortDoesNotArmReconnect();
+    void decisionAppliesToLatestPendingFingerprint();
 private:
     static constexpr const char* kEp = ":0";   // 未调用 connectToHost 时 endpoint 为 ":0"
 };
@@ -96,7 +97,7 @@ void ConnectionManagerTrustTest::acceptResumes() {
     QSignalSpy states(&cm, &ConnectionManager::connectionStateChanged);
     QVERIFY(QMetaObject::invokeMethod(&cm, "onTcpConnected", Q_ARG(QString, "fp2")));
 
-    cm.trustDecision(kEp, "fp2", true);
+    cm.trustDecision(true);
 
     QVERIFY(sawState(states, ConnectionManager::Connected));
     ServerTrustStore store(sm);
@@ -111,7 +112,7 @@ void ConnectionManagerTrustTest::rejectSurfacesErrorAndKeepsOldTrust() {
     QSignalSpy states(&cm, &ConnectionManager::connectionStateChanged);
     QVERIFY(QMetaObject::invokeMethod(&cm, "onTcpConnected", Q_ARG(QString, "fp2")));
 
-    cm.trustDecision(kEp, "fp2", false);
+    cm.trustDecision(false);
 
     QVERIFY(errors.count() >= 1);
     QVERIFY(errors.last().at(0).value<RdError>().message.contains("拒绝信任"));
@@ -125,7 +126,7 @@ void ConnectionManagerTrustTest::decisionIgnoredWhenNotVerifying() {
     ConnectionManager cm(nullptr, &sm);
     QSignalSpy states(&cm, &ConnectionManager::connectionStateChanged);
 
-    cm.trustDecision("x:1", "fp", true);   // 状态为 Disconnected，应忽略
+    cm.trustDecision(true);   // 状态为 Disconnected，应忽略
 
     QVERIFY(states.isEmpty());
     QVERIFY(sm.trustedHosts().isEmpty());
@@ -219,6 +220,31 @@ void ConnectionManagerTrustTest::emptyFingerprintAbortDoesNotArmReconnect() {
     QVERIFY(errors.count() >= 1);
     QVERIFY(sawState(states, ConnectionManager::Error));
     QVERIFY(!sawState(states, ConnectionManager::Reconnecting));   // abort 不得武装自动重连
+}
+
+void ConnectionManagerTrustTest::decisionAppliesToLatestPendingFingerprint() {
+    QTemporaryDir dir; SettingsManager sm(dir.filePath("c.json")); sm.load();
+    ServerTrustStore seed(sm); seed.recordTrust(kEp, "fp1");
+    ConnectionManager cm(nullptr, &sm);
+    QSignalSpy identity(&cm, &ConnectionManager::serverIdentityChanged);
+    QSignalSpy states(&cm, &ConnectionManager::connectionStateChanged);
+
+    // 第一次变更：挂起待决，对话框将显示 fp2
+    QVERIFY(QMetaObject::invokeMethod(&cm, "onTcpConnected", Q_ARG(QString, "fp2")));
+    QCOMPARE(lastState(states), ConnectionManager::VerifyingTrust);
+
+    // 挂起期间重连且服务端再次换指纹（fp3）：待决上下文必须刷新为最新指纹
+    QVERIFY(QMetaObject::invokeMethod(&cm, "onTcpConnected", Q_ARG(QString, "fp3")));
+    QCOMPARE(identity.count(), 2);
+    QCOMPARE(identity.at(1).at(2).toString(), QString("fp3"));
+    QCOMPARE(lastState(states), ConnectionManager::VerifyingTrust);
+
+    // 用户确认：记录并重放行的必须是最新待决指纹 fp3，而非过期的 fp2
+    cm.trustDecision(true);
+
+    ServerTrustStore store(sm);
+    QCOMPARE(store.storedFingerprint(kEp), QString("fp3"));
+    QVERIFY(sawState(states, ConnectionManager::Connected));
 }
 
 QTEST_MAIN(ConnectionManagerTrustTest)

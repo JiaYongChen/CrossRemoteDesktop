@@ -242,6 +242,10 @@ void ConnectionManager::onTcpConnected(const QString& peerFingerprint) {
         case ServerTrustStore::VerifyResult::Changed: {
             const QString oldFingerprint = m_trustStore->storedFingerprint(endpoint);
             qCWarning(lcClient) << "TOFU: 服务端指纹变更，挂起等待用户确认, endpoint:" << endpoint;
+            // 待决上下文刷新为最新指纹：挂起期间重连且服务端再次换指纹时，
+            // 用户决策必须作用于最新呈现者，而非对话框最初显示的那一个
+            m_pendingTrustEndpoint = endpoint;
+            m_pendingTrustFingerprint = peerFingerprint;
             setConnectionState(VerifyingTrust);
             emit serverIdentityChanged(endpoint, oldFingerprint, peerFingerprint);
             break;
@@ -255,13 +259,19 @@ void ConnectionManager::proceedAfterTrust() {
     sendHandshakeRequest();
 }
 
-void ConnectionManager::trustDecision(const QString& endpoint, const QString& fingerprint, bool accept) {
+void ConnectionManager::trustDecision(bool accept) {
     // 守卫：仅在挂起等待决策时有效。挂起期间连接若断开，onTcpDisconnected
-    // 会同线程立即跃出 VerifyingTrust（Reconnecting/Disconnected），过期决策由状态检查天然忽略
+    // 会同线程立即跃出 VerifyingTrust（Reconnecting/Disconnected），过期决策由状态检查天然忽略。
+    // 记录的指纹取自挂起上下文（重入时已刷新为最新呈现者），而非对话框最初显示者
     if ( m_connectionState != VerifyingTrust ) {
         qCDebug(lcClient) << "trustDecision: 忽略（状态非 VerifyingTrust）";
         return;
     }
+
+    const QString endpoint = m_pendingTrustEndpoint;
+    const QString fingerprint = m_pendingTrustFingerprint;
+    m_pendingTrustEndpoint.clear();
+    m_pendingTrustFingerprint.clear();
 
     if ( accept ) {
         if ( m_trustStore ) {

@@ -250,17 +250,26 @@ void ConnectionLifecycle::showCredentialDialog(const QString& errorMessage, bool
 void ConnectionLifecycle::showTrustWarning(const QString& endpoint,
                                            const QString& oldFingerprint,
                                            const QString& newFingerprint) {
-    if (!m_window || m_dialogShowing) return;
-    m_dialogShowing = true;
+    if (!m_window) return;
+
+    // 重入（挂起决策期间指纹再次变更）：替换对话框，呈现最新指纹
+    if (m_trustDialog) {
+        m_trustDialog->deleteLater();
+        m_trustDialog = nullptr;
+    }
 
     qCWarning(lcClientRemoteWindow) << "ConnectionLifecycle: 服务端身份变更，弹出信任警告" << endpoint;
 
-    // 不 parent 到 m_window——其 WA_DeleteOnClose 会在嵌套事件循环中删除栈对象（未定义行为）
-    QDialog dialog(nullptr);
-    dialog.setWindowTitle(tr("服务端身份已变更"));
-    dialog.setMinimumWidth(420);
+    // 刻意非模态：不用 exec() 嵌套事件循环（模态会让 socket 事件在对话框栈帧"内部"
+    // 被投递，窗口可能在对话框返回前被删除 → use-after-free，且重连产生的新指纹无法刷新对话框）。
+    // parent 到窗口：窗口销毁时对话框随之删除；finished 以 this 为上下文连接，
+    // this 随窗口销毁时连接自动断开——两条路径都不会触及已释放对象
+    auto* dialog = new QDialog(m_window);
+    m_trustDialog = dialog;
+    dialog->setWindowTitle(tr("服务端身份已变更"));
+    dialog->setMinimumWidth(420);
 
-    auto* layout = new QVBoxLayout(&dialog);
+    auto* layout = new QVBoxLayout(dialog);
 
     auto* warnLabel = new QLabel(tr("警告：无法确认服务端身份"));
     warnLabel->setStyleSheet("color: #d32f2f; font-weight: bold;");
@@ -282,15 +291,30 @@ void ConnectionLifecycle::showTrustWarning(const QString& endpoint,
     buttonLayout->addWidget(cancelBtn);
     layout->addLayout(buttonLayout);
 
-    QObject::connect(trustBtn, &QPushButton::clicked, &dialog, &QDialog::accept);
-    QObject::connect(cancelBtn, &QPushButton::clicked, &dialog, &QDialog::reject);
+    QObject::connect(trustBtn, &QPushButton::clicked, dialog, &QDialog::accept);
+    QObject::connect(cancelBtn, &QPushButton::clicked, dialog, &QDialog::reject);
 
-    dialog.adjustSize();
+    QObject::connect(dialog, &QDialog::finished, this, [this, dialog](int result) {
+        m_trustDialog = nullptr;
+        dialog->deleteLater();
+        const bool accept = (result == QDialog::Accepted);
+        // 直连：ConnectionManager 同步处置（若已离开挂起态则忽略），
+        // 返回后本对象缓存的状态即为最新
+        emit trustDecision(accept);
+        // 用户拒绝，或对话框期间连接已终结 → 关闭窗口（避免遗留无响应的僵尸窗口）
+        if (!accept || m_connectionState == ConnectionManager::Disconnected
+            || m_connectionState == ConnectionManager::Error) {
+            if (m_window) {
+                m_window->close();
+            }
+        }
+    });
+
+    dialog->adjustSize();
     if (m_window->isVisible()) {
-        dialog.move(m_window->geometry().center() - dialog.rect().center());
+        dialog->move(m_window->geometry().center() - dialog->rect().center());
     }
-
-    const bool accept = (dialog.exec() == QDialog::Accepted);
-    m_dialogShowing = false;
-    emit trustDecision(endpoint, newFingerprint, accept);
+    dialog->show();
+    dialog->raise();
+    dialog->activateWindow();
 }

@@ -85,8 +85,10 @@ public:
     QString username() const { return m_username; }
     QString password() const { return m_password; }
 
-    /// 信任警告对话框的用户决策回环：accept=true 更新信任并继续，false 断开（抑制重连）
-    Q_INVOKABLE void trustDecision(const QString& endpoint, const QString& fingerprint, bool accept);
+    /// 信任警告对话框的用户决策回环：accept=true 以当前挂起上下文（最新指纹）更新信任并继续，
+    /// false 断开（抑制重连）。决策上下文由本对象持有，UI 仅回传是否接受——
+    /// 过期对话框无法把旧指纹回灌到呈现新指纹的连接上
+    Q_INVOKABLE void trustDecision(bool accept);
 
 signals:
     // 状态变化通知信号（用于 UI 状态显示）
@@ -181,6 +183,10 @@ private:
     bool m_handlingError = false;
 
     std::unique_ptr<ServerTrustStore> m_trustStore;   ///< TOFU 信任库（未注入 settings 时为空 → 旧行为）
+
+    // 挂起的信任决策上下文（VerifyingTrust 期间有效；重入时刷新为最新指纹）
+    QString m_pendingTrustEndpoint;
+    QString m_pendingTrustFingerprint;
 
 };
 
