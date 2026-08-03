@@ -1,6 +1,7 @@
 #include "server/service/TcpServer.h"
 
 #include <QtCore/QCoreApplication>
+#include <QtCore/QDateTime>
 #include <QtCore/QSet>
 #include <QtCore/QThread>
 #include <QtCore/QTimer>
@@ -196,43 +197,75 @@ bool TcpServer::generateSelfSignedCertificate() {
     // Qt 的 TLS 客户端在 client 模式握手中无条件做主机名校验（Qt 6.9 不受 VerifyNone
     // 影响且无关闭开关）：证书必须含可匹配的 SAN 才能从根源消除 HostNameMismatch。
     // TOFU 身份仍是指纹——SAN 只用于消除校验噪声，不参与信任决策。
+    // 构造失败一律中止生成：无 SAN 的证书没有用途，若落盘还会触发每次启动重生成循环。
     {
+        bool sanOk = true;
         GENERAL_NAMES* altNames = GENERAL_NAMES_new();
-        if ( altNames ) {
-            const auto addDnsName = [&altNames](const QString& dnsName) {
+        if ( !altNames ) {
+            sanOk = false;
+        }
+        if ( sanOk ) {
+            // 策略：分配/编码失败 → 中止生成（sanOk=false）；个别地址文本不可解析 → 跳过（尽力项）
+            const auto addDnsName = [&altNames, &sanOk](const QString& dnsName) {
+                if ( !sanOk ) {
+                    return;
+                }
                 const QByteArray utf8 = dnsName.toUtf8();
                 if ( utf8.isEmpty() ) {
                     return;
                 }
                 GENERAL_NAME* entry = GENERAL_NAME_new();
-                entry->type = GEN_DNS;
                 ASN1_IA5STRING* ia5 = ASN1_IA5STRING_new();
-                ASN1_STRING_set(ia5, utf8.constData(), utf8.size());
-                entry->d.dNSName = ia5;
-                sk_GENERAL_NAME_push(altNames, entry);
+                if ( !entry || !ia5
+                     || ASN1_STRING_set(ia5, utf8.constData(), utf8.size()) != 1 ) {
+                    ASN1_STRING_free(ia5);
+                    GENERAL_NAME_free(entry);
+                    sanOk = false;
+                    return;
+                }
+                entry->type = GEN_DNS;
+                entry->d.dNSName = ia5;   // entry 接管 ia5 的所有权
+                if ( sk_GENERAL_NAME_push(altNames, entry) <= 0 ) {
+                    GENERAL_NAME_free(entry);
+                    sanOk = false;
+                }
             };
-            const auto addIpAddress = [&altNames](const QHostAddress& addr) {
+            const auto addIpAddress = [&altNames, &sanOk](const QHostAddress& addr) {
+                if ( !sanOk ) {
+                    return;
+                }
                 const QByteArray text = addr.toString().toUtf8();
                 ASN1_OCTET_STRING* ip = a2i_IPADDRESS(text.constData());
                 if ( !ip ) {
+                    // 文本不可解析（如带作用域后缀的地址）：跳过该尽力项，不中止整体构造
+                    qCDebug(lcServer) << "SAN: skip unparseable address:" << text;
                     return;
                 }
                 GENERAL_NAME* entry = GENERAL_NAME_new();
+                if ( !entry ) {
+                    ASN1_OCTET_STRING_free(ip);
+                    sanOk = false;
+                    return;
+                }
                 entry->type = GEN_IPADD;
-                entry->d.iPAddress = ip;
-                sk_GENERAL_NAME_push(altNames, entry);
+                entry->d.iPAddress = ip;   // entry 接管 ip 的所有权
+                if ( sk_GENERAL_NAME_push(altNames, entry) <= 0 ) {
+                    GENERAL_NAME_free(entry);
+                    sanOk = false;
+                }
             };
 
             // DNS：localhost + 本机名（覆盖按名字连接）
             addDnsName(QStringLiteral("localhost"));
             addDnsName(QHostInfo::localHostName());
 
-            // IP：环回 + 生成时的全部本机地址（覆盖按 IP 连接；IP 变化后回退为忽略预期错误）
+            // IP：环回 + 生成时的全部本机地址（覆盖按 IP 连接；IP 变化后回退为忽略预期错误）。
+            // 排除 link-local：IPv6 link-local 文本带 %scope 后缀无法进入 SAN，IPv4 169.254/16 亦少有用
             QList<QHostAddress> ips;
             ips << QHostAddress(QHostAddress::LocalHost) << QHostAddress(QHostAddress::LocalHostIPv6);
             const QList<QHostAddress> allAddresses = QNetworkInterface::allAddresses();
             for ( const QHostAddress& addr : allAddresses ) {
-                if ( addr.isNull() || addr.isMulticast() ) {
+                if ( addr.isNull() || addr.isMulticast() || addr.isLinkLocal() ) {
                     continue;
                 }
                 ips << addr;
@@ -247,12 +280,21 @@ bool TcpServer::generateSelfSignedCertificate() {
                 addIpAddress(addr);
             }
 
-            X509_EXTENSION* ext = X509V3_EXT_i2d(NID_subject_alt_name, 0, altNames);
-            if ( ext ) {
-                X509_add_ext(x509, ext, -1);
-                X509_EXTENSION_free(ext);
-            }
+            X509_EXTENSION* ext = sanOk ? X509V3_EXT_i2d(NID_subject_alt_name, 0, altNames) : nullptr;
             GENERAL_NAMES_free(altNames);
+            if ( !sanOk || !ext || X509_add_ext(x509, ext, -1) != 1 ) {
+                X509_EXTENSION_free(ext);
+                X509_free(x509);
+                EVP_PKEY_free(pkey);
+                qCCritical(lcServer) << "Failed to build SAN extension for TLS certificate, aborting generation";
+                return false;
+            }
+            X509_EXTENSION_free(ext);
+        } else {
+            X509_free(x509);
+            EVP_PKEY_free(pkey);
+            qCCritical(lcServer) << "Failed to allocate SAN container, aborting certificate generation";
+            return false;
         }
     }
 
@@ -301,6 +343,35 @@ bool TcpServer::loadPersistedCertificate() {
     if ( cert.isNull() || key.isNull() ) {
         qCWarning(lcServer) << "Persisted TLS certificate/key unparseable, will regenerate";
         return false;
+    }
+
+    // 有效期检查：拒绝加载已过期或 30 天内到期的证书并重新生成。
+    // 否则 notAfter 一过，客户端把 CertificateExpired 当致命错误，
+    // 全体握手失败且无自愈路径（只能手工删 config.json）
+    if ( cert.expiryDate() <= QDateTime::currentDateTime().addDays(30) ) {
+        qCInfo(lcServer) << "Persisted TLS certificate expired or expiring within 30 days, will regenerate";
+        return false;
+    }
+
+    // 证书/私钥配对校验：二者可各自解析却可能来自不同批次（便携拷贝/手工编辑），
+    // 错配对被接受后服务端握手必然失败且不会自愈——X509_check_private_key 校验对应关系
+    {
+        bool pairOk = false;
+        BIO* certBio = BIO_new_mem_buf(certPem.constData(), certPem.size());
+        BIO* keyBio = BIO_new_mem_buf(keyPem.constData(), keyPem.size());
+        X509* x509 = certBio ? PEM_read_bio_X509(certBio, nullptr, nullptr, nullptr) : nullptr;
+        EVP_PKEY* pkey = keyBio ? PEM_read_bio_PrivateKey(keyBio, nullptr, nullptr, nullptr) : nullptr;
+        if ( x509 && pkey ) {
+            pairOk = (X509_check_private_key(x509, pkey) == 1);
+        }
+        EVP_PKEY_free(pkey);
+        X509_free(x509);
+        BIO_free(keyBio);
+        BIO_free(certBio);
+        if ( !pairOk ) {
+            qCWarning(lcServer) << "Persisted TLS certificate/key pair mismatch, will regenerate";
+            return false;
+        }
     }
 
     // 旧版生成的证书无 SAN，按主机名连接会触发 Qt 的 HostNameMismatch 校验噪声——
