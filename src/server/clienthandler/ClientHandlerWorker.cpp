@@ -36,6 +36,7 @@
 #include "common/error/ErrorCode.h"
 #include "common/error/RdError.h"
 #include "common/logging/LoggingCategories.h"
+#include "common/network/AppVersion.h"
 #include "common/network/Protocol.h"
 #include "common/threading/ThreadSafeQueue.h"
 #include "server/capture/ScreenCaptureWorker.h"
@@ -697,6 +698,15 @@ void ClientHandlerWorker::handleHandshakeRequest(const QByteArray& data) {
     qCDebug(lcServerClientHandler) << "客户端:" << request.clientName
                                    << "OS:" << request.clientOS
                                    << "应用版本:" << request.appVersion;
+
+    // 版本闸门：应用版本完全相等校验，先于 PBKDF2 派生——不兼容连接零成本拒绝
+    if ( !appVersionMatches(request.appVersion) ) {
+        qCWarning(lcServerClientHandler) << "客户端应用版本不兼容:" << request.appVersion
+                                         << "本机版本:" << ProtocolConstants::AppVersion
+                                         << "断开客户端:" << clientId();
+        forceDisconnect();
+        return;
+    }
 
     // 握手幂等：首个 HANDSHAKE_REQUEST 完成认证配置后不可再重跑——
     // setupAuthentication 每调用生成新随机盐并 PBKDF2 重派生 ~1.7s、盖写 AuthHandler，

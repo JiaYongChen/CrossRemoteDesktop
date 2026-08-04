@@ -281,6 +281,7 @@ add_rd_test(TARGET test_producer_consumer_integration  NAME ProducerConsumerInte
         ../src/server/simulator/InputSimulator.cpp
         ../src/server/simulator/MouseSimulator.cpp
         ../src/server/simulator/KeyboardSimulator.cpp
+        ../src/common/network/AppVersion.cpp
         ../src/common/network/ProtocolImpl.cpp
         ../src/common/network/MessageCodec.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Network Qt6::Concurrent OpenSSL::SSL OpenSSL::Crypto capture_test_core LibJpegTurbo::turbojpeg
