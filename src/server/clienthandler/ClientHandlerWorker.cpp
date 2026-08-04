@@ -696,7 +696,7 @@ void ClientHandlerWorker::handleHandshakeRequest(const QByteArray& data) {
 
     qCDebug(lcServerClientHandler) << "客户端:" << request.clientName
                                    << "OS:" << request.clientOS
-                                   << "协议版本:" << request.clientVersion;
+                                   << "应用版本:" << request.appVersion;
 
     // 握手幂等：首个 HANDSHAKE_REQUEST 完成认证配置后不可再重跑——
     // setupAuthentication 每调用生成新随机盐并 PBKDF2 重派生 ~1.7s、盖写 AuthHandler，
@@ -950,7 +950,7 @@ void ClientHandlerWorker::handleKeyboardEvent(const QByteArray& data) {
 
 void ClientHandlerWorker::deliverHandshakeResponse() {
     HandshakeResponse response;
-    response.serverVersion = ProtocolConstants::ProtocolVersion;
+    response.appVersion = QString::fromLatin1(ProtocolConstants::AppVersion);
     response.serverName = QStringLiteral("UltraDesktop Server");
 #ifdef Q_OS_WIN
     response.serverOS = QStringLiteral("Windows");

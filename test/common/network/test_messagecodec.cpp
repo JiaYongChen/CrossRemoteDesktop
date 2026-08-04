@@ -35,25 +35,25 @@ private slots:
         QVERIFY(!dst.decode(bytes.left(bytes.size() - 1))); // 截断一字节
     }
 
-    // ── HandshakeRequest（裁剪后：仅 version/name/OS）──
+    // ── HandshakeRequest（身份/应用版本/OS）──
     void handshakeRequest_roundtrip() {
         HandshakeRequest src;
-        src.clientVersion = ProtocolConstants::ProtocolVersion;
+        src.appVersion = QString::fromLatin1(ProtocolConstants::AppVersion);
         src.clientName = QStringLiteral("UltraDesktop Client");
         src.clientOS = QStringLiteral("Windows");
 
         const QByteArray bytes = src.encode();
         HandshakeRequest dst;
         QVERIFY(dst.decode(bytes));
-        QCOMPARE(dst.clientVersion, src.clientVersion);
+        QCOMPARE(dst.appVersion, src.appVersion);
         QCOMPARE(dst.clientName, src.clientName);
         QCOMPARE(dst.clientOS, src.clientOS);
     }
 
-    // ── HandshakeResponse（v3：身份字段 + 认证参数）──
+    // ── HandshakeResponse（身份字段 + 认证参数）──
     void handshakeResponse_roundtrip_passwordMode() {
         HandshakeResponse src;
-        src.serverVersion = ProtocolConstants::ProtocolVersion;
+        src.appVersion = QString::fromLatin1(ProtocolConstants::AppVersion);
         src.serverName = QStringLiteral("UltraDesktop Server");
         src.serverOS = QStringLiteral("Windows");
         src.iterations = 100000;
@@ -63,7 +63,7 @@ private slots:
         const QByteArray bytes = src.encode();
         HandshakeResponse dst;
         QVERIFY(dst.decode(bytes));
-        QCOMPARE(dst.serverVersion, src.serverVersion);
+        QCOMPARE(dst.appVersion, src.appVersion);
         QCOMPARE(dst.serverName, src.serverName);
         QCOMPARE(dst.serverOS, src.serverOS);
         QCOMPARE(dst.iterations, src.iterations);
@@ -74,7 +74,7 @@ private slots:
     // 无密码模式：盐值为空、参数为 0，客户端据此等待服务端直通认证
     void handshakeResponse_roundtrip_noPasswordMode() {
         HandshakeResponse src;
-        src.serverVersion = ProtocolConstants::ProtocolVersion;
+        src.appVersion = QString::fromLatin1(ProtocolConstants::AppVersion);
         src.serverName = QStringLiteral("UltraDesktop Server");
         src.serverOS = QStringLiteral("Linux");
 
@@ -95,13 +95,27 @@ private slots:
         QByteArray payload;
         QDataStream out(&payload, QIODevice::WriteOnly);
         out.setByteOrder(QDataStream::LittleEndian);
-        out << quint32(2);            // clientVersion
+        out << quint32(5);            // appVersion 长度=5
+        out.writeRawData("1.0.0", 5); // appVersion 数据
         out << quint32(0xFFFFFFFF);   // clientName 长度前缀（超限）
         out << quint32(2);            // 会被误读为 clientOS 长度前缀
         out.writeRawData("AB", 2);    // 会被误读为 clientOS 数据
 
         HandshakeRequest req;
         QVERIFY(!req.decode(payload));   // 畸形包必须被拒绝
+    }
+
+    void handshakeRequest_decode_oversizedAppVersion_fails() {
+        // appVersion 长度前缀 = MaxAppVersionLength+1（超限必须拒绝）
+        QByteArray payload;
+        QDataStream out(&payload, QIODevice::WriteOnly);
+        out.setByteOrder(QDataStream::LittleEndian);
+        out << quint32(ProtocolConstants::MaxAppVersionLength + 1);   // appVersion 长度前缀（超限）
+        const QByteArray filler(static_cast<int>(ProtocolConstants::MaxAppVersionLength + 1), '1');
+        out.writeRawData(filler.constData(), filler.size());
+
+        HandshakeRequest req;
+        QVERIFY(!req.decode(payload));
     }
 
     // ── ClipboardMessage（整数溢出防 DoS）──
@@ -181,7 +195,8 @@ private slots:
         QByteArray payload;
         QDataStream out(&payload, QIODevice::WriteOnly);
         out.setByteOrder(QDataStream::LittleEndian);
-        out << quint32(2);                  // clientVersion
+        out << quint32(5);                  // appVersion 长度=5
+        out.writeRawData("1.0.0", 5);       // appVersion 数据
         out << quint32(1);                  // clientName 长度=1
         const QByteArray badUtf8(1, '\xFF');  // 非法 UTF-8 字节
         out.writeRawData(badUtf8.constData(), badUtf8.size());
@@ -195,7 +210,7 @@ private slots:
         // 合法握手包尾部追加垃圾字节。修复前忽略尾部垃圾 decode 成功；
         // 修复后 decode 末尾 atEnd 检查拒绝尾部多余字节。
         HandshakeRequest src;
-        src.clientVersion = ProtocolConstants::ProtocolVersion;
+        src.appVersion = QString::fromLatin1(ProtocolConstants::AppVersion);
         src.clientName = QStringLiteral("UltraDesktop Client");
         src.clientOS = QStringLiteral("Windows");
         QByteArray payload = src.encode();
@@ -208,7 +223,7 @@ private slots:
     // ── 合法多字节 UTF-8 必须解码成功（防 UTF-8 校验误杀；中文环境计算机名/用户名）──
     void handshakeRequest_roundtrip_multibyteUtf8() {
         HandshakeRequest src;
-        src.clientVersion = ProtocolConstants::ProtocolVersion;
+        src.appVersion = QString::fromLatin1(ProtocolConstants::AppVersion);
         src.clientName = QStringLiteral("主机-电脑");   // CJK 多字节
         src.clientOS = QStringLiteral("Windows");
         const QByteArray bytes = src.encode();
@@ -221,7 +236,7 @@ private slots:
     // ── 其余解码器 atEnd 尾部垃圾拒绝（per-decoder 覆盖）──
     void handshakeResponse_decode_trailingBytes_fails() {
         HandshakeResponse src;
-        src.serverVersion = ProtocolConstants::ProtocolVersion;
+        src.appVersion = QString::fromLatin1(ProtocolConstants::AppVersion);
         src.serverName = QStringLiteral("UltraDesktop Server");
         src.serverOS = QStringLiteral("Windows");
         QByteArray payload = src.encode();
@@ -265,7 +280,8 @@ private slots:
         QByteArray payload;
         QDataStream out(&payload, QIODevice::WriteOnly);
         out.setByteOrder(QDataStream::LittleEndian);
-        out << quint32(2);                 // serverVersion
+        out << quint32(5);                 // appVersion 长度=5
+        out.writeRawData("1.0.0", 5);      // appVersion 数据
         out << quint32(1);                 // serverName 长度=1
         const QByteArray badUtf8(1, '\xFF');
         out.writeRawData(badUtf8.constData(), badUtf8.size());
@@ -303,7 +319,8 @@ private slots:
         QByteArray payload;
         QDataStream out(&payload, QIODevice::WriteOnly);
         out.setByteOrder(QDataStream::LittleEndian);
-        out << quint32(3);                 // serverVersion
+        out << quint32(5);                 // appVersion 长度=5
+        out.writeRawData("1.0.0", 5);      // appVersion 数据
         out << quint32(0);                 // serverName 空
         out << quint32(0);                 // serverOS 空
         out << quint32(100000);            // iterations

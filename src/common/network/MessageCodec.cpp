@@ -113,7 +113,7 @@ QByteArray HandshakeRequest::encode() const {
     QByteArray bytes;
     QDataStream ds(&bytes, QIODevice::WriteOnly);
     ds.setByteOrder(QDataStream::LittleEndian);
-    ds << clientVersion;
+    writePrefixedString(ds, appVersion, ProtocolConstants::MaxAppVersionLength);
     writePrefixedString(ds, clientName, ProtocolConstants::MaxHostnameLength);
     writePrefixedString(ds, clientOS, ProtocolConstants::MaxHostnameLength);
     return bytes;
@@ -122,7 +122,7 @@ QByteArray HandshakeRequest::encode() const {
 bool HandshakeRequest::decode(const QByteArray& bytes) {
     QDataStream ds(bytes);
     ds.setByteOrder(QDataStream::LittleEndian);
-    ds >> clientVersion;
+    appVersion = readPrefixedString(ds, ProtocolConstants::MaxAppVersionLength);
     clientName = readPrefixedString(ds, ProtocolConstants::MaxHostnameLength);
     clientOS = readPrefixedString(ds, ProtocolConstants::MaxHostnameLength);
     return decodeFinished(ds);
@@ -133,7 +133,7 @@ QByteArray HandshakeResponse::encode() const {
     QByteArray bytes;
     QDataStream ds(&bytes, QIODevice::WriteOnly);
     ds.setByteOrder(QDataStream::LittleEndian);
-    ds << serverVersion;
+    writePrefixedString(ds, appVersion, ProtocolConstants::MaxAppVersionLength);
     writePrefixedString(ds, serverName, ProtocolConstants::MaxHostnameLength);
     writePrefixedString(ds, serverOS, ProtocolConstants::MaxHostnameLength);
     ds << iterations;
@@ -145,7 +145,7 @@ QByteArray HandshakeResponse::encode() const {
 bool HandshakeResponse::decode(const QByteArray& bytes) {
     QDataStream ds(bytes);
     ds.setByteOrder(QDataStream::LittleEndian);
-    ds >> serverVersion;
+    appVersion = readPrefixedString(ds, ProtocolConstants::MaxAppVersionLength);
     serverName = readPrefixedString(ds, ProtocolConstants::MaxHostnameLength);
     serverOS = readPrefixedString(ds, ProtocolConstants::MaxHostnameLength);
     ds >> iterations;

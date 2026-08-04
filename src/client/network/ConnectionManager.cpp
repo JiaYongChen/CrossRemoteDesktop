@@ -576,7 +576,7 @@ void ConnectionManager::sendAuthenticationRequest() {
 
 void ConnectionManager::sendHandshakeRequest() {
     HandshakeRequest request{};
-    request.clientVersion = ProtocolConstants::ProtocolVersion;
+    request.appVersion = QString::fromLatin1(ProtocolConstants::AppVersion);
     request.clientName = QStringLiteral("UltraDesktop Client");
     request.clientOS = getClientOS();
     m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST, request);

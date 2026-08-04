@@ -18,9 +18,9 @@
 // 消息类型枚举——按功能域分段编号，每域预留 0xNN01~0xNNFF 扩展空间。
 // 低位域(0x00~0x30)为会话业务消息，高位域(0xF0)为传输层保活消息。
 enum class MessageType : quint32 {
-    // 连接与认证 (0x00xx)——v3 重排编号（认证参数随握手响应下发）
+    // 连接与认证 (0x00xx)
     HANDSHAKE_REQUEST       = 0x0001,
-    HANDSHAKE_RESPONSE      = 0x0002,   // v3 起携带认证参数（salt/PBKDF2 参数）
+    HANDSHAKE_RESPONSE      = 0x0002,   // 携带认证参数（salt/PBKDF2 参数）
     AUTHENTICATION_REQUEST  = 0x0003,
     AUTHENTICATION_RESPONSE = 0x0004,
     SESSION_CAPABILITIES    = 0x0005,   // 会话能力（编码参数）单向通知：客户端 → 服务端
@@ -103,9 +103,9 @@ struct BaseMessage : public IMessageCodec {
     [[nodiscard]] bool decode(const QByteArray& dataBuffer);
 };
 
-// 握手请求数据（仅身份/版本，不含协商参数）
+// 握手请求数据（身份/应用版本，不含协商参数）
 struct HandshakeRequest : public IMessageCodec {
-    quint32 clientVersion;
+    QString appVersion;   // 应用版本（"x.y.z"，服务端校验与本机完全相等）
     QString clientName;
     QString clientOS;
 
@@ -115,13 +115,13 @@ struct HandshakeRequest : public IMessageCodec {
     [[nodiscard]] bool decode(const QByteArray& dataBuffer);
 };
 
-// 握手响应数据（身份/版本 + 认证参数）
+// 握手响应数据（身份/应用版本 + 认证参数）
 //
-// PBKDF2 认证参数随握手响应下发（协议 v3）：
+// PBKDF2 认证参数随握手响应下发：
 // saltHex 为空 = 无密码模式（客户端等待服务端直通 AUTHENTICATION_RESPONSE）；
 // saltHex 非空 = 密码模式（客户端以 salt/iterations/keyLength 派生后发认证请求）。
 struct HandshakeResponse : public IMessageCodec {
-    quint32 serverVersion;
+    QString appVersion;   // 应用版本（"x.y.z"，客户端校验与本机完全相等）
     QString serverName;
     QString serverOS;
 
