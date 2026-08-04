@@ -230,6 +230,7 @@ add_rd_test(TARGET test_clientremotewindow  NAME ClientRemoteWindowTest
         ../src/client/network/ConnectionManager.cpp
         ../src/client/network/ServerTrustStore.cpp
         ../src/client/network/TcpClient.cpp
+        ../src/common/network/AppVersion.cpp
         ../src/common/network/ProtocolImpl.cpp
         ../src/common/network/MessageCodec.cpp
         ../src/common/clipboard/ClipboardManager.cpp
@@ -308,6 +309,7 @@ add_rd_test(TARGET test_tofu_handshake  NAME TofuHandshakeTest
         ../src/client/network/TcpClient.cpp
         ../src/client/network/ServerTrustStore.cpp
         ../src/server/service/TcpServer.cpp
+        ../src/common/network/AppVersion.cpp
         ../src/common/network/ProtocolImpl.cpp
         ../src/common/network/MessageCodec.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Network OpenSSL::SSL OpenSSL::Crypto common_test_core
@@ -342,6 +344,7 @@ add_rd_test(TARGET test_protocolsession  NAME ProtocolSessionTest
         ../src/client/network/ConnectionManager.cpp
         ../src/client/network/ServerTrustStore.cpp
         ../src/client/network/TcpClient.cpp
+        ../src/common/network/AppVersion.cpp
         ../src/common/network/ProtocolImpl.cpp
         ../src/common/network/MessageCodec.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network Qt6::OpenGL Qt6::OpenGLWidgets common_test_core OpenSSL::SSL OpenSSL::Crypto LibJpegTurbo::turbojpeg $<$<BOOL:${WIN32}>:Cuda::cudart> $<$<BOOL:${WIN32}>:Cuda::nvjpeg>
@@ -365,6 +368,7 @@ add_rd_test(TARGET test_smoke_network  NAME SmokeNetworkTest
         ../src/client/network/ConnectionManager.cpp
         ../src/client/network/ServerTrustStore.cpp
         ../src/client/network/TcpClient.cpp
+        ../src/common/network/AppVersion.cpp
         ../src/common/network/ProtocolImpl.cpp
         ../src/common/network/MessageCodec.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Network common_test_core
@@ -443,6 +447,7 @@ add_rd_test(TARGET test_connectionmanager_trust  NAME ConnectionManagerTrustTest
         ../src/client/network/ConnectionManager.cpp
         ../src/client/network/TcpClient.cpp
         ../src/client/network/ServerTrustStore.cpp
+        ../src/common/network/AppVersion.cpp
         ../src/common/network/ProtocolImpl.cpp
         ../src/common/network/MessageCodec.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Network common_test_core

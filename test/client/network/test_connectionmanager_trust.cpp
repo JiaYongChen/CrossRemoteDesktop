@@ -5,8 +5,10 @@
 
 #include "client/network/ConnectionManager.h"
 #include "client/network/ServerTrustStore.h"
+#include "common/config/ProtocolConstants.h"
 #include "common/config/SettingsManager.h"
 #include "common/error/RdError.h"
+#include "common/network/Protocol.h"
 
 namespace {
 /// 预置空 JSON，使 load() 走解析路径而非迁移路径（迁移会擦除宿主机真实遗留设置）
@@ -46,6 +48,9 @@ private slots:
     void guardDropsMessagesWhileAuthFailed();
     void emptyFingerprintAbortDoesNotArmReconnect();
     void decisionAppliesToLatestPendingFingerprint();
+    void handshakeResponseMismatchedAppVersion_emitsVersionMismatch();
+    void handshakeResponseMalformedAppVersion_emitsVersionMismatch();
+    void handshakeResponseMatchingAppVersion_proceeds();
 private:
     static constexpr const char* kEp = ":0";   // 未调用 connectToHost 时 endpoint 为 ":0"
 };
@@ -286,6 +291,70 @@ void ConnectionManagerTrustTest::decisionAppliesToLatestPendingFingerprint() {
     ServerTrustStore store(sm);
     QCOMPARE(store.storedFingerprint(kEp), QString("fp3"));
     QVERIFY(sawState(states, ConnectionManager::Connected));
+}
+
+void ConnectionManagerTrustTest::handshakeResponseMismatchedAppVersion_emitsVersionMismatch() {
+    QTemporaryDir dir; seedEmptyConfig(dir.filePath("c.json")); SettingsManager sm(dir.filePath("c.json")); sm.load();
+    ConnectionManager cm(nullptr, &sm);
+    QSignalSpy errors(&cm, &ConnectionManager::errorOccurred);
+    QSignalSpy states(&cm, &ConnectionManager::connectionStateChanged);
+    QVERIFY(QMetaObject::invokeMethod(&cm, "onTcpConnected", Q_ARG(QString, "fpV")));   // FirstUse → Connected
+    QVERIFY(sawState(states, ConnectionManager::Connected));
+
+    // 伪造版本不匹配的握手响应（追加后缀构造必然不匹配串，不硬编码版本号）
+    HandshakeResponse resp;
+    resp.appVersion = QString::fromLatin1(ProtocolConstants::AppVersion) + QStringLiteral("-other");
+    resp.serverName = QStringLiteral("UltraDesktop Server");
+    resp.serverOS = QStringLiteral("Windows");
+    QVERIFY(QMetaObject::invokeMethod(&cm, "onTcpMessageReceived",
+                                      Q_ARG(MessageType, MessageType::HANDSHAKE_RESPONSE),
+                                      Q_ARG(QByteArray, resp.encode())));
+
+    QCOMPARE(errors.count(), 1);
+    const RdError err = errors.last().at(0).value<RdError>();
+    QCOMPARE(err.code, ErrorCode::VersionMismatch);
+    QVERIFY(err.message.contains(QStringLiteral("版本不兼容")));
+}
+
+void ConnectionManagerTrustTest::handshakeResponseMalformedAppVersion_emitsVersionMismatch() {
+    QTemporaryDir dir; seedEmptyConfig(dir.filePath("c.json")); SettingsManager sm(dir.filePath("c.json")); sm.load();
+    ConnectionManager cm(nullptr, &sm);
+    QSignalSpy errors(&cm, &ConnectionManager::errorOccurred);
+    QSignalSpy states(&cm, &ConnectionManager::connectionStateChanged);
+    QVERIFY(QMetaObject::invokeMethod(&cm, "onTcpConnected", Q_ARG(QString, "fpW")));
+    QVERIFY(sawState(states, ConnectionManager::Connected));
+
+    // 畸形版本串（仅两段）同样必须拒绝
+    HandshakeResponse resp;
+    resp.appVersion = QStringLiteral("1.0");
+    resp.serverName = QStringLiteral("UltraDesktop Server");
+    resp.serverOS = QStringLiteral("Windows");
+    QVERIFY(QMetaObject::invokeMethod(&cm, "onTcpMessageReceived",
+                                      Q_ARG(MessageType, MessageType::HANDSHAKE_RESPONSE),
+                                      Q_ARG(QByteArray, resp.encode())));
+
+    QCOMPARE(errors.count(), 1);
+    QCOMPARE(errors.last().at(0).value<RdError>().code, ErrorCode::VersionMismatch);
+}
+
+void ConnectionManagerTrustTest::handshakeResponseMatchingAppVersion_proceeds() {
+    QTemporaryDir dir; seedEmptyConfig(dir.filePath("c.json")); SettingsManager sm(dir.filePath("c.json")); sm.load();
+    ConnectionManager cm(nullptr, &sm);
+    QSignalSpy errors(&cm, &ConnectionManager::errorOccurred);
+    QSignalSpy states(&cm, &ConnectionManager::connectionStateChanged);
+    QVERIFY(QMetaObject::invokeMethod(&cm, "onTcpConnected", Q_ARG(QString, "fpM")));
+    QVERIFY(sawState(states, ConnectionManager::Connected));
+
+    // 版本匹配 + saltHex 为空（无密码模式）：正常处理，无错误
+    HandshakeResponse resp;
+    resp.appVersion = QString::fromLatin1(ProtocolConstants::AppVersion);
+    resp.serverName = QStringLiteral("UltraDesktop Server");
+    resp.serverOS = QStringLiteral("Windows");
+    QVERIFY(QMetaObject::invokeMethod(&cm, "onTcpMessageReceived",
+                                      Q_ARG(MessageType, MessageType::HANDSHAKE_RESPONSE),
+                                      Q_ARG(QByteArray, resp.encode())));
+
+    QCOMPARE(errors.count(), 0);
 }
 
 QTEST_MAIN(ConnectionManagerTrustTest)

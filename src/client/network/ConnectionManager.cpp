@@ -12,6 +12,7 @@
 #include "common/config/SettingsManager.h"
 #include "common/error/RdError.h"
 #include "common/logging/LoggingCategories.h"
+#include "common/network/AppVersion.h"
 
 ConnectionManager::ConnectionManager(QObject* parent, SettingsManager* settings)
     : QObject(parent)
@@ -479,6 +480,19 @@ void ConnectionManager::handleHandshakeResponse(const QByteArray& data) {
     }
 
     qCDebug(lcClient) << "Received handshake response from server";
+
+    // 版本闸门：应用版本完全相等校验。不匹配/畸形版本直接断连——
+    // 不得继续处理认证参数，防止向不兼容对端发送 PBKDF2 密码证明
+    if ( !appVersionMatches(response.appVersion) ) {
+        const RdError error(ErrorCode::VersionMismatch,
+            tr("服务器版本不兼容：服务器 %1，本机 %2")
+                .arg(response.appVersion, QString::fromLatin1(ProtocolConstants::AppVersion)),
+            "ConnectionManager");
+        qCWarning(lcClient) << error.logLabel();
+        emit errorOccurred(error);
+        disconnectFromHost();
+        return;
+    }
 
     if ( response.saltHex.isEmpty() ) {
         // 无密码模式：等待服务端直通 AUTHENTICATION_RESPONSE，不主动发送认证请求
