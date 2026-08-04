@@ -62,7 +62,6 @@ QByteArray MessageHeader::encode() const {
     stream.setByteOrder(QDataStream::LittleEndian);
 
     stream << magic;
-    stream << version;
     stream << static_cast<quint32>(type);
     stream << length;
     stream << checksum;
@@ -81,7 +80,6 @@ bool MessageHeader::decode(const QByteArray& data) {
 
     quint32 typeValue;
     stream >> magic;
-    stream >> version;
     stream >> typeValue;
     stream >> length;
     stream >> checksum;

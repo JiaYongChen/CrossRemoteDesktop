@@ -196,7 +196,7 @@ RemoteDesktopSession（组装 + 生命周期）
 ### 网络协议（RDCP）
 
 定义在 `src/common/network/Protocol.h`：
-- 魔数：`0x52444350`，28 字节头部（魔数 + 版本 + 类型 + 长度 + 校验和 + 时间戳）
+- 魔数：`0x52444350`，24 字节头部（魔数 + 类型 + 长度 + 校验和 + 时间戳）；版本认证在握手载荷层以应用版本完全相等判定
 - 关键消息类型：HANDSHAKE, AUTHENTICATION, HEARTBEAT, SCREEN_DATA, MOUSE_EVENT, KEYBOARD_EVENT, CLIPBOARD_DATA
 - 默认端口：5921（见 `src/common/config/NetworkConstants.h`）
 - 校验和：CRC-32（非安全哈希，仅完整性校验）

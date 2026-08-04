@@ -14,7 +14,6 @@ QByteArray Protocol::createMessage(MessageType type, const IMessageCodec& messag
     // 步骤2：构建消息头
     MessageHeader header;
     header.magic = ProtocolConstants::ProtocolMagic;
-    header.version = ProtocolConstants::ProtocolVersion;
     header.type = type;
     header.length = static_cast<quint32>(payload.size());
     header.timestamp = QDateTime::currentMSecsSinceEpoch();
@@ -58,14 +57,7 @@ qsizetype Protocol::validateReceivedDataIntegrity(const QByteArray& data, Messag
         return 0;
     }
 
-    // 步骤4：验证协议版本
-    if ( header.version != ProtocolConstants::ProtocolVersion ) {
-        qCWarning(lcCoreProtocol) << "Protocol::validateReceivedDataIntegrity() - Unsupported protocol version:" << header.version
-            << "expected:" << ProtocolConstants::ProtocolVersion;
-        return 0;
-    }
-
-    // 步骤5：检查payload长度是否合理（防止恶意超大消息）
+    // 步骤4：检查payload长度是否合理（防止恶意超大消息）
     const quint32 MAX_PAYLOAD_SIZE = NetworkConstants::MaxPacketSize - ProtocolConstants::SerializedHeaderSize;
     if ( header.length > MAX_PAYLOAD_SIZE ) {
         qCWarning(lcCoreProtocol) << "Protocol::validateReceivedDataIntegrity() - Payload size too large:" << header.length
@@ -73,15 +65,15 @@ qsizetype Protocol::validateReceivedDataIntegrity(const QByteArray& data, Messag
         return 0;
     }
 
-    // 步骤6：计算完整消息需要的总长度
+    // 步骤5：计算完整消息需要的总长度
     qsizetype totalMessageSize = static_cast<qsizetype>(ProtocolConstants::SerializedHeaderSize) + static_cast<qsizetype>(header.length);
 
-    // 步骤7：检查当前接收的数据是否包含完整消息
+    // 步骤6：检查当前接收的数据是否包含完整消息
     if ( data.size() < totalMessageSize ) {
         return -1;
     }
 
-    // 步骤8：验证校验和
+    // 步骤7：验证校验和
     QByteArray payload = data.mid(static_cast<qsizetype>(ProtocolConstants::SerializedHeaderSize), static_cast<qsizetype>(header.length));
     quint32 calculatedChecksum = calculateChecksum(payload);
     if ( calculatedChecksum != header.checksum ) {

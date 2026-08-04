@@ -85,7 +85,6 @@ public:
 // 消息头结构
 struct MessageHeader : public IMessageCodec {
     quint32 magic;          // 魔数
-    quint32 version;        // 协议版本
     MessageType type;       // 消息类型
     quint32 length;         // 数据长度
     quint32 checksum;       // 校验和

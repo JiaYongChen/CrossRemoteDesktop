@@ -8,8 +8,7 @@ namespace ProtocolConstants {
 inline constexpr quint32 ProtocolMagic     = 0x52444350;   // "RDCP"
 inline constexpr char AppVersion[] = "1.0.0";       // 应用版本（握手版本认证的唯一依据）
 inline constexpr quint32 MaxAppVersionLength = 32;  // 版本字符串线上长度上限
-inline constexpr quint32 ProtocolVersion   = 3;   // v3: 认证参数并入 HANDSHAKE_RESPONSE，连接与认证消息重排编号
-inline constexpr quint32 SerializedHeaderSize{5 * sizeof(quint32) + sizeof(quint64)}; // 28 bytes, brace init prevents narrowing
+inline constexpr quint32 SerializedHeaderSize{4 * sizeof(quint32) + sizeof(quint64)}; // 24 bytes, brace init prevents narrowing
 
 // ---- 消息字段长度上限 ----
 inline constexpr quint32 MaxUsernameLength       = 256;

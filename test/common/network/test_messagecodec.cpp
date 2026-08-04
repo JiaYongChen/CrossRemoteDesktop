@@ -7,6 +7,73 @@
 class TestMessageCodec : public QObject {
     Q_OBJECT
 private slots:
+    // ── MessageHeader（24 字节帧头往返）──
+    void messageHeader_roundtrip() {
+        MessageHeader src;
+        src.magic = ProtocolConstants::ProtocolMagic;
+        src.type = MessageType::HANDSHAKE_REQUEST;
+        src.length = 42;
+        src.checksum = 0xDEADBEEF;
+        src.timestamp = 1234567890123ULL;
+
+        const QByteArray bytes = src.encode();
+        QCOMPARE(bytes.size(), static_cast<qsizetype>(ProtocolConstants::SerializedHeaderSize));
+
+        MessageHeader dst;
+        QVERIFY(dst.decode(bytes));
+        QCOMPARE(dst.magic, src.magic);
+        QCOMPARE(dst.type, src.type);
+        QCOMPARE(dst.length, src.length);
+        QCOMPARE(dst.checksum, src.checksum);
+        QCOMPARE(dst.timestamp, src.timestamp);
+    }
+
+    // ── Protocol::parseMessage（帧层解析行为）──
+    void parseMessage_completeFrame_parses() {
+        BaseMessage msg;
+        msg.data = QByteArrayLiteral("hello");
+        const QByteArray frame = Protocol::createMessage(MessageType::CLIPBOARD_DATA, msg);
+
+        MessageHeader header;
+        QByteArray payload;
+        const qsizetype consumed = Protocol::parseMessage(frame, header, payload);
+        QCOMPARE(consumed, static_cast<qsizetype>(frame.size()));
+        QCOMPARE(header.type, MessageType::CLIPBOARD_DATA);
+        QCOMPARE(payload, msg.data);
+    }
+
+    void parseMessage_incompleteFrame_returnsMinusOne() {
+        BaseMessage msg;
+        msg.data = QByteArrayLiteral("hello");
+        const QByteArray frame = Protocol::createMessage(MessageType::CLIPBOARD_DATA, msg);
+
+        MessageHeader header;
+        QByteArray payload;
+        QCOMPARE(Protocol::parseMessage(frame.left(frame.size() - 1), header, payload), qsizetype(-1));
+    }
+
+    void parseMessage_badMagic_returnsZero() {
+        BaseMessage msg;
+        msg.data = QByteArrayLiteral("hello");
+        QByteArray frame = Protocol::createMessage(MessageType::CLIPBOARD_DATA, msg);
+        frame[0] = char(0x00);   // 破坏魔数首字节（小端低位）
+
+        MessageHeader header;
+        QByteArray payload;
+        QCOMPARE(Protocol::parseMessage(frame, header, payload), qsizetype(0));
+    }
+
+    void parseMessage_badChecksum_returnsZero() {
+        BaseMessage msg;
+        msg.data = QByteArrayLiteral("hello");
+        QByteArray frame = Protocol::createMessage(MessageType::CLIPBOARD_DATA, msg);
+        frame[static_cast<int>(ProtocolConstants::SerializedHeaderSize)] = char(0x00);   // 破坏载荷使校验和失配
+
+        MessageHeader header;
+        QByteArray payload;
+        QCOMPARE(Protocol::parseMessage(frame, header, payload), qsizetype(0));
+    }
+
     // ── SessionCapabilities ──
     void sessionCapabilities_roundtrip() {
         SessionCapabilities src;
