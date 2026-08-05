@@ -258,35 +258,39 @@
     </message>
     <message>
         <source>正在验证服务端身份...</source>
-        <translation type="unfinished"></translation>
+        <translation>Verifying server identity...</translation>
     </message>
     <message>
         <source>服务端身份已变更</source>
-        <translation type="unfinished"></translation>
+        <translation>Server identity has changed</translation>
     </message>
     <message>
         <source>警告：无法确认服务端身份</source>
-        <translation type="unfinished"></translation>
+        <translation>Warning: cannot verify server identity</translation>
     </message>
     <message>
         <source>主机 %1 的证书指纹与上次记录不一致。
 这可能是中间人攻击，也可能是服务端合法重装或更换证书。
 除非你确认服务端近期重装过，否则不要继续。</source>
-        <translation type="unfinished"></translation>
+        <translation>The certificate fingerprint for host %1 does not match the previous record.
+This could indicate a man-in-the-middle attack, or the server may have been legitimately reinstalled or had its certificate replaced.
+Do not proceed unless you confirm the server was recently reinstalled.</translation>
     </message>
     <message>
         <source>原指纹：
 %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Original fingerprint:
+%1</translation>
     </message>
     <message>
         <source>新指纹：
 %1</source>
-        <translation type="unfinished"></translation>
+        <translation>New fingerprint:
+%1</translation>
     </message>
     <message>
         <source>信任新证书并连接</source>
-        <translation type="unfinished"></translation>
+        <translation>Trust new certificate and connect</translation>
     </message>
 </context>
 <context>
@@ -317,11 +321,11 @@
     </message>
     <message>
         <source>无法获取服务端证书指纹</source>
-        <translation type="unfinished"></translation>
+        <translation>Cannot obtain server certificate fingerprint</translation>
     </message>
     <message>
         <source>用户拒绝信任该服务端</source>
-        <translation type="unfinished"></translation>
+        <translation>User rejected trust for this server</translation>
     </message>
     <message>
         <source>服务器版本不兼容：服务器 %1，本机 %2</source>
