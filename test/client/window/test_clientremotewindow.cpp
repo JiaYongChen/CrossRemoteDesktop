@@ -6,9 +6,11 @@
 #include <QtGui/QPixmap>
 #include <QtGui/QFontMetrics>
 #include "client/window/ClientRemoteWindow.h"
+#include "client/window/ConnectionLifecycle.h"
 #include "client/session/ProtocolSession.h"
 #include "client/session/DecodePipeline.h"
 #include "client/network/ConnectionManager.h"
+#include "common/error/RdError.h"
 /**
  * @brief ClientRemoteWindow 组件的单元测试
  *
@@ -142,27 +144,23 @@ void TestClientRemoteWindow::testWindowTitleUpdate()
     QVERIFY(m_window->windowTitle().contains(testHost));
     
     // 测试不同连接状态下的窗口标题
-    // 注意：由于 updateWindowTitle() 在 setConnectionState() 中自动调用
-    // 我们需要先设置主机名，然后改变状态
-    
+    // 注意：updateWindowTitle() 将主机名注入 ConnectionLifecycle，
+    // 状态经其事件槽（onConnecting/onConnected/...）驱动标题更新
+
     // Connecting 状态
-    m_window->setConnectionState(ConnectionManager::Connecting);
+    m_window->connectionLifecycle()->onConnecting();
     QString title = m_window->windowTitle();
     // 标题应该包含主机名和状态信息
     QVERIFY(!title.isEmpty());
-    
+
     // Connected 状态
-    m_window->setConnectionState(ConnectionManager::Connected);
+    m_window->connectionLifecycle()->onConnected();
     title = m_window->windowTitle();
     QVERIFY(!title.isEmpty());
-    
-    // Authenticated 状态
-    m_window->setConnectionState(ConnectionManager::Authenticated);
-    title = m_window->windowTitle();
-    QVERIFY(!title.isEmpty());
-    
-    // Error 状态
-    m_window->setConnectionState(ConnectionManager::Error);
+
+    // Error 状态（ConnectionLifecycle 不管理认证状态，认证成功不驱动标题）
+    m_window->connectionLifecycle()->onErrorOccurred(
+        RdError(ErrorCode::NetworkConnectionFailed, QStringLiteral("test"), QStringLiteral("test")));
     title = m_window->windowTitle();
     QVERIFY(!title.isEmpty());
 }

@@ -430,7 +430,7 @@ add_rd_test(TARGET test_appversion  NAME AppVersionTest
 add_rd_test(TARGET test_servertruststore  NAME ServerTrustStoreTest
     SOURCES client/network/test_servertruststore.cpp
     EXTRA_SOURCES ../src/client/network/ServerTrustStore.cpp
-    LIBRARIES Qt6::Core Qt6::Test Qt6::Network common_test_core
+    LIBRARIES Qt6::Core Qt6::Test Qt6::Network OpenSSL::SSL OpenSSL::Crypto common_test_core
     TIMEOUT 30  LABELS unit client trust)
 
 # unit / server trust
@@ -450,5 +450,5 @@ add_rd_test(TARGET test_connectionmanager_trust  NAME ConnectionManagerTrustTest
         ../src/common/network/AppVersion.cpp
         ../src/common/network/ProtocolImpl.cpp
         ../src/common/network/MessageCodec.cpp
-    LIBRARIES Qt6::Core Qt6::Test Qt6::Network common_test_core
+    LIBRARIES Qt6::Core Qt6::Test Qt6::Network OpenSSL::SSL OpenSSL::Crypto common_test_core
     TIMEOUT 30  LABELS unit client trust network)

@@ -11,7 +11,7 @@ private slots:
     void messageHeader_roundtrip() {
         MessageHeader src;
         src.magic = ProtocolConstants::ProtocolMagic;
-        src.type = MessageType::HANDSHAKE_REQUEST;
+        src.type = MessageType::VERSION_EXCHANGE;
         src.length = 42;
         src.checksum = 0xDEADBEEF;
         src.timestamp = 1234567890123ULL;
@@ -74,52 +74,52 @@ private slots:
         QCOMPARE(Protocol::parseMessage(frame, header, payload), qsizetype(0));
     }
 
-    // ── SessionCapabilities ──
-    void sessionCapabilities_roundtrip() {
-        SessionCapabilities src;
+    // ── EncodePrefs（认证成功后的编码偏好单向通知）──
+    void encodePrefs_roundtrip() {
+        EncodePrefs src;
         src.imageQuality = 75;
         src.colorDepth = 24;
 
         const QByteArray bytes = src.encode();
-        SessionCapabilities dst;
+        EncodePrefs dst;
         QVERIFY(dst.decode(bytes));
         QCOMPARE(dst.imageQuality, src.imageQuality);
         QCOMPARE(dst.colorDepth, src.colorDepth);
     }
 
-    void sessionCapabilities_decode_emptyBuffer_fails() {
-        SessionCapabilities caps;
-        QVERIFY(!caps.decode(QByteArray()));
+    void encodePrefs_decode_emptyBuffer_fails() {
+        EncodePrefs prefs;
+        QVERIFY(!prefs.decode(QByteArray()));
     }
 
-    void sessionCapabilities_decode_truncatedBuffer_fails() {
-        SessionCapabilities src;
+    void encodePrefs_decode_truncatedBuffer_fails() {
+        EncodePrefs src;
         src.imageQuality = 50;
         src.colorDepth = 16;
         const QByteArray bytes = src.encode();
 
-        SessionCapabilities dst;
+        EncodePrefs dst;
         QVERIFY(!dst.decode(bytes.left(bytes.size() - 1))); // 截断一字节
     }
 
-    // ── HandshakeRequest（身份/应用版本/OS）──
-    void handshakeRequest_roundtrip() {
-        HandshakeRequest src;
+    // ── VersionExchange（身份/应用版本/OS）──
+    void versionExchange_roundtrip() {
+        VersionExchange src;
         src.appVersion = QStringLiteral("1.0.0");
         src.clientName = QStringLiteral("UltraDesktop Client");
         src.clientOS = QStringLiteral("Windows");
 
         const QByteArray bytes = src.encode();
-        HandshakeRequest dst;
+        VersionExchange dst;
         QVERIFY(dst.decode(bytes));
         QCOMPARE(dst.appVersion, src.appVersion);
         QCOMPARE(dst.clientName, src.clientName);
         QCOMPARE(dst.clientOS, src.clientOS);
     }
 
-    // ── HandshakeResponse（身份字段 + 认证参数）──
-    void handshakeResponse_roundtrip_passwordMode() {
-        HandshakeResponse src;
+    // ── VersionExchangeResponse（身份字段 + 认证参数）──
+    void versionExchangeResponse_roundtrip_passwordMode() {
+        VersionExchangeResponse src;
         src.appVersion = QStringLiteral("1.0.0");
         src.serverName = QStringLiteral("UltraDesktop Server");
         src.serverOS = QStringLiteral("Windows");
@@ -128,7 +128,7 @@ private slots:
         src.saltHex = QStringLiteral("0123456789abcdef0123456789abcdef");
 
         const QByteArray bytes = src.encode();
-        HandshakeResponse dst;
+        VersionExchangeResponse dst;
         QVERIFY(dst.decode(bytes));
         QCOMPARE(dst.appVersion, src.appVersion);
         QCOMPARE(dst.serverName, src.serverName);
@@ -139,14 +139,14 @@ private slots:
     }
 
     // 无密码模式：盐值为空、参数为 0，客户端据此等待服务端直通认证
-    void handshakeResponse_roundtrip_noPasswordMode() {
-        HandshakeResponse src;
+    void versionExchangeResponse_roundtrip_noPasswordMode() {
+        VersionExchangeResponse src;
         src.appVersion = QStringLiteral("1.0.0");
         src.serverName = QStringLiteral("UltraDesktop Server");
         src.serverOS = QStringLiteral("Linux");
 
         const QByteArray bytes = src.encode();
-        HandshakeResponse dst;
+        VersionExchangeResponse dst;
         QVERIFY(dst.decode(bytes));
         QCOMPARE(dst.iterations, quint32(0));
         QCOMPARE(dst.keyLength, quint32(0));
@@ -154,7 +154,7 @@ private slots:
     }
 
     // ── 负向用例：畸形长度前缀必须被拒绝（钉死协议健壮性契约）──
-    void handshakeRequest_decode_oversizedNameLength_fails() {
+    void versionExchange_decode_oversizedNameLength_fails() {
         // clientName 长度前缀 = 0xFFFFFFFF（远超 MaxHostnameLength=1024）。
         // readPrefixedString 修复前对此只返回空串、不置流错误也不消费字符串数据，
         // 随后 clientOS 把 name 数据前 4 字节当长度前缀误解析，decode 假成功返回 true。
@@ -168,11 +168,11 @@ private slots:
         out << quint32(2);            // 会被误读为 clientOS 长度前缀
         out.writeRawData("AB", 2);    // 会被误读为 clientOS 数据
 
-        HandshakeRequest req;
+        VersionExchange req;
         QVERIFY(!req.decode(payload));   // 畸形包必须被拒绝
     }
 
-    void handshakeRequest_decode_oversizedAppVersion_fails() {
+    void versionExchange_decode_oversizedAppVersion_fails() {
         // appVersion 长度前缀 = MaxAppVersionLength+1（超限必须拒绝）
         QByteArray payload;
         QDataStream out(&payload, QIODevice::WriteOnly);
@@ -181,7 +181,7 @@ private slots:
         const QByteArray filler(static_cast<int>(ProtocolConstants::MaxAppVersionLength + 1), '1');
         out.writeRawData(filler.constData(), filler.size());
 
-        HandshakeRequest req;
+        VersionExchange req;
         QVERIFY(!req.decode(payload));
     }
 
@@ -256,7 +256,7 @@ private slots:
     }
 
     // ── 解码层纵深防御（非法 UTF-8 / 尾部垃圾）──
-    void handshakeRequest_decode_invalidUtf8_fails() {
+    void versionExchange_decode_invalidUtf8_fails() {
         // clientName 含非法 UTF-8 字节(0xFF)。修复前静默替换为 U+FFFD 并 decode 成功；
         // 修复后 readPrefixedString 校验 UTF-8，非法内容置错误态，decode 返回 false。
         QByteArray payload;
@@ -269,56 +269,56 @@ private slots:
         out.writeRawData(badUtf8.constData(), badUtf8.size());
         out << quint32(0);                  // clientOS 空
 
-        HandshakeRequest req;
+        VersionExchange req;
         QVERIFY(!req.decode(payload));
     }
 
-    void handshakeRequest_decode_trailingBytes_fails() {
-        // 合法握手包尾部追加垃圾字节。修复前忽略尾部垃圾 decode 成功；
+    void versionExchange_decode_trailingBytes_fails() {
+        // 合法版本交换包尾部追加垃圾字节。修复前忽略尾部垃圾 decode 成功；
         // 修复后 decode 末尾 atEnd 检查拒绝尾部多余字节。
-        HandshakeRequest src;
+        VersionExchange src;
         src.appVersion = QStringLiteral("1.0.0");
         src.clientName = QStringLiteral("UltraDesktop Client");
         src.clientOS = QStringLiteral("Windows");
         QByteArray payload = src.encode();
         payload.append('\x99');             // 尾部垃圾字节
 
-        HandshakeRequest req;
+        VersionExchange req;
         QVERIFY(!req.decode(payload));
     }
 
     // ── 合法多字节 UTF-8 必须解码成功（防 UTF-8 校验误杀；中文环境计算机名/用户名）──
-    void handshakeRequest_roundtrip_multibyteUtf8() {
-        HandshakeRequest src;
+    void versionExchange_roundtrip_multibyteUtf8() {
+        VersionExchange src;
         src.appVersion = QStringLiteral("1.0.0");
         src.clientName = QStringLiteral("主机-电脑");   // CJK 多字节
         src.clientOS = QStringLiteral("Windows");
         const QByteArray bytes = src.encode();
 
-        HandshakeRequest dst;
+        VersionExchange dst;
         QVERIFY(dst.decode(bytes));
         QCOMPARE(dst.clientName, QStringLiteral("主机-电脑"));
     }
 
     // ── 其余解码器 atEnd 尾部垃圾拒绝（per-decoder 覆盖）──
-    void handshakeResponse_decode_trailingBytes_fails() {
-        HandshakeResponse src;
+    void versionExchangeResponse_decode_trailingBytes_fails() {
+        VersionExchangeResponse src;
         src.appVersion = QStringLiteral("1.0.0");
         src.serverName = QStringLiteral("UltraDesktop Server");
         src.serverOS = QStringLiteral("Windows");
         QByteArray payload = src.encode();
         payload.append('\x99');
-        HandshakeResponse dst;
+        VersionExchangeResponse dst;
         QVERIFY(!dst.decode(payload));
     }
 
-    void sessionCapabilities_decode_trailingBytes_fails() {
-        SessionCapabilities src;
+    void encodePrefs_decode_trailingBytes_fails() {
+        EncodePrefs src;
         src.imageQuality = 75;
         src.colorDepth = 24;
         QByteArray payload = src.encode();
         payload.append('\x99');
-        SessionCapabilities dst;
+        EncodePrefs dst;
         QVERIFY(!dst.decode(payload));
     }
 
@@ -343,7 +343,7 @@ private slots:
     }
 
     // ── 其余字符串解码器非法 UTF-8 拒绝 ──
-    void handshakeResponse_decode_invalidUtf8_fails() {
+    void versionExchangeResponse_decode_invalidUtf8_fails() {
         QByteArray payload;
         QDataStream out(&payload, QIODevice::WriteOnly);
         out.setByteOrder(QDataStream::LittleEndian);
@@ -353,7 +353,7 @@ private slots:
         const QByteArray badUtf8(1, '\xFF');
         out.writeRawData(badUtf8.constData(), badUtf8.size());
         out << quint32(0);                 // serverOS 空
-        HandshakeResponse dst;
+        VersionExchangeResponse dst;
         QVERIFY(!dst.decode(payload));
     }
 
@@ -381,8 +381,8 @@ private slots:
         QVERIFY(!dst.decode(payload));
     }
 
-    // 握手响应携带认证参数后，saltHex 非法 UTF-8 同样必须拒绝
-    void handshakeResponse_decode_invalidUtf8Salt_fails() {
+    // 版本交换响应携带认证参数后，saltHex 非法 UTF-8 同样必须拒绝
+    void versionExchangeResponse_decode_invalidUtf8Salt_fails() {
         QByteArray payload;
         QDataStream out(&payload, QIODevice::WriteOnly);
         out.setByteOrder(QDataStream::LittleEndian);
@@ -395,7 +395,7 @@ private slots:
         out << quint32(1);                 // saltHex 长度=1
         const QByteArray badUtf8(1, '\xFF');
         out.writeRawData(badUtf8.constData(), badUtf8.size());
-        HandshakeResponse dst;
+        VersionExchangeResponse dst;
         QVERIFY(!dst.decode(payload));
     }
 };

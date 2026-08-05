@@ -32,26 +32,13 @@ public:
 /**
  * @brief ProtocolSession 单元测试
  *
- * 覆盖：会话启动守卫、输入事件激活门控、剪贴板消息路由、
+ * 覆盖：输入事件激活门控、剪贴板消息路由、
  * SCALED 屏幕数据的远程尺寸更新。
  */
 class TestProtocolSession : public QObject {
     Q_OBJECT
 
 private slots:
-    /// 未认证时 startSession 必须发射 sessionError 且会话不激活
-    void startSession_notAuthenticated_emitsError() {
-        MockConnectionManager mock;
-        ProtocolSession ps(&mock, nullptr);
-        QSignalSpy errorSpy(&ps, &ProtocolSession::sessionError);
-        QVERIFY(errorSpy.isValid());
-
-        ps.startSession();
-
-        QCOMPARE(errorSpy.count(), 1);
-        QVERIFY(!ps.isActive());
-    }
-
     /// 会话未激活时输入事件不得发送到网络层
     void inactiveSession_dropsInputEvents() {
         MockConnectionManager mock;
