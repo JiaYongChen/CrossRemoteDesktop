@@ -72,4 +72,5 @@ private:
 
     // ── UI 层 ──
     ClientRemoteWindow* m_window = nullptr;
+    bool m_authDialogPending = false;  ///< 重入守卫：防 200ms 窗口期重复弹凭据框
 };

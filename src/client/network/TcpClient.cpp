@@ -135,6 +135,11 @@ bool TcpClient::isConnected() const {
     return m_isConnected.load(std::memory_order_acquire);
 }
 
+QSslCertificate TcpClient::peerCertificate() const {
+    if ( !m_socket ) return QSslCertificate(QByteArray(), QSsl::Pem);
+    return m_socket->peerCertificate();
+}
+
 void TcpClient::sendMessage(MessageType type, const IMessageCodec& message) {
     if ( !isConnected() ) {
         qCWarning(lcClient) << "Not connected to server";

@@ -42,6 +42,9 @@ public:
     // 连接状态
     bool isConnected() const;
 
+    /// 获取对端证书（TLS 握手完成后有效；未加密或握手失败返回 null）
+    QSslCertificate peerCertificate() const;
+
     // 消息发送 - 底层接口
     void sendMessage(MessageType type, const IMessageCodec& message);
 

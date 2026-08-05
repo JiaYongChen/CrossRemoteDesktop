@@ -104,17 +104,15 @@ void TofuHandshakeTest::firstUseVerifyNoneProceedsThenRecordedTrustVerifies() {
         cm.connectToHost("127.0.0.1", port);
         QTRY_VERIFY_WITH_TIMEOUT(connectedSpy.count() > 0, 5000);
 
-        // 首连自动记录由证书获取通道驱动（onTcpConnected 内消费）；无通道填充时信任库保持空
+        // 首连自动记录：onTcpConnected 内通过 peerCertificate() 落库
         ServerTrustStore store(clientCfg);
-        QVERIFY(!store.storedCertificate(endpoint).has_value());
+        QVERIFY(store.storedCertificate(endpoint).has_value());
         cm.disconnectFromHost();
         QTest::qWait(200);
     }
 
-    // 记录服务端证书（TOFU 首连结果落库）→ 重连走 VerifyPeer：证书匹配 → 放行
+    // 证书已自动记录 → 重连走 VerifyPeer：证书匹配 → 直接放行
     {
-        ServerTrustStore store(clientCfg);
-        store.recordTrust(endpoint, serverCert);
         ConnectionManager cm(nullptr, &clientCfg);
         QSignalSpy connectedSpy(&cm, &ConnectionManager::connected);
         cm.connectToHost("127.0.0.1", port);

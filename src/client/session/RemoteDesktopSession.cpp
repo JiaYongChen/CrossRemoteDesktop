@@ -190,15 +190,11 @@ void RemoteDesktopSession::wireSignals() {
     // ── 认证成功：启动会话 + 补发剪贴板 + 上报实际通过验证的凭据 ──
     connect(m_connectionManager, &ConnectionManager::authenticated,
             this, [this] {
-                // 同线程直接调用启动会话（全部客户端对象均驻留 Main 线程）
+                if ( !m_window ) return;
                 m_protocolSession->startSession();
-                // 认证后补发当前剪贴板：认证前发送闸门静默丢弃的本地变化
-                // （去重基线已推进，不补发则永不同步）
                 if (ClipboardManager* clipboardMgr = m_window->findChild<ClipboardManager*>()) {
                     clipboardMgr->resync();
                 }
-                // 上报实际通过验证的凭据（重试后可能与初始入参不同），
-                // 供 MainWindow 回写连接历史
                 emit authenticated(m_connectionId, m_connectionManager->username(),
                                    m_connectionManager->password());
             });
@@ -206,13 +202,24 @@ void RemoteDesktopSession::wireSignals() {
     // ── 认证失败（预期结果，非系统故障）──
     connect(m_connectionManager, &ConnectionManager::authenticationFailed,
             this, [this, lifecycle](AuthResult result, const QString& message) {
-                if (result != AuthResult::INVALID_CREDENTIALS) return;  // 终态失败不弹重输
-                // 挂起终端处理：认证失败后的断开属预期流程，不得触发关窗/断连框。
-                // 延迟弹框让 disconnected 事件先被消费，避免对话框 exec 期间窗口被关
-                lifecycle->setAuthRetryPending(true);
-                QTimer::singleShot(200, m_window, [this, message]() {
-                    showCredentialDialog(message);
-                });
+                switch ( result ) {
+                case AuthResult::INVALID_CREDENTIALS:
+                    if ( m_authDialogPending ) return;  // 重入守卫：防 200ms 窗口期重复弹框
+                    m_authDialogPending = true;
+                    lifecycle->setAuthRetryPending(true);
+                    QTimer::singleShot(200, m_window, [this, message]() {
+                        if ( m_window ) showCredentialDialog(message);
+                    });
+                    break;
+                case AuthResult::ACCESS_DENIED:
+                    // 终态：提示锁定信息后静默关窗
+                    QTimer::singleShot(200, m_window, [this, message]() {
+                        if ( !m_window ) return;
+                        QMessageBox::warning(m_window, tr("认证被拒"), message);
+                        m_window->close();
+                    });
+                    break;
+                }
             });
 
     // ── 版本不匹配（握手版本闸门不通过）──
@@ -228,7 +235,9 @@ void RemoteDesktopSession::wireSignals() {
     // ── 连接层故障 → UI + 上层（TcpClient 经 ConnectionManager 直传，保留中文诊断）──
     connect(m_connectionManager, &ConnectionManager::errorOccurred,
             this, [this](const RdError& error) {
-                m_window->connectionLifecycle()->onErrorOccurred(error);
+                if ( m_window ) {
+                    m_window->connectionLifecycle()->onErrorOccurred(error);
+                }
                 emit errorOccurred(error);
             });
 

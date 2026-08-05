@@ -58,7 +58,8 @@ void ConnectionManager::connectToHost(const QString& host, int port) {
     m_userInitiatedDisconnect = false;
     if ( m_tcpClient && (m_tcpClient->isConnected() || m_connectionTimer->isActive()) ) {
         disconnectFromHost();         // 停定时器 + 置用户主动标记
-        m_tcpClient->abort();         // abort() 同步触发 onTcpDisconnected 消费标记
+        m_tcpClient->abort();         // abort 仅 Connected 状态同步触发 onTcpDisconnected；
+        m_userInitiatedDisconnect = false;  // Connecting 状态下标记未被消费，显式清除
     }
 
     // 注入已保存的受信证书：TcpClient 以其为 CA 执行 VerifyPeer 验证；
@@ -188,11 +189,17 @@ void ConnectionManager::onTcpConnected() {
     m_reconnectArmed = false;
     emit connected();
 
-    // TOFU: 首次连接（VerifyNone 通过的）自动保存证书
-    if ( m_trustStore && !m_pendingTrustCert.isNull() ) {
-        m_trustStore->recordTrust(m_pendingTrustEndpoint, m_pendingTrustCert);
-        m_pendingTrustCert = QSslCertificate();
-        m_pendingTrustEndpoint.clear();
+    // TOFU 首连证书记录：VerifyNone 成功时 TcpClient 持有对端证书，
+    // 但尚未注入 CA → 记录后下次经 VerifyPeer 自动验证
+    if ( m_trustStore && m_tcpClient ) {
+        const QSslCertificate peerCert = m_tcpClient->peerCertificate();
+        if ( !peerCert.isNull() && !m_trustStore->storedCertificate(
+                 ServerTrustStore::endpointFor(m_currentHost, static_cast<quint16>(m_currentPort)) ) ) {
+            m_trustStore->recordTrust(
+                ServerTrustStore::endpointFor(m_currentHost, static_cast<quint16>(m_currentPort)),
+                peerCert);
+            qCInfo(lcClient) << "TOFU: 首次连接，已自动记录服务端证书";
+        }
     }
 
     sendVersionExchange();
@@ -231,11 +238,16 @@ void ConnectionManager::onTcpError(const RdError& error) {
     m_connectionTimer->stop();
     emit errorOccurred(error);
 
-    // SocketTimeoutError 等错误不自动转换 socket 状态，重连前需显式复位到
-    // UnconnectedState。abort() 同步触发 onTcpDisconnected 走统一决策路径——
-    // 无重入守卫，断连决策权全部归 onTcpDisconnected
+    // 确保 socket 回到 UnconnectedState（SocketTimeoutError 等错误不自动转换）
     if ( m_tcpClient ) {
         m_tcpClient->abort();
+    }
+    // abort() 仅 Connected/Closing 态同步触发 onTcpDisconnected——
+    // Connecting/Unconnected 态需直接调用 startAutoReconnect
+    if ( !startAutoReconnect() ) {
+        m_authenticated = false;
+        cleanupConnection();
+        emit disconnected();
     }
 }
 
@@ -251,10 +263,15 @@ void ConnectionManager::onConnectionTimeout() {
     emit errorOccurred(RdError(ErrorCode::NetworkConnectionFailed,
         QStringLiteral("连接超时"), "ConnectionManager"));
 
-    // socket 停留在 Connecting 状态，重连前需显式复位；
-    // abort() 同步触发 onTcpDisconnected 走统一决策路径
     if ( m_tcpClient ) {
         m_tcpClient->abort();
+    }
+    // abort() 仅 Connected/Closing 态同步触发 onTcpDisconnected——
+    // Connecting/Unconnected 态需直接调用 startAutoReconnect
+    if ( !startAutoReconnect() ) {
+        m_authenticated = false;
+        cleanupConnection();
+        emit disconnected();
     }
 }
 
