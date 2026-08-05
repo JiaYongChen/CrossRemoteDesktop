@@ -106,8 +106,8 @@ bool BaseMessage::decode(const QByteArray& rawData) {
     return true;
 }
 
-// HandshakeRequest 序列化和反序列化实现
-QByteArray HandshakeRequest::encode() const {
+// VersionExchange 序列化和反序列化实现
+QByteArray VersionExchange::encode() const {
     QByteArray bytes;
     QDataStream ds(&bytes, QIODevice::WriteOnly);
     ds.setByteOrder(QDataStream::LittleEndian);
@@ -117,7 +117,7 @@ QByteArray HandshakeRequest::encode() const {
     return bytes;
 }
 
-bool HandshakeRequest::decode(const QByteArray& bytes) {
+bool VersionExchange::decode(const QByteArray& bytes) {
     QDataStream ds(bytes);
     ds.setByteOrder(QDataStream::LittleEndian);
     appVersion = readPrefixedString(ds, ProtocolConstants::MaxAppVersionLength);
@@ -126,8 +126,8 @@ bool HandshakeRequest::decode(const QByteArray& bytes) {
     return decodeFinished(ds);
 }
 
-// HandshakeResponse 序列化和反序列化实现
-QByteArray HandshakeResponse::encode() const {
+// VersionExchangeResponse 序列化和反序列化实现
+QByteArray VersionExchangeResponse::encode() const {
     QByteArray bytes;
     QDataStream ds(&bytes, QIODevice::WriteOnly);
     ds.setByteOrder(QDataStream::LittleEndian);
@@ -140,7 +140,7 @@ QByteArray HandshakeResponse::encode() const {
     return bytes;
 }
 
-bool HandshakeResponse::decode(const QByteArray& bytes) {
+bool VersionExchangeResponse::decode(const QByteArray& bytes) {
     QDataStream ds(bytes);
     ds.setByteOrder(QDataStream::LittleEndian);
     appVersion = readPrefixedString(ds, ProtocolConstants::MaxAppVersionLength);
@@ -152,8 +152,8 @@ bool HandshakeResponse::decode(const QByteArray& bytes) {
     return decodeFinished(ds);
 }
 
-// SessionCapabilities 序列化和反序列化实现
-QByteArray SessionCapabilities::encode() const {
+// EncodePrefs 序列化和反序列化实现
+QByteArray EncodePrefs::encode() const {
     QByteArray bytes;
     QDataStream ds(&bytes, QIODevice::WriteOnly);
     ds.setByteOrder(QDataStream::LittleEndian);
@@ -162,7 +162,7 @@ QByteArray SessionCapabilities::encode() const {
     return bytes;
 }
 
-bool SessionCapabilities::decode(const QByteArray& bytes) {
+bool EncodePrefs::decode(const QByteArray& bytes) {
     QDataStream ds(bytes);
     ds.setByteOrder(QDataStream::LittleEndian);
     ds >> imageQuality;

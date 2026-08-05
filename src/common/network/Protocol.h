@@ -19,11 +19,11 @@
 // 低位域(0x00~0x30)为会话业务消息，高位域(0xF0)为传输层保活消息。
 enum class MessageType : quint32 {
     // 连接与认证 (0x00xx)
-    HANDSHAKE_REQUEST       = 0x0001,
-    HANDSHAKE_RESPONSE      = 0x0002,   // 携带认证参数（salt/PBKDF2 参数）
-    AUTHENTICATION_REQUEST  = 0x0003,
-    AUTHENTICATION_RESPONSE = 0x0004,
-    SESSION_CAPABILITIES    = 0x0005,   // 会话能力（编码参数）单向通知：客户端 → 服务端
+    VERSION_EXCHANGE            = 0x0001,
+    VERSION_EXCHANGE_RESPONSE   = 0x0002,   // 携带认证参数（salt/PBKDF2 参数）
+    AUTHENTICATION_REQUEST      = 0x0003,
+    AUTHENTICATION_RESPONSE     = 0x0004,
+    ENCODE_PREFS                = 0x0005,   // 编码偏好（编码参数）单向通知：客户端 → 服务端
 
     // 屏幕数据 (0x10xx)
     SCREEN_DATA             = 0x1001,
@@ -102,8 +102,8 @@ struct BaseMessage : public IMessageCodec {
     [[nodiscard]] bool decode(const QByteArray& dataBuffer);
 };
 
-// 握手请求数据（身份/应用版本，不含协商参数）
-struct HandshakeRequest : public IMessageCodec {
+// 版本交换请求数据（身份/应用版本，不含协商参数）
+struct VersionExchange : public IMessageCodec {
     QString appVersion;   // 应用版本（"x.y.z"，服务端校验与本机完全相等）
     QString clientName;
     QString clientOS;
@@ -114,12 +114,12 @@ struct HandshakeRequest : public IMessageCodec {
     [[nodiscard]] bool decode(const QByteArray& dataBuffer);
 };
 
-// 握手响应数据（身份/应用版本 + 认证参数）
+// 版本交换响应数据（身份/应用版本 + 认证参数）
 //
-// PBKDF2 认证参数随握手响应下发：
+// PBKDF2 认证参数随版本交换响应下发：
 // saltHex 为空 = 无密码模式（客户端等待服务端直通 AUTHENTICATION_RESPONSE）；
 // saltHex 非空 = 密码模式（客户端以 salt/iterations/keyLength 派生后发认证请求）。
-struct HandshakeResponse : public IMessageCodec {
+struct VersionExchangeResponse : public IMessageCodec {
     QString appVersion;   // 应用版本（"x.y.z"，客户端校验与本机完全相等）
     QString serverName;
     QString serverOS;
@@ -133,8 +133,8 @@ struct HandshakeResponse : public IMessageCodec {
     [[nodiscard]] bool decode(const QByteArray& dataBuffer);
 };
 
-// 会话能力（编码参数）——认证成功后客户端单向通知服务端
-struct SessionCapabilities : public IMessageCodec {
+// 编码偏好——认证成功后客户端单向通知服务端
+struct EncodePrefs : public IMessageCodec {
     quint8 imageQuality;  // JPEG 质量 1-100
     quint8 colorDepth;    // 色深 16/24/32
 
