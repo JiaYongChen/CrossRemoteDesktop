@@ -57,7 +57,6 @@ signals:
     void clipboardImageReceived(const QByteArray& imageData);
 
     // → UI (Main 线程，QueuedConnection)
-    void connectionStateChanged(ConnectionManager::ConnectionState state);
     void sessionError(const RdError& error);
 
 private slots:

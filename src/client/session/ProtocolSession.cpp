@@ -3,7 +3,6 @@
 #include "client/network/ConnectionManager.h"
 #include "client/session/DecodePipeline.h"
 #include "common/config/ProtocolConstants.h"
-#include "common/error/RdError.h"
 #include "common/logging/LoggingCategories.h"
 
 ProtocolSession::ProtocolSession(ConnectionManager* connectionManager,
@@ -18,8 +17,6 @@ ProtocolSession::ProtocolSession(ConnectionManager* connectionManager,
 }
 
 void ProtocolSession::setupConnections() {
-    connect(m_connectionManager, &ConnectionManager::connectionStateChanged,
-        this, &ProtocolSession::connectionStateChanged);
     connect(m_connectionManager, &ConnectionManager::errorOccurred,
         this, &ProtocolSession::sessionError);
     connect(m_connectionManager, &ConnectionManager::messageReceived,
@@ -27,20 +24,10 @@ void ProtocolSession::setupConnections() {
 }
 
 void ProtocolSession::startSession() {
-    // Task 5 重构: 移除未认证守卫（调用方在认证后才会启动会话）
-    if (!m_connectionManager || !m_connectionManager->isAuthenticated()) {
-        qCWarning(lcClientSessionProtocol) << "ProtocolSession::startSession() — not authenticated";
-        emit sessionError(RdError(ErrorCode::Unknown,
-            tr("无法启动会话 - 未认证"), "ProtocolSession"));
-        return;
-    }
-    if (!m_pipeline) {
-        // Task 8: 改为断言（管线由会话构造注入，null 属编程错误）
-        qCWarning(lcClientSessionProtocol) << "ProtocolSession::startSession() — pipeline is null";
-        emit sessionError(RdError(ErrorCode::DecodeFailed,
-            tr("解码管线未初始化"), "ProtocolSession"));
-        return;
-    }
+    // 仅在认证成功后调用（RemoteDesktopSession 于 Authenticated 状态信号中触发），
+    // 无需认证守卫；管线由构造注入，null 属编程错误
+    Q_ASSERT_X(m_pipeline, "ProtocolSession::startSession()",
+               "decode pipeline 未初始化");
     m_pipeline->start();
 }
 
