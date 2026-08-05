@@ -50,6 +50,8 @@ private slots:
         QTest::newRow("尾部空白")   << QStringLiteral("1.0.0 ");
         QTest::newRow("四位数段")   << QStringLiteral("1000.0.0");
         QTest::newRow("尾随连字符") << QStringLiteral("1.0.0-x");
+        QTest::newRow("前导零 major") << QStringLiteral("01.0.0");
+        QTest::newRow("前导零 minor") << QStringLiteral("1.00.0");
     }
 
     void parse_invalidInputs() {
