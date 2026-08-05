@@ -1,27 +1,17 @@
 #include "client/network/ServerTrustStore.h"
 
-#include <QtCore/QDateTime>
-#include <QtCore/QJsonArray>
+#include <optional>
+
 #include <QtCore/QJsonObject>
 #include <QtNetwork/QHostAddress>
+#include <QtNetwork/QSsl>
 
 #include "common/config/SettingsManager.h"
 #include "common/logging/LoggingCategories.h"
 
 namespace {
-constexpr const char* kKeyEndpoint    = "endpoint";
-constexpr const char* kKeyFingerprint = "fingerprint";
-constexpr const char* kKeyFirstSeen   = "firstSeen";
-
-/// 查找 endpoint 对应条目索引；非对象/缺 endpoint 的畸形条目自然不匹配（被跳过），未找到返回 -1
-int findEndpoint(const QJsonArray& hosts, const QString& endpoint) {
-    for (int i = 0; i < hosts.size(); ++i) {
-        if (hosts.at(i).toObject().value(kKeyEndpoint).toString() == endpoint) {
-            return i;
-        }
-    }
-    return -1;
-}
+/// 顶层 JSON 键：endpoint → PEM 证书字符串 的映射对象
+constexpr const char* kTrustedCertsKey = "trusted_certs";
 } // namespace
 
 ServerTrustStore::ServerTrustStore(SettingsManager& settings)
@@ -34,52 +24,25 @@ QString ServerTrustStore::endpointFor(const QString& host, quint16 port) {
     return QStringLiteral("%1:%2").arg(normalized).arg(port);
 }
 
-ServerTrustStore::VerifyResult ServerTrustStore::verify(const QString& endpoint,
-                                                        const QString& fingerprint) const {
-    const QJsonArray hosts = m_settings.trustedHosts();
-    const int idx = findEndpoint(hosts, endpoint);
-    if (idx < 0) {
-        return VerifyResult::FirstUse;
+std::optional<QSslCertificate> ServerTrustStore::storedCertificate(const QString& endpoint) const {
+    const QString pem = m_settings.value(kTrustedCertsKey).toJsonObject().value(endpoint).toString();
+    if (pem.isEmpty()) {
+        return std::nullopt;
     }
-    const QString stored = hosts.at(idx).toObject().value(kKeyFingerprint).toString();
-    if ( stored.isEmpty() ) {
-        return VerifyResult::FirstUse;   // 损坏条目（指纹缺失）按首连自愈重录，不误报 MITM
+    const QSslCertificate cert(pem.toUtf8(), QSsl::Pem);
+    if (cert.isNull()) {
+        return std::nullopt;
     }
-    return (stored == fingerprint) ? VerifyResult::Trusted : VerifyResult::Changed;
+    return cert;
 }
 
-void ServerTrustStore::recordTrust(const QString& endpoint, const QString& fingerprint) {
-    QJsonArray hosts = m_settings.trustedHosts();
-    const int idx = findEndpoint(hosts, endpoint);
-    const QString now = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
-
-    QJsonObject entry;
-    if (idx >= 0) {
-        entry = hosts.at(idx).toObject();   // 保留 firstSeen
-    } else {
-        entry[kKeyEndpoint] = endpoint;
-        entry[kKeyFirstSeen] = now;
-    }
-    entry[kKeyFingerprint] = fingerprint;
-
-    if (idx >= 0) {
-        hosts.replace(idx, entry);
-    } else {
-        hosts.append(entry);
-    }
-    m_settings.setTrustedHosts(hosts);
+void ServerTrustStore::recordTrust(const QString& endpoint, const QSslCertificate& cert) {
+    QJsonObject certs = m_settings.value(kTrustedCertsKey).toJsonObject();
+    certs.insert(endpoint, QString::fromLatin1(cert.toPem()));
+    m_settings.setValue(kTrustedCertsKey, certs);
     // 信任记录是安全攸关状态（丢失 = 静默失去 MITM 变更检测）：同步写穿，
     // 不依赖去抖定时器（崩溃/强杀于去抖窗口内也不丢）；写失败显性化
     if (!m_settings.save()) {
         qCWarning(lcClient) << "TOFU: 信任记录写穿失败，记录暂仅存内存（去抖/析构保存将重试）";
     }
-}
-
-QString ServerTrustStore::storedFingerprint(const QString& endpoint) const {
-    const QJsonArray hosts = m_settings.trustedHosts();
-    const int idx = findEndpoint(hosts, endpoint);
-    if (idx < 0) {
-        return {};
-    }
-    return hosts.at(idx).toObject().value(kKeyFingerprint).toString();
 }
