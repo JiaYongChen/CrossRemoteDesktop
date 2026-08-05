@@ -654,14 +654,14 @@ void ClientHandlerWorker::checkHeartbeat() {
 
 void ClientHandlerWorker::processMessage(const MessageHeader& header, const QByteArray& payload) {
     switch ( header.type ) {
-        case MessageType::HANDSHAKE_REQUEST:
-            handleHandshakeRequest(payload);
+        case MessageType::VERSION_EXCHANGE:
+            handleVersionExchange(payload);
             break;
         case MessageType::AUTHENTICATION_REQUEST:
             handleAuthenticationRequest(payload);
             break;
-        case MessageType::SESSION_CAPABILITIES:
-            handleSessionCapabilities(payload);
+        case MessageType::ENCODE_PREFS:
+            handleEncodePrefs(payload);
             break;
         case MessageType::HEARTBEAT_RESPONSE:
             handleHeartbeat();
@@ -681,14 +681,14 @@ void ClientHandlerWorker::processMessage(const MessageHeader& header, const QByt
     }
 }
 
-void ClientHandlerWorker::handleHandshakeRequest(const QByteArray& data) {
-    qCDebug(lcServerClientHandler) << "处理握手请求";
+void ClientHandlerWorker::handleVersionExchange(const QByteArray& data) {
+    qCDebug(lcServerClientHandler) << "处理版本交换请求";
 
-    HandshakeRequest request;
+    VersionExchange request;
     if (!request.decode(data)) {
-        // 握手解码失败 = 协议违规，报错并断开
+        // 版本交换解码失败 = 协议违规，报错并断开
         const RdError error(ErrorCode::DecodeFailed,
-                            QStringLiteral("握手请求解码失败"), "ClientHandlerWorker");
+                            QStringLiteral("版本交换请求解码失败"), "ClientHandlerWorker");
         qCWarning(lcServerClientHandler) << error.logLabel() << "客户端:" << clientId();
         emit errorOccurred(error);
         forceDisconnect();
@@ -708,36 +708,36 @@ void ClientHandlerWorker::handleHandshakeRequest(const QByteArray& data) {
         return;
     }
 
-    // 握手幂等：首个 HANDSHAKE_REQUEST 完成认证配置后不可再重跑——
+    // 版本交换幂等：首个 VERSION_EXCHANGE 完成认证配置后不可再重跑——
     // setupAuthentication 每调用生成新随机盐并 PBKDF2 重派生 ~1.7s、盖写 AuthHandler，
-    // 已认证和未认证的重握手均属异常（在途认证的客户端密码证明会失配）
-    if ( m_handshakeProcessed ) {
-        qCDebug(lcServerClientHandler) << "握手请求重复（已处理），忽略";
+    // 已认证和未认证的重复版本交换均属异常（在途认证的客户端密码证明会失配）
+    if ( m_versionExchangeProcessed ) {
+        qCDebug(lcServerClientHandler) << "版本交换请求重复（已处理），忽略";
         return;
     }
-    m_handshakeProcessed = true;
+    m_versionExchangeProcessed = true;
 
-    // 同步配置认证（无密码直通 / 有密码惰性 PBKDF2 派生）后下发握手响应。
-    // 派生在本线程阻塞 ~1.7s：每连接独立线程，且握手期间客户端等待响应、
+    // 同步配置认证（无密码直通 / 有密码惰性 PBKDF2 派生）后下发版本交换响应。
+    // 派生在本线程阻塞 ~1.7s：每连接独立线程，且版本交换期间客户端等待响应、
     // 无其他 socket 事件需处理，阻塞无副作用。
     setupAuthentication();
-    deliverHandshakeResponse();
+    deliverVersionExchangeResponse();
 }
 
-void ClientHandlerWorker::handleSessionCapabilities(const QByteArray& data) {
+void ClientHandlerWorker::handleEncodePrefs(const QByteArray& data) {
     // 边界守卫：未认证客户端不得影响编码器状态
     if (!m_isAuthenticated) {
-        qCDebug(lcServerClientHandler) << "忽略未认证客户端的会话能力消息:" << clientId();
+        qCDebug(lcServerClientHandler) << "忽略未认证客户端的编码偏好消息:" << clientId();
         return;
     }
 
-    SessionCapabilities caps;
+    EncodePrefs caps;
     if (!caps.decode(data)) {
-        qCWarning(lcServerClientHandler) << "会话能力消息解析失败:" << clientId();
+        qCWarning(lcServerClientHandler) << "编码偏好消息解析失败:" << clientId();
         return;   // 非致命：编码器沿用当前/默认参数
     }
 
-    qCDebug(lcServerClientHandler) << "收到会话能力: 图像质量" << caps.imageQuality
+    qCDebug(lcServerClientHandler) << "收到编码偏好: 图像质量" << caps.imageQuality
                                    << "色深" << caps.colorDepth << "客户端:" << clientId();
     emit qualitySettingsReceived(caps.imageQuality);
     emit colorDepthReceived(caps.colorDepth);
@@ -746,7 +746,7 @@ void ClientHandlerWorker::handleSessionCapabilities(const QByteArray& data) {
 void ClientHandlerWorker::handleAuthenticationRequest(const QByteArray& data) {
     qCDebug(lcServerClientHandler) << "处理认证请求";
 
-    // 边界守卫：同步握手流程下，合法客户端必先完成握手（认证配置就绪）才发认证请求；
+    // 边界守卫：同步版本交换流程下，合法客户端必先完成版本交换（认证配置就绪）才发认证请求；
     // 配置未就绪即收到认证请求 = 协议违规（未握手先认证），fail-closed 直接断连，
     // 杜绝空 digest 被 authenticate() 误判为「无密码」放行（认证绕过竞态）
     if (!m_authHandler->isConfigured()) {
@@ -958,8 +958,8 @@ void ClientHandlerWorker::handleKeyboardEvent(const QByteArray& data) {
     }
 }
 
-void ClientHandlerWorker::deliverHandshakeResponse() {
-    HandshakeResponse response;
+void ClientHandlerWorker::deliverVersionExchangeResponse() {
+    VersionExchangeResponse response;
     response.appVersion = QCoreApplication::applicationVersion();
     response.serverName = QStringLiteral("UltraDesktop Server");
 #ifdef Q_OS_WIN
@@ -975,7 +975,7 @@ void ClientHandlerWorker::deliverHandshakeResponse() {
     if (m_authHandler->hasPassword()) {
         const QByteArray salt = m_authHandler->salt();
         if (salt.isEmpty()) {
-            qCCritical(lcServerClientHandler) << "认证配置错误：盐值缺失，无法发送握手响应:" << clientId();
+            qCCritical(lcServerClientHandler) << "认证配置错误：盐值缺失，无法发送版本交换响应:" << clientId();
             sendAuthenticationResponse(AuthResult::INVALID_CREDENTIALS);
             forceDisconnect();
             return;
@@ -985,8 +985,8 @@ void ClientHandlerWorker::deliverHandshakeResponse() {
         response.saltHex = QString::fromLatin1(salt.toHex());
     }
 
-    sendMessage(MessageType::HANDSHAKE_RESPONSE, response);
-    qCDebug(lcServerClientHandler) << "发送握手响应（"
+    sendMessage(MessageType::VERSION_EXCHANGE_RESPONSE, response);
+    qCDebug(lcServerClientHandler) << "发送版本交换响应（"
         << (m_authHandler->hasPassword() ? "密码模式，携带认证参数" : "无密码模式")
         << ") 客户端:" << clientId();
 

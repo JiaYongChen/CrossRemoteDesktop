@@ -138,13 +138,13 @@ signals:
     void errorOccurred(const RdError& error);
 
     /**
-     * @brief 客户端 SESSION_CAPABILITIES 消息携带的图像质量参数
+     * @brief 客户端 ENCODE_PREFS 消息携带的图像质量参数
      * @param imageQuality JPEG 编码质量 (1-100)
      */
     void qualitySettingsReceived(int imageQuality);
 
     /**
-     * @brief 客户端 SESSION_CAPABILITIES 消息携带的色深参数
+     * @brief 客户端 ENCODE_PREFS 消息携带的色深参数
      * @param colorDepth 色深值 (16/24/32)
      */
     void colorDepthReceived(int colorDepth);
@@ -208,27 +208,27 @@ private:
     void processMessage(const MessageHeader& header, const QByteArray& payload);
 
     /**
-     * @brief 处理握手请求
+     * @brief 处理版本交换请求
      * @param data 请求数据
      */
-    void handleHandshakeRequest(const QByteArray& data);
+    void handleVersionExchange(const QByteArray& data);
 
     /**
      * @brief 同步配置认证状态（按是否设置密码分流）
      *
      * 无密码 → AuthHandler 标记直通；有密码 → 生成每连接 salt + PBKDF2 派生期望摘要。
-     * 由 handleHandshakeRequest 在本线程同步调用，随后下发握手响应。
+     * 由 handleVersionExchange 在本线程同步调用，随后下发版本交换响应。
      */
     void setupAuthentication();
 
     /**
-     * @brief 处理会话能力（编码参数）单向通知
+     * @brief 处理编码偏好（编码参数）单向通知
      *
      * 仅接受已认证客户端；解码成功后复用 qualitySettingsReceived /
      * colorDepthReceived 信号通知编码器。
      * @param data 消息数据
      */
-    void handleSessionCapabilities(const QByteArray& data);
+    void handleEncodePrefs(const QByteArray& data);
 
     /**
      * @brief 处理认证请求
@@ -260,12 +260,12 @@ private:
     void handleClipboardData(const QByteArray& data);
 
     /**
-     * @brief 发送握手响应（携带认证参数）
+     * @brief 发送版本交换响应（携带认证参数）
      *
-     * 由 handleHandshakeRequest 在 setupAuthentication 同步配置认证后调用；
+     * 由 handleVersionExchange 在 setupAuthentication 同步配置认证后调用；
      * 无密码模式同时直通认证。
      */
-    void deliverHandshakeResponse();
+    void deliverVersionExchangeResponse();
 
     /**
      * @brief 认证成功公共序列：置认证态、发会话 ID 与成功响应、发射 authenticated()
@@ -308,7 +308,7 @@ private:
     quint16 m_clientPort;                 ///< 客户端端口
     QString m_clientId;                   ///< 客户端ID
     bool m_isAuthenticated;               ///< 是否已认证
-    bool m_handshakeProcessed = false;    ///< 握手是否已处理（幂等守卫：阻止重复握手重设 AuthHandler）
+    bool m_versionExchangeProcessed = false;    ///< 版本交换是否已处理（幂等守卫：阻止重复版本交换重设 AuthHandler）
 
     // 认证（委托给 AuthHandler）
     AuthHandler* m_authHandler;           ///< 认证处理器
