@@ -27,6 +27,10 @@ public:
     void onReconnecting();
     void onErrorOccurred(const RdError& error);
 
+    /// 认证重试挂起标记：凭据/版本对话框展示期间抑制终端处理（关窗/断连框）。
+    /// 由 RemoteDesktopSession 在认证失败弹框前设置，对话框关闭后复位
+    void setAuthRetryPending(bool pending);
+
     /// 设置主机名（用于标题显示）
     void setHostName(const QString& name);
 
@@ -60,6 +64,9 @@ private:
 
     /// 是否曾建立会话（进入 Connected 后置位）——用于区分"真实会话丢失"和"初始连接失败"
     bool m_wasAuthenticated = false;
+
+    /// 认证重试挂起——凭据/版本对话框展示期间抑制终端处理（关窗/断连框）
+    bool m_authRetryPending = false;
 
     /// 弹窗重入守卫——QMessageBox::exec() 运行嵌套事件循环，
     /// 期间可能有新的状态变更触发第二次弹窗调度

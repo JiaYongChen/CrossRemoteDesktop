@@ -59,7 +59,11 @@ void ConnectionLifecycle::setDisplayState(DisplayState state) {
         dismissTrustDialog();
     }
 
-    // 终态处理：曾建立会话 → 弹断连对话框；从未建立 → 静默关闭窗口
+    // 终态处理：曾建立会话 → 弹断连对话框；从未建立 → 静默关闭窗口。
+    // 认证重试挂起（凭据/版本对话框展示中）：认证失败后的断开属于预期流程，
+    // 不触发任何终端处理，由对话框的重试/取消决定窗口去向
+    if (m_authRetryPending) return;
+
     if (state == DisplayState::Disconnected || state == DisplayState::Error) {
         if (m_wasAuthenticated) {
             qCInfo(lcClientRemoteWindow) << "ConnectionLifecycle: Connection lost, scheduling disconnection dialog";
@@ -77,6 +81,10 @@ void ConnectionLifecycle::setDisplayState(DisplayState state) {
             });
         }
     }
+}
+
+void ConnectionLifecycle::setAuthRetryPending(bool pending) {
+    m_authRetryPending = pending;
 }
 
 void ConnectionLifecycle::setHostName(const QString& name) {

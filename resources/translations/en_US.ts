@@ -193,16 +193,8 @@
         <translation>Connected</translation>
     </message>
     <message>
-        <source>已认证</source>
-        <translation>Authenticated</translation>
-    </message>
-    <message>
         <source>正在重连...</source>
         <translation>Reconnecting...</translation>
-    </message>
-    <message>
-        <source>正在断开连接...</source>
-        <translation>Disconnecting...</translation>
     </message>
     <message>
         <source>未连接</source>
@@ -211,10 +203,6 @@
     <message>
         <source>连接错误</source>
         <translation>Connection Error</translation>
-    </message>
-    <message>
-        <source>认证失败</source>
-        <translation>Authentication Failed</translation>
     </message>
     <message>
         <source>%1 [仅查看]</source>
@@ -237,28 +225,8 @@
         <translation>The window will close.</translation>
     </message>
     <message>
-        <source>用户名: %1</source>
-        <translation>Username: %1</translation>
-    </message>
-    <message>
-        <source>用户名:</source>
-        <translation>Username:</translation>
-    </message>
-    <message>
-        <source>密码:</source>
-        <translation>Password:</translation>
-    </message>
-    <message>
-        <source>重试</source>
-        <translation>Retry</translation>
-    </message>
-    <message>
         <source>取消</source>
         <translation>Cancel</translation>
-    </message>
-    <message>
-        <source>正在验证服务端身份...</source>
-        <translation>Verifying server identity...</translation>
     </message>
     <message>
         <source>服务端身份已变更</source>
@@ -304,32 +272,20 @@ Do not proceed unless you confirm the server was recently reinstalled.</translat
         <translation>Authentication Failed</translation>
     </message>
     <message>
-        <source>握手响应解码失败</source>
-        <translation>Handshake response decoding failed</translation>
-    </message>
-    <message>
         <source>认证响应解码失败</source>
         <translation>Authentication response decoding failed</translation>
-    </message>
-    <message>
-        <source>握手响应认证参数越界</source>
-        <translation>Handshake response challenge parameter out of bounds</translation>
     </message>
     <message>
         <source>认证失败：用户名或密码错误</source>
         <translation>Authentication failed: wrong username or password</translation>
     </message>
     <message>
-        <source>无法获取服务端证书指纹</source>
-        <translation>Cannot obtain server certificate fingerprint</translation>
+        <source>版本交换响应解码失败</source>
+        <translation>Version exchange response decoding failed</translation>
     </message>
     <message>
-        <source>用户拒绝信任该服务端</source>
-        <translation>User rejected trust for this server</translation>
-    </message>
-    <message>
-        <source>服务器版本不兼容：服务器 %1，本机 %2</source>
-        <translation>Server version incompatible: server %1, local %2</translation>
+        <source>版本交换响应认证参数越界</source>
+        <translation>Version exchange response authentication parameter out of bounds</translation>
     </message>
 </context>
 <context>
@@ -497,17 +453,6 @@ Do not proceed unless you confirm the server was recently reinstalled.</translat
     </message>
 </context>
 <context>
-    <name>ProtocolSession</name>
-    <message>
-        <source>无法启动会话 - 未认证</source>
-        <translation>Cannot start session - not authenticated</translation>
-    </message>
-    <message>
-        <source>解码管线未初始化</source>
-        <translation>Decode pipeline not initialized</translation>
-    </message>
-</context>
-<context>
     <name>QObject</name>
     <message>
         <source>发生严重错误：%1</source>
@@ -516,6 +461,43 @@ Do not proceed unless you confirm the server was recently reinstalled.</translat
     <message>
         <source>发生未知错误，应用程序将退出。</source>
         <translation>An unknown error occurred. The application will exit.</translation>
+    </message>
+</context>
+<context>
+    <name>RemoteDesktopSession</name>
+    <message>
+        <source>认证失败</source>
+        <translation>Authentication Failed</translation>
+    </message>
+    <message>
+        <source>用户名:</source>
+        <translation>Username:</translation>
+    </message>
+    <message>
+        <source>密码:</source>
+        <translation>Password:</translation>
+    </message>
+    <message>
+        <source>重试</source>
+        <translation>Retry</translation>
+    </message>
+    <message>
+        <source>取消</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>版本不兼容</source>
+        <translation>Version incompatible</translation>
+    </message>
+    <message>
+        <source>远程主机版本与本机不兼容。</source>
+        <translation>The remote host version is incompatible with this machine.</translation>
+    </message>
+    <message>
+        <source>远程: %1
+本机: %2</source>
+        <translation>Remote: %1
+This machine: %2</translation>
     </message>
 </context>
 <context>
@@ -651,6 +633,13 @@ Do not proceed unless you confirm the server was recently reinstalled.</translat
     <message>
         <source>用户名和密码必须同时填写或同时留空以跳过认证。</source>
         <translation>Username and password must both be filled in or both left empty to skip authentication.</translation>
+    </message>
+</context>
+<context>
+    <name>TcpClient</name>
+    <message>
+        <source>SSL 证书验证失败: %1</source>
+        <translation>SSL certificate verification failed: %1</translation>
     </message>
 </context>
 <context>

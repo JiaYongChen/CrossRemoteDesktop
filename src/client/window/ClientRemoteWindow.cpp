@@ -65,14 +65,6 @@ void ClientRemoteWindow::updateWindowTitle(const QString& title) {
     }
 }
 
-// ── Connection state (delegated) ──
-
-void ClientRemoteWindow::setConnectionState(ConnectionManager::ConnectionState state) {
-    if (m_connectionLifecycle) {
-        m_connectionLifecycle->setConnectionState(state);
-    }
-}
-
 // ── Full screen ──
 
 void ClientRemoteWindow::setFullScreen(bool fullScreen) {

@@ -1,6 +1,14 @@
 #include "RemoteDesktopSession.h"
 
+#include <QtCore/QTimer>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QDialog>
+#include <QtWidgets/QHBoxLayout>
+#include <QtWidgets/QLabel>
+#include <QtWidgets/QLineEdit>
+#include <QtWidgets/QMessageBox>
+#include <QtWidgets/QPushButton>
+#include <QtWidgets/QVBoxLayout>
 
 #include "client/decode/GpuDecodeTarget.h"
 #include "client/network/ConnectionManager.h"
@@ -14,6 +22,7 @@
 #include "common/clipboard/ClipboardManager.h"
 #include "common/config/SettingsManager.h"
 #include "common/logging/LoggingCategories.h"
+#include "common/network/Protocol.h"
 
 RemoteDesktopSession::RemoteDesktopSession(const ConnectionParams& params,
                                            const QString& connectionId,
@@ -155,12 +164,6 @@ void RemoteDesktopSession::createWindow() {
         cursorMgr->setCursorEnabled(m_params.showCursor);
     }
 
-    // ── 注入缓存的用户名到 ConnectionLifecycle（用于凭据重输对话框预填）──
-    ConnectionLifecycle* lifecycle = m_window->connectionLifecycle();
-    if (lifecycle) {
-        lifecycle->setCachedUsername(m_params.username);
-    }
-
     m_window->show();
     m_window->raise();
     m_window->activateWindow();
@@ -168,10 +171,21 @@ void RemoteDesktopSession::createWindow() {
 }
 
 void RemoteDesktopSession::wireSignals() {
-    // ── 认证成功钩子 / 错误转发 ──
-    connect(m_connectionManager, &ConnectionManager::connectionStateChanged,
-        this, [this](ConnectionManager::ConnectionState state) {
-            if (state == ConnectionManager::ConnectionState::Authenticated) {
+    ConnectionLifecycle* lifecycle = m_window->connectionLifecycle();
+
+    // ── 管道事件 → ConnectionLifecycle（驱动窗口标题与终端处理）──
+    connect(m_connectionManager, &ConnectionManager::connecting,
+            lifecycle, &ConnectionLifecycle::onConnecting);
+    connect(m_connectionManager, &ConnectionManager::connected,
+            lifecycle, &ConnectionLifecycle::onConnected);
+    connect(m_connectionManager, &ConnectionManager::disconnected,
+            lifecycle, &ConnectionLifecycle::onDisconnected);
+    connect(m_connectionManager, &ConnectionManager::reconnecting,
+            lifecycle, &ConnectionLifecycle::onReconnecting);
+
+    // ── 认证成功：启动会话 + 补发剪贴板 + 上报实际通过验证的凭据 ──
+    connect(m_connectionManager, &ConnectionManager::authenticated,
+            this, [this] {
                 // 同线程直接调用启动会话（全部客户端对象均驻留 Main 线程）
                 m_protocolSession->startSession();
                 // 认证后补发当前剪贴板：认证前发送闸门静默丢弃的本地变化
@@ -179,59 +193,48 @@ void RemoteDesktopSession::wireSignals() {
                 if (ClipboardManager* clipboardMgr = m_window->findChild<ClipboardManager*>()) {
                     clipboardMgr->resync();
                 }
-                // 认证成功：上报实际通过验证的凭据（重试后可能与初始入参不同），
+                // 上报实际通过验证的凭据（重试后可能与初始入参不同），
                 // 供 MainWindow 回写连接历史
                 emit authenticated(m_connectionId, m_connectionManager->username(),
                                    m_connectionManager->password());
-            }
-        });
+            });
 
-    // ── 连接层错误转发（TcpClient 经 ConnectionManager 直传，保留中文诊断）──
+    // ── 认证失败（预期结果，非系统故障）──
+    connect(m_connectionManager, &ConnectionManager::authenticationFailed,
+            this, [this, lifecycle](AuthResult result, const QString& message) {
+                if (result != AuthResult::INVALID_CREDENTIALS) return;  // 终态失败不弹重输
+                // 挂起终端处理：认证失败后的断开属预期流程，不得触发关窗/断连框。
+                // 延迟弹框让 disconnected 事件先被消费，避免对话框 exec 期间窗口被关
+                lifecycle->setAuthRetryPending(true);
+                QTimer::singleShot(200, this, [this, message]() {
+                    showCredentialDialog(message);
+                });
+            });
+
+    // ── 版本不匹配（握手版本闸门不通过）──
+    connect(m_connectionManager, &ConnectionManager::versionMismatched,
+            this, [this, lifecycle](const QString& serverVer, const QString& localVer) {
+                // 同样挂起终端处理：versionMismatched 后连接立即断开，
+                // 对话框 exec 期间不得触发关窗
+                lifecycle->setAuthRetryPending(true);
+                showVersionMismatchDialog(serverVer, localVer);
+                lifecycle->setAuthRetryPending(false);
+            });
+
+    // ── 连接层故障 → UI + 上层（TcpClient 经 ConnectionManager 直传，保留中文诊断）──
     connect(m_connectionManager, &ConnectionManager::errorOccurred,
-        this, &RemoteDesktopSession::errorOccurred);
+            this, [this](const RdError& error) {
+                m_window->connectionLifecycle()->onErrorOccurred(error);
+                emit errorOccurred(error);
+            });
 
     // ── 转发协议层错误 ──
     connect(m_protocolSession, &ProtocolSession::sessionError,
-        this, &RemoteDesktopSession::errorOccurred);
+            this, &RemoteDesktopSession::errorOccurred);
 
     // ── 转发解码错误（DecodeWorker 失败流首帧上报）──
     connect(m_decodePipeline, &DecodePipeline::decodeError,
-        this, &RemoteDesktopSession::errorOccurred);
-
-    // ── 状态转发到 UI ──
-    connect(m_protocolSession, &ProtocolSession::connectionStateChanged,
-        m_window, &ClientRemoteWindow::setConnectionState);
-
-    // ── 认证错误转发到 ConnectionLifecycle（用于凭据重输对话框）──
-    ConnectionLifecycle* lifecycle = m_window->connectionLifecycle();
-    if (lifecycle) {
-        // 认证失败错误消息 → 缓存到 lifecycle（先于 setConnectionState 到达）
-        connect(m_connectionManager, &ConnectionManager::errorOccurred,
-                lifecycle, [lifecycle](const RdError& error) {
-            switch (error.code) {
-            // Task 5 重构: 认证失败分类由 authenticationFailed() 信号承载（可重试/终态细分）
-            case ErrorCode::Unknown:
-                lifecycle->setAuthErrorCode(error.code);
-                lifecycle->setAuthErrorMessage(error.message);
-                break;
-            default:
-                break;
-            }
-        });
-
-        // 凭据重试 → 更新凭据并重连
-        connect(lifecycle, &ConnectionLifecycle::retryAuthRequested,
-                this, [this](const QString& username, const QString& password) {
-            m_connectionManager->updateCredentials(username, password);
-            m_connectionManager->retryAuthentication();
-        });
-
-        // ── TOFU 服务端身份信任回环 ──
-        connect(m_connectionManager, &ConnectionManager::serverIdentityChanged,
-                lifecycle, &ConnectionLifecycle::showTrustWarning);
-        connect(lifecycle, &ConnectionLifecycle::trustDecision,
-                m_connectionManager, &ConnectionManager::trustDecision);
-    }
+            this, &RemoteDesktopSession::errorOccurred);
 
     // ── 光标（cursorChanged→update 确保屏幕静止无帧时光标仍可渲染）
     CursorManager* cursorMgr = m_window->cursorManager();
@@ -300,4 +303,79 @@ void RemoteDesktopSession::close() {
 
     qCInfo(lcClientSession) << "RemoteDesktopSession::close() — completed for" << m_connectionId;
     emit finished(m_connectionId);
+}
+
+void RemoteDesktopSession::showCredentialDialog(const QString& errorMessage) {
+    if (!m_window) return;
+
+    // 不使用 m_window 作为父对象——m_window 有 WA_DeleteOnClose，
+    // 嵌套事件循环中若窗口关闭会导致 Qt 对栈对象调用 delete（未定义行为）
+    QDialog dialog(nullptr);
+    dialog.setWindowTitle(tr("认证失败"));
+    dialog.setMinimumWidth(320);
+
+    auto* layout = new QVBoxLayout(&dialog);
+
+    // 错误信息（红色）
+    auto* errorLabel = new QLabel(errorMessage);
+    errorLabel->setStyleSheet("color: #d32f2f; font-weight: bold;");
+    layout->addWidget(errorLabel);
+
+    // 用户名可编辑（服务端已统一失败响应，用户名/密码错误不可区分）
+    layout->addWidget(new QLabel(tr("用户名:")));
+    auto* usernameEdit = new QLineEdit(m_connectionManager->username());
+    layout->addWidget(usernameEdit);
+
+    // 密码（始终可编辑）
+    layout->addWidget(new QLabel(tr("密码:")));
+    auto* passwordEdit = new QLineEdit();
+    passwordEdit->setEchoMode(QLineEdit::Password);
+    layout->addWidget(passwordEdit);
+
+    // 按钮
+    auto* buttonLayout = new QHBoxLayout();
+    auto* retryBtn = new QPushButton(tr("重试"));
+    auto* cancelBtn = new QPushButton(tr("取消"));
+    buttonLayout->addStretch();
+    buttonLayout->addWidget(retryBtn);
+    buttonLayout->addWidget(cancelBtn);
+    layout->addLayout(buttonLayout);
+
+    connect(retryBtn, &QPushButton::clicked, &dialog, &QDialog::accept);
+    connect(cancelBtn, &QPushButton::clicked, &dialog, &QDialog::reject);
+
+    // 布局完成后定位到窗口中心（adjustSize 确保 rect 为实际尺寸而非默认值）
+    dialog.adjustSize();
+    if (m_window->isVisible()) {
+        dialog.move(m_window->geometry().center() - dialog.rect().center());
+    }
+
+    if (dialog.exec() == QDialog::Accepted) {
+        // 重试：更新凭据并重新发起连接（认证参数每连接由服务端重新下发）
+        m_connectionManager->updateCredentials(usernameEdit->text().trimmed(),
+                                               passwordEdit->text());
+        m_connectionManager->connectToHost(m_params.host, m_params.port);
+    } else {
+        // 取消：关闭窗口结束会话
+        m_window->close();
+    }
+
+    // 解除终端处理挂起（重试路径下 connecting 事件已先行到达，此处复位无冲突）
+    m_window->connectionLifecycle()->setAuthRetryPending(false);
+}
+
+void RemoteDesktopSession::showVersionMismatchDialog(const QString& serverVer,
+                                                     const QString& localVer) {
+    if (!m_window) return;
+
+    QMessageBox msgBox(m_window);
+    msgBox.setWindowTitle(tr("版本不兼容"));
+    msgBox.setText(tr("远程主机版本与本机不兼容。"));
+    msgBox.setInformativeText(tr("远程: %1\n本机: %2").arg(serverVer, localVer));
+    msgBox.setIcon(QMessageBox::Warning);
+    msgBox.setStandardButtons(QMessageBox::Ok);
+    msgBox.setDefaultButton(QMessageBox::Ok);
+    msgBox.exec();
+
+    m_window->close();
 }

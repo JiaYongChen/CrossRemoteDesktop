@@ -52,6 +52,12 @@ private:
     void createWindow();
     void wireSignals();
 
+    /// 凭据重输对话框（认证失败 INVALID_CREDENTIALS 时展示；重试直连重连）
+    void showCredentialDialog(const QString& errorMessage);
+
+    /// 版本不兼容对话框（握手版本闸门不通过时展示；确认后关闭窗口）
+    void showVersionMismatchDialog(const QString& serverVer, const QString& localVer);
+
     QString m_connectionId;
     ConnectionParams m_params;
     SettingsManager* m_settings = nullptr;   ///< 持久化入口（注入 ConnectionManager 启用 TOFU）

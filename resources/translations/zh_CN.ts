@@ -193,15 +193,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>已认证</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>正在重连...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>正在断开连接...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -210,10 +202,6 @@
     </message>
     <message>
         <source>连接错误</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>认证失败</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -237,27 +225,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>用户名: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>用户名:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>密码:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>重试</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>取消</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>正在验证服务端身份...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -300,15 +268,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>握手响应解码失败</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>认证响应解码失败</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>握手响应认证参数越界</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -316,15 +276,11 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>无法获取服务端证书指纹</source>
+        <source>版本交换响应解码失败</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>用户拒绝信任该服务端</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>服务器版本不兼容：服务器 %1，本机 %2</source>
+        <source>版本交换响应认证参数越界</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -493,17 +449,6 @@
     </message>
 </context>
 <context>
-    <name>ProtocolSession</name>
-    <message>
-        <source>无法启动会话 - 未认证</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>解码管线未初始化</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
     <name>QObject</name>
     <message>
         <source>发生严重错误：%1</source>
@@ -511,6 +456,42 @@
     </message>
     <message>
         <source>发生未知错误，应用程序将退出。</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>RemoteDesktopSession</name>
+    <message>
+        <source>认证失败</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>用户名:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>密码:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>重试</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>取消</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>版本不兼容</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>远程主机版本与本机不兼容。</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>远程: %1
+本机: %2</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -646,6 +627,13 @@
     </message>
     <message>
         <source>用户名和密码必须同时填写或同时留空以跳过认证。</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>TcpClient</name>
+    <message>
+        <source>SSL 证书验证失败: %1</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

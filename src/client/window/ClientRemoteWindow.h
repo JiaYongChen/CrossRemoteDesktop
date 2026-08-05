@@ -3,8 +3,6 @@
 #include <QtCore/QString>
 #include <QtWidgets/QWidget>
 
-#include "client/network/ConnectionManager.h"
-
 class ClipboardManager;
 class ConnectionLifecycle;
 class CursorManager;
@@ -27,9 +25,6 @@ public:
 
     // Window title management
     void updateWindowTitle(const QString& title);
-
-    // Connection state (delegated to ConnectionLifecycle)
-    void setConnectionState(ConnectionManager::ConnectionState state);
 
     void setFullScreen(bool fullScreen);
 
