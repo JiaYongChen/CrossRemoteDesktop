@@ -213,12 +213,15 @@ void RemoteDesktopSession::wireSignals() {
                     break;
                 case AuthResult::ACCESS_DENIED:
                     // 终态：提示锁定信息后静默关窗。
-                    // 不使用服务端 message（"认证失败：…" 前缀与锁定语义错位），
-                    // 文案明确锁定期限未知、需等待且无内联重试入口
+                    // 文案独立于 ConnectionManager 的通用"认证失败：…"前缀，
+                    // 锁定态无重试入口，提示需等待
+                    if ( m_authDialogPending ) return;
+                    m_authDialogPending = true;
                     QTimer::singleShot(200, m_window, [this]() {
-                        if ( !m_window ) return;
+                        if ( !m_window ) { m_authDialogPending = false; return; }
                         QMessageBox::warning(m_window, tr("登录已锁定"),
                             tr("尝试次数过多，账户已被暂时锁定，请稍后重试。"));
+                        m_authDialogPending = false;
                         m_window->close();
                     });
                     break;
@@ -367,17 +370,15 @@ void RemoteDesktopSession::showCredentialDialog(const QString& errorMessage) {
     }
 
     if (dialog.exec() == QDialog::Accepted) {
-        // 重试：更新凭据并重新发起连接（认证参数每连接由服务端重新下发）
         m_connectionManager->updateCredentials(usernameEdit->text().trimmed(),
                                                passwordEdit->text());
         m_connectionManager->connectToHost(m_params.host, m_params.port);
     } else {
-        // 取消：关闭窗口结束会话
         m_window->close();
     }
 
-    // 解除终端处理挂起（重试路径下 connecting 事件已先行到达，此处复位无冲突）
     m_window->connectionLifecycle()->setAuthRetryPending(false);
+    m_authDialogPending = false;   // 解除重入守卫，允许下次失败重弹
 }
 
 void RemoteDesktopSession::showVersionMismatchDialog(const QString& serverVer,
