@@ -6,6 +6,7 @@
 #include <QtCore/QObject>
 #include <QtCore/QString>
 #include <QtCore/QTimer>
+#include <QtNetwork/QSslCertificate>
 
 #include "common/error/RdError.h"
 #include "common/network/Protocol.h"
@@ -16,35 +17,25 @@ class SettingsManager;
 class TcpClient;
 
 /**
- * @brief ConnectionManager 负责管理连接、握手和认证
+ * @brief ConnectionManager 负责管理连接、版本交换和认证
  *
  * 职责：
- * - 管理连接状态和自动重连
- * - 处理握手和认证逻辑
+ * - 管理 TCP/TLS 连接和自动重连
+ * - 处理版本交换和认证逻辑
  * - 提供消息发送接口
  * - 转发消息给上层处理
  *
  * 不负责：
  * - 业务数据处理（屏幕数据、输入事件等）
  * - 这些由 ProtocolSession 处理
+ *
+ * 状态模型：不暴露状态枚举，以语义化事件信号（管道事件/会话事件/故障事件）
+ * 驱动上层。内部仅保留最小标志（m_authenticated、m_reconnectArmed）。
  */
 class ConnectionManager : public QObject {
     Q_OBJECT
 
 public:
-    enum ConnectionState {
-        Connecting,
-        VerifyingTrust,   ///< TLS 已建立，正在校验服务端身份（TOFU）；Changed 时挂起等待用户决策
-        Connected,
-        Authenticated,
-        Reconnecting,
-        Disconnecting,
-        Disconnected,
-        Error,
-        AuthFailed       ///< 认证被拒——等待凭据重输（连接存活可同连接重试；阻止自动重连）
-    };
-    Q_ENUM(ConnectionState);
-
     explicit ConnectionManager(QObject* parent = nullptr, SettingsManager* settings = nullptr);
     ~ConnectionManager();
 
@@ -62,10 +53,6 @@ public:
     /// 更新凭据（用于认证失败后重试，跨线程安全）
     Q_INVOKABLE void updateCredentials(const QString& username, const QString& password);
 
-    /// 认证失败后重试：连接仍存活且有认证参数缓存 → 同连接重发认证请求；
-    /// 否则重置状态并重新连接（ACCESS_DENIED 终局/连接已断/无认证参数缓存）
-    Q_INVOKABLE void retryAuthentication();
-
     /// 设置客户端颜色深度（在 connectToHost 前调用，由握手携带）
     void setColorDepth(int depth);
     /// 设置 JPEG 图像质量（在 connectToHost 前调用，由握手携带）
@@ -81,31 +68,30 @@ public:
     // 连接超时管理
     void setConnectionTimeout(int msecs);
 
-    /// 当前凭据（认证失败重试时会经 updateCredentials 更新；认证成功后即实际通过的凭据）
+    /// 当前凭据（认证成功后即实际通过的凭据）
     QString username() const { return m_username; }
     QString password() const { return m_password; }
 
-    /// 信任警告对话框的用户决策回环：accept=true 以当前挂起上下文（最新指纹）更新信任并继续，
-    /// false 断开（抑制重连）。决策上下文由本对象持有，UI 仅回传是否接受——
-    /// 过期对话框无法把旧指纹回灌到呈现新指纹的连接上
-    Q_INVOKABLE void trustDecision(bool accept);
-
 signals:
-    // 状态变化通知信号（用于 UI 状态显示）
-    void connectionStateChanged(ConnectionState state);
+    // 管道事件（TCP/TLS 生命周期）
+    void connecting();      ///< 连接已发起（含自动重连）
+    void connected();       ///< PKI 验证通过，管道就绪
+    void disconnected();    ///< 管道断开（用户主动或意外）
+    void reconnecting();    ///< 自动重连定时器已武装
 
-    /// 连接层错误（携带可读原因，如认证失败的具体类型）
+    // 会话事件（版本交换/认证的预期结果，非系统故障）
+    void authenticated();
+    void authenticationFailed(AuthResult result, const QString& message);
+    void versionMismatched(const QString& serverVer, const QString& localVer);
+
+    /// 连接层故障（携带可读原因，如网络错误、TLS 失败、解码失败）
     void errorOccurred(const RdError& error);
-
-    /// 服务端证书指纹与已存记录不一致——需用户确认（携带 endpoint、旧指纹、新指纹）
-    void serverIdentityChanged(const QString& endpoint, const QString& oldFingerprint,
-                               const QString& newFingerprint);
 
     // 通用消息转发信号 - 供上层业务处理
     void messageReceived(MessageType type, const QByteArray& payload);
 
 private slots:
-    void onTcpConnected(const QString& peerFingerprint);
+    void onTcpConnected();
     void onTcpDisconnected();
     void onTcpError(const RdError& error);
     void onConnectionTimeout();
@@ -113,31 +99,23 @@ private slots:
     void onTcpMessageReceived(MessageType type, const QByteArray& payload);
 
 private:
-    void setConnectionState(ConnectionState state);
     void setupTcpClient();
     void cleanupConnection();
     /// @return true 表示重连定时器已武装（含已活跃），false 表示不重连
     [[nodiscard]] bool startAutoReconnect();
     void stopAutoReconnect();
 
-    // 连接相关处理方法（握手和认证）
-    void handleHandshakeResponse(const QByteArray& data);
+    // 连接相关处理方法（版本交换和认证）
+    void handleVersionExchangeResponse(const QByteArray& data);
     void handleAuthenticationResponse(const QByteArray& data);
 
-    /// 信任校验通过后进入 Connected 并发送 RDCP 握手
-    void proceedAfterTrust();
-
-    /// 「信任门已通过」判定点：仅 Connected/Authenticated 可处理服务端消息
+    /// 管道就绪判定：TCP+TLS 已建立即可处理服务端消息
     [[nodiscard]] bool mayProcessServerMessages() const;
 
-    /// 带重入守卫的 abort：阻止 abort() 同步触发的 onTcpDisconnected 独立决策，
-    /// 每次错误处理的决策权统一保留给调用者
-    void abortGuarded();
-
-    void sendHandshakeRequest();
-    void sendSessionCapabilities();
-    /// 以当前凭据 + 缓存的认证参数派生 PBKDF2 并发送认证请求（首次应答与同连接重试共用）
-    void sendAuthenticationRequest();
+    void sendVersionExchange();
+    void sendEncodePrefs();
+    /// 以当前凭据 + 本次下发的认证参数派生 PBKDF2 并发送认证请求（参数不缓存）
+    void sendAuthenticationRequest(const QByteArray& salt, quint32 iterations, quint32 keyLength);
     QString getClientOS();
 
     /// 内部：保持 host/port 并发起 TCP 连接（供 onReconnectTimer 使用，
@@ -146,24 +124,13 @@ private:
 
 private:
     TcpClient* m_tcpClient;
-    ConnectionState m_connectionState;
     QString m_currentHost;
     int m_currentPort;
     QTimer* m_connectionTimer;
 
-    // 持久化连接目标（认证失败重试时使用，不被 cleanupConnection 清除）
-    QString m_host;
-    int m_port = 0;
-
     // 认证信息
     QString m_username;
     QString m_password;
-
-    // 认证参数缓存（同连接重试时复用 salt/参数以新凭据重派生，无需服务端重复下发）
-    bool m_hasAuthParams = false;
-    quint32 m_authIterations = 0;
-    quint32 m_authKeyLength = 0;
-    QByteArray m_authSalt;
 
     // 显示参数（由握手携带到服务端）
     int m_colorDepth = 32;
@@ -184,16 +151,17 @@ private:
     /// 不持久化——不会被 onTcpError/onConnectionTimeout 读取或修改。
     bool m_userInitiatedDisconnect = false;
 
-    /// 错误处理中的重入守卫：abortGuarded() 在 abort() 前置 true，
-    /// 阻止同步触发的 onTcpDisconnected 独立决策（state/cleanup/reconnect），
-    /// 将决策权统一保留给外层调用者（onTcpConnected 空指纹分支/onTcpError/onConnectionTimeout）。
-    bool m_handlingError = false;
+    /// 会话认证状态：认证成功后置 true，断连自动复位。仅服务于 isAuthenticated() 查询
+    bool m_authenticated = false;
+
+    /// 自动重连定时器已武装（startAutoReconnect 成功置位，连接建立/重连放弃复位）
+    bool m_reconnectArmed = false;
 
     std::unique_ptr<ServerTrustStore> m_trustStore;   ///< TOFU 信任库（未注入 settings 时为空 → 旧行为）
 
-    // 挂起的信任决策上下文（VerifyingTrust 期间有效；重入时刷新为最新指纹）
+    // 挂起的信任决策上下文（首次连接 VerifyNone 通过后暂存服务端证书，
+    // 于 onTcpConnected 自动记入信任库；填充由证书获取通道提供）
+    QSslCertificate m_pendingTrustCert;
     QString m_pendingTrustEndpoint;
-    QString m_pendingTrustFingerprint;
 
 };
-

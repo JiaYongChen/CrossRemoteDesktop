@@ -8,7 +8,6 @@
 #include "client/network/ServerTrustStore.h"
 #include "client/network/TcpClient.h"
 #include "common/config/NetworkConstants.h"
-#include "common/config/ProtocolConstants.h"
 #include "common/config/SecurityConstants.h"
 #include "common/config/SettingsManager.h"
 #include "common/error/RdError.h"
@@ -18,7 +17,6 @@
 ConnectionManager::ConnectionManager(QObject* parent, SettingsManager* settings)
     : QObject(parent)
     , m_tcpClient(nullptr)
-    , m_connectionState(Disconnected)
     , m_currentPort(0)
     , m_connectionTimer(new QTimer(this))
     , m_reconnectTimer(new QTimer(this))
@@ -56,73 +54,49 @@ ConnectionManager::~ConnectionManager() {
 // ═══════════════════════════════════════════════════════════════════
 
 void ConnectionManager::connectToHost(const QString& host, int port) {
-    // 缓存连接目标，供 retryAuthentication 使用
-    m_host = host;
-    m_port = port;
+    // 显式连接请求是新的用户意图：复位残留标记，若存在活动连接则硬断旧连接
+    m_userInitiatedDisconnect = false;
+    if ( m_tcpClient && (m_tcpClient->isConnected() || m_connectionTimer->isActive()) ) {
+        disconnectFromHost();         // 停定时器 + 置用户主动标记
+        m_tcpClient->abort();         // abort() 同步触发 onTcpDisconnected 消费标记
+    }
 
-    // 非 Disconnected/Reconnecting/AuthFailed → 同步硬断旧连接
-    if ( m_connectionState != Disconnected
-         && m_connectionState != Reconnecting
-         && m_connectionState != AuthFailed ) {
-        disconnectFromHost();         // 停定时器 + 置 Disconnecting + 置标记
-        if ( m_tcpClient ) {
-            // abort() 同步触发 onTcpDisconnected 分支1 消费 m_userInitiatedDisconnect 并清零——
-            // 此处不可用 abortGuarded()（重入守卫会阻止标志消费，使 m_userInitiatedDisconnect
-            // 滞留到新连接、静默吞掉后续所有错误/超时/自动重连）
-            m_tcpClient->abort();
+    // 注入已保存的受信证书：TcpClient 以其为 CA 执行 VerifyPeer 验证；
+    // 无记录（首次连接）不注入 → VerifyNone，由 TOFU 流程记录后经重连走验证路径
+    if ( m_trustStore ) {
+        const QString endpoint = ServerTrustStore::endpointFor(host, static_cast<quint16>(port));
+        if ( const auto cert = m_trustStore->storedCertificate(endpoint) ) {
+            m_tcpClient->setTrustedCertificate(*cert);
         }
     }
 
-    // AuthFailed 终态重试：服务端 FIN 可能尚未到达，需显式强制重置 socket 到 UnconnectedState
-    if ( m_connectionState == AuthFailed ) {
-        if ( m_tcpClient && m_tcpClient->isConnected() ) {
-            abortGuarded();   // 阻止同步的 onTcpDisconnected 执行 cleanupConnection——sendAuthenticationRequest 接下来的连接会自行初始化
-        }
-    }
+    // 新连接开始前复位认证状态（认证参数每连接由服务端重新下发）
+    m_authenticated = false;
 
-    // 显式连接请求重置预算
-    m_currentReconnectAttempts = 0;
-
+    emit connecting();
     startConnection(host, port);
 }
 
 void ConnectionManager::disconnectFromHost() {
     stopAutoReconnect();
+    m_reconnectArmed = false;
 
-    if ( m_connectionState == Disconnected ) {
-        return;
-    }
-
-    // Error/AuthFailed 态 + socket 已死 → 无 disconnected 信号会来，直接收敛
-    if ( m_tcpClient && !m_tcpClient->isConnected()
-         && (m_connectionState == Error || m_connectionState == AuthFailed) ) {
-        m_currentReconnectAttempts = 0;
-        cleanupConnection();
-        setConnectionState(Disconnected);
+    // 无活动连接（已断开或从未连接）→ 幂等返回，无 disconnected 信号会来
+    if ( !m_tcpClient || (!m_tcpClient->isConnected() && !m_connectionTimer->isActive()) ) {
         return;
     }
 
     m_currentReconnectAttempts = 0;
-    setConnectionState(Disconnecting);
     m_connectionTimer->stop();
-
-    // 仅在实际将产生异步 disconnected 信号时置标记（提前返回路径已排除）
     m_userInitiatedDisconnect = true;
 
-    if ( m_tcpClient ) {
-        m_tcpClient->disconnectFromHost();
-    }
+    m_tcpClient->disconnectFromHost();
 }
 
 void ConnectionManager::startConnection(const QString& host, int port) {
     m_currentHost = host;
     m_currentPort = port;
 
-    // 新连接的认证参数由服务端重新下发，旧连接的认证参数缓存作废
-    m_hasAuthParams = false;
-    m_authSalt.clear();
-
-    setConnectionState(Connecting);
     m_connectionTimer->start();
     m_tcpClient->connectToHost(host, port);
 }
@@ -137,7 +111,7 @@ bool ConnectionManager::isConnected() const {
 }
 
 bool ConnectionManager::isAuthenticated() const {
-    return m_connectionState == Authenticated;
+    return m_authenticated;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -161,6 +135,7 @@ void ConnectionManager::setAutoReconnect(bool enable) {
     m_autoReconnect = enable;
     if ( !enable ) {
         stopAutoReconnect();
+        m_reconnectArmed = false;
         m_currentReconnectAttempts = 0;
     }
 }
@@ -177,11 +152,12 @@ void ConnectionManager::setConnectionTimeout(int msecs) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// 自动重连 — FSM 单一权威入口（调用方不预置状态，以返回值驱动）
+// 自动重连 — 单一决策点（调用方不预置状态，以返回值驱动）
 // ═══════════════════════════════════════════════════════════════════
 
 bool ConnectionManager::startAutoReconnect() {
     if ( !m_autoReconnect || m_currentReconnectAttempts >= m_maxReconnectAttempts ) {
+        m_reconnectArmed = false;
         return false;
     }
 
@@ -193,7 +169,8 @@ bool ConnectionManager::startAutoReconnect() {
     m_currentReconnectAttempts++;
     m_reconnectTimer->setInterval(m_reconnectInterval);
     m_reconnectTimer->start();
-    setConnectionState(Reconnecting);
+    m_reconnectArmed = true;
+    emit reconnecting();
     return true;
 }
 
@@ -205,129 +182,44 @@ void ConnectionManager::stopAutoReconnect() {
 // 事件处理
 // ═══════════════════════════════════════════════════════════════════
 
-void ConnectionManager::onTcpConnected(const QString& peerFingerprint) {
+void ConnectionManager::onTcpConnected() {
     m_connectionTimer->stop();
     stopAutoReconnect();
+    m_reconnectArmed = false;
+    emit connected();
 
-    // 未启用信任库（测试/未注入配置）→ 维持原有行为，直通
-    if ( !m_trustStore ) {
-        proceedAfterTrust();
-        return;
+    // TOFU: 首次连接（VerifyNone 通过的）自动保存证书
+    if ( m_trustStore && !m_pendingTrustCert.isNull() ) {
+        m_trustStore->recordTrust(m_pendingTrustEndpoint, m_pendingTrustCert);
+        m_pendingTrustCert = QSslCertificate();
+        m_pendingTrustEndpoint.clear();
     }
 
-    // 空指纹守卫：TLS 完成却拿不到对端证书 → 致命，中止
-    if ( peerFingerprint.isEmpty() ) {
-        const RdError error(ErrorCode::NetworkTlsError,
-                            tr("无法获取服务端证书指纹"), "ConnectionManager");
-        qCWarning(lcClient) << error.logLabel();
-        emit errorOccurred(error);
-        abortGuarded();   // 防同步 onTcpDisconnected 武装自动重连（会被下方 Error 覆盖致定时器哑火）
-        setConnectionState(Error);
-        return;
-    }
-
-    const QString endpoint = ServerTrustStore::endpointFor(
-        m_currentHost, static_cast<quint16>(m_currentPort));
-    switch ( m_trustStore->verify(endpoint, peerFingerprint) ) {
-        case ServerTrustStore::VerifyResult::FirstUse:
-            m_trustStore->recordTrust(endpoint, peerFingerprint);
-            qCInfo(lcClient) << "TOFU: 首次信任并记录服务端指纹, endpoint:" << endpoint;
-            proceedAfterTrust();
-            break;
-        case ServerTrustStore::VerifyResult::Trusted:
-            // 纯放行：无时间戳字段需刷新，避免每次受信重连触发整份配置重写
-            qCDebug(lcClient) << "TOFU: 服务端指纹匹配, endpoint:" << endpoint;
-            proceedAfterTrust();
-            break;
-        case ServerTrustStore::VerifyResult::Changed: {
-            const QString oldFingerprint = m_trustStore->storedFingerprint(endpoint);
-            qCWarning(lcClient) << "TOFU: 服务端指纹变更，挂起等待用户确认, endpoint:" << endpoint;
-            // 待决上下文刷新为最新指纹：挂起期间重连且服务端再次换指纹时，
-            // 用户决策必须作用于最新呈现者，而非对话框最初显示的那一个
-            m_pendingTrustEndpoint = endpoint;
-            m_pendingTrustFingerprint = peerFingerprint;
-            // 信任挂起期间暂停心跳超时检查：服务端认证前不发心跳，m_lastHeartbeat
-            // 在 TLS 完成时冻结为连接时刻，25s 后强杀——用户比对指纹超时即断
-            if ( m_tcpClient ) {
-                m_tcpClient->pauseHeartbeat();
-            }
-            setConnectionState(VerifyingTrust);
-            emit serverIdentityChanged(endpoint, oldFingerprint, peerFingerprint);
-            break;
-        }
-    }
-}
-
-void ConnectionManager::proceedAfterTrust() {
-    // 不在此清零计数——TCP 成功 ≠ 认证成功，预算只在用户 connectToHost 和认证成功时复位
-    if ( m_tcpClient ) {
-        m_tcpClient->resumeHeartbeat();
-    }
-    setConnectionState(Connected);
-    sendHandshakeRequest();
-}
-
-void ConnectionManager::trustDecision(bool accept) {
-    // 守卫：仅在挂起等待决策时有效。挂起期间连接若断开，onTcpDisconnected
-    // 会同线程立即跃出 VerifyingTrust（Reconnecting/Disconnected），过期决策由状态检查天然忽略。
-    // 记录的指纹取自挂起上下文（重入时已刷新为最新呈现者），而非对话框最初显示者
-    if ( m_connectionState != VerifyingTrust ) {
-        qCDebug(lcClient) << "trustDecision: 忽略（状态非 VerifyingTrust）";
-        return;
-    }
-
-    const QString endpoint = m_pendingTrustEndpoint;
-    const QString fingerprint = m_pendingTrustFingerprint;
-    m_pendingTrustEndpoint.clear();
-    m_pendingTrustFingerprint.clear();
-
-    if ( accept ) {
-        m_trustStore->recordTrust(endpoint, fingerprint);   // VerifyingTrust 仅在信任库非空时可达
-        qCInfo(lcClient) << "TOFU: 用户确认信任新指纹, endpoint:" << endpoint;
-        proceedAfterTrust();
-    } else {
-        qCInfo(lcClient) << "TOFU: 用户拒绝信任，断开连接, endpoint:" << endpoint;
-        emit errorOccurred(RdError(ErrorCode::NetworkConnectionFailed,
-                                   tr("用户拒绝信任该服务端"), "ConnectionManager"));
-        disconnectFromHost();   // 用户主动断开路径——抑制自动重连，避免对话框死循环
-    }
+    sendVersionExchange();
 }
 
 void ConnectionManager::onTcpDisconnected() {
     m_connectionTimer->stop();
-
-    // ── 重入守卫：在 onTcpError/onConnectionTimeout 内部由 abort() 触发时，
-    // 不独立做状态决策——由外层错误/超时处理函数统一负责重连/清理。
-    if ( m_handlingError ) {
-        return;
-    }
+    m_authenticated = false;
 
     // ── 分支 1：用户主动断开 ──
     if ( m_userInitiatedDisconnect ) {
         m_userInitiatedDisconnect = false;
         m_currentReconnectAttempts = 0;
-        setConnectionState(Disconnected);
         cleanupConnection();
+        emit disconnected();
         return;
     }
 
-    // ── 分支 2：AuthFailed 永久终端态 → 收敛 Disconnected ──
-    if ( m_connectionState == AuthFailed ) {
-        setConnectionState(Disconnected);
-        cleanupConnection();
-        return;
-    }
-
-    // ── 分支 3：意外断线 — startAutoReconnect 单一决策点 ──
-    // 调用方不预置状态：startAutoReconnect 成功返回则状态已为 Reconnecting，
-    // 失败（!autoReconnect || 预算耗尽）则收敛 Disconnected。
-    // 若定时器已活跃（前置 onTcpError 已武装），返回 true 且只修正状态不重复计数。
+    // ── 分支 2：意外断线 — startAutoReconnect 单一决策点 ──
+    // 调用方不预置状态：startAutoReconnect 成功返回则重连定时器已武装（reconnecting 已发射），
+    // 失败（!autoReconnect || 预算耗尽）则收敛 disconnected。
+    // 若定时器已活跃（前置错误处理已武装），返回 true 且只修正状态不重复计数。
     if ( !startAutoReconnect() ) {
-        // autoReconnect=false（默认）或预算耗尽或 AuthFailed 已在此→Disconnected
-        setConnectionState(Disconnected);
         cleanupConnection();
+        emit disconnected();
     }
-    // 成功路径：状态已由 startAutoReconnect 置为 Reconnecting
+    // 成功路径：重连定时器已武装，等待 onReconnectTimer 发起新连接
 }
 
 void ConnectionManager::onTcpError(const RdError& error) {
@@ -336,25 +228,14 @@ void ConnectionManager::onTcpError(const RdError& error) {
         return;
     }
 
-    // AuthFailed 态收到 error 是预期内（服务端在拒绝认证后关闭连接）——静默
-    if ( m_connectionState == AuthFailed ) {
-        m_connectionTimer->stop();
-        return;
-    }
-
-    // 通过守卫检查后转发 TcpClient 已翻译的详细错误信息到上层（含中文诊断）
+    m_connectionTimer->stop();
     emit errorOccurred(error);
 
-    m_connectionTimer->stop();
-
-    // 确保 socket 回到 UnconnectedState，否则重连时 TcpClient::connectToHost()
-    // 会因状态检查失败而静默返回（SocketTimeoutError 等错误不自动转换状态）。
-    // 守卫防同步 onTcpDisconnected 的 cleanupConnection 干扰本函数的重连决策。
-    abortGuarded();
-
-    if ( !startAutoReconnect() ) {
-        setConnectionState(Error);
-        m_currentReconnectAttempts = 0;
+    // SocketTimeoutError 等错误不自动转换 socket 状态，重连前需显式复位到
+    // UnconnectedState。abort() 同步触发 onTcpDisconnected 走统一决策路径——
+    // 无重入守卫，断连决策权全部归 onTcpDisconnected
+    if ( m_tcpClient ) {
+        m_tcpClient->abort();
     }
 }
 
@@ -367,41 +248,26 @@ void ConnectionManager::onConnectionTimeout() {
     }
 
     m_connectionTimer->stop();
+    emit errorOccurred(RdError(ErrorCode::NetworkConnectionFailed,
+        QStringLiteral("连接超时"), "ConnectionManager"));
 
-    // 同 onTcpError：守卫防同步 onTcpDisconnected 的 cleanupConnection
-    // 重置计数器+清除 host/port 干扰本函数的重连决策。
-    abortGuarded();
-
-    if ( !startAutoReconnect() ) {
-        // 连接超时且不重连：发射具体错误消息（替代 wireSignals 中的通用兜底）
-        emit errorOccurred(RdError(ErrorCode::NetworkConnectionFailed,
-            QStringLiteral("连接超时"), "ConnectionManager"));
-        setConnectionState(Error);
-        m_currentReconnectAttempts = 0;
+    // socket 停留在 Connecting 状态，重连前需显式复位；
+    // abort() 同步触发 onTcpDisconnected 走统一决策路径
+    if ( m_tcpClient ) {
+        m_tcpClient->abort();
     }
 }
 
 void ConnectionManager::onReconnectTimer() {
-    if ( m_connectionState != Reconnecting ) {
+    if ( m_currentHost.isEmpty() || m_currentPort <= 0 ) {
         return;
     }
-
-    if ( !m_currentHost.isEmpty() && m_currentPort > 0 ) {
-        startConnection(m_currentHost, m_currentPort);
-    }
+    startConnection(m_currentHost, m_currentPort);
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// 状态管理
+// 内部工具
 // ═══════════════════════════════════════════════════════════════════
-
-void ConnectionManager::setConnectionState(ConnectionState state) {
-    if ( m_connectionState != state ) {
-        qCInfo(lcClient) << "ConnectionManager: State changed from" << m_connectionState << "to" << state;
-        m_connectionState = state;
-        emit connectionStateChanged(state);
-    }
-}
 
 void ConnectionManager::setupTcpClient() {
     m_tcpClient = new TcpClient(this);
@@ -415,6 +281,7 @@ void ConnectionManager::setupTcpClient() {
 void ConnectionManager::cleanupConnection() {
     m_connectionTimer->stop();
     stopAutoReconnect();
+    m_reconnectArmed = false;
     m_currentReconnectAttempts = 0;
     m_currentHost.clear();
     m_currentPort = 0;
@@ -424,41 +291,29 @@ void ConnectionManager::cleanupConnection() {
 // 消息处理
 // ═══════════════════════════════════════════════════════════════════
 
-void ConnectionManager::abortGuarded() {
-    m_handlingError = true;
-    if ( m_tcpClient ) {
-        m_tcpClient->abort();
-    }
-    m_handlingError = false;
-}
-
 bool ConnectionManager::mayProcessServerMessages() const {
-    // 「信任门已通过」的唯一判定点：Connected/Authenticated 之外的状态一律不得处理服务端消息。
-    // AuthFailed 亦不在允许集：被拒绝的服务端不得再推送任何消息（含伪造认证成功、
-    // 剪贴板注入）；同连接重试在 retryAuthentication 内先回到 Connected 再发送，不依赖此项。
-    return m_connectionState == Connected || m_connectionState == Authenticated;
+    // 管道就绪判定：TCP+TLS 已建立即可处理 RDCP 消息（PKI 化后不存在
+    // 「管道通了但身份未验证」的挂起中间态——验证失败即断连）
+    return m_tcpClient && m_tcpClient->isConnected();
 }
 
 void ConnectionManager::onTcpMessageReceived(MessageType type, const QByteArray& payload) {
-    // 状态守卫：仅在信任门已通过时处理 RDCP 消息。
-    // 其余状态——尤其 VerifyingTrust 信任决策挂起期间——一律忽略，
-    // 防止未验证服务端推送伪造握手响应、套出 PBKDF2 密码证明。
+    // 管道就绪守卫：仅在 TCP+TLS 已建立时处理 RDCP 消息
     if ( !mayProcessServerMessages() ) {
-        qCDebug(lcClient) << "onTcpMessageReceived: 忽略消息（当前状态" << m_connectionState
-                          << "），type:" << static_cast<int>(type);
+        qCDebug(lcClient) << "onTcpMessageReceived: 忽略消息（管道未就绪），type:" << static_cast<int>(type);
         return;
     }
 
-    // 入站剪贴板仅认证后放行：Connected 态服务端虽已验证但用户尚未授权，
+    // 入站剪贴板仅认证后放行：认证前服务端虽已验证但用户尚未授权，
     // 授权前写入本机系统剪贴板属内容注入（合法服务端不会在认证前发送剪贴板）
-    if ( type == MessageType::CLIPBOARD_DATA && m_connectionState != Authenticated ) {
+    if ( type == MessageType::CLIPBOARD_DATA && !m_authenticated ) {
         qCDebug(lcClient) << "onTcpMessageReceived: 忽略 CLIPBOARD_DATA（未认证态）";
         return;
     }
 
     switch ( type ) {
-        case MessageType::HANDSHAKE_RESPONSE:
-            handleHandshakeResponse(payload);
+        case MessageType::VERSION_EXCHANGE_RESPONSE:
+            handleVersionExchangeResponse(payload);
             break;
         case MessageType::AUTHENTICATION_RESPONSE:
             handleAuthenticationResponse(payload);
@@ -469,29 +324,26 @@ void ConnectionManager::onTcpMessageReceived(MessageType type, const QByteArray&
     }
 }
 
-void ConnectionManager::handleHandshakeResponse(const QByteArray& data) {
-    HandshakeResponse response;
+void ConnectionManager::handleVersionExchangeResponse(const QByteArray& data) {
+    VersionExchangeResponse response;
     if ( !response.decode(data) ) {
         const RdError error(ErrorCode::DecodeFailed,
-                            tr("握手响应解码失败"), "ConnectionManager");
+                            tr("版本交换响应解码失败"), "ConnectionManager");
         qCWarning(lcClient) << error.logLabel();
         emit errorOccurred(error);
         disconnectFromHost();
         return;
     }
 
-    qCDebug(lcClient) << "Received handshake response from server";
+    qCDebug(lcClient) << "Received version exchange response from server";
 
     // 版本闸门：应用版本完全相等校验。不匹配/畸形版本直接断连——
     // 不得继续处理认证参数，防止向不兼容对端发送 PBKDF2 密码证明
     if ( !appVersionMatches(response.appVersion) ) {
-        // Task 5 重构: 改为 emit versionMismatched()
-        const RdError error(ErrorCode::Unknown,
-            tr("服务器版本不兼容：服务器 %1，本机 %2")
-                .arg(response.appVersion, QCoreApplication::applicationVersion()),
-            "ConnectionManager");
-        qCWarning(lcClient) << error.logLabel();
-        emit errorOccurred(error);
+        const QString serverVer = response.appVersion;
+        const QString localVer = QCoreApplication::applicationVersion();
+        qCWarning(lcClient) << "版本不兼容: server" << serverVer << "local" << localVer;
+        emit versionMismatched(serverVer, localVer);
         disconnectFromHost();
         return;
     }
@@ -501,15 +353,15 @@ void ConnectionManager::handleHandshakeResponse(const QByteArray& data) {
         return;
     }
 
-    // 密码模式：认证参数随握手响应下发（协议 v3）。参数上限校验防恶意服务端
-    // 下发超大值致客户端资源耗尽（认证前单包 DoS），通过后缓存并派生发送认证请求
+    // 密码模式：认证参数随版本交换响应下发（协议 v3）。参数上限校验防恶意服务端
+    // 下发超大值致客户端资源耗尽（认证前单包 DoS），通过后内联派生并发送认证请求
     QByteArray salt = QByteArray::fromHex(response.saltHex.toUtf8());
     if ( salt.isEmpty() || response.iterations == 0
          || response.iterations > SecurityConstants::MaxPbkdf2Iterations
          || response.keyLength == 0
          || response.keyLength > SecurityConstants::MaxPbkdf2KeyLength ) {
         const RdError error(ErrorCode::DecodeFailed,
-                            tr("握手响应认证参数越界"), "ConnectionManager");
+                            tr("版本交换响应认证参数越界"), "ConnectionManager");
         qCWarning(lcClient) << error.logLabel()
                             << "iterations:" << response.iterations << "keyLength:" << response.keyLength;
         emit errorOccurred(error);
@@ -517,71 +369,55 @@ void ConnectionManager::handleHandshakeResponse(const QByteArray& data) {
         return;
     }
 
-    m_authSalt = salt;
-    m_authIterations = response.iterations;
-    m_authKeyLength = response.keyLength;
-    m_hasAuthParams = true;
-    sendAuthenticationRequest();
+    // 认证参数仅用于本次派生，不缓存（每连接由服务端重新下发）
+    sendAuthenticationRequest(salt, response.iterations, response.keyLength);
 }
 
 void ConnectionManager::handleAuthenticationResponse(const QByteArray& data) {
     AuthenticationResponse response;
-    if ( response.decode(data) ) {
-        if ( response.result == AuthResult::SUCCESS ) {
-            qCInfo(lcClient) << "Authentication successful, session ID:" << response.sessionId;
-            m_connectionTimer->stop();
-            stopAutoReconnect();
-            m_currentReconnectAttempts = 0;
-            setConnectionState(Authenticated);
-            sendSessionCapabilities();   // 认证成功后告知服务端编码偏好
-        } else {
-            QString reason;
-            // Task 5 重构: 认证失败改为 emit authenticationFailed()（可重试/终态细分由信号承载）
-            const ErrorCode code = ErrorCode::Unknown;
-            switch ( response.result ) {
-                case AuthResult::INVALID_CREDENTIALS:
-                    reason = tr("认证失败：用户名或密码错误");
-                    break;
-                case AuthResult::ACCESS_DENIED:
-                    reason = tr("认证失败：尝试次数过多，请稍后重试");
-                    break;
-                default:
-                    reason = tr("认证失败");
-                    break;
-            }
-            const RdError error(code, reason, "ConnectionManager");
-            qCWarning(lcClient) << error.logLabel();
-            emit errorOccurred(error);
-            setConnectionState(AuthFailed);
-            stopAutoReconnect();
-
-            // Task 5 重构: 过渡期以 AuthResult 等价判断可重试/终态（原按 ErrorCode 区分）
-            if (response.result == AuthResult::INVALID_CREDENTIALS) {
-                // 可重试错误：保留密码明文用于重试对话框预填；服务端保持连接不断开，
-                // 等待用户重新输入后经 retryAuthentication 同连接重发认证请求
-            } else {
-                // 终态错误：清除密码与认证参数缓存，主动断开
-                m_password.fill(QChar(0));
-                m_password.clear();
-                m_hasAuthParams = false;
-                m_authSalt.clear();
-                disconnectFromHost();
-            }
-        }
-    } else {
+    if ( !response.decode(data) ) {
         const RdError error(ErrorCode::DecodeFailed, tr("认证响应解码失败"), "ConnectionManager");
         qCWarning(lcClient) << error.logLabel();
         emit errorOccurred(error);
         disconnectFromHost();
+        return;
     }
+
+    if ( response.result == AuthResult::SUCCESS ) {
+        qCInfo(lcClient) << "Authentication successful, session ID:" << response.sessionId;
+        m_connectionTimer->stop();
+        stopAutoReconnect();
+        m_currentReconnectAttempts = 0;
+        m_authenticated = true;
+        emit authenticated();
+        sendEncodePrefs();   // 认证成功后告知服务端编码偏好
+        return;
+    }
+
+    // 认证被拒是预期结果而非系统故障——以独立信号承载，不进入 errorOccurred
+    QString reason;
+    switch ( response.result ) {
+        case AuthResult::INVALID_CREDENTIALS:
+            reason = tr("认证失败：用户名或密码错误");
+            break;
+        case AuthResult::ACCESS_DENIED:
+            reason = tr("认证失败：尝试次数过多，请稍后重试");
+            break;
+        default:
+            reason = tr("认证失败");
+            break;
+    }
+    qCWarning(lcClient) << "Authentication rejected, result:" << static_cast<int>(response.result);
+    emit authenticationFailed(response.result, reason);
+    disconnectFromHost();
 }
 
-void ConnectionManager::sendAuthenticationRequest() {
-    // PBKDF2 派生: password + username + salt（与认证参数缓存一致）
+void ConnectionManager::sendAuthenticationRequest(const QByteArray& salt, quint32 iterations, quint32 keyLength) {
+    // PBKDF2 派生: password + username + salt（参数由服务端本次下发）
     QByteArray input = (m_password + m_username).toUtf8();
     QByteArray derived = QPasswordDigestor::deriveKeyPbkdf2(
-        QCryptographicHash::Sha256, input, m_authSalt,
-        int(m_authIterations), quint64(m_authKeyLength));
+        QCryptographicHash::Sha256, input, salt,
+        int(iterations), quint64(keyLength));
 
     AuthenticationRequest ar{};
     ar.username = m_username.isEmpty() ? QStringLiteral("guest") : m_username;
@@ -589,47 +425,26 @@ void ConnectionManager::sendAuthenticationRequest() {
     m_tcpClient->sendMessage(MessageType::AUTHENTICATION_REQUEST, ar);
 }
 
-void ConnectionManager::sendHandshakeRequest() {
-    HandshakeRequest request{};
+void ConnectionManager::sendVersionExchange() {
+    VersionExchange request{};
     request.appVersion = QCoreApplication::applicationVersion();
     request.clientName = QStringLiteral("UltraDesktop Client");
     request.clientOS = getClientOS();
-    m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST, request);
+    m_tcpClient->sendMessage(MessageType::VERSION_EXCHANGE, request);
 }
 
-void ConnectionManager::sendSessionCapabilities() {
-    SessionCapabilities caps{};
-    caps.imageQuality = static_cast<quint8>(m_imageQuality);
-    caps.colorDepth = static_cast<quint8>(m_colorDepth);
-    m_tcpClient->sendMessage(MessageType::SESSION_CAPABILITIES, caps);
-    qCDebug(lcClient) << "Sent session capabilities: quality" << m_imageQuality
+void ConnectionManager::sendEncodePrefs() {
+    EncodePrefs prefs{};
+    prefs.imageQuality = static_cast<quint8>(m_imageQuality);
+    prefs.colorDepth = static_cast<quint8>(m_colorDepth);
+    m_tcpClient->sendMessage(MessageType::ENCODE_PREFS, prefs);
+    qCDebug(lcClient) << "Sent encode prefs: quality" << m_imageQuality
                       << "colorDepth" << m_colorDepth;
 }
 
 void ConnectionManager::updateCredentials(const QString& username, const QString& password) {
     m_username = username;
     m_password = password;
-}
-
-void ConnectionManager::retryAuthentication() {
-    if (m_connectionState != AuthFailed && m_connectionState != Disconnected) {
-        qCWarning(lcClient) << "retryAuthentication: invalid state" << m_connectionState;
-        return;
-    }
-    // 由上层（ConnectionLifecycle）先调用 updateCredentials 再调用此方法
-
-    // 同连接重试：连接存活且有认证参数缓存 → 以新凭据复用 salt 重派生并重发，
-    // 无需重付 TLS 握手与服务端 PBKDF2 派生成本（服务端失败不断连）
-    if (m_connectionState == AuthFailed && isConnected() && m_hasAuthParams) {
-        qCInfo(lcClient) << "同连接重试认证，用户名:" << m_username;
-        setConnectionState(Connected);
-        sendAuthenticationRequest();
-        return;
-    }
-
-    qCInfo(lcClient) << "重试认证（新连接），用户名:" << m_username;
-    m_currentReconnectAttempts = 0;
-    connectToHost(m_host, m_port);
 }
 
 QString ConnectionManager::getClientOS() {
