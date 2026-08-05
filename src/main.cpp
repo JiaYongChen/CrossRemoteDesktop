@@ -15,6 +15,7 @@
 #include <QtWidgets/QSystemTrayIcon>
 
 #include "app/MainWindow.h"
+#include "common/config/ProtocolConstants.h"
 #include "common/config/SettingsManager.h"
 #include "common/config/TranslationUtils.h"
 #include "common/data/ConnectionParams.h"
@@ -24,7 +25,6 @@
 
 // 应用程序信息
 const QString APP_NAME = "UltraDesktop";
-const QString APP_VERSION = "1.0.0";
 const QString APP_ORGANIZATION = "UltraDesktop";
 const QString APP_DOMAIN = "ultradesktop.com";
 
@@ -60,7 +60,7 @@ void installSignalHandlers() {
 void initializeApplication(QApplication& app) {
     // 设置应用程序信息
     app.setApplicationName(APP_NAME);
-    app.setApplicationVersion(APP_VERSION);
+    app.setApplicationVersion(QString::fromLatin1(ProtocolConstants::AppVersion));
     app.setOrganizationName(APP_ORGANIZATION);
     app.setOrganizationDomain(APP_DOMAIN);
 
@@ -190,7 +190,7 @@ void initializeLogging(SettingsManager &settings) {
     // QLoggingCategory自动处理消息;
 
     qCInfo(lcApp) << "Application started";
-    qCInfo(lcApp) << "Version:" << APP_VERSION;
+    qCInfo(lcApp) << "Version:" << QString::fromLatin1(ProtocolConstants::AppVersion);
     qCInfo(lcApp) << "Qt Version:" << qVersion();
 
     // 测试日志输出

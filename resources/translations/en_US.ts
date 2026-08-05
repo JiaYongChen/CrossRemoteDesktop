@@ -256,6 +256,38 @@
         <source>取消</source>
         <translation>Cancel</translation>
     </message>
+    <message>
+        <source>正在验证服务端身份...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>服务端身份已变更</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>警告：无法确认服务端身份</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>主机 %1 的证书指纹与上次记录不一致。
+这可能是中间人攻击，也可能是服务端合法重装或更换证书。
+除非你确认服务端近期重装过，否则不要继续。</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>原指纹：
+%1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>新指纹：
+%1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>信任新证书并连接</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>ConnectionManager</name>
@@ -282,6 +314,18 @@
     <message>
         <source>认证失败：用户名或密码错误</source>
         <translation>Authentication failed: wrong username or password</translation>
+    </message>
+    <message>
+        <source>无法获取服务端证书指纹</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>用户拒绝信任该服务端</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>服务器版本不兼容：服务器 %1，本机 %2</source>
+        <translation>Server version incompatible: server %1, local %2</translation>
     </message>
 </context>
 <context>
