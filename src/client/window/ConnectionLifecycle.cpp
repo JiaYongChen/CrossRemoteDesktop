@@ -4,7 +4,6 @@
 #include <QtWidgets/QDialog>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
-#include <QtWidgets/QLineEdit>
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QVBoxLayout>
@@ -34,60 +33,34 @@ void ConnectionLifecycle::manage(QWidget* window) {
     m_window = window;
 }
 
-void ConnectionLifecycle::setConnectionState(ConnectionManager::ConnectionState state) {
-    if (m_connectionState == state) return;
+// ── 事件槽（各一行，直接映射 ConnectionManager 语义化事件）──
+void ConnectionLifecycle::onConnecting()    { setDisplayState(DisplayState::Connecting); }
+void ConnectionLifecycle::onConnected()     { setDisplayState(DisplayState::Connected); }
+void ConnectionLifecycle::onDisconnected()  { setDisplayState(DisplayState::Disconnected); }
+void ConnectionLifecycle::onReconnecting()  { setDisplayState(DisplayState::Reconnecting); }
+void ConnectionLifecycle::onErrorOccurred(const RdError&) { setDisplayState(DisplayState::Error); }
 
-    ConnectionManager::ConnectionState oldState = m_connectionState;
-    m_connectionState = state;
+void ConnectionLifecycle::setDisplayState(DisplayState state) {
+    if (m_displayState == state) return;
+
+    m_displayState = state;
     updateWindowTitle();
 
-    // 状态离开 VerifyingTrust 时无条件收起信任对话框：无论连接恢复（Trusted/FirstUse → Connected）、
-    // 转入重连（Reconnecting）还是连接终结（Disconnected/Error）——
+    // 曾建立会话标记：进入 Connected 即置位——区分"真实会话丢失"（弹断连对话框）
+    // 与"初始连接失败"（静默关窗）
+    if (state == DisplayState::Connected) {
+        m_wasAuthenticated = true;
+    }
+
+    // 状态离开 Connecting（信任验证期）时无条件收起信任对话框：无论连接恢复（→ Connected）、
+    // 转入重连（→ Reconnecting）还是连接终结（→ Disconnected/Error）——
     // 陈旧 MITM 警告不得滞留于健康会话之上，否则其过期「取消」点击会误关健康窗口
-    if (oldState == ConnectionManager::VerifyingTrust && m_trustDialog) {
+    if (m_displayState != DisplayState::Connecting && m_trustDialog) {
         dismissTrustDialog();
     }
 
-    if (state == ConnectionManager::Authenticated) {
-        m_wasAuthenticated = true;
-        m_authRetryPending = false;
-    }
-
-    // 重连/新连接时清除重试标记和错误码, 确保下次 AuthFailed 使用新的错误类型。
-    // Connected 同样清除：同连接重试（AuthFailed → Connected）再次失败时，
-    // 必须允许重新弹出凭据对话框（否则重入守卫会吞掉第二次 AuthFailed）
-    if (state == ConnectionManager::Connecting || state == ConnectionManager::Connected) {
-        m_authRetryPending = false;
-        m_authErrorCode = ErrorCode::Unknown;
-    }
-
-    // AuthFailed 处理：可重试 → 弹凭据对话框；终态 → 关闭
-    if (state == ConnectionManager::AuthFailed) {
-        // 重入守卫：避免状态循环时重复调度对话框
-        if (m_authRetryPending) return;
-
-        // Task 5 重构: 可重试/终态细分由 authenticationFailed() 信号承载，过渡期统一按认证失败弹框
-        if (m_authErrorCode == ErrorCode::Unknown) {
-            m_authRetryPending = true;
-            // 服务端已统一失败响应（用户名/密码错误不可区分），用户名与密码均允许编辑。
-            // 按值捕获错误消息，避免定时器触发前成员被覆写
-            QTimer::singleShot(200, this, [this, msg = m_authErrorMessage]() {
-                showCredentialDialog(msg, false);
-            });
-            return;
-        }
-    }
-
-    // 终态处理：检查是否因可重试认证错误导致的断开，是则跳过关窗逻辑
-    bool isTerminal = (state == ConnectionManager::Disconnected
-                       || state == ConnectionManager::Error);
-    bool wasActive = (oldState != ConnectionManager::Disconnecting);
-
-    if (isTerminal && wasActive) {
-        if (m_authRetryPending) {
-            // 认证重试等待中，不关闭窗口
-            return;
-        }
+    // 终态处理：曾建立会话 → 弹断连对话框；从未建立 → 静默关闭窗口
+    if (state == DisplayState::Disconnected || state == DisplayState::Error) {
         if (m_wasAuthenticated) {
             qCInfo(lcClientRemoteWindow) << "ConnectionLifecycle: Connection lost, scheduling disconnection dialog";
 
@@ -119,33 +92,21 @@ void ConnectionLifecycle::updateWindowTitle() {
     if (m_hostName.isEmpty() || !m_window) return;
 
     QString title;
-    switch (m_connectionState) {
-        case ConnectionManager::Connecting:
+    switch (m_displayState) {
+        case DisplayState::Connecting:
             title = tr("%1 - %2").arg(m_hostName, tr("正在连接..."));
             break;
-        case ConnectionManager::VerifyingTrust:
-            title = tr("%1 - %2").arg(m_hostName, tr("正在验证服务端身份..."));
-            break;
-        case ConnectionManager::Connected:
+        case DisplayState::Connected:
             title = tr("%1 - %2").arg(m_hostName, tr("已连接"));
             break;
-        case ConnectionManager::Authenticated:
-            title = tr("%1 - %2").arg(m_hostName, tr("已认证"));
-            break;
-        case ConnectionManager::Reconnecting:
+        case DisplayState::Reconnecting:
             title = tr("%1 - %2").arg(m_hostName, tr("正在重连..."));
             break;
-        case ConnectionManager::Disconnecting:
-            title = tr("%1 - %2").arg(m_hostName, tr("正在断开连接..."));
-            break;
-        case ConnectionManager::Disconnected:
+        case DisplayState::Disconnected:
             title = tr("%1 - %2").arg(m_hostName, tr("未连接"));
             break;
-        case ConnectionManager::Error:
+        case DisplayState::Error:
             title = tr("%1 - %2").arg(m_hostName, tr("连接错误"));
-            break;
-        case ConnectionManager::AuthFailed:
-            title = tr("%1 - %2").arg(m_hostName, tr("认证失败"));
             break;
         default:
             title = m_hostName;
@@ -176,83 +137,6 @@ void ConnectionLifecycle::showDisconnectionDialog() {
 
     qCInfo(lcClientRemoteWindow) << "ConnectionLifecycle: User confirmed disconnect, closing window";
     m_window->close();
-}
-
-void ConnectionLifecycle::setAuthErrorCode(ErrorCode code) {
-    m_authErrorCode = code;
-}
-
-void ConnectionLifecycle::setAuthErrorMessage(const QString& msg) {
-    m_authErrorMessage = msg;
-}
-
-void ConnectionLifecycle::setCachedUsername(const QString& name) {
-    m_cachedUsername = name;
-}
-
-void ConnectionLifecycle::showCredentialDialog(const QString& errorMessage, bool passwordOnly) {
-    if (!m_window) return;
-
-    // 不使用 m_window 作为父对象——m_window 有 WA_DeleteOnClose，
-    // 嵌套事件循环中若窗口关闭会导致 Qt 对栈对象调用 delete（未定义行为）
-    QDialog dialog(nullptr);
-    dialog.setWindowTitle(tr("认证失败"));
-    dialog.setMinimumWidth(320);
-
-    auto* layout = new QVBoxLayout(&dialog);
-
-    // 错误信息（红色）
-    auto* errorLabel = new QLabel(errorMessage);
-    errorLabel->setStyleSheet("color: #d32f2f; font-weight: bold;");
-    layout->addWidget(errorLabel);
-
-    QLineEdit* usernameEdit = nullptr;
-    if (passwordOnly) {
-        // 仅密码错误：用户名只读展示
-        auto* usernameLabel = new QLabel(tr("用户名: %1").arg(m_cachedUsername));
-        layout->addWidget(usernameLabel);
-    } else {
-        // 用户名错误：可编辑
-        layout->addWidget(new QLabel(tr("用户名:")));
-        usernameEdit = new QLineEdit(m_cachedUsername);
-        layout->addWidget(usernameEdit);
-    }
-
-    // 密码（始终可编辑）
-    layout->addWidget(new QLabel(tr("密码:")));
-    auto* passwordEdit = new QLineEdit();
-    passwordEdit->setEchoMode(QLineEdit::Password);
-    layout->addWidget(passwordEdit);
-
-    // 按钮
-    auto* buttonLayout = new QHBoxLayout();
-    auto* retryBtn = new QPushButton(tr("重试"));
-    auto* cancelBtn = new QPushButton(tr("取消"));
-    buttonLayout->addStretch();
-    buttonLayout->addWidget(retryBtn);
-    buttonLayout->addWidget(cancelBtn);
-    layout->addLayout(buttonLayout);
-
-    QObject::connect(retryBtn, &QPushButton::clicked, &dialog, &QDialog::accept);
-    QObject::connect(cancelBtn, &QPushButton::clicked, &dialog, &QDialog::reject);
-
-    // 布局完成后定位到窗口中心（adjustSize 确保 rect 为实际尺寸而非默认值）
-    dialog.adjustSize();
-    if (m_window->isVisible()) {
-        dialog.move(m_window->geometry().center() - dialog.rect().center());
-    }
-
-    if (dialog.exec() == QDialog::Accepted) {
-        QString newUsername = passwordOnly ? m_cachedUsername : usernameEdit->text().trimmed();
-        QString newPassword = passwordEdit->text();
-        m_cachedUsername = newUsername;  // 刷新缓存，供下次重试对话框预填
-        emit retryAuthRequested(newUsername, newPassword);
-    } else {
-        m_authRetryPending = false;
-        if (m_window) {
-            m_window->close();
-        }
-    }
 }
 
 void ConnectionLifecycle::dismissTrustDialog() {
@@ -314,9 +198,9 @@ void ConnectionLifecycle::showTrustWarning(const QString& endpoint,
         dialog->deleteLater();
         const bool accept = (result == QDialog::Accepted);
         // 决策有效性以发射时刻的状态为准：仅挂起期内的决策有效。
-        // 状态已离开挂起态（连接恢复/重连/终结）时，本决策已失效——见 dismissTrustDialog 的调用点；
+        // 状态已离开挂起态（连接恢复/重连/终结）时，本决策已失效——见 setDisplayState 的收起调用点；
         // 此检查是防御纵深，确保任何迟到的 finished 都不得触碰窗口
-        const bool wasPending = (m_connectionState == ConnectionManager::VerifyingTrust);
+        const bool wasPending = (m_displayState == DisplayState::Connecting);
         // 直连：ConnectionManager 同步处置（若已离开挂起态则忽略），
         // 返回后本对象缓存的状态即为最新
         emit trustDecision(accept);
