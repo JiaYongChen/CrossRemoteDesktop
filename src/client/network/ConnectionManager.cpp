@@ -1,5 +1,6 @@
 #include "ConnectionManager.h"
 
+#include <QtCore/QCoreApplication>
 #include <QtCore/QCryptographicHash>
 #include <QtCore/QTimer>
 #include <QtNetwork/QPasswordDigestor>
@@ -486,7 +487,7 @@ void ConnectionManager::handleHandshakeResponse(const QByteArray& data) {
     if ( !appVersionMatches(response.appVersion) ) {
         const RdError error(ErrorCode::VersionMismatch,
             tr("服务器版本不兼容：服务器 %1，本机 %2")
-                .arg(response.appVersion, QString::fromLatin1(ProtocolConstants::AppVersion)),
+                .arg(response.appVersion, QCoreApplication::applicationVersion()),
             "ConnectionManager");
         qCWarning(lcClient) << error.logLabel();
         emit errorOccurred(error);
@@ -590,7 +591,7 @@ void ConnectionManager::sendAuthenticationRequest() {
 
 void ConnectionManager::sendHandshakeRequest() {
     HandshakeRequest request{};
-    request.appVersion = QString::fromLatin1(ProtocolConstants::AppVersion);
+    request.appVersion = QCoreApplication::applicationVersion();
     request.clientName = QStringLiteral("UltraDesktop Client");
     request.clientOS = getClientOS();
     m_tcpClient->sendMessage(MessageType::HANDSHAKE_REQUEST, request);

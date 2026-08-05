@@ -1,3 +1,4 @@
+#include <QtCore/QCoreApplication>
 #include <QtTest/QtTest>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QWidget>
@@ -39,6 +40,7 @@ private:
 
 void TestClientRemoteWindow::initTestCase()
 {
+    QCoreApplication::setApplicationVersion(QStringLiteral("1.0.0"));
     // 创建 QApplication 实例（如果尚未存在）
     if (!QApplication::instance()) {
         int argc = 0;

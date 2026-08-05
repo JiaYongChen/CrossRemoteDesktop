@@ -1,8 +1,7 @@
 #include "AppVersion.h"
 
+#include <QtCore/QCoreApplication>
 #include <QtCore/QStringList>
-
-#include "common/config/ProtocolConstants.h"
 
 namespace {
 
@@ -40,9 +39,8 @@ std::optional<AppVersion> AppVersion::parse(const QString& text) {
 }
 
 bool appVersionMatches(const QString& peerVersion) {
-    // 本机版本为编译期常量，解析必然成功；失败即编程错误
     static const std::optional<AppVersion> localVersion =
-        AppVersion::parse(QString::fromLatin1(ProtocolConstants::AppVersion));
+        AppVersion::parse(QCoreApplication::applicationVersion());
     Q_ASSERT(localVersion.has_value());
 
     const std::optional<AppVersion> peer = AppVersion::parse(peerVersion);

@@ -1,11 +1,11 @@
 #include <QtTest>
+#include <QtCore/QCoreApplication>
 #include <QtCore/QFile>
 #include <QtCore/QTemporaryDir>
 #include <QSignalSpy>
 
 #include "client/network/ConnectionManager.h"
 #include "client/network/ServerTrustStore.h"
-#include "common/config/ProtocolConstants.h"
 #include "common/config/SettingsManager.h"
 #include "common/error/RdError.h"
 #include "common/network/Protocol.h"
@@ -56,6 +56,7 @@ private:
 };
 
 void ConnectionManagerTrustTest::initTestCase() {
+    QCoreApplication::setApplicationVersion(QStringLiteral("1.0.0"));
     qRegisterMetaType<ConnectionManager::ConnectionState>("ConnectionManager::ConnectionState");
     qRegisterMetaType<RdError>("RdError");
     qRegisterMetaType<MessageType>("MessageType");
@@ -303,7 +304,7 @@ void ConnectionManagerTrustTest::handshakeResponseMismatchedAppVersion_emitsVers
 
     // 伪造版本不匹配的握手响应（追加后缀构造必然不匹配串，不硬编码版本号）
     HandshakeResponse resp;
-    resp.appVersion = QString::fromLatin1(ProtocolConstants::AppVersion) + QStringLiteral("-other");
+    resp.appVersion = QCoreApplication::applicationVersion() + QStringLiteral("-other");
     resp.serverName = QStringLiteral("UltraDesktop Server");
     resp.serverOS = QStringLiteral("Windows");
     QVERIFY(QMetaObject::invokeMethod(&cm, "onTcpMessageReceived",
@@ -347,7 +348,7 @@ void ConnectionManagerTrustTest::handshakeResponseMatchingAppVersion_proceeds() 
 
     // 版本匹配 + saltHex 为空（无密码模式）：正常处理，无错误
     HandshakeResponse resp;
-    resp.appVersion = QString::fromLatin1(ProtocolConstants::AppVersion);
+    resp.appVersion = QCoreApplication::applicationVersion();
     resp.serverName = QStringLiteral("UltraDesktop Server");
     resp.serverOS = QStringLiteral("Windows");
     QVERIFY(QMetaObject::invokeMethod(&cm, "onTcpMessageReceived",

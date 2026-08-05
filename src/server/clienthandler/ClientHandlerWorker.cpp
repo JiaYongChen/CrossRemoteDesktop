@@ -702,7 +702,7 @@ void ClientHandlerWorker::handleHandshakeRequest(const QByteArray& data) {
     // 版本闸门：应用版本完全相等校验，先于 PBKDF2 派生——不兼容连接零成本拒绝
     if ( !appVersionMatches(request.appVersion) ) {
         qCWarning(lcServerClientHandler) << "客户端应用版本不兼容:" << request.appVersion
-                                         << "本机版本:" << ProtocolConstants::AppVersion
+                                         << "本机版本:" << QCoreApplication::applicationVersion()
                                          << "断开客户端:" << clientId();
         forceDisconnect();
         return;
@@ -960,7 +960,7 @@ void ClientHandlerWorker::handleKeyboardEvent(const QByteArray& data) {
 
 void ClientHandlerWorker::deliverHandshakeResponse() {
     HandshakeResponse response;
-    response.appVersion = QString::fromLatin1(ProtocolConstants::AppVersion);
+    response.appVersion = QCoreApplication::applicationVersion();
     response.serverName = QStringLiteral("UltraDesktop Server");
 #ifdef Q_OS_WIN
     response.serverOS = QStringLiteral("Windows");

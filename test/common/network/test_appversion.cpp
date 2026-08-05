@@ -1,11 +1,15 @@
+#include <QtCore/QCoreApplication>
 #include <QtTest/QTest>
 
-#include "common/config/ProtocolConstants.h"
 #include "common/network/AppVersion.h"
 
 class TestAppVersion : public QObject {
     Q_OBJECT
 private slots:
+    void initTestCase() {
+        QCoreApplication::setApplicationVersion(QStringLiteral("1.0.0"));
+    }
+
     // ── parse：合法输入 ──
     void parse_validThreeSegments() {
         const std::optional<AppVersion> v = AppVersion::parse(QStringLiteral("1.2.3"));
@@ -68,12 +72,12 @@ private slots:
 
     // ── appVersionMatches：与本机 ProtocolConstants::AppVersion 完全相等 ──
     void matches_localVersionStringIsTrue() {
-        QVERIFY(appVersionMatches(QString::fromLatin1(ProtocolConstants::AppVersion)));
+        QVERIFY(appVersionMatches(QCoreApplication::applicationVersion()));
     }
 
     void matches_differentVersionIsFalse() {
         // 在本机版本后追加字符构造必然不匹配的串（不硬编码版本号）
-        QVERIFY(!appVersionMatches(QString::fromLatin1(ProtocolConstants::AppVersion) + QStringLiteral("-x")));
+        QVERIFY(!appVersionMatches(QCoreApplication::applicationVersion() + QStringLiteral("-x")));
     }
 
     void matches_malformedPeerVersionIsFalse() {

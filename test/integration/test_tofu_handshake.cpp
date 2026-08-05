@@ -1,4 +1,5 @@
 #include <QtTest>
+#include <QtCore/QCoreApplication>
 #include <QtCore/QCryptographicHash>
 #include <QtCore/QFile>
 #include <QtCore/QTemporaryDir>
@@ -39,6 +40,7 @@ private:
 };
 
 void TofuHandshakeTest::initTestCase() {
+    QCoreApplication::setApplicationVersion(QStringLiteral("1.0.0"));
     qRegisterMetaType<ConnectionManager::ConnectionState>("ConnectionManager::ConnectionState");
 }
 

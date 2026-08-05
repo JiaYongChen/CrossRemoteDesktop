@@ -9,6 +9,7 @@
  * @date 2024
  */
 
+#include <QtCore/QCoreApplication>
 #include <QtTest/QtTest>
 #include <QtCore/QThread>
 #include <QtCore/QTimer>
@@ -154,6 +155,7 @@ TestProducerConsumerIntegration::~TestProducerConsumerIntegration() {
 }
 
 void TestProducerConsumerIntegration::initTestCase() {
+    QCoreApplication::setApplicationVersion(QStringLiteral("1.0.0"));
     qCDebug(lcTestProducerConsumer) << "初始化生产者-消费者集成测试";
 
     // 创建线程管理器和队列管理器（DI 模式）

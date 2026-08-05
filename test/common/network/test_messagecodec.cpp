@@ -105,7 +105,7 @@ private slots:
     // ── HandshakeRequest（身份/应用版本/OS）──
     void handshakeRequest_roundtrip() {
         HandshakeRequest src;
-        src.appVersion = QString::fromLatin1(ProtocolConstants::AppVersion);
+        src.appVersion = QStringLiteral("1.0.0");
         src.clientName = QStringLiteral("UltraDesktop Client");
         src.clientOS = QStringLiteral("Windows");
 
@@ -120,7 +120,7 @@ private slots:
     // ── HandshakeResponse（身份字段 + 认证参数）──
     void handshakeResponse_roundtrip_passwordMode() {
         HandshakeResponse src;
-        src.appVersion = QString::fromLatin1(ProtocolConstants::AppVersion);
+        src.appVersion = QStringLiteral("1.0.0");
         src.serverName = QStringLiteral("UltraDesktop Server");
         src.serverOS = QStringLiteral("Windows");
         src.iterations = 100000;
@@ -141,7 +141,7 @@ private slots:
     // 无密码模式：盐值为空、参数为 0，客户端据此等待服务端直通认证
     void handshakeResponse_roundtrip_noPasswordMode() {
         HandshakeResponse src;
-        src.appVersion = QString::fromLatin1(ProtocolConstants::AppVersion);
+        src.appVersion = QStringLiteral("1.0.0");
         src.serverName = QStringLiteral("UltraDesktop Server");
         src.serverOS = QStringLiteral("Linux");
 
@@ -277,7 +277,7 @@ private slots:
         // 合法握手包尾部追加垃圾字节。修复前忽略尾部垃圾 decode 成功；
         // 修复后 decode 末尾 atEnd 检查拒绝尾部多余字节。
         HandshakeRequest src;
-        src.appVersion = QString::fromLatin1(ProtocolConstants::AppVersion);
+        src.appVersion = QStringLiteral("1.0.0");
         src.clientName = QStringLiteral("UltraDesktop Client");
         src.clientOS = QStringLiteral("Windows");
         QByteArray payload = src.encode();
@@ -290,7 +290,7 @@ private slots:
     // ── 合法多字节 UTF-8 必须解码成功（防 UTF-8 校验误杀；中文环境计算机名/用户名）──
     void handshakeRequest_roundtrip_multibyteUtf8() {
         HandshakeRequest src;
-        src.appVersion = QString::fromLatin1(ProtocolConstants::AppVersion);
+        src.appVersion = QStringLiteral("1.0.0");
         src.clientName = QStringLiteral("主机-电脑");   // CJK 多字节
         src.clientOS = QStringLiteral("Windows");
         const QByteArray bytes = src.encode();
@@ -303,7 +303,7 @@ private slots:
     // ── 其余解码器 atEnd 尾部垃圾拒绝（per-decoder 覆盖）──
     void handshakeResponse_decode_trailingBytes_fails() {
         HandshakeResponse src;
-        src.appVersion = QString::fromLatin1(ProtocolConstants::AppVersion);
+        src.appVersion = QStringLiteral("1.0.0");
         src.serverName = QStringLiteral("UltraDesktop Server");
         src.serverOS = QStringLiteral("Windows");
         QByteArray payload = src.encode();

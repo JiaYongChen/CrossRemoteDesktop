@@ -24,6 +24,7 @@
 #include "common/network/Protocol.h"
 
 // 应用程序信息
+const QString APP_VERSION = QStringLiteral("1.0.0");  // 应用版本（挂到 QCoreApplication::applicationVersion，全网统一获取）
 const QString APP_NAME = "UltraDesktop";
 const QString APP_ORGANIZATION = "UltraDesktop";
 const QString APP_DOMAIN = "ultradesktop.com";
@@ -60,7 +61,7 @@ void installSignalHandlers() {
 void initializeApplication(QApplication& app) {
     // 设置应用程序信息
     app.setApplicationName(APP_NAME);
-    app.setApplicationVersion(QString::fromLatin1(ProtocolConstants::AppVersion));
+    app.setApplicationVersion(APP_VERSION);
     app.setOrganizationName(APP_ORGANIZATION);
     app.setOrganizationDomain(APP_DOMAIN);
 
@@ -190,7 +191,7 @@ void initializeLogging(SettingsManager &settings) {
     // QLoggingCategory自动处理消息;
 
     qCInfo(lcApp) << "Application started";
-    qCInfo(lcApp) << "Version:" << QString::fromLatin1(ProtocolConstants::AppVersion);
+    qCInfo(lcApp) << "Version:" << APP_VERSION;
     qCInfo(lcApp) << "Qt Version:" << qVersion();
 
     // 测试日志输出

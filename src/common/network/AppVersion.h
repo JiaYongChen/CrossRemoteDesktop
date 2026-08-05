@@ -16,5 +16,5 @@ struct AppVersion {
     friend bool operator==(const AppVersion& lhs, const AppVersion& rhs) = default;
 };
 
-// 对端版本串可解析且与本机 ProtocolConstants::AppVersion 完全相等
+// 对端版本串可解析且与本机 QCoreApplication::applicationVersion() 完全相等
 [[nodiscard]] bool appVersionMatches(const QString& peerVersion);
