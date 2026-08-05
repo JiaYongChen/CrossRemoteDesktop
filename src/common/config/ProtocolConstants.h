@@ -11,8 +11,8 @@ inline constexpr quint32 SerializedHeaderSize{4 * sizeof(quint32) + sizeof(quint
 // ---- 消息字段长度上限 ----
 inline constexpr quint32 MaxAppVersionLength     = 32;  // 版本字符串线上长度上限
 inline constexpr quint32 MaxUsernameLength       = 256; // 用户名长度上限（UTF-8 字节数）
-inline constexpr quint32 MaxPasswordHashLength   = 512; // 密码哈希长度上限（UTF-8 字节数）
-inline constexpr quint32 MaxSessionIdLength      = 512; // 会话 ID 长度上限（UTF-8 字节数）
+inline constexpr quint32 MaxPasswordHashLength   = 512; // 密码哈希长度上限
+inline constexpr quint32 MaxSessionIdLength      = 512; // 会话 ID 长度上限
 inline constexpr quint32 MaxHostnameLength       = 1024; // 主机名长度上限（UTF-8 字节数）
 inline constexpr quint32 MaxTextLength           = 64 * 1024; // 文本剪贴板长度上限（UTF-8 字节数）
 inline constexpr quint32 MaxGenericStringLength  = 4096; // 通用字符串长度上限（UTF-8 字节数）

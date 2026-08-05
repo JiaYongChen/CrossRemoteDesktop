@@ -12,6 +12,7 @@
 - [project_directory_organization_rules.md](project_directory_organization_rules.md) — 源码目录组织规范，新增或移动文件时必须遵守
 - [project_i18n_workflow.md](project_i18n_workflow.md) — 翻译机制：.ts 持久跟踪 git（含译文），编译期 lrelease 生成 .qm（不跑 lupdate）
 - [project_include_forward_declare_rules.md](project_include_forward_declare_rules.md) — .h 文件中 #include 与前向声明的判断规则
+- [project_app_version_semver_rules.md](project_app_version_semver_rules.md) — 应用版本号 semver 三段语义与递增规则，修改代码时根据改动类型自动升 major/minor/patch
 - [project_auth_challenge_removal_deferred.md](project_auth_challenge_removal_deferred.md) — AUTH_CHALLENGE 已于 2026-07-30 移除（协议v3：认证参数并入握手响应+惰性派生+编号重排）
 - [project_auth_retry_model.md](project_auth_retry_model.md) — 认证采用连接内重试模型(2026-07-30)：失败不断连/响应统一/全计数/阶梯锁定复活
 
