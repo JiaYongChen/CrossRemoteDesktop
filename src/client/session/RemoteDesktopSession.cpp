@@ -173,6 +173,10 @@ void RemoteDesktopSession::createWindow() {
 void RemoteDesktopSession::wireSignals() {
     ConnectionLifecycle* lifecycle = m_window->connectionLifecycle();
 
+    // 窗口销毁时置空裸指针：session 存活至 deleteLater 期间若迟到事件，
+    // 其 lambda 中 m_window 访问不悬垂
+    connect(m_window, &QObject::destroyed, this, [this] { m_window = nullptr; });
+
     // ── 管道事件 → ConnectionLifecycle（驱动窗口标题与终端处理）──
     connect(m_connectionManager, &ConnectionManager::connecting,
             lifecycle, &ConnectionLifecycle::onConnecting);
@@ -206,7 +210,7 @@ void RemoteDesktopSession::wireSignals() {
                 // 挂起终端处理：认证失败后的断开属预期流程，不得触发关窗/断连框。
                 // 延迟弹框让 disconnected 事件先被消费，避免对话框 exec 期间窗口被关
                 lifecycle->setAuthRetryPending(true);
-                QTimer::singleShot(200, this, [this, message]() {
+                QTimer::singleShot(200, m_window, [this, message]() {
                     showCredentialDialog(message);
                 });
             });
