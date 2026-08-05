@@ -420,7 +420,7 @@ void ConnectionManager::handleAuthenticationResponse(const QByteArray& data) {
             reason = tr("认证失败：用户名或密码错误");
             break;
         case AuthResult::ACCESS_DENIED:
-            reason = tr("认证失败：尝试次数过多，请稍后重试");
+            reason = tr("尝试次数过多，账户已被暂时锁定，请稍后重试。");
             break;
         default:
             reason = tr("认证失败");

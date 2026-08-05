@@ -212,15 +212,12 @@ void RemoteDesktopSession::wireSignals() {
                     });
                     break;
                 case AuthResult::ACCESS_DENIED:
-                    // 终态：提示锁定信息后静默关窗。
-                    // 文案独立于 ConnectionManager 的通用"认证失败：…"前缀，
-                    // 锁定态无重试入口，提示需等待
+                    // 终态：提示锁定信息后静默关窗。无重试入口，MessageBox 确认即关窗
                     if ( m_authDialogPending ) return;
                     m_authDialogPending = true;
-                    QTimer::singleShot(200, m_window, [this]() {
+                    QTimer::singleShot(200, m_window, [this, message]() {
                         if ( !m_window ) { m_authDialogPending = false; return; }
-                        QMessageBox::warning(m_window, tr("登录已锁定"),
-                            tr("尝试次数过多，账户已被暂时锁定，请稍后重试。"));
+                        QMessageBox::warning(m_window, tr("登录已锁定"), message);
                         m_authDialogPending = false;
                         m_window->close();
                     });

@@ -264,8 +264,8 @@ Do not proceed unless you confirm the server was recently reinstalled.</translat
 <context>
     <name>ConnectionManager</name>
     <message>
-        <source>认证失败：尝试次数过多，请稍后重试</source>
-        <translation>Authentication failed: too many attempts, please try again later</translation>
+        <source>尝试次数过多，账户已被暂时锁定，请稍后重试。</source>
+        <translation>Too many attempts. The account has been temporarily locked. Please try again later.</translation>
     </message>
     <message>
         <source>认证失败</source>
@@ -502,10 +502,6 @@ This machine: %2</translation>
     <message>
         <source>登录已锁定</source>
         <translation>Login Locked</translation>
-    </message>
-    <message>
-        <source>尝试次数过多，账户已被暂时锁定，请稍后重试。</source>
-        <translation>Too many attempts. The account has been temporarily locked. Please try again later.</translation>
     </message>
 </context>
 <context>
