@@ -95,6 +95,10 @@ void TcpClient::setTrustedCertificate(const QSslCertificate& cert) {
     m_savedCert = cert;
 }
 
+void TcpClient::clearTrustedCertificate() {
+    m_savedCert.reset();
+}
+
 void TcpClient::disconnectFromHost() {
     if ( m_socket->state() == QAbstractSocket::UnconnectedState ) {
         return;
@@ -179,7 +183,8 @@ void TcpClient::configureSsl() {
 }
 
 void TcpClient::onSslErrors(const QList<QSslError>& errors) {
-    // 不再忽略任何 SSL 错误：证书链验证失败一律视为致命错误（防 MITM 攻击）
+    // 证书链验证失败一律视为致命错误（防 MITM 攻击）。
+    // 提前上报后再忽略：抑制 Qt 随后自动生成的 SslHandshakeFailedError
     QStringList errorStrings;
     for ( const QSslError& error : errors ) {
         errorStrings.append(error.errorString());
@@ -187,6 +192,8 @@ void TcpClient::onSslErrors(const QList<QSslError>& errors) {
     const QString errorMsg = tr("SSL 证书验证失败: %1").arg(errorStrings.join("; "));
     qCWarning(lcClient) << "TcpClient::onSslErrors - 致命 SSL 错误:" << errorStrings.join("; ");
     emit errorOccurred(RdError(ErrorCode::NetworkTlsError, errorMsg, "TcpClient"));
+    // 告知 Qt 这些错误已被处理，阻止引擎随后触发 onError(SslHandshakeFailedError)
+    m_socket->ignoreSslErrors();
 }
 
 void TcpClient::onDisconnected() {

@@ -2,6 +2,7 @@
 
 #include <QtCore/QObject>
 #include <QtCore/QString>
+#include <QtCore/QTimer>
 #include <QtWidgets/QWidget>
 
 #include "common/error/RdError.h"
@@ -73,4 +74,7 @@ private:
     bool m_dialogShowing = false;
 
     QDialog* m_trustDialog = nullptr;                 ///< 非模态信任警告对话框（parent 为窗口，随窗口销毁）
+
+    /// 终端处理延迟定时器：重连/新连接时取消已调度但尚未触发的对话框/关窗操作
+    QTimer* m_terminalTimer = nullptr;
 };

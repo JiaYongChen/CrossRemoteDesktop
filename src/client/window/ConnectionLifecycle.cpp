@@ -27,6 +27,15 @@ QString formatFingerprint(const QString& hex) {
 
 ConnectionLifecycle::ConnectionLifecycle(QObject* parent)
     : QObject(parent) {
+    m_terminalTimer = new QTimer(this);
+    m_terminalTimer->setSingleShot(true);
+    connect(m_terminalTimer, &QTimer::timeout, this, [this]() {
+        if (m_wasAuthenticated) {
+            showDisconnectionDialog();
+        } else {
+            if (m_window) m_window->close();
+        }
+    });
 }
 
 void ConnectionLifecycle::manage(QWidget* window) {
@@ -64,21 +73,19 @@ void ConnectionLifecycle::setDisplayState(DisplayState state) {
     // 不触发任何终端处理，由对话框的重试/取消决定窗口去向
     if (m_authRetryPending) return;
 
+    // 重连/新连接时取消已调度但尚未触发的对话框/关窗定时器
+    if (state == DisplayState::Connecting || state == DisplayState::Connected
+        || state == DisplayState::Reconnecting) {
+        m_terminalTimer->stop();
+    }
+
     if (state == DisplayState::Disconnected || state == DisplayState::Error) {
         if (m_wasAuthenticated) {
             qCInfo(lcClientRemoteWindow) << "ConnectionLifecycle: Connection lost, scheduling disconnection dialog";
-
-            QTimer::singleShot(100, this, [this]() {
-                showDisconnectionDialog();
-            });
+            m_terminalTimer->start(100);
         } else {
             qCInfo(lcClientRemoteWindow) << "ConnectionLifecycle: Pre-auth connection failed, closing window silently";
-
-            QTimer::singleShot(100, this, [this]() {
-                if (m_window) {
-                    m_window->close();
-                }
-            });
+            m_terminalTimer->start(100);
         }
     }
 }

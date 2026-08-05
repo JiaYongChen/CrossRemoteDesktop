@@ -68,6 +68,8 @@ void ConnectionManager::connectToHost(const QString& host, int port) {
         const QString endpoint = ServerTrustStore::endpointFor(host, static_cast<quint16>(port));
         if ( const auto cert = m_trustStore->storedCertificate(endpoint) ) {
             m_tcpClient->setTrustedCertificate(*cert);
+        } else {
+            m_tcpClient->clearTrustedCertificate();   // 无记录则清除残留证书——防旧 endpoint 的 CA 残留到新连接
         }
     }
 

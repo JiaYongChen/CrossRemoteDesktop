@@ -28,6 +28,10 @@ void ProtocolSession::startSession() {
     // 无需认证守卫；管线由构造注入，null 属编程错误
     Q_ASSERT_X(m_pipeline, "ProtocolSession::startSession()",
                "decode pipeline 未初始化");
+    if ( !m_pipeline ) {
+        qCCritical(lcClientSessionProtocol) << "startSession: pipeline 为 null，放弃启动（Release 防护）";
+        return;
+    }
     m_pipeline->start();
 }
 

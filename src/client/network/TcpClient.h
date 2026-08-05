@@ -38,6 +38,8 @@ public:
 
     // 注入受信服务端证书：后续连接以其为 CA 执行 VerifyPeer 验证
     void setTrustedCertificate(const QSslCertificate& cert);
+    /// 清除受信证书——切换 endpoint 时调用，防止旧证书残留到新连接
+    void clearTrustedCertificate();
 
     // 连接状态
     bool isConnected() const;

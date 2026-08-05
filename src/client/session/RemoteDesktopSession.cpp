@@ -215,7 +215,8 @@ void RemoteDesktopSession::wireSignals() {
                     // 终态：提示锁定信息后静默关窗
                     QTimer::singleShot(200, m_window, [this, message]() {
                         if ( !m_window ) return;
-                        QMessageBox::warning(m_window, tr("认证被拒"), message);
+                        QMessageBox::warning(m_window, tr("登录已锁定"),
+                            tr("尝试次数过多，账户已被暂时锁定，请稍后重试。"));
                         m_window->close();
                     });
                     break;
