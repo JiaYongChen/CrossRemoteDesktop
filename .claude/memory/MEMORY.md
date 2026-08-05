@@ -15,6 +15,7 @@
 - [project_app_version_semver_rules.md](project_app_version_semver_rules.md) — 应用版本号 semver 三段语义与递增规则，修改代码时根据改动类型自动升 major/minor/patch
 - [project_auth_challenge_removal_deferred.md](project_auth_challenge_removal_deferred.md) — AUTH_CHALLENGE 已于 2026-07-30 移除（协议v3：认证参数并入握手响应+惰性派生+编号重排）
 - [project_auth_retry_model.md](project_auth_retry_model.md) — 认证采用连接内重试模型(2026-07-30)：失败不断连/响应统一/全计数/阶梯锁定复活
+- [project_errorcode_rules.md](project_errorcode_rules.md) — ErrorCode 枚举只承载真正的系统故障，协议预期结果用语义化信号表达
 
 ## Feedback
 - [feedback_logging_rules.md](feedback/feedback_logging_rules.md) — Qt 日志必须使用流式分类日志，分类集中在 LoggingCategories.h/.cpp
