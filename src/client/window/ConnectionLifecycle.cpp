@@ -66,7 +66,8 @@ void ConnectionLifecycle::setConnectionState(ConnectionManager::ConnectionState 
         // 重入守卫：避免状态循环时重复调度对话框
         if (m_authRetryPending) return;
 
-        if (m_authErrorCode == ErrorCode::AuthInvalidCredentials) {
+        // Task 5 重构: 可重试/终态细分由 authenticationFailed() 信号承载，过渡期统一按认证失败弹框
+        if (m_authErrorCode == ErrorCode::Unknown) {
             m_authRetryPending = true;
             // 服务端已统一失败响应（用户名/密码错误不可区分），用户名与密码均允许编辑。
             // 按值捕获错误消息，避免定时器触发前成员被覆写

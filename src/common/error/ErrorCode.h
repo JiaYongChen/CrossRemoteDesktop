@@ -1,6 +1,6 @@
 #pragma once
 
-/// 结构化错误码枚举，按模块分类
+/// 结构化错误码枚举，按模块分类（纯系统故障）
 enum class ErrorCode {
     Unknown = 0,
 
@@ -9,16 +9,6 @@ enum class ErrorCode {
     NetworkDisconnected,
     NetworkTlsError,
     NetworkHeartbeatTimeout,
-
-    // ─ 协议 ─
-    VersionMismatch, ///< 握手应用版本不兼容（终态，断连）
-
-    // ─ 认证 ─
-    AuthInvalidCredentials, ///< 凭据无效（用户名/密码统一，可重试）
-    AuthAccessDenied,       ///< 尝试次数过多，拒绝访问（终态）
-
-    // ─ 会话 ─
-    SessionNotAuthenticated,
 
     // ─ 捕获 ─
     CaptureInitFailed,

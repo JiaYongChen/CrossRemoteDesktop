@@ -485,7 +485,8 @@ void ConnectionManager::handleHandshakeResponse(const QByteArray& data) {
     // 版本闸门：应用版本完全相等校验。不匹配/畸形版本直接断连——
     // 不得继续处理认证参数，防止向不兼容对端发送 PBKDF2 密码证明
     if ( !appVersionMatches(response.appVersion) ) {
-        const RdError error(ErrorCode::VersionMismatch,
+        // Task 5 重构: 改为 emit versionMismatched()
+        const RdError error(ErrorCode::Unknown,
             tr("服务器版本不兼容：服务器 %1，本机 %2")
                 .arg(response.appVersion, QCoreApplication::applicationVersion()),
             "ConnectionManager");
@@ -535,19 +536,17 @@ void ConnectionManager::handleAuthenticationResponse(const QByteArray& data) {
             sendSessionCapabilities();   // 认证成功后告知服务端编码偏好
         } else {
             QString reason;
-            ErrorCode code;
+            // Task 5 重构: 认证失败改为 emit authenticationFailed()（可重试/终态细分由信号承载）
+            const ErrorCode code = ErrorCode::Unknown;
             switch ( response.result ) {
                 case AuthResult::INVALID_CREDENTIALS:
                     reason = tr("认证失败：用户名或密码错误");
-                    code = ErrorCode::AuthInvalidCredentials;
                     break;
                 case AuthResult::ACCESS_DENIED:
                     reason = tr("认证失败：尝试次数过多，请稍后重试");
-                    code = ErrorCode::AuthAccessDenied;
                     break;
                 default:
                     reason = tr("认证失败");
-                    code = ErrorCode::AuthAccessDenied;
                     break;
             }
             const RdError error(code, reason, "ConnectionManager");
@@ -556,7 +555,8 @@ void ConnectionManager::handleAuthenticationResponse(const QByteArray& data) {
             setConnectionState(AuthFailed);
             stopAutoReconnect();
 
-            if (code != ErrorCode::AuthAccessDenied) {
+            // Task 5 重构: 过渡期以 AuthResult 等价判断可重试/终态（原按 ErrorCode 区分）
+            if (response.result == AuthResult::INVALID_CREDENTIALS) {
                 // 可重试错误：保留密码明文用于重试对话框预填；服务端保持连接不断开，
                 // 等待用户重新输入后经 retryAuthentication 同连接重发认证请求
             } else {

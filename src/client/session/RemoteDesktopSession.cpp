@@ -209,8 +209,8 @@ void RemoteDesktopSession::wireSignals() {
         connect(m_connectionManager, &ConnectionManager::errorOccurred,
                 lifecycle, [lifecycle](const RdError& error) {
             switch (error.code) {
-            case ErrorCode::AuthInvalidCredentials:
-            case ErrorCode::AuthAccessDenied:
+            // Task 5 重构: 认证失败分类由 authenticationFailed() 信号承载（可重试/终态细分）
+            case ErrorCode::Unknown:
                 lifecycle->setAuthErrorCode(error.code);
                 lifecycle->setAuthErrorMessage(error.message);
                 break;

@@ -313,7 +313,7 @@ void ConnectionManagerTrustTest::handshakeResponseMismatchedAppVersion_emitsVers
 
     QCOMPARE(errors.count(), 1);
     const RdError err = errors.last().at(0).value<RdError>();
-    QCOMPARE(err.code, ErrorCode::VersionMismatch);
+    QCOMPARE(err.code, ErrorCode::Unknown);   // Task 5 重构: 断言 versionMismatched() 信号
     QVERIFY(err.message.contains(QStringLiteral("版本不兼容")));
 }
 
@@ -335,7 +335,7 @@ void ConnectionManagerTrustTest::handshakeResponseMalformedAppVersion_emitsVersi
                                       Q_ARG(QByteArray, resp.encode())));
 
     QCOMPARE(errors.count(), 1);
-    QCOMPARE(errors.last().at(0).value<RdError>().code, ErrorCode::VersionMismatch);
+    QCOMPARE(errors.last().at(0).value<RdError>().code, ErrorCode::Unknown);   // Task 5 重构: 断言 versionMismatched() 信号
 }
 
 void ConnectionManagerTrustTest::handshakeResponseMatchingAppVersion_proceeds() {
