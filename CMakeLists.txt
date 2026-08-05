@@ -110,6 +110,7 @@ qt_add_executable(CrossRemoteDesktop WIN32
     ${PROJECT_SOURCES}
     resources/resources.qrc
 )
+set_target_properties(CrossRemoteDesktop PROPERTIES OUTPUT_NAME "UltraDesktop")
 
 target_include_directories(CrossRemoteDesktop PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
