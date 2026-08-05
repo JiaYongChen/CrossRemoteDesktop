@@ -1,7 +1,7 @@
 #include "TcpClient.h"
 
-#include <QtCore/QCryptographicHash>
 #include <QtCore/QDataStream>
+#include <QtCore/QStringList>
 #include <QtCore/QTimer>
 #include <QtNetwork/QHostAddress>
 #include <QtNetwork/QNetworkProxy>
@@ -76,8 +76,23 @@ void TcpClient::connectToHost(const QString& hostName, quint16 port) {
 
     m_isConnected.store(false, std::memory_order_release);
 
+    // 已注入受信证书 → 以其为 CA 执行 VerifyPeer 服务端身份验证
+    // 未注入（首次连接/测试场景）→ 维持 VerifyNone，由上层完成 TOFU 后注入证书再重连
+    if ( m_savedCert.has_value() ) {
+        QSslConfiguration sslConfig = m_socket->sslConfiguration();
+        sslConfig.addCaCertificate(m_savedCert.value());
+        sslConfig.setPeerVerifyMode(QSslSocket::VerifyPeer);
+        m_socket->setSslConfiguration(sslConfig);
+    } else {
+        m_socket->setPeerVerifyMode(QSslSocket::VerifyNone);
+    }
+
     // 使用TLS加密连接
     m_socket->connectToHostEncrypted(hostName, port);
+}
+
+void TcpClient::setTrustedCertificate(const QSslCertificate& cert) {
+    m_savedCert = cert;
 }
 
 void TcpClient::disconnectFromHost() {
@@ -147,43 +162,26 @@ void TcpClient::onEncrypted() {
     m_lastHeartbeat = QDateTime::currentDateTime();
     m_heartbeatCheckTimer->start();
 
-    // 计算服务端证书 SHA-256 指纹（TOFU 身份标识），随 connected 上抛
-    const QString peerFingerprint = QString::fromLatin1(
-        m_socket->peerCertificate().digest(QCryptographicHash::Sha256).toHex());
-
     qCDebug(lcClient) << "TcpClient::onEncrypted - Emitting connected signal";
-    emit connected(peerFingerprint);
+    emit connected();
 }
 
 void TcpClient::configureSsl() {
     QSslConfiguration sslConfig = QSslConfiguration::defaultConfiguration();
     sslConfig.setProtocol(QSsl::TlsV1_2OrLater);
-    // 允许自签名证书（远程桌面场景下服务端通常使用自签名证书）
-    sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
+    // 对端验证模式在 connectToHost() 中按是否已注入受信证书动态设置
     m_socket->setSslConfiguration(sslConfig);
 }
 
 void TcpClient::onSslErrors(const QList<QSslError>& errors) {
-    // 仅忽略预期的自签名证书错误，其他 SSL 错误视为致命（防 MITM 攻击）
-    QList<QSslError> expectedErrors;
+    // 不再忽略任何 SSL 错误：证书链验证失败一律视为致命错误（防 MITM 攻击）
+    QStringList errorStrings;
     for ( const QSslError& error : errors ) {
-        switch ( error.error() ) {
-            case QSslError::SelfSignedCertificate:
-            case QSslError::SelfSignedCertificateInChain:
-            case QSslError::HostNameMismatch:
-                qCDebug(lcClient) << "TcpClient: 忽略预期 SSL 错误:" << error.errorString();
-                expectedErrors.append(error);
-                break;
-            default:
-                qCWarning(lcClient) << "TcpClient: 致命 SSL 错误:" << error.errorString();
-                break;
-        }
+        errorStrings.append(error.errorString());
     }
-    if ( !expectedErrors.isEmpty() ) {
-        m_socket->ignoreSslErrors(expectedErrors);
-        // Peer verification overridden — the expected errors above
-        m_socket->setPeerVerifyMode(QSslSocket::VerifyNone);
-    }
+    const QString errorMsg = tr("SSL 证书验证失败: %1").arg(errorStrings.join("; "));
+    qCWarning(lcClient) << "TcpClient::onSslErrors - 致命 SSL 错误:" << errorStrings.join("; ");
+    emit errorOccurred(RdError(ErrorCode::NetworkTlsError, errorMsg, "TcpClient"));
 }
 
 void TcpClient::onDisconnected() {

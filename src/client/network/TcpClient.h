@@ -1,11 +1,13 @@
 #pragma once
 
 #include <atomic>
+#include <optional>
 
 #include <QtCore/QDateTime>
 #include <QtCore/QObject>
 #include <QtCore/QTimer>
 #include <QtNetwork/QAbstractSocket>
+#include <QtNetwork/QSslCertificate>
 #include <QtNetwork/QSslError>
 #include <QtNetwork/QSslSocket>
 
@@ -34,6 +36,9 @@ public:
     void disconnectFromHost();
     void abort();
 
+    // 注入受信服务端证书：后续连接以其为 CA 执行 VerifyPeer 验证
+    void setTrustedCertificate(const QSslCertificate& cert);
+
     // 连接状态
     bool isConnected() const;
 
@@ -41,7 +46,7 @@ public:
     void sendMessage(MessageType type, const IMessageCodec& message);
 
 signals:
-    void connected(const QString& peerFingerprint);
+    void connected();
     void disconnected();
     void errorOccurred(const RdError& error);
 
@@ -72,6 +77,7 @@ private:
     // 网络
     QSslSocket* m_socket;
     QByteArray m_receiveBuffer;
+    std::optional<QSslCertificate> m_savedCert;   ///< 受信服务端证书（注入后以 VerifyPeer 验证）
 
     // 连接状态（原子变量，跨线程安全读取）
     std::atomic<bool> m_isConnected{false};
