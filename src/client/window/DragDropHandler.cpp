@@ -7,7 +7,7 @@
 #include <QtGui/QDropEvent>
 #include <QtWidgets/QWidget>
 
-#include "common/config/ProtocolConstants.h"
+#include "common/clipboard/ClipboardManager.h"
 #include "common/logging/LoggingCategories.h"
 
 DragDropHandler::DragDropHandler(QWidget* viewport, QObject* parent)
@@ -36,23 +36,7 @@ void DragDropHandler::startDragOut(const ClipboardFileList& fileList) {
 }
 
 ClipboardFileList DragDropHandler::extractFiles(const QList<QUrl>& urls) {
-    ClipboardFileList list;
-    for (const QUrl& url : urls) {
-        if (!url.isLocalFile()) continue;
-
-        const QFileInfo info(url.toLocalFile());
-        if (!info.exists()) continue;
-
-        ClipboardFileInfo fileInfo;
-        fileInfo.fileName = info.fileName();
-        fileInfo.fileSize = info.isDir() ? 0 : info.size();
-        fileInfo.modifyTimeMs = info.lastModified().toMSecsSinceEpoch();
-        fileInfo.isDirectory = info.isDir();
-        list.files.append(fileInfo);
-
-        if (list.files.size() >= static_cast<qsizetype>(ProtocolConstants::MaxFileListCount)) break;
-    }
-    return list;
+    return ClipboardManager::extractFiles(urls);
 }
 
 bool DragDropHandler::eventFilter(QObject* watched, QEvent* event) {

@@ -76,6 +76,13 @@ public:
     void applyRemoteFiles(const ClipboardFileList& fileList);
 
     /**
+     * @brief 从 URL 列表提取本地文件元数据（静态工具函数，DragDropHandler 复用）
+     * @param urls 剪贴板或拖放事件中的 URL 列表
+     * @return 提取的文件列表（空列表表示无可传输文件）
+     */
+    static ClipboardFileList extractFiles(const QList<QUrl>& urls);
+
+    /**
      * @brief 获取最近一次本地检测的文件列表（服务端响应文件数据请求用）
      * @return 文件列表（远端列表无本地路径时不适用）
      */
@@ -126,13 +133,6 @@ private:
      * @param image 图片数据
      */
     void setImage(const QImage& image);
-
-    /**
-     * @brief 从 URL 列表提取本地文件元数据（跳过非本地/不存在的文件，上限 MaxFileListCount）
-     * @param urls 剪贴板中的 URL 列表
-     * @return 提取的文件列表（空列表表示无可传输文件）
-     */
-    ClipboardFileList extractFiles(const QList<QUrl>& urls);
 
     /**
      * @brief 计算文件列表去重哈希（SHA-256，文件名+文件大小+修改时间拼接）
