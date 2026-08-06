@@ -492,6 +492,15 @@ add_rd_test(TARGET test_clipboardmanager  NAME ClipboardManagerTest
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets common_test_core
     TIMEOUT 30  LABELS unit common clipboard)
 
+# unit / core transfer
+add_rd_test(TARGET test_file_transfer_manager  NAME FileTransferManagerTest
+    SOURCES core/transfer/test_file_transfer_manager.cpp
+    EXTRA_SOURCES ../src/core/transfer/FileTransferManager.cpp
+                 ../src/common/network/ProtocolImpl.cpp
+                 ../src/common/network/MessageCodec.cpp
+    LIBRARIES Qt6::Core Qt6::Test common_test_core
+    TIMEOUT 30  LABELS unit core transfer)
+
 # unit / common network codec
 add_rd_test(TARGET test_messagecodec  NAME MessageCodecTest
     SOURCES common/network/test_messagecodec.cpp
