@@ -4,6 +4,7 @@
 #include <QtCore/QMetaType>
 #include <QtCore/QString>
 #include <QtCore/QtGlobal>
+#include <QtCore/QVector>
 
 // 取消Windows SDK中的宏定义,避免命名冲突
 #ifdef _WIN32
@@ -35,6 +36,16 @@ enum class MessageType : quint32 {
 
     // 剪贴板 (0x30xx)
     CLIPBOARD_DATA          = 0x3001,
+
+    // 剪贴板文件传输 (0x30xx) — 扩展
+    CLIPBOARD_FILE_REQUEST   = 0x3002,       // 粘贴方 → 复制方：请求文件数据
+    CLIPBOARD_FILE_CHUNK     = 0x3003,       // 复制方 → 粘贴方：文件数据块
+
+    // 文件传输 (0x40xx)
+    FILE_TRANSFER_INIT       = 0x4001,       // 粘贴方 → 复制方：发起大文件传输
+    FILE_TRANSFER_CHUNK      = 0x4002,       // 复制方 → 粘贴方：分块数据（64KB，带SEQ）
+    FILE_TRANSFER_ACK        = 0x4003,       // 粘贴方 → 复制方：确认 + 滑动窗口
+    FILE_TRANSFER_CANCEL     = 0x4004,       // 双向：取消传输
 
     // 心跳 (0xF0xx)——传输层保活，独立于会话业务消息
     HEARTBEAT               = 0xF001,
@@ -231,8 +242,24 @@ Q_DECLARE_METATYPE(CursorMessage)
 // 剪贴板数据类型
 enum class ClipboardDataType : quint8 {
     TEXT = 0x01,    // 文本数据
-    IMAGE = 0x02    // 图片数据（PNG格式）
+    IMAGE = 0x02,   // 图片数据（PNG格式）
+    FILE_LIST = 0x03    // 文件元数据列表
 };
+
+// ── 剪贴板文件传输数据结构 ──
+
+struct ClipboardFileInfo {
+    QString fileName;       // 仅文件名，无路径
+    quint64 fileSize;       // 字节数
+    qint64  modifyTimeMs;   // 最后修改时间（ms since epoch）
+    bool    isDirectory;
+};
+
+struct ClipboardFileList {
+    QVector<ClipboardFileInfo> files;
+    quint8 flags = 0;       // bit 0 = dragSource
+};
+Q_DECLARE_METATYPE(ClipboardFileList)
 
 // 统一的剪贴板消息
 struct ClipboardMessage : public IMessageCodec {
@@ -244,17 +271,83 @@ struct ClipboardMessage : public IMessageCodec {
     ClipboardMessage();
     explicit ClipboardMessage(const QString& text);
     ClipboardMessage(const QByteArray& imageData, quint32 w, quint32 h);
+    explicit ClipboardMessage(const ClipboardFileList& fileList);
 
     bool isText() const;
     bool isImage() const;
     QString text() const;
     QByteArray imageData() const;
 
+    // ── FILE_LIST 便捷方法 ──
+    bool isFileList() const;
+    ClipboardFileList fileList() const;
+    void setFileList(const ClipboardFileList& list);
+
     QByteArray encode() const override;
     bool decode(const QByteArray& dataBuffer) override;
 };
 
 Q_DECLARE_METATYPE(ClipboardMessage)
+
+// ── 剪贴板文件请求 ──
+struct ClipboardFileRequest : public IMessageCodec {
+    quint32 fileIndex = 0;       // 文件在 FILE_LIST 中的索引
+
+    [[nodiscard]] QByteArray encode() const override;
+    [[nodiscard]] bool decode(const QByteArray& dataBuffer) override;
+};
+
+// ── 剪贴板文件数据块（≤2MB 小文件）──
+struct ClipboardFileChunk : public IMessageCodec {
+    quint32 fileIndex = 0;
+    quint8  flags = 0;          // bit 0 = lastChunk
+    QByteArray data;
+
+    [[nodiscard]] QByteArray encode() const override;
+    [[nodiscard]] bool decode(const QByteArray& dataBuffer) override;
+};
+
+// ── 大文件传输请求 ──
+struct FileTransferInit : public IMessageCodec {
+    quint32 fileIndex = 0;
+
+    [[nodiscard]] QByteArray encode() const override;
+    [[nodiscard]] bool decode(const QByteArray& dataBuffer) override;
+};
+
+// ── 大文件传输数据块 ──
+struct FileTransferChunk : public IMessageCodec {
+    quint32 fileIndex = 0;
+    quint32 seq = 0;            // 块序号
+    QByteArray data;
+
+    [[nodiscard]] QByteArray encode() const override;
+    [[nodiscard]] bool decode(const QByteArray& dataBuffer) override;
+};
+
+// ── 大文件传输确认 ──
+struct FileTransferAck : public IMessageCodec {
+    quint32 fileIndex = 0;
+    quint32 ackSeq = 0;         // 已确认的最大 SEQ
+
+    [[nodiscard]] QByteArray encode() const override;
+    [[nodiscard]] bool decode(const QByteArray& dataBuffer) override;
+};
+
+// ── 大文件传输取消 ──
+struct FileTransferCancel : public IMessageCodec {
+    quint32 fileIndex = 0;
+
+    [[nodiscard]] QByteArray encode() const override;
+    [[nodiscard]] bool decode(const QByteArray& dataBuffer) override;
+};
+
+Q_DECLARE_METATYPE(ClipboardFileRequest)
+Q_DECLARE_METATYPE(ClipboardFileChunk)
+Q_DECLARE_METATYPE(FileTransferInit)
+Q_DECLARE_METATYPE(FileTransferChunk)
+Q_DECLARE_METATYPE(FileTransferAck)
+Q_DECLARE_METATYPE(FileTransferCancel)
 
 // 协议工具类（TLS负责传输层加密，协议层不再加密）
 class Protocol {

@@ -18,4 +18,10 @@ inline constexpr quint32 MaxTextLength           = 64 * 1024; // 文本剪贴板
 inline constexpr quint32 MaxGenericStringLength  = 4096; // 通用字符串长度上限（UTF-8 字节数）
 inline constexpr quint32 MaxClipboardPayloadSize = 10 * 1024 * 1024;  // 剪贴板消息载荷上限 10MB
 
+// ---- 文件传输 ----
+inline constexpr quint32 MaxFileListCount         = 100;            // 单次文件列表条目上限
+inline constexpr quint32 FileTransferChunkSize    = 64 * 1024;      // 传输块大小 64KB
+inline constexpr quint32 FileTransferWindowSize   = 4;              // 滑动窗口块数
+inline constexpr quint32 FileTransferAckTimeoutMs = 10000;          // ACK 超时 10s
+
 } // namespace ProtocolConstants
