@@ -3,14 +3,17 @@
 #include <QtCore/QByteArray>
 #include <QtCore/QObject>
 #include <QtCore/QString>
+#include <QtCore/QUrl>
 #include <QtGui/QClipboard>
 #include <QtGui/QImage>
+
+#include "common/network/Protocol.h"
 
 /**
  * @brief 剪贴板管理器类
  *
  * 负责监听系统剪贴板变化并同步数据
- * 支持文本和图片两种数据类型
+ * 支持文本、图片和文件列表三种数据类型
  */
 class ClipboardManager : public QObject {
     Q_OBJECT
@@ -65,6 +68,12 @@ public:
      */
     void applyRemoteImage(const QByteArray& pngData);
 
+    /**
+     * @brief 应用远端文件列表到本地剪贴板（存储元数据并防回环，不发射变化信号）
+     * @param fileList 远端文件元数据列表
+     */
+    void applyRemoteFiles(const ClipboardFileList& fileList);
+
 signals:
     /**
      * @brief 本地剪贴板文本变化信号
@@ -80,6 +89,12 @@ signals:
      */
     void clipboardImageChanged(const QByteArray& imageData, quint32 width, quint32 height);
 
+    /**
+     * @brief 本地剪贴板文件列表变化信号
+     * @param fileList 文件元数据列表
+     */
+    void clipboardFilesChanged(const ClipboardFileList& fileList);
+
 private slots:
     /**
      * @brief 处理系统剪贴板变化
@@ -94,10 +109,26 @@ private:
      */
     void setImage(const QImage& image);
 
+    /**
+     * @brief 从 URL 列表提取本地文件元数据（跳过非本地/不存在的文件，上限 MaxFileListCount）
+     * @param urls 剪贴板中的 URL 列表
+     * @return 提取的文件列表（空列表表示无可传输文件）
+     */
+    ClipboardFileList extractFiles(const QList<QUrl>& urls);
+
+    /**
+     * @brief 计算文件列表去重哈希（SHA-256，文件名+文件大小拼接）
+     * @param fileList 文件列表
+     * @return 哈希值
+     */
+    static QByteArray computeFileListHash(const ClipboardFileList& fileList);
+
     QClipboard* m_clipboard;                ///< 系统剪贴板
     bool m_enabled;                         ///< 是否启用监听
     QString m_lastText;                     ///< 上次的文本内容
     QByteArray m_lastImageData;             ///< 上次的图片数据
     QString m_lastReceivedText;             ///< 上次从网络接收的文本（去重用）
     QImage m_lastReceivedImage;             ///< 上次从网络接收的图片（去重用，像素比对）
+    QByteArray m_lastFileHash;              ///< 上次文件列表的去重哈希
+    ClipboardFileList m_lastFileList;       ///< 上次的文件列表
 };

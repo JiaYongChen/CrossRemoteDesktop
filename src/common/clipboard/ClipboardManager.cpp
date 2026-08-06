@@ -1,6 +1,8 @@
 #include "ClipboardManager.h"
 
 #include <QtCore/QBuffer>
+#include <QtCore/QCryptographicHash>
+#include <QtCore/QFileInfo>
 #include <QtCore/QMimeData>
 #include <QtGui/QClipboard>
 #include <QtGui/QGuiApplication>
@@ -54,6 +56,8 @@ void ClipboardManager::setEnabled(bool enabled) {
         m_lastImageData.clear();
         m_lastReceivedText.clear();
         m_lastReceivedImage = QImage();
+        m_lastFileHash.clear();
+        m_lastFileList = ClipboardFileList();
         qCInfo(lcClipboard) << "剪贴板监听已禁用";
     }
 }
@@ -118,6 +122,8 @@ void ClipboardManager::resync() {
                                        static_cast<quint32>(image.width()),
                                        static_cast<quint32>(image.height()));
         }
+    } else if (!m_lastFileList.files.isEmpty()) {
+        emit clipboardFilesChanged(m_lastFileList);
     }
 }
 
@@ -155,6 +161,51 @@ void ClipboardManager::applyRemoteImage(const QByteArray& pngData) {
     m_clipboard->setImage(image);
 
     qCDebug(lcClipboard) << "应用远端图片，尺寸:" << image.size();
+}
+
+void ClipboardManager::applyRemoteFiles(const ClipboardFileList& fileList) {
+    if (!m_enabled) return;
+
+    // 清空去重哈希防回环：远端列表不写入系统剪贴板（无 dataChanged 回环），
+    // 但需保证后续本地复制同类文件会重新触发同步
+    m_lastFileHash.clear();
+    // 存储元数据作为 resync 基线（与文本/图片一致）
+    m_lastFileList = fileList;
+    m_lastText.clear();
+    m_lastImageData.clear();
+    m_lastReceivedText.clear();
+    m_lastReceivedImage = QImage();
+
+    qCDebug(lcClipboard) << "应用远端文件列表，条目数:" << fileList.files.size();
+}
+
+ClipboardFileList ClipboardManager::extractFiles(const QList<QUrl>& urls) {
+    ClipboardFileList list;
+    for (const QUrl& url : urls) {
+        if (!url.isLocalFile()) continue;
+
+        const QFileInfo info(url.toLocalFile());
+        if (!info.exists()) continue;
+
+        ClipboardFileInfo fileInfo;
+        fileInfo.fileName = info.fileName();
+        fileInfo.fileSize = info.isDir() ? 0 : info.size();
+        fileInfo.modifyTimeMs = info.lastModified().toMSecsSinceEpoch();
+        fileInfo.isDirectory = info.isDir();
+        list.files.append(fileInfo);
+
+        if (list.files.size() >= static_cast<qsizetype>(ProtocolConstants::MaxFileListCount)) break;
+    }
+    return list;
+}
+
+QByteArray ClipboardManager::computeFileListHash(const ClipboardFileList& fileList) {
+    QCryptographicHash hash(QCryptographicHash::Sha256);
+    for (const ClipboardFileInfo& info : fileList.files) {
+        hash.addData(info.fileName.toUtf8());
+        hash.addData(QString::number(info.fileSize).toUtf8());
+    }
+    return hash.result();
 }
 
 void ClipboardManager::onClipboardChanged(QClipboard::Mode mode) {
@@ -221,6 +272,25 @@ void ClipboardManager::onClipboardChanged(QClipboard::Mode mode) {
 
             qCDebug(lcClipboard) << "剪贴板文本变化，长度:" << text.length();
             emit clipboardTextChanged(text);
+        }
+    }
+
+    // 文件列表分支（独立 if，最后处理；与文本/图片共用哈希去重基线）
+    if (mimeData->hasUrls()) {
+        ClipboardFileList fileList = extractFiles(mimeData->urls());
+        if (!fileList.files.isEmpty()) {
+            const QByteArray hash = computeFileListHash(fileList);
+            if (hash != m_lastFileHash) {
+                m_lastFileHash = hash;
+                m_lastFileList = fileList;
+                m_lastText.clear();
+                m_lastImageData.clear();
+                m_lastReceivedText.clear();
+                m_lastReceivedImage = QImage();
+
+                qCDebug(lcClipboard) << "剪贴板文件列表变化，条目数:" << fileList.files.size();
+                emit clipboardFilesChanged(fileList);
+            }
         }
     }
 }

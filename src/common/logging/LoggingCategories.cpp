@@ -8,6 +8,7 @@ Q_LOGGING_CATEGORY(lcCoreProtocol, "core.protocol", QtDebugMsg)
 Q_LOGGING_CATEGORY(lcCoreThreading, "core.threading", QtDebugMsg)
 Q_LOGGING_CATEGORY(lcCoreConfig, "core.config", QtDebugMsg)
 Q_LOGGING_CATEGORY(lcClipboard, "core.clipboard", QtDebugMsg)
+Q_LOGGING_CATEGORY(lcTransfer, "core.transfer", QtDebugMsg)
 
 // === server.* ===
 Q_LOGGING_CATEGORY(lcServer, "server", QtDebugMsg)
