@@ -116,7 +116,9 @@ void FileTransferManager::handleIncomingChunk(int fileIndex, const QByteArray& c
     ctx.bytesTransferred += static_cast<quint64>(chunk.size());
     emit transferProgress(fileIndex, ctx.bytesTransferred, ctx.fileInfo.fileSize);
 
-    if (lastChunk) {
+    // 大文件通道（FILE_TRANSFER_CHUNK）无 lastChunk 标志：以接收字节数达到元数据大小判定完成
+    const bool transferDone = lastChunk || ctx.bytesTransferred >= ctx.fileInfo.fileSize;
+    if (transferDone) {
         ctx.fileHandle->close();
         ctx.fileHandle->deleteLater();
         ctx.fileHandle = nullptr;

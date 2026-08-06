@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QtCore/QByteArray>
+#include <QtCore/QHash>
 #include <QtCore/QObject>
 #include <QtCore/QString>
 #include <QtCore/QUrl>
@@ -74,6 +75,19 @@ public:
      */
     void applyRemoteFiles(const ClipboardFileList& fileList);
 
+    /**
+     * @brief 获取最近一次本地检测的文件列表（服务端响应文件数据请求用）
+     * @return 文件列表（远端列表无本地路径时不适用）
+     */
+    ClipboardFileList lastFileList() const { return m_lastFileList; }
+
+    /**
+     * @brief 获取文件的完整路径（服务端响应文件数据请求用）
+     * @param fileName 文件名
+     * @return 完整路径；无记录返回空串
+     */
+    QString lastFilePath(const QString& fileName) const { return m_lastFilePaths.value(fileName); }
+
 signals:
     /**
      * @brief 本地剪贴板文本变化信号
@@ -117,7 +131,7 @@ private:
     ClipboardFileList extractFiles(const QList<QUrl>& urls);
 
     /**
-     * @brief 计算文件列表去重哈希（SHA-256，文件名+文件大小拼接）
+     * @brief 计算文件列表去重哈希（SHA-256，文件名+文件大小+修改时间拼接）
      * @param fileList 文件列表
      * @return 哈希值
      */
@@ -131,4 +145,5 @@ private:
     QImage m_lastReceivedImage;             ///< 上次从网络接收的图片（去重用，像素比对）
     QByteArray m_lastFileHash;              ///< 上次文件列表的去重哈希
     ClipboardFileList m_lastFileList;       ///< 上次的文件列表
+    QHash<QString, QString> m_lastFilePaths; ///< 上次本地文件列表的路径映射（fileName → fullPath）
 };

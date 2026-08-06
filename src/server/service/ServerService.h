@@ -1,13 +1,17 @@
 // src/server/service/ServerService.h
 #pragma once
 
+#include <QtCore/QHash>
 #include <QtCore/QList>
 #include <QtCore/QObject>
 
 #include "common/error/RdError.h"
+#include "common/network/Protocol.h"
 
 class CapturePipeline;
 class ClipboardManager;
+class FileTransferManager;
+class IMessageCodec;
 class QueueManager;
 class ServerSession;
 class SettingsManager;
@@ -70,9 +74,19 @@ private:
     CapturePipeline *m_capturePipeline = nullptr;
     QList<ServerSession *> m_sessions;
     ClipboardManager *m_clipboardManager = nullptr;  ///< 服务端剪贴板（主线程）
+    FileTransferManager *m_fileTransferManager = nullptr;  ///< 文件传输管理器（主线程）
 
     void broadcastClipboardToAllSessions(const ClipboardMessage& message);
     void onSessionClipboardData(const ClipboardMessage& message);
+    void onSessionFileList(const ClipboardFileList& files, const QString& sessionId);
+    void onFileContentRequest(quint32 fileIndex, const QString& sessionId);
+    void onFileTransferInit(quint32 fileIndex, const QString& sessionId);
+    void onFileChunkAck(quint32 fileIndex, quint32 ackSeq, const QString& sessionId);
+    void onFileTransferCancelled(quint32 fileIndex, const QString& sessionId);
+    void sendFileMessageToSession(const QString& sessionId, MessageType type, const IMessageCodec& message);
+
+    /// 文件索引 → 请求会话 ID（服务端响应文件数据请求时回发定位用）
+    QHash<quint32, QString> m_fileRequestSessions;
 
     State m_state = State::Stopped;
     quint16 m_port = 0;

@@ -1,6 +1,7 @@
 // src/server/service/ServerService.cpp
 #include "server/service/ServerService.h"
 
+#include <QtCore/QStandardPaths>
 #include <QtCore/QTimer>
 
 #include "common/clipboard/ClipboardManager.h"
@@ -11,6 +12,7 @@
 #include "common/logging/LoggingCategories.h"
 #include "common/network/Protocol.h"
 #include "common/threading/ThreadManager.h"
+#include "core/transfer/FileTransferManager.h"
 #include "server/capture/CapturePipeline.h"
 #include "server/dataflow/QueueManager.h"
 #include "server/listener/TcpListener.h"
@@ -40,6 +42,50 @@ ServerService::ServerService(ThreadManager *threadManager,
             this, [this](const QByteArray& imageData, quint32 width, quint32 height) {
                 ClipboardMessage msg(imageData, width, height);
                 broadcastClipboardToAllSessions(msg);
+            });
+
+    // 文件传输管理器（接收目录默认下载目录，可在 SettingsManager 配置覆盖）
+    const QString downloadDir = m_settingsManager
+        ? m_settingsManager->getString(QStringLiteral("fileTransfer.downloadDir"),
+              QStandardPaths::writableLocation(QStandardPaths::DownloadLocation))
+        : QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
+    m_fileTransferManager = new FileTransferManager(downloadDir, this);
+
+    // 服务端本地文件复制 → 广播 FILE_LIST 到所有客户端
+    connect(m_clipboardManager, &ClipboardManager::clipboardFilesChanged,
+            this, [this](const ClipboardFileList& files) {
+                ClipboardMessage msg(files);
+                broadcastClipboardToAllSessions(msg);
+            });
+
+    // 文件数据回发：小文件单块 / 大文件 INIT 握手
+    connect(m_fileTransferManager, &FileTransferManager::fileChunkReady,
+            this, [this](int fileIndex, const QByteArray& chunk, quint32 seq, bool lastChunk) {
+                Q_UNUSED(seq);
+                ClipboardFileChunk msg;
+                msg.fileIndex = static_cast<quint32>(fileIndex);
+                msg.flags = lastChunk ? 0x01 : 0x00;
+                msg.data = chunk;
+                sendFileMessageToSession(m_fileRequestSessions.value(msg.fileIndex),
+                                         MessageType::CLIPBOARD_FILE_CHUNK, msg);
+            });
+    connect(m_fileTransferManager, &FileTransferManager::fileTransferInitRequested,
+            this, [this](int fileIndex, const ClipboardFileInfo& info) {
+                Q_UNUSED(info);
+                FileTransferInit msg;
+                msg.fileIndex = static_cast<quint32>(fileIndex);
+                sendFileMessageToSession(m_fileRequestSessions.value(msg.fileIndex),
+                                         MessageType::FILE_TRANSFER_INIT, msg);
+            });
+
+    // 接收侧完成/错误仅记录日志（服务端粘贴触发由后续 UI 任务接入）
+    connect(m_fileTransferManager, &FileTransferManager::transferComplete,
+            this, [](int fileIndex, const QString& savedPath) {
+                qCInfo(lcServer) << "文件接收完成:" << fileIndex << savedPath;
+            });
+    connect(m_fileTransferManager, &FileTransferManager::transferError,
+            this, [](int fileIndex, const QString& errorMessage) {
+                qCWarning(lcServer) << "文件传输错误:" << fileIndex << errorMessage;
             });
 }
 
@@ -243,6 +289,32 @@ void ServerService::onNewConnection(qintptr socketDescriptor)
     connect(sessionPtr, &ServerSession::clipboardDataReceived,
             this, &ServerService::onSessionClipboardData);
 
+    // ── 文件传输信号接线 ──
+    connect(sessionPtr, &ServerSession::clipboardFileListReceived,
+            this, [this](const ClipboardFileList& files, const QString& sessionId) {
+                onSessionFileList(files, sessionId);
+            });
+    connect(sessionPtr, &ServerSession::fileContentRequestReceived,
+            this, &ServerService::onFileContentRequest);
+    connect(sessionPtr, &ServerSession::fileTransferInitReceived,
+            this, &ServerService::onFileTransferInit);
+    connect(sessionPtr, &ServerSession::clipboardFileChunkReceived,
+            this, [this](quint32 fileIndex, const QByteArray& data, quint8 flags, const QString& sessionId) {
+                Q_UNUSED(sessionId);
+                m_fileTransferManager->handleIncomingChunk(fileIndex, data, (flags & 0x01) != 0);
+            });
+    connect(sessionPtr, &ServerSession::fileTransferChunkReceived,
+            this, [this](quint32 fileIndex, quint32 seq, const QByteArray& data, const QString& sessionId) {
+                Q_UNUSED(seq);
+                Q_UNUSED(sessionId);
+                // 大文件块无 lastChunk 标志：以接收字节数达到元数据大小判定完成
+                m_fileTransferManager->handleIncomingChunk(fileIndex, data, false);
+            });
+    connect(sessionPtr, &ServerSession::fileChunkAckReceived,
+            this, &ServerService::onFileChunkAck);
+    connect(sessionPtr, &ServerSession::fileTransferCancelled,
+            this, &ServerService::onFileTransferCancelled);
+
     m_sessions.append(sessionPtr);
 
     if (m_capturePipeline) {
@@ -307,10 +379,91 @@ void ServerService::onSessionClipboardData(const ClipboardMessage& message) {
         m_clipboardManager->applyRemoteText(message.text());
     } else if (message.isImage()) {
         m_clipboardManager->applyRemoteImage(message.imageData());
+    } else if (message.isFileList()) {
+        // FILE_LIST 由 onSessionFileList 走独立路径（携带 sessionId），此处不应到达
+        qCDebug(lcServer) << "onSessionClipboardData - 收到 FILE_LIST（应走 clipboardFileListReceived）";
+        onSessionFileList(message.fileList(), QString());
     }
 
     // 2. 广播给所有已认证会话（发送者客户端因 m_lastText 匹配而静默跳过）
     broadcastClipboardToAllSessions(message);
+}
+
+void ServerService::onSessionFileList(const ClipboardFileList& files, const QString& sessionId) {
+    Q_UNUSED(sessionId);
+    // 存储元数据（远端列表在本机无路径，路径映射被清空）+ 广播给所有会话
+    // （发送者客户端靠去重基线静默跳过自己）
+    m_clipboardManager->applyRemoteFiles(files);
+
+    ClipboardMessage msg(files);
+    broadcastClipboardToAllSessions(msg);
+}
+
+void ServerService::onFileContentRequest(quint32 fileIndex, const QString& sessionId) {
+    // 服务端作为复制方：按本地剪贴板文件列表响应客户端的数据请求
+    const ClipboardFileList list = m_clipboardManager->lastFileList();
+    if (fileIndex >= static_cast<quint32>(list.files.size())) {
+        qCWarning(lcServer) << "文件请求索引越界:" << fileIndex;
+        return;
+    }
+
+    const QString fileName = list.files.at(fileIndex).fileName;
+    const QString sourcePath = m_clipboardManager->lastFilePath(fileName);
+    if (sourcePath.isEmpty()) {
+        qCWarning(lcServer) << "无法定位源文件路径:" << fileName;
+        return;
+    }
+
+    m_fileRequestSessions.insert(fileIndex, sessionId);
+    m_fileTransferManager->handleFileRequest(fileIndex, list, sourcePath);
+}
+
+void ServerService::onFileTransferInit(quint32 fileIndex, const QString& sessionId) {
+    // 与 REQUEST 相同语义：客户端确认走分块通道，仍按大小分流读取本地文件
+    onFileContentRequest(fileIndex, sessionId);
+}
+
+void ServerService::onFileChunkAck(quint32 fileIndex, quint32 ackSeq, const QString& sessionId) {
+    Q_UNUSED(sessionId);
+    // 大文件发送侧滑动窗口：ACK 推进暂未接入 FileTransferManager 发送状态机，
+    // 记录日志便于调试（通道握手已完成，CHUNK 流发送随集成测试补全）
+    qCDebug(lcServer) << "大文件 ACK 已接收: fileIndex=" << fileIndex << "ackSeq=" << ackSeq;
+}
+
+void ServerService::onFileTransferCancelled(quint32 fileIndex, const QString& sessionId) {
+    Q_UNUSED(sessionId);
+    m_fileRequestSessions.remove(fileIndex);
+    m_fileTransferManager->cancelTransfer(fileIndex);
+    qCInfo(lcServer) << "文件传输已取消: fileIndex=" << fileIndex;
+}
+
+void ServerService::sendFileMessageToSession(const QString& sessionId, MessageType type, const IMessageCodec& message) {
+    if (sessionId.isEmpty()) {
+        qCWarning(lcServer) << "文件消息回发失败：无目标会话";
+        return;
+    }
+
+    ServerSession* target = nullptr;
+    for (auto* session : m_sessions) {
+        if (session->sessionId() == sessionId) {
+            target = session;
+            break;
+        }
+    }
+    if (!target || !target->isAuthenticated()) {
+        qCWarning(lcServer) << "文件消息回发失败：会话不存在或未认证";
+        return;
+    }
+
+    const QByteArray encoded = Protocol::createMessage(type, message);
+    if (encoded.isEmpty()) return;
+
+    // lambda 上下文绑定 target：会话销毁时待处理调用自动取消，避免悬垂指针
+    QMetaObject::invokeMethod(target,
+                              [target, type, encoded]() {
+                                  target->sendEncodedFileMessage(type, encoded);
+                              },
+                              Qt::QueuedConnection);
 }
 
 void ServerService::broadcastClipboardToAllSessions(const ClipboardMessage& message) {

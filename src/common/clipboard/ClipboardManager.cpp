@@ -58,6 +58,7 @@ void ClipboardManager::setEnabled(bool enabled) {
         m_lastReceivedImage = QImage();
         m_lastFileHash.clear();
         m_lastFileList = ClipboardFileList();
+        m_lastFilePaths.clear();
         qCInfo(lcClipboard) << "剪贴板监听已禁用";
     }
 }
@@ -171,6 +172,8 @@ void ClipboardManager::applyRemoteFiles(const ClipboardFileList& fileList) {
     m_lastFileHash.clear();
     // 存储元数据作为 resync 基线（与文本/图片一致）
     m_lastFileList = fileList;
+    // 远端列表在本机无对应文件，路径映射必须清空（服务端响应请求时会因查不到路径而拒绝）
+    m_lastFilePaths.clear();
     m_lastText.clear();
     m_lastImageData.clear();
     m_lastReceivedText.clear();
@@ -204,6 +207,7 @@ QByteArray ClipboardManager::computeFileListHash(const ClipboardFileList& fileLi
     for (const ClipboardFileInfo& info : fileList.files) {
         hash.addData(info.fileName.toUtf8());
         hash.addData(QString::number(info.fileSize).toUtf8());
+        hash.addData(QString::number(info.modifyTimeMs).toUtf8());
     }
     return hash.result();
 }
@@ -283,6 +287,15 @@ void ClipboardManager::onClipboardChanged(QClipboard::Mode mode) {
             if (hash != m_lastFileHash) {
                 m_lastFileHash = hash;
                 m_lastFileList = fileList;
+                // 同步记录完整路径映射（服务端响应文件数据请求时定位源文件）
+                m_lastFilePaths.clear();
+                for (const QUrl& url : mimeData->urls()) {
+                    if (!url.isLocalFile()) continue;
+                    const QFileInfo info(url.toLocalFile());
+                    if (info.exists()) {
+                        m_lastFilePaths.insert(info.fileName(), info.absoluteFilePath());
+                    }
+                }
                 m_lastText.clear();
                 m_lastImageData.clear();
                 m_lastReceivedText.clear();
