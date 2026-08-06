@@ -508,6 +508,17 @@ add_rd_test(TARGET test_drag_drop_handler  NAME DragDropHandlerTest
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets common_test_core
     TIMEOUT 30  LABELS unit client window)
 
+# integration / clipboard file transfer
+add_rd_test(TARGET test_clipboard_file_integration  NAME ClipboardFileIntegrationTest
+    SOURCES integration/test_clipboard_file_integration.cpp
+    EXTRA_SOURCES ../src/core/transfer/FileTransferManager.cpp
+                 ../src/client/window/DragDropHandler.cpp
+                 ../src/common/clipboard/ClipboardManager.cpp
+                 ../src/common/network/ProtocolImpl.cpp
+                 ../src/common/network/MessageCodec.cpp
+    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets common_test_core
+    TIMEOUT 60  LABELS integration clipboard file)
+
 # unit / common network codec
 add_rd_test(TARGET test_messagecodec  NAME MessageCodecTest
     SOURCES common/network/test_messagecodec.cpp

@@ -26,6 +26,12 @@ void FileTransferManager::handleFileRequest(int fileIndex, const ClipboardFileLi
         return;
     }
 
+    if (m_transfers.contains(fileIndex)) {
+        qCWarning(lcTransfer) << "handleFileRequest - 传输已在进行中:" << fileIndex;
+        emit transferError(fileIndex, QStringLiteral("该文件传输已在进行中"));
+        return;
+    }
+
     if (info.fileSize <= kSmallFileThreshold) {
         // 小文件：整读 + 单块发送（lastChunk = true）
         QFile file(sourcePath);
@@ -47,9 +53,102 @@ void FileTransferManager::handleFileRequest(int fileIndex, const ClipboardFileLi
         qCDebug(lcTransfer) << "小文件读取完成，单块发送:" << info.fileName << data.size();
         emit fileChunkReady(fileIndex, data, 0, true);
     } else {
-        // 大文件：通知上层走分块通道（FileTransferInit）
-        qCDebug(lcTransfer) << "大文件触发分块传输:" << info.fileName << info.fileSize;
-        emit fileTransferInitRequested(fileIndex, info);
+        // 大文件：打开源文件进入分块发送状态机，先填充初始滑动窗口
+        auto* file = new QFile(sourcePath, this);
+        if (!file->open(QIODevice::ReadOnly)) {
+            qCWarning(lcTransfer) << "handleFileRequest - 无法打开源文件:" << sourcePath;
+            emit transferError(fileIndex, QStringLiteral("无法打开源文件: %1").arg(sourcePath));
+            file->deleteLater();
+            return;
+        }
+        if (file->size() != static_cast<qint64>(info.fileSize)) {
+            qCWarning(lcTransfer) << "handleFileRequest - 源文件大小与元数据不符:"
+                                  << info.fileName << "expected" << info.fileSize << "actual" << file->size();
+            file->close();
+            file->deleteLater();
+            emit transferError(fileIndex, QStringLiteral("源文件大小与元数据不符: %1").arg(info.fileName));
+            return;
+        }
+
+        TransferContext ctx;
+        ctx.fileInfo = info;
+        ctx.sourcePath = sourcePath;
+        ctx.fileHandle = file;
+        ctx.isActive = true;
+        m_transfers.insert(fileIndex, ctx);
+
+        qCDebug(lcTransfer) << "大文件开始分块发送:" << info.fileName << info.fileSize;
+        for (int i = 0; i < kWindowSize; ++i) {
+            sendNextChunk(fileIndex);
+        }
+    }
+}
+
+void FileTransferManager::sendNextChunk(int fileIndex) {
+    auto it = m_transfers.find(fileIndex);
+    if (it == m_transfers.end() || !it.value().isActive || !it.value().fileHandle) return;
+
+    TransferContext& ctx = it.value();
+    if (ctx.sendComplete) return;
+
+    QFile* file = ctx.fileHandle;
+    const QByteArray data = file->read(static_cast<qint64>(kChunkSize));
+    if (data.isEmpty() && !file->atEnd()) {
+        // 非 EOF 空读 = 读取失败
+        qCCritical(lcTransfer) << "sendNextChunk - 读取源文件失败:" << ctx.sourcePath;
+        file->close();
+        file->deleteLater();
+        ctx.fileHandle = nullptr;
+        m_transfers.erase(it);
+        emit transferError(fileIndex, QStringLiteral("读取源文件失败: %1").arg(ctx.sourcePath));
+        return;
+    }
+
+    const quint32 seq = static_cast<quint32>(ctx.currentSeq++);
+    ctx.bytesTransferred += static_cast<quint64>(data.size());
+    emit fileChunkReady(fileIndex, data, seq, false);  // 大文件通道无 lastChunk 标志
+    emit transferProgress(fileIndex, ctx.bytesTransferred, ctx.fileInfo.fileSize);
+
+    if (file->atEnd()) {
+        // 文件已全部读出：保留上下文，待最终 ACK 清空窗口后由 handleAck 收尾
+        ctx.sendComplete = true;
+        file->close();
+        file->deleteLater();
+        ctx.fileHandle = nullptr;
+    }
+}
+
+void FileTransferManager::handleAck(int fileIndex, quint32 ackSeq) {
+    auto it = m_transfers.find(fileIndex);
+    if (it == m_transfers.end()) return;
+
+    TransferContext& ctx = it.value();
+    if (!ctx.isActive || static_cast<int>(ackSeq) <= ctx.lastAckedSeq) return;  // 过期 ACK 忽略
+
+    ctx.lastAckedSeq = static_cast<int>(ackSeq);
+
+    // 窗口推进：补发至窗口满或文件读完
+    if (!ctx.sendComplete) {
+        const int inflight = ctx.currentSeq - (ctx.lastAckedSeq + 1);
+        for (int i = inflight; i < kWindowSize; ++i) {
+            sendNextChunk(fileIndex);
+            // sendNextChunk 同步发射信号可递归调用本方法并清除上下文 → 迭代器失效，必须重新查找
+            it = m_transfers.find(fileIndex);
+            if (it == m_transfers.end()) return;
+            if (it.value().sendComplete) break;
+        }
+    }
+
+    // 重新查找：递归路径可能已清除上下文
+    it = m_transfers.find(fileIndex);
+    if (it == m_transfers.end()) return;
+
+    // 发送完成且所有块已确认 → 传输结束
+    if (it.value().sendComplete && it.value().currentSeq - (it.value().lastAckedSeq + 1) <= 0) {
+        const QString sourcePath = it.value().sourcePath;
+        m_transfers.erase(it);
+        qCInfo(lcTransfer) << "大文件分块发送完成:" << sourcePath;
+        emit transferComplete(fileIndex, sourcePath);
     }
 }
 
@@ -86,7 +185,8 @@ void FileTransferManager::requestRemoteFile(int fileIndex, const ClipboardFileLi
     qCDebug(lcTransfer) << "开始接收远端文件:" << info.fileName << "→" << destPath;
 }
 
-void FileTransferManager::handleIncomingChunk(int fileIndex, const QByteArray& chunk, bool lastChunk) {
+void FileTransferManager::handleIncomingChunk(int fileIndex, const QByteArray& chunk, bool lastChunk,
+                                              quint32 seq) {
     auto it = m_transfers.find(fileIndex);
     if (it == m_transfers.end()) {
         qCWarning(lcTransfer) << "handleIncomingChunk - 未找到进行中的传输:" << fileIndex;
@@ -116,7 +216,12 @@ void FileTransferManager::handleIncomingChunk(int fileIndex, const QByteArray& c
     ctx.bytesTransferred += static_cast<quint64>(chunk.size());
     emit transferProgress(fileIndex, ctx.bytesTransferred, ctx.fileInfo.fileSize);
 
-    // 大文件通道（FILE_TRANSFER_CHUNK）无 lastChunk 标志：以接收字节数达到元数据大小判定完成
+    // 大文件通道（FILE_TRANSFER_CHUNK）每块回发 ACK 推进复制方滑动窗口，含最后一块
+    if (!lastChunk) {
+        emit fileChunkAckNeeded(fileIndex, seq);
+    }
+
+    // 大文件通道无 lastChunk 标志：以接收字节数达到元数据大小判定完成
     const bool transferDone = lastChunk || ctx.bytesTransferred >= ctx.fileInfo.fileSize;
     if (transferDone) {
         ctx.fileHandle->close();
