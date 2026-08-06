@@ -35,6 +35,8 @@ endif()
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
+# .ui 文件统一位于 src/ui/（与主项目一致），供 AUTOUIC 搜索
+set(CMAKE_AUTOUIC_SEARCH_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/../src/ui)
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/../src
     ${CMAKE_CURRENT_SOURCE_DIR}/../include
@@ -183,6 +185,14 @@ add_rd_test(TARGET test_queuemanager  NAME QueueManagerTest
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::Network capture_test_core
     TIMEOUT 30  LABELS unit server queue)
 
+# integration / listener
+add_rd_test(TARGET test_tcplistener  NAME TcpListenerTest
+    SOURCES server/listener/test_tcplistener.cpp
+    EXTRA_SOURCES ../src/server/listener/TcpListener.cpp
+                  ../src/server/service/TcpServer.cpp
+    LIBRARIES Qt6::Core Qt6::Test Qt6::Network OpenSSL::SSL OpenSSL::Crypto threading_test_core common_test_core
+    TIMEOUT 30  LABELS integration server listener)
+
 # DataProcessing 测试已移除——原 DataProcessor/Validator/Cleaner 管线已删除
 # DataProcessingTest 已移除——原 DataProcessor/Validator/Cleaner 类链已从源码删除
 
@@ -263,6 +273,29 @@ add_rd_test(TARGET test_authhandler  NAME AuthHandlerTest
     EXTRA_SOURCES ../src/server/clienthandler/AuthHandler.cpp
     LIBRARIES Qt6::Core Qt6::Test common_test_core
     TIMEOUT 30  LABELS unit server auth)
+
+# unit / app
+add_rd_test(TARGET test_connectiondialog  NAME ConnectionDialogTest
+    SOURCES app/test_connectiondialog.cpp
+    EXTRA_SOURCES ../src/app/ConnectionDialog.cpp
+                  ../src/common/theme/TitleBarTheme.cpp
+    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets common_test_core
+    TIMEOUT 30  LABELS unit app gui)
+if(WIN32)
+    target_link_libraries(test_connectiondialog PRIVATE dwmapi)
+endif()
+
+add_rd_test(TARGET test_settingsdialog  NAME SettingsDialogTest
+    SOURCES app/test_settingsdialog.cpp
+    EXTRA_SOURCES ../src/app/SettingsDialog.cpp
+                  ../src/common/config/TranslationUtils.cpp
+                  ../src/common/theme/TitleBarTheme.cpp
+                  ../src/common/platform/AutoStartManager.cpp
+    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets common_test_core
+    TIMEOUT 30  LABELS unit app gui)
+if(WIN32)
+    target_link_libraries(test_settingsdialog PRIVATE dwmapi)
+endif()
 
 # integration
 add_rd_test(TARGET test_screen_capture_integration  NAME ScreenCaptureIntegrationTest

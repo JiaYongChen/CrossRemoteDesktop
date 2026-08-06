@@ -52,6 +52,12 @@ public:
 	bool getAutoReconnect() const;
 	int getReconnectInterval() const;
 
+	/// 校验当前主机地址/端口输入，失败时填充错误信息
+	bool validateConnectionInfo(QString& errorMessage) const;
+	/// 解析 "host[:port]" 输入；未携带端口时回退 defaultPort（纯函数）
+	static void parseHostPort(const QString& input, int defaultPort,
+	                          QString& host, int& port);
+
 protected:
 	void accept() override;
 	void changeEvent(QEvent* event) override;
@@ -63,9 +69,6 @@ private slots:
 
 private:
 	void setupConnections();
-	bool validateConnectionInfo(QString& errorMessage) const;
-	static void parseHostPort(const QString& input, int defaultPort,
-	                          QString& host, int& port);
 	void retranslateButtons();
 
 	Ui::ConnectionDialog* ui;
