@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QtCore/QByteArray>
 #include <QtCore/QObject>
 #include <QtCore/QSize>
 #include <QtCore/QString>
@@ -43,6 +44,9 @@ public slots:
     // ── 剪贴板序列化 ──
     void sendClipboardText(const QString& text);
     void sendClipboardImage(const QByteArray& imageData, quint32 width, quint32 height);
+    void sendClipboardFileRequest(quint32 fileIndex);
+    void sendFileTransferAck(quint32 fileIndex, quint32 ackSeq);
+    void sendFileTransferCancel(quint32 fileIndex);
     void sendClipboardFiles(const ClipboardFileList& files);
 
     // ── 连接控制 ──
@@ -56,6 +60,11 @@ signals:
     // → ClipboardManager (Main 线程，QueuedConnection)
     void clipboardTextReceived(const QString& text);
     void clipboardImageReceived(const QByteArray& imageData);
+    void clipboardFileChunkReceived(quint32 fileIndex, const QByteArray& data, quint8 flags);
+    void fileTransferInitReceived(quint32 fileIndex);
+    void fileTransferChunkReceived(quint32 fileIndex, quint32 seq, const QByteArray& data);
+    void fileTransferAckReceived(quint32 fileIndex, quint32 ackSeq);
+    void fileTransferCancelled(quint32 fileIndex);
     void clipboardFilesReceived(const ClipboardFileList& files);
 
     // → UI (Main 线程，QueuedConnection)

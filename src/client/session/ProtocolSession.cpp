@@ -61,6 +61,41 @@ void ProtocolSession::onMessageReceived(MessageType type, const QByteArray& data
         case MessageType::CLIPBOARD_DATA:
             handleClipboardData(data);
             break;
+        case MessageType::CLIPBOARD_FILE_CHUNK: {
+            ClipboardFileChunk chunk;
+            if (chunk.decode(data)) {
+                emit clipboardFileChunkReceived(chunk.fileIndex, chunk.data, chunk.flags);
+            }
+            break;
+        }
+        case MessageType::FILE_TRANSFER_INIT: {
+            FileTransferInit init;
+            if (init.decode(data)) {
+                emit fileTransferInitReceived(init.fileIndex);
+            }
+            break;
+        }
+        case MessageType::FILE_TRANSFER_CHUNK: {
+            FileTransferChunk chunk;
+            if (chunk.decode(data)) {
+                emit fileTransferChunkReceived(chunk.fileIndex, chunk.seq, chunk.data);
+            }
+            break;
+        }
+        case MessageType::FILE_TRANSFER_ACK: {
+            FileTransferAck ack;
+            if (ack.decode(data)) {
+                emit fileTransferAckReceived(ack.fileIndex, ack.ackSeq);
+            }
+            break;
+        }
+        case MessageType::FILE_TRANSFER_CANCEL: {
+            FileTransferCancel cancel;
+            if (cancel.decode(data)) {
+                emit fileTransferCancelled(cancel.fileIndex);
+            }
+            break;
+        }
         default:
             break;
     }
@@ -189,6 +224,28 @@ void ProtocolSession::sendClipboardImage(const QByteArray& imageData, quint32 wi
     if (!m_connectionManager || !m_connectionManager->isAuthenticated()) return;
     ClipboardMessage message(imageData, width, height);
     m_connectionManager->sendMessage(MessageType::CLIPBOARD_DATA, message);
+}
+
+void ProtocolSession::sendClipboardFileRequest(quint32 fileIndex) {
+    if (!m_connectionManager || !m_connectionManager->isAuthenticated()) return;
+    ClipboardFileRequest req;
+    req.fileIndex = fileIndex;
+    m_connectionManager->sendMessage(MessageType::CLIPBOARD_FILE_REQUEST, req);
+}
+
+void ProtocolSession::sendFileTransferAck(quint32 fileIndex, quint32 ackSeq) {
+    if (!m_connectionManager || !m_connectionManager->isAuthenticated()) return;
+    FileTransferAck ack;
+    ack.fileIndex = fileIndex;
+    ack.ackSeq = ackSeq;
+    m_connectionManager->sendMessage(MessageType::FILE_TRANSFER_ACK, ack);
+}
+
+void ProtocolSession::sendFileTransferCancel(quint32 fileIndex) {
+    if (!m_connectionManager || !m_connectionManager->isAuthenticated()) return;
+    FileTransferCancel cancel;
+    cancel.fileIndex = fileIndex;
+    m_connectionManager->sendMessage(MessageType::FILE_TRANSFER_CANCEL, cancel);
 }
 
 void ProtocolSession::sendClipboardFiles(const ClipboardFileList& files) {

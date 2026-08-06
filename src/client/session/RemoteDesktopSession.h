@@ -9,6 +9,7 @@
 class ClientRemoteWindow;
 class ConnectionManager;
 class DecodePipeline;
+class FileTransferManager;
 class ProtocolSession;
 class SettingsManager;
 
@@ -66,6 +67,9 @@ private:
     // ── 网络层 ──
     ConnectionManager* m_connectionManager = nullptr;  // 内部自建 TcpClient
     ProtocolSession*   m_protocolSession = nullptr;
+
+    // ── 文件传输层 ──
+    FileTransferManager* m_fileTransferManager = nullptr;  // 大文件分块收发 + ACK 流控
 
     // ── 管线层 ──
     DecodePipeline* m_decodePipeline = nullptr;

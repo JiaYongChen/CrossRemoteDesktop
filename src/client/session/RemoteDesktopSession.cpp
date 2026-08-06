@@ -1,5 +1,6 @@
 #include "RemoteDesktopSession.h"
 
+#include <QtCore/QStandardPaths>
 #include <QtCore/QTimer>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QDialog>
@@ -24,6 +25,7 @@
 #include "common/config/SettingsManager.h"
 #include "common/logging/LoggingCategories.h"
 #include "common/network/Protocol.h"
+#include "core/transfer/FileTransferManager.h"
 
 RemoteDesktopSession::RemoteDesktopSession(const ConnectionParams& params,
                                            const QString& connectionId,
@@ -70,6 +72,13 @@ void RemoteDesktopSession::createNetworkComponents() {
     // 所有客户端组件驻留 Main 线程（Network 线程已于架构简化中移除），
     // 设 this 为 parent 实现自动析构清理
     m_protocolSession = new ProtocolSession(m_connectionManager, m_decodePipeline, this);
+
+    // 文件传输管理器（接收目录默认下载目录，可在 SettingsManager 配置覆盖）
+    const QString downloadDir = m_settings
+        ? m_settings->getString(QStringLiteral("fileTransfer.downloadDir"),
+              QStandardPaths::writableLocation(QStandardPaths::DownloadLocation))
+        : QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
+    m_fileTransferManager = new FileTransferManager(downloadDir, this);
 }
 
 void RemoteDesktopSession::createDecodePipeline() {
@@ -284,6 +293,13 @@ void RemoteDesktopSession::wireSignals() {
             m_protocolSession, &ProtocolSession::sendClipboardFiles);
         connect(m_protocolSession, &ProtocolSession::clipboardFilesReceived,
             clipboardMgr, &ClipboardManager::applyRemoteFiles);
+    }
+
+    // ── 文件传输：大文件块写入后回发 ACK（推进服务端滑动窗口）──
+    FileTransferManager* ftm = m_fileTransferManager;
+    if (ftm) {
+        connect(ftm, &FileTransferManager::fileChunkAckNeeded,
+                m_protocolSession, &ProtocolSession::sendFileTransferAck);
     }
 
     // ── 拖放（本地文件拖入远程视口 → 标记 dragSource 后走剪贴板文件通道）──
