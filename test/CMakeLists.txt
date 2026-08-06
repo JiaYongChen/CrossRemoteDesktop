@@ -149,6 +149,12 @@ add_rd_test(TARGET test_settingsmanager_trustedhosts  NAME SettingsManagerTruste
     LIBRARIES Qt6::Core Qt6::Test common_test_core
     TIMEOUT 30  LABELS unit config trust)
 
+# unit / crypto
+add_rd_test(TARGET test_passwordcrypto  NAME PasswordCryptoTest
+    SOURCES common/crypto/test_passwordcrypto.cpp
+    LIBRARIES Qt6::Core Qt6::Test common_test_core
+    TIMEOUT 30  LABELS unit crypto)
+
 # unit / capture
 add_rd_test(TARGET test_screencaptureworker  NAME ScreenCaptureWorkerTest
     SOURCES server/capture/test_screencaptureworker.cpp
@@ -210,6 +216,13 @@ add_rd_test(TARGET test_render_surface  NAME RenderSurfaceTest
                   ../src/client/window/CursorManager.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets common_test_core
     TIMEOUT 30  LABELS unit client render)
+
+# unit / decode
+add_rd_test(TARGET test_turbojpegdecoder  NAME TurboJpegDecoderTest
+    SOURCES client/decode/test_turbojpegdecoder.cpp
+    EXTRA_SOURCES ../src/client/decode/TurboJpegDecoder.cpp
+    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui LibJpegTurbo::turbojpeg common_test_core
+    TIMEOUT 30  LABELS unit client decode)
 
 # unit / client window
 add_rd_test(TARGET test_clientremotewindow  NAME ClientRemoteWindowTest
