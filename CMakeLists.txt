@@ -153,6 +153,7 @@ rd_deploy_windows_runtime(CrossRemoteDesktop)
 # ============================================================================
 target_compile_definitions(CrossRemoteDesktop PRIVATE
     $<$<CONFIG:Debug>:QT_MESSAGELOGCONTEXT>
+    APP_VERSION_STR="${PROJECT_VERSION}"
 )
 
 # ============================================================================

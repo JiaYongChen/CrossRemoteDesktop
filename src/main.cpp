@@ -24,7 +24,7 @@
 #include "common/network/Protocol.h"
 
 // 应用程序信息
-const QString APP_VERSION = QStringLiteral("2.0.0");  // 应用版本（挂到 QCoreApplication::applicationVersion，全网统一获取）
+const QString APP_VERSION(QString::fromLatin1(APP_VERSION_STR));  // 应用版本（由 CMake project() 传入，唯一版本源）
 const QString APP_NAME = "UltraDesktop";
 const QString APP_ORGANIZATION = "UltraDesktop";
 const QString APP_DOMAIN = "ultradesktop.com";
