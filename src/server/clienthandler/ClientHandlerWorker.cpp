@@ -675,6 +675,24 @@ void ClientHandlerWorker::processMessage(const MessageHeader& header, const QByt
         case MessageType::CLIPBOARD_DATA:
             handleClipboardData(payload);
             break;
+        case MessageType::CLIPBOARD_FILE_REQUEST:
+            handleClipboardFileRequest(payload);
+            break;
+        case MessageType::CLIPBOARD_FILE_CHUNK:
+            handleClipboardFileChunk(payload);
+            break;
+        case MessageType::FILE_TRANSFER_INIT:
+            handleFileTransferInit(payload);
+            break;
+        case MessageType::FILE_TRANSFER_CHUNK:
+            handleFileTransferChunk(payload);
+            break;
+        case MessageType::FILE_TRANSFER_ACK:
+            handleFileTransferAck(payload);
+            break;
+        case MessageType::FILE_TRANSFER_CANCEL:
+            handleFileTransferCancel(payload);
+            break;
         default:
             qCWarning(lcServerClientHandler) << "未知消息类型:" << static_cast<int>(header.type);
             break;
@@ -1070,7 +1088,111 @@ void ClientHandlerWorker::handleClipboardData(const QByteArray& data) {
     } else if (message.isImage()) {
         qCDebug(lcServerClientHandler) << "接收到剪贴板图片，尺寸:" << message.width << "x" << message.height
                  << ", 数据大小:" << message.imageData().size();
+    } else if (message.isFileList()) {
+        qCDebug(lcServerClientHandler) << "接收到剪贴板文件列表，文件数:"
+                                       << message.fileList().files.size();
     }
 
     emit clipboardDataReceived(message);
+}
+
+// ==================== 文件传输消息处理 ====================
+
+void ClientHandlerWorker::handleClipboardFileRequest(const QByteArray& data) {
+    if (!isAuthenticated()) {
+        qCWarning(lcServerClientHandler) << "未认证客户端尝试请求剪贴板文件";
+        return;
+    }
+
+    ClipboardFileRequest request;
+    if (!request.decode(data)) {
+        qCWarning(lcServerClientHandler) << "剪贴板文件请求解析失败";
+        return;
+    }
+
+    qCDebug(lcServerClientHandler) << "客户端请求剪贴板文件，索引:" << request.fileIndex;
+    emit fileContentRequestReceived(request.fileIndex);
+}
+
+void ClientHandlerWorker::handleClipboardFileChunk(const QByteArray& data) {
+    if (!isAuthenticated()) {
+        qCWarning(lcServerClientHandler) << "未认证客户端尝试发送剪贴板文件数据块";
+        return;
+    }
+
+    ClipboardFileChunk chunk;
+    if (!chunk.decode(data)) {
+        qCWarning(lcServerClientHandler) << "剪贴板文件数据块解析失败";
+        return;
+    }
+
+    qCDebug(lcServerClientHandler) << "客户端剪贴板文件数据块，索引:" << chunk.fileIndex
+                                   << "大小:" << chunk.data.size();
+    emit clipboardFileChunkReceived(chunk.fileIndex, chunk.data, chunk.flags);
+}
+
+void ClientHandlerWorker::handleFileTransferInit(const QByteArray& data) {
+    if (!isAuthenticated()) {
+        qCWarning(lcServerClientHandler) << "未认证客户端尝试发起大文件传输";
+        return;
+    }
+
+    FileTransferInit init;
+    if (!init.decode(data)) {
+        qCWarning(lcServerClientHandler) << "大文件传输发起请求解析失败";
+        return;
+    }
+
+    qCDebug(lcServerClientHandler) << "客户端发起大文件传输，索引:" << init.fileIndex;
+    emit fileTransferInitReceived(init.fileIndex);
+}
+
+void ClientHandlerWorker::handleFileTransferChunk(const QByteArray& data) {
+    if (!isAuthenticated()) {
+        qCWarning(lcServerClientHandler) << "未认证客户端尝试发送大文件数据块";
+        return;
+    }
+
+    FileTransferChunk chunk;
+    if (!chunk.decode(data)) {
+        qCWarning(lcServerClientHandler) << "大文件数据块解析失败";
+        return;
+    }
+
+    qCDebug(lcServerClientHandler) << "客户端大文件数据块，索引:" << chunk.fileIndex
+                                   << "SEQ:" << chunk.seq << "大小:" << chunk.data.size();
+    emit fileTransferChunkReceived(chunk.fileIndex, chunk.seq, chunk.data);
+}
+
+void ClientHandlerWorker::handleFileTransferAck(const QByteArray& data) {
+    if (!isAuthenticated()) {
+        qCWarning(lcServerClientHandler) << "未认证客户端尝试发送大文件确认";
+        return;
+    }
+
+    FileTransferAck ack;
+    if (!ack.decode(data)) {
+        qCWarning(lcServerClientHandler) << "大文件确认解析失败";
+        return;
+    }
+
+    qCDebug(lcServerClientHandler) << "客户端大文件确认，索引:" << ack.fileIndex
+                                   << "ACK SEQ:" << ack.ackSeq;
+    emit fileChunkAckReceived(ack.fileIndex, ack.ackSeq);
+}
+
+void ClientHandlerWorker::handleFileTransferCancel(const QByteArray& data) {
+    if (!isAuthenticated()) {
+        qCWarning(lcServerClientHandler) << "未认证客户端尝试取消大文件传输";
+        return;
+    }
+
+    FileTransferCancel cancel;
+    if (!cancel.decode(data)) {
+        qCWarning(lcServerClientHandler) << "大文件取消解析失败";
+        return;
+    }
+
+    qCInfo(lcServerClientHandler) << "客户端取消文件传输，索引:" << cancel.fileIndex;
+    emit fileTransferCancelled(cancel.fileIndex);
 }

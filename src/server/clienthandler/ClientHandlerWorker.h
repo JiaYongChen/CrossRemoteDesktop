@@ -155,6 +155,47 @@ signals:
      */
     void clipboardDataReceived(const ClipboardMessage& message);
 
+    /**
+     * @brief 客户端请求剪贴板文件数据（粘贴方 → 复制方）
+     * @param fileIndex 文件在 FILE_LIST 中的索引
+     */
+    void fileContentRequestReceived(quint32 fileIndex);
+
+    /**
+     * @brief 客户端发送剪贴板文件数据块（复制方 → 粘贴方）
+     * @param fileIndex 文件索引
+     * @param data 数据块
+     * @param flags 标志（bit 0 = lastChunk）
+     */
+    void clipboardFileChunkReceived(quint32 fileIndex, const QByteArray& data, quint8 flags);
+
+    /**
+     * @brief 客户端发起大文件分块传输（粘贴方 → 复制方）
+     * @param fileIndex 文件索引
+     */
+    void fileTransferInitReceived(quint32 fileIndex);
+
+    /**
+     * @brief 客户端发送大文件数据块（复制方 → 粘贴方）
+     * @param fileIndex 文件索引
+     * @param seq 块序号
+     * @param data 数据块
+     */
+    void fileTransferChunkReceived(quint32 fileIndex, quint32 seq, const QByteArray& data);
+
+    /**
+     * @brief 客户端确认大文件数据块（粘贴方 → 复制方）
+     * @param fileIndex 文件索引
+     * @param ackSeq 已确认的最大 SEQ
+     */
+    void fileChunkAckReceived(quint32 fileIndex, quint32 ackSeq);
+
+    /**
+     * @brief 客户端取消文件传输（双向）
+     * @param fileIndex 文件索引
+     */
+    void fileTransferCancelled(quint32 fileIndex);
+
 protected:
     /**
      * @brief 初始化工作线程
@@ -258,6 +299,42 @@ private:
      * @param data 剪贴板数据
      */
     void handleClipboardData(const QByteArray& data);
+
+    /**
+     * @brief 处理剪贴板文件请求
+     * @param data 请求数据
+     */
+    void handleClipboardFileRequest(const QByteArray& data);
+
+    /**
+     * @brief 处理剪贴板文件数据块
+     * @param data 数据块数据
+     */
+    void handleClipboardFileChunk(const QByteArray& data);
+
+    /**
+     * @brief 处理大文件传输发起请求
+     * @param data 请求数据
+     */
+    void handleFileTransferInit(const QByteArray& data);
+
+    /**
+     * @brief 处理大文件传输数据块
+     * @param data 数据块数据
+     */
+    void handleFileTransferChunk(const QByteArray& data);
+
+    /**
+     * @brief 处理大文件传输确认
+     * @param data 确认数据
+     */
+    void handleFileTransferAck(const QByteArray& data);
+
+    /**
+     * @brief 处理大文件传输取消
+     * @param data 取消数据
+     */
+    void handleFileTransferCancel(const QByteArray& data);
 
     /**
      * @brief 发送版本交换响应（携带认证参数）

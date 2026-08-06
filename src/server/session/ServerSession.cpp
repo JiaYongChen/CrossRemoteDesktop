@@ -7,6 +7,7 @@
 
 #include "common/error/RdError.h"
 #include "common/logging/LoggingCategories.h"
+#include "common/network/Protocol.h"
 #include "common/threading/ThreadManager.h"
 #include "server/clienthandler/ClientHandlerWorker.h"
 #include "server/dataprocessing/DataProcessingWorker.h"
@@ -88,10 +89,41 @@ bool ServerSession::initialize() {
             m_dataWorker, &DataProcessingWorker::setChromaSubsampling,
             Qt::QueuedConnection);
 
-    // 转发剪贴板数据
+    // 转发剪贴板数据：FILE_LIST 走独立信号（携带 sessionId），其余走原信号
     connect(m_clientHandler, &ClientHandlerWorker::clipboardDataReceived,
-            this, &ServerSession::clipboardDataReceived,
-            Qt::QueuedConnection);
+            this, [this](const ClipboardMessage& message) {
+                if (message.isFileList()) {
+                    emit clipboardFileListReceived(message.fileList(), m_sessionId);
+                } else {
+                    emit clipboardDataReceived(message);
+                }
+            }, Qt::QueuedConnection);
+
+    // 转发文件传输消息（补 sessionId）
+    connect(m_clientHandler, &ClientHandlerWorker::fileContentRequestReceived,
+            this, [this](quint32 fileIndex) {
+                emit fileContentRequestReceived(fileIndex, m_sessionId);
+            }, Qt::QueuedConnection);
+    connect(m_clientHandler, &ClientHandlerWorker::clipboardFileChunkReceived,
+            this, [this](quint32 fileIndex, const QByteArray& data, quint8 flags) {
+                emit clipboardFileChunkReceived(fileIndex, data, flags, m_sessionId);
+            }, Qt::QueuedConnection);
+    connect(m_clientHandler, &ClientHandlerWorker::fileTransferInitReceived,
+            this, [this](quint32 fileIndex) {
+                emit fileTransferInitReceived(fileIndex, m_sessionId);
+            }, Qt::QueuedConnection);
+    connect(m_clientHandler, &ClientHandlerWorker::fileTransferChunkReceived,
+            this, [this](quint32 fileIndex, quint32 seq, const QByteArray& data) {
+                emit fileTransferChunkReceived(fileIndex, seq, data, m_sessionId);
+            }, Qt::QueuedConnection);
+    connect(m_clientHandler, &ClientHandlerWorker::fileChunkAckReceived,
+            this, [this](quint32 fileIndex, quint32 ackSeq) {
+                emit fileChunkAckReceived(fileIndex, ackSeq, m_sessionId);
+            }, Qt::QueuedConnection);
+    connect(m_clientHandler, &ClientHandlerWorker::fileTransferCancelled,
+            this, [this](quint32 fileIndex) {
+                emit fileTransferCancelled(fileIndex, m_sessionId);
+            }, Qt::QueuedConnection);
 
     // 5. 启动线程：先注册 DataProc（autoStart=false），再启动 ClientHandler——
     // 后者的 initialize() 立即启动 TLS 握手，认证成功后触发的 authenticated 回调
@@ -203,4 +235,13 @@ void ServerSession::sendClipboardData(const QByteArray& encodedMessage) {
                               &ClientHandlerWorker::sendEncodedMessage,
                               Qt::QueuedConnection,
                               encodedMessage);
+}
+
+void ServerSession::sendEncodedFileMessage(MessageType type, const QByteArray& encoded) {
+    Q_UNUSED(type);
+    if (m_shuttingDown || !m_clientHandler) return;
+    QMetaObject::invokeMethod(m_clientHandler,
+                              &ClientHandlerWorker::sendEncodedMessage,
+                              Qt::QueuedConnection,
+                              encoded);
 }
