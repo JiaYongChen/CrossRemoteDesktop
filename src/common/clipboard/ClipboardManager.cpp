@@ -250,6 +250,7 @@ void ClipboardManager::onClipboardChanged(QClipboard::Mode mode) {
                 m_lastText.clear();
                 m_lastReceivedText.clear();
                 m_lastReceivedImage = QImage();
+                m_lastFileHash.clear();
 
                 qCDebug(lcClipboard) << "剪贴板图片变化，尺寸:" << image.size();
                 emit clipboardImageChanged(imageData, image.width(), image.height());
@@ -273,6 +274,7 @@ void ClipboardManager::onClipboardChanged(QClipboard::Mode mode) {
             m_lastImageData.clear();
             m_lastReceivedText.clear();
             m_lastReceivedImage = QImage();
+            m_lastFileHash.clear();
 
             qCDebug(lcClipboard) << "剪贴板文本变化，长度:" << text.length();
             emit clipboardTextChanged(text);
