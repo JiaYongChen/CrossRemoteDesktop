@@ -1,9 +1,13 @@
-#include <QtTest/QTest>
-#include <QtTest/QSignalSpy>
-#include <QtGui/QGuiApplication>
-#include <QtGui/QClipboard>
-#include <QtGui/QImage>
 #include <QtCore/QBuffer>
+#include <QtCore/QFile>
+#include <QtCore/QMimeData>
+#include <QtCore/QTemporaryDir>
+#include <QtCore/QUrl>
+#include <QtGui/QClipboard>
+#include <QtGui/QGuiApplication>
+#include <QtGui/QImage>
+#include <QtTest/QSignalSpy>
+#include <QtTest/QTest>
 #include "common/clipboard/ClipboardManager.h"
 
 class ClipboardManagerTest : public QObject {
@@ -150,23 +154,52 @@ private slots:
     void testFileListDeDupPreventsRepeatSignal() {
         ClipboardManager mgr;
         mgr.setEnabled(true);
+
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString filePath = createTempFile(dir, "dedup.txt", "hello");
+        QVERIFY(!filePath.isEmpty());
+
         QSignalSpy spy(&mgr, &ClipboardManager::clipboardFilesChanged);
-        // 注意：剪贴板文件去重依赖于 QClipboard 的 urls 变化
-        // 在 offscreen 测试环境中文剪贴板不支持 urls，此测试验证去重数据结构
-        // 集成测试中验证完整端到端流程
-        Q_UNUSED(spy);
+
+        // 第一次复制：真实文件 URL 走 hasUrls 分支全链路 → 发射 1 次
+        copyFileToClipboard(filePath);
+        QCOMPARE(spy.count(), 1);
+        const ClipboardFileList first = spy.at(0).at(0).value<ClipboardFileList>();
+        QCOMPARE(first.files.size(), 1);
+        QCOMPARE(first.files.at(0).fileName, QString("dedup.txt"));
+        QCOMPARE(first.files.at(0).fileSize, quint64(5));
+        QVERIFY(first.files.at(0).modifyTimeMs > 0);
+
+        // 第二次复制相同内容：去重哈希一致 → 不发射
+        copyFileToClipboard(filePath);
+        QCOMPARE(spy.count(), 1);
     }
 
     void testApplyRemoteFilesClearsDeDup() {
         ClipboardManager mgr;
         mgr.setEnabled(true);
-        // 通过 ClipboardManager 的公有方法验证状态变更
-        mgr.applyRemoteFiles(ClipboardFileList{});
-        mgr.resync();
-        // resync 后不应补发 FILE_LIST（m_lastFileHash 已被 applyRemoteFiles 清空，
-        // 且 m_lastFileList 为空）
+
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString filePath = createTempFile(dir, "remote.txt", "hello");
+        QVERIFY(!filePath.isEmpty());
+
+        // spy 在 applyRemoteFiles 之前创建，观测完整去重链路
         QSignalSpy spy(&mgr, &ClipboardManager::clipboardFilesChanged);
-        QCOMPARE(spy.count(), 0);
+
+        // 本地复制 → 发射 1 次并建立去重基线
+        copyFileToClipboard(filePath);
+        QCOMPARE(spy.count(), 1);
+
+        // 相同内容再次复制 → 去重生效，不发射
+        copyFileToClipboard(filePath);
+        QCOMPARE(spy.count(), 1);
+
+        // 应用远端文件列表清空去重哈希 → 相同内容本地复制重新发射
+        mgr.applyRemoteFiles(ClipboardFileList{});
+        copyFileToClipboard(filePath);
+        QCOMPARE(spy.count(), 2);
     }
 
     void testApplyRemoteFilesThenResyncReemits() {
@@ -181,6 +214,25 @@ private slots:
         QSignalSpy spy(&mgr, &ClipboardManager::clipboardFilesChanged);
         mgr.resync();
         QCOMPARE(spy.count(), 1);
+    }
+
+private:
+    // 在临时目录创建真实文件并返回路径（文件必须真实存在，extractFiles 才会收录）
+    static QString createTempFile(QTemporaryDir& dir, const QString& name, const QByteArray& content) {
+        QFile file(dir.filePath(name));
+        if (!file.open(QIODevice::WriteOnly))
+            return QString();
+        file.write(content);
+        file.close();
+        return file.fileName();
+    }
+
+    // 模拟资源管理器复制：向系统剪贴板写入本地文件 URL 并等待 dataChanged 处理
+    static void copyFileToClipboard(const QString& filePath) {
+        auto* mimeData = new QMimeData;
+        mimeData->setUrls({QUrl::fromLocalFile(filePath)});
+        QGuiApplication::clipboard()->setMimeData(mimeData);
+        QTest::qWait(50);
     }
 };
 
