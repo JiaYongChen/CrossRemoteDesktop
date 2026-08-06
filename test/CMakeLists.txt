@@ -131,7 +131,7 @@ add_custom_target(run_integration_tests
 )
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 测试定义（23 个目标，使用 add_rd_test() 辅助函数）
+# 测试定义（24 个目标，使用 add_rd_test() 辅助函数）
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # unit / threading
@@ -150,6 +150,16 @@ add_rd_test(TARGET test_settingsmanager_trustedhosts  NAME SettingsManagerTruste
     SOURCES common/config/test_settingsmanager_trustedhosts.cpp
     LIBRARIES Qt6::Core Qt6::Test common_test_core
     TIMEOUT 30  LABELS unit config trust)
+
+# unit / platform
+add_rd_test(TARGET test_autostartmanager  NAME AutoStartManagerTest
+    SOURCES common/platform/test_autostartmanager.cpp
+    EXTRA_SOURCES ../src/common/platform/AutoStartManager.cpp
+    LIBRARIES Qt6::Core Qt6::Test common_test_core
+    TIMEOUT 30  LABELS unit platform)
+if(WIN32)
+    target_link_libraries(test_autostartmanager PRIVATE advapi32)
+endif()
 
 # unit / crypto
 add_rd_test(TARGET test_passwordcrypto  NAME PasswordCryptoTest
@@ -239,6 +249,24 @@ add_rd_test(TARGET test_turbojpegdecoder  NAME TurboJpegDecoderTest
     EXTRA_SOURCES ../src/client/decode/TurboJpegDecoder.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui LibJpegTurbo::turbojpeg common_test_core
     TIMEOUT 30  LABELS unit client decode)
+
+# unit / client managers
+add_rd_test(TARGET test_decodeworker  NAME DecodeWorkerTest
+    SOURCES client/managers/test_decodeworker.cpp
+    EXTRA_SOURCES ../src/client/managers/DecodeWorker.cpp
+                  ../src/client/decode/TurboJpegDecoder.cpp
+                  ../src/client/window/GLTextureViewport.cpp
+                  ../src/client/decode/GpuDecodeTarget.cpp
+                  ../src/client/window/CursorManager.cpp
+                  ../src/common/network/ProtocolImpl.cpp
+                  ../src/common/network/MessageCodec.cpp
+    LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets LibJpegTurbo::turbojpeg common_test_core
+    TIMEOUT 30  LABELS unit client manager)
+if(WIN32)
+    # DecodeWorker.cpp 引用 NvJpegDecoder（vtable/构造函数在 .cpp 中），需一并编译并链接 CUDA
+    target_sources(test_decodeworker PRIVATE ../src/client/decode/windows/NvJpegDecoder.cpp)
+    target_link_libraries(test_decodeworker PRIVATE Cuda::cudart Cuda::nvjpeg)
+endif()
 
 # unit / client window
 add_rd_test(TARGET test_clientremotewindow  NAME ClientRemoteWindowTest
