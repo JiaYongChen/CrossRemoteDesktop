@@ -43,6 +43,7 @@ public slots:
     // ── 剪贴板序列化 ──
     void sendClipboardText(const QString& text);
     void sendClipboardImage(const QByteArray& imageData, quint32 width, quint32 height);
+    void sendClipboardFiles(const ClipboardFileList& files);
 
     // ── 连接控制 ──
     void disconnectFromHost();
@@ -55,6 +56,7 @@ signals:
     // → ClipboardManager (Main 线程，QueuedConnection)
     void clipboardTextReceived(const QString& text);
     void clipboardImageReceived(const QByteArray& imageData);
+    void clipboardFilesReceived(const ClipboardFileList& files);
 
     // → UI (Main 线程，QueuedConnection)
     void sessionError(const RdError& error);

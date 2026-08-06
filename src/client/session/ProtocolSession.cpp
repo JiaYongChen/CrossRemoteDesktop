@@ -133,6 +133,8 @@ void ProtocolSession::handleClipboardData(const QByteArray& data) {
         emit clipboardTextReceived(message.text());
     } else if (message.isImage()) {
         emit clipboardImageReceived(message.imageData());
+    } else if (message.isFileList()) {
+        emit clipboardFilesReceived(message.fileList());
     }
 }
 
@@ -186,6 +188,12 @@ void ProtocolSession::sendClipboardText(const QString& text) {
 void ProtocolSession::sendClipboardImage(const QByteArray& imageData, quint32 width, quint32 height) {
     if (!m_connectionManager || !m_connectionManager->isAuthenticated()) return;
     ClipboardMessage message(imageData, width, height);
+    m_connectionManager->sendMessage(MessageType::CLIPBOARD_DATA, message);
+}
+
+void ProtocolSession::sendClipboardFiles(const ClipboardFileList& files) {
+    if (!m_connectionManager || !m_connectionManager->isAuthenticated()) return;
+    ClipboardMessage message(files);
     m_connectionManager->sendMessage(MessageType::CLIPBOARD_DATA, message);
 }
 
