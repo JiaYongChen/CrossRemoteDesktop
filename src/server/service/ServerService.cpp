@@ -461,6 +461,11 @@ bool ServerService::prepareFileSend(quint32 fileIndex, const QString& sessionId,
         return false;
     }
 
+    // 拒绝已在进行的传输请求（避免跨会话映射覆盖 + FileTransferManager 内部重复拒绝）
+    if (m_fileRequestSessions.contains(fileIndex)) {
+        qCWarning(lcServer) << "该文件索引已有进行中的传输，拒绝重复请求:" << fileIndex;
+        return false;
+    }
     m_fileRequestSessions.insert(fileIndex, sessionId);
     m_fileTransferManager->handleFileRequest(fileIndex, list, sourcePath);
     return true;

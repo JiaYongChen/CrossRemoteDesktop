@@ -293,6 +293,37 @@ void RemoteDesktopSession::wireSignals() {
             m_protocolSession, &ProtocolSession::sendClipboardFiles);
         connect(m_protocolSession, &ProtocolSession::clipboardFilesReceived,
             clipboardMgr, &ClipboardManager::applyRemoteFiles);
+
+        // ── 收到远端文件列表 → 自动发起文件请求（粘贴触发）──
+        connect(m_protocolSession, &ProtocolSession::clipboardFilesReceived,
+                this, [this](const ClipboardFileList& files) {
+            // 拖出操作（dragSource 标志）：仅启动占位拖拽，粘贴时再请求数据
+            if (files.flags & 0x01) {
+                DragDropHandler* ddh = m_window->dragDropHandler();
+                if (ddh) {
+                    ddh->startDragOut(files);
+                }
+                return;
+            }
+
+            FileTransferManager* ftm = m_fileTransferManager;
+            if (!ftm) return;
+
+            for (int i = 0; i < files.files.size(); ++i) {
+                const ClipboardFileInfo& info = files.files.at(i);
+                if (info.isDirectory) continue;
+
+                ftm->requestRemoteFile(i, files);
+
+                if (info.fileSize <= FileTransferManager::kSmallFileThreshold) {
+                    m_protocolSession->sendClipboardFileRequest(
+                        static_cast<quint32>(i));
+                } else {
+                    m_protocolSession->sendFileTransferInit(
+                        static_cast<quint32>(i));
+                }
+            }
+        });
     }
 
     // ── 文件传输：数据收发 + ACK 回路 ──

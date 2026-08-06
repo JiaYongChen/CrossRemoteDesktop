@@ -240,6 +240,13 @@ void ProtocolSession::sendClipboardFileRequest(quint32 fileIndex) {
     m_connectionManager->sendMessage(MessageType::CLIPBOARD_FILE_REQUEST, req);
 }
 
+void ProtocolSession::sendFileTransferInit(quint32 fileIndex) {
+    if (!m_connectionManager || !m_connectionManager->isAuthenticated()) return;
+    FileTransferInit init;
+    init.fileIndex = fileIndex;
+    m_connectionManager->sendMessage(MessageType::FILE_TRANSFER_INIT, init);
+}
+
 void ProtocolSession::sendFileTransferAck(quint32 fileIndex, quint32 ackSeq) {
     if (!m_connectionManager || !m_connectionManager->isAuthenticated()) return;
     FileTransferAck ack;
