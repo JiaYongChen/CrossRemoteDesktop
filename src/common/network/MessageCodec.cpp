@@ -444,6 +444,11 @@ ClipboardMessage::ClipboardMessage(const QByteArray& imageData, quint32 w, quint
     : dataType(ClipboardDataType::IMAGE), data(imageData), width(w), height(h) {
 }
 
+ClipboardMessage::ClipboardMessage(const ClipboardFileList& fileList)
+    : dataType(ClipboardDataType::FILE_LIST), width(0), height(0) {
+    setFileList(fileList);
+}
+
 bool ClipboardMessage::isText() const {
     return dataType == ClipboardDataType::TEXT;
 }
@@ -452,12 +457,72 @@ bool ClipboardMessage::isImage() const {
     return dataType == ClipboardDataType::IMAGE;
 }
 
+bool ClipboardMessage::isFileList() const {
+    return dataType == ClipboardDataType::FILE_LIST;
+}
+
 QString ClipboardMessage::text() const {
     return isText() ? QString::fromUtf8(data) : QString();
 }
 
 QByteArray ClipboardMessage::imageData() const {
     return isImage() ? data : QByteArray();
+}
+
+ClipboardFileList ClipboardMessage::fileList() const {
+    ClipboardFileList list;
+    if (!isFileList()) {
+        return list;
+    }
+
+    QDataStream stream(data);
+    stream.setByteOrder(QDataStream::LittleEndian);
+
+    // 载荷格式：flags(1B) | fileCount(4B) | 条目序列
+    quint8 flags = 0;
+    stream >> flags;
+    if (stream.status() != QDataStream::Ok) return ClipboardFileList();
+    list.flags = flags;
+
+    quint32 count = 0;
+    stream >> count;
+    if (count > ProtocolConstants::MaxFileListCount) {
+        qCDebug(lcCoreProtocol) << "ClipboardMessage::fileList() - 条目数超限 count=" << count;
+        return ClipboardFileList();
+    }
+
+    list.files.reserve(count);
+    for (quint32 i = 0; i < count; ++i) {
+        ClipboardFileInfo info;
+        info.fileName = readPrefixedString(stream, ProtocolConstants::MaxGenericStringLength);
+        if (stream.status() != QDataStream::Ok) return ClipboardFileList();
+        stream >> info.fileSize;
+        stream >> info.modifyTimeMs;
+        stream >> info.isDirectory;
+        if (stream.status() != QDataStream::Ok) return ClipboardFileList();
+        list.files.append(info);
+    }
+    return list;
+}
+
+void ClipboardMessage::setFileList(const ClipboardFileList& list) {
+    dataType = ClipboardDataType::FILE_LIST;
+    width = 0;
+    height = 0;
+
+    QByteArray payload;
+    QDataStream stream(&payload, QIODevice::WriteOnly);
+    stream.setByteOrder(QDataStream::LittleEndian);
+
+    stream << list.flags;
+    stream << static_cast<quint32>(list.files.size());
+    for (const ClipboardFileInfo& info : list.files) {
+        writePrefixedString(stream, info.fileName, ProtocolConstants::MaxGenericStringLength);
+        stream << info.fileSize;
+        stream << info.modifyTimeMs;
+        stream << info.isDirectory;
+    }
+    data = payload;
 }
 
 QByteArray ClipboardMessage::encode() const {
@@ -476,6 +541,10 @@ QByteArray ClipboardMessage::encode() const {
         // 编码图片数据
         stream << width;
         stream << height;
+        stream << static_cast<quint32>(data.size());
+        stream.writeRawData(data.constData(), data.size());
+    } else if ( dataType == ClipboardDataType::FILE_LIST ) {
+        // 编码文件列表数据（data 为 setFileList 序列化的载荷）
         stream << static_cast<quint32>(data.size());
         stream.writeRawData(data.constData(), data.size());
     }
@@ -547,6 +616,28 @@ bool ClipboardMessage::decode(const QByteArray& dataBuffer) {
 
         data.resize(dataSize);
         stream.readRawData(data.data(), dataSize);
+    } else if ( dataType == ClipboardDataType::FILE_LIST ) {
+        // 解码文件列表数据
+        if ( dataBuffer.size() < static_cast<int>(sizeof(quint8) + sizeof(quint32)) ) {
+            return false;
+        }
+
+        quint32 dataSize;
+        stream >> dataSize;
+
+        // 同 TEXT 分支：64 位 qsizetype 比较防止 dataSize 溢出绕过校验
+        const qsizetype listRequired = static_cast<qsizetype>(dataSize)
+                                     + static_cast<qsizetype>(sizeof(quint8) + sizeof(quint32));
+        if ( dataBuffer.size() < listRequired ) {
+            return false;
+        }
+
+        data.resize(dataSize);
+        stream.readRawData(data.data(), dataSize);
+
+        // 清空图片相关字段
+        width = 0;
+        height = 0;
     } else {
         return false;
     }
