@@ -1,6 +1,6 @@
 # 变更日志
 
-## [2.0.0] — 2026-08-04
+## [2.0.0] — 2026-08-06
 
 ### 重大变更
 - **协议重构**：HANDSHAKE/AUTH_CHALLENGE 移除 → VERSION_EXCHANGE + AUTHENTICATION 新握手流

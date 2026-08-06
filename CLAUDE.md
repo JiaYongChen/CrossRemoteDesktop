@@ -285,25 +285,23 @@ qCWarning(lcServer) << error.logLabel();      // 推荐
 
 输入模拟器有平台变体，位于 `src/server/simulator/` 下按平台分子目录：`windows/`、`macos/`、`linux/`。CMake 通过 GLOB_RECURSE 自动收集全部源文件，平台选择通过文件内 `#ifdef Q_OS_*` 编译期守卫实现。
 
-### macOS 平台待实现
+### macOS 平台实现状态
 
-以下两个模块头文件已定义，`.cpp` 实现待后续开发：
+以下两个模块已通过 Objective-C++（`.mm`）实现，在 macOS 上自动编译和启用：
 
-- **`AvFoundationCapture`**（`src/server/capture/macos/AvFoundationCapture.h`）：
-  macOS ScreenCaptureKit 屏幕捕获实现（macOS 13.0+）。当前无 `.cpp` 文件，
-  `ScreenCaptureFactory` 中 `HAS_SCREEN_CAPTURE_KIT` 宏控制编译，实际回退到 Qt GDI
-  （`QScreen::grabWindow()`）。
+- **`AvFoundationCapture`**（`src/server/capture/macos/AvFoundationCapture.mm`）：
+  macOS ScreenCaptureKit 屏幕捕获（macOS 13.0+），通过 PIMPL 隔离 ObjC 类型。
+  CMake 定义 `HAS_SCREEN_CAPTURE_KIT` 时优先使用，`isAvailable()` 返回 false 时回退 Qt GDI。
 
-- **`VideoToolboxDecoder`**（`src/client/decode/macos/VideoToolboxDecoder.h`）：
-  macOS ImageIO + CoreGraphics GPU JPEG 解码器。当前无 `.cpp` 文件，
-  `HAS_VIDEOTOOLBOX` 宏控制编译，实际回退到 TurboJpegDecoder CPU 路径。
+- **`VideoToolboxDecoder`**（`src/client/decode/macos/VideoToolboxDecoder.mm`）：
+  macOS VideoToolbox GPU JPEG 解码，通过 `VTDecompressionSession` 实现。
+  CMake 在 macOS 上恒定义 `HAS_VIDEOTOOLBOX`，DecoderWorker 自动使用此解码器。
 
-这两个实现需要 Objective-C/C++ 混编，且在 macOS 设备上验证。
-优先级低于当前 Windows/Linux 的功能完善。
+两个实现在 macOS 设备上编译和运行正常，但 CI（当前 Windows）无法覆盖。
 
 ## 测试
 
-23 个测试目标，测试目录镜像 `src/` 结构按模块组织：
+39 个测试目标，测试目录镜像 `src/` 结构按模块组织：
 - **`test/app/`** — 应用壳层测试
 - **`test/client/`** — 客户端测试（`decode/`、`session/`、`windows/`、`network/`）
 - **`test/server/`** — 服务端测试（`capture/`、`clienthandler/`、`dataprocessing/`、`dataflow/`）

@@ -11,7 +11,7 @@ src/
 ├── app/           应用壳（MainWindow, ConnectionDialog, SettingsDialog）
 ├── client/        客户端
 │   ├── core/         核心数据结构（TripleBuffer, FrameSlot）
-│   ├── decode/       解码器（CPU TurboJPEG / GPU NVJPEG / VA-API）
+│   ├── decode/       解码器（CPU TurboJPEG / GPU NVJPEG / VA-API / VideoToolbox）
 │   ├── managers/     解码工作线程
 │   ├── network/      网络层（TcpClient, ConnectionManager, ServerTrustStore）
 │   ├── session/      会话组装（RemoteDesktopSession, ProtocolSession, DecodePipeline）

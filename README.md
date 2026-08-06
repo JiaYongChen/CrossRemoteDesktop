@@ -21,12 +21,12 @@
 
 | 功能 | Windows | Linux | macOS |
 |------|:-------:|:-----:|:-----:|
-| 屏幕捕获 | DXGI (GPU) | PipeWire (GPU) | Qt GDI (CPU) |
-| GPU 解码 | NVJPEG | VA-API | — (回退 CPU) |
+| 屏幕捕获 | DXGI (GPU) | PipeWire (GPU) | ScreenCaptureKit (GPU) |
+| GPU 解码 | NVJPEG | VA-API | VideoToolbox |
 | CPU 解码 | TurboJPEG | TurboJPEG | TurboJPEG |
 | 输入模拟 | ✅ | ✅ | ✅ |
 
-> macOS 捕获（ScreenCaptureKit）和解码（VideoToolbox）的头文件已定义，实现待后续版本补齐。
+> macOS 捕获（ScreenCaptureKit）和解码（VideoToolbox）已通过 Objective-C++ 实现，在 macOS 上自动启用。
 
 ## 快速开始
 
