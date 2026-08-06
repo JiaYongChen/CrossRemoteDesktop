@@ -52,6 +52,7 @@ void FileTransferManager::handleFileRequest(int fileIndex, const ClipboardFileLi
 
         qCDebug(lcTransfer) << "小文件读取完成，单块发送:" << info.fileName << data.size();
         emit fileChunkReady(fileIndex, data, 0, true);
+        emit transferComplete(fileIndex, sourcePath);
     } else {
         // 大文件：打开源文件进入分块发送状态机，先填充初始滑动窗口
         auto* file = new QFile(sourcePath, this);
@@ -218,11 +219,6 @@ void FileTransferManager::handleIncomingChunk(int fileIndex, const QByteArray& c
     ctx.bytesTransferred += static_cast<quint64>(chunk.size());
     emit transferProgress(fileIndex, ctx.bytesTransferred, ctx.fileInfo.fileSize);
 
-    // 大文件通道（FILE_TRANSFER_CHUNK）每块回发 ACK 推进复制方滑动窗口，含最后一块
-    if (!lastChunk) {
-        emit fileChunkAckNeeded(fileIndex, seq);
-    }
-
     // 大文件通道无 lastChunk 标志：以接收字节数达到元数据大小判定完成
     const bool transferDone = lastChunk || ctx.bytesTransferred >= ctx.fileInfo.fileSize;
     if (transferDone) {
@@ -235,6 +231,9 @@ void FileTransferManager::handleIncomingChunk(int fileIndex, const QByteArray& c
         m_transfers.erase(it);
 
         if (sizeOk) {
+            // 最后一块 ACK 在 size 确认后发出，避免通知发送方完成却随后报错
+            if (!lastChunk)
+                emit fileChunkAckNeeded(fileIndex, seq);
             qCInfo(lcTransfer) << "文件接收完成:" << savedPath;
             emit transferComplete(fileIndex, savedPath);
         } else {
@@ -242,6 +241,9 @@ void FileTransferManager::handleIncomingChunk(int fileIndex, const QByteArray& c
             QFile::remove(savedPath);
             emit transferError(fileIndex, QStringLiteral("接收大小与元数据不符: %1").arg(savedPath));
         }
+    } else {
+        // 常规块：立即回发 ACK 推进发送方滑动窗口
+        emit fileChunkAckNeeded(fileIndex, seq);
     }
 }
 
