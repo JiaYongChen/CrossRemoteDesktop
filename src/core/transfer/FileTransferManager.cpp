@@ -177,6 +177,12 @@ void FileTransferManager::requestRemoteFile(int fileIndex, const ClipboardFileLi
         return;
     }
 
+    if (info.isDirectory) {
+        qCWarning(lcTransfer) << "requestRemoteFile - 暂不支持接收目录:" << info.fileName;
+        emit transferError(fileIndex, QStringLiteral("暂不支持接收目录: %1").arg(info.fileName));
+        return;
+    }
+
     if (m_transfers.contains(fileIndex)) {
         qCWarning(lcTransfer) << "requestRemoteFile - 传输已在进行中:" << fileIndex;
         emit transferError(fileIndex, QStringLiteral("该文件传输已在进行中"));

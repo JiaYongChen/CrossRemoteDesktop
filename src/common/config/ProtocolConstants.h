@@ -20,8 +20,7 @@ inline constexpr quint32 MaxClipboardPayloadSize = 10 * 1024 * 1024;  // 剪贴�
 
 // ---- 文件传输 ----
 inline constexpr quint32 MaxFileListCount         = 100;            // 单次文件列表条目上限
-inline constexpr quint32 FileTransferChunkSize    = 64 * 1024;      // 传输块大小 64KB
-inline constexpr quint32 FileTransferWindowSize   = 4;              // 滑动窗口块数
-inline constexpr quint32 FileTransferAckTimeoutMs = 10000;          // ACK 超时 10s
+// FileTransferChunkSize/WindowSize 实现在 FileTransferManager（kChunkSize/kWindowSize），
+// FileTransferAckTimeoutMs 尚未实现超时机制
 
 } // namespace ProtocolConstants
