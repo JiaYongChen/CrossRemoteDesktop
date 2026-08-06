@@ -7,9 +7,7 @@
         <file>icons/reconnect.svg</file>
         <file>icons/server.svg</file>
         <file>icons/save.svg</file>
-        <file>icons/update.svg</file>
         <file>icons/settings.svg</file>
-        <file>icons/keyboard.svg</file>
         <file>icons/help.svg</file>
         <file>icons/about.svg</file>
         <file>icons/fullscreen.svg</file>
@@ -18,13 +16,7 @@
         <file>icons/zoom_fit.svg</file>
         <file>icons/zoom_actual.svg</file>
         <file>icons/exit.svg</file>
-        <file>icons/delete.svg</file>
-        <file>icons/record.svg</file>
-        <file>icons/screenshot.svg</file>
         <file>icons/theme.svg</file>
-        <file>icons/import.svg</file>
-        <file>icons/export.svg</file>
-        <file>icons/file_transfer.svg</file>
         <file>icons/clipboard.svg</file>
         <file>icons/menu.svg</file>
         <file>icons/dropdown-arrow.svg</file>
