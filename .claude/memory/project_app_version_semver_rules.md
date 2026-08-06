@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: ae67bb09-0bd1-4511-b115-c10f077d6e44
-  modified: 2026-08-05T02:07:18.942Z
+  modified: 2026-08-06T01:34:32.199Z
 ---
 
 # 应用版本号语义与递增规则
@@ -25,6 +25,16 @@ metadata:
 - 变更仅新增代码路径、新增文件、新增 UI，不改变既有线上格式 → **升 minor**
 - 变更仅修复 bug、调整日志/注释，无线上格式变化 → **升 patch**
 
-**版本号位置**：`src/common/config/ProtocolConstants.h` → `ProtocolConstants::AppVersion`（唯一版本源，[[常量组织规范]]）
+**版本号位置**（唯一版本源）：
+- `CMakeLists.txt` → `project(CrossRemoteDesktop VERSION x.y.z)` — 需改
+- `src/main.cpp` → `const QString APP_VERSION(QString::fromLatin1(APP_VERSION_STR))` — **由 CMake `target_compile_definitions` 自动传入，不需手动改**
 
-**关联**：[[极域桌面项目概况]]、[[常量组织规范]]
+**更新版本号后必须同步更新**：
+- `README.md` — 版本徽章/版本号引用
+- `CLAUDE.md` — 构建说明中的版本号引用（如有）
+
+**Why:** CMake `project()` 是版本唯一源，`target_compile_definitions(APP_VERSION_STR)` 将版本传入 C++ 代码。README 和 CLAUDE.md 中的版本引用需手动同步以避免文档与二进制不一致。
+
+**How to apply:** 修改 `CMakeLists.txt` 中 `project(VERSION x.y.z)` 后，搜索 `README.md` 和 `CLAUDE.md` 中的旧版本号并替换。
+
+**关联**：[[project_overview]]、[[project_constants_organization_rules]]
