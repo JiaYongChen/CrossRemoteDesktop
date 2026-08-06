@@ -185,6 +185,11 @@ void ServerService::stop()
     m_state = State::Stopping;
 
     cleanupSessions();
+
+    if (m_fileTransferManager) {
+        m_fileTransferManager->cancelAllTransfers();
+    }
+
     stopCapturePipeline();
 
     if (m_tcpListener) {
@@ -355,13 +360,17 @@ void ServerService::onSessionDisconnected(const QString &sessionId)
 {
     qCInfo(lcServer) << "ServerService: session disconnected:" << sessionId;
 
-    // 清理该会话关联的文件传输映射（进行中的传输由取消/对端超时兜底）
+    // 清理该会话关联的文件传输映射 + 所有活跃传输（断连即终止，无超时兜底）
     for (auto it = m_fileRequestSessions.begin(); it != m_fileRequestSessions.end();) {
         if (it.value() == sessionId) {
             it = m_fileRequestSessions.erase(it);
         } else {
             ++it;
         }
+    }
+
+    if (m_fileTransferManager) {
+        m_fileTransferManager->cancelAllTransfers();
     }
 
     for (int i = 0; i < m_sessions.size(); ++i) {
