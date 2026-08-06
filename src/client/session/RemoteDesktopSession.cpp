@@ -363,6 +363,11 @@ void RemoteDesktopSession::close() {
         m_decodePipeline->stop();
     }
 
+    // 1.5. 终止所有进行中的文件传输（断连即取消，清理半成品文件）
+    if (m_fileTransferManager) {
+        m_fileTransferManager->cancelAllTransfers();
+    }
+
     // 2. 断开网络连接
     if (m_protocolSession) {
         m_protocolSession->disconnectFromHost();

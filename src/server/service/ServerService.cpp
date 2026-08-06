@@ -421,10 +421,8 @@ void ServerService::onSessionClipboardData(const ClipboardMessage& message) {
 
 void ServerService::onSessionFileList(const ClipboardFileList& files, const QString& sessionId) {
     Q_UNUSED(sessionId);
-    // 存储元数据（远端列表在本机无路径，路径映射被清空）+ 广播给所有会话
-    // （发送者客户端靠去重基线静默跳过自己）
-    m_clipboardManager->applyRemoteFiles(files);
-
+    // 仅广播远端文件列表，不调用 applyRemoteFiles——后者会清空服务端本地文件的路径映射
+    // （m_lastFilePaths），导致后续文件请求无法定位服务端复制的源文件。
     ClipboardMessage msg(files);
     broadcastClipboardToAllSessions(msg);
 }
