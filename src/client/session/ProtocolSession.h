@@ -61,6 +61,7 @@ signals:
     void clipboardTextReceived(const QString& text);
     void clipboardImageReceived(const QByteArray& imageData);
     void clipboardFileChunkReceived(quint32 fileIndex, const QByteArray& data, quint8 flags);
+    void fileContentRequestReceived(quint32 fileIndex);
     void fileTransferInitReceived(quint32 fileIndex);
     void fileTransferChunkReceived(quint32 fileIndex, quint32 seq, const QByteArray& data);
     void fileTransferAckReceived(quint32 fileIndex, quint32 ackSeq);

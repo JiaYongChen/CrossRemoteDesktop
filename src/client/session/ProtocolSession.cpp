@@ -61,6 +61,13 @@ void ProtocolSession::onMessageReceived(MessageType type, const QByteArray& data
         case MessageType::CLIPBOARD_DATA:
             handleClipboardData(data);
             break;
+        case MessageType::CLIPBOARD_FILE_REQUEST: {
+            ClipboardFileRequest req;
+            if (req.decode(data)) {
+                emit fileContentRequestReceived(req.fileIndex);
+            }
+            break;
+        }
         case MessageType::CLIPBOARD_FILE_CHUNK: {
             ClipboardFileChunk chunk;
             if (chunk.decode(data)) {
