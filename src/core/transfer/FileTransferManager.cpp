@@ -125,7 +125,11 @@ void FileTransferManager::handleAck(int fileIndex, quint32 ackSeq) {
     if (it == m_transfers.end()) return;
 
     TransferContext& ctx = it.value();
-    if (!ctx.isActive || static_cast<int>(ackSeq) <= ctx.lastAckedSeq) return;  // 过期 ACK 忽略
+    if (!ctx.isActive) return;
+
+    // 拒绝超出已发范围的 ACK（异常/恶意 ACK 不会让 inflight 变负导致流控失效）
+    if (static_cast<int>(ackSeq) >= ctx.currentSeq) return;
+    if (static_cast<int>(ackSeq) <= ctx.lastAckedSeq) return;  // 过期 ACK 忽略
 
     ctx.lastAckedSeq = static_cast<int>(ackSeq);
 
