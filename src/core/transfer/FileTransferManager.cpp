@@ -96,11 +96,12 @@ void FileTransferManager::sendNextChunk(int fileIndex) {
     if (data.isEmpty() && !file->atEnd()) {
         // 非 EOF 空读 = 读取失败
         qCCritical(lcTransfer) << "sendNextChunk - 读取源文件失败:" << ctx.sourcePath;
+        const QString srcPath = ctx.sourcePath;
         file->close();
         file->deleteLater();
         ctx.fileHandle = nullptr;
         m_transfers.erase(it);
-        emit transferError(fileIndex, QStringLiteral("读取源文件失败: %1").arg(ctx.sourcePath));
+        emit transferError(fileIndex, QStringLiteral("读取源文件失败: %1").arg(srcPath));
         return;
     }
 
@@ -204,12 +205,13 @@ void FileTransferManager::handleIncomingChunk(int fileIndex, const QByteArray& c
     const qint64 written = ctx.fileHandle->write(chunk);
     if (written != chunk.size()) {
         qCCritical(lcTransfer) << "handleIncomingChunk - 写入失败:" << ctx.destPath;
+        const QString destPath = ctx.destPath;
         ctx.fileHandle->close();
         ctx.fileHandle->deleteLater();
         ctx.fileHandle = nullptr;
-        QFile::remove(ctx.destPath);
+        QFile::remove(destPath);
         m_transfers.erase(it);
-        emit transferError(fileIndex, QStringLiteral("写入失败: %1").arg(ctx.destPath));
+        emit transferError(fileIndex, QStringLiteral("写入失败: %1").arg(destPath));
         return;
     }
 
