@@ -295,11 +295,32 @@ void RemoteDesktopSession::wireSignals() {
             clipboardMgr, &ClipboardManager::applyRemoteFiles);
     }
 
-    // ── 文件传输：大文件块写入后回发 ACK（推进服务端滑动窗口）──
+    // ── 文件传输：数据收发 + ACK 回路 ──
     FileTransferManager* ftm = m_fileTransferManager;
     if (ftm) {
+        // 发送方向：大文件块写入后回发 ACK（推进服务端滑动窗口）
         connect(ftm, &FileTransferManager::fileChunkAckNeeded,
                 m_protocolSession, &ProtocolSession::sendFileTransferAck);
+
+        // 接收方向：远端回发的文件数据块 → 本地 FileTransferManager 写入
+        connect(m_protocolSession, &ProtocolSession::clipboardFileChunkReceived,
+                ftm, [ftm](quint32 fileIndex, const QByteArray& data, quint8 flags) {
+                    ftm->handleIncomingChunk(static_cast<int>(fileIndex), data,
+                                             (flags & 0x01) != 0);
+                });
+        connect(m_protocolSession, &ProtocolSession::fileTransferChunkReceived,
+                ftm, [ftm](quint32 fileIndex, quint32 seq, const QByteArray& data) {
+                    ftm->handleIncomingChunk(static_cast<int>(fileIndex), data,
+                                             false, seq);
+                });
+        connect(m_protocolSession, &ProtocolSession::fileTransferAckReceived,
+                ftm, [ftm](quint32 fileIndex, quint32 ackSeq) {
+                    ftm->handleAck(static_cast<int>(fileIndex), ackSeq);
+                });
+        connect(m_protocolSession, &ProtocolSession::fileTransferCancelled,
+                ftm, [ftm](quint32 fileIndex) {
+                    ftm->cancelTransfer(static_cast<int>(fileIndex));
+                });
     }
 
     // ── 拖放（本地文件拖入远程视口 → 标记 dragSource 后走剪贴板文件通道）──
