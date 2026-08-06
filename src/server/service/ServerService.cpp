@@ -58,33 +58,45 @@ ServerService::ServerService(ThreadManager *threadManager,
                 broadcastClipboardToAllSessions(msg);
             });
 
-    // 文件数据回发：小文件单块 / 大文件 INIT 握手
+    // 文件数据回发：lastChunk=true 走小文件单块通道，lastChunk=false 走大文件分块通道
     connect(m_fileTransferManager, &FileTransferManager::fileChunkReady,
             this, [this](int fileIndex, const QByteArray& chunk, quint32 seq, bool lastChunk) {
-                Q_UNUSED(seq);
-                ClipboardFileChunk msg;
-                msg.fileIndex = static_cast<quint32>(fileIndex);
-                msg.flags = lastChunk ? 0x01 : 0x00;
-                msg.data = chunk;
-                sendFileMessageToSession(m_fileRequestSessions.value(msg.fileIndex),
-                                         MessageType::CLIPBOARD_FILE_CHUNK, msg);
+                const quint32 index = static_cast<quint32>(fileIndex);
+                if (lastChunk) {
+                    ClipboardFileChunk msg;
+                    msg.fileIndex = index;
+                    msg.flags = 0x01;  // lastChunk
+                    msg.data = chunk;
+                    sendFileMessageToSession(m_fileRequestSessions.value(index),
+                                             MessageType::CLIPBOARD_FILE_CHUNK, msg);
+                } else {
+                    FileTransferChunk msg;
+                    msg.fileIndex = index;
+                    msg.seq = seq;
+                    msg.data = chunk;
+                    sendFileMessageToSession(m_fileRequestSessions.value(index),
+                                             MessageType::FILE_TRANSFER_CHUNK, msg);
+                }
             });
-    connect(m_fileTransferManager, &FileTransferManager::fileTransferInitRequested,
-            this, [this](int fileIndex, const ClipboardFileInfo& info) {
-                Q_UNUSED(info);
-                FileTransferInit msg;
-                msg.fileIndex = static_cast<quint32>(fileIndex);
-                sendFileMessageToSession(m_fileRequestSessions.value(msg.fileIndex),
-                                         MessageType::FILE_TRANSFER_INIT, msg);
+    // 粘贴方接收大文件块 → 回发 ACK 推进复制方滑动窗口
+    connect(m_fileTransferManager, &FileTransferManager::fileChunkAckNeeded,
+            this, [this](int fileIndex, quint32 seq) {
+                FileTransferAck ack;
+                ack.fileIndex = static_cast<quint32>(fileIndex);
+                ack.ackSeq = seq;
+                sendFileMessageToSession(m_fileRequestSessions.value(ack.fileIndex),
+                                         MessageType::FILE_TRANSFER_ACK, ack);
             });
 
-    // 接收侧完成/错误仅记录日志（服务端粘贴触发由后续 UI 任务接入）
+    // 传输结束（完成/错误）清理会话映射
     connect(m_fileTransferManager, &FileTransferManager::transferComplete,
-            this, [](int fileIndex, const QString& savedPath) {
-                qCInfo(lcServer) << "文件接收完成:" << fileIndex << savedPath;
+            this, [this](int fileIndex, const QString& savedPath) {
+                m_fileRequestSessions.remove(fileIndex);
+                qCInfo(lcServer) << "文件传输完成:" << fileIndex << savedPath;
             });
     connect(m_fileTransferManager, &FileTransferManager::transferError,
-            this, [](int fileIndex, const QString& errorMessage) {
+            this, [this](int fileIndex, const QString& errorMessage) {
+                m_fileRequestSessions.remove(fileIndex);
                 qCWarning(lcServer) << "文件传输错误:" << fileIndex << errorMessage;
             });
 }
@@ -305,10 +317,10 @@ void ServerService::onNewConnection(qintptr socketDescriptor)
             });
     connect(sessionPtr, &ServerSession::fileTransferChunkReceived,
             this, [this](quint32 fileIndex, quint32 seq, const QByteArray& data, const QString& sessionId) {
-                Q_UNUSED(seq);
-                Q_UNUSED(sessionId);
+                // 记录数据来源会话：大文件块写入后回发 ACK 用
+                m_fileRequestSessions.insert(fileIndex, sessionId);
                 // 大文件块无 lastChunk 标志：以接收字节数达到元数据大小判定完成
-                m_fileTransferManager->handleIncomingChunk(fileIndex, data, false);
+                m_fileTransferManager->handleIncomingChunk(fileIndex, data, false, seq);
             });
     connect(sessionPtr, &ServerSession::fileChunkAckReceived,
             this, &ServerService::onFileChunkAck);
@@ -342,6 +354,15 @@ void ServerService::onSessionAuthenticated(const QString &sessionId)
 void ServerService::onSessionDisconnected(const QString &sessionId)
 {
     qCInfo(lcServer) << "ServerService: session disconnected:" << sessionId;
+
+    // 清理该会话关联的文件传输映射（进行中的传输由取消/对端超时兜底）
+    for (auto it = m_fileRequestSessions.begin(); it != m_fileRequestSessions.end();) {
+        if (it.value() == sessionId) {
+            it = m_fileRequestSessions.erase(it);
+        } else {
+            ++it;
+        }
+    }
 
     for (int i = 0; i < m_sessions.size(); ++i) {
         if (m_sessions[i]->sessionId() == sessionId) {
@@ -400,34 +421,49 @@ void ServerService::onSessionFileList(const ClipboardFileList& files, const QStr
 }
 
 void ServerService::onFileContentRequest(quint32 fileIndex, const QString& sessionId) {
+    // 小文件通道（CLIPBOARD_FILE_REQUEST → CLIPBOARD_FILE_CHUNK 单块回发）
+    prepareFileSend(fileIndex, sessionId, false);
+}
+
+void ServerService::onFileTransferInit(quint32 fileIndex, const QString& sessionId) {
+    // 大文件通道（FILE_TRANSFER_INIT → FILE_TRANSFER_CHUNK 分块流 + ACK 窗口流控）
+    prepareFileSend(fileIndex, sessionId, true);
+}
+
+bool ServerService::prepareFileSend(quint32 fileIndex, const QString& sessionId, bool requireLarge) {
     // 服务端作为复制方：按本地剪贴板文件列表响应客户端的数据请求
     const ClipboardFileList list = m_clipboardManager->lastFileList();
     if (fileIndex >= static_cast<quint32>(list.files.size())) {
         qCWarning(lcServer) << "文件请求索引越界:" << fileIndex;
-        return;
+        return false;
+    }
+
+    const quint64 fileSize = list.files.at(fileIndex).fileSize;
+    const bool isLarge = fileSize > FileTransferManager::kSmallFileThreshold;
+    if (isLarge != requireLarge) {
+        // 通道 gate：REQUEST 只服务小文件，INIT 只服务大文件，避免回发通道与请求通道错配
+        qCWarning(lcServer) << (isLarge ? "大文件应走 FILE_TRANSFER_INIT 通道"
+                                        : "小文件应走 CLIPBOARD_FILE_REQUEST 通道")
+                            << "，忽略请求:" << fileIndex;
+        return false;
     }
 
     const QString fileName = list.files.at(fileIndex).fileName;
     const QString sourcePath = m_clipboardManager->lastFilePath(fileName);
     if (sourcePath.isEmpty()) {
         qCWarning(lcServer) << "无法定位源文件路径:" << fileName;
-        return;
+        return false;
     }
 
     m_fileRequestSessions.insert(fileIndex, sessionId);
     m_fileTransferManager->handleFileRequest(fileIndex, list, sourcePath);
-}
-
-void ServerService::onFileTransferInit(quint32 fileIndex, const QString& sessionId) {
-    // 与 REQUEST 相同语义：客户端确认走分块通道，仍按大小分流读取本地文件
-    onFileContentRequest(fileIndex, sessionId);
+    return true;
 }
 
 void ServerService::onFileChunkAck(quint32 fileIndex, quint32 ackSeq, const QString& sessionId) {
     Q_UNUSED(sessionId);
-    // 大文件发送侧滑动窗口：ACK 推进暂未接入 FileTransferManager 发送状态机，
-    // 记录日志便于调试（通道握手已完成，CHUNK 流发送随集成测试补全）
-    qCDebug(lcServer) << "大文件 ACK 已接收: fileIndex=" << fileIndex << "ackSeq=" << ackSeq;
+    // 推进发送侧滑动窗口并补发新块
+    m_fileTransferManager->handleAck(fileIndex, ackSeq);
 }
 
 void ServerService::onFileTransferCancelled(quint32 fileIndex, const QString& sessionId) {

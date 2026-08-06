@@ -83,9 +83,10 @@ private:
     void onFileTransferInit(quint32 fileIndex, const QString& sessionId);
     void onFileChunkAck(quint32 fileIndex, quint32 ackSeq, const QString& sessionId);
     void onFileTransferCancelled(quint32 fileIndex, const QString& sessionId);
+    bool prepareFileSend(quint32 fileIndex, const QString& sessionId, bool requireLarge);
     void sendFileMessageToSession(const QString& sessionId, MessageType type, const IMessageCodec& message);
 
-    /// 文件索引 → 请求会话 ID（服务端响应文件数据请求时回发定位用）
+    /// 文件索引 → 关联会话（复制方侧：CHUNK 回发目标；粘贴方侧：ACK 回发目标）
     QHash<quint32, QString> m_fileRequestSessions;
 
     State m_state = State::Stopped;
