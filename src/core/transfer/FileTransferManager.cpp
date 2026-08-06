@@ -324,6 +324,9 @@ QString FileTransferManager::resolveCollision(const QString& dir, const QString&
         path = join(numberedName);
         if (!QFile::exists(path)) return path;
     }
-    // 兜底：连 999 个编号都冲突时返回原始名（由调用方处理失败）
-    return join(fileName);
+    // 兜底：1..999 全部冲突 → 用毫秒时间戳后缀避免覆盖已有文件
+    const QString tsName = suffix.isEmpty()
+        ? QStringLiteral("%1_%2").arg(baseName).arg(QDateTime::currentMSecsSinceEpoch())
+        : QStringLiteral("%1_%2.%3").arg(baseName).arg(QDateTime::currentMSecsSinceEpoch()).arg(suffix);
+    return join(tsName);
 }
