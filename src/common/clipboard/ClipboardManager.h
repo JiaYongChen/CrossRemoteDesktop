@@ -86,7 +86,11 @@ public:
      * @param fileName 文件名
      * @return 完整路径；无记录返回空串
      */
-    QString lastFilePath(const QString& fileName) const { return m_lastFilePaths.value(fileName); }
+    QString lastFilePath(int fileIndex) const {
+        if (fileIndex >= 0 && fileIndex < m_lastFilePaths.size())
+            return m_lastFilePaths.at(fileIndex);
+        return {};
+    }
 
 signals:
     /**
@@ -145,5 +149,5 @@ private:
     QImage m_lastReceivedImage;             ///< 上次从网络接收的图片（去重用，像素比对）
     QByteArray m_lastFileHash;              ///< 上次文件列表的去重哈希
     ClipboardFileList m_lastFileList;       ///< 上次的文件列表
-    QHash<QString, QString> m_lastFilePaths; ///< 上次本地文件列表的路径映射（fileName → fullPath）
+    QVector<QString> m_lastFilePaths;        ///< 上次本地文件列表的路径（按 fileIndex 索引）
 };

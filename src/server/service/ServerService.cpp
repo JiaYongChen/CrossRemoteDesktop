@@ -457,10 +457,9 @@ bool ServerService::prepareFileSend(quint32 fileIndex, const QString& sessionId,
         return false;
     }
 
-    const QString fileName = list.files.at(fileIndex).fileName;
-    const QString sourcePath = m_clipboardManager->lastFilePath(fileName);
+    const QString sourcePath = m_clipboardManager->lastFilePath(fileIndex);
     if (sourcePath.isEmpty()) {
-        qCWarning(lcServer) << "无法定位源文件路径:" << fileName;
+        qCWarning(lcServer) << "无法定位源文件路径:" << list.files.at(fileIndex).fileName;
         return false;
     }
 

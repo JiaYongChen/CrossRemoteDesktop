@@ -294,9 +294,7 @@ void ClipboardManager::onClipboardChanged(QClipboard::Mode mode) {
                 for (const QUrl& url : mimeData->urls()) {
                     if (!url.isLocalFile()) continue;
                     const QFileInfo info(url.toLocalFile());
-                    if (info.exists()) {
-                        m_lastFilePaths.insert(info.fileName(), info.absoluteFilePath());
-                    }
+                    m_lastFilePaths.append(info.exists() ? info.absoluteFilePath() : QString());
                 }
                 m_lastText.clear();
                 m_lastImageData.clear();

@@ -165,7 +165,7 @@ private slots:
         mgr.applyRemoteFiles(list);
 
         QCOMPARE(mgr.lastFileList().files.size(), 1);
-        QVERIFY(mgr.lastFilePath("remote.txt").isEmpty());
+        QVERIFY(mgr.lastFilePath(0).isEmpty());
     }
 
     // 场景 1：本地剪贴板文件检测（offscreen 平台对 urls 支持有限，验证路径映射行为）
