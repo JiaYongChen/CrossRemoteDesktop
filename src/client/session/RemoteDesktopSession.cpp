@@ -17,6 +17,7 @@
 #include "client/window/ClientRemoteWindow.h"
 #include "client/window/ConnectionLifecycle.h"
 #include "client/window/CursorManager.h"
+#include "client/window/DragDropHandler.h"
 #include "client/window/GLTextureViewport.h"
 #include "client/window/InputForwarder.h"
 #include "common/clipboard/ClipboardManager.h"
@@ -277,6 +278,24 @@ void RemoteDesktopSession::wireSignals() {
             clipboardMgr, &ClipboardManager::setText);
         connect(m_protocolSession, &ProtocolSession::clipboardImageReceived,
             clipboardMgr, &ClipboardManager::setImageFromPng);
+
+        // ── 剪贴板文件 ──
+        connect(clipboardMgr, &ClipboardManager::clipboardFilesChanged,
+            m_protocolSession, &ProtocolSession::sendClipboardFiles);
+        connect(m_protocolSession, &ProtocolSession::clipboardFilesReceived,
+            clipboardMgr, &ClipboardManager::applyRemoteFiles);
+    }
+
+    // ── 拖放（本地文件拖入远程视口 → 标记 dragSource 后走剪贴板文件通道）──
+    DragDropHandler* ddh = m_window->dragDropHandler();
+    if (ddh) {
+        connect(ddh, &DragDropHandler::filesDroppedToRemote,
+            clipboardMgr, [clipboardMgr](const ClipboardFileList& files) {
+                // 设置 dragSource 标志（bit 0），标记来源为拖放而非系统剪贴板
+                ClipboardFileList copy = files;
+                copy.flags |= 0x01;
+                emit clipboardMgr->clipboardFilesChanged(copy);
+            });
     }
 
     // ── 窗口关闭 ──

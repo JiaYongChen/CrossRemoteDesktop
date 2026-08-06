@@ -12,6 +12,7 @@
 #include "client/session/ProtocolSession.h"
 #include "client/window/ConnectionLifecycle.h"
 #include "client/window/CursorManager.h"
+#include "client/window/DragDropHandler.h"
 #include "client/window/FloatingRemoteToolbar.h"
 #include "client/window/GLTextureViewport.h"
 #include "client/window/InputForwarder.h"
@@ -155,6 +156,10 @@ void ClientRemoteWindow::initializeManagers() {
     m_cursorManager = new CursorManager(this);
     m_clipboardManager = new ClipboardManager(this);
     m_clipboardManager->setEnabled(true);
+
+    // 文件拖放处理器：目标为窗口本身（GL 视口透明鼠标后拖放事件上浮到窗口）
+    m_dragDropHandler = new DragDropHandler(this, this);
+    installEventFilter(m_dragDropHandler);
 }
 
 void ClientRemoteWindow::configureWindow() {

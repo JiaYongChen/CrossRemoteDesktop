@@ -6,6 +6,7 @@
 class ClipboardManager;
 class ConnectionLifecycle;
 class CursorManager;
+class DragDropHandler;
 class FloatingRemoteToolbar;
 class GLTextureViewport;
 class InputForwarder;
@@ -44,6 +45,9 @@ public:
     // Manager access
     CursorManager* cursorManager() const;
 
+    // DragDropHandler access (for signal wiring)
+    DragDropHandler* dragDropHandler() const { return m_dragDropHandler; }
+
     // GL viewport access
     GLTextureViewport* glViewport() const { return m_glViewport; }
 
@@ -79,6 +83,7 @@ private:
     // Sub-managers (owned via Qt parent-child)
     CursorManager* m_cursorManager = nullptr;
     ClipboardManager* m_clipboardManager = nullptr;
+    DragDropHandler* m_dragDropHandler = nullptr;
 
     // Extracted responsibilities (owned via Qt parent-child)
     InputForwarder* m_inputForwarder = nullptr;
