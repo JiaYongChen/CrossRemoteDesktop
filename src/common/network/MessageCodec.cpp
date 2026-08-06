@@ -644,3 +644,150 @@ bool ClipboardMessage::decode(const QByteArray& dataBuffer) {
 
     return stream.status() == QDataStream::Ok;
 }
+
+// ClipboardFileRequest 序列化和反序列化实现
+QByteArray ClipboardFileRequest::encode() const {
+    QByteArray bytes;
+    QDataStream ds(&bytes, QIODevice::WriteOnly);
+    ds.setByteOrder(QDataStream::LittleEndian);
+    ds << fileIndex;
+    return bytes;
+}
+
+bool ClipboardFileRequest::decode(const QByteArray& bytes) {
+    QDataStream ds(bytes);
+    ds.setByteOrder(QDataStream::LittleEndian);
+    ds >> fileIndex;
+    return decodeFinished(ds);
+}
+
+// ClipboardFileChunk 序列化和反序列化实现
+QByteArray ClipboardFileChunk::encode() const {
+    QByteArray bytes;
+    QDataStream ds(&bytes, QIODevice::WriteOnly);
+    ds.setByteOrder(QDataStream::LittleEndian);
+    ds << fileIndex;
+    ds << flags;
+    ds << static_cast<quint32>(data.size());
+    if (!data.isEmpty()) {
+        ds.writeRawData(data.constData(), data.size());
+    }
+    return bytes;
+}
+
+bool ClipboardFileChunk::decode(const QByteArray& bytes) {
+    if (bytes.size() < static_cast<qsizetype>(sizeof(quint32) + sizeof(quint8) + sizeof(quint32))) {
+        return false;
+    }
+
+    QDataStream ds(bytes);
+    ds.setByteOrder(QDataStream::LittleEndian);
+    ds >> fileIndex;
+    ds >> flags;
+
+    quint32 dataSize = 0;
+    ds >> dataSize;
+
+    // 64 位 qsizetype 比较防 dataSize 超大时 static_cast<int> 溢出回绕绕过校验
+    const qsizetype required = static_cast<qsizetype>(dataSize)
+                             + static_cast<qsizetype>(sizeof(quint32) + sizeof(quint8) + sizeof(quint32));
+    if (bytes.size() < required) {
+        return false;
+    }
+
+    data.resize(dataSize);
+    if (dataSize > 0) {
+        ds.readRawData(data.data(), dataSize);
+    }
+    return decodeFinished(ds);
+}
+
+// FileTransferInit 序列化和反序列化实现
+QByteArray FileTransferInit::encode() const {
+    QByteArray bytes;
+    QDataStream ds(&bytes, QIODevice::WriteOnly);
+    ds.setByteOrder(QDataStream::LittleEndian);
+    ds << fileIndex;
+    return bytes;
+}
+
+bool FileTransferInit::decode(const QByteArray& bytes) {
+    QDataStream ds(bytes);
+    ds.setByteOrder(QDataStream::LittleEndian);
+    ds >> fileIndex;
+    return decodeFinished(ds);
+}
+
+// FileTransferChunk 序列化和反序列化实现
+QByteArray FileTransferChunk::encode() const {
+    QByteArray bytes;
+    QDataStream ds(&bytes, QIODevice::WriteOnly);
+    ds.setByteOrder(QDataStream::LittleEndian);
+    ds << fileIndex;
+    ds << seq;
+    ds << static_cast<quint32>(data.size());
+    if (!data.isEmpty()) {
+        ds.writeRawData(data.constData(), data.size());
+    }
+    return bytes;
+}
+
+bool FileTransferChunk::decode(const QByteArray& bytes) {
+    if (bytes.size() < static_cast<qsizetype>(3 * sizeof(quint32))) {
+        return false;
+    }
+
+    QDataStream ds(bytes);
+    ds.setByteOrder(QDataStream::LittleEndian);
+    ds >> fileIndex;
+    ds >> seq;
+
+    quint32 dataSize = 0;
+    ds >> dataSize;
+
+    // 64 位 qsizetype 比较防 dataSize 超大时 static_cast<int> 溢出回绕绕过校验
+    const qsizetype required = static_cast<qsizetype>(dataSize) + static_cast<qsizetype>(3 * sizeof(quint32));
+    if (bytes.size() < required) {
+        return false;
+    }
+
+    data.resize(dataSize);
+    if (dataSize > 0) {
+        ds.readRawData(data.data(), dataSize);
+    }
+    return decodeFinished(ds);
+}
+
+// FileTransferAck 序列化和反序列化实现
+QByteArray FileTransferAck::encode() const {
+    QByteArray bytes;
+    QDataStream ds(&bytes, QIODevice::WriteOnly);
+    ds.setByteOrder(QDataStream::LittleEndian);
+    ds << fileIndex;
+    ds << ackSeq;
+    return bytes;
+}
+
+bool FileTransferAck::decode(const QByteArray& bytes) {
+    QDataStream ds(bytes);
+    ds.setByteOrder(QDataStream::LittleEndian);
+    ds >> fileIndex;
+    ds >> ackSeq;
+    return decodeFinished(ds);
+}
+
+// FileTransferCancel 序列化和反序列化实现
+QByteArray FileTransferCancel::encode() const {
+    QByteArray bytes;
+    QDataStream ds(&bytes, QIODevice::WriteOnly);
+    ds.setByteOrder(QDataStream::LittleEndian);
+    ds << fileIndex;
+    return bytes;
+}
+
+bool FileTransferCancel::decode(const QByteArray& bytes) {
+    QDataStream ds(bytes);
+    ds.setByteOrder(QDataStream::LittleEndian);
+    ds >> fileIndex;
+    return decodeFinished(ds);
+}
