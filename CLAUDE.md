@@ -285,6 +285,22 @@ qCWarning(lcServer) << error.logLabel();      // 推荐
 
 输入模拟器有平台变体，位于 `src/server/simulator/` 下按平台分子目录：`windows/`、`macos/`、`linux/`。CMake 通过 GLOB_RECURSE 自动收集全部源文件，平台选择通过文件内 `#ifdef Q_OS_*` 编译期守卫实现。
 
+### macOS 平台待实现
+
+以下两个模块头文件已定义，`.cpp` 实现待后续开发：
+
+- **`AvFoundationCapture`**（`src/server/capture/macos/AvFoundationCapture.h`）：
+  macOS ScreenCaptureKit 屏幕捕获实现（macOS 13.0+）。当前无 `.cpp` 文件，
+  `ScreenCaptureFactory` 中 `HAS_SCREEN_CAPTURE_KIT` 宏控制编译，实际回退到 Qt GDI
+  （`QScreen::grabWindow()`）。
+
+- **`VideoToolboxDecoder`**（`src/client/decode/macos/VideoToolboxDecoder.h`）：
+  macOS ImageIO + CoreGraphics GPU JPEG 解码器。当前无 `.cpp` 文件，
+  `HAS_VIDEOTOOLBOX` 宏控制编译，实际回退到 TurboJpegDecoder CPU 路径。
+
+这两个实现需要 Objective-C/C++ 混编，且在 macOS 设备上验证。
+优先级低于当前 Windows/Linux 的功能完善。
+
 ## 测试
 
 23 个测试目标，测试目录镜像 `src/` 结构按模块组织：
