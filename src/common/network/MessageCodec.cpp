@@ -502,6 +502,7 @@ ClipboardFileList ClipboardMessage::fileList() const {
         if (stream.status() != QDataStream::Ok) return ClipboardFileList();
         list.files.append(info);
     }
+    if (!decodeFinished(stream)) return ClipboardFileList();
     return list;
 }
 
@@ -515,6 +516,9 @@ void ClipboardMessage::setFileList(const ClipboardFileList& list) {
     stream.setByteOrder(QDataStream::LittleEndian);
 
     stream << list.flags;
+    // 发送侧条目数上限（与接收侧 count > MaxFileListCount 硬拒绝对称）：
+    // 调试期捕获超限发送；release 中 Q_ASSERT 为空操作，无互操作影响
+    Q_ASSERT(list.files.size() <= static_cast<qsizetype>(ProtocolConstants::MaxFileListCount));
     stream << static_cast<quint32>(list.files.size());
     for (const ClipboardFileInfo& info : list.files) {
         writePrefixedString(stream, info.fileName, ProtocolConstants::MaxGenericStringLength);

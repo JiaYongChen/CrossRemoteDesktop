@@ -398,6 +398,57 @@ private slots:
         VersionExchangeResponse dst;
         QVERIFY(!dst.decode(payload));
     }
+
+    // ── ClipboardMessage 文件列表（FILE_LIST 载荷往返 + 负向用例）──
+    void testClipboardMessageFileListRoundTrip() {
+        ClipboardFileList list;
+        list.files.append({"report.pdf", 1048576, 1690000000000LL, false});
+        list.files.append({"image.png", 512000, 1690000001000LL, false});
+        list.flags = 1;
+
+        ClipboardMessage msg(list);
+        QCOMPARE(msg.isFileList(), true);
+        QCOMPARE(msg.isText(), false);
+        QCOMPARE(msg.isImage(), false);
+
+        QByteArray encoded = msg.encode();
+        QVERIFY(!encoded.isEmpty());
+
+        ClipboardMessage decoded;
+        QVERIFY(decoded.decode(encoded));
+        QCOMPARE(decoded.isFileList(), true);
+
+        ClipboardFileList dl = decoded.fileList();
+        QCOMPARE(dl.files.size(), 2);
+        QCOMPARE(dl.files[0].fileName, QString("report.pdf"));
+        QCOMPARE(dl.files[0].fileSize, static_cast<quint64>(1048576));
+        QCOMPARE(dl.files[0].modifyTimeMs, 1690000000000LL);
+        QCOMPARE(dl.files[0].isDirectory, false);
+        QCOMPARE(dl.files[1].fileName, QString("image.png"));
+        QCOMPARE(dl.flags, static_cast<quint8>(1));
+    }
+
+    void testClipboardMessageFileListEmpty() {
+        ClipboardFileList list;
+        ClipboardMessage msg(list);
+        QByteArray encoded = msg.encode();
+
+        ClipboardMessage decoded;
+        QVERIFY(decoded.decode(encoded));
+        QCOMPARE(decoded.fileList().files.size(), 0);
+    }
+
+    void testClipboardMessageFileListRejectsInvalid() {
+        QByteArray bad(2, '\0');
+        ClipboardMessage msg;
+        QVERIFY(!msg.decode(bad));
+
+        QByteArray badType;
+        QDataStream s(&badType, QIODevice::WriteOnly);
+        s.setByteOrder(QDataStream::LittleEndian);
+        s << static_cast<quint8>(0xFF);
+        QVERIFY(!msg.decode(badType));
+    }
 };
 
 QTEST_MAIN(TestMessageCodec)
