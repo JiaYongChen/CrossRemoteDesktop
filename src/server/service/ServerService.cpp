@@ -449,7 +449,9 @@ void ServerService::onFileTransferInit(quint32 fileIndex, const QString& session
 }
 
 bool ServerService::prepareFileSend(quint32 fileIndex, const QString& sessionId, bool requireLarge) {
-    // 服务端作为复制方：按本地剪贴板文件列表响应客户端的数据请求
+    // 已知限制：当前以服务端本地剪贴板作为所有请求的应答数据源。
+    // 跨客户端文件传输（客户端 A 复制 → 客户端 B 粘贴）需要 per-session 文件列表路由，
+    // 这在当前架构中尚未实现——客户端 B 的请求永远被路由到服务端剪贴板。
     const ClipboardFileList list = m_clipboardManager->lastFileList();
     if (fileIndex >= static_cast<quint32>(list.files.size())) {
         qCWarning(lcServer) << "文件请求索引越界:" << fileIndex;

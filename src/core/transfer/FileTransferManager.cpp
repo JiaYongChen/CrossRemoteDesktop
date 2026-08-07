@@ -120,6 +120,10 @@ void FileTransferManager::sendNextChunk(int fileIndex) {
     }
 }
 
+// 已知限制：大文件通道无超时机制。
+// 源文件在打开校验后被截断变小 → 接收侧字节数永不达 fileSize，上下文永久悬挂。
+// 对端消失不回 ACK → 发送窗口停滞。超时需由 FileTransferAckTimeoutMs 定时器兜底（待实现）。
+
 void FileTransferManager::handleAck(int fileIndex, quint32 ackSeq) {
     auto it = m_transfers.find(fileIndex);
     if (it == m_transfers.end()) return;
