@@ -80,7 +80,8 @@ public:
      * @param urls 剪贴板或拖放事件中的 URL 列表
      * @return 提取的文件列表（空列表表示无可传输文件）
      */
-    static ClipboardFileList extractFiles(const QList<QUrl>& urls);
+    static ClipboardFileList extractFiles(const QList<QUrl>& urls,
+                                           QVector<QString>* outPaths = nullptr);
 
     /**
      * @brief 获取最近一次本地检测的文件列表（服务端响应文件数据请求用）

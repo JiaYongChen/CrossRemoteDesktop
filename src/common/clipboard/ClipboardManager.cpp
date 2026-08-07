@@ -184,8 +184,10 @@ void ClipboardManager::applyRemoteFiles(const ClipboardFileList& fileList) {
     qCDebug(lcClipboard) << "应用远端文件列表，条目数:" << fileList.files.size();
 }
 
-ClipboardFileList ClipboardManager::extractFiles(const QList<QUrl>& urls) {
+ClipboardFileList ClipboardManager::extractFiles(const QList<QUrl>& urls,
+                                                   QVector<QString>* outPaths) {
     ClipboardFileList list;
+    if (outPaths) outPaths->clear();
     for (const QUrl& url : urls) {
         if (!url.isLocalFile()) continue;
 
@@ -198,6 +200,7 @@ ClipboardFileList ClipboardManager::extractFiles(const QList<QUrl>& urls) {
         fileInfo.modifyTimeMs = info.lastModified().toMSecsSinceEpoch();
         fileInfo.isDirectory = info.isDir();
         list.files.append(fileInfo);
+        if (outPaths) outPaths->append(info.absoluteFilePath());
 
         if (list.files.size() >= static_cast<qsizetype>(ProtocolConstants::MaxFileListCount)) break;
     }
@@ -286,26 +289,12 @@ void ClipboardManager::onClipboardChanged(QClipboard::Mode mode) {
 
     // 文件列表分支（独立 if，最后处理；与文本/图片共用哈希去重基线）
     if (mimeData->hasUrls()) {
-        ClipboardFileList fileList = extractFiles(mimeData->urls());
+        ClipboardFileList fileList = extractFiles(mimeData->urls(), &m_lastFilePaths);
         if (!fileList.files.isEmpty()) {
             const QByteArray hash = computeFileListHash(fileList);
             if (hash != m_lastFileHash) {
                 m_lastFileHash = hash;
                 m_lastFileList = fileList;
-                // 同步记录完整路径映射（服务端响应文件数据请求时定位源文件）
-                m_lastFilePaths.clear();
-                // 仅记录 extractFiles 已过滤为存在的文件的路径，使 m_lastFilePaths 与
-                // m_lastFileList.files 索引一一对应（不存在/非本地/超限的均已跳过）
-                for (const auto& fi : fileList.files) {
-                    for (const QUrl& url : mimeData->urls()) {
-                        if (!url.isLocalFile()) continue;
-                        const QFileInfo info(url.toLocalFile());
-                        if (info.fileName() == fi.fileName && info.exists()) {
-                            m_lastFilePaths.append(info.absoluteFilePath());
-                            break;
-                        }
-                    }
-                }
                 m_lastText.clear();
                 m_lastImageData.clear();
                 m_lastReceivedText.clear();
