@@ -113,17 +113,19 @@ void ClipboardManager::setImageFromPng(const QByteArray& pngData) {
 void ClipboardManager::resync() {
     if (!m_enabled) return;
 
+    // 使用独立 if（非 else-if）：文本与文件列表可共存，互不抑制
     if (!m_lastText.isEmpty()) {
         emit clipboardTextChanged(m_lastText);
-    } else if (!m_lastImageData.isEmpty()) {
-        // 宽高未随 PNG 缓存保存，按需解码一次（每认证仅一次，成本可接受）
+    }
+    if (!m_lastImageData.isEmpty()) {
         QImage image;
         if (image.loadFromData(m_lastImageData, "PNG")) {
             emit clipboardImageChanged(m_lastImageData,
                                        static_cast<quint32>(image.width()),
                                        static_cast<quint32>(image.height()));
         }
-    } else if (!m_lastFileList.files.isEmpty()) {
+    }
+    if (!m_lastFileList.files.isEmpty()) {
         emit clipboardFilesChanged(m_lastFileList);
     }
 }
@@ -266,7 +268,7 @@ void ClipboardManager::onClipboardChanged(QClipboard::Mode mode) {
         // 内容去重：与上次远端内容匹配则跳过回环
         if (!m_lastReceivedText.isEmpty() && text == m_lastReceivedText) {
             m_lastReceivedText.clear();
-            return;
+            goto end_text;
         }
 
         if (text != m_lastText) {
@@ -279,6 +281,7 @@ void ClipboardManager::onClipboardChanged(QClipboard::Mode mode) {
             qCDebug(lcClipboard) << "剪贴板文本变化，长度:" << text.length();
             emit clipboardTextChanged(text);
         }
+        end_text: ;
     }
 
     // 文件列表分支（独立 if，最后处理；与文本/图片共用哈希去重基线）

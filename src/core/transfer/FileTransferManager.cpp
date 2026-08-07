@@ -170,8 +170,7 @@ void FileTransferManager::requestRemoteFile(int fileIndex, const ClipboardFileLi
     // 文件名消毒：拒绝路径分隔符和目录穿越，仅允许裸文件名
     if (info.fileName.isEmpty()
         || info.fileName.contains(QLatin1Char('/'))
-        || info.fileName.contains(QLatin1Char('\\'))
-        || info.fileName.contains(QStringLiteral(".."))) {
+        || info.fileName.contains(QLatin1Char('\\'))) {
         qCWarning(lcTransfer) << "requestRemoteFile - 文件名包含非法字符:" << info.fileName;
         emit transferError(fileIndex, QStringLiteral("文件名包含非法字符: %1").arg(info.fileName));
         return;
