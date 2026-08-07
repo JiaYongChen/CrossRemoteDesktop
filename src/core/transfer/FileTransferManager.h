@@ -23,6 +23,8 @@ public:
     static constexpr quint64 kSmallFileThreshold = 2 * 1024 * 1024;
     /// 分块大小（64KB）
     static constexpr quint32 kChunkSize = 64 * 1024;
+    /// 传输超时阈值（30秒无活动即自动取消）
+    static constexpr int kTransferTimeoutMs = 30000;
     /// 滑动窗口：最多 kWindowSize 个未确认块在途
     static constexpr int kWindowSize = 4;
 
@@ -82,6 +84,11 @@ public:
     void cancelAllTransfers();
 
     /**
+     * @brief 检查并取消超时传输（由外部定时器驱动，建议 2s 间隔）
+     */
+    void checkTimeouts();
+
+    /**
      * @brief 设置接收目录
      * @param path 目录路径
      */
@@ -136,15 +143,9 @@ signals:
     void transferError(int fileIndex, const QString& errorMessage);
 
 private:
-    /**
-     * @brief 检查并取消超时传输（由外部定时器驱动，建议每秒一次）
-     */
-    void checkTimeouts();
 
     /**
-     * @brief 传输超时阈值（毫秒），默认 30s
-     */
-    static constexpr int kTransferTimeoutMs = 30000;
+     * @brief 解析同名冲突：存在则追加递增编号 "文件名 (N).ext"
      * @param dir 目标目录
      * @param fileName 文件名
      * @return 不冲突的完整路径
