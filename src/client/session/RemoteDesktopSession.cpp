@@ -80,6 +80,13 @@ void RemoteDesktopSession::createNetworkComponents() {
               QStandardPaths::writableLocation(QStandardPaths::DownloadLocation))
         : QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
     m_fileTransferManager = new FileTransferManager(downloadDir, this);
+
+    // 客户端传输超时检测（与服务端 ServerService 对标）
+    auto* timeoutTimer = new QTimer(this);
+    connect(timeoutTimer, &QTimer::timeout, this, [this]() {
+        if (m_fileTransferManager) m_fileTransferManager->checkTimeouts();
+    });
+    timeoutTimer->start(2000);
 }
 
 void RemoteDesktopSession::createDecodePipeline() {
@@ -365,7 +372,7 @@ void RemoteDesktopSession::wireSignals() {
     if (ddh) {
         connect(ddh, &DragDropHandler::filesDroppedToRemote,
             clipboardMgr, [clipboardMgr](const ClipboardFileList& files) {
-                // 设置 dragSource 标志（bit 0），标记来源为拖放而非系统剪贴板
+                if (!clipboardMgr->isEnabled()) return;
                 ClipboardFileList copy = files;
                 copy.flags |= 0x01;
                 emit clipboardMgr->clipboardFilesChanged(copy);

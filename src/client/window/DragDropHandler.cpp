@@ -63,7 +63,8 @@ bool DragDropHandler::eventFilter(QObject* watched, QEvent* event) {
                     emit filesDroppedToRemote(fileList);
                 }
             }
-            drop->acceptProposedAction();
+            drop->setDropAction(Qt::CopyAction);
+            drop->accept();
             return true;
         }
         default:

@@ -36,6 +36,7 @@ public:
      * @param enabled true=启用, false=禁用
      */
     void setEnabled(bool enabled);
+    bool isEnabled() const { return m_enabled; }
 
     /**
      * @brief 设置文本到剪贴板

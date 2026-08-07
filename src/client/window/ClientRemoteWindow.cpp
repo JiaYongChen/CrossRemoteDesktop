@@ -158,6 +158,7 @@ void ClientRemoteWindow::initializeManagers() {
     m_clipboardManager->setEnabled(true);
 
     // 文件拖放处理器：目标为窗口本身（GL 视口透明鼠标后拖放事件上浮到窗口）
+    setAcceptDrops(true);
     m_dragDropHandler = new DragDropHandler(this, this);
     installEventFilter(m_dragDropHandler);
 }

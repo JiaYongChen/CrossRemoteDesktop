@@ -211,8 +211,11 @@ QByteArray ClipboardManager::computeFileListHash(const ClipboardFileList& fileLi
     QCryptographicHash hash(QCryptographicHash::Sha256);
     for (const ClipboardFileInfo& info : fileList.files) {
         hash.addData(info.fileName.toUtf8());
-        hash.addData(QString::number(info.fileSize).toUtf8());
-        hash.addData(QString::number(info.modifyTimeMs).toUtf8());
+        hash.addData("\x1f", 1);  // ASCII 单元分隔符，防字段边界歧义
+        hash.addData(QByteArray::number(info.fileSize));
+        hash.addData("\x1f", 1);
+        hash.addData(QByteArray::number(info.modifyTimeMs));
+        hash.addData("\x1e", 1);  // ASCII 记录分隔符，防条目边界歧义
     }
     return hash.result();
 }
