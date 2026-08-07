@@ -1,7 +1,6 @@
 #include "RemoteDesktopSession.h"
 
 #include <QtCore/QFileInfo>
-#include <QtCore/QPointer>
 #include <QtCore/QStandardPaths>
 #include <QtCore/QTimer>
 #include <QtWidgets/QApplication>
@@ -348,33 +347,22 @@ void RemoteDesktopSession::wireSignals() {
         });
 
         // 发送方向：远端请求本机文件 → FileTransferManager 作为复制方读文件回发
+        // 以 clipboardMgr 为上下文——窗口销毁时自动断开连接，避免 UAF
+        auto handleFileReq = [this, clipboardMgr](quint32 fileIndex) {
+            const ClipboardFileList list = clipboardMgr->lastFileList();
+            const QString path = clipboardMgr->lastFilePath(static_cast<int>(fileIndex));
+            if (!path.isEmpty()) {
+                const QFileInfo fi(path);
+                m_fileTransferManager->handleFileRequest(
+                    static_cast<int>(fileIndex), list, path);
+            } else {
+                m_protocolSession->sendFileTransferCancel(fileIndex);
+            }
+        };
         connect(m_protocolSession, &ProtocolSession::fileContentRequestReceived,
-                this, [this, clipboardMgr](quint32 fileIndex) {
-            QPointer<ClipboardManager> alive(clipboardMgr);
-            const ClipboardFileList list = alive->lastFileList();
-            const QString path = alive->lastFilePath(static_cast<int>(fileIndex));
-            if (!path.isEmpty()) {
-                const QFileInfo fi(path);
-                m_fileTransferManager->handleFileRequest(
-                    static_cast<int>(fileIndex), list, path);
-            } else {
-                // 无法定位源文件 → 回 CANCEL 通知请求方（与服务端行为对称）
-                m_protocolSession->sendFileTransferCancel(fileIndex);
-            }
-        });
+                clipboardMgr, handleFileReq);
         connect(m_protocolSession, &ProtocolSession::fileTransferInitReceived,
-                this, [this, clipboardMgr](quint32 fileIndex) {
-            QPointer<ClipboardManager> alive(clipboardMgr);
-            const ClipboardFileList list = alive->lastFileList();
-            const QString path = alive->lastFilePath(static_cast<int>(fileIndex));
-            if (!path.isEmpty()) {
-                const QFileInfo fi(path);
-                m_fileTransferManager->handleFileRequest(
-                    static_cast<int>(fileIndex), list, path);
-            } else {
-                m_protocolSession->sendFileTransferCancel(fileIndex);
-            }
-        });
+                clipboardMgr, handleFileReq);
     }
 
     // ── 拖放（本地文件拖入远程视口 → 标记 dragSource 后走剪贴板文件通道）──

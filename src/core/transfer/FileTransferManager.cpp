@@ -231,6 +231,11 @@ void FileTransferManager::handleIncomingChunk(int fileIndex, const QByteArray& c
                               << fileIndex;
         return;
     }
+    // 已完成（截断/精确匹配后）：上下文保留以排空发送方残余块，静默 ACK 不写入
+    if (!ctx.isActive) {
+        emit fileChunkAckNeeded(fileIndex, seq);
+        return;
+    }
     if (!ctx.fileHandle || !ctx.fileHandle->isOpen()) {
         qCWarning(lcTransfer) << "handleIncomingChunk - 目标文件未打开:" << ctx.destPath;
         emit transferError(fileIndex, QStringLiteral("目标文件未打开: %1").arg(ctx.destPath));
@@ -263,10 +268,8 @@ void FileTransferManager::handleIncomingChunk(int fileIndex, const QByteArray& c
 
         const QString savedPath = ctx.destPath;
         const bool sizeOk = (ctx.bytesTransferred == ctx.fileInfo.fileSize);
-        m_transfers.erase(it);
 
         if (sizeOk || ctx.bytesTransferred > ctx.fileInfo.fileSize) {
-            // 精确匹配 或 源文件在传输中被追加（>元数据）：截断至声明大小并接受
             if (ctx.bytesTransferred > ctx.fileInfo.fileSize) {
                 qCWarning(lcTransfer) << "接收数据超过元数据大小（源文件增长），截断:"
                                       << savedPath << "expected" << ctx.fileInfo.fileSize
@@ -277,9 +280,12 @@ void FileTransferManager::handleIncomingChunk(int fileIndex, const QByteArray& c
                 emit fileChunkAckNeeded(fileIndex, seq);
             qCInfo(lcTransfer) << "文件接收完成:" << savedPath;
             emit transferComplete(fileIndex, savedPath);
+            // 保留上下文标记为非活跃——后续残余块静默 ACK 排空发送方后由超时回收
+            ctx.isActive = false;
         } else {
             qCWarning(lcTransfer) << "接收不完整（数据不足），删除:" << savedPath;
             QFile::remove(savedPath);
+            m_transfers.erase(it);
             emit transferError(fileIndex, QStringLiteral("接收不完整: %1").arg(savedPath));
         }
     } else {
