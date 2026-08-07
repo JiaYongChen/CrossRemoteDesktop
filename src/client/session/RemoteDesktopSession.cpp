@@ -1,5 +1,6 @@
 #include "RemoteDesktopSession.h"
 
+#include <QtCore/QFileInfo>
 #include <QtCore/QStandardPaths>
 #include <QtCore/QTimer>
 #include <QtWidgets/QApplication>
