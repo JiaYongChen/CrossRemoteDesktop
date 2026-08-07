@@ -301,6 +301,21 @@ void RemoteDesktopSession::wireSignals() {
             m_protocolSession, &ProtocolSession::sendClipboardFiles);
         connect(m_protocolSession, &ProtocolSession::clipboardFilesReceived,
             clipboardMgr, &ClipboardManager::applyRemoteFiles);
+
+        // 收到服务端文件列表 → 自动下载文件（服务端复制，客户端粘贴）
+        connect(m_protocolSession, &ProtocolSession::clipboardFilesReceived,
+                this, [this](const ClipboardFileList& files) {
+            FileTransferManager* ftm = m_fileTransferManager;
+            if (!ftm) return;
+            for (int i = 0; i < files.files.size(); ++i) {
+                if (files.files.at(i).isDirectory) continue;
+                ftm->requestRemoteFile(i, files);
+                if (files.files.at(i).fileSize <= FileTransferManager::kSmallFileThreshold)
+                    m_protocolSession->sendClipboardFileRequest(static_cast<quint32>(i));
+                else
+                    m_protocolSession->sendFileTransferInit(static_cast<quint32>(i));
+            }
+        });
     }
 
     // 注意：dragSource (flags=0x01) 的 FILE_LIST 目前仅作标识用途。
