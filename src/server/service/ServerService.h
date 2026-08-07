@@ -89,6 +89,13 @@ private:
     /// 文件索引 → 关联会话（复制方侧：CHUNK 回发目标；粘贴方侧：ACK 回发目标）
     QHash<quint32, QString> m_fileRequestSessions;
 
+    /// 每会话最近一次发送的 FILE_LIST（跨客户端路由时定位请求归属）
+    QHash<QString, ClipboardFileList> m_sessionFileLists;
+
+    /// 转发中继：文件索引 → {源会话, 目标会话}（源为文件持有者，目标为粘贴方）
+    struct FileRelay { QString sourceSession; QString destSession; };
+    QHash<quint32, FileRelay> m_fileRelays;
+
     State m_state = State::Stopped;
     quint16 m_port = 0;
 
