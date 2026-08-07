@@ -154,6 +154,7 @@ private:
         int lastAckedSeq = -1;        // 发送侧：已确认的最大 seq（-1 = 尚无确认）
         bool isActive = false;
         bool sendComplete = false;    // 发送侧：文件已全部读出
+        bool isIncoming = false;      // 区分发送/接收方向，防跨方向碰撞
     };
 
     QString m_downloadDir;

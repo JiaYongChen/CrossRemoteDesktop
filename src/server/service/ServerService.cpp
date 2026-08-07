@@ -417,21 +417,35 @@ void ServerService::onSessionClipboardData(const ClipboardMessage& message) {
 }
 
 void ServerService::onSessionFileList(const ClipboardFileList& files, const QString& sessionId) {
-    Q_UNUSED(sessionId);
-    // 仅广播远端文件列表，不调用 applyRemoteFiles——后者会清空服务端本地文件的路径映射
-    // （m_lastFilePaths），导致后续文件请求无法定位服务端复制的源文件。
+    // 仅广播远端文件列表（排除发送者），不调用 applyRemoteFiles——后者会清空
+    // 服务端本地文件的路径映射（m_lastFilePaths），导致后续文件请求无法定位源文件。
     ClipboardMessage msg(files);
-    broadcastClipboardToAllSessions(msg);
+    const QByteArray encoded = Protocol::createMessage(MessageType::CLIPBOARD_DATA, msg);
+    if (encoded.isEmpty()) return;
+
+    for (auto* session : m_sessions) {
+        if (session->isAuthenticated() && session->sessionId() != sessionId) {
+            QMetaObject::invokeMethod(session, &ServerSession::sendClipboardData,
+                                      Qt::QueuedConnection, encoded);
+        }
+    }
 }
 
 void ServerService::onFileContentRequest(quint32 fileIndex, const QString& sessionId) {
-    // 小文件通道（CLIPBOARD_FILE_REQUEST → CLIPBOARD_FILE_CHUNK 单块回发）
-    prepareFileSend(fileIndex, sessionId, false);
+    if (!prepareFileSend(fileIndex, sessionId, false)) {
+        // 请求被拒：回发 CANCEL 通知客户端（避免上下文悬挂）
+        FileTransferCancel cancel;
+        cancel.fileIndex = fileIndex;
+        sendFileMessageToSession(sessionId, MessageType::FILE_TRANSFER_CANCEL, cancel);
+    }
 }
 
 void ServerService::onFileTransferInit(quint32 fileIndex, const QString& sessionId) {
-    // 大文件通道（FILE_TRANSFER_INIT → FILE_TRANSFER_CHUNK 分块流 + ACK 窗口流控）
-    prepareFileSend(fileIndex, sessionId, true);
+    if (!prepareFileSend(fileIndex, sessionId, true)) {
+        FileTransferCancel cancel;
+        cancel.fileIndex = fileIndex;
+        sendFileMessageToSession(sessionId, MessageType::FILE_TRANSFER_CANCEL, cancel);
+    }
 }
 
 bool ServerService::prepareFileSend(quint32 fileIndex, const QString& sessionId, bool requireLarge) {

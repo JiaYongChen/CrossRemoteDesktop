@@ -202,6 +202,7 @@ void FileTransferManager::requestRemoteFile(int fileIndex, const ClipboardFileLi
     ctx.destPath = destPath;
     ctx.fileHandle = file;
     ctx.isActive = true;
+    ctx.isIncoming = true;
     m_transfers.insert(fileIndex, ctx);
 
     qCDebug(lcTransfer) << "开始接收远端文件:" << info.fileName << "→" << destPath;
@@ -217,6 +218,11 @@ void FileTransferManager::handleIncomingChunk(int fileIndex, const QByteArray& c
     }
 
     TransferContext& ctx = it.value();
+    if (!ctx.isIncoming) {
+        qCWarning(lcTransfer) << "handleIncomingChunk - 拒绝入站块命中发送侧上下文:"
+                              << fileIndex;
+        return;
+    }
     if (!ctx.fileHandle || !ctx.fileHandle->isOpen()) {
         qCWarning(lcTransfer) << "handleIncomingChunk - 目标文件未打开:" << ctx.destPath;
         emit transferError(fileIndex, QStringLiteral("目标文件未打开: %1").arg(ctx.destPath));
