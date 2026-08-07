@@ -413,35 +413,21 @@ void ServerService::onSessionDisconnected(const QString &sessionId)
 }
 
 void ServerService::onSessionClipboardData(const ClipboardMessage& message) {
-    // 1. 写入服务端系统剪贴板（含去重标记防止回环）
+    // 客户端→服务端：仅写入服务端系统剪贴板，不广播给其他客户端
     if (message.isText()) {
         m_clipboardManager->applyRemoteText(message.text());
     } else if (message.isImage()) {
         m_clipboardManager->applyRemoteImage(message.imageData());
     } else if (message.isFileList()) {
-        // FILE_LIST 由 onSessionFileList 走独立路径（携带 sessionId），此处不应到达
-        qCDebug(lcServer) << "onSessionClipboardData - 收到 FILE_LIST（应走 clipboardFileListReceived）";
-        onSessionFileList(message.fileList(), QString());
+        qCDebug(lcServer) << "onSessionClipboardData - 收到 FILE_LIST（走 clipboardFileListReceived）";
     }
-
-    // 2. 广播给所有已认证会话（发送者客户端因 m_lastText 匹配而静默跳过）
-    broadcastClipboardToAllSessions(message);
 }
 
 void ServerService::onSessionFileList(const ClipboardFileList& files, const QString& sessionId) {
-    // 仅广播远端文件列表（排除发送者），不调用 applyRemoteFiles——后者会清空
-    // 服务端本地文件的路径映射（m_lastFilePaths），导致后续文件请求无法定位源文件。
-    // 架构说明：剪贴板和文件传输仅做 客户端↔服务端 直连，不做 客户端1→服务端→客户端2 中继。
-    ClipboardMessage msg(files);
-    const QByteArray encoded = Protocol::createMessage(MessageType::CLIPBOARD_DATA, msg);
-    if (encoded.isEmpty()) return;
-
-    for (auto* session : m_sessions) {
-        if (session->isAuthenticated() && session->sessionId() != sessionId) {
-            QMetaObject::invokeMethod(session, &ServerSession::sendClipboardData,
-                                      Qt::QueuedConnection, encoded);
-        }
-    }
+    Q_UNUSED(sessionId);
+    // 客户端→服务端：仅存储文件元数据，不广播给其他客户端。
+    // 服务端本地文件复制由 ClipboardManager::clipboardFilesChanged 信号独立广播。
+    m_clipboardManager->applyRemoteFiles(files);
 }
 
 void ServerService::onFileContentRequest(quint32 fileIndex, const QString& sessionId) {
