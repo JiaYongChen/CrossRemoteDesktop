@@ -95,11 +95,10 @@ ServerService::ServerService(ThreadManager *threadManager,
                                          MessageType::FILE_TRANSFER_ACK, ack);
             });
 
-    // 传输结束（完成/错误）清理会话映射 + 中继
+    // 传输结束（完成/错误）清理会话映射
     connect(m_fileTransferManager, &FileTransferManager::transferComplete,
             this, [this](int fileIndex, const QString& savedPath) {
                 m_fileRequestSessions.remove(fileIndex);
-                m_fileRelays.remove(static_cast<quint32>(fileIndex));
                 qCInfo(lcServer) << "文件传输完成:" << fileIndex << savedPath;
             });
     connect(m_fileTransferManager, &FileTransferManager::transferError,
@@ -112,7 +111,6 @@ ServerService::ServerService(ThreadManager *threadManager,
                     sendFileMessageToSession(reqSession, MessageType::FILE_TRANSFER_CANCEL, cancel);
                 }
                 m_fileRequestSessions.remove(fileIndex);
-                m_fileRelays.remove(static_cast<quint32>(fileIndex));
                 qCWarning(lcServer) << "文件传输错误:" << fileIndex << errorMessage;
             });
 }
@@ -333,63 +331,19 @@ void ServerService::onNewConnection(qintptr socketDescriptor)
             this, &ServerService::onFileTransferInit);
     connect(sessionPtr, &ServerSession::clipboardFileChunkReceived,
             this, [this](quint32 fileIndex, const QByteArray& data, quint8 flags, const QString& sessionId) {
-                // 中继转发：源会话回发的数据块 → 目标会话
-                auto relayIt = m_fileRelays.find(fileIndex);
-                if (relayIt != m_fileRelays.end() && relayIt->sourceSession == sessionId) {
-                    ClipboardFileChunk chunk;
-                    chunk.fileIndex = fileIndex;
-                    chunk.flags = flags;
-                    chunk.data = data;
-                    sendFileMessageToSession(relayIt->destSession, MessageType::CLIPBOARD_FILE_CHUNK, chunk);
-                    return;
-                }
+                Q_UNUSED(sessionId);
                 m_fileTransferManager->handleIncomingChunk(fileIndex, data, (flags & 0x01) != 0);
             });
     connect(sessionPtr, &ServerSession::fileTransferChunkReceived,
             this, [this](quint32 fileIndex, quint32 seq, const QByteArray& data, const QString& sessionId) {
-                // 中继转发
-                auto relayIt = m_fileRelays.find(fileIndex);
-                if (relayIt != m_fileRelays.end() && relayIt->sourceSession == sessionId) {
-                    FileTransferChunk chunk;
-                    chunk.fileIndex = fileIndex;
-                    chunk.seq = seq;
-                    chunk.data = data;
-                    sendFileMessageToSession(relayIt->destSession, MessageType::FILE_TRANSFER_CHUNK, chunk);
-                    return;
-                }
-                m_fileRequestSessions.insert(fileIndex, sessionId);
+                if (!m_fileRequestSessions.contains(fileIndex))
+                    m_fileRequestSessions.insert(fileIndex, sessionId);
                 m_fileTransferManager->handleIncomingChunk(fileIndex, data, false, seq);
             });
     connect(sessionPtr, &ServerSession::fileChunkAckReceived,
-            this, [this](quint32 fileIndex, quint32 ackSeq, const QString& sessionId) {
-                // 中继转发：目标会话的 ACK → 源会话
-                auto relayIt = m_fileRelays.find(fileIndex);
-                if (relayIt != m_fileRelays.end() && relayIt->destSession == sessionId) {
-                    FileTransferAck ack;
-                    ack.fileIndex = fileIndex;
-                    ack.ackSeq = ackSeq;
-                    sendFileMessageToSession(relayIt->sourceSession, MessageType::FILE_TRANSFER_ACK, ack);
-                    return;
-                }
-                onFileChunkAck(fileIndex, ackSeq, sessionId);
-            });
+            this, &ServerService::onFileChunkAck);
     connect(sessionPtr, &ServerSession::fileTransferCancelled,
-            this, [this](quint32 fileIndex, const QString& sessionId) {
-                // 中继转发 + 清理（仅中继参与者可取消）
-                auto relayIt = m_fileRelays.find(fileIndex);
-                if (relayIt != m_fileRelays.end()
-                    && (relayIt->sourceSession == sessionId
-                        || relayIt->destSession == sessionId)) {
-                    const QString other = (relayIt->sourceSession == sessionId)
-                        ? relayIt->destSession : relayIt->sourceSession;
-                    FileTransferCancel cancel;
-                    cancel.fileIndex = fileIndex;
-                    sendFileMessageToSession(other, MessageType::FILE_TRANSFER_CANCEL, cancel);
-                    m_fileRelays.erase(relayIt);
-                    return;
-                }
-                onFileTransferCancelled(fileIndex, sessionId);
-            });
+            this, &ServerService::onFileTransferCancelled);
 
     m_sessions.append(sessionPtr);
 
@@ -419,26 +373,10 @@ void ServerService::onSessionDisconnected(const QString &sessionId)
 {
     qCInfo(lcServer) << "ServerService: session disconnected:" << sessionId;
 
-    // 清理该会话关联的文件列表 + 文件传输映射
-    m_sessionFileLists.remove(sessionId);
-
+    // 清理该会话关联的文件传输映射
     for (auto it = m_fileRequestSessions.begin(); it != m_fileRequestSessions.end();) {
         if (it.value() == sessionId) {
             it = m_fileRequestSessions.erase(it);
-        } else {
-            ++it;
-        }
-    }
-
-    // 清理该会话参与的所有转发中继（发送 CANCEL 给对方）
-    for (auto it = m_fileRelays.begin(); it != m_fileRelays.end(); ) {
-        if (it.value().sourceSession == sessionId || it.value().destSession == sessionId) {
-            FileTransferCancel cancel;
-            cancel.fileIndex = it.key();
-            const QString other = (it.value().sourceSession == sessionId)
-                ? it.value().destSession : it.value().sourceSession;
-            sendFileMessageToSession(other, MessageType::FILE_TRANSFER_CANCEL, cancel);
-            it = m_fileRelays.erase(it);
         } else {
             ++it;
         }
@@ -491,10 +429,9 @@ void ServerService::onSessionClipboardData(const ClipboardMessage& message) {
 }
 
 void ServerService::onSessionFileList(const ClipboardFileList& files, const QString& sessionId) {
-    // 存储该会话的 FILE_LIST（跨客户端请求路由时定位源会话）
-    m_sessionFileLists.insert(sessionId, files);
-
-    // 广播远端文件列表（排除发送者）
+    // 仅广播远端文件列表（排除发送者），不调用 applyRemoteFiles——后者会清空
+    // 服务端本地文件的路径映射（m_lastFilePaths），导致后续文件请求无法定位源文件。
+    // 架构说明：剪贴板和文件传输仅做 客户端↔服务端 直连，不做 客户端1→服务端→客户端2 中继。
     ClipboardMessage msg(files);
     const QByteArray encoded = Protocol::createMessage(MessageType::CLIPBOARD_DATA, msg);
     if (encoded.isEmpty()) return;
@@ -525,66 +462,35 @@ void ServerService::onFileTransferInit(quint32 fileIndex, const QString& session
 }
 
 bool ServerService::prepareFileSend(quint32 fileIndex, const QString& sessionId, bool requireLarge) {
-    // 1) 优先尝试服务端本地剪贴板
-    const ClipboardFileList localList = m_clipboardManager->lastFileList();
-    if (fileIndex < static_cast<quint32>(localList.files.size())) {
-        const quint64 fileSize = localList.files.at(fileIndex).fileSize;
-        const bool isLarge = fileSize > FileTransferManager::kSmallFileThreshold;
-        if (isLarge != requireLarge) {
-            qCWarning(lcServer) << (isLarge ? "大文件应走 FILE_TRANSFER_INIT"
-                                            : "小文件应走 CLIPBOARD_FILE_REQUEST")
-                                << "，忽略请求:" << fileIndex;
-            return false;
-        }
-        const QString sourcePath = m_clipboardManager->lastFilePath(fileIndex);
-        if (!sourcePath.isEmpty()) {
-            if (m_fileRequestSessions.contains(fileIndex)) {
-                qCWarning(lcServer) << "该文件索引已有传输，拒绝重复请求:" << fileIndex;
-                return false;
-            }
-            m_fileRequestSessions.insert(fileIndex, sessionId);
-            m_fileTransferManager->handleFileRequest(fileIndex, localList, sourcePath);
-            return true;
-        }
+    // 仅服务端本地剪贴板作为应答数据源（客户端↔服务端直连架构）
+    const ClipboardFileList list = m_clipboardManager->lastFileList();
+    if (fileIndex >= static_cast<quint32>(list.files.size())) {
+        qCWarning(lcServer) << "文件请求索引越界:" << fileIndex;
+        return false;
     }
 
-    // 2) 服务端本地无匹配 → 跨客户端转发：查找持有该文件索引的会话
-    for (auto it = m_sessionFileLists.begin(); it != m_sessionFileLists.end(); ++it) {
-        const QString& srcSession = it.key();
-        const ClipboardFileList& srcList = it.value();
-        if (srcSession == sessionId || fileIndex >= static_cast<quint32>(srcList.files.size()))
-            continue;
-
-        const quint64 fileSize = srcList.files.at(fileIndex).fileSize;
-        if ((fileSize > FileTransferManager::kSmallFileThreshold) != requireLarge)
-            continue;
-
-        if (m_fileRelays.contains(fileIndex)) {
-            qCWarning(lcServer) << "该文件索引已有中继传输，拒绝:" << fileIndex;
-            return false;
-        }
-
-        // 建立转发中继：源会话持有文件 → 转发请求给源
-        m_fileRelays.insert(fileIndex, {srcSession, sessionId});
-
-        if (requireLarge) {
-            FileTransferInit init;
-            init.fileIndex = fileIndex;
-            sendFileMessageToSession(srcSession, MessageType::FILE_TRANSFER_INIT, init);
-        } else {
-            ClipboardFileRequest req;
-            req.fileIndex = fileIndex;
-            sendFileMessageToSession(srcSession, MessageType::CLIPBOARD_FILE_REQUEST, req);
-        }
-
-        qCInfo(lcServer) << "跨客户端文件转发:"
-                         << "src=" << srcSession << "dst=" << sessionId
-                         << "file=" << srcList.files.at(fileIndex).fileName;
-        return true;
+    const quint64 fileSize = list.files.at(fileIndex).fileSize;
+    const bool isLarge = fileSize > FileTransferManager::kSmallFileThreshold;
+    if (isLarge != requireLarge) {
+        qCWarning(lcServer) << (isLarge ? "大文件应走 FILE_TRANSFER_INIT"
+                                        : "小文件应走 CLIPBOARD_FILE_REQUEST")
+                            << "，忽略请求:" << fileIndex;
+        return false;
     }
 
-    qCWarning(lcServer) << "无法定位文件归属:" << fileIndex;
-    return false;
+    const QString sourcePath = m_clipboardManager->lastFilePath(fileIndex);
+    if (sourcePath.isEmpty()) {
+        qCWarning(lcServer) << "无法定位源文件路径:" << list.files.at(fileIndex).fileName;
+        return false;
+    }
+
+    if (m_fileRequestSessions.contains(fileIndex)) {
+        qCWarning(lcServer) << "该文件索引已有传输，拒绝重复请求:" << fileIndex;
+        return false;
+    }
+    m_fileRequestSessions.insert(fileIndex, sessionId);
+    m_fileTransferManager->handleFileRequest(fileIndex, list, sourcePath);
+    return true;
 }
 
 void ServerService::onFileChunkAck(quint32 fileIndex, quint32 ackSeq, const QString& sessionId) {

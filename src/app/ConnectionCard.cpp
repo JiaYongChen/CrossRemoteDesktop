@@ -2,6 +2,9 @@
 #include "ui_ConnectionCard.h"
 #include "common/theme/IconThemeProvider.h"
 
+#include <QtWidgets/QApplication>
+#include <QtWidgets/QStyle>
+
 ConnectionCard::ConnectionCard(QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::ConnectionCard)
@@ -18,7 +21,7 @@ ConnectionCard::ConnectionCard(QWidget *parent)
     // 设置图标
     ui->connectButton->setIcon(IconThemeProvider::icon("connect"));
     ui->editButton->setIcon(IconThemeProvider::icon("edit"));
-    ui->deleteButton->setIcon(IconThemeProvider::icon("delete"));
+    ui->deleteButton->setIcon(QApplication::style()->standardIcon(QStyle::SP_TrashIcon));
 
     // 信号连接
     connect(ui->connectButton, &QToolButton::clicked,

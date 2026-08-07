@@ -431,7 +431,7 @@ void MainWindow::showAbout() {
         "<hr>"
         "<p>本软件遵循 <b>MIT License</b> 开源发布。</p>"
         "<p>详情请见程序目录下的 LICENSE 文件。</p>"
-    ).arg(tr("极域桌面"), QStringLiteral("1.0"), QString::fromLatin1(qVersion())));
+    ).arg(tr("极域桌面"), QCoreApplication::applicationVersion(), QString::fromLatin1(qVersion())));
     aboutLabel->setWordWrap(true);
     aboutLabel->setTextFormat(Qt::RichText);
     aboutLayout->addWidget(aboutLabel);
