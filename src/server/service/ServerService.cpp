@@ -360,17 +360,14 @@ void ServerService::onSessionDisconnected(const QString &sessionId)
 {
     qCInfo(lcServer) << "ServerService: session disconnected:" << sessionId;
 
-    // 清理该会话关联的文件传输映射 + 所有活跃传输（断连即终止，无超时兜底）
+    // 清理该会话关联的文件传输映射（断连不全局取消——FileTransferManager 在多会话间共享，
+    // cancelAllTransfers 会误伤其他会话的进行中传输；活跃传输由 FileTransferAckTimeoutMs 后续兜底）
     for (auto it = m_fileRequestSessions.begin(); it != m_fileRequestSessions.end();) {
         if (it.value() == sessionId) {
             it = m_fileRequestSessions.erase(it);
         } else {
             ++it;
         }
-    }
-
-    if (m_fileTransferManager) {
-        m_fileTransferManager->cancelAllTransfers();
     }
 
     for (int i = 0; i < m_sessions.size(); ++i) {
@@ -472,13 +469,18 @@ bool ServerService::prepareFileSend(quint32 fileIndex, const QString& sessionId,
 }
 
 void ServerService::onFileChunkAck(quint32 fileIndex, quint32 ackSeq, const QString& sessionId) {
-    Q_UNUSED(sessionId);
-    // 推进发送侧滑动窗口并补发新块
+    if (m_fileRequestSessions.value(fileIndex) != sessionId) {
+        qCWarning(lcServer) << "拒绝非归属会话的 ACK:" << sessionId << "fileIndex:" << fileIndex;
+        return;
+    }
     m_fileTransferManager->handleAck(fileIndex, ackSeq);
 }
 
 void ServerService::onFileTransferCancelled(quint32 fileIndex, const QString& sessionId) {
-    Q_UNUSED(sessionId);
+    if (m_fileRequestSessions.value(fileIndex) != sessionId) {
+        qCWarning(lcServer) << "拒绝非归属会话的取消:" << sessionId << "fileIndex:" << fileIndex;
+        return;
+    }
     m_fileRequestSessions.remove(fileIndex);
     m_fileTransferManager->cancelTransfer(fileIndex);
     qCInfo(lcServer) << "文件传输已取消: fileIndex=" << fileIndex;

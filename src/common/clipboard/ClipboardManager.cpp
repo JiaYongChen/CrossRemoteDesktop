@@ -294,10 +294,17 @@ void ClipboardManager::onClipboardChanged(QClipboard::Mode mode) {
                 m_lastFileList = fileList;
                 // 同步记录完整路径映射（服务端响应文件数据请求时定位源文件）
                 m_lastFilePaths.clear();
-                for (const QUrl& url : mimeData->urls()) {
-                    if (!url.isLocalFile()) continue;
-                    const QFileInfo info(url.toLocalFile());
-                    m_lastFilePaths.append(info.exists() ? info.absoluteFilePath() : QString());
+                // 仅记录 extractFiles 已过滤为存在的文件的路径，使 m_lastFilePaths 与
+                // m_lastFileList.files 索引一一对应（不存在/非本地/超限的均已跳过）
+                for (const auto& fi : fileList.files) {
+                    for (const QUrl& url : mimeData->urls()) {
+                        if (!url.isLocalFile()) continue;
+                        const QFileInfo info(url.toLocalFile());
+                        if (info.fileName() == fi.fileName && info.exists()) {
+                            m_lastFilePaths.append(info.absoluteFilePath());
+                            break;
+                        }
+                    }
                 }
                 m_lastText.clear();
                 m_lastImageData.clear();
