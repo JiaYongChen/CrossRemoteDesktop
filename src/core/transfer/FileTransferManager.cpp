@@ -1,5 +1,6 @@
 #include "FileTransferManager.h"
 
+#include <QtCore/QDateTime>
 #include <QtCore/QDir>
 #include <QtCore/QFile>
 #include <QtCore/QFileInfo>
@@ -76,6 +77,7 @@ void FileTransferManager::handleFileRequest(int fileIndex, const ClipboardFileLi
         ctx.sourcePath = sourcePath;
         ctx.fileHandle = file;
         ctx.isActive = true;
+        ctx.lastActivityMs = QDateTime::currentMSecsSinceEpoch();
         m_transfers.insert(fileIndex, ctx);
 
         qCDebug(lcTransfer) << "大文件开始分块发送:" << info.fileName << info.fileSize;
@@ -136,6 +138,7 @@ void FileTransferManager::handleAck(int fileIndex, quint32 ackSeq) {
     if (static_cast<int>(ackSeq) <= ctx.lastAckedSeq) return;  // 过期 ACK 忽略
 
     ctx.lastAckedSeq = static_cast<int>(ackSeq);
+    ctx.lastActivityMs = QDateTime::currentMSecsSinceEpoch();
 
     // 窗口推进：补发至窗口满或文件读完
     if (!ctx.sendComplete) {
@@ -207,6 +210,7 @@ void FileTransferManager::requestRemoteFile(int fileIndex, const ClipboardFileLi
     ctx.fileHandle = file;
     ctx.isActive = true;
     ctx.isIncoming = true;
+    ctx.lastActivityMs = QDateTime::currentMSecsSinceEpoch();
     m_transfers.insert(fileIndex, ctx);
 
     qCDebug(lcTransfer) << "开始接收远端文件:" << info.fileName << "→" << destPath;
@@ -247,6 +251,7 @@ void FileTransferManager::handleIncomingChunk(int fileIndex, const QByteArray& c
     }
 
     ctx.bytesTransferred += static_cast<quint64>(chunk.size());
+    ctx.lastActivityMs = QDateTime::currentMSecsSinceEpoch();
     emit transferProgress(fileIndex, ctx.bytesTransferred, ctx.fileInfo.fileSize);
 
     // 大文件通道无 lastChunk 标志：以接收字节数达到元数据大小判定完成
@@ -303,6 +308,21 @@ void FileTransferManager::cancelAllTransfers() {
     const QList<int> keys = m_transfers.keys();
     for (int key : keys) {
         cancelTransfer(key);
+    }
+}
+
+void FileTransferManager::checkTimeouts() {
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    QList<int> timedOut;
+    for (auto it = m_transfers.begin(); it != m_transfers.end(); ++it) {
+        if (it.value().lastActivityMs > 0
+            && now - it.value().lastActivityMs > kTransferTimeoutMs) {
+            timedOut.append(it.key());
+        }
+    }
+    for (int idx : timedOut) {
+        qCWarning(lcTransfer) << "传输超时, 自动取消: fileIndex=" << idx;
+        cancelTransfer(idx);
     }
 }
 

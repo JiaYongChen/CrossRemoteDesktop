@@ -51,6 +51,13 @@ ServerService::ServerService(ThreadManager *threadManager,
         : QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
     m_fileTransferManager = new FileTransferManager(downloadDir, this);
 
+    // 超时检测定时器：每秒检查一次，自动取消挂死传输
+    auto* timeoutTimer = new QTimer(this);
+    connect(timeoutTimer, &QTimer::timeout, this, [this]() {
+        m_fileTransferManager->checkTimeouts();
+    });
+    timeoutTimer->start(2000);  // 2s 间隔（>= 超时阈值的粒度够用）
+
     // 服务端本地文件复制 → 广播 FILE_LIST 到所有客户端
     connect(m_clipboardManager, &ClipboardManager::clipboardFilesChanged,
             this, [this](const ClipboardFileList& files) {

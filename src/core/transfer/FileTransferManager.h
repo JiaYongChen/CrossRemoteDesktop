@@ -137,7 +137,14 @@ signals:
 
 private:
     /**
-     * @brief 解析同名冲突：存在则追加递增编号 "文件名 (N).ext"
+     * @brief 检查并取消超时传输（由外部定时器驱动，建议每秒一次）
+     */
+    void checkTimeouts();
+
+    /**
+     * @brief 传输超时阈值（毫秒），默认 30s
+     */
+    static constexpr int kTransferTimeoutMs = 30000;
      * @param dir 目标目录
      * @param fileName 文件名
      * @return 不冲突的完整路径
@@ -155,6 +162,7 @@ private:
         bool isActive = false;
         bool sendComplete = false;    // 发送侧：文件已全部读出
         bool isIncoming = false;      // 区分发送/接收方向，防跨方向碰撞
+        qint64 lastActivityMs = 0;    // 上次活动时间（超时检测用）
     };
 
     QString m_downloadDir;
