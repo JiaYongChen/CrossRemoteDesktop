@@ -247,6 +247,24 @@ void ProtocolSession::sendFileTransferInit(quint32 fileIndex) {
     m_connectionManager->sendMessage(MessageType::FILE_TRANSFER_INIT, init);
 }
 
+void ProtocolSession::sendClipboardFileChunk(quint32 fileIndex, const QByteArray& data, bool lastChunk) {
+    if (!m_connectionManager || !m_connectionManager->isAuthenticated()) return;
+    ClipboardFileChunk chunk;
+    chunk.fileIndex = fileIndex;
+    chunk.flags = lastChunk ? 0x01 : 0x00;
+    chunk.data = data;
+    m_connectionManager->sendMessage(MessageType::CLIPBOARD_FILE_CHUNK, chunk);
+}
+
+void ProtocolSession::sendFileTransferChunk(quint32 fileIndex, quint32 seq, const QByteArray& data) {
+    if (!m_connectionManager || !m_connectionManager->isAuthenticated()) return;
+    FileTransferChunk chunk;
+    chunk.fileIndex = fileIndex;
+    chunk.seq = seq;
+    chunk.data = data;
+    m_connectionManager->sendMessage(MessageType::FILE_TRANSFER_CHUNK, chunk);
+}
+
 void ProtocolSession::sendFileTransferAck(quint32 fileIndex, quint32 ackSeq) {
     if (!m_connectionManager || !m_connectionManager->isAuthenticated()) return;
     FileTransferAck ack;

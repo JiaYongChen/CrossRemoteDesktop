@@ -95,15 +95,24 @@ ServerService::ServerService(ThreadManager *threadManager,
                                          MessageType::FILE_TRANSFER_ACK, ack);
             });
 
-    // 传输结束（完成/错误）清理会话映射
+    // 传输结束（完成/错误）清理会话映射 + 中继
     connect(m_fileTransferManager, &FileTransferManager::transferComplete,
             this, [this](int fileIndex, const QString& savedPath) {
                 m_fileRequestSessions.remove(fileIndex);
+                m_fileRelays.remove(static_cast<quint32>(fileIndex));
                 qCInfo(lcServer) << "文件传输完成:" << fileIndex << savedPath;
             });
     connect(m_fileTransferManager, &FileTransferManager::transferError,
             this, [this](int fileIndex, const QString& errorMessage) {
+                // 回发 CANCEL 通知请求方（避免上下文悬挂）
+                const QString reqSession = m_fileRequestSessions.value(fileIndex);
+                if (!reqSession.isEmpty()) {
+                    FileTransferCancel cancel;
+                    cancel.fileIndex = static_cast<quint32>(fileIndex);
+                    sendFileMessageToSession(reqSession, MessageType::FILE_TRANSFER_CANCEL, cancel);
+                }
                 m_fileRequestSessions.remove(fileIndex);
+                m_fileRelays.remove(static_cast<quint32>(fileIndex));
                 qCWarning(lcServer) << "文件传输错误:" << fileIndex << errorMessage;
             });
 }
@@ -366,9 +375,11 @@ void ServerService::onNewConnection(qintptr socketDescriptor)
             });
     connect(sessionPtr, &ServerSession::fileTransferCancelled,
             this, [this](quint32 fileIndex, const QString& sessionId) {
-                // 中继转发 + 清理
+                // 中继转发 + 清理（仅中继参与者可取消）
                 auto relayIt = m_fileRelays.find(fileIndex);
-                if (relayIt != m_fileRelays.end()) {
+                if (relayIt != m_fileRelays.end()
+                    && (relayIt->sourceSession == sessionId
+                        || relayIt->destSession == sessionId)) {
                     const QString other = (relayIt->sourceSession == sessionId)
                         ? relayIt->destSession : relayIt->sourceSession;
                     FileTransferCancel cancel;

@@ -46,6 +46,8 @@ public slots:
     void sendClipboardImage(const QByteArray& imageData, quint32 width, quint32 height);
     void sendClipboardFileRequest(quint32 fileIndex);
     void sendFileTransferInit(quint32 fileIndex);
+    void sendClipboardFileChunk(quint32 fileIndex, const QByteArray& data, bool lastChunk);
+    void sendFileTransferChunk(quint32 fileIndex, quint32 seq, const QByteArray& data);
     void sendFileTransferAck(quint32 fileIndex, quint32 ackSeq);
     void sendFileTransferCancel(quint32 fileIndex);
     void sendClipboardFiles(const ClipboardFileList& files);

@@ -296,13 +296,8 @@ void RemoteDesktopSession::wireSignals() {
             clipboardMgr, &ClipboardManager::applyRemoteFiles);
     }
 
-    // ── 拖出操作（dragSource 标志）──
-    connect(m_protocolSession, &ProtocolSession::clipboardFilesReceived,
-            this, [this](const ClipboardFileList& files) {
-        if (!(files.flags & 0x01)) return;
-        DragDropHandler* ddh = m_window->dragDropHandler();
-        if (ddh) ddh->startDragOut(files);
-    });
+    // 注意：dragSource (flags=0x01) 的 FILE_LIST 目前仅作标识用途。
+    // 拖出操作（startDragOut）需用户 UI 交互显式触发，不应在收到列表时自动弹出 QDrag。
 
     // ── 文件传输：数据收发 + ACK 回路 ──
     FileTransferManager* ftm = m_fileTransferManager;
@@ -331,23 +326,36 @@ void RemoteDesktopSession::wireSignals() {
                     ftm->cancelTransfer(static_cast<int>(fileIndex));
                 });
 
+        // 发送方向：FileTransferManager 读出的数据块 → ProtocolSession 发送
+        connect(ftm, &FileTransferManager::fileChunkReady,
+                m_protocolSession,
+                [this](int fileIndex, const QByteArray& data, quint32 seq, bool lastChunk) {
+            if (lastChunk) {
+                m_protocolSession->sendClipboardFileChunk(
+                    static_cast<quint32>(fileIndex), data, true);
+            } else {
+                m_protocolSession->sendFileTransferChunk(
+                    static_cast<quint32>(fileIndex), seq, data);
+            }
+        });
+
         // 发送方向：远端请求本机文件 → FileTransferManager 作为复制方读文件回发
         connect(m_protocolSession, &ProtocolSession::fileContentRequestReceived,
-                ftm, [this, ftm, clipboardMgr](quint32 fileIndex) {
+                ftm, [ftm, clipboardMgr](quint32 fileIndex) {
             const ClipboardFileList list = clipboardMgr->lastFileList();
             const QString path = clipboardMgr->lastFilePath(static_cast<int>(fileIndex));
             if (!path.isEmpty()) {
                 const QFileInfo fi(path);
-                ftm->handleFileRequest(static_cast<int>(fileIndex), list, fi.absolutePath());
+                ftm->handleFileRequest(static_cast<int>(fileIndex), list, path);
             }
         });
         connect(m_protocolSession, &ProtocolSession::fileTransferInitReceived,
-                ftm, [this, ftm, clipboardMgr](quint32 fileIndex) {
+                ftm, [ftm, clipboardMgr](quint32 fileIndex) {
             const ClipboardFileList list = clipboardMgr->lastFileList();
             const QString path = clipboardMgr->lastFilePath(static_cast<int>(fileIndex));
             if (!path.isEmpty()) {
                 const QFileInfo fi(path);
-                ftm->handleFileRequest(static_cast<int>(fileIndex), list, fi.absolutePath());
+                ftm->handleFileRequest(static_cast<int>(fileIndex), list, path);
             }
         });
     }
