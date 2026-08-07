@@ -265,16 +265,22 @@ void FileTransferManager::handleIncomingChunk(int fileIndex, const QByteArray& c
         const bool sizeOk = (ctx.bytesTransferred == ctx.fileInfo.fileSize);
         m_transfers.erase(it);
 
-        if (sizeOk) {
-            // 最后一块 ACK 在 size 确认后发出，避免通知发送方完成却随后报错
+        if (sizeOk || ctx.bytesTransferred > ctx.fileInfo.fileSize) {
+            // 精确匹配 或 源文件在传输中被追加（>元数据）：截断至声明大小并接受
+            if (ctx.bytesTransferred > ctx.fileInfo.fileSize) {
+                qCWarning(lcTransfer) << "接收数据超过元数据大小（源文件增长），截断:"
+                                      << savedPath << "expected" << ctx.fileInfo.fileSize
+                                      << "got" << ctx.bytesTransferred;
+                QFile(savedPath).resize(ctx.fileInfo.fileSize);
+            }
             if (!lastChunk)
                 emit fileChunkAckNeeded(fileIndex, seq);
             qCInfo(lcTransfer) << "文件接收完成:" << savedPath;
             emit transferComplete(fileIndex, savedPath);
         } else {
-            qCWarning(lcTransfer) << "接收大小与元数据不符，删除:" << savedPath;
+            qCWarning(lcTransfer) << "接收不完整（数据不足），删除:" << savedPath;
             QFile::remove(savedPath);
-            emit transferError(fileIndex, QStringLiteral("接收大小与元数据不符: %1").arg(savedPath));
+            emit transferError(fileIndex, QStringLiteral("接收不完整: %1").arg(savedPath));
         }
     } else {
         // 常规块：立即回发 ACK 推进发送方滑动窗口
