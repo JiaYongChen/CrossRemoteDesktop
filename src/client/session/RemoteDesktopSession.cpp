@@ -309,6 +309,7 @@ void RemoteDesktopSession::wireSignals() {
             if (!ftm) return;
             for (int i = 0; i < files.files.size(); ++i) {
                 if (files.files.at(i).isDirectory) continue;
+                if (ftm->hasTransfer(i)) continue;  // 已有活跃/已完成传输，跳过
                 ftm->requestRemoteFile(i, files);
                 if (files.files.at(i).fileSize <= FileTransferManager::kSmallFileThreshold)
                     m_protocolSession->sendClipboardFileRequest(static_cast<quint32>(i));

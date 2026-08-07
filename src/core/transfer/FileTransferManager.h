@@ -81,6 +81,7 @@ public:
     /**
      * @brief 取消全部进行中的传输
      */
+    bool hasTransfer(int fileIndex) const { return m_transfers.contains(fileIndex); }
     void cancelAllTransfers();
 
     /**

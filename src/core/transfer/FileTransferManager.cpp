@@ -307,6 +307,11 @@ void FileTransferManager::cancelTransfer(int fileIndex) {
         ctx.fileHandle->deleteLater();
         ctx.fileHandle = nullptr;
     }
+    // 已完成传输（上下文保留排空残余块）不删除已保存文件
+    if (!ctx.isActive) {
+        m_transfers.erase(it);
+        return;
+    }
     if (!ctx.destPath.isEmpty()) {
         QFile::remove(ctx.destPath);
     }
