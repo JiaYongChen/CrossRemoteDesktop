@@ -31,10 +31,10 @@ metadata:
 
 **更新版本号后必须同步更新**：
 - `README.md` — 版本徽章/版本号引用
-- `CLAUDE.md` — 构建说明中的版本号引用（如有）
+- `AGENTS.md` — 构建说明中的版本号引用（如有）
 
-**Why:** CMake `project()` 是版本唯一源，`target_compile_definitions(APP_VERSION_STR)` 将版本传入 C++ 代码。README 和 CLAUDE.md 中的版本引用需手动同步以避免文档与二进制不一致。
+**Why:** CMake `project()` 是版本唯一源，`target_compile_definitions(APP_VERSION_STR)` 将版本传入 C++ 代码。README 和 AGENTS.md 中的版本引用需手动同步以避免文档与二进制不一致。
 
-**How to apply:** 修改 `CMakeLists.txt` 中 `project(VERSION x.y.z)` 后，搜索 `README.md` 和 `CLAUDE.md` 中的旧版本号并替换。
+**How to apply:** 修改 `CMakeLists.txt` 中 `project(VERSION x.y.z)` 后，搜索 `README.md` 和 `AGENTS.md` 中的旧版本号并替换。
 
 **关联**：[[project_overview]]、[[project_constants_organization_rules]]

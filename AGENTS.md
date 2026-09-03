@@ -1,13 +1,16 @@
-# CLAUDE.md
+# AGENTS.md
 
-本文件为 Claude Code (claude.ai/code) 在本仓库中工作时提供指导。
+本文件为 AI 编码代理（Codex、Claude Code 等）在本仓库中工作时提供指导。
 
-> 最后更新：2026-07-24
+> 最后更新：2026-09-03
 
 ## 首次设置（新设备）
 
+项目记忆（编码规范、反馈、工作流）存放在 `.claude/memory/`（已提交 git，跨设备共享），任何代理工具均可直接读取。
+
+如使用 Claude Code，可运行以下脚本，将其本地记忆路径通过 symlink 重定向到该目录：
+
 ```bash
-# 建立 memory symlink（使项目记忆跟随 git 跨设备同步）
 # Windows:
 .claude\scripts\setup-symlinks.bat
 
@@ -15,11 +18,8 @@
 chmod +x .claude/scripts/setup-symlinks.sh && ./.claude/scripts/setup-symlinks.sh
 ```
 
-项目记忆（编码规范、反馈、工作流）存放在 `.claude/memory/`（已提交 git）。
-上述脚本将 Claude 的本地记忆路径通过 symlink 重定向到此目录。
-
-Hooks 配置在 `.claude/settings.json` 的 `hooks` 键中。
-项目自定义 Skills 存放在 `.claude/skills/`。
+Hooks 配置在 `.claude/settings.json` 的 `hooks` 键中（仅 Claude Code 生效）。
+项目自定义 Skills 存放在 `.claude/skills/`（仅 Claude Code 加载）。
 
 ## 构建命令
 
@@ -59,7 +59,7 @@ cmake --build build --target update_translations
 输出目录：项目根目录下的 `Debug/` 和 `Release/`（不在 `build/` 内）。
 测试自动使用 `QT_QPA_PLATFORM=offscreen`（在 CMake 中设置），适用于无头/CI 环境。
 
-**翻译机制**：`.ts` 为**持久翻译源**（`resources/translations/`，含人工译文，**跟踪 git**）；`.qm` 为编译期产物（`lrelease` 生成到 `build/translations/`，不进 git，运行时文件加载）。**编译时只跑 `lrelease`，不跑 `lupdate`**——避免重建 `.ts` 冲掉已填译文。源码 `tr()` 变更后手动运行 `update_translations` 刷新 `.ts`（lupdate 保留已有译文）。`.qrc` 不嵌入 `.qm`；qtbase 翻译运行时从 Qt 安装目录（`QLibraryInfo`）加载。中文源文本即中文界面的兜底（`zh_CN.qm` 可空）；`en_US.ts` 已填充全部英文译文，切换英文即显示英文界面。完整流程和常见问题见 [[翻译系统维护规范]]。
+**翻译机制**：`.ts` 为**持久翻译源**（`resources/translations/`，含人工译文，**跟踪 git**）；`.qm` 为编译期产物（`lrelease` 生成到 `build/translations/`，不进 git，运行时文件加载）。**编译时只跑 `lrelease`，不跑 `lupdate`**——避免重建 `.ts` 冲掉已填译文。源码 `tr()` 变更后手动运行 `update_translations` 刷新 `.ts`（lupdate 保留已有译文）。`.qrc` 不嵌入 `.qm`；qtbase 翻译运行时从 Qt 安装目录（`QLibraryInfo`）加载。中文源文本即中文界面的兜底（`zh_CN.qm` 可空）；`en_US.ts` 已填充全部英文译文，切换英文即显示英文界面。完整流程和常见问题见 [翻译系统维护规范](.claude/memory/project_i18n_workflow.md)。
 
 ## 依赖
 
@@ -71,7 +71,7 @@ cmake --build build --target update_translations
 
 ### 第三方库管理
 
-> 详细规则（目录结构、CMake 模块模式、开发者流程）见 [[第三方库管理规则]]。
+> 详细规则（目录结构、CMake 模块模式、开发者流程）见 [第三方库管理规则](.claude/memory/feedback/feedback_third_party_libs.md)。
 
 项目使用 [vcpkg](https://github.com/microsoft/vcpkg) 作为开发者获取预编译包的工具。**CMake 构建时不调用 vcpkg**——所有产物缓存于 `third_party/` 并提交 git，构建时直接使用，支持 `git clone` 后离线构建。
 
@@ -219,7 +219,7 @@ RemoteDesktopSession（组装 + 生命周期）
 | `SecurityConstants.h` | `SecurityConstants` | 加密参数、认证速率限制 |
 | `GuiConstants.h` | `GuiConstants` | OpenGL渲染参数 |
 
-**常量规范**：统一 `namespace` + `inline constexpr`，`PascalCase` 命名。完整决策树、类型规范、禁止事项见 [[常量组织规范]]。2 个及以上文件引用的常量必须放入公共文件。
+**常量规范**：统一 `namespace` + `inline constexpr`，`PascalCase` 命名。完整决策树、类型规范、禁止事项见 [常量组织规范](.claude/memory/project_constants_organization_rules.md)。2 个及以上文件引用的常量必须放入公共文件。
 
 ## Git 提交规范
 
@@ -227,7 +227,7 @@ RemoteDesktopSession（组装 + 生命周期）
 
 ## 日志规范
 
-> 详细规则见 [[日志规范]]，本节为日志分类树和级别语义概要参考。
+> 详细规则见 [日志规范](.claude/memory/feedback/feedback_logging_rules.md)，本节为日志分类树和级别语义概要参考。
 
 **所有日志必须使用分类流式宏：**
 ```cpp
@@ -331,7 +331,7 @@ qCWarning(lcServer) << error.logLabel();      // 推荐
 
 ### Include / 前向声明
 
-> 完整规范见 [[Include 前向声明规范]]，本节为快速参考。
+> 完整规范见 [Include 前向声明规范](.claude/memory/project_include_forward_declare_rules.md)，本节为快速参考。
 
 **`.h` 文件**：优先前向声明，仅值类型 / 基类 / 内联访问成员时 `#include`。按 标准库 → Qt → 项目内部 → 前向声明 四区块组织，每区块字母序。
 

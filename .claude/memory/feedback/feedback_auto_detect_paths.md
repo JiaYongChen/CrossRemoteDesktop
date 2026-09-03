@@ -13,6 +13,6 @@ metadata:
 - **Batch 脚本**：用 `%~dp0` 获取脚本所在目录，推导项目根目录
 - **Shell 脚本**：用 `$(cd "$(dirname "$0")/.." && pwd)` 获取项目根目录
 - **CMake 配置**：用 `${CMAKE_SOURCE_DIR}` / `${CMAKE_CURRENT_SOURCE_DIR}`
-- **CLAUDE.md**：用相对于项目根目录的路径，不写绝对路径
+- **AGENTS.md**：用相对于项目根目录的路径，不写绝对路径
 - **Memory 文件**：同理使用相对项目根目录的路径
 - 需要匹配 Claude Code 项目 slug 时，从当前路径自动推导（`\` → `-`，`:` → `-`）
