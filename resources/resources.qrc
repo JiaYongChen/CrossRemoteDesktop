@@ -25,6 +25,7 @@
         <file>icons/eye.svg</file>
         <file>icons/eye-off.svg</file>
         <file>icons/edit.svg</file>
+        <file>icons/delete.svg</file>
 
         <!-- 应用图标（不区分主题） -->
         <file>icons/app.svg</file>
