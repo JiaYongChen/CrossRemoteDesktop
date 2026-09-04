@@ -4,13 +4,15 @@
 # 缓存缺失时 FATAL_ERROR —— 开发者应通过 vcpkg 获取后缓存到 third_party/
 #
 # 输出: OpenSSL::SSL, OpenSSL::Crypto (imported, per-config)
-#        OPENSSL_INCLUDE_DIR, OPENSSL_TP_BIN
+#        OPENSSL_INCLUDE_DIR, OPENSSL_INCLUDE_DIRS, OPENSSL_TP_BIN
 # ──────────────────────────────────────────────────────────────────────────
 
 set(_SSL_TP   "${CMAKE_SOURCE_DIR}/third_party/openssl")
 set(_SSL_INC  "${_SSL_TP}/include")
+set(_SSL_PLATFORM_INC "${_SSL_INC}/${PLATFORM_NAME}-${PLATFORM_ARCH}")
 set(_SSL_LIB  "${_SSL_TP}/lib/${PLATFORM_NAME}-${PLATFORM_ARCH}")
 set(_SSL_BIN  "${_SSL_TP}/bin/${PLATFORM_NAME}-${PLATFORM_ARCH}")
+set(_SSL_EXPECTED_VERSION "3.6.2")
 
 # ── 平台特定文件名 ──────────────────────────────────────────────────────
 if(WIN32)
@@ -36,6 +38,9 @@ set(_MISSING "")
 if(NOT EXISTS "${_SSL_INC}/openssl/ssl.h")
     list(APPEND _MISSING "  - 头文件: ${_SSL_INC}/openssl/ssl.h")
 endif()
+if(NOT EXISTS "${_SSL_PLATFORM_INC}/openssl/configuration.h")
+    list(APPEND _MISSING "  - 平台配置头: ${_SSL_PLATFORM_INC}/openssl/configuration.h")
+endif()
 foreach(_f "${_SSL_REL_LIB}" "${_SSL_DBG_LIB}" "${_CRYPTO_REL_LIB}" "${_CRYPTO_DBG_LIB}")
     if(NOT EXISTS "${_SSL_LIB}/${_f}")
         list(APPEND _MISSING "  - 库文件: ${_SSL_LIB}/${_f}")
@@ -59,22 +64,34 @@ if(_MISSING)
         "  然后将产物按以下结构重组并提交 git:\n"
         "    third_party/openssl/\n"
         "      include/openssl/   ← 头文件\n"
+        "      include/Windows-x64/openssl/ ← 平台配置头\n"
         "      lib/Windows-x64/    ← 导入库 (libssl.lib, libcrypto.lib)\n"
         "      bin/Windows-x64/    ← DLL (libssl-3-x64.dll, libcrypto-3-x64.dll)")
+endif()
+
+# 公共头文件中的 opensslv.h 是缓存版本的权威来源。显式校验版本，避免
+# 头文件与 opaque 的预编译库在依赖更新时再次悄然错配。
+file(STRINGS "${_SSL_INC}/openssl/opensslv.h" _SSL_VERSION_LINE
+    REGEX "^# *define OPENSSL_VERSION_STR +\"[0-9]+\\.[0-9]+\\.[0-9]+\"$")
+if(NOT _SSL_VERSION_LINE MATCHES "\"${_SSL_EXPECTED_VERSION}\"$")
+    message(FATAL_ERROR
+        "[OpenSSL] 缓存版本不匹配：期望 ${_SSL_EXPECTED_VERSION}，"
+        "但 ${_SSL_INC}/openssl/opensslv.h 中为 '${_SSL_VERSION_LINE}'")
 endif()
 
 # ══════════════════════════════════════════════════════════════════════════
 # 2) 创建 imported targets
 # ══════════════════════════════════════════════════════════════════════════
-message(STATUS "[OpenSSL] Using ${_SSL_TP}")
+message(STATUS "[OpenSSL] Using ${_SSL_TP} (version ${_SSL_EXPECTED_VERSION})")
 
 set(OPENSSL_INCLUDE_DIR "${_SSL_INC}")
+set(OPENSSL_INCLUDE_DIRS "${_SSL_PLATFORM_INC};${_SSL_INC}")
 set(OPENSSL_TP_BIN      "${_SSL_BIN}")
 
 if(NOT TARGET OpenSSL::SSL)
     add_library(OpenSSL::SSL UNKNOWN IMPORTED GLOBAL)
     set_target_properties(OpenSSL::SSL PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES    "${_SSL_INC}"
+        INTERFACE_INCLUDE_DIRECTORIES    "${OPENSSL_INCLUDE_DIRS}"
         IMPORTED_LOCATION_DEBUG          "${_SSL_LIB}/${_SSL_DBG_LIB}"
         IMPORTED_LOCATION_RELEASE        "${_SSL_LIB}/${_SSL_REL_LIB}"
         IMPORTED_LOCATION_RELWITHDEBINFO "${_SSL_LIB}/${_SSL_REL_LIB}"
@@ -84,7 +101,7 @@ endif()
 if(NOT TARGET OpenSSL::Crypto)
     add_library(OpenSSL::Crypto UNKNOWN IMPORTED GLOBAL)
     set_target_properties(OpenSSL::Crypto PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES    "${_SSL_INC}"
+        INTERFACE_INCLUDE_DIRECTORIES    "${OPENSSL_INCLUDE_DIRS}"
         IMPORTED_LOCATION_DEBUG          "${_SSL_LIB}/${_CRYPTO_DBG_LIB}"
         IMPORTED_LOCATION_RELEASE        "${_SSL_LIB}/${_CRYPTO_REL_LIB}"
         IMPORTED_LOCATION_RELWITHDEBINFO "${_SSL_LIB}/${_CRYPTO_REL_LIB}"
