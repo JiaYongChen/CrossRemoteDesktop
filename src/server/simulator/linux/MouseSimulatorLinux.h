@@ -3,8 +3,8 @@
 #include "server/simulator/MouseSimulator.h"
 
 #ifdef Q_OS_LINUX
-#include <X11/Xlib.h>
-#include <X11/extensions/XTest.h>
+struct _XDisplay;
+using Display = _XDisplay;
 
 
 class MouseSimulatorLinux : public MouseSimulator {

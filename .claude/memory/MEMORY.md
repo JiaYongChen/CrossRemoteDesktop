@@ -22,13 +22,13 @@
 - [feedback_use_chinese.md](feedback/feedback_use_chinese.md) — 会话全程中文，包括代码注释
 - [feedback_no_feature_branches.md](feedback/feedback_no_feature_branches.md) — 直接在 master 上提交，不创建功能分支
 - [feedback_prefer_qt_builtin.md](feedback/feedback_prefer_qt_builtin.md) — Qt 已包含则用内置；若内置不完整则完全由第三方库替代
-- [feedback_third_party_libs.md](feedback/feedback_third_party_libs.md) — 预编译包缓存于 third_party/ 并提交 git，CMake 直接使用不调 vcpkg
-- [feedback_no_docs_in_git.md](feedback/feedback_no_docs_in_git.md) — 不要将 docs/ 目录下的文件添加到 git 追踪
-- [feedback_macro_usage.md](feedback/feedback_macro_usage.md) — 编译期宏仅隔离真不可编译的平台，不冗余覆盖运行时能力检测
+- [feedback_third_party_libs.md](feedback/feedback_third_party_libs.md) — 支持平台的预编译包缓存于 third_party/ 并提交 git，CMake 直接使用不调 vcpkg
+- [feedback_no_docs_in_git.md](feedback/feedback_no_docs_in_git.md) — 正式 docs 文档需版本化，仅忽略 docs/superpowers/ 临时产物
+- [feedback_macro_usage.md](feedback/feedback_macro_usage.md) — 区分编译期依赖可用性与运行时能力检测，按需组合两道检查
 - [feedback_commit_style.md](feedback/feedback_commit_style.md) — Git 提交中文，格式：`类型: 描述`
 - [feedback_windows_build.md](feedback/feedback_windows_build.md) — Windows 必须用 VS 生成器（非 Ninja），需 /FS 避免 PDB 锁冲突
 - [feedback_bash_heredoc_commit.md](feedback/feedback_bash_heredoc_commit.md) — Git Bash 中用 POSIX heredoc + git commit -F
-- [feedback_build_verification.md](feedback/feedback_build_verification.md) — 构建验证：grep error 而非 tail 截断
+- [feedback_build_verification.md](feedback/feedback_build_verification.md) — 构建验证需保留完整日志、原始退出码并防止 CTest 零匹配
 - [feedback_auto_detect_paths.md](feedback/feedback_auto_detect_paths.md) — 项目中所有路径必须使用自动检测，禁止硬编码绝对路径
 - [feedback_windows_git_case.md](feedback/feedback_windows_git_case.md) — Windows 上 git 跟踪路径大小写与磁盘不符致永久幻影 M，用 git mv 纠正
 - [feedback_flaky_latency_test.md](feedback/feedback_flaky_latency_test.md) — FrameTransmissionLatencyTest 套件并行跑偶发失败(负载致延迟超阈值),单独重跑即过,非回归

@@ -606,8 +606,8 @@ void TestProducerConsumerIntegration::test_queueStatistics() {
     // 验证初始统计信息
     QVERIFY(stats.currentSize >= 0);
     QVERIFY(stats.maxSize >= 0);
-    QVERIFY(stats.totalEnqueued >= 0);
-    QVERIFY(stats.totalDequeued >= 0);
+    QVERIFY(stats.totalDequeued <= stats.totalEnqueued);
+    QVERIFY(stats.lastUpdateTime.isValid());
 
     // 添加一些数据（frameId 从 1 开始，0 会被 isValid() 判定为无效）
     const int testItems = 5;

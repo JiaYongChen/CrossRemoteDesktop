@@ -1,9 +1,16 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.21)
 
 project(CrossRemoteDesktopTests LANGUAGES CXX)
 
+if(APPLE)
+    enable_language(OBJCXX)
+    set(CMAKE_OBJCXX_STANDARD 20)
+    set(CMAKE_OBJCXX_STANDARD_REQUIRED ON)
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+include(../cmake/SetupVideoToolbox.cmake)
 
 # ── 编译选项 ──
 if(MSVC)
@@ -72,6 +79,20 @@ else()
     set(_TEST_BASE_ENV "QT_QPA_PLATFORM=offscreen")
 endif()
 
+# Tests that bind loopback sockets must not inherit developer/CI proxy settings.
+# Qt may otherwise route localhost connections through the configured proxy.
+list(APPEND _TEST_BASE_ENV
+    "http_proxy="
+    "https_proxy="
+    "all_proxy="
+    "HTTP_PROXY="
+    "HTTPS_PROXY="
+    "ALL_PROXY="
+    "no_proxy=localhost,127.0.0.1,::1"
+    "NO_PROXY=localhost,127.0.0.1,::1"
+    "CROSSRD_DISABLE_SCREEN_CAPTURE_PERMISSION_PROMPT=1"
+)
+
 # ── 共享静态库 ──
 qt_add_library(common_test_core STATIC
     ../src/common/logging/LoggingCategories.cpp
@@ -96,6 +117,10 @@ qt_add_library(capture_test_core STATIC
 )
 if(WIN32)
     target_sources(capture_test_core PRIVATE ../src/server/capture/windows/DxgiCapture.cpp)
+elseif(APPLE)
+    target_sources(capture_test_core PRIVATE
+        ../src/server/capture/macos/AvFoundationCapture.mm)
+    rd_setup_macos_screen_capture(capture_test_core)
 endif()
 target_link_libraries(capture_test_core PUBLIC Qt6::Core Qt6::Gui threading_test_core)
 if(WIN32)
@@ -106,27 +131,27 @@ endif()
 include(../cmake/TestHelpers.cmake)
 
 add_custom_target(run_all_tests
-    COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
+    COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure --no-tests=error
     COMMENT "Running all tests"
 )
 add_custom_target(run_quick_tests
-    COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -L unit -E ScreenCapture
+    COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure --no-tests=error -L unit -E ScreenCapture
     COMMENT "Running quick tests (excluding stress and performance tests)"
 )
 add_custom_target(run_core_tests
-    COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -L "unit"
+    COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure --no-tests=error -L "unit"
     COMMENT "Running core component tests"
 )
 add_custom_target(run_threading_tests
-    COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -L "threading"
+    COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure --no-tests=error -L "threading"
     COMMENT "Running threading-related tests"
 )
 add_custom_target(run_performance_tests
-    COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -L "performance"
+    COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure --no-tests=error -L "performance"
     COMMENT "Running performance-related tests"
 )
 add_custom_target(run_integration_tests
-    COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -L "integration"
+    COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure --no-tests=error -L "integration"
     COMMENT "Running integration tests"
 )
 
@@ -404,6 +429,8 @@ elseif(UNIX)
     target_sources(test_producer_consumer_integration PRIVATE
         ../src/server/simulator/linux/MouseSimulatorLinux.cpp
         ../src/server/simulator/linux/KeyboardSimulatorLinux.cpp)
+    target_link_libraries(test_producer_consumer_integration PRIVATE
+        X11::X11 X11::Xtst)
 endif()
 
 # integration / trust（端到端 TOFU：真实 TLS 首连记录 + 重连 Trusted）
@@ -530,6 +557,7 @@ add_rd_test(TARGET test_file_transfer_manager  NAME FileTransferManagerTest
 add_rd_test(TARGET test_drag_drop_handler  NAME DragDropHandlerTest
     SOURCES client/window/test_drag_drop_handler.cpp
     EXTRA_SOURCES ../src/client/window/DragDropHandler.cpp
+                  ../src/common/clipboard/ClipboardManager.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets common_test_core
     TIMEOUT 30  LABELS unit client window)
 
@@ -584,3 +612,17 @@ add_rd_test(TARGET test_connectionmanager_trust  NAME ConnectionManagerTrustTest
         ../src/common/network/MessageCodec.cpp
     LIBRARIES Qt6::Core Qt6::Test Qt6::Network OpenSSL::SSL OpenSSL::Crypto common_test_core
     TIMEOUT 30  LABELS unit client trust network)
+
+# 这些测试直接编译 DecodeWorker.cpp，因此 macOS 下也必须加入其平台解码实现。
+if(APPLE)
+    foreach(_decode_test_target IN ITEMS
+        test_decodeworker
+        test_clientremotewindow
+        test_protocolsession
+        test_decodepipeline
+    )
+        target_sources(${_decode_test_target} PRIVATE
+            ../src/client/decode/macos/MacOSImageDecoder.mm)
+        rd_setup_macos_image_decoder(${_decode_test_target})
+    endforeach()
+endif()

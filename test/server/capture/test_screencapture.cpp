@@ -376,20 +376,24 @@ void TestScreenCapture::test_threadSafety()
 void TestScreenCapture::test_memoryManagement()
 {
     qCDebug(lcTestScreenCapture, "测试内存管理");
-    
+
+    // ScreenCapture 使用 ThreadManager 中的固定线程名。每轮只保留一个
+    // ScreenCapture 实例，避免多个实例同时接收同一线程的生命周期信号。
+    m_screenCapture.reset();
+
     // 测试多次创建和销毁
     for (int i = 0; i < 10; ++i) {
-        auto tempCapture = std::make_unique<ScreenCapture>(m_threadManager, m_queueManager);
-        tempCapture->startCapture();
+        m_screenCapture = std::make_unique<ScreenCapture>(m_threadManager, m_queueManager);
+        m_screenCapture->startCapture();
         QTest::qWait(50);
-        tempCapture->stopCapture();
+        m_screenCapture->stopCapture();
         QTest::qWait(50);
-        // tempCapture会在作用域结束时自动销毁
+        QVERIFY(!m_screenCapture->isCapturing());
+        m_screenCapture.reset();
     }
-    
-    // 验证当前状态
-    QVERIFY(m_screenCapture->isCapturing() || !m_screenCapture->isCapturing());
-    
+
+    QVERIFY(!m_threadManager->hasThread(QStringLiteral("ScreenCaptureWorker")));
+
     qCDebug(lcTestScreenCapture, "内存管理测试通过");
 }
 

@@ -1,28 +1,25 @@
 // PipeWireCapture.h — Linux PipeWire 屏幕捕获实现
 #pragma once
 
-#ifdef Q_OS_LINUX
+#include <QtCore/QtGlobal>
 
-#include <QtCore/QMutex>
-#include <QtCore/QSize>
-#include <QtGui/QImage>
+#if defined(Q_OS_LINUX) && defined(HAS_PIPEWIRE)
 
-#include <memory>
-
-#include <spa/param/video/format-utils.h>
+#include <QtCore/QString>
 
 #include "server/capture/IScreenCapture.h"
 
-struct pw_context;
-struct pw_core;
-struct pw_stream;
-struct pw_thread_loop;
-struct spa_hook;
-
+/**
+ * PipeWire 屏幕捕获占位实现。
+ *
+ * Wayland 下必须通过 xdg-desktop-portal 获取用户授权、PipeWire remote fd
+ * 和 stream node id。该流程接入前，此类始终报告不可用，防止仅凭
+ * PipeWire 开发包或 WAYLAND_DISPLAY 就误选一个无法工作的后端。
+ */
 class PipeWireCapture : public IScreenCapture {
 public:
-    PipeWireCapture();
-    ~PipeWireCapture() override;
+    PipeWireCapture() = default;
+    ~PipeWireCapture() override = default;
 
     PipeWireCapture(const PipeWireCapture&) = delete;
     PipeWireCapture& operator=(const PipeWireCapture&) = delete;
@@ -39,27 +36,8 @@ public:
     [[nodiscard]] static bool isAvailable();
 
 private:
-    void onProcessFrame(const unsigned char* data, int width, int height, int stride);
-
-    pw_context*      m_pwContext = nullptr;
-    pw_core*         m_pwCore = nullptr;
-    pw_stream*       m_pwStream = nullptr;
-    pw_thread_loop*  m_pwLoop = nullptr;
-    spa_hook*        m_streamListener = nullptr;
-
-    spa_video_info_raw m_format{};
-
-    QImage  m_currentFrame;
-    QSize   m_desktopSize;
-    int32_t m_width = 0;
-    int32_t m_height = 0;
-    int32_t m_stride = 0;
     bool    m_initialized = false;
-    bool    m_frameReady = false;
     QString m_lastError;
-
-    /// 保护 PipeWire 回调线程与捕获线程间对 m_currentFrame / m_frameReady 的并发访问
-    mutable QMutex m_mutex;
 };
 
-#endif // Q_OS_LINUX
+#endif // defined(Q_OS_LINUX) && defined(HAS_PIPEWIRE)

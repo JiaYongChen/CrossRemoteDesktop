@@ -1,6 +1,7 @@
 #include "ClipboardManager.h"
 
 #include <QtCore/QBuffer>
+#include <QtCore/QByteArrayView>
 #include <QtCore/QCryptographicHash>
 #include <QtCore/QFileInfo>
 #include <QtCore/QMimeData>
@@ -211,11 +212,11 @@ QByteArray ClipboardManager::computeFileListHash(const ClipboardFileList& fileLi
     QCryptographicHash hash(QCryptographicHash::Sha256);
     for (const ClipboardFileInfo& info : fileList.files) {
         hash.addData(info.fileName.toUtf8());
-        hash.addData("\x1f", 1);  // ASCII 单元分隔符，防字段边界歧义
+        hash.addData(QByteArrayView("\x1f", 1));  // ASCII 单元分隔符，防字段边界歧义
         hash.addData(QByteArray::number(info.fileSize));
-        hash.addData("\x1f", 1);
+        hash.addData(QByteArrayView("\x1f", 1));
         hash.addData(QByteArray::number(info.modifyTimeMs));
-        hash.addData("\x1e", 1);  // ASCII 记录分隔符，防条目边界歧义
+        hash.addData(QByteArrayView("\x1e", 1));  // ASCII 记录分隔符，防条目边界歧义
     }
     return hash.result();
 }
@@ -227,8 +228,16 @@ void ClipboardManager::onClipboardChanged(QClipboard::Mode mode) {
     const QMimeData* mimeData = m_clipboard->mimeData();
     if (!mimeData) return;
 
+    // Qt 会将 text/uri-list 同时暴露为文本回退表示。若已识别出有效本地文件，
+    // 则将该 MIME 事件视为文件列表，避免文本/图片分支先清空文件去重基线。
+    ClipboardFileList fileList;
+    if (mimeData->hasUrls()) {
+        fileList = extractFiles(mimeData->urls(), &m_lastFilePaths);
+    }
+    const bool hasLocalFiles = !fileList.files.isEmpty();
+
     // 图片分支（独立处理，用 goto end_image 替代 return 以免跳过文本分支）
-    if (mimeData->hasImage()) {
+    if (!hasLocalFiles && mimeData->hasImage()) {
         QImage image = qvariant_cast<QImage>(mimeData->imageData());
         if (!image.isNull()) {
 
@@ -268,7 +277,7 @@ void ClipboardManager::onClipboardChanged(QClipboard::Mode mode) {
     }
 
     // 文本分支（独立 if，支持图文共存时分别处理）
-    if (mimeData->hasText()) {
+    if (!hasLocalFiles && mimeData->hasText()) {
         QString text = mimeData->text();
 
         // 内容去重：与上次远端内容匹配则跳过回环
@@ -291,21 +300,18 @@ void ClipboardManager::onClipboardChanged(QClipboard::Mode mode) {
     }
 
     // 文件列表分支（独立 if，最后处理；与文本/图片共用哈希去重基线）
-    if (mimeData->hasUrls()) {
-        ClipboardFileList fileList = extractFiles(mimeData->urls(), &m_lastFilePaths);
-        if (!fileList.files.isEmpty()) {
-            const QByteArray hash = computeFileListHash(fileList);
-            if (hash != m_lastFileHash) {
-                m_lastFileHash = hash;
-                m_lastFileList = fileList;
-                m_lastText.clear();
-                m_lastImageData.clear();
-                m_lastReceivedText.clear();
-                m_lastReceivedImage = QImage();
+    if (hasLocalFiles) {
+        const QByteArray hash = computeFileListHash(fileList);
+        if (hash != m_lastFileHash) {
+            m_lastFileHash = hash;
+            m_lastFileList = fileList;
+            m_lastText.clear();
+            m_lastImageData.clear();
+            m_lastReceivedText.clear();
+            m_lastReceivedImage = QImage();
 
-                qCDebug(lcClipboard) << "剪贴板文件列表变化，条目数:" << fileList.files.size();
-                emit clipboardFilesChanged(fileList);
-            }
+            qCDebug(lcClipboard) << "剪贴板文件列表变化，条目数:" << fileList.files.size();
+            emit clipboardFilesChanged(fileList);
         }
     }
 }

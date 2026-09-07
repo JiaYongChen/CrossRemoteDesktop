@@ -1,5 +1,7 @@
 # 变更日志
 
+> 本文件记录各版本当时登记的变更，不代表所有平台后端在当前工作树中均已形成支持路径；当前可用性以 [平台支持](PLATFORM_SUPPORT.md) 为准。
+
 ## [2.0.0] — 2026-08-06
 
 ### 重大变更
@@ -28,8 +30,8 @@
 ## [1.0.0] — 基础版本
 
 ### 核心功能
-- 屏幕捕获：DXGI / PipeWire / Qt GDI
-- JPEG 编解码：CPU TurboJPEG + GPU NVJPEG / VA-API
+- 屏幕捕获：DXGI / Qt QScreen；PipeWire 原型
+- JPEG 编解码：CPU TurboJPEG + GPU NVJPEG；VA-API 原型
 - 远程键盘/鼠标输入转发（三平台）
 - 剪贴板双向同步（文本 + 图片）
 - 光标形状同步

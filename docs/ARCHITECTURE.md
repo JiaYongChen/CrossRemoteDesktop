@@ -11,7 +11,7 @@ src/
 ├── app/           应用壳（MainWindow, ConnectionDialog, SettingsDialog）
 ├── client/        客户端
 │   ├── core/         核心数据结构（TripleBuffer, FrameSlot）
-│   ├── decode/       解码器（CPU TurboJPEG / GPU NVJPEG / VA-API / VideoToolbox）
+│   ├── decode/       解码器（TurboJPEG / NVJPEG / macOS ImageIO；VA-API 占位）
 │   ├── managers/     解码工作线程
 │   ├── network/      网络层（TcpClient, ConnectionManager, ServerTrustStore）
 │   ├── session/      会话组装（RemoteDesktopSession, ProtocolSession, DecodePipeline）
@@ -28,7 +28,7 @@ src/
 │   ├── theme/        图标加载 + 标题栏主题
 │   └── threading/    线程管理 + 线程安全队列 + Worker 基类
 ├── server/        服务端
-│   ├── capture/      屏幕捕获（DXGI/PipeWire/AvFoundation 工厂）
+│   ├── capture/      屏幕捕获（DXGI/PipeWire/ScreenCaptureKit 工厂）
 │   ├── clienthandler/ 客户端连接处理 + 认证
 │   ├── dataflow/     数据流结构 + 队列管理
 │   ├── dataprocessing/ JPEG 编码工作线程
@@ -38,6 +38,8 @@ src/
 │   └── simulator/    键盘/鼠标输入模拟（三平台）
 └── ui/            Qt Designer .ui 文件
 ```
+
+Linux PipeWire/VA-API 当前保留为显式禁用的 fail-closed 占位实现；macOS ScreenCaptureKit 与 ImageIO/CoreGraphics 已接入 CMake，但受第三方缓存缺口影响尚未完成目标平台验证。组件的可用性与已知限制以 [平台支持](PLATFORM_SUPPORT.md) 为准。
 
 ## 依赖注入链
 

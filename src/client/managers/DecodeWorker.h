@@ -85,7 +85,10 @@ private:
 
     TripleBuffer<FrameSlot>* m_frameBuffer = nullptr;
 
-    std::unique_ptr<IDecoder> m_decoder;  ///< 解码器（运行时选择 TurboJpegDecoder 或 NvJpegDecoder）
+    std::unique_ptr<IDecoder> m_decoder;  ///< 当前解码器（平台后端或 TurboJPEG）
+    /// 无内置回退的平台后端失败后，只切换一次到 TurboJPEG。
+    /// NvJpegDecoder 自行管理其 GPU → CPU 回退，不使用此标志。
+    bool m_decoderNeedsWorkerFallback = false;
 
     GpuDecodeTarget* m_decodeTarget = nullptr;  ///< GPU 解码目标（构造后注入，提供 worker GL 上下文）
 

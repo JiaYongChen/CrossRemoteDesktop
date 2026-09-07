@@ -1,21 +1,9 @@
-# SetupVaApi.cmake — VA-API GPU JPEG 解码（Linux 可选组件）
+# SetupVaApi.cmake — VA-API GPU JPEG 解码（Linux，尚未启用）
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
     return()
 endif()
 
-find_package(PkgConfig QUIET)
-if(PkgConfig_FOUND)
-    pkg_check_modules(LIBVA libva IMPORTED_TARGET)
-    pkg_check_modules(LIBVA_DRM libva-drm IMPORTED_TARGET)
-endif()
-
-if(LIBVA_FOUND AND LIBVA_DRM_FOUND)
-    message(STATUS "VA-API 已找到，启用 Linux GPU JPEG 解码")
-    target_link_libraries(CrossRemoteDesktop PRIVATE
-        PkgConfig::LIBVA
-        PkgConfig::LIBVA_DRM
-    )
-    target_compile_definitions(CrossRemoteDesktop PRIVATE HAS_VAAPI)
-else()
-    message(STATUS "VA-API 未找到，Linux JPEG 解码使用 CPU 回退")
-endif()
+# 当前 VaApiDecoder 尚缺 JPEG 参数解析、有效 VAContext 创建以及 YUV 到 RGB
+# 转换。在完整实现和测试落地前，不因系统恰好安装 libva 开发包而改变构建或
+# 运行时路径；Linux 始终使用经过验证的 libjpeg-turbo 解码。
+message(STATUS "VA-API JPEG 解码尚未启用，Linux 使用 libjpeg-turbo")

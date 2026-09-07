@@ -5,7 +5,7 @@
 #ifdef Q_OS_WIN
 #include "server/capture/windows/DxgiCapture.h"
 #endif
-#ifdef Q_OS_LINUX
+#if defined(Q_OS_LINUX) && defined(HAS_PIPEWIRE)
 #include "server/capture/linux/PipeWireCapture.h"
 #endif
 #ifdef Q_OS_MACOS

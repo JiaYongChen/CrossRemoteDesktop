@@ -3,10 +3,11 @@
 #include "server/simulator/KeyboardSimulator.h"
 
 #ifdef Q_OS_LINUX
-#include <X11/Xlib.h>
-#include <X11/keysym.h>
-#include <X11/extensions/XTest.h>
 #include <unordered_map>
+
+struct _XDisplay;
+using Display = _XDisplay;
+using KeySym = unsigned long;
 
 
 class KeyboardSimulatorLinux : public KeyboardSimulator {

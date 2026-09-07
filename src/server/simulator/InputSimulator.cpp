@@ -1,5 +1,11 @@
 #include "server/simulator/InputSimulator.h"
 
+#include <QtCore/QMutexLocker>
+
+#include "common/logging/LoggingCategories.h"
+#include "server/simulator/KeyboardSimulator.h"
+#include "server/simulator/MouseSimulator.h"
+
 // 平台特定的包含
 #ifdef Q_OS_MACOS
 #include "server/simulator/macos/KeyboardSimulatorMacOS.h"
@@ -11,12 +17,6 @@
 #include "server/simulator/linux/KeyboardSimulatorLinux.h"
 #include "server/simulator/linux/MouseSimulatorLinux.h"
 #endif
-
-#include <QtCore/QMutexLocker>
-
-#include "common/logging/LoggingCategories.h"
-#include "server/simulator/KeyboardSimulator.h"
-#include "server/simulator/MouseSimulator.h"
 
 InputSimulator::InputSimulator(QObject* parent)
     : QObject(parent)

@@ -9,9 +9,10 @@ class IDecodeTarget;
 /**
  * @brief JPEG 解码器抽象接口（v2 — 统一 decode）
  *
- * 解码器在 DecodeWorker::start() 中按优先级选择：
- *   1. NvJpegDecoder（NVIDIA GPU CC >= 5.0）
- *   2. TurboJpegDecoder（CPU 回退，始终可用）
+ * 解码器在 DecodeWorker::start() 中按平台选择：
+ *   - Windows：NvJpegDecoder（内部回退 TurboJPEG）
+ *   - macOS：MacOSImageDecoder（ImageIO/CoreGraphics）
+ *   - 其他/平台后端不可用：TurboJpegDecoder
  *
  * 调用方只需调用 decode()，内部自行决定最优路径：
  *   - GPU 解码器：mapWriteBuffer → GPU 解码直写 PBO → commitWriteBuffer
@@ -35,9 +36,12 @@ public:
     /// 各实现内部自行选择最优路径：
     ///   - TurboJpegDecoder: tjDecompress2 -> target->uploadPixels()
     ///   - NvJpegDecoder:    target->mapWriteBuffer() -> nvjpegDecode -> D2D -> target->commitWriteBuffer()
+    ///   - MacOSImageDecoder: ImageIO/CoreGraphics -> target->uploadPixels()
     ///
     /// 回退策略：
     ///   - NvJpegDecoder GPU 失败时内部回退到 TurboJpegDecoder（惰性构造）
+    ///   - 其他平台解码器失败且 TurboJPEG 能解码同一帧时，DecodeWorker
+    ///     将后续帧切换到 TurboJpegDecoder
     ///
     /// @param jpegData     原始 JPEG 字节（必须包含有效 JPEG 头）
     /// @param[out] outWidth   解码后图像宽度

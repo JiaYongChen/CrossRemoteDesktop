@@ -2,7 +2,7 @@
 
 本文件为 AI 编码代理（Codex、Claude Code 等）在本仓库中工作时提供指导。
 
-> 最后更新：2026-09-03
+> 最后更新：2026-09-04
 
 ## 首次设置（新设备）
 
@@ -23,6 +23,26 @@ Hooks 配置在 `.claude/settings.json` 的 `hooks` 键中（仅 Claude Code 生
 
 ## 构建命令
 
+推荐优先使用项目根目录的平台脚本；两者默认构建 Debug。以下示例假设当前位于项目根目录；从其他目录调用时需使用脚本的实际路径：
+
+```bash
+# Linux（当前已验证）
+./build.sh
+./build.sh --run-tests
+./build.sh -t test_threadmanager --run-tests --test-regex ThreadManagerTest
+```
+
+`build.sh` 的命令行与路径处理兼容 macOS/Bash 3.2；macOS 当前仍需补齐对应架构的第三方缓存后才能完成构建和验证。详见 [构建指南](docs/BUILD.md#macos)。
+
+```powershell
+# Windows PowerShell 5.1 / PowerShell 7
+./build.ps1
+./build.ps1 -RunTests
+./build.ps1 -Target test_threadmanager -RunTests -TestRegex ThreadManagerTest
+```
+
+更多参数（Qt SDK、额外前缀、生成器、增量构建等）见 [构建指南](docs/BUILD.md)。需要直接排障时使用底层 CMake/CTest 命令：
+
 ```bash
 # 配置（在项目根目录执行，创建 build/ 目录）
 cmake -B build -DCMAKE_BUILD_TYPE=Debug
@@ -37,11 +57,11 @@ cmake --build build --config Debug --target test_threadmanager
 cd build && ctest -C Debug --output-on-failure
 
 # 按标签运行测试
-cd build && ctest -C Debug --output-on-failure -L unit
-cd build && ctest -C Debug --output-on-failure -L integration
+cd build && ctest -C Debug --output-on-failure --no-tests=error -L unit
+cd build && ctest -C Debug --output-on-failure --no-tests=error -L integration
 
 # 按名称运行单个测试
-cd build && ctest -C Debug -R ThreadManagerTest
+cd build && ctest -C Debug --no-tests=error -R ThreadManagerTest
 
 # 自定义聚合测试目标
 cmake --build build --target run_all_tests
@@ -55,6 +75,7 @@ cmake --build build --target update_translations
 ```
 
 **注意**：Windows/MSVC 多配置生成器下 `ctest` 必须加 `-C Debug`。
+使用测试名称或标签筛选时必须加 `--no-tests=error`，或明确核对执行数量；项目平台脚本和聚合测试目标均已传递该选项，零匹配会失败。
 
 输出目录：项目根目录下的 `Debug/` 和 `Release/`（不在 `build/` 内）。
 测试自动使用 `QT_QPA_PLATFORM=offscreen`（在 CMake 中设置），适用于无头/CI 环境。
@@ -64,33 +85,42 @@ cmake --build build --target update_translations
 ## 依赖
 
 - **Qt 6.9+**: Core, Widgets, Network, Gui, OpenGL, OpenGLWidgets, Concurrent, Svg（Test 仅测试目录使用）
-- **OpenSSL**: 缓存于 `third_party/openssl/`，开发者通过 vcpkg 获取。
-- **libjpeg-turbo**: 同上，缓存于 `third_party/libjpeg-turbo/`。
-- **nvJPEG**（可选）: CUDA 12.x SDK 缓存于 `third_party/nvjpeg/`。缺失时自动跳过，运行时降级为 CPU 解码。开发者通过 CUDA Toolkit 获取。
-- **C++20** 必需，CMake 3.16+
+- **Qt ImageFormats**: 测试中的 WEBP 编解码需要（Linux 已验证 Qt 6.9.3 `qtimageformats` 模块）。
+- **OpenSSL**: 3.6.2，缓存于 `third_party/openssl/`；公共头共享，`configuration.h` 按平台存放。
+- **libjpeg-turbo**: 3.1.4.1，缓存于 `third_party/libjpeg-turbo/`。
+- **Linux 系统开发包**: OpenGL、X11、Xtst 必需。当前已验证路径为 Qt QScreen 捕获和 CPU TurboJPEG；PipeWire、VA-API 保留为显式禁用的 fail-closed 占位实现，不会因检测到开发包而自动启用。
+- **nvJPEG**（Windows）: CUDA 12.x SDK 缓存于 `third_party/nvjpeg/`；Windows 缓存缺失时配置失败，其他平台不启用。
+- **C++20** 必需；CMake 3.21+
+
+当前 Windows x64 和 Linux x64 的基础第三方缓存完整；Linux 本次新增缓存需与相关构建文件一并纳入版本控制，提交后才能保证克隆后离线使用。macOS x64 尚缺 libjpeg-turbo 及 OpenSSL Debug 静态库，macOS ARM64 尚未提供 OpenSSL/libjpeg-turbo 平台缓存；macOS CMake/Objective-C++ 接入已完成，但尚未在目标平台验证。
 
 ### 第三方库管理
 
 > 详细规则（目录结构、CMake 模块模式、开发者流程）见 [第三方库管理规则](.claude/memory/feedback/feedback_third_party_libs.md)。
 
-项目使用 [vcpkg](https://github.com/microsoft/vcpkg) 作为开发者获取预编译包的工具。**CMake 构建时不调用 vcpkg**——所有产物缓存于 `third_party/` 并提交 git，构建时直接使用，支持 `git clone` 后离线构建。
+项目使用 [vcpkg](https://github.com/microsoft/vcpkg) 作为开发者获取预编译包的工具。**CMake 构建时不调用 vcpkg**——目标平台的完整产物应缓存于 `third_party/` 并提交 git，构建时直接使用；缓存完整的平台支持 `git clone` 后离线构建。
 
 **开发者流程**：vcpkg 下载 → 按约定重组到 `third_party/<lib>/` → 提交 git。
 
+OpenSSL 使用公共头目录加平台头目录：项目目标应优先链接 `OpenSSL::SSL` / `OpenSSL::Crypto`；确需路径变量时使用 `OPENSSL_INCLUDE_DIRS`。为避免遗漏平台 `configuration.h`，项目不导出单数 `OPENSSL_INCLUDE_DIR`。
+
 ### CMake 模块结构
 
-根 CMakeLists.txt 通过 `include()` 引入 8 个模块化 .cmake 文件：
+`cmake/` 包含 11 个模块化 `.cmake` 文件。根 `CMakeLists.txt` 引入前 10 个，`test/CMakeLists.txt` 引入测试辅助模块：
 
 ```
 cmake/
 ├── SetupOpenSSL.cmake        # OpenSSL — 直接使用 third_party/ 缓存
 ├── SetupLibJpegTurbo.cmake   # libjpeg-turbo — 直接使用 third_party/ 缓存
-├── SetupNvJpeg.cmake         # nvJPEG（可选）— third_party/ 缓存，缺失时自动跳过
+├── SetupNvJpeg.cmake         # Windows nvJPEG — third_party/ 缓存
+├── SetupVideoToolbox.cmake   # macOS ScreenCaptureKit + ImageIO 框架接入
+├── SetupPipeWire.cmake       # Linux PipeWire（当前显式禁用）
+├── SetupVaApi.cmake          # Linux VA-API（当前显式禁用）
 ├── PlatformDetect.cmake      # OS/架构自动识别
 ├── SetupQt6.cmake            # Qt6 路径搜索 + 架构验证
 ├── FilterAppleOpenGL.cmake   # macOS AGL/OpenGL 过滤
 ├── DeployWindowsDlls.cmake   # Windows 运行时 DLL 部署
-└── TestHelpers.cmake         # add_rd_test() 测试辅助函数
+└── TestHelpers.cmake         # 测试目录使用的 add_rd_test() 辅助函数
 ```
 
 测试定义使用 `add_rd_test()` 函数（封装 `qt_add_executable → target_link_libraries → add_test → set_tests_properties` 全流程），单个测试定义由 ~45 行缩减至 ~8 行。
@@ -283,30 +313,24 @@ qCWarning(lcServer) << error.logLabel();      // 推荐
 
 ## 平台特定代码
 
-输入模拟器有平台变体，位于 `src/server/simulator/` 下按平台分子目录：`windows/`、`macos/`、`linux/`。CMake 通过 GLOB_RECURSE 自动收集全部源文件，平台选择通过文件内 `#ifdef Q_OS_*` 编译期守卫实现。
+输入模拟器有平台变体，位于 `src/server/simulator/` 下按平台分子目录：`windows/`、`macos/`、`linux/`。CMake 自动收集 `.cpp` / `.cc` / `.cxx`，并在 Apple 平台收集 `.mm`；平台选择通过文件内 `#ifdef Q_OS_*` 编译期守卫实现。
 
 ### macOS 平台实现状态
 
-以下两个模块已通过 Objective-C++（`.mm`）实现，在 macOS 上自动编译和启用：
+以下两个 Objective-C++（`.mm`）实现已接入当前 macOS 构建，但受第三方缓存缺口影响尚未在 macOS 编译和真机验证：
 
 - **`AvFoundationCapture`**（`src/server/capture/macos/AvFoundationCapture.mm`）：
-  macOS ScreenCaptureKit 屏幕捕获（macOS 13.0+），通过 PIMPL 隔离 ObjC 类型。
-  CMake 定义 `HAS_SCREEN_CAPTURE_KIT` 时优先使用，`isAvailable()` 返回 false 时回退 Qt GDI。
+  macOS ScreenCaptureKit 屏幕捕获（macOS 13.0+），通过 PIMPL 隔离 ObjC 类型；权限、初始化或首帧获取失败时回退 Qt QScreen。
 
-- **`VideoToolboxDecoder`**（`src/client/decode/macos/VideoToolboxDecoder.mm`）：
-  macOS VideoToolbox GPU JPEG 解码，通过 `VTDecompressionSession` 实现。
-  CMake 在 macOS 上恒定义 `HAS_VIDEOTOOLBOX`，DecoderWorker 自动使用此解码器。
+- **`MacOSImageDecoder`**（`src/client/decode/macos/MacOSImageDecoder.mm`）：
+  使用 ImageIO/CoreGraphics 解码 JPEG；平台解码失败时由 `DecodeWorker` 对当前帧重试 TurboJPEG，并在成功后切换到 CPU 解码器。
 
-两个实现在 macOS 设备上编译和运行正常，但 CI（当前 Windows）无法覆盖。
+根 CMake 已启用 `OBJCXX`、收集 `.mm`，并在目标创建后配置所需框架。补齐 macOS 平台缓存后，仍需在目标设备验证捕获、解码及回退路径。
 
 ## 测试
 
-39 个测试目标，测试目录镜像 `src/` 结构按模块组织：
-- **`test/app/`** — 应用壳层测试
-- **`test/client/`** — 客户端测试（`decode/`、`session/`、`windows/`、`network/`）
-- **`test/server/`** — 服务端测试（`capture/`、`clienthandler/`、`dataprocessing/`、`dataflow/`）
-- **`test/common/`** — 共享代码测试（`threading/`、`config/`）
-- **`test/integration/`** — 跨模块集成测试
+`test/CMakeLists.txt` 当前定义 45 个测试目标，其中 `test_nvjpegdecoder` 仅在 Windows 注册：Windows 应注册 45 个，Linux/macOS 应注册 44 个；Linux 已实测 44/44 通过。测试目录按 `app/`、`client/`、`common/`、`core/`、`server/` 和 `integration/` 组织。
+
 - **`add_rd_test()`**：测试目标创建辅助函数（见 `cmake/TestHelpers.cmake`），支持 EXTRA_SOURCES、EXTRA_ENV 等可选参数
 
 ## 已移除的功能

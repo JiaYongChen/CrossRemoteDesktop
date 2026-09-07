@@ -11,8 +11,8 @@
 #ifdef Q_OS_WIN
 #include "client/decode/windows/NvJpegDecoder.h"
 #endif
-#ifdef HAS_VIDEOTOOLBOX
-#include "client/decode/macos/VideoToolboxDecoder.h"
+#ifdef HAS_MACOS_IMAGEIO
+#include "client/decode/macos/MacOSImageDecoder.h"
 #endif
 #ifdef HAS_VAAPI
 #include "client/decode/linux/VaApiDecoder.h"
@@ -61,16 +61,17 @@ void DecodeWorker::start() {
     }
     m_running.store(true);
 
-    // 优先级链: nvJPEG → VideoToolbox → VA-API → TurboJpeg (CPU)
+    // 优先级链: nvJPEG → macOS ImageIO → VA-API → TurboJPEG (CPU)
 #ifdef Q_OS_WIN
     auto nv = std::make_unique<NvJpegDecoder>();
     if (nv->isAvailable()) {
         m_decoder = std::move(nv);
     }
 #endif
-#ifdef HAS_VIDEOTOOLBOX
+#ifdef HAS_MACOS_IMAGEIO
     if (!m_decoder) {
-        m_decoder = std::make_unique<VideoToolboxDecoder>();
+        m_decoder = std::make_unique<MacOSImageDecoder>();
+        m_decoderNeedsWorkerFallback = true;
     }
 #endif
 #ifdef HAS_VAAPI
@@ -78,6 +79,7 @@ void DecodeWorker::start() {
         auto va = std::make_unique<VaApiDecoder>();
         if (va->isAvailable()) {
             m_decoder = std::move(va);
+            m_decoderNeedsWorkerFallback = true;
         }
     }
 #endif
@@ -140,7 +142,7 @@ bool DecodeWorker::processOneFrame() {
     const auto dequeueTs = steady_clock::now();
 
     // 诊断：队列等待时间（入队 → 出队）
-    const auto queueWaitUs = duration_cast<microseconds>(
+    const qint64 queueWaitUs = duration_cast<microseconds>(
         dequeueTs - task.enqueueTs).count();
 
     const ScreenData& screenData = task.screenData;
@@ -158,16 +160,41 @@ bool DecodeWorker::processOneFrame() {
     GLsync fence = nullptr;
     QImage fallbackImage;
 
-    if (!m_decoder->decode(screenData.imageData,
-                           &jpegWidth, &jpegHeight,
-                           &fence, &fallbackImage)) {
+    bool decoded = m_decoder->decode(screenData.imageData,
+                                     &jpegWidth, &jpegHeight,
+                                     &fence, &fallbackImage);
+
+    if (!decoded && m_decoderNeedsWorkerFallback) {
+        const QString failedDecoder = QString::fromLatin1(m_decoder->name());
+        auto fallbackDecoder = std::make_unique<TurboJpegDecoder>();
+        if (m_decodeTarget && !m_glInitFailed) {
+            fallbackDecoder->setDecodeTarget(m_decodeTarget);
+        }
+
+        jpegWidth = 0;
+        jpegHeight = 0;
+        fence = nullptr;
+        fallbackImage = QImage();
+        decoded = fallbackDecoder->decode(screenData.imageData,
+                                          &jpegWidth, &jpegHeight,
+                                          &fence, &fallbackImage);
+        if (decoded) {
+            qCWarning(lcClientSessionDecode)
+                << "DecodeWorker:" << failedDecoder
+                << "解码失败，已切换到 libjpeg-turbo";
+            m_decoder = std::move(fallbackDecoder);
+            m_decoderNeedsWorkerFallback = false;
+        }
+    }
+
+    if (!decoded) {
         reportDecodeFailure(QStringLiteral("JPEG 解码失败"));
         return true;
     }
 
     m_decodeFailStreak = 0;  // 成功解码，重置失败流计数
 
-    const auto decodeUs = duration_cast<microseconds>(
+    const qint64 decodeUs = duration_cast<microseconds>(
         steady_clock::now() - decodeStart).count();
 
     // 2. 更新 remoteSize（如果没有服务器缩放标志，用实际解码尺寸）

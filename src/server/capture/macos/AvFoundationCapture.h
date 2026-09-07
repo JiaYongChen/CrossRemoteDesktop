@@ -1,14 +1,16 @@
 // AvFoundationCapture.h — macOS ScreenCaptureKit 屏幕捕获实现
 #pragma once
 
-#ifdef Q_OS_MACOS
+#include <memory>
+
+#include <QtCore/QtGlobal>
+
+#if defined(Q_OS_MACOS) && defined(HAS_SCREEN_CAPTURE_KIT)
 
 #include <QtCore/QObject>
 #include <QtCore/QSize>
 #include <QtCore/QString>
 #include <QtGui/QImage>
-
-#include <memory>
 
 #include "server/capture/IScreenCapture.h"
 
@@ -55,4 +57,4 @@ private:
     QString m_lastError;
 };
 
-#endif // Q_OS_MACOS
+#endif // defined(Q_OS_MACOS) && defined(HAS_SCREEN_CAPTURE_KIT)

@@ -73,8 +73,8 @@ set(TURBOJPEG_INCLUDE_DIR "${_TJ_INC}")
 set(TURBOJPEG_TP_BIN      "${_TJ_BIN}")
 
 if(NOT TARGET LibJpegTurbo::turbojpeg)
-    add_library(LibJpegTurbo::turbojpeg UNKNOWN IMPORTED GLOBAL)
     if(WIN32)
+        add_library(LibJpegTurbo::turbojpeg UNKNOWN IMPORTED GLOBAL)
         # x64-windows triplet → 动态库（turbojpeg.dll + turbojpeg.lib 导入库）
         set_target_properties(LibJpegTurbo::turbojpeg PROPERTIES
             INTERFACE_INCLUDE_DIRECTORIES    "${_TJ_INC}"

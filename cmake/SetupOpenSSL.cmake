@@ -4,7 +4,8 @@
 # 缓存缺失时 FATAL_ERROR —— 开发者应通过 vcpkg 获取后缓存到 third_party/
 #
 # 输出: OpenSSL::SSL, OpenSSL::Crypto (imported, per-config)
-#        OPENSSL_INCLUDE_DIR, OPENSSL_INCLUDE_DIRS, OPENSSL_TP_BIN
+#        OPENSSL_PLATFORM_INCLUDE_DIR, OPENSSL_COMMON_INCLUDE_DIR,
+#        OPENSSL_INCLUDE_DIRS, OPENSSL_TP_BIN
 # ──────────────────────────────────────────────────────────────────────────
 
 set(_SSL_TP   "${CMAKE_SOURCE_DIR}/third_party/openssl")
@@ -84,9 +85,11 @@ endif()
 # ══════════════════════════════════════════════════════════════════════════
 message(STATUS "[OpenSSL] Using ${_SSL_TP} (version ${_SSL_EXPECTED_VERSION})")
 
-set(OPENSSL_INCLUDE_DIR "${_SSL_INC}")
-set(OPENSSL_INCLUDE_DIRS "${_SSL_PLATFORM_INC};${_SSL_INC}")
-set(OPENSSL_TP_BIN      "${_SSL_BIN}")
+set(OPENSSL_PLATFORM_INCLUDE_DIR "${_SSL_PLATFORM_INC}")
+set(OPENSSL_COMMON_INCLUDE_DIR   "${_SSL_INC}")
+set(OPENSSL_INCLUDE_DIRS
+    "${OPENSSL_PLATFORM_INCLUDE_DIR};${OPENSSL_COMMON_INCLUDE_DIR}")
+set(OPENSSL_TP_BIN "${_SSL_BIN}")
 
 if(NOT TARGET OpenSSL::SSL)
     add_library(OpenSSL::SSL UNKNOWN IMPORTED GLOBAL)
@@ -107,4 +110,14 @@ if(NOT TARGET OpenSSL::Crypto)
         IMPORTED_LOCATION_RELWITHDEBINFO "${_SSL_LIB}/${_CRYPTO_REL_LIB}"
         IMPORTED_LOCATION_MINSIZEREL     "${_SSL_LIB}/${_CRYPTO_REL_LIB}"
     )
+endif()
+
+# Linux OpenSSL static targets from vcpkg propagate these system dependencies.
+# Preserve the same interface when recreating the imported targets manually.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    find_package(Threads REQUIRED)
+    set_property(TARGET OpenSSL::Crypto APPEND PROPERTY
+        INTERFACE_LINK_LIBRARIES "${CMAKE_DL_LIBS};Threads::Threads")
+    set_property(TARGET OpenSSL::SSL APPEND PROPERTY
+        INTERFACE_LINK_LIBRARIES "OpenSSL::Crypto;Threads::Threads")
 endif()

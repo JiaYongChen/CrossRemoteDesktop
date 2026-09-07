@@ -483,7 +483,7 @@ void GLTextureViewport::paintGL() {
 
     using namespace std::chrono;
     if ( m_pendingArrivalTs.time_since_epoch().count() != 0 ) {
-        const auto latencyUs = duration_cast<microseconds>(
+        const qint64 latencyUs = duration_cast<microseconds>(
             steady_clock::now() - m_pendingArrivalTs).count();
         m_metricsLatencyAccumUs += latencyUs;
         m_metricsLatencyMaxUs = std::max(m_metricsLatencyMaxUs, latencyUs);

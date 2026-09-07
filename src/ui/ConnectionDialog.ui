@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>ConnectionDialog</class>
+ <widget class="QDialog" name="ConnectionDialog">
+  <property name="geometry"><rect><x>0</x><y>0</y><width>520</width><height>540</height></rect></property>
+  <property name="windowTitle"><string>极域桌面连接</string></property>
+  <property name="minimumSize">
+   <size>
+    <width>520</width>
+    <height>540</height>
+   </size>
+  </property>
+  <property name="maximumSize">
+   <size>
+    <width>520</width>
+    <height>540</height>
+   </size>
+  </property>  <property name="modal"><bool>true</bool></property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <property name="spacing"><number>0</number></property>
+   <property name="leftMargin"><number>0</number></property>
+   <property name="topMargin"><number>0</number></property>
+   <property name="rightMargin"><number>0</number></property>
+   <property name="bottomMargin"><number>0</number></property>
+   <item>
+    <widget class="QWidget" name="tabContainer">
+     <layout class="QVBoxLayout" name="tabContainerLayout">
+      <property name="spacing"><number>0</number></property>
+      <property name="leftMargin"><number>24</number></property>
+      <property name="topMargin"><number>0</number></property>
+      <property name="rightMargin"><number>24</number></property>
+      <property name="bottomMargin"><number>8</number></property>
+      <item>
+       <widget class="QTabWidget" name="tabWidget">
+     <property name="currentIndex"><number>0</number></property>
+     <widget class="QWidget" name="connectionTab">
+      <attribute name="title"><string>连接信息</string></attribute>
+      <layout class="QVBoxLayout" name="connectionLayout"><property name="spacing"><number>15</number></property>
+       <item>
+        <widget class="QGroupBox" name="serverGroup"><property name="title"><string>服务器信息</string></property>
+         <layout class="QFormLayout" name="serverFormLayout">
+          <property name="fieldGrowthPolicy"><enum>QFormLayout::ExpandingFieldsGrow</enum></property>
+          <property name="labelAlignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property>
+          <item row="0" column="0"><widget class="QLabel" name="hostnameLabel"><property name="text"><string>主机名:</string></property></widget></item>
+          <item row="0" column="1"><widget class="QLineEdit" name="hostnameLineEdit"><property name="minimumSize"><size><width>0</width><height>32</height></size></property><property name="placeholderText"><string>可选的友好名称（如"办公室电脑"）</string></property></widget></item>
+          <item row="1" column="0"><widget class="QLabel" name="hostLabel"><property name="text"><string>主机地址:</string></property></widget></item>
+          <item row="1" column="1"><widget class="QLineEdit" name="hostLineEdit"><property name="minimumSize"><size><width>0</width><height>32</height></size></property><property name="placeholderText"><string>IP 或主机名，可含端口如 192.168.1.100:5921</string></property></widget></item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="authGroup"><property name="title"><string>身份验证</string></property>
+         <layout class="QFormLayout" name="authFormLayout">
+          <property name="fieldGrowthPolicy"><enum>QFormLayout::ExpandingFieldsGrow</enum></property>
+          <property name="labelAlignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property>
+          <item row="0" column="0"><widget class="QLabel" name="usernameLabel"><property name="text"><string>用户名:</string></property></widget></item>
+          <item row="0" column="1"><widget class="QLineEdit" name="usernameLineEdit"><property name="minimumSize"><size><width>0</width><height>32</height></size></property><property name="maximumSize"><size><width>200</width><height>32</height></size></property><property name="placeholderText"><string>输入用户名（可选）</string></property></widget></item>
+          <item row="1" column="0"><widget class="QLabel" name="passwordLabel"><property name="text"><string>密码:</string></property></widget></item>
+          <item row="1" column="1"><widget class="QLineEdit" name="passwordLineEdit"><property name="minimumSize"><size><width>0</width><height>32</height></size></property><property name="maximumSize"><size><width>200</width><height>32</height></size></property><property name="echoMode"><enum>QLineEdit::Password</enum></property><property name="placeholderText"><string>输入密码（可选）</string></property></widget></item>
+         </layout>
+        </widget>
+       </item>
+       <item><spacer name="connectionSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer></item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="optionsTab">
+      <attribute name="title"><string>显示 &amp;&amp; 功能</string></attribute>
+      <layout class="QVBoxLayout" name="optionsLayout"><property name="spacing"><number>8</number></property>
+       <item>
+        <widget class="QGroupBox" name="displayGroup"><property name="title"><string>显示设置</string></property>
+         <layout class="QFormLayout" name="displayFormLayout">
+          <property name="fieldGrowthPolicy"><enum>QFormLayout::ExpandingFieldsGrow</enum></property>
+          <property name="labelAlignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property>
+          <item row="0" column="0"><widget class="QLabel" name="colorDepthLabel"><property name="text"><string>颜色深度:</string></property></widget></item>
+          <item row="0" column="1"><widget class="QComboBox" name="colorDepthComboBox"><property name="minimumSize"><size><width>0</width><height>32</height></size></property><item><property name="text"><string>16位 (65K 颜色)</string></property></item><item><property name="text"><string>24位 (16M 颜色)</string></property></item><item><property name="text"><string>32位 (真彩色)</string></property></item></widget></item>
+          <item row="1" column="0"><widget class="QLabel" name="displayModeLabel"><property name="text"><string>显示模式:</string></property></widget></item>
+          <item row="1" column="1"><widget class="QCheckBox" name="fullScreenCheckBox"><property name="minimumSize"><size><width>0</width><height>24</height></size></property><property name="text"><string>全屏模式</string></property></widget></item>
+          <item row="2" column="1">
+           <layout class="QHBoxLayout" name="windowSizeLayout">
+            <item><widget class="QSpinBox" name="windowWidthSpinBox"><property name="minimumSize"><size><width>0</width><height>32</height></size></property><property name="minimum"><number>320</number></property><property name="maximum"><number>3840</number></property><property name="value"><number>1600</number></property></widget></item>
+            <item><widget class="QLabel" name="multiplyLabel"><property name="text"><string>×</string></property></widget></item>
+            <item><widget class="QSpinBox" name="windowHeightSpinBox"><property name="minimumSize"><size><width>0</width><height>32</height></size></property><property name="minimum"><number>200</number></property><property name="maximum"><number>2160</number></property><property name="value"><number>900</number></property></widget></item>
+           </layout>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="qualityGroup"><property name="title"><string>图像质量</string></property>
+         <layout class="QHBoxLayout" name="qualityLayout">
+          <item><widget class="QSlider" name="qualitySlider"><property name="minimumSize"><size><width>0</width><height>30</height></size></property><property name="minimum"><number>1</number></property><property name="maximum"><number>100</number></property><property name="value"><number>85</number></property><property name="orientation"><enum>Qt::Horizontal</enum></property></widget></item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="featuresGroup"><property name="title"><string>功能选项</string></property>
+         <layout class="QVBoxLayout" name="featuresVLayout">
+          <item><widget class="QCheckBox" name="clipboardCheckBox"><property name="minimumSize"><size><width>0</width><height>24</height></size></property><property name="text"><string>启用剪贴板同步</string></property><property name="checked"><bool>true</bool></property></widget></item>
+          <item><widget class="QCheckBox" name="cursorCheckBox"><property name="minimumSize"><size><width>0</width><height>24</height></size></property><property name="text"><string>显示远程光标</string></property><property name="checked"><bool>true</bool></property></widget></item>
+          <item><widget class="QCheckBox" name="viewOnlyCheckBox"><property name="minimumSize"><size><width>0</width><height>24</height></size></property><property name="text"><string>仅查看模式（禁用输入）</string></property></widget></item>
+         </layout>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="advancedTab">
+      <attribute name="title"><string>网络</string></attribute>
+      <layout class="QVBoxLayout" name="advancedLayout"><property name="spacing"><number>15</number></property>
+       <item>
+        <widget class="QGroupBox" name="networkGroup"><property name="title"><string>网络设置</string></property>
+         <layout class="QFormLayout" name="networkFormLayout">
+          <property name="fieldGrowthPolicy"><enum>QFormLayout::ExpandingFieldsGrow</enum></property>
+          <property name="labelAlignment"><set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set></property>
+          <item row="0" column="0"><widget class="QLabel" name="timeoutLabel"><property name="text"><string>连接超时:</string></property></widget></item>
+          <item row="0" column="1"><widget class="QSpinBox" name="timeoutSpinBox"><property name="minimumSize"><size><width>0</width><height>32</height></size></property><property name="suffix"><string> 秒</string></property><property name="minimum"><number>5</number></property><property name="maximum"><number>300</number></property><property name="value"><number>30</number></property></widget></item>
+          <item row="1" column="1"><widget class="QCheckBox" name="autoReconnectCheckBox"><property name="minimumSize"><size><width>0</width><height>24</height></size></property><property name="text"><string>自动重连</string></property></widget></item>
+          <item row="2" column="0"><widget class="QLabel" name="reconnectIntervalLabel"><property name="enabled"><bool>false</bool></property><property name="text"><string>重连间隔:</string></property></widget></item>
+          <item row="2" column="1"><widget class="QSpinBox" name="reconnectIntervalSpinBox"><property name="minimumSize"><size><width>0</width><height>32</height></size></property><property name="enabled"><bool>false</bool></property><property name="suffix"><string> 秒</string></property><property name="minimum"><number>1</number></property><property name="maximum"><number>60</number></property><property name="value"><number>5</number></property></widget></item>
+         </layout>
+        </widget>
+       </item>
+       <item><spacer name="advancedSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer></item>
+      </layout>
+     </widget>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="buttonLayout">
+     <property name="spacing"><number>8</number></property>
+     <property name="leftMargin"><number>24</number></property>
+     <property name="topMargin"><number>8</number></property>
+     <property name="rightMargin"><number>24</number></property>
+     <property name="bottomMargin"><number>8</number></property>
+     <item><spacer name="buttonSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+     <item><widget class="QDialogButtonBox" name="buttonBox"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="standardButtons"><set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set></property></widget></item>
+     <item><spacer name="buttonSpacerRight"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <connections>
+  <connection><sender>buttonBox</sender><signal>accepted()</signal><receiver>ConnectionDialog</receiver><slot>accept()</slot></connection>
+  <connection><sender>buttonBox</sender><signal>rejected()</signal><receiver>ConnectionDialog</receiver><slot>reject()</slot></connection>
+  <connection><sender>autoReconnectCheckBox</sender><signal>toggled(bool)</signal><receiver>reconnectIntervalLabel</receiver><slot>setEnabled(bool)</slot></connection>
+  <connection><sender>autoReconnectCheckBox</sender><signal>toggled(bool)</signal><receiver>reconnectIntervalSpinBox</receiver><slot>setEnabled(bool)</slot></connection>
+ </connections>
+</ui>

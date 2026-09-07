@@ -1,10 +1,27 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.21)
+
+# 项目的 ScreenCaptureKit 实现以 macOS 13 API/运行时为基线。必须在编译器
+# 检测前设置默认部署目标，同时允许调用方通过 CMAKE_OSX_DEPLOYMENT_TARGET 覆盖。
+if((CMAKE_HOST_APPLE OR CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+   AND NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "13.0" CACHE STRING
+        "Minimum macOS deployment target")
+endif()
 
 project(CrossRemoteDesktop VERSION 2.0.1 LANGUAGES CXX C)
+
+# Objective-C++ 仅供 macOS 平台实现使用，Linux/Windows 不要求该编译器。
+if(APPLE)
+    enable_language(OBJCXX)
+endif()
 
 # 设置C++标准
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if(APPLE)
+    set(CMAKE_OBJCXX_STANDARD 20)
+    set(CMAKE_OBJCXX_STANDARD_REQUIRED ON)
+endif()
 
 # ============================================================================
 # Sanitizer support (opt-in via -DENABLE_SANITIZERS=address|thread|undefined|memory)
@@ -46,9 +63,7 @@ include(cmake/SetupLibJpegTurbo.cmake)  # → LibJpegTurbo::turbojpeg
 include(cmake/SetupQt6.cmake)           # → Qt6::*, QT6_ROOT_DIR
 include(cmake/FilterAppleOpenGL.cmake)  # → rd_filter_apple_opengl()
 include(cmake/SetupNvJpeg.cmake)        # → rd_setup_nvjpeg(), Cuda::cudart, Cuda::nvjpeg
-include(cmake/SetupPipeWire.cmake)      # → PkgConfig::PIPEWIRE, HAS_PIPEWIRE (Linux)
-include(cmake/SetupVideoToolbox.cmake)  # → AVFoundation, VideoToolbox, HAS_SCREEN_CAPTURE_KIT, HAS_VIDEOTOOLBOX (macOS)
-include(cmake/SetupVaApi.cmake)         # → PkgConfig::LIBVA, PkgConfig::LIBVA_DRM, HAS_VAAPI (Linux)
+include(cmake/SetupVideoToolbox.cmake)  # → rd_setup_macos_backends()
 include(cmake/DeployWindowsDlls.cmake)  # → rd_deploy_windows_runtime()
 
 rd_setup_nvjpeg()
@@ -76,7 +91,7 @@ set(CMAKE_AUTOUIC_SEARCH_PATHS src/ui)
 # ============================================================================
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang|GNU")
     add_compile_options(-Werror)
-    add_compile_options(-Wmisleading-indentation)
+    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-Wmisleading-indentation>)
 elseif(MSVC)
     add_compile_options(/WX)
     add_compile_options(/w34768)
@@ -102,15 +117,33 @@ file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cc"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cxx"
 )
+if(APPLE)
+    file(GLOB_RECURSE PROJECT_APPLE_SOURCES CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/*.mm"
+    )
+    list(APPEND PROJECT_SOURCES ${PROJECT_APPLE_SOURCES})
+endif()
 
 # ============================================================================
 # 可执行目标
 # ============================================================================
 qt_add_executable(CrossRemoteDesktop WIN32
+    ${PROJECT_HEADERS}
     ${PROJECT_SOURCES}
     resources/resources.qrc
 )
 set_target_properties(CrossRemoteDesktop PROPERTIES OUTPUT_NAME "UltraDesktop")
+if(APPLE)
+    set_target_properties(CrossRemoteDesktop PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_BUNDLE_NAME "UltraDesktop"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "com.crossremotedesktop.ultradesktop"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_INFO_PLIST
+            "${CMAKE_CURRENT_SOURCE_DIR}/cmake/MacOSInfo.plist.in"
+    )
+endif()
 
 target_include_directories(CrossRemoteDesktop PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -130,6 +163,19 @@ target_link_libraries(CrossRemoteDesktop PRIVATE
     OpenSSL::Crypto
     LibJpegTurbo::turbojpeg
 )
+
+# macOS helper 会给目标附加框架和特征宏，必须在目标创建后调用。
+rd_setup_macos_backends(CrossRemoteDesktop)
+
+# Linux 加速后端尚未完成，模块当前仅明确记录 fail-closed 状态，不会因系统
+# 安装了开发包而链接或定义特征宏。
+include(cmake/SetupPipeWire.cmake)      # → 当前禁用，固定回退 Qt QScreen
+include(cmake/SetupVaApi.cmake)         # → 当前禁用，固定回退 TurboJPEG
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    find_package(X11 REQUIRED COMPONENTS Xtst)
+    target_link_libraries(CrossRemoteDesktop PRIVATE X11::X11 X11::Xtst)
+endif()
 
 # ── CUDA + nvJPEG（Windows 专用，编译时直接链接，运行时 DLL 必须存在）──
 if(WIN32)
@@ -159,7 +205,10 @@ target_compile_definitions(CrossRemoteDesktop PRIVATE
 # ============================================================================
 # 安装 + 测试
 # ============================================================================
-install(TARGETS CrossRemoteDesktop RUNTIME DESTINATION bin)
+install(TARGETS CrossRemoteDesktop
+    RUNTIME DESTINATION bin
+    BUNDLE DESTINATION .
+)
 
 # ============================================================================
 # 翻译更新目标（lupdate）

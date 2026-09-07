@@ -148,7 +148,8 @@ if ($runTests) {
     $testArguments = @(
         '--test-dir', $buildPath,
         '-C', $configuration,
-        '--output-on-failure'
+        '--output-on-failure',
+        '--no-tests=error'
     )
     if (-not [string]::IsNullOrWhiteSpace($testLabel)) {
         $testArguments += @('-L', $testLabel)
