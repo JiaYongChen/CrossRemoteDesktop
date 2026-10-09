@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(CrossRemoteDesktop VERSION 2.0.0 LANGUAGES CXX C)
+project(CrossRemoteDesktop VERSION 2.0.1 LANGUAGES CXX C)
 
 # 设置C++标准
 set(CMAKE_CXX_STANDARD 20)
@@ -222,6 +222,21 @@ if(LUPDATE_EXECUTABLE)
 endif()
 
 if(LRELEASE_EXECUTABLE)
+    # Qt 标准控件的中文翻译随应用部署，避免依赖开发机 Qt 安装目录。
+    find_file(QTBASE_ZH_CN_QM qtbase_zh_CN.qm
+        HINTS "${QT6_ROOT_DIR}/translations"
+        DOC "Qt base Chinese translation"
+    )
+    set(_qtbase_deploy_step)
+    if(QTBASE_ZH_CN_QM)
+        set(_qtbase_deploy_step
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${QTBASE_ZH_CN_QM}"
+                    "$<TARGET_FILE_DIR:CrossRemoteDesktop>/translations/qtbase_zh_CN.qm"
+        )
+    else()
+        message(WARNING "[Translation] qtbase_zh_CN.qm not found — Qt standard controls will lack Chinese translations")
+    endif()
+
     # 每次编译仅 lrelease：将持久 .ts（resources/translations/）编译为 .qm（build/translations/）。
     # 不跑 lupdate——.ts 是人工维护的持久翻译源，译文须跨编译保留。-qm 单一输出需逐个调用。
     add_custom_target(release_translations ALL
@@ -230,6 +245,11 @@ if(LRELEASE_EXECUTABLE)
                 -qm "${QM_OUTPUT_DIR}/zh_CN.qm"
         COMMAND ${LRELEASE_EXECUTABLE} "${TS_DIR}/en_US.ts"
                 -qm "${QM_OUTPUT_DIR}/en_US.qm"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:CrossRemoteDesktop>/translations"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${QM_OUTPUT_DIR}/zh_CN.qm" "${QM_OUTPUT_DIR}/en_US.qm"
+                "$<TARGET_FILE_DIR:CrossRemoteDesktop>/translations/"
+        ${_qtbase_deploy_step}
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
         COMMENT "Compiling TS → QM into ${QM_OUTPUT_DIR}"
     )

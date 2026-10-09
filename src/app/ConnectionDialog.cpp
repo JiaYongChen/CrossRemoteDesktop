@@ -4,6 +4,9 @@
 #include "common/theme/IconThemeProvider.h"
 #include "common/theme/TitleBarTheme.h"
 
+#include <QtCore/QEvent>
+#include <QtWidgets/QAbstractButton>
+#include <QtWidgets/QDialogButtonBox>
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QPushButton>
 #include <QtGui/QIcon>
@@ -19,6 +22,9 @@ ConnectionDialog::ConnectionDialog(QWidget* parent)
 	connect(m_togglePasswordAction, &QAction::triggered,
 	        this, &ConnectionDialog::onTogglePasswordClicked);
 	setupConnections();
+	for (QAbstractButton* button : ui->buttonBox->buttons()) {
+		button->installEventFilter(this);
+	}
 	retranslateButtons();
 }
 
@@ -34,6 +40,15 @@ void ConnectionDialog::changeEvent(QEvent* event)
 		ui->retranslateUi(this);
 		retranslateButtons();
 	}
+}
+
+bool ConnectionDialog::eventFilter(QObject* watched, QEvent* event)
+{
+	if (event->type() == QEvent::LanguageChange && watched->parent() == ui->buttonBox) {
+		// 按钮盒先重置标准文字，再向子按钮发送语言事件，此时恢复应用按钮文案。
+		retranslateButtons();
+	}
+	return QDialog::eventFilter(watched, event);
 }
 
 void ConnectionDialog::setupConnections()
@@ -62,6 +77,9 @@ void ConnectionDialog::retranslateButtons()
 {
 	if (QPushButton* okBtn = ui->buttonBox->button(QDialogButtonBox::Ok)) {
 		okBtn->setText(tr("连接"));
+	}
+	if (QPushButton* cancelBtn = ui->buttonBox->button(QDialogButtonBox::Cancel)) {
+		cancelBtn->setText(tr("取消"));
 	}
 }
 

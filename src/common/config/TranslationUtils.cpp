@@ -1,7 +1,9 @@
 #include "TranslationUtils.h"
 
 #include <QtCore/QCoreApplication>
+#include <QtCore/QDir>
 #include <QtCore/QLibraryInfo>
+#include <QtCore/QStringList>
 #include <QtCore/QTranslator>
 #include <QtWidgets/QApplication>
 
@@ -14,14 +16,17 @@ static QTranslator* s_appTranslator = nullptr;
 // Qt 基础翻译器（qtbase .qm）：为 QDialogButtonBox 等标准 Qt 控件提供中文翻译
 static QTranslator* s_qtBaseTranslator = nullptr;
 
-// 应用翻译目录：编译期由 CMake 注入（build/translations），运行时文件加载。
-// 未定义时（如独立测试构建）回退到可执行文件同目录。
-static QString appTranslationsDir() {
+// 优先加载随程序部署的翻译，开发构建再回退到编译期注入的目录。
+static QStringList appTranslationsDirs() {
+    QStringList directories {
+        QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("translations"))
+    };
 #ifdef RD_TRANSLATIONS_DIR
-    return QStringLiteral(RD_TRANSLATIONS_DIR);
-#else
-    return QCoreApplication::applicationDirPath();
+    directories.append(QStringLiteral(RD_TRANSLATIONS_DIR));
 #endif
+    directories.append(QCoreApplication::applicationDirPath());
+    directories.removeDuplicates();
+    return directories;
 }
 
 /** 安装或卸载 Qt 基础翻译器（仅非英文时需要） */
@@ -37,30 +42,36 @@ static void manageQtBaseTranslation(QApplication& app, const QString& locale) {
         return;
     }
 
-    // qtbase 翻译为 Qt 安装自带，运行时从 Qt translations 目录定位（无需随包分发）
+    // 部署的 Qt DLL 不一定能定位开发机安装目录，先查找随程序分发的 qtbase 翻译。
     s_qtBaseTranslator = new QTranslator(&app);
-    const QString qtTranslationsDir = QLibraryInfo::path(QLibraryInfo::TranslationsPath);
-    if (s_qtBaseTranslator->load(QStringLiteral("qtbase_%1").arg(locale), qtTranslationsDir)) {
-        // 先安装 qtbase，再安装 app 翻译器 → app 翻译优先级更高
-        app.installTranslator(s_qtBaseTranslator);
-        qCInfo(lcApp) << "Qt base translation loaded for:" << locale;
-    } else {
-        qCWarning(lcApp) << "Failed to load qtbase translation:" << locale
-                         << "from" << qtTranslationsDir;
-        delete s_qtBaseTranslator;
-        s_qtBaseTranslator = nullptr;
+    QStringList directories = appTranslationsDirs();
+    directories.append(QLibraryInfo::path(QLibraryInfo::TranslationsPath));
+    directories.removeDuplicates();
+    for (const QString& directory : directories) {
+        if (s_qtBaseTranslator->load(QStringLiteral("qtbase_%1").arg(locale), directory)) {
+            // 先安装 qtbase，再安装 app 翻译器 → app 翻译优先级更高
+            app.installTranslator(s_qtBaseTranslator);
+            qCInfo(lcApp) << "Qt base translation loaded for:" << locale << "from" << directory;
+            return;
+        }
     }
+    qCWarning(lcApp) << "Failed to load qtbase translation:" << locale << "from" << directories;
+    delete s_qtBaseTranslator;
+    s_qtBaseTranslator = nullptr;
 }
 
 /** 加载并安装指定 locale 的应用翻译器；失败返回 nullptr */
 static QTranslator* loadAppTranslator(QApplication& app, const QString& locale) {
     auto* translator = new QTranslator(&app);
-    if (translator->load(QStringLiteral("%1.qm").arg(locale), appTranslationsDir())) {
-        app.installTranslator(translator);
-        return translator;
+    const QStringList directories = appTranslationsDirs();
+    for (const QString& directory : directories) {
+        if (translator->load(QStringLiteral("%1.qm").arg(locale), directory)) {
+            app.installTranslator(translator);
+            return translator;
+        }
     }
     qCWarning(lcApp) << "Failed to load translation:" << locale
-                     << "from" << appTranslationsDir();
+                     << "from" << directories;
     delete translator;
     return nullptr;
 }

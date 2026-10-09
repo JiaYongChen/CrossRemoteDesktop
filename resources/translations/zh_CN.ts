@@ -177,6 +177,10 @@
         <source>验证错误</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>取消</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>ConnectionLifecycle</name>
@@ -260,10 +264,6 @@
 <context>
     <name>ConnectionManager</name>
     <message>
-        <source>认证失败：尝试次数过多，请稍后重试</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>认证失败</source>
         <translation type="unfinished"></translation>
     </message>
@@ -281,6 +281,10 @@
     </message>
     <message>
         <source>版本交换响应认证参数越界</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>尝试次数过多，账户已被暂时锁定，请稍后重试。</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -492,6 +496,10 @@
     <message>
         <source>远程: %1
 本机: %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>登录已锁定</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

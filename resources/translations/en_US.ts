@@ -177,6 +177,10 @@
         <source>验证错误</source>
         <translation>Validation Error</translation>
     </message>
+    <message>
+        <source>取消</source>
+        <translation>Cancel</translation>
+    </message>
 </context>
 <context>
     <name>ConnectionLifecycle</name>

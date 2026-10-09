@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QtCore/QObject>
 #include <QtCore/QString>
 #include <QtWidgets/QDialog>
 
@@ -61,6 +62,7 @@ public:
 protected:
 	void accept() override;
 	void changeEvent(QEvent* event) override;
+	bool eventFilter(QObject* watched, QEvent* event) override;
 	void showEvent(QShowEvent* event) override;
 
 private slots:

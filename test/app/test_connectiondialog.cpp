@@ -8,6 +8,8 @@
 #include <QtTest/QtTest>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QDialog>
+#include <QtWidgets/QDialogButtonBox>
+#include <QtWidgets/QPushButton>
 
 #include "common/config/NetworkConstants.h"
 #include "common/data/ConnectionParams.h"
@@ -41,6 +43,14 @@ private slots:
     {
         delete m_dlg;
         m_dlg = nullptr;
+    }
+
+    void buttons_defaultToChineseWithoutQtTranslation()
+    {
+        auto* buttons = m_dlg->findChild<QDialogButtonBox*>("buttonBox");
+        QVERIFY(buttons != nullptr);
+        QCOMPARE(buttons->button(QDialogButtonBox::Ok)->text(), QStringLiteral("连接"));
+        QCOMPARE(buttons->button(QDialogButtonBox::Cancel)->text(), QStringLiteral("取消"));
     }
 
     void parseHostPort_ipOnly_usesDefaultPort()

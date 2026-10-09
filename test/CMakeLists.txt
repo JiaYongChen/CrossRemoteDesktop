@@ -332,6 +332,30 @@ if(WIN32)
     target_link_libraries(test_settingsdialog PRIVATE dwmapi)
 endif()
 
+# unit / deployed translations（隔离 Qt 安装目录，验证随包资源）
+if(LRELEASE_EXECUTABLE AND QTBASE_ZH_CN_QM)
+    add_rd_test(TARGET test_translationutils NAME TranslationUtilsTest
+        SOURCES common/config/test_translationutils.cpp
+        EXTRA_SOURCES ../src/common/config/TranslationUtils.cpp
+                      ../src/app/ConnectionDialog.cpp
+                      ../src/common/theme/TitleBarTheme.cpp
+        LIBRARIES Qt6::Core Qt6::Test Qt6::Gui Qt6::Widgets common_test_core
+        TIMEOUT 30 LABELS unit common config app translation)
+    set_target_properties(test_translationutils PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/translation/$<CONFIG>")
+    add_dependencies(test_translationutils release_translations)
+    if(WIN32)
+        target_link_libraries(test_translationutils PRIVATE dwmapi)
+    endif()
+    file(GENERATE OUTPUT "$<TARGET_FILE_DIR:test_translationutils>/qt.conf"
+        CONTENT "[Paths]\nTranslations=missing-qt-translations\n")
+    add_custom_command(TARGET test_translationutils POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:test_translationutils>/translations"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${QM_OUTPUT_DIR}/zh_CN.qm" "${QM_OUTPUT_DIR}/en_US.qm" "${QTBASE_ZH_CN_QM}"
+                "$<TARGET_FILE_DIR:test_translationutils>/translations/")
+endif()
+
 # integration
 add_rd_test(TARGET test_screen_capture_integration  NAME ScreenCaptureIntegrationTest
     SOURCES integration/test_screen_capture_integration.cpp
