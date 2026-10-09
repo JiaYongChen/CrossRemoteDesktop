@@ -32,18 +32,42 @@ Linux x64 缓存使用 `x64-linux` triplet 构建，包含 OpenSSL 3.6.2（Debug
 
 ## 构建
 
+### 跨平台参数约定
+
+两个脚本使用相同的 kebab-case 参数词汇。Linux/macOS 遵循 POSIX 风格使用双横线长参数，PowerShell 遵循自身语法使用单横线；例如 `--run-tests` 对应 `-run-tests`。参数和值统一使用空格分隔。
+
+| 用途 | Linux / macOS (`build.sh`) | Windows (`build.ps1`) |
+|------|----------------------------|-----------------------|
+| 构建配置 | `-c, --configuration` | `-c, -configuration` |
+| 构建目录 | `-B, --build-directory` | `-B, -build-directory` |
+| 构建目标 | `-t, --target` | `-t, -target` |
+| 并行任务数 | `-j, --jobs` | `-j, -jobs` |
+| 构建后测试 | `--run-tests` | `-run-tests` |
+| 测试标签 | `--test-label` | `-test-label` |
+| 测试名称正则 | `--test-regex` | `-test-regex` |
+| 仅配置 | `--configure-only` | `-configure-only` |
+| 跳过配置 | `--skip-configure` | `-skip-configure` |
+| CMake 生成器 | `-G, --generator` | `-G, -generator` |
+| Qt SDK 根目录 | `--qt-root` | `-qt-root` |
+| 额外 CMake 前缀 | `--prefix-path` | `-prefix-path` |
+| 额外 CMake 参数 | `--cmake-argument` | `-cmake-argument` |
+| 帮助 | `-h, --help` | `-h, -help` |
+
+PowerShell 参数不区分大小写，原有的 `-RunTests`、`-BuildDirectory`、`-QtRoot` 等写法继续兼容；新文档统一使用上表形式。Bash 的目标、前缀和 CMake 参数可通过重复选项传入多个值；PowerShell 在交互式会话中使用逗号数组，例如 `-target target_a,target_b`。从其他 Shell 通过 `powershell.exe -File` 或 `pwsh -File` 调用时，公共用法建议一次只传一个数组值。
+
 ### Windows
 
 Windows 使用 VS 2022 生成器，因此需要 CMake 3.21+。推荐使用仓库根目录的 PowerShell 构建脚本（兼容 Windows PowerShell 5.1 和 PowerShell 7）：
 
 ```powershell
 ./build.ps1
-./build.ps1 -Configuration Release -Jobs 8
-./build.ps1 -RunTests
-./build.ps1 -QtRoot C:\Qt\6.9.3\msvc2022_64
+./build.ps1 -configuration Release -jobs 8
+./build.ps1 -run-tests
+./build.ps1 -qt-root C:\Qt\6.9.3\msvc2022_64
+./build.ps1 -help
 ```
 
-在其他 Shell 中可改用 `powershell.exe -File ./build.ps1` 或 `pwsh -File ./build.ps1`。默认生成器不是 Visual Studio 时，传入 `-Generator 'Visual Studio 17 2022'`。也可直接调用 CMake：
+在其他 Shell 中可改用 `powershell.exe -File ./build.ps1` 或 `pwsh -File ./build.ps1`。默认生成器不是 Visual Studio 时，传入 `-generator 'Visual Studio 17 2022'`。也可直接调用 CMake：
 
 ```powershell
 cmake -B build -DCMAKE_BUILD_TYPE=Debug
@@ -110,7 +134,7 @@ uvx --from aqtinstall==3.3.0 aqt install-qt \
 ./build.sh
 ./build.sh --configuration Release --jobs "$(nproc)"
 ./build.sh --run-tests
-./build.sh -t test_threadmanager --run-tests --test-regex ThreadManagerTest
+./build.sh --target test_threadmanager --run-tests --test-regex ThreadManagerTest
 ./build.sh --qt-root "$HOME/Qt/6.9.3/gcc_64"
 ```
 
@@ -132,13 +156,14 @@ cmake --build build --config Debug --parallel
 
 ### 脚本约定
 
-- 两个脚本都可从任意工作目录通过其实际路径调用。相对的构建目录以项目根目录为基准；`build.sh` 的 Qt SDK 和额外前缀以调用目录为基准，Windows 的 `-QtRoot` 建议使用绝对路径。
-- 首次可用 `./build.sh --configure-only` 或 `./build.ps1 -ConfigureOnly` 只生成构建树；后续用 `--skip-configure` / `-SkipConfigure` 增量构建。跳过配置要求构建目录中已有 `CMakeCache.txt`。
-- `ConfigureOnly` 不能与 `SkipConfigure` 或 `RunTests` 同时使用。指定测试目标时，脚本只构建所选目标，不会自动构建筛选条件匹配的其他测试。
+- 两个脚本都可从任意工作目录通过其实际路径调用。相对的构建目录以项目根目录为基准；`qt-root` 和 `prefix-path` 均以调用目录为基准。
+- 首次可用 `./build.sh --configure-only` 或 `./build.ps1 -configure-only` 只生成构建树；后续用 `--skip-configure` / `-skip-configure` 增量构建。跳过配置要求构建目录中已有 `CMakeCache.txt`。
+- `configure-only` 不能与 `skip-configure` 或 `run-tests` 同时使用。指定测试目标时，脚本只构建所选目标，不会自动构建筛选条件匹配的其他测试。
 - 最终程序输出到项目根目录的 `Debug/` 或 `Release/`，不在 `build/` 中。
-- 额外 CMake 选项可通过 `build.sh --cmake-argument=-D...`（也可放在 `--` 后）或 PowerShell 的 `-CMakeArgument '-D...'` 传入。
+- 额外 CMake 选项可通过 `build.sh --cmake-argument '-D...'`（也可放在 `--` 后）或 `build.ps1 -cmake-argument '-D...'` 传入。PowerShell 的稳定接口是显式参数，不提供 `--` 透传。
+- `qt-root` 会作为 `CMAKE_PREFIX_PATH` 第一项，之后依次追加 `prefix-path`；Windows 现与 Linux/macOS 使用相同的合并规则。
 - 脚本能够解析平台并编排 CMake 命令，不等同于目标平台的依赖缓存和运行时后端已经完成验证。
-- 两个平台脚本运行 CTest 时都会传递 `--no-tests=error`；拼错 `--test-regex` / `--test-label` 并导致零匹配时，脚本会失败。
+- 两个平台脚本运行 CTest 时都会传递 `--no-tests=error`；拼错 `test-regex` / `test-label` 并导致零匹配时，脚本会失败。
 
 ## 运行测试
 
@@ -148,14 +173,14 @@ cmake --build build --config Debug --parallel
 # Linux（macOS 需先补齐前述第三方缓存）
 ./build.sh --run-tests
 ./build.sh --run-tests --test-label unit
-./build.sh -t test_threadmanager --run-tests --test-regex ThreadManagerTest
+./build.sh --target test_threadmanager --run-tests --test-regex ThreadManagerTest
 ```
 
 ```powershell
 # Windows
-./build.ps1 -RunTests
-./build.ps1 -RunTests -TestLabel unit
-./build.ps1 -Target test_threadmanager -RunTests -TestRegex ThreadManagerTest
+./build.ps1 -run-tests
+./build.ps1 -run-tests -test-label unit
+./build.ps1 -target test_threadmanager -run-tests -test-regex ThreadManagerTest
 ```
 
 也可在已有构建目录中直接调用 CTest：
@@ -195,7 +220,7 @@ ctest -C Debug --no-tests=error -R ThreadManagerTest               # 按名称�
 ```
 
 ```powershell
-./build.ps1 -QtRoot C:\Qt\6.9.3\msvc2022_64 -ConfigureOnly
+./build.ps1 -qt-root C:\Qt\6.9.3\msvc2022_64 -configure-only
 ```
 
 直接使用 CMake 时：

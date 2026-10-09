@@ -50,7 +50,7 @@
 
 ```powershell
 # Windows PowerShell 5.1 / PowerShell 7
-./build.ps1 -RunTests
+./build.ps1 -run-tests
 ```
 
 `build.sh` 的命令行与路径处理兼容 macOS/Bash 3.2；当前仍需先补齐对应架构的第三方缓存，才能在 macOS 上完成构建和验证。

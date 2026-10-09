@@ -29,7 +29,7 @@ Hooks 配置在 `.claude/settings.json` 的 `hooks` 键中（仅 Claude Code 生
 # Linux（当前已验证）
 ./build.sh
 ./build.sh --run-tests
-./build.sh -t test_threadmanager --run-tests --test-regex ThreadManagerTest
+./build.sh --target test_threadmanager --run-tests --test-regex ThreadManagerTest
 ```
 
 `build.sh` 的命令行与路径处理兼容 macOS/Bash 3.2；macOS 当前仍需补齐对应架构的第三方缓存后才能完成构建和验证。详见 [构建指南](docs/BUILD.md#macos)。
@@ -37,8 +37,8 @@ Hooks 配置在 `.claude/settings.json` 的 `hooks` 键中（仅 Claude Code 生
 ```powershell
 # Windows PowerShell 5.1 / PowerShell 7
 ./build.ps1
-./build.ps1 -RunTests
-./build.ps1 -Target test_threadmanager -RunTests -TestRegex ThreadManagerTest
+./build.ps1 -run-tests
+./build.ps1 -target test_threadmanager -run-tests -test-regex ThreadManagerTest
 ```
 
 更多参数（Qt SDK、额外前缀、生成器、增量构建等）见 [构建指南](docs/BUILD.md)。需要直接排障时使用底层 CMake/CTest 命令：

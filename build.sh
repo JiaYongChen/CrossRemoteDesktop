@@ -36,16 +36,16 @@ show_help() {
 
 示例:
   ./build.sh
-  ./build.sh -c Release -t CrossRemoteDesktop -j 8
+  ./build.sh --configuration Release --target CrossRemoteDesktop --jobs 8
   ./build.sh --run-tests
-  ./build.sh -t test_passwordcrypto --run-tests --test-regex PasswordCryptoTest
+  ./build.sh --target test_passwordcrypto --run-tests --test-regex PasswordCryptoTest
   # Linux Qt SDK
   ./build.sh --qt-root "$HOME/Qt/6.9.3/gcc_64"
   ./build.sh --qt-root "$HOME/Qt/6.9.3/gcc_64" \
     --prefix-path "$HOME/.local/share/crossrd-linux-sdk/usr"
   # macOS Qt SDK
   ./build.sh --qt-root "$HOME/Qt/6.9.3/macos"
-  ./build.sh --cmake-argument=-DENABLE_SANITIZERS=address
+  ./build.sh --cmake-argument '-DENABLE_SANITIZERS=address'
 
 说明:
   macOS 当前仅支持宿主机原生单架构，并需要先补齐对应架构的 third_party 缓存。
@@ -262,6 +262,11 @@ for target in "${targets[@]}"; do
     fi
     if [[ "$target" == */ || "$target" == *\\ ]]; then
         die "目标名不能以斜杠结尾：${target}。"
+    fi
+done
+for cmake_argument in "${cmake_arguments[@]}"; do
+    if is_blank "$cmake_argument"; then
+        die '--cmake-argument 不能为空。'
     fi
 done
 

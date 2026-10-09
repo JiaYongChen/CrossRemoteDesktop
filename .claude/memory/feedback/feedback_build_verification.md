@@ -25,7 +25,7 @@ test "$build_status" -eq 0
 
 构建退出码为 0 且错误扫描无有效错误才算通过。测试同样要检查完整结果而非只截尾。
 
-使用项目构建脚本时同样必须检查脚本的最终退出码和完整输出，例如当前已验证的 Linux 使用 `./build.sh --run-tests`，Windows 使用 `./build.ps1 -RunTests`。macOS CMake/Objective-C++ 接入已完成，但仍需补齐缓存后才能用该脚本做项目验证。不要因为末尾出现“构建成功”或某个测试目标成功就忽略前面的错误。
+使用项目构建脚本时同样必须检查脚本的最终退出码和完整输出，例如当前已验证的 Linux 使用 `./build.sh --run-tests`，Windows 使用 `./build.ps1 -run-tests`。macOS CMake/Objective-C++ 接入已完成，但仍需补齐缓存后才能用该脚本做项目验证。不要因为末尾出现“构建成功”或某个测试目标成功就忽略前面的错误。
 
 CTest 按名称或标签筛选时，仅检查退出码仍不够：默认情况下零匹配也可能返回 0。直接调用时加 `--no-tests=error`；当前 `build.sh` / `build.ps1` 以及 CMake 聚合测试目标均已传递该选项。
 
